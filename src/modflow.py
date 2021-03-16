@@ -7,23 +7,6 @@ import topography
 '''os.path.dirname(os.getcwd())'''
 sys.path.append(os.getcwd())
 
-import math
-import flopy
-import flopy.utils.binaryfile as fpu
-import os
-import itertools
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from osgeo import gdal
-from IPython.core.debugger import set_trace as st
-from IPython.display import display, Markdown, clear_output
-from ipywidgets import HTML, widgets
-from osgeo import gdal, gdalconst
-from osgeo import osr, ogr
-from scipy.ndimage import convolve
-
 class modflow_model:
 	"""
 	model_name
@@ -39,8 +22,10 @@ class modflow_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, dem_path, climatic, thick,  
-		hyd_cond, porosity,lay_number=1,model_name = 'modflow_model', model_folder = os.path.dirname(os.getcwd()) + '\\output\\', coastal_aquifer=False):
+	def __init__(self, dem_path, climatic, thick, hyd_cond, porosity, lay_number=1, watershed='naming',
+				 model_name = 'modflow_model', model_folder = os.path.dirname(os.getcwd()) + '\\output\\', coastal_aquifer=False):
+		self.ws = os.getcwd()
+		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder
 		self.dem_path = dem_path
@@ -53,7 +38,9 @@ class modflow_model:
 		self.build_modflow_model()
 
 	def build_modflow_model(self):
-		self.mf = flopy.modflow.Modflow(self.model_name, exe_name=os.path.dirname(os.getcwd()) + '\\bin\\'+'mfnwt.exe', version='mfnwt',listunit=2, verbose=False, model_ws=self.model_folder+self.model_name)
+		self.mf = flopy.modflow.Modflow(self.model_name, 
+                                        exe_name=os.path.dirname(os.getcwd()) + '\\bin\\'+'mfnwt.exe', version='mfnwt',listunit=2, verbose=False, 
+                                        model_ws=self.model_folder+self.watershed+'\\'+self.model_name+'\\modraw\\')
 		self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,iprnwt=0,ibotav=0, options='COMPLEX')
 		
 		if len(self.climatic)==1:
