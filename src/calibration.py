@@ -25,7 +25,7 @@ wbt.set_verbose_mode(False)
 
 class extract_observed:
     def __init__(self, dir_path=os.path.dirname(os.getcwd()) + '\\outcalib\\', watershed='default', 
-                 type_obs='streams',tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+                 type_obs='streams', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
         self.ws = os.getcwd()
         self.dir_path = dir_path
         self.watershed = watershed
@@ -62,23 +62,22 @@ class extract_observed:
 
 class generate_distances:
     def __init__(self, dir_path=os.path.dirname(os.getcwd()) + '\\outcalib\\', watershed='default',
-                 sim_id=0, type_obs='streams', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+                 sim_id=0, type_time='s', type_obs='streams', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
         self.ws = os.getcwd()
         self.dir_path = dir_path
         self.watershed = watershed
         self.sim_id = sim_id
         self.type_obs = type_obs
+        self.type_time = type_time
         self.data_path = self.dir_path + '\\data\\'
         self.tmp_path = tmp_path
         self.obs_path = self.dir_path + self.watershed + '\\' + self.watershed
-        self.sim_list = glob(self.dir_path + self.watershed + '\\S*')
-        self.sim_fold = self.sim_list[self.sim_id] + '\\'
-        self.sim_path = self.sim_list[self.sim_id] + '\\' + self.watershed
+        self.sim_fold = self.dir_path + self.watershed + '\\' + self.sim_id + '\\'
+        self.sim_path = self.dir_path + self.watershed + '\\' + self.sim_id + '\\' + self.watershed
         self.not_path = self.dir_path + self.watershed + '\\notneed\\' + self.watershed
         self.watershed_shp = self.tmp_path + 'watershed.shp'
         self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
         self.watershed_direc = self.tmp_path + 'watershed_direc.tif'  
-        self.dem = topography.dem(self.watershed_fill)     		
         self.tif_obs = self.obs_path + '_streams.tif'
         self.pt_obs = self.obs_path + '_streams_pt.shp'
         self.tif_persist = self.obs_path + '_persistent.tif'
@@ -91,8 +90,6 @@ class generate_distances:
         self.clip_sim()
         self.sim_to_obs()
         self.obs_to_sim()
-        self.mean_distances()
-        self.mean_outflow()
 
     def clip_sim(self):
         wbt.clip_raster_to_polygon(self.tif_sim, self.watershed_shp, self.tif_sim_mask)
@@ -131,6 +128,28 @@ class generate_distances:
         wbt.extract_raster_values_at_points(self.dist_obs_sim, self.pt_obs_flow)
         return self, os.chdir(self.ws)
 
+class store_dataframe:
+    def __init__(self, dir_path=os.path.dirname(os.getcwd()) + '\\outcalib\\', watershed='default',
+                 sim_id=0, type_time='s', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+        self.ws = os.getcwd()
+        self.dir_path = dir_path
+        self.watershed = watershed
+        self.sim_id = sim_id
+        self.type_time = type_time
+        self.tmp_path = tmp_path
+        self.sim_list = glob(self.dir_path + self.watershed + '\\' + self.type_time + '*')
+        self.sim_fold = self.dir_path + self.watershed + '\\' + self.sim_id + '\\'
+        self.sim_path = self.dir_path + self.watershed + '\\' + self.sim_id + '\\' + self.watershed
+        self.watershed_shp = self.tmp_path + 'watershed.shp'
+        self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
+        self.watershed_direc = self.tmp_path + 'watershed_direc.tif'  
+        self.dem = topography.dem(self.watershed_fill)	
+        self.pt_obs_flow = self.sim_path + '_obsflow.shp'
+        self.pt_sim_flow = self.sim_path + '_simflow.shp'
+        self.drn_sim_mask = self.sim_path + '_outflow.tif'
+        self.mean_distances()
+        self.mean_outflow()
+        
     def mean_distances(self):
         self.obs_to_sim = gpd.read_file(self.pt_obs_flow)
         self.obs_to_sim = self.obs_to_sim.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
@@ -146,5 +165,3 @@ class generate_distances:
         self.cell = self.flux.count()
         self.outflow = (np.nansum(self.flux) / (self.cell * self.dem.pixel**2)) # m/m
         return self, os.chdir(self.ws)
-
-

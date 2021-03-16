@@ -115,5 +115,5 @@ class extract_modflow:
         # Export
         self.ras_meta['dtype'] = self.spe_disch[0].dtype
         self.ras_meta['nodata'] = -9999
-        with rio.open(self.model_save + 'outflow.tif', 'w', **self.ras_meta) as dst:
+        with rio.open(self.model_save + 'spedisch.tif', 'w', **self.ras_meta) as dst:
             dst.write(self.spe_disch[0], 1)
