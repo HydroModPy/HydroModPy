@@ -18,6 +18,7 @@ class dem:
 	def extract_geodata(self):
 		self.geodata = self.dem.GetGeoTransform()
 		self.resolution = abs(self.geodata[2])
+		self.pixel = abs(self.geodata[1])
 
 	def extract_coord(self):
 		proj = osr.SpatialReference(wkt=self.dem.GetProjection())
@@ -26,6 +27,7 @@ class dem:
 		self.xmax = self.geodata[0] + self.data.shape[1] * self.geodata[1]
 		self.ymin = self.geodata[3] + self.data.shape[0] * self.geodata[5]
 		self.ymax = self.geodata[3]
+        
 
 
 
