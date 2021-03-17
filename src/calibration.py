@@ -30,7 +30,7 @@ class extract_observed:
         self.dir_path = dir_path
         self.watershed = watershed
         self.type_obs = type_obs
-        self.data_path = self.dir_path + '\\data\\'
+        self.data_path = self.dir_path + '\\_data\\'
         self.obs_path = self.dir_path + self.watershed + '\\' + self.watershed
         self.tmp_path = tmp_path
         self.watershed_shp = self.tmp_path + 'watershed.shp'
@@ -69,7 +69,7 @@ class generate_distances:
         self.sim_id = sim_id
         self.type_obs = type_obs
         self.type_time = type_time
-        self.data_path = self.dir_path + '\\data\\'
+        self.data_path = self.dir_path + '\\_data\\'
         self.tmp_path = tmp_path
         self.obs_path = self.dir_path + self.watershed + '\\' + self.watershed
         self.sim_fold = self.dir_path + self.watershed + '\\' + self.sim_id + '\\'
@@ -155,9 +155,11 @@ class store_dataframe:
     def mean_distances(self):
         self.obs_to_sim = gpd.read_file(self.pt_obs_flow)
         self.obs_to_sim = self.obs_to_sim.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
+        self.obs_to_sim = self.obs_to_sim[self.obs_to_sim['distance'] >= 0]
+        self.obs_to_sim_mean = np.nanmean(self.obs_to_sim['distance'])
         self.sim_to_obs = gpd.read_file(self.pt_sim_flow)
         self.sim_to_obs = self.sim_to_obs.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
-        self.obs_to_sim_mean = np.nanmean(self.obs_to_sim['distance'])
+        self.sim_to_obs = self.sim_to_obs[self.sim_to_obs['distance'] >= 0]
         self.sim_to_obs_mean = np.nanmean(self.sim_to_obs['distance'])
         return self, os.chdir(self.ws)
     
