@@ -75,6 +75,8 @@ class generate_distances:
         self.sim_fold = self.dir_path + self.watershed + '\\' + self.sim_id + '\\'
         self.sim_path = self.dir_path + self.watershed + '\\' + self.sim_id + '\\' + self.watershed
         self.not_path = self.dir_path + self.watershed + '\\notneed\\' + self.watershed
+        if not os.path.exists(self.dir_path + self.watershed + '\\notneed\\'):
+            os.makedirs(self.dir_path + self.watershed + '\\notneed\\')
         self.watershed_shp = self.tmp_path + 'watershed.shp'
         self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
         self.watershed_direc = self.tmp_path + 'watershed_direc.tif'  

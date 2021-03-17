@@ -24,7 +24,6 @@ class modflow_model:
 	"""
 	def __init__(self, dem_path, climatic, thick, hyd_cond, porosity, lay_number=1, watershed='naming',
 				 model_name = 'modflow_model', model_folder = os.path.dirname(os.getcwd()) + '\\output\\', coastal_aquifer=False):
-		self.ws = os.getcwd()
 		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder

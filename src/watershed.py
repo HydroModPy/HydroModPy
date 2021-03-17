@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import geopandas as gpd
 import gdal, osr
+from shutil import copyfile
 
 ### Method 1
 import whitebox
@@ -19,10 +20,12 @@ wbt.set_verbose_mode(False)
 # wbt = WhiteboxTools()
 
 class extract_watershed:
-	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000, tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+	def __init__(self, dem_path, out_path, outlet, snap_dist=150, buff_dist=1000, tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\', save_dem=True):
 		self.ws = os.getcwd()
 		self.dem_path = dem_path 
+		self.out_path = out_path 
 		self.tmp_path = tmp_path
+		self.save_dem = save_dem
 		self.fill = self.tmp_path + 'fill.tif'
 		self.direc = self.tmp_path + 'direct.tif'
 		self.acc = self.tmp_path + 'acc.tif'
@@ -49,7 +52,9 @@ class extract_watershed:
 		wbt.fill_depressions(self.dem_path, self.fill)
 		wbt.d8_pointer(self.fill, self.direc, esri_pntr=False)
 		wbt.d8_flow_accumulation(self.fill, self.acc, log=True)
-		df = pd.DataFrame(np.reshape(np.asarray(self.outlet),(1,2)), columns=['x','y'])
+# 		df = pd.DataFrame(np.reshape(np.asarray(self.outlet),(1,2)), columns=['x','y'])
+		df = self.outlet
+		df.columns = ['id','x','y']
 		gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
 		gdf.to_file(self.outlet_shp)
 		wbt.snap_pour_points(self.outlet_shp, self.acc, self.outlet_snap_shp, self.snap_dist)
@@ -67,7 +72,12 @@ class extract_watershed:
 		wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
 		wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed)
 		wbt.clip_raster_to_polygon(self.fill,self.watershed_shp,self.watershed_fill)
-		wbt.clip_raster_to_polygon(self.direc,self.watershed_shp,self.watershed_direc)		
+		wbt.clip_raster_to_polygon(self.direc,self.watershed_shp,self.watershed_direc)
+		if self.save_dem == True:
+			self.save_path = self.out_path + df.id.values[0]
+			if not os.path.exists(self.save_path):
+				os.makedirs(self.save_path)
+			copyfile(self.watershed_fill, self.save_path + '\\' + df.id.values[0] + '_fill.tif')
 		return self, os.chdir(self.ws)
-
+	
             
