@@ -55,11 +55,14 @@ class extract_watershed:
 		wbt.snap_pour_points(self.outlet_shp, self.acc, self.outlet_snap_shp, self.snap_dist)
 		wbt.watershed(self.direc, self.outlet_snap_shp, self.watershed, esri_pntr=False)
 		wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
+		'''
 		wbt.multi_part_to_single_part(self.watershed_shp, self.watershed_shp, exclude_holes=True)
 		wbt.clean_vector(self.watershed_shp, self.watershed_shp)
 		wbt.dissolve(self.watershed_shp, self.watershed_shp, field=None)
+		'''
 		wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
 		site_polyg = gpd.read_file(self.watershed_shp)
+		site_polyg.to_file(self.watershed_shp)
 		site_polyg['geometry'] = site_polyg.geometry.buffer(self.buff_dist)
 		site_polyg.to_file(self.buffer)
 		wbt.clip_raster_to_polygon(self.dem_path,self.buffer,self.watershed_buff)
@@ -73,6 +76,7 @@ class extract_watershed:
 			if not os.path.exists(self.save_path):
 				os.makedirs(self.save_path)
 			copyfile(self.watershed_fill, self.save_path + '\\' + df.id.values[0] + '_fill.tif')
+			copyfile(self.watershed, self.save_path + '\\' + df.id.values[0] + '.tif')
 		return self, os.chdir(self.ws)
 	
 # df = pd.DataFrame(np.reshape(np.asarray(self.outlet),(1,2)), columns=['x','y'])
