@@ -1,54 +1,110 @@
+# -*- coding: utf-8 -*-
+
+
+# Librairies
 import os
-import sys
+import pandas as pd
 import numpy as np
-import climatic as c
-import modflow as m
-import watershed as w
-import extract as e
-import calibration as cal
 
-### Alexandre
-#%%
-# climatic =  c.surfex('C:/Users/alexa/Documents/GitHub/surfex_extract/OUT/data.h5',resample='M')
-# m.modflow_model(dem_path='C:/Users/alexa/Documents/GitHub/HydroModPy/tmp/watershed_buff.tif', climatic=climatic.period_data, thick=50,  
-# 		hyd_cond=0.0864, porosity=0.01)
+# Modules
+import climatic as clim
+import dichotomy as dic
 
-### Ronan
-#%%
-w.extract_watershed(dem_path="D:/GITHUB/HydroModPy/data/watershed/bdalti75m_bzh.tif", 
-                    outlet=np.loadtxt("D:/GITHUB/HydroModPy/data/watershed/outlet.txt"), 
-                    snap_dist=500, buff_dist=1000)
+# Plots
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pl
+from matplotlib.font_manager import FontProperties   
 
-#%%
-N = 'gael'
-S = 'S'
-L = 1
-T = 200
-M = 0.025
-K = 1e-6*(3600*24*30)
-P = 0.01
+#%% Ronan : test dochotomy
 
-m.modflow_model(dem_path=os.path.dirname(os.getcwd())+'\\tmp\\' + 'watershed_buff_fill.tif',
-                watershed=N, model_folder="D:/PHD/4_model/MFLOW3D/"+"\\github_calibration\\",
-                model_name=S+'_'+N+'_'+str(L)+'_'+str(T)+'_'+str(M)+'_'+str(K)+'_'+str(P),
-                lay_number=L, thick=T, climatic=[M], hyd_cond=K, porosity=P)
+recharge = clim.surfex("D:/PHD/4_model/MFLOW3D/github_calibration/_data/climate.h5", sim='ACC1', var='REC', sce='historic', resample='M').period_data.mean()
+outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_norm.txt", sep='\t', header=None, engine='python')
+
+for idx, serie in outlets[7:].iterrows():
     
-#%%
-e.extract_modflow(dem_path=os.path.dirname(os.getcwd()) + '\\tmp\\' + 'watershed_buff_fill.tif',
-                  watershed='gael',
-                  model_name=S+'_'+N+'_'+str(L)+'_'+str(T)+'_'+str(M)+'_'+str(K)+'_'+str(P),
-                  model_folder="D:/PHD/4_model/MFLOW3D/"+"\\github_calibration\\")
+    outlet = outlets.loc[[idx]]
+    site = outlet[[0]].values[0][0]
+    
+    print('#################### SITE '+str(idx)+' : '+site.upper()+' ####################')
+    
+    dic.delimit_size(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/topobat75m_norm.tif",
+                     watershed=site, outlet=outlet,
+                     snap_dist=600, buff_dist=1000, save_dem=True, type_obs='streams',
+                     data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
+                     tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
+                     out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
+    
+    dic.dichotomy_loop(first=1, last=10000, gap=10,
+                       df=pd.DataFrame(),
+                       watershed=site,
+                       climatic=[recharge*30/1000], lay_number=1, thick=100, porosity=0.01,
+                       type_obs='streams', type_time='s', sim_id='identify',
+                       data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
+                       tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
+                       out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
+   
+#%% Parameters : for plot
 
-#%%
-cal.extract_observed(dir_path="D:/PHD/4_model/MFLOW3D/"+"\\github_calibration\\", 
-                     watershed='gael', type_obs='streams',
-                     tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\')
+mpl.style.use('classic')
+mpl.rcParams["figure.facecolor"] = 'white'
+mpl.rcParams['grid.color'] = 'darkgrey'
+mpl.rcParams['grid.linestyle'] = '-'
+mpl.rcParams['grid.alpha'] = 0.8
+mpl.rcParams['axes.axisbelow'] = True
+mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['savefig.dpi'] = 300
+mpl.rcParams['patch.force_edgecolor'] = True
+mpl.rcParams['image.interpolation'] = 'nearest'
+mpl.rcParams['image.resample'] = True
+mpl.rcParams['axes.autolimit_mode'] = 'data' # 'round_numbers' # 
+mpl.rcParams['axes.xmargin'] = 0.05
+mpl.rcParams['axes.ymargin'] = 0.05
+mpl.rcParams['xtick.direction'] = 'in'
+mpl.rcParams['ytick.direction'] = 'in'
+mpl.rcParams['xtick.top'] = True
+mpl.rcParams['ytick.right'] = True
+mpl.rcParams['legend.numpoints'] = 1
+mpl.rcParams['legend.scatterpoints'] = 1
+mpl.rcParams['legend.edgecolor'] = 'grey'
+mpl.rcParams['date.autoformatter.year'] = '%Y'
+mpl.rcParams['date.autoformatter.month'] = '%Y-%m'
+mpl.rcParams['date.autoformatter.day'] = '%Y-%m-%d'
+mpl.rcParams['date.autoformatter.hour'] = '%H:%M'
+mpl.rcParams['date.autoformatter.minute'] = '%H:%M:%S'
+mpl.rcParams['date.autoformatter.second'] = '%H:%M:%S'
+smal = 8
+medium = 16
+large = 20
+plt.rc('font', size=medium)                         # controls default text sizes **font
+plt.rc('figure', titlesize=large)                   # fontsize of the figure title
+plt.rc('legend', fontsize=smal)                     # legend fontsize
+plt.rc('axes', titlesize=medium, labelpad=10)        # fontsize of the axes title
+plt.rc('axes', labelsize=medium, labelpad=12)        # fontsize of the x and y labels
+plt.rc('xtick', labelsize=medium)                   # fontsize of the tick labels
+plt.rc('ytick', labelsize=medium)                   # fontsize of the tick labels
+fontprop = FontProperties()
+fontprop.set_family('serif') # for x and y label
+fontdic = {'family' : 'serif'} # for legend
 
-cal.generate_distances(dir_path="D:/PHD/4_model/MFLOW3D/"+"\\github_calibration\\", 
-                       watershed='gael', sim_id=0, type_obs='streams',
-                       tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\')
+#%% Plot : figure
 
-#%%
-
+toget = 'Normandie-watersheds'
+fig, ax = plt.subplots(figsize=(5,4))
+colors = pl.cm.jet(np.linspace(0,1,8))
+site_list = outlets[0]
+for i, name in enumerate(site_list):
+    path = "D:/PHD/4_model/MFLOW3D/github_calibration/"+name+'//'
+    file = pd.read_csv(path+name+'_calibration.csv', sep='\t', header=0)
+    ax.axhline(1, color='k', lw=1, ls='--', zorder=0)
+    ax.scatter(file.Kr, (file.Sflow / file.Oflow), s=75, marker='o', edgecolor='k', lw=0.75, color=colors[i], label=name)
+    ax.set_xscale('log')
+    ax.legend(fontsize=7, frameon=False, prop=fontdic)
+    ax.set_xlim(100,11000)
+    ax.set_ylim(-0.2,3)
+    ax.set_xlabel('K / R', fontproperties=fontprop)
+    ax.set_ylabel('Sflow / Oflow', fontproperties=fontprop)
+    ax.set_title(toget, fontproperties=fontprop)
+    ax.grid(True)
 
 

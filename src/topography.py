@@ -1,3 +1,4 @@
+# coding:utf-8
 
 import gdal, osr
 
@@ -28,8 +29,3 @@ class dem:
 		self.ymin = self.geodata[3] + self.data.shape[0] * self.geodata[5]
 		self.ymax = self.geodata[3]
         
-
-
-
-
-

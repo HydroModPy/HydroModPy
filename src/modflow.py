@@ -1,4 +1,5 @@
 # coding:utf-8
+
 import os
 import sys
 import flopy
@@ -22,8 +23,8 @@ class modflow_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, dem_path, climatic, thick, hyd_cond, porosity, lay_number=1, watershed='naming',
-				 model_name = 'modflow_model', model_folder = os.path.dirname(os.getcwd()) + '\\output\\', coastal_aquifer=False):
+	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False,
+				 model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\'):
 		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder
