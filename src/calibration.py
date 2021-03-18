@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 02 09:25:00 2021
-
-@author: Ronan Abhervé
-"""
 
 import os
 import sys
 import geopandas as gpd
-from glob import glob
 import numpy as np
 import imageio
 import topography
@@ -24,15 +18,16 @@ wbt.set_verbose_mode(False)
 # wbt = WhiteboxTools()
 
 class extract_observed:
-    def __init__(self, dir_path=os.path.dirname(os.getcwd()) + '\\outcalib\\', watershed='default', 
-                 type_obs='streams', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+    def __init__(self, watershed='name', type_obs='streams', data_path=os.path.dirname(os.getcwd())+'\\data\\',
+                 tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\', out_path=os.path.dirname(os.getcwd())+'\\output\\'):
         self.ws = os.getcwd()
-        self.dir_path = dir_path
         self.watershed = watershed
         self.type_obs = type_obs
-        self.data_path = self.dir_path + '\\_data\\'
-        self.obs_path = self.dir_path + self.watershed + '\\' + self.watershed
+        self.data_path = data_path
         self.tmp_path = tmp_path
+        self.out_path = out_path
+        self.out_fold = self.out_path + self.watershed + '\\'
+        self.obs_path = self.out_fold + self.watershed
         self.watershed_shp = self.tmp_path + 'watershed.shp'
         self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
         self.sections = self.data_path + 'sections.shp'
@@ -61,22 +56,22 @@ class extract_observed:
         return self, os.chdir(self.ws)
 
 class generate_distances:
-    def __init__(self, dir_path=os.path.dirname(os.getcwd()) + '\\outcalib\\', watershed='default',
-                 sim_id=0, type_time='s', type_obs='streams', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+    def __init__(self, watershed='name', type_obs='streams', type_time='s', sim_id='identify', data_path = os.path.dirname(os.getcwd())+'\\data\\',
+                 tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\', out_path=os.path.dirname(os.getcwd())+'\\output\\'):
         self.ws = os.getcwd()
-        self.dir_path = dir_path
         self.watershed = watershed
-        self.sim_id = sim_id
         self.type_obs = type_obs
-        self.type_time = type_time
-        self.data_path = self.dir_path + '\\_data\\'
+        self.sim_id = sim_id
+        self.data_path = data_path
         self.tmp_path = tmp_path
-        self.obs_path = self.dir_path + self.watershed + '\\' + self.watershed
-        self.sim_fold = self.dir_path + self.watershed + '\\' + self.sim_id + '\\'
-        self.sim_path = self.dir_path + self.watershed + '\\' + self.sim_id + '\\' + self.watershed
-        self.not_path = self.dir_path + self.watershed + '\\notneed\\' + self.watershed
-        if not os.path.exists(self.dir_path + self.watershed + '\\notneed\\'):
-            os.makedirs(self.dir_path + self.watershed + '\\notneed\\')
+        self.out_path = out_path
+        self.out_fold = self.out_path + self.watershed + '\\'
+        self.obs_path = self.out_fold + self.watershed
+        self.sim_fold = self.out_fold + self.sim_id + '\\'
+        self.sim_path = self.sim_fold + self.watershed
+        self.not_path = self.out_fold + 'notneed\\' + self.watershed
+        if not os.path.exists(self.out_fold + 'notneed\\'):
+            os.makedirs(self.out_fold + 'notneed\\')
         self.watershed_shp = self.tmp_path + 'watershed.shp'
         self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
         self.watershed_direc = self.tmp_path + 'watershed_direc.tif'  
@@ -88,7 +83,6 @@ class generate_distances:
         self.tif_sim_mask = self.sim_path + '_seepage.tif'
         self.drn_sim = self.sim_fold + 'outflow.tif'
         self.drn_sim_mask = self.sim_path + '_outflow.tif'
-        
         self.clip_sim()
         self.sim_to_obs()
         self.obs_to_sim()
@@ -131,20 +125,18 @@ class generate_distances:
         return self, os.chdir(self.ws)
 
 class store_dataframe:
-    def __init__(self, dir_path=os.path.dirname(os.getcwd()) + '\\outcalib\\', watershed='default',
-                 sim_id=0, type_time='s', tmp_path=os.path.dirname(os.getcwd()) + '\\tmp\\'):
+    def __init__(self, watershed='name', type_obs='streams', type_time='s', sim_id='identify',
+                 tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\', out_path=os.path.dirname(os.getcwd())+'\\output\\'):
         self.ws = os.getcwd()
-        self.dir_path = dir_path
         self.watershed = watershed
-        self.sim_id = sim_id
         self.type_time = type_time
+        self.sim_id = sim_id
         self.tmp_path = tmp_path
-        self.sim_list = glob(self.dir_path + self.watershed + '\\' + self.type_time + '*')
-        self.sim_fold = self.dir_path + self.watershed + '\\' + self.sim_id + '\\'
-        self.sim_path = self.dir_path + self.watershed + '\\' + self.sim_id + '\\' + self.watershed
-        self.watershed_shp = self.tmp_path + 'watershed.shp'
+        self.out_path = out_path
+        self.out_fold = self.out_path + self.watershed + '\\'
+        self.sim_fold = self.out_fold + self.sim_id + '\\'
+        self.sim_path = self.out_fold + self.sim_id + '\\' + self.watershed
         self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
-        self.watershed_direc = self.tmp_path + 'watershed_direc.tif'  
         self.dem = topography.dem(self.watershed_fill)	
         self.pt_obs_flow = self.sim_path + '_obsflow.shp'
         self.pt_sim_flow = self.sim_path + '_simflow.shp'
@@ -164,8 +156,8 @@ class store_dataframe:
         return self, os.chdir(self.ws)
     
     def mean_outflow(self):
-        self.flux = imageio.imread(self.drn_sim_mask) # m3/m
+        self.flux = imageio.imread(self.drn_sim_mask) # L/T
         self.flux = np.ma.masked_array(self.flux, mask=(self.dem.data==-99999))
         self.cell = self.flux.count()
-        self.outflow = (np.nansum(self.flux) / (self.cell * self.dem.pixel**2)) # m/m
+        self.outflow = (np.nansum(self.flux) / (self.cell * self.dem.pixel**2)) # M/T
         return self, os.chdir(self.ws)

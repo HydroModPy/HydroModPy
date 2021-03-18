@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 02 09:25:00 2021
-
-@author: Ronan Abhervé
-"""
 
 import os
 import sys
@@ -19,7 +14,7 @@ import topography
 sys.path.append(os.getcwd())
 
 class extract_modflow:
-    def __init__(self, dem_path, watershed = 'naming', model_name = 'modflow_model', model_folder = os.path.dirname(os.getcwd())+'\\output\\',
+    def __init__(self, dem_path, watershed='name', model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\',
                  param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True):
         self.watershed = watershed
         self.model_folder = model_folder

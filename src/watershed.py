@@ -1,12 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 02 09:25:00 2021
+# coding:utf-8
 
-@author: Alexandre Gauvain
-"""
 import os
-import pandas as pd
-import numpy as np
+
 import geopandas as gpd
 import gdal, osr
 from shutil import copyfile
@@ -20,10 +15,11 @@ wbt.set_verbose_mode(False)
 # wbt = WhiteboxTools()
 
 class extract_watershed:
-	def __init__(self, dem_path, out_path, outlet, snap_dist=150, buff_dist=1000, tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\', save_dem=True):
+	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000, tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\', 
+                 save_dem=True, out_path=os.path.dirname(os.getcwd())+'\\output\\'):
 		self.ws = os.getcwd()
 		self.dem_path = dem_path 
-		self.out_path = out_path 
+		self.out_path = out_path
 		self.tmp_path = tmp_path
 		self.save_dem = save_dem
 		self.fill = self.tmp_path + 'fill.tif'
@@ -52,7 +48,6 @@ class extract_watershed:
 		wbt.fill_depressions(self.dem_path, self.fill)
 		wbt.d8_pointer(self.fill, self.direc, esri_pntr=False)
 		wbt.d8_flow_accumulation(self.fill, self.acc, log=True)
-# 		df = pd.DataFrame(np.reshape(np.asarray(self.outlet),(1,2)), columns=['x','y'])
 		df = self.outlet
 		df.columns = ['id','x','y']
 		gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
@@ -80,4 +75,4 @@ class extract_watershed:
 			copyfile(self.watershed_fill, self.save_path + '\\' + df.id.values[0] + '_fill.tif')
 		return self, os.chdir(self.ws)
 	
-            
+# df = pd.DataFrame(np.reshape(np.asarray(self.outlet),(1,2)), columns=['x','y'])

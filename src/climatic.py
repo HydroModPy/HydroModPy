@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 02 09:25:00 2021
+# coding:utf-8
 
-@author: Alexandre Gauvain
-"""
 import pandas as pd
 
 class surfex:
