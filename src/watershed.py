@@ -55,11 +55,9 @@ class extract_watershed:
 		wbt.snap_pour_points(self.outlet_shp, self.acc, self.outlet_snap_shp, self.snap_dist)
 		wbt.watershed(self.direc, self.outlet_snap_shp, self.watershed, esri_pntr=False)
 		wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
-		'''
-		wbt.multi_part_to_single_part(self.watershed_shp, self.watershed_shp, exclude_holes=True)
-		wbt.clean_vector(self.watershed_shp, self.watershed_shp)
-		wbt.dissolve(self.watershed_shp, self.watershed_shp, field=None)
-		'''
+# 		wbt.multi_part_to_single_part(self.watershed_shp, self.watershed_shp, exclude_holes=True)
+# 		wbt.clean_vector(self.watershed_shp, self.watershed_shp)
+# 		wbt.dissolve(self.watershed_shp, self.watershed_shp, field=None)
 		wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
 		site_polyg = gpd.read_file(self.watershed_shp)
 		site_polyg.to_file(self.watershed_shp)

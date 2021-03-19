@@ -18,17 +18,17 @@ from matplotlib.font_manager import FontProperties
 
 #%% Ronan : test dochotomy
 
-recharge = clim.surfex("D:/PHD/4_model/MFLOW3D/github_calibration/_data/climate.h5", sim='ACC1', var='REC', sce='historic', resample='M').period_data.mean()
-outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_norm.txt", sep='\t', header=None, engine='python')
+recharge = clim.surfex("D:/PHD/4_model/MFLOW3D/github_calibration/_data/climate.h5", sim='ACC1', var='REC', sce='historic', resample='D').period_data.mean()
+outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_bzh.txt", sep='\t', header=None, engine='python')
 
-for idx, serie in outlets[7:].iterrows():
+for idx, serie in outlets.iterrows():
     
     outlet = outlets.loc[[idx]]
     site = outlet[[0]].values[0][0]
     
     print('#################### SITE '+str(idx)+' : '+site.upper()+' ####################')
     
-    dic.delimit_size(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/topobat75m_norm.tif",
+    dic.delimit_size(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/bdalti75m_bzh.tif",
                      watershed=site, outlet=outlet,
                      snap_dist=600, buff_dist=1000, save_dem=True, type_obs='streams',
                      data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
@@ -38,7 +38,7 @@ for idx, serie in outlets[7:].iterrows():
     dic.dichotomy_loop(first=1, last=10000, gap=10,
                        df=pd.DataFrame(),
                        watershed=site,
-                       climatic=[recharge*30/1000], lay_number=1, thick=100, porosity=0.01,
+                       climatic=[recharge/1000], lay_number=1, thick=100, porosity=0.01,
                        type_obs='streams', type_time='s', sim_id='identify',
                        data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
                        tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
@@ -89,7 +89,7 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% Plot : figure
 
-toget = 'Normandie-watersheds'
+toget = 'Meu-watersheds'
 fig, ax = plt.subplots(figsize=(5,4))
 colors = pl.cm.jet(np.linspace(0,1,8))
 site_list = outlets[0]
@@ -106,5 +106,30 @@ for i, name in enumerate(site_list):
     ax.set_ylabel('Sflow / Oflow', fontproperties=fontprop)
     ax.set_title(toget, fontproperties=fontprop)
     ax.grid(True)
+    mean = ((file.Sflow / file.Oflow))
+    best = file.iloc[(mean-1).abs().argsort()[:1]]
+    # best = df.loc[np.argmin(mean),'Kr']
+    ax.axvline(x=best.Kr.values, ls='--', c=colors[i], zorder=0)
 
-
+toget = 'Meu-watersheds'
+fig, ax = plt.subplots(figsize=(5,4))
+colors = pl.cm.jet(np.linspace(0,1,8))
+site_list = outlets[0]
+for i, name in enumerate(site_list):
+    path = "D:/PHD/4_model/MFLOW3D/github_calibration/"+name+'//'
+    file = pd.read_csv(path+name+'_calibration.csv', sep='\t', header=0)
+    toplot = file.sort_values('Kr')
+    ax.plot(toplot.Kr, (toplot.Sflow), lw=2, color=colors[i], label=name)
+    ax.plot(toplot.Kr, (toplot.Oflow), ls='--', lw=2, color=colors[i])
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.legend(loc='upper left', frameon=False, prop=fontdic, fontsize=5)
+    ax.set_xlabel('K / R', fontproperties=fontprop)
+    ax.set_ylabel('Sflow and Oflow', fontproperties=fontprop)
+    ax.set_title(toget, fontproperties=fontprop)
+    ax.grid(True)    
+    x = np.array(file.Kr)
+    y1 = np.array(file.Sflow)
+    y2 = np.array(file.Oflow)
+    ax.scatter(file.iloc[-1].Kr, file.iloc[-1].Sflow, s=75, marker='o', edgecolor='k', lw=0.75, color=colors[i], zorder=3)
+    
