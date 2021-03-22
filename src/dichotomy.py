@@ -161,7 +161,7 @@ class dichotomy_loop:
         self.difference = self.last - self.first
         self.df = pd.DataFrame()
         self.compt = 0
-        while self.difference > self.gap:
+        while (self.difference > self.gap):
             self.half = (self.first + self.last) / 2
             self.calibration = run_calibration(krval=self.half, compt=self.compt, df=self.df,
                                              watershed=self.watershed,

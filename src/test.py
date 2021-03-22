@@ -5,10 +5,12 @@
 import os
 import pandas as pd
 import numpy as np
+from glob import glob
 
 # Modules
 import climatic as clim
 import dichotomy as dic
+import watershed as wat
 
 # Plots
 import matplotlib as mpl
@@ -16,10 +18,23 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 from matplotlib.font_manager import FontProperties   
 
-#%% Ronan : test dochotomy
+#%% Only extract watersheds
+
+outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_normandie.txt", sep='\t', header=None, engine='python')
+
+for idx, serie in outlets.iterrows():
+    outlet = outlets.loc[[idx]]
+    site = outlet[[0]].values[0][0]
+    wat.extract_watershed(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/Bretagne.tif",
+                          outlet=outlet,
+                          snap_dist=750, buff_dist=1000, save_dem=True,
+                          tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
+                          out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
+
+#%% Test run dichotomy
 
 recharge = clim.surfex("D:/PHD/4_model/MFLOW3D/github_calibration/_data/climate.h5", sim='ACC1', var='REC', sce='historic', resample='D').period_data.mean()
-outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_bzh.txt", sep='\t', header=None, engine='python')
+outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_artisan.txt", sep='\t', header=None, engine='python')
 
 for idx, serie in outlets.iterrows():
     
@@ -28,9 +43,9 @@ for idx, serie in outlets.iterrows():
     
     print('#################### SITE '+str(idx)+' : '+site.upper()+' ####################')
     
-    dic.delimit_size(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/bdalti75m_bzh.tif",
+    dic.delimit_size(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/Bretagne.tif",
                      watershed=site, outlet=outlet,
-                     snap_dist=600, buff_dist=1000, save_dem=True, type_obs='streams',
+                     snap_dist=750, buff_dist=1000, save_dem=True, type_obs='streams',
                      data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
                      tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
                      out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
@@ -44,7 +59,7 @@ for idx, serie in outlets.iterrows():
                        tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
                        out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
    
-#%% Parameters : for plot
+#%% Parameters for plot
 
 mpl.style.use('classic')
 mpl.rcParams["figure.facecolor"] = 'white'
@@ -87,49 +102,59 @@ fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
-#%% Plot : figure
+#%% Plot of calibration
 
-toget = 'Meu-watersheds'
-fig, ax = plt.subplots(figsize=(5,4))
-colors = pl.cm.jet(np.linspace(0,1,8))
-site_list = outlets[0]
-for i, name in enumerate(site_list):
-    path = "D:/PHD/4_model/MFLOW3D/github_calibration/"+name+'//'
-    file = pd.read_csv(path+name+'_calibration.csv', sep='\t', header=0)
-    ax.axhline(1, color='k', lw=1, ls='--', zorder=0)
-    ax.scatter(file.Kr, (file.Sflow / file.Oflow), s=75, marker='o', edgecolor='k', lw=0.75, color=colors[i], label=name)
-    ax.set_xscale('log')
-    ax.legend(fontsize=7, frameon=False, prop=fontdic)
-    ax.set_xlim(100,11000)
-    ax.set_ylim(-0.2,3)
-    ax.set_xlabel('K / R', fontproperties=fontprop)
-    ax.set_ylabel('Sflow / Oflow', fontproperties=fontprop)
-    ax.set_title(toget, fontproperties=fontprop)
-    ax.grid(True)
-    mean = ((file.Sflow / file.Oflow))
-    best = file.iloc[(mean-1).abs().argsort()[:1]]
-    # best = df.loc[np.argmin(mean),'Kr']
-    ax.axvline(x=best.Kr.values, ls='--', c=colors[i], zorder=0)
+cases = glob("D:/PHD/4_model/MFLOW3D/github_calibration/_data/"+'outlets*')
 
-toget = 'Meu-watersheds'
-fig, ax = plt.subplots(figsize=(5,4))
-colors = pl.cm.jet(np.linspace(0,1,8))
-site_list = outlets[0]
-for i, name in enumerate(site_list):
-    path = "D:/PHD/4_model/MFLOW3D/github_calibration/"+name+'//'
-    file = pd.read_csv(path+name+'_calibration.csv', sep='\t', header=0)
-    toplot = file.sort_values('Kr')
-    ax.plot(toplot.Kr, (toplot.Sflow), lw=2, color=colors[i], label=name)
-    ax.plot(toplot.Kr, (toplot.Oflow), ls='--', lw=2, color=colors[i])
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.legend(loc='upper left', frameon=False, prop=fontdic, fontsize=5)
-    ax.set_xlabel('K / R', fontproperties=fontprop)
-    ax.set_ylabel('Sflow and Oflow', fontproperties=fontprop)
-    ax.set_title(toget, fontproperties=fontprop)
-    ax.grid(True)    
-    x = np.array(file.Kr)
-    y1 = np.array(file.Sflow)
-    y2 = np.array(file.Oflow)
-    ax.scatter(file.iloc[-1].Kr, file.iloc[-1].Sflow, s=75, marker='o', edgecolor='k', lw=0.75, color=colors[i], zorder=3)
+for case in cases:
+
+    target = case.split("\\")[-1].split('.')[0]
+    outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/"+target+'.txt', sep='\t', header=None, engine='python')
     
+    fig, axs = plt.subplots(1,2, figsize=(10,4))
+    (ax1,ax2) = axs
+    
+    n = len(outlets)
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    site_list = outlets[0]
+    
+    for i, name in enumerate(site_list):
+        path = "D:/PHD/4_model/MFLOW3D/github_calibration/"+name+'//'
+        file = pd.read_csv(path+name+'_calibration.csv', sep='\t', header=0)
+        ax = ax1
+        toplot = file.sort_values('Kr')
+        ax.plot(toplot.Kr, (toplot.Sflow), lw=2, color=colors[i], label=name)
+        ax.plot(toplot.Kr, (toplot.Oflow), ls='--', lw=2, color=colors[i])
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.legend(loc='upper left', frameon=False, prop=fontdic)
+        ax.set_xlabel('K / R', fontproperties=fontprop)
+        ax.set_ylabel('Sflow and Oflow', fontproperties=fontprop)
+        ax.set_title('Cross '+target, fontproperties=fontprop)
+        ax.grid(True)    
+        x = np.array(file.Kr)
+        y1 = np.array(file.Sflow)
+        y2 = np.array(file.Oflow)
+        ax.scatter(file.iloc[-1].Kr, file.iloc[-1].Sflow, s=75, marker='o', edgecolor='k', lw=0.75, color=colors[i], zorder=3)
+        ax.set_xlim(10,11000)
+        ax.set_ylim(10,1000)
+    
+        ax = ax2
+        ax.axhline(1, color='k', lw=1, ls='--', zorder=0)
+        ax.scatter(file.Kr, (file.Sflow / file.Oflow), s=75, marker='o', edgecolor='k', lw=0.75, color=colors[i], label=name)
+        ax.set_xscale('log')
+        ax.set_xlim(100,11000)
+        ax.set_ylim(-0.2,3)
+        ax.set_xlabel('K / R', fontproperties=fontprop)
+        ax.set_ylabel('Sflow / Oflow', fontproperties=fontprop)
+        ax.set_title('Criteria '+target, fontproperties=fontprop)
+        ax.grid(True)
+        mean = ((file.Sflow / file.Oflow))
+        best = file.iloc[(mean-1).abs().argsort()[:1]]
+        # best = df.loc[np.argmin(mean),'Kr']
+        ax.axvline(x=best.Kr.values, ls='--', c=colors[i], zorder=0)
+        
+        plt.tight_layout()
+        
+        fig.savefig("D:/PHD/4_model/MFLOW3D/github_calibration/_figures/"+target+'.jpg', dpi=300)
+        
