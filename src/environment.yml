@@ -1,0 +1,31 @@
+# HydroModPy environment file for conda users
+# Usage:
+#     conda env create -f environment.yml
+#     conda activate hydromodpy
+
+name: hydromodpy
+channels:
+    - conda-forge
+    - defaults
+dependencies:
+    # Obvious
+    - python
+
+    # Main processing libraries
+    - numpy
+    - whitebox
+    - gdal
+    - flopy
+
+    # Data reading/writing and conversion
+    - pandas
+    - geopandas
+    - imageio
+    - rasterio
+    - pyshp # corresponds to 'shapefile' library in the code
+
+    # Post-processing
+    - matplotlib
+
+    # Viewing notebooks
+    - jupyter
