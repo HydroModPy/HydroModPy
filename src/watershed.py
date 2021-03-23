@@ -3,7 +3,7 @@
 import os
 
 import geopandas as gpd
-import gdal, osr
+from osgeo import gdal, osr
 from shutil import copyfile
 
 ### Method 1

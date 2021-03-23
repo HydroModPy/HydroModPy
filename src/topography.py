@@ -1,6 +1,6 @@
 # coding:utf-8
 
-import gdal, osr
+from osgeo import gdal, osr
 
 class dem:
 	def __init__(self, dem_path):
