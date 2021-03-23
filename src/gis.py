@@ -10,7 +10,7 @@ Created on Mon Nov 23 11:05:15 2020
 import shapefile as shp
 import os
 from osgeo import gdal
-from gdalconst import GA_ReadOnly
+from osgeo.gdalconst import GA_ReadOnly
 from osgeo import ogr
 import geopandas as gpd
 from glob import glob
