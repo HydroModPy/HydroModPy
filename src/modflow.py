@@ -24,7 +24,7 @@ class modflow_model:
 		- heterogeneous : numpy array (same size as the dem)
 	"""
 	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False,
-				 model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\'):
+				 model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\', exe=os.path.dirname(os.getcwd()) + '\\bin\\'+'mfnwt.exe'):
 		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder
@@ -35,12 +35,13 @@ class modflow_model:
 		self.hyd_cond = hyd_cond
 		self.porosity = porosity
 		self.dem = topography.dem(self.dem_path)
+		self.exe = exe
 		self.build_modflow_model()
 
 	def build_modflow_model(self):
 		self.mf = flopy.modflow.Modflow(self.model_name, 
-                                        exe_name=os.path.dirname(os.getcwd()) + '\\bin\\'+'mfnwt.exe', version='mfnwt',listunit=2, verbose=False, 
-                                        model_ws=self.model_folder+self.watershed+'\\'+self.model_name+'\\modraw\\')
+										exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
+										model_ws=self.model_folder+self.watershed+'\\'+self.model_name+'\\modraw\\')
 		self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,iprnwt=0,ibotav=0, options='COMPLEX')
 		
 		if len(self.climatic)==1:
