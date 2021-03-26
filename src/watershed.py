@@ -30,10 +30,11 @@ class extract_watershed:
 		self.watershed_shp = self.tmp_path + 'watershed.shp'
 		self.watershed_contour_shp = self.tmp_path + 'watershed_contour.shp'
 		self.watershed = self.tmp_path + 'watershed.tif'
+		self.watershed_dem = self.tmp_path + 'watershed_dem.tif'
 		self.watershed_fill = self.tmp_path + 'watershed_fill.tif'
 		self.watershed_direc = self.tmp_path + 'watershed_direc.tif'
 		self.buffer = self.tmp_path + 'buff.shp'
-		self.watershed_buff = self.tmp_path + 'watershed_buff.tif'
+		self.watershed_buff_dem = self.tmp_path + 'watershed_buff_dem.tif'
 		self.watershed_buff_fill = self.tmp_path + 'watershed_buff_fill.tif'
 		self.watershed_buff_direc = self.tmp_path + 'watershed_buff_direc.tif'
 		self.snap_dist = snap_dist
@@ -63,10 +64,10 @@ class extract_watershed:
 		site_polyg.to_file(self.watershed_shp)
 		site_polyg['geometry'] = site_polyg.geometry.buffer(self.buff_dist)
 		site_polyg.to_file(self.buffer)
-		wbt.clip_raster_to_polygon(self.dem_path,self.buffer,self.watershed_buff)
+		wbt.clip_raster_to_polygon(self.dem_path,self.buffer,self.watershed_buff_dem)
 		wbt.clip_raster_to_polygon(self.fill,self.buffer,self.watershed_buff_fill)
 		wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
-		wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed)
+		wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed_dem)
 		wbt.clip_raster_to_polygon(self.fill,self.watershed_shp,self.watershed_fill)
 		wbt.clip_raster_to_polygon(self.direc,self.watershed_shp,self.watershed_direc)
 		if self.save_dem == True:
@@ -74,6 +75,7 @@ class extract_watershed:
 			if not os.path.exists(self.save_path):
 				os.makedirs(self.save_path)
 			copyfile(self.watershed_fill, self.save_path + '\\' + df.id.values[0] + '_fill.tif')
+			copyfile(self.watershed_dem, self.save_path + '\\' + df.id.values[0] + '._dem.tif')
 			copyfile(self.watershed, self.save_path + '\\' + df.id.values[0] + '.tif')
 		return self, os.chdir(self.ws)
 	
