@@ -51,7 +51,7 @@ class run_calibration:
         self.out_path = out_path
         
         self.watershed = watershed
-        self.dem_model = self.tmp_path + 'watershed_buff.tif'
+        self.dem_model = self.tmp_path + 'watershed_buff_dem.tif'
         
         self.climatic = np.asarray(climatic).mean()
         self.lay_number = lay_number
@@ -127,7 +127,7 @@ class dichotomy_loop:
         self.out_path = out_path
         
         self.watershed = watershed
-        self.dem_model = self.tmp_path + 'watershed_buff.tif'
+        self.dem_model = self.tmp_path + 'watershed_buff_dem.tif'
         
         self.climatic = np.asarray(climatic).mean()
         self.lay_number = lay_number
