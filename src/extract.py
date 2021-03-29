@@ -16,6 +16,7 @@ sys.path.append(os.getcwd())
 class extract_modflow:
     def __init__(self, dem_path, watershed='name', model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\',
                  param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True):
+        
         self.watershed = watershed
         self.model_folder = model_folder
         self.model_name = model_name

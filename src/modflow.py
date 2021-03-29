@@ -25,6 +25,7 @@ class modflow_model:
 	"""
 	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False,
 				 model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
+        
 		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder
@@ -37,6 +38,7 @@ class modflow_model:
 		self.porosity = porosity
 		self.dem = topography.dem(self.dem_path)
 		self.exe = exe
+        
 		self.build_modflow_model()
 
 	def build_modflow_model(self):
