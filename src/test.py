@@ -20,44 +20,51 @@ from matplotlib.font_manager import FontProperties
 
 #%% Only extract watersheds
 
-outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_normandie.txt", sep='\t', header=None, engine='python')
+# path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/MFLOW3D/github_calibration/"
 
-for idx, serie in outlets.iterrows():
-    outlet = outlets.loc[[idx]]
-    site = outlet[[0]].values[0][0]
-    wat.extract_watershed(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/Bretagne.tif",
-                          outlet=outlet,
-                          snap_dist=750, buff_dist=1000, save_dem=True,
-                          tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
-                          out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
+# outlets = pd.read_csv(path + "_data/outlets_meu.txt",
+#                       sep='\t', header=None, engine='python')
+
+# for idx, serie in outlets.iterrows():
+#     outlet = outlets.loc[[idx]]
+#     site = outlet[0].values[0]
+#     wat.extract_watershed(dem_path=path+"_data/Bretagne.tif",
+#                           outlet=outlet,
+#                           snap_dist=outlet[3].values[0], buff_dist=1000, save_gis=True,
+#                           tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
+#                           out_path=path)
 
 #%% Test run dichotomy
 
-recharge = clim.surfex("D:/PHD/4_model/MFLOW3D/github_calibration/_data/climate.h5", sim='ACC1', var='REC', sce='historic', resample='D').period_data.mean()
-outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/outlets_artisan.txt", sep='\t', header=None, engine='python')
+path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/MFLOW3D/github_calibration/"
+
+recharge = clim.surfex('G:/SURFEX/OUT/loc-ebr_mod-ips1_var-all_sce-all.h5', sim='IPS1', var='REC', sce='historic', resample='D').period_data.mean()
+
+outlets = pd.read_csv(path+"_data/outlets_meu.txt", sep='\t', header=None, engine='python')
 
 for idx, serie in outlets.iterrows():
     
+    idx = 0
+    
     outlet = outlets.loc[[idx]]
-    site = outlet[[0]].values[0][0]
+    site = outlet[0].values[0]
     
     print('#################### SITE '+str(idx)+' : '+site.upper()+' ####################')
     
-    dic.delimit_size(dem_path="D:/PHD/4_model/MFLOW3D/github_calibration/_data/Bretagne.tif",
+    dic.delimit_size(dem_path=path+"_data/Bretagne.tif",
                      watershed=site, outlet=outlet,
-                     snap_dist=750, buff_dist=1000, save_dem=True, type_obs='streams',
-                     data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
+                     snap_dist=outlet[3].values[0], buff_dist=1000, save_gis=True, type_obs='streams',
+                     data_path=path+"_data/",
                      tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
-                     out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
+                     out_path=path)
     
     dic.dichotomy_loop(first=1, last=10000, gap=10,
                        df=pd.DataFrame(),
                        watershed=site,
                        climatic=[recharge/1000], lay_number=1, thick=100, porosity=0.01,
                        type_obs='streams', type_time='s', sim_id='identify',
-                       data_path = "D:/PHD/4_model/MFLOW3D/github_calibration/_data/",
-                       tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
-                       out_path="D:/PHD/4_model/MFLOW3D/github_calibration/")
+                       data_path=path+"_data/",
+                       out_path=path)
    
 #%% Parameters for plot
 
@@ -104,12 +111,15 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% Plot of calibration
 
-cases = glob("D:/PHD/4_model/MFLOW3D/github_calibration/_data/"+'outlets*')
+path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/MFLOW3D/github_calibration/"
+
+cases = glob(path+"_data/"+'outlets*')
 
 for case in cases:
 
     target = case.split("\\")[-1].split('.')[0]
-    outlets = pd.read_csv("D:/PHD/4_model/MFLOW3D/github_calibration/_data/"+target+'.txt', sep='\t', header=None, engine='python')
+    
+    outlets = pd.read_csv(path+"_data/"+target+'.txt', sep='\t', header=None, engine='python')
     
     fig, axs = plt.subplots(1,2, figsize=(10,4))
     (ax1,ax2) = axs
@@ -119,8 +129,8 @@ for case in cases:
     site_list = outlets[0]
     
     for i, name in enumerate(site_list):
-        path = "D:/PHD/4_model/MFLOW3D/github_calibration/"+name+'//'
-        file = pd.read_csv(path+name+'_calibration.csv', sep='\t', header=0)
+        out = path+name+'//'
+        file = pd.read_csv(out+name+'_calibration.csv', sep='\t', header=0)
         ax = ax1
         toplot = file.sort_values('Kr')
         ax.plot(toplot.Kr, (toplot.Sflow), lw=2, color=colors[i], label=name)
@@ -156,5 +166,5 @@ for case in cases:
         
         plt.tight_layout()
         
-        fig.savefig("D:/PHD/4_model/MFLOW3D/github_calibration/_figures/"+target+'.jpg', dpi=300)
+        # fig.savefig("D:/PHD/4_model/MFLOW3D/github_calibration/_figures/"+target+'.jpg', dpi=300)
         

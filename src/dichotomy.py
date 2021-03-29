@@ -12,16 +12,17 @@ import calibration as cal
 
 class delimit_size:
     def __init__(self, dem_path='path.tif', watershed='name', outlet=pd.DataFrame(),
-                 snap_dist=100, buff_dist=1000, save_dem=True, type_obs='streams',
+                 snap_dist=100, buff_dist=1000, save_gis=True, type_obs='streams',
                  data_path = os.path.dirname(os.getcwd())+'\\data\\',
                  tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
                  out_path=os.path.dirname(os.getcwd())+'\\output\\'):
+        
         self.dem_path = dem_path
         self.watershed = watershed
         self.outlet = outlet
         self.snap_dist = snap_dist
         self.buff_dist = buff_dist
-        self.save_dem = save_dem
+        self.save_gis = save_gis
         self.type_obs = type_obs
         self.data_path = data_path
         self.tmp_path = tmp_path
@@ -30,11 +31,10 @@ class delimit_size:
         wat.extract_watershed(dem_path=self.dem_path, outlet=self.outlet, 
                               snap_dist=self.snap_dist, buff_dist=self.buff_dist,
                               tmp_path=self.tmp_path,
-                              save_dem=self.save_dem, out_path=self.out_path)
+                              save_gis=self.save_gis, out_path=self.out_path)
         
         cal.extract_observed(watershed=self.watershed, type_obs=self.type_obs,
                              data_path=self.data_path,
-                             tmp_path=self.tmp_path,
                              out_path=self.out_path)
                 
 class run_calibration:
@@ -43,15 +43,14 @@ class run_calibration:
                  climatic=[8e-4], lay_number=1, thick=100, porosity=0.01,
                  type_obs='streams', type_time='s', sim_id='identify',
                  data_path=os.path.dirname(os.getcwd())+'\\data\\',
-                 tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
                  out_path=os.path.dirname(os.getcwd())+'\\output\\'):
 
         self.data_path = data_path
-        self.tmp_path = tmp_path
         self.out_path = out_path
         
         self.watershed = watershed
-        self.dem_model = self.tmp_path + 'watershed_buff_dem.tif'
+        self.gis_path = self.out_path + self.watershed + '/gis/'
+        self.dem_model = self.gis_path + 'watershed_buff_dem.tif'
         
         self.climatic = np.asarray(climatic).mean()
         self.lay_number = lay_number
@@ -86,14 +85,12 @@ class run_calibration:
                             model_folder=self.out_path)
         
         cal.generate_distances(watershed=self.watershed, type_obs=self.type_obs, type_time=self.type_time,
-                               sim_id=self.sim_id,
-                               data_path=self.data_path,
-                               tmp_path=self.tmp_path,
-        					   out_path=self.out_path)
+                                sim_id=self.sim_id,
+                                data_path=self.data_path,
+                                out_path=self.out_path)
         
         self.store = cal.store_dataframe(watershed=self.watershed, type_time=self.type_time, sim_id=self.sim_id,
-                                    tmp_path=self.tmp_path,
-        					        out_path=self.out_path) 
+                    					          out_path=self.out_path) 
         
         self.df.loc[self.compt,'Kr'] = round(self.krval, 4)
         self.df.loc[self.compt,'K'] = round(self.hyd_cond, 4)
@@ -115,7 +112,6 @@ class dichotomy_loop:
                  climatic=[8e-4], lay_number=1, thick=100, porosity=0.01,
                  type_obs='streams', type_time='s', sim_id='identify',
                  data_path=os.path.dirname(os.getcwd())+'\\data\\',
-                 tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
                  out_path=os.path.dirname(os.getcwd())+'\\output\\'):
         
         self.first = first
@@ -123,11 +119,11 @@ class dichotomy_loop:
         self.gap = gap
         
         self.data_path = data_path
-        self.tmp_path = tmp_path
         self.out_path = out_path
         
         self.watershed = watershed
-        self.dem_model = self.tmp_path + 'watershed_buff_dem.tif'
+        self.gis_path = self.out_path + self.watershed + '/gis/'
+        self.dem_model = self.gis_path + 'watershed_buff_dem.tif'
         
         self.climatic = np.asarray(climatic).mean()
         self.lay_number = lay_number
@@ -168,7 +164,6 @@ class dichotomy_loop:
                                              climatic=self.climatic, lay_number=self.lay_number, thick=self.thick, porosity=self.porosity,
                                              type_obs=self.type_obs, type_time=self.type_time, sim_id=self.sim_id,
                                              data_path=self.data_path,
-                                             tmp_path=self.tmp_path,
                                              out_path=self.out_path)
             self.condition = self.calibration.condition
             if self.condition > 1:
