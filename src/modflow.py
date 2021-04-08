@@ -29,6 +29,7 @@ class modflow_model:
 		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder
+		self.full_path = os.path.join(model_folder, watershed, model_name, 'modraw')
 		self.dem_path = dem_path
 		self.climatic = climatic
 		self.thick = thick
@@ -44,7 +45,7 @@ class modflow_model:
 	def build_modflow_model(self):
 		self.mf = flopy.modflow.Modflow(self.model_name, 
 										exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
-										model_ws=os.path.join(self.model_folder, self.watershed, self.model_name, 'modraw'))
+										model_ws=self.full_path)
 		self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,iprnwt=0,ibotav=0, options='COMPLEX')
 		
 		if len(self.climatic)==1:
