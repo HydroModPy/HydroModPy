@@ -1,6 +1,7 @@
 # coding:utf-8
 
 from osgeo import gdal, osr
+from IPython.core.debugger import set_trace as st
 
 class dem:
 	def __init__(self, dem_path):
@@ -28,4 +29,4 @@ class dem:
 		self.xmax = self.geodata[0] + self.data.shape[1] * self.geodata[1]
 		self.ymin = self.geodata[3] + self.data.shape[0] * self.geodata[5]
 		self.ymax = self.geodata[3]
-        
+		self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]

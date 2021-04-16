@@ -9,8 +9,12 @@ import modflow as mod
 import watershed as wat
 import extract as ext
 import calibration as cal
+import geology as geo
 
 class delimit_size:
+    '''
+    type_obs : 'streams' or 'sections'
+    '''
     def __init__(self, dem_path='path.tif', watershed='name', outlet=pd.DataFrame(),
                  snap_dist=100, buff_dist=1000, save_gis=True, type_obs='streams',
                  data_path = os.path.dirname(os.getcwd())+'\\data\\',
@@ -156,7 +160,10 @@ class dichotomy_loop:
 
         self.difference = self.last - self.first
         self.df = pd.DataFrame()
+
+        
         self.compt = 0
+
         while (self.difference > self.gap):
             self.half = (self.first + self.last) / 2
             self.calibration = run_calibration(krval=self.half, compt=self.compt, df=self.df,
@@ -175,4 +182,98 @@ class dichotomy_loop:
             self.compt += 1
         self.save_name = self.watershed+'\\'+self.watershed+'_calibration.csv'
         self.df.to_csv(self.out_path+self.save_name, sep='\t', index=True)
+
+class run_het_calibration:
+    def __init__(self,first=1, last=10000, gap=100, compt=0, df=pd.DataFrame(),
+                 watershed='name', climatic=[8e-4], lay_number=1, thick=100, porosity=0.01,
+                 type_obs='streams', type_time='s', sim_id='identify',
+                 data_path=os.path.dirname(os.getcwd())+'\\data\\',
+                 out_path=os.path.dirname(os.getcwd())+'\\output\\'):
+
+        self.first = first
+        self.last = last
+        self.gap = gap
+        self.data_path = data_path
+        self.out_path = out_path
+        self.watershed = watershed
+        self.gis_path = self.out_path + self.watershed + '/gis/'
+        self.dem_model = self.gis_path + 'watershed_buff_dem.tif'
+        self.climatic = np.asarray(climatic).mean()
+        self.lay_number = lay_number
+        self.thick = thick
+        self.porosity = porosity
+        self.type_obs = type_obs
+        self.type_time = type_time
+        self.compt= compt
+        self.df = df
+        
+        self.sim_list = glob(self.out_path+self.watershed+'\\'+self.type_time+'*')
+        if not self.sim_list:
+            print('- Delete previous : '+'NO'+'\n')
+        else:
+            print('- Delete previous : '+'YES'+'\n')
+        for folder in self.sim_list:
+            shutil.rmtree(folder)
+        self.difference = self.last - self.first
+        self.df = pd.DataFrame()
+        self.compt = 0
+        self.het_dichotomy_loop()
+
+    def het_dichotomy_loop(self)
+        while (self.difference > self.gap):
+            self.half = (self.first + self.last) / 2
+            self.sim_id = self.type_time+'_het'+\
+                      self.watershed+'_'+\
+                      str(self.lay_number)+'_'+\
+                      str(self.thick)+'_'+\
+                      str(self.half)+'_'+\
+                      str(self.porosity)
+            self.calibration = self.het_calibration(krval=self.half, compt=self.compt, df=self.df,
+                                             watershed=self.watershed,
+                                             climatic=self.climatic, lay_number=self.lay_number, thick=self.thick, porosity=self.porosity,
+                                             type_obs=self.type_obs, type_time=self.type_time, sim_id=self.sim_id,
+                                             data_path=self.data_path,
+                                             out_path=self.out_path)
+            self.condition = self.calibration.condition
+            if self.condition > 1:
+                self.first = self.half
+            else:
+                self.last = self.half
+            self.difference = self.last - self.first
+            print('    Ecart = '+str(round(self.difference,2))+'\n')
+            self.compt += 1
+        self.save_name = self.watershed+'\\'+self.watershed+'_calibration.csv'
+        self.df.to_csv(self.out_path+self.save_name, sep='\t', index=True)
+
+    def het_calibration():
+        mod.modflow_model(dem_path=self.dem_model,
+                          watershed=self.watershed, climatic=[self.climatic], lay_number=self.lay_number, 
+                          thick=self.thick, hyd_cond=self.hyd_cond, porosity=self.porosity,
+                          model_name=self.sim_id,
+                          model_folder=self.out_path)
+        
+        ext.extract_modflow(dem_path=self.dem_model,
+                            watershed=self.watershed,
+                            model_name=self.sim_id,
+                            model_folder=self.out_path)
+        
+        cal.generate_distances(watershed=self.watershed, type_obs=self.type_obs, type_time=self.type_time,
+                                sim_id=self.sim_id,
+                                data_path=self.data_path,
+                                out_path=self.out_path)
+        
+        self.store = cal.store_dataframe(watershed=self.watershed, type_time=self.type_time, sim_id=self.sim_id,
+                                                  out_path=self.out_path) 
+        
+        self.df.loc[self.compt,'Kr'] = round(self.krval, 4)
+        self.df.loc[self.compt,'K'] = round(self.hyd_cond, 4)
+        self.df.loc[self.compt,'Sflow'] = round(self.store.sim_to_obs_mean, 4)
+        self.df.loc[self.compt,'Oflow'] = round(self.store.obs_to_sim_mean, 4)
+        self.df.loc[self.compt,'Qflow'] = round(self.store.outflow,4)   
     
+        self.condition = round(self.store.sim_to_obs_mean / self.store.obs_to_sim_mean, 2)
+        
+        print('==> Simulation : '+str(self.compt))
+        print('    Parameters : '+self.sim_id)
+        print('    KR = '+str(round(self.krval, 2)))
+        print('    Condition = '+str(self.condition))

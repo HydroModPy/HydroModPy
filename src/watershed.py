@@ -74,15 +74,14 @@ class extract_watershed:
 		wbt.watershed(self.direc, self.outlet_snap_shp, self.watershed, esri_pntr=False)
 		wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
 		wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
-
+		site_polyg = gpd.read_file(self.watershed_shp)
+		site_polyg.to_file(self.watershed_shp)
 		if self.bounding_box == False:
-			site_polyg = gpd.read_file(self.watershed_shp)
-			site_polyg.to_file(self.watershed_shp)
 			site_polyg['geometry'] = site_polyg.geometry.buffer(self.buff_dist)
 			site_polyg.to_file(self.buffer)
-			wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed_dem)
-			wbt.clip_raster_to_polygon(self.fill,self.watershed_shp,self.watershed_fill)
-			wbt.clip_raster_to_polygon(self.direc,self.watershed_shp,self.watershed_direc)
+			wbt.clip_raster_to_polygon(self.dem_path,self.buffer,self.watershed_buff_dem)
+			wbt.clip_raster_to_polygon(self.fill,self.buffer,self.watershed_buff_fill)
+			wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
 
 		if self.bounding_box == True:
 			wbt.minimum_bounding_envelope(self.watershed_shp,self.watershed_box_shp, features=False)
@@ -93,14 +92,14 @@ class extract_watershed:
 			wbt.minimum_bounding_envelope(self.buffer,self.buffer, features=False)
 			site_polyg = gpd.read_file(self.buffer)
 			site_polyg.to_file(self.buffer)
-			wbt.clip_raster_to_polygon(self.dem_path,self.watershed_box_shp,self.watershed_dem)
-			wbt.clip_raster_to_polygon(self.fill,self.watershed_box_shp,self.watershed_fill)
-			wbt.clip_raster_to_polygon(self.direc,self.watershed_box_shp,self.watershed_direc)
+			wbt.clip_raster_to_polygon(self.dem_path,self.buffer,self.watershed_buff_dem)
+			wbt.clip_raster_to_polygon(self.fill,self.buffer,self.watershed_buff_fill)
+			wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
 
-		wbt.clip_raster_to_polygon(self.dem_path,self.buffer,self.watershed_buff_dem)
-		wbt.clip_raster_to_polygon(self.fill,self.buffer,self.watershed_buff_fill)
-		wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
-        
+		wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed_dem)
+		wbt.clip_raster_to_polygon(self.fill,self.watershed_shp,self.watershed_fill)
+		wbt.clip_raster_to_polygon(self.direc,self.watershed_shp,self.watershed_direc)
+
 		return self, os.chdir(self.ws)
 	
 ##### Notes

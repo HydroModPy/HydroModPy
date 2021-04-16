@@ -5,6 +5,7 @@ import sys
 import flopy
 import numpy as np
 import topography
+import sea
 '''os.path.dirname(os.getcwd())'''
 sys.path.append(os.getcwd())
 
@@ -31,6 +32,7 @@ class modflow_model:
 		self.model_folder = model_folder
 		self.dem_path = dem_path
 		self.climatic = climatic
+		self.coastal_aquifer = coastal_aquifer
 		self.thick = thick
 		self.bottom = bottom
 		self.nlay = lay_number
@@ -82,10 +84,12 @@ class modflow_model:
 		for i in range (self.nlay):
 			self.iboundData[i][self.dem.data < -1000] = 0
         
-        #iboundData[i][self.structure.dem <= self.structure.mean_sea_level] = -1
-        #iboundData[0][sea_earth == 1] = 1
 		self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem.data
-        #strtData[iboundData == -1] = self.structure.mean_sea_level
+		
+		if self.coastal_aquifer==True:
+			MSL = sea.mean_sea_level(self.dem.centroid)     
+			iboundData[i][self.structure.dem <= MSL] = -1
+			strtData[iboundData == -1] = MSL
 
 		self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
 
