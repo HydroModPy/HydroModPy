@@ -9,6 +9,14 @@ import util
 from modflow import modflow_model as _mf
 
 class MfModel(_mf):
+    def __init__(self, dem_path, model_folder=None, exe=None, **kwargs):
+        dem_path = pth.join(util.fspath, dem_path)
+        if model_folder is None:
+            model_folder = util.mfpath
+        if exe is None:
+            exe = util.mfnwt_exe
+        _mf.__init__(self, dem_path, model_folder=model_folder, exe=exe, **kwargs)
+
     def extract_data(self):
         ztop = self.mf.dis.top.array
         zbot = self.mf.dis.botm.array
