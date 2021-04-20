@@ -33,6 +33,13 @@ class PathlineFile(flopy.utils.PathlineFile):
         ]
 
 class MpModel(_mp):
+    def __init__(self, model_folder=None, exe=None, **kwargs):
+        if model_folder is None:
+            model_folder = util.mfpath
+        if exe is None:
+            exe = util.mp6_exe
+        _mp.__init__(self, model_folder=model_folder, exe=exe, **kwargs)
+
     def extract_data(self):
         pathobj = PathlineFile(pth.join(self.full_path, self.model_name+'.mppth'))
         print(pathobj._data, len(pathobj._data))

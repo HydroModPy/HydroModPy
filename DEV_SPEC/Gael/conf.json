@@ -1,0 +1,10 @@
+{
+    "path": {
+        "modflow": "~/Simulations/Modflow",
+        "fastscape": "~/Simulations/Fastscape"
+    },
+    "exe": {
+        "mfnwt": "mfnwt",
+        "mp6": "mp6"
+    }
+}

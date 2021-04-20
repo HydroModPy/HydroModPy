@@ -3,10 +3,12 @@
 from topogen import Topo
 import os
 import sys
+import util
 
 folder = 'topo_steps'
 if len(sys.argv) > 1:
     folder = sys.argv[1]
+folder = os.path.join(util.fspath, folder)
 if not os.path.isdir(folder):
     os.mkdir(folder)
 
