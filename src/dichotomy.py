@@ -198,7 +198,10 @@ class run_het_calibration:
         self.watershed = watershed
         self.gis_path = self.out_path + self.watershed + '/gis/'
         self.dem_model = self.gis_path + 'watershed_buff_dem.tif'
+        self.geology = geo.structure(dem_path = dem_model, out_path=self.gis_path)
         self.climatic = np.asarray(climatic).mean()
+        self.krval = (self.first + self.last) / 2
+        self.hyd_cond = (self.geology.geology_array*0+1)*(self.krval * self.climatic)
         self.lay_number = lay_number
         self.thick = thick
         self.porosity = porosity
@@ -219,7 +222,7 @@ class run_het_calibration:
         self.compt = 0
         self.het_dichotomy_loop()
 
-    def het_dichotomy_loop(self)
+    def het_dichotomy_loop(self):
         while (self.difference > self.gap):
             self.half = (self.first + self.last) / 2
             self.sim_id = self.type_time+'_het'+\
@@ -228,8 +231,7 @@ class run_het_calibration:
                       str(self.thick)+'_'+\
                       str(self.half)+'_'+\
                       str(self.porosity)
-            self.calibration = self.het_calibration(krval=self.half, compt=self.compt, df=self.df,
-                                             watershed=self.watershed,
+            self.calibration = self.het_calibration(krval=self.half, compt=self.compt, df=self.df, watershed=self.watershed,
                                              climatic=self.climatic, lay_number=self.lay_number, thick=self.thick, porosity=self.porosity,
                                              type_obs=self.type_obs, type_time=self.type_time, sim_id=self.sim_id,
                                              data_path=self.data_path,
