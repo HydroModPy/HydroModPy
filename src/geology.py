@@ -39,19 +39,12 @@ class structure:
 
 		return self
 
-class geo_to_K:
+	def geo_to_K(self,K_geo_values):
 	'''
 	geology_array: 2D arrays - code of geology entities
-	K_geo_values: 2D arrays - 
-	correspondence between geology codes (first column) and hydraulique conductivity values (second column)
+	K_geo_values: 1D array (same size that geology code variable) - correspondence between geology codes and hydraulique conductivity values 
 	'''
-	def __init__ (self, geology_array, K_geo_values):
-		self.geology_array = geology_array
-		self.K_geo_values = K_geo_values
-		self.build_K_array()
-
-	def build_K_array(self):
 		self.K_array = self.geology_array
-		for i in range(0,len(self.K_geo_values)):
-			self.K_array[self.geology_array==self.K_geo_values[i,0]]=self.K_geo_values[i,1]
+		for i in range(0,len(self.geology_code)):
+			self.K_array[self.geology_array==self.geology_code[i]]=K_geo_values[i]
 		return self
