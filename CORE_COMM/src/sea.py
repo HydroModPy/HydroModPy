@@ -9,7 +9,7 @@ class mean_sea_level:
 	centroid: list : X and Y coordinates of the centroid of the dem
 	'''
 	def __init__(self,centroid):
-		self.ram_path = os.path.dirname(os.getcwd())+"/data/sea/RAM_2020.shp"
+		self.ram_path = os.path.dirname(os.path.dirname(__file__))+"/data/sea/RAM_2020.shp"
 		self.xcentroid = centroid[0]
 		self.ycentroid = centroid[1]
 		self.get_mean_sea_level()

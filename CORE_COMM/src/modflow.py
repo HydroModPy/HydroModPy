@@ -88,9 +88,9 @@ class modflow_model:
 		self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem.data
 		
 		if self.coastal_aquifer==True:
-			MSL = sea.mean_sea_level(self.dem.centroid)     
-			iboundData[i][self.structure.dem <= MSL] = -1
-			strtData[iboundData == -1] = MSL
+			self.sea = sea.mean_sea_level(self.dem.centroid)     
+			self.iboundData[i][self.dem.data <= self.sea.mean_sea_level] = -1
+			self.strtData[self.iboundData == -1] = self.sea.mean_sea_level
 
 		self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
 
