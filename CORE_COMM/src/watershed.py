@@ -62,6 +62,8 @@ class extract_watershed:
 
 		self.dem = gdal.Open(self.dem_path)
 		proj = osr.SpatialReference(wkt=self.dem.GetProjection())
+		self.geodata = self.dem.GetGeoTransform()
+		st()
 		self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
 		wbt.fill_depressions(self.dem_path, self.fill)
 		wbt.d8_pointer(self.fill, self.direc, esri_pntr=False)

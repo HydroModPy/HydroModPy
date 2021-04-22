@@ -3,9 +3,11 @@
 import os
 import sys
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 import imageio
 import topography
+from IPython.core.debugger import set_trace as st
 '''os.path.dirname(os.getcwd())'''
 sys.path.append(os.getcwd())
 
@@ -115,14 +117,14 @@ class generate_distances:
 
     def sim_to_obs(self):
         if self.type_obs == 'streams':
-            self.dist_sim_obs = self.not_path + 'dist_sim_obs.tif'
+            self.dist_sim_obs = self.sim_fold + 'dist_sim_obs.tif'
             wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_sim_obs)
         if self.type_obs == 'persistent':
-            self.dist_sim_obs = self.not_path + 'dist_sim_obs.tif'
+            self.dist_sim_obs = self.sim_fold + 'dist_sim_obs.tif'
             wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_persistent, self.dist_sim_obs)    
         self.sim_shp = self.sim_fold + 'sim.shp'
         wbt.raster_to_vector_points(self.seep_sim_mask, self.sim_shp)
-        self.sim_flow = self.not_path + 'simflow.tif'
+        self.sim_flow = self.sim_fold + 'simflow.tif'
         wbt.trace_downslope_flowpaths(self.sim_shp, self.watershed_direc, self.sim_flow)
         self.pt_sim_flow = self.sim_fold + 'simflow.shp'
         wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
@@ -131,13 +133,13 @@ class generate_distances:
         return self, os.chdir(self.ws)
                 
     def obs_to_sim(self):
-        self.dist_obs_sim = self.not_path + 'dist_obs_sim.tif'
+        self.dist_obs_sim = self.sim_fold + 'dist_obs_sim.tif'
         wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_obs_sim)        
         if self.type_obs == 'streams':
-            self.obs_flow = self.not_path + 'obsflow.tif'
+            self.obs_flow = self.sim_fold + 'obsflow.tif'
             wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
         if self.type_obs == 'persistent':
-            self.obs_flow = self.not_path + 'obsflow.tif'
+            self.obs_flow = self.sim_fold + 'obsflow.tif'
             wbt.trace_downslope_flowpaths(self.pt_persistent, self.watershed_direc, self.obs_flow)        
         self.pt_obs_flow = self.sim_fold + 'obsflow.shp'
         wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
@@ -190,3 +192,71 @@ class store_dataframe:
         self.outflow = (np.nansum(self.flux) / (self.cell * self.dem.pixel**2)) # M/T
         return self, os.chdir(self.ws)
 
+class store_dataframe_het:
+    def __init__(self, geology, watershed='name', type_obs='streams', type_time='s', sim_id='identify',
+                 out_path=os.path.dirname(os.getcwd())+'\\output\\', ):
+        self.ws = os.getcwd()
+        self.watershed = watershed
+        self.type_time = type_time
+        self.sim_id = sim_id
+        self.out_path = out_path
+        self.geology = geology
+        
+        self.out_fold = self.out_path + self.watershed + '\\'
+        
+        self.gis_path = self.out_fold + '/gis/'
+        self.obs_path = self.out_fold + '/obs/'
+
+        self.sim_fold = self.out_fold + self.sim_id + '\\'
+
+        self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+        self.dem = topography.dem(self.watershed_fill)
+        
+        self.pt_obs_flow = self.sim_fold + 'obsflow.shp'
+        self.pt_sim_flow = self.sim_fold + 'simflow.shp'
+
+        self.dist_obs_sim = self.sim_fold + 'dist_obs_sim.tif'
+        self.dist_sim_obs = self.sim_fold + 'dist_sim_obs.tif'
+        self.obs_flow = self.sim_fold + 'obsflow.tif'
+        self.sim_flow = self.sim_fold + 'simflow.tif'
+        
+        self.drn_sim_mask = self.sim_fold + 'mask_outflow.tif'
+        
+        self.mean_distances()
+        self.mean_outflow()
+        
+    def mean_distances(self):
+        obs_sim_dist = imageio.imread(self.dist_obs_sim)
+        sim_obs_dist = imageio.imread(self.dist_sim_obs)
+        obs = imageio.imread(self.obs_flow)
+        sim = imageio.imread(self.sim_flow)
+        obs_dist = np.zeros(np.shape(obs))*np.nan
+        sim_dist = np.zeros(np.shape(sim))*np.nan
+        obs_dist[obs>=0] = obs_sim_dist[obs>=0]
+        sim_dist[sim>=0] = sim_obs_dist[sim>=0]
+        sim_dist[sim_dist<0] = 0
+        self.mean_dist_code = pd.DataFrame()
+        compt = 0
+        for i in range (0, len(self.geology.geology_code)):
+            self.mean_dist_code.loc[compt,'code'] = int(self.geology.geology_code[i])
+            self.mean_dist_code.loc[compt,'obs_to_sim'] = np.nanmean(obs_dist[self.geology.geology_array_clip==self.geology.geology_code[i]])
+            self.mean_dist_code.loc[compt,'sim_to_obs'] = np.nanmean(sim_dist[self.geology.geology_array_clip==self.geology.geology_code[i]])
+            compt += 1
+        self.mean_dist_code.loc[:,'ratio_dist']=self.mean_dist_code.loc[:,'sim_to_obs']/self.mean_dist_code.loc[:,'obs_to_sim'] 
+        st()
+        '''self.obs_to_sim = gpd.read_file(self.pt_obs_flow)
+                                self.obs_to_sim = self.obs_to_sim.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
+                                self.obs_to_sim = self.obs_to_sim[self.obs_to_sim['distance'] >= 0]
+                                self.obs_to_sim_mean = np.nanmean(self.obs_to_sim['distance'])
+                                self.sim_to_obs = gpd.read_file(self.pt_sim_flow)
+                                self.sim_to_obs = self.sim_to_obs.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
+                                self.sim_to_obs = self.sim_to_obs[self.sim_to_obs['distance'] >= 0]
+                                self.sim_to_obs_mean = np.nanmean(self.sim_to_obs['distance'])'''
+        return self, os.chdir(self.ws)
+    
+    def mean_outflow(self):
+        self.flux = imageio.imread(self.drn_sim_mask) # L/T
+        self.flux = np.ma.masked_array(self.flux, mask=(self.dem.data==-99999))
+        self.cell = self.flux.count()
+        self.outflow = (np.nansum(self.flux) / (self.cell * self.dem.pixel**2)) # M/T
+        return self, os.chdir(self.ws)

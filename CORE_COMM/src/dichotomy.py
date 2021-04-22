@@ -34,8 +34,8 @@ class delimit_size:
 
         wat.extract_watershed(dem_path=self.dem_path, outlet=self.outlet, 
                               snap_dist=self.snap_dist, buff_dist=self.buff_dist,
-                              tmp_path=self.tmp_path,
-                              save_gis=self.save_gis, out_path=self.out_path)
+                              tmp_path=self.tmp_path,save_gis=self.save_gis, 
+                              box = True, out_path=self.out_path)
         
         cal.extract_observed(watershed=self.watershed, type_obs=self.type_obs,
                              data_path=self.data_path,
@@ -198,7 +198,7 @@ class run_het_calibration:
         self.watershed = watershed
         self.gis_path = self.out_path + self.watershed + '/gis/'
         self.dem_model = self.gis_path + 'watershed_buff_dem.tif'
-        self.geology = geo.structure(dem_path = dem_model, out_path=self.gis_path)
+        self.geology = geo.structure(dem_path = self.dem_model, out_path=self.gis_path)
         self.climatic = np.asarray(climatic).mean()
         self.krval = (self.first + self.last) / 2
         self.hyd_cond = (self.geology.geology_array*0+1)*(self.krval * self.climatic)
@@ -225,17 +225,13 @@ class run_het_calibration:
     def het_dichotomy_loop(self):
         while (self.difference > self.gap):
             self.half = (self.first + self.last) / 2
-            self.sim_id = self.type_time+'_het'+\
+            self.sim_id = self.type_time+'_het_'+\
                       self.watershed+'_'+\
                       str(self.lay_number)+'_'+\
                       str(self.thick)+'_'+\
                       str(self.half)+'_'+\
                       str(self.porosity)
-            self.calibration = self.het_calibration(krval=self.half, compt=self.compt, df=self.df, watershed=self.watershed,
-                                             climatic=self.climatic, lay_number=self.lay_number, thick=self.thick, porosity=self.porosity,
-                                             type_obs=self.type_obs, type_time=self.type_time, sim_id=self.sim_id,
-                                             data_path=self.data_path,
-                                             out_path=self.out_path)
+            self.calibration = self.het_calibration()
             self.condition = self.calibration.condition
             if self.condition > 1:
                 self.first = self.half
@@ -247,10 +243,10 @@ class run_het_calibration:
         self.save_name = self.watershed+'\\'+self.watershed+'_calibration.csv'
         self.df.to_csv(self.out_path+self.save_name, sep='\t', index=True)
 
-    def het_calibration():
+    def het_calibration(self):
         mod.modflow_model(dem_path=self.dem_model,
                           watershed=self.watershed, climatic=[self.climatic], lay_number=self.lay_number, 
-                          thick=self.thick, hyd_cond=self.hyd_cond, porosity=self.porosity,
+                          thick=self.thick, hyd_cond=self.hyd_cond, porosity=self.porosity, coastal_aquifer =True,
                           model_name=self.sim_id,
                           model_folder=self.out_path)
         
@@ -264,7 +260,7 @@ class run_het_calibration:
                                 data_path=self.data_path,
                                 out_path=self.out_path)
         
-        self.store = cal.store_dataframe(watershed=self.watershed, type_time=self.type_time, sim_id=self.sim_id,
+        self.store = cal.store_dataframe_het(self.geology, watershed=self.watershed, type_time=self.type_time, sim_id=self.sim_id,
                                                   out_path=self.out_path) 
         
         self.df.loc[self.compt,'Kr'] = round(self.krval, 4)
