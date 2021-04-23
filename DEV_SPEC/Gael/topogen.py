@@ -9,7 +9,7 @@ from stability import stabilize_slope
 
 @xs.process
 class HillslopeLimit:
-    slope_limit = xs.variable(description='maximal stable slope')
+    limit = xs.variable(description='maximal stable slope')
 
     elevation = xs.foreign(SurfaceToErode, 'elevation')
     dx = xs.foreign(UniformRectilinearGrid2D, 'dx')
@@ -23,7 +23,7 @@ class HillslopeLimit:
 
     def run_step(self):
         elev = self.elevation - self.stream_erosion
-        hdiff_max = self.slope_limit*self.dx
+        hdiff_max = self.limit*self.dx
         self.erosion = elev - stabilize_slope(elev, hdiff_max)
 
 @xs.process
@@ -104,9 +104,7 @@ class Topo:
                     'slope_exp': slope_exp,
                 },
                 #'diffusion__diffusivity': diffusivity,
-                'slope': {
-                    'slope_limit': slope_limit,
-                },
+                'slope__limit': slope_limit,
                 'flow__slope_exp': 1.,
             },
             output_vars={
