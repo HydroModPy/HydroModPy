@@ -42,16 +42,11 @@ class MpModel(_mp):
 
     def extract_data(self):
         pathobj = PathlineFile(pth.join(self.full_path, self.model_name+'.mppth'))
-        print(pathobj._data, len(pathobj._data))
-        print('Reading all data...')
         path_data = pathobj.get_alldata()
-        print('Done')
         npath = len(path_data)
         path_index = np.zeros((npath, 2), dtype=int)
 
-        print('Grouping path data...')
         path_raw = np.concatenate(path_data)
-        print('Done')
         model_shape = self.mf.dis.top.array.shape
         path_length = np.zeros(model_shape)
         path_time = np.zeros(model_shape)
