@@ -1,6 +1,7 @@
 import sys
 import os.path as pth
 import flopy
+import flopy.utils.binaryfile as fpu
 import numpy as np
 import json
 import matplotlib.pyplot as plt
@@ -21,11 +22,15 @@ class MfModel(_mf):
         ztop = self.mf.dis.top.array
         zbot = self.mf.dis.botm.array
         headfile = pth.join(self.full_path, self.model_name+'.hds')
-        head = flopy.utils.HeadFile(headfile).get_data()
+        cbcfile = pth.join(self.full_path, self.model_name+'.cbc')
+        head = fpu.HeadFile(headfile).get_data()
+        drn = fpu.CellBudgetFile(cbcfile).get_data(text='DRAINS', full3D=True)
+        outflow = -drn[0].filled(fill_value=0.)
         data = {
             'ztop': ztop,
             'zbot': zbot,
             'head': head,
+            'outflow': outflow,
         }
         metadata = {
             'dem_path': self.dem_path,
