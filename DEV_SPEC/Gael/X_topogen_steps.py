@@ -13,7 +13,7 @@ if not os.path.isdir(folder):
     os.mkdir(folder)
 
 nsteps = 10
-topo = Topo(max_time=4e6, steps=500, out_steps=nsteps)
+topo = Topo(max_time=4e6, steps=5000, out_steps=nsteps)
 
 for i in range(nsteps):
-    topo.export(os.path.join(folder, 'T{:d}.tif'.format(i+1)), os.path.join(folder, 'T{:d}_area.tif'.format(i+1)), os.path.join(folder, 'T{:d}_slope.tif'.format(i+1)), step=i)
+    topo.export(os.path.join(folder, 'T{:d}.tif'.format(i+1)), os.path.join(folder, 'D{:d}.tif'.format(i+1)), os.path.join(folder, 'S{:d}.tif'.format(i+1)), step=i)

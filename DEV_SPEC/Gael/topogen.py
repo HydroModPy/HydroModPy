@@ -9,7 +9,7 @@ from stability import stabilize_slope
 
 @xs.process
 class HillslopeLimit:
-    slope_limit = xs.variable(description='maximal stable slope')
+    limit = xs.variable(description='maximal stable slope')
 
     elevation = xs.foreign(SurfaceToErode, 'elevation')
     dx = xs.foreign(UniformRectilinearGrid2D, 'dx')
@@ -23,7 +23,7 @@ class HillslopeLimit:
 
     def run_step(self):
         elev = self.elevation - self.stream_erosion
-        hdiff_max = self.slope_limit*self.dx
+        hdiff_max = self.limit*self.dx
         self.erosion = elev - stabilize_slope(elev, hdiff_max)
 
 @xs.process
@@ -71,11 +71,12 @@ model = model.update_processes({
 
 class Topo:
     def __init__(self, **kwargs):
-        self.parameters = kwargs
+        #self.parameters = kwargs
         self.setup(**kwargs)
         self.generate()
 
-    def setup(self, uplift_rate=1e-3, uplift_target=500., k_coef=2e-6, area_exp=0.6, slope_exp=1.5, slope_limit=0.5, size=2.5e4, resolution=200, max_time=2e7, steps=500, out_steps=1): # Disabled: diffusivity=1e-1
+    def setup(self, uplift_rate=1e-3, k_coef=2e-6, area_exp=0.6, slope_exp=1.5, slope_limit=0.5, size=2.5e4, resolution=200, max_time=2e7, steps=500, out_steps=1): # Disabled: diffusivity=1e-1, uplift_target=500.
+        
         char_length = ((uplift_rate/k_coef)**(1/area_exp) * slope_limit**(-slope_exp/area_exp))**0.5
         print('Characteristic length expected: {:6.2f} ({:6.4f} pixels)'.format(char_length, char_length/125))
 
@@ -104,9 +105,7 @@ class Topo:
                     'slope_exp': slope_exp,
                 },
                 #'diffusion__diffusivity': diffusivity,
-                'slope': {
-                    'slope_limit': slope_limit,
-                },
+                'slope__limit': slope_limit,
                 'flow__slope_exp': 1.,
             },
             output_vars={
@@ -133,7 +132,7 @@ class Topo:
         print(float(self.out_ds.topography__elevation[step].mean()))
         return plt.imshow(self.out_ds.topography__elevation[step], extent=extent, **kwargs)
 
-    def _make_raster(self, filename, data):
+    def _make_raster(self, filename, data, **kwargs):
         from osgeo import gdal
         drv = gdal.GetDriverByName('GTiff')
         raster = drv.Create(filename, int(self.in_ds.grid__shape[1]), int(self.in_ds.grid__shape[0]), 1, gdal.GDT_Float32)
@@ -141,16 +140,28 @@ class Topo:
         band = raster.GetRasterBand(1)
         #print(np.array(data))
         band.WriteArray(np.array(data))
+        metadata = {
+            'uplift_rate': float(self.in_ds.uplift__rate),
+            'k_coef': float(self.in_ds.spl__k_coef),
+            'area_exp': float(self.in_ds.spl__area_exp),
+            'slope_exp': float(self.in_ds.spl__slope_exp),
+            'slope_limit': float(self.in_ds.slope__limit),
+        }
+        metadata.update(kwargs)
+        for k, v in metadata.items():
+            metadata[k] = str(v)
+        raster.SetMetadata(metadata)
         band.ComputeStatistics(True)
         band.FlushCache()
 
     def export(self, dem=None, drainage_area=None, slope=None, step=-1):
+        time = self.outsteps[step]
         if dem is not None:
-            self._make_raster(dem, self.out_ds.topography__elevation[step])
+            self._make_raster(dem, self.out_ds.topography__elevation[step], type='dem', time=time)
         if drainage_area is not None:
-            self._make_raster(drainage_area, self.out_ds.drainage__area[step])
+            self._make_raster(drainage_area, self.out_ds.drainage__area[step], type='drainage', time=time)
         if slope is not None:
-            self._make_raster(slope, self.out_ds.terrain__slope[step])
+            self._make_raster(slope, self.out_ds.terrain__slope[step], type='slope', time=time)
 
     def plot_slope(self, step=-1):
         from slope import slope_down_d8
