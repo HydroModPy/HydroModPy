@@ -104,6 +104,13 @@ class generate_distances:
         self.drn_sim_mask = self.sim_fold + 'mask_outflow.tif'
         self.wt_sim = self.sim_fold + 'watertable.tif'
         self.wt_sim_mask = self.sim_fold + 'mask_watertable.tif'
+
+        if self.type_obs == 'streams':
+            self.obs_flow = self.sim_fold + 'obsflow.tif'
+            wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
+        if self.type_obs == 'persistent':
+            self.obs_flow = self.sim_fold + 'obsflow.tif'
+            wbt.trace_downslope_flowpaths(self.pt_persistent, self.watershed_direc, self.obs_flow)
         
         self.clip_sim()
         self.sim_to_obs()
@@ -118,10 +125,10 @@ class generate_distances:
     def sim_to_obs(self):
         if self.type_obs == 'streams':
             self.dist_sim_obs = self.sim_fold + 'dist_sim_obs.tif'
-            wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_sim_obs)
+            wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_sim_obs)  #tif_obs
         if self.type_obs == 'persistent':
             self.dist_sim_obs = self.sim_fold + 'dist_sim_obs.tif'
-            wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_persistent, self.dist_sim_obs)    
+            wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_sim_obs) #tif_persistent   
         self.sim_shp = self.sim_fold + 'sim.shp'
         wbt.raster_to_vector_points(self.seep_sim_mask, self.sim_shp)
         self.sim_flow = self.sim_fold + 'simflow.tif'
@@ -134,13 +141,7 @@ class generate_distances:
                 
     def obs_to_sim(self):
         self.dist_obs_sim = self.sim_fold + 'dist_obs_sim.tif'
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_obs_sim)        
-        if self.type_obs == 'streams':
-            self.obs_flow = self.sim_fold + 'obsflow.tif'
-            wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
-        if self.type_obs == 'persistent':
-            self.obs_flow = self.sim_fold + 'obsflow.tif'
-            wbt.trace_downslope_flowpaths(self.pt_persistent, self.watershed_direc, self.obs_flow)        
+        wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_obs_sim)                
         self.pt_obs_flow = self.sim_fold + 'obsflow.shp'
         wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
         wbt.add_point_coordinates_to_table(self.pt_obs_flow)
@@ -242,8 +243,14 @@ class store_dataframe_het:
             self.mean_dist_code.loc[compt,'obs_to_sim'] = np.nanmean(obs_dist[self.geology.geology_array_clip==self.geology.geology_code[i]])
             self.mean_dist_code.loc[compt,'sim_to_obs'] = np.nanmean(sim_dist[self.geology.geology_array_clip==self.geology.geology_code[i]])
             compt += 1
+        '''
+        self.mean_dist_code.loc[compt+1,'code'] = 'all'
+        self.mean_dist_code.loc[compt+1,'obs_to_sim'] = np.nanmean(obs_dist)
+        self.mean_dist_code.loc[compt+1,'sim_to_obs'] = np.nanmean(sim_dist)
+        '''
         self.mean_dist_code.loc[:,'ratio_dist']=self.mean_dist_code.loc[:,'sim_to_obs']/self.mean_dist_code.loc[:,'obs_to_sim'] 
-        st()
+        self.mean_dist_code = self.mean_dist_code.replace(np.nan, -9999)
+        
         '''self.obs_to_sim = gpd.read_file(self.pt_obs_flow)
                                 self.obs_to_sim = self.obs_to_sim.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
                                 self.obs_to_sim = self.obs_to_sim[self.obs_to_sim['distance'] >= 0]
