@@ -5,7 +5,8 @@ import os
 import geopandas as gpd
 from osgeo import gdal, osr
 from shutil import copyfile
-
+import numpy as np
+from IPython.core.debugger import set_trace as st
 ### Method 1
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -63,7 +64,8 @@ class extract_watershed:
 		self.dem = gdal.Open(self.dem_path)
 		proj = osr.SpatialReference(wkt=self.dem.GetProjection())
 		self.geodata = self.dem.GetGeoTransform()
-		st()
+		dist = np.linspace(0,self.buff_dist,self.buff_dist+1)*np.abs(self.geodata[1])
+		self.buff_dist = dist[np.abs(dist-self.buff_dist).argmin()]
 		self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
 		wbt.fill_depressions(self.dem_path, self.fill)
 		wbt.d8_pointer(self.fill, self.direc, esri_pntr=False)
