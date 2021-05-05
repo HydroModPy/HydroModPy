@@ -2,6 +2,7 @@
 
 import os
 import sys
+sys.path.insert(0, 'D:/GITHUB/HydroModPy/CORE_COMM/src/')
 import numpy as np
 import rasterio as rio
 import rasterio.plot
@@ -24,6 +25,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pl
 from matplotlib.font_manager import FontProperties
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 #%% Plot
 
@@ -89,8 +91,8 @@ path_data = 'D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/congr
 d = pd.date_range(start='01/01/'+str(1950), 
                   end='31/12/'+str(2099), freq='MS')
 
-first = 1990
-last = 1991
+first = 1995
+last = 2000
 
 df_concat = pd.read_csv(path_data + 'concat_df.csv', sep='\t', index_col=0, parse_dates=True)
 mask = (df_concat.index.year >= first) & (df_concat.index.year <= last)
@@ -161,6 +163,7 @@ for idx, serie in outlets.iterrows():
         df_stat.loc[item, 'kr'] = float(kr)
         df_stat.loc[item, 'k'] = float(k)
         df_stat.loc[item, 'n'] = float(n)
+        df_stat.loc[item, 'e'] = float(e)
         df_stat.loc[item, 'rmse'] = RMSE
         df_stat.loc[item, 'nse'] = NSE
         df_stat.loc[item, 'nselog'] = NSElog
@@ -170,7 +173,6 @@ for idx, serie in outlets.iterrows():
         df_stat.loc[item, 'seep'] = SEEP
         df_stat.loc[item, 'wt'] = WT
         
-
         # Parameters
         years = mdates.YearLocator(5)   # every year
         yearsmin = mdates.YearLocator(1)
@@ -273,105 +275,129 @@ for idx, serie in outlets.iterrows():
 
     df_stat = pd.read_csv(path + site + '/' + 'df_stat' + '.csv', sep="\t")
 
-        # xy.loc[item, 'k'] = float(k)/30/24/3600
-        # xy.loc[item, 'n'] = float(n)*100
-        # xy.loc[item, 'nse'] = float(NSE)/100
-        # xy.loc[item, 'nselog'] = float(NSElog)/100
-        # xy.loc[item, 'kge'] = float(KGE)/100
-        # xy.loc[item, 'seep'] = float(SEEP)/100
+    xy = df_stat.dropna()
 
-####
-    fig, ax = plt.subplots(1,1,figsize=(4, 3))
+    fig, axs = plt.subplots(2,2,figsize=(10, 8))
     fig.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    plt.xlabel("K [m/s]", labelpad=+15)
-    plt.ylabel("n * e [m]", labelpad=+25)
-    xy = xy.dropna()
-    look = 'nselog'
-    klist = xy.k
-    porlist = (xy.n/100) * 30
-    norm = mpl.colors.Normalize(vmin=0, vmax=1)
-    scat = ax.scatter(klist, porlist, marker='s', s=300, c=xy[look], cmap='jet', norm=norm)
-    ax.set_xscale('log')
-    # ax.set_yscale('log')
-    position = fig.add_axes([0.92,0.2,0.03,0.6])
-    cb = plt.colorbar(scat,cax=position)
-    x1 = [-1,-0.5,0,0.5,1]
-    cb.set_ticks(x1)
-    cb.ax.tick_params(labelsize=15)
-    cb.set_label('NSE log', rotation=270, labelpad=20)
-    cb.update_ticks()
-    totxt = (xy[look]*100).values.round(0).astype(int).tolist()
-    xy['txt'] = totxt
-    for i in xy.index:
-        ax.annotate(xy.txt[i],(klist[i], porlist[i]), family='sans-serif', fontsize=9, color='black', 
-                    weight="bold", ha='center', va='center', clip_on=True, zorder=3)
-    ax.set_title(site.upper())
-    ax.grid(True)
-    pathfig = path + site + '/fig/' +  site + '_nselog'
-    fig.savefig(pathfig + '.png', dpi=300, bbox_inches='tight')
-
-####    
-    fig, ax = plt.subplots(1,1,figsize=(4, 3))
-    fig.add_subplot(111, frameon=False)
-    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    plt.xlabel("K [m/s]", labelpad=+15)
-    plt.ylabel("n * e [m]", labelpad=+25)
-    xy = xy.dropna()
+    axs = axs.ravel()
+    
+    ax = axs[0]
+    ax.set_xlabel("K [m/s]", labelpad=+15)
+    ax.set_ylabel("n * e [m]", labelpad=+25)
     look = 'nse'
-    klist = xy.k
-    porlist = (xy.n/100) * 30
-    norm = mpl.colors.Normalize(vmin=0, vmax=1)
+    klist = xy.k / 30 / 24 / 3600
+    porlist = (xy.n) * xy.e
+    norm = mpl.colors.Normalize(vmin=0, vmax=100)
     scat = ax.scatter(klist, porlist, marker='s', s=300, c=xy[look], cmap='jet', norm=norm)
     ax.set_xscale('log')
     # ax.set_yscale('log')
-    position = fig.add_axes([0.92,0.2,0.03,0.6])
+    # position = fig.add_axes([0.92,0.2,0.03,0.6])
+    divider = make_axes_locatable(ax)
+    position = divider.append_axes('right', size='2.5%', pad=0.05)
     cb = plt.colorbar(scat,cax=position)
-    x1 = [-1,-0.5,0,0.5,1]
+    x1 = [0,50,100]
     cb.set_ticks(x1)
     cb.ax.tick_params(labelsize=15)
-    cb.set_label('NSE', rotation=270, labelpad=20)
+    cb.set_label('NSE [%]', rotation=270, labelpad=20)
     cb.update_ticks()
-    totxt = (xy[look]*100).values.round(0).astype(int).tolist()
+    totxt = (xy[look]).values.round(0).astype(int).tolist()
     xy['txt'] = totxt
     for i in xy.index:
         ax.annotate(xy.txt[i],(klist[i], porlist[i]), family='sans-serif', fontsize=9, color='black', 
                     weight="bold", ha='center', va='center', clip_on=True, zorder=3)
     ax.set_title(site.upper())
     ax.grid(True)
-    pathfig = path + site + '/fig/' +  site + '_nse'
-    fig.savefig(pathfig + '.png', dpi=300, bbox_inches='tight')
+    
+    ax = axs[1]
+    ax.set_xlabel("K [m/s]", labelpad=+15)
+    ax.set_ylabel("n * e [m]", labelpad=+25)
+    xy = df_stat.dropna()
+    look = 'nselog'
+    klist = xy.k / 30 / 24 / 3600
+    porlist = (xy.n) * xy.e
+    norm = mpl.colors.Normalize(vmin=0, vmax=100)
+    scat = ax.scatter(klist, porlist, marker='s', s=300, c=xy[look], cmap='jet', norm=norm)
+    ax.set_xscale('log')
+    # ax.set_yscale('log')
+    # position = fig.add_axes([0.92,0.2,0.03,0.6])
+    divider = make_axes_locatable(ax)
+    position = divider.append_axes('right', size='2.5%', pad=0.05)
+    cb = plt.colorbar(scat,cax=position)
+    x1 = [0,50,100]
+    cb.set_ticks(x1)
+    cb.ax.tick_params(labelsize=15)
+    cb.set_label('NSE log [%]', rotation=270, labelpad=20)
+    cb.update_ticks()
+    totxt = (xy[look]).values.round(0).astype(int).tolist()
+    xy['txt'] = totxt
+    for i in xy.index:
+        ax.annotate(xy.txt[i],(klist[i], porlist[i]), family='sans-serif', fontsize=9, color='black', 
+                    weight="bold", ha='center', va='center', clip_on=True, zorder=3)
+    ax.set_title(site.upper())
+    ax.grid(True)
 
-####
-    fig, ax = plt.subplots(1,1,figsize=(4, 3))
-    fig.add_subplot(111, frameon=False)
-    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    plt.xlabel("K [m/s]", labelpad=+15)
-    plt.ylabel("n * e [m]", labelpad=+25)
-    xy = xy.dropna()
+    ax = axs[2]
+    ax.set_xlabel("K [m/s]", labelpad=+15)
+    ax.set_ylabel("n * e [m]", labelpad=+25)
+    xy = df_stat.dropna()
     look = 'seep'
-    klist = xy.k
-    porlist = (xy.n/100) * 30
-    norm = mpl.colors.Normalize(vmin=0, vmax=1)
+    klist = xy.k / 30 / 24 / 3600
+    porlist = (xy.n) * xy.e
+    norm = mpl.colors.Normalize(vmin=0, vmax=100)
     scat = ax.scatter(klist, porlist, marker='s', s=300, c=xy[look], cmap='jet', norm=norm)
     ax.set_xscale('log')
     # ax.set_yscale('log')
-    position = fig.add_axes([0.92,0.2,0.03,0.6])
+    # position = fig.add_axes([0.92,0.2,0.03,0.6])
+    divider = make_axes_locatable(ax)
+    position = divider.append_axes('right', size='2.5%', pad=0.05)
     cb = plt.colorbar(scat,cax=position)
-    x1 = [-1,-0.5,0,0.5,1]
+    x1 = [0,50,100]
     cb.set_ticks(x1)
     cb.ax.tick_params(labelsize=15)
-    cb.set_label('SEEPAGE', rotation=270, labelpad=20)
+    cb.set_label('SEEPAGE [%]', rotation=270, labelpad=20)
     cb.update_ticks()
-    totxt = (xy[look]*100).values.round(0).astype(int).tolist()
+    totxt = (xy[look]).values.round(0).astype(int).tolist()
     xy['txt'] = totxt
     for i in xy.index:
         ax.annotate(xy.txt[i],(klist[i], porlist[i]), family='sans-serif', fontsize=9, color='black', 
                     weight="bold", ha='center', va='center', clip_on=True, zorder=3)
     ax.set_title(site.upper())
     ax.grid(True)
-    pathfig = path + site + '/fig/' +  site + '_seep'
-    fig.savefig(pathfig + '.png', dpi=300, bbox_inches='tight')
+    
+    ax = axs[3]
+    ax.set_xlabel("K [m/s]", labelpad=+15)
+    ax.set_ylabel("n * e [m]", labelpad=+25)
+    look = 'wt'
+    klist = xy.k / 30 / 24 / 3600
+    porlist = (xy.n) * xy.e
+    # norm = mpl.colors.Normalize(vmin=0, vmax=1)
+    scat = ax.scatter(klist, porlist, marker='s', s=300, c=xy[look], cmap='jet')
+    ax.set_xscale('log')
+    # ax.set_yscale('log')
+    # position = fig.add_axes([0.92,0.2,0.03,0.6])
+    divider = make_axes_locatable(ax)
+    position = divider.append_axes('right', size='2.5%', pad=0.05)
+    cb = plt.colorbar(scat,cax=position)
+    x1 = [round(xy.wt.min(),1), round(xy.wt.max(),1)]
+    # cb.set_ticks(x1)
+    cb.ax.tick_params(labelsize=15)
+    cb.set_label('WATERTABLE [m]', rotation=270, labelpad=20)
+    totxt = (xy[look]).values.round(0).astype(int).tolist()
+    xy['txt'] = totxt
+    for i in xy.index:
+        ax.annotate(xy.txt[i],(klist[i], porlist[i]), family='sans-serif', fontsize=9, color='black', 
+                    weight="bold", ha='center', va='center', clip_on=True, zorder=3)
+    ax.set_title(site.upper())
+    ax.grid(True)    
+    
+    plt.tight_layout()
+    
+    # Out figure
+    outfig = path + site + '/fig/' + 'indic/'
+    if not os.path.exists(outfig):
+        os.makedirs(outfig)
+    fig.savefig(outfig + site + '_stat' + '.png', dpi=300, bbox_inches='tight')
 
 #%%  Piezometry chronic
 
@@ -505,7 +531,3 @@ for idx, serie in outlets.iterrows():
 
 #%% Notes
 
-    # Out figure
-outname = path + site + '/fig/' + 'indic/'
-if not os.path.exists(outname):
-    os.makedirs(outname)
