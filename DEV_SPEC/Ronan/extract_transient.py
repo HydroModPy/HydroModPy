@@ -2,6 +2,7 @@
 
 import os
 import sys
+sys.path.insert(0, 'D:/GITHUB/HydroModPy/CORE_COMM/src/')
 import numpy as np
 import rasterio as rio
 import rasterio.plot
@@ -237,7 +238,7 @@ for idx, serie in outlets.iterrows():
     site = outlet.iloc[:,1].values[0]
     
     # Remove figures
-    allr = glob(path + site + '/fig/' + 'streams/')
+    allr = glob(path + site + '/fig/' + 'seep/')
     for f in allr:
         shutil.rmtree(f)
     
@@ -311,7 +312,7 @@ for idx, serie in outlets.iterrows():
             df_chronic.loc[iplot,'q'] = np.nanmean(dicoq[iplot])
             
             # Out figure
-            outname = path + site + '/fig/' + 'sepp/'
+            outname = path + site + '/fig/' + 'seep/'
             if not os.path.exists(outname):
                 os.makedirs(outname)
             

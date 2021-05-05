@@ -67,12 +67,13 @@ def settings(k, n, e, r, outlet):
                           coastal_aquifer=False,
                           time_step='monthly',
                           model_name=sim_id, 
-                          model_folder=path)
+                          model_folder=path,
+                          exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe'))
     
 #%% Run
 
-first = 1990
-last = 1991
+first = 1995
+last = 2000
 
 scenarios_list = ['historic','RCP8.5']
 variables_list = ['TAS','PPT','ETP','RUN','REC']
@@ -83,9 +84,9 @@ recharge = recharge.resample('M').sum()
 recharge = recharge[(recharge.index.year >= first) & (recharge.index.year <= last)]
 
 
-hyd_cond_list = np.geomspace(1e-6,1e-6,1) # m/s
+hyd_cond_list = np.geomspace(1e-4,1e-8,5) # m/s
 porosity_list = np.linspace(1,1,1) # %
-thick_list = np.linspace(50,50,1) # m
+thick_list = np.linspace(20,100,5) # m
 
 for idx, serie in outlets.iterrows():
     outlet = outlets.loc[[idx]]
@@ -116,9 +117,9 @@ for idx, serie in outlets.iterrows():
     for f in allr:
         shutil.rmtree(f)
         
-    # allm = glob("D:/LOCAL/MODEL/" + site + '/' + 'transient*')
-    # for f in allm:
-    #     shutil.rmtree(f)
+    allm = glob("D:/LOCAL/MODEL/" + site + '/' + 'transient*')
+    for f in allm:
+        shutil.rmtree(f)
 
     for var1 in range (0, len(hyd_cond_list)): # permit to fix k
         for var2 in range (0, len(porosity_list)): # permit to fix porosity
