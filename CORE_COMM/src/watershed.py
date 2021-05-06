@@ -36,7 +36,7 @@ class extract_watershed:
 		self.acc = self.tmp_path + 'acc.tif'
 
 		if self.save_gis == True :
-			self.gis_path = self.out_path + self.outlet[0].values[0] + '/gis/'
+			self.gis_path = self.out_path + self.outlet[1].values[0] + '/gis/'
 		else:
 			self.gis_path = self.tmp_path
 
@@ -71,7 +71,8 @@ class extract_watershed:
 		wbt.d8_pointer(self.fill, self.direc, esri_pntr=False)
 		wbt.d8_flow_accumulation(self.fill, self.acc, log=True)
 		df = self.outlet
-		df.columns = ['id','x','y','snap']
+# 		df.columns = ['id','x','y','snap']
+		df.columns = ['local','site','x','y','snap','tif','rech','litho']
 		gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
 		gdf.to_file(self.outlet_shp)
 		wbt.snap_pour_points(self.outlet_shp, self.acc, self.outlet_snap_shp, self.snap_dist)
@@ -87,6 +88,7 @@ class extract_watershed:
 			wbt.clip_raster_to_polygon(self.fill,self.buffer,self.watershed_buff_fill)
 			wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
 
+
 		if self.bounding_box == True:
 			wbt.minimum_bounding_envelope(self.watershed_shp,self.watershed_box_shp, features=False)
 			site_polyg = gpd.read_file(self.watershed_box_shp)
@@ -100,7 +102,9 @@ class extract_watershed:
 			wbt.clip_raster_to_polygon(self.fill,self.buffer,self.watershed_buff_fill)
 			wbt.clip_raster_to_polygon(self.direc,self.buffer,self.watershed_buff_direc)
 
-		wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed_dem)
+# 		wbt.clip_raster_to_polygon(self.dem_path,self.watershed_shp,self.watershed_dem)
+		wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem,
+                                   maintain_dimensions=True)
 		wbt.clip_raster_to_polygon(self.fill,self.watershed_shp,self.watershed_fill)
 		wbt.clip_raster_to_polygon(self.direc,self.watershed_shp,self.watershed_direc)
 
