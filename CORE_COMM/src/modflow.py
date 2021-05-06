@@ -6,6 +6,7 @@ import flopy
 import numpy as np
 import topography
 import sea
+from IPython.core.debugger import set_trace as st
 '''os.path.dirname(os.getcwd())'''
 sys.path.append(os.getcwd())
 
@@ -24,7 +25,7 @@ class modflow_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False,
+	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0,
 				 model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
 		self.watershed = watershed
@@ -34,6 +35,7 @@ class modflow_model:
 		self.dem_path = dem_path
 		self.climatic = climatic
 		self.coastal_aquifer = coastal_aquifer
+		self.SLR = SLR
 		self.thick = thick
 		self.bottom = bottom
 		self.nlay = lay_number
@@ -49,6 +51,12 @@ class modflow_model:
 										exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
 										model_ws=self.full_path)
 		self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,iprnwt=0,ibotav=0, options='COMPLEX')
+		
+		try:
+			if len(self.hyd_cond)!=1:
+				self.dem.data[self.hyd_cond<0]=-9999
+		except:
+			pass
 		
 		if len(self.climatic)==1:
 			self.nper = 1
@@ -82,15 +90,14 @@ class modflow_model:
 		#proj4_str=self.dem.crs)
     
 		self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
-		for i in range (self.nlay):
-			self.iboundData[i][self.dem.data < -1000] = 0
-        
 		self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem.data
-		
-		if self.coastal_aquifer==True:
-			self.sea = sea.mean_sea_level(self.dem.centroid)     
-			self.iboundData[i][self.dem.data <= self.sea.mean_sea_level] = -1
-			self.strtData[self.iboundData == -1] = self.sea.mean_sea_level
+
+		for i in range (self.nlay):
+			if self.coastal_aquifer==True:
+				self.sea = sea.mean_sea_level(self.dem.centroid)     
+				self.iboundData[i][self.dem.data <= (self.sea.mean_sea_level+self.SLR)] = -1
+				self.strtData[self.iboundData == -1] = self.sea.mean_sea_level + self.SLR
+			self.iboundData[i][self.dem.data < -1000] = 0
 
 		self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
 
@@ -121,7 +128,7 @@ class modflow_model:
 				self.drnData[compt, 1] = i #row
 				self.drnData[compt, 2] = j #col
 				self.drnData[compt, 3]= self.dem.data[i, j]#elev
-				self.drnData[compt, 4] =self.hk[0, i, j]*self.dem.geodata[1] * abs(self.dem.geodata[5])  #cond() 
+				self.drnData[compt, 4] =self.hk[0, i, j]*self.dem.geodata[1] #* abs(self.dem.geodata[5])  #cond() 
 				compt += 1
 		lrcec= {0:self.drnData}
 		self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)

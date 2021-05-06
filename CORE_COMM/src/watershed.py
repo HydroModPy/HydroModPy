@@ -18,8 +18,8 @@ wbt.set_verbose_mode(False)
 class extract_watershed:
 	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000,
                  save_gis=True, box = False,
-                 tmp_path=os.path.dirname(os.getcwd())+'\\tmp\\',
-                 out_path=os.path.dirname(os.getcwd())+'\\output\\'):
+                 tmp_path=os.path.dirname(os.path.dirname(__file__))+'\\tmp\\',
+                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
     
 		self.ws = os.getcwd()
 		self.dem_path = dem_path 

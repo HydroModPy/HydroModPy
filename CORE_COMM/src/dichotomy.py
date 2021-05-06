@@ -204,6 +204,7 @@ class run_het_calibration:
         self.climatic = np.asarray(climatic).mean()
         self.krval = (self.first + self.last) / 2
         self.hyd_cond = np.ones(np.shape(self.geology.geology_array))
+        self.K_R = np.ones(np.shape(self.geology.geology_array))
         self.geol_to_KR = pd.DataFrame()
         for i in range (0, len(self.geology.geology_code)):
             self.geol_to_KR.loc[i,'code'] = int(self.geology.geology_code[i])
@@ -214,6 +215,7 @@ class run_het_calibration:
             self.geol_to_KR.loc[i,'K/R difference'] = self.last - self.first
             self.geol_to_KR.loc[i,'K (m/j)'] = self.geol_to_KR.loc[i,'K/R half'] * self.climatic
             self.hyd_cond[self.geology.geology_array==self.geology.geology_code[i]] = self.geol_to_KR.loc[i,'K (m/j)']
+            self.K_R[self.geology.geology_array==self.geology.geology_code[i]] = self.geol_to_KR.loc[i,'K/R half']
         self.lay_number = lay_number
         self.thick = thick
         self.porosity = porosity
@@ -274,15 +276,20 @@ class run_het_calibration:
             self.geol_to_KR.loc[self.idx,'K (m/j)'] = self.geol_to_KR.loc[self.idx,'K/R half'] * self.climatic
             self.geol_to_KR.loc[self.idx,'K (m/s)'] = self.geol_to_KR.loc[self.idx,'K (m/j)'] / (24*60*60)
             self.hyd_cond[self.geology.geology_array==self.code] = self.geol_to_KR.loc[self.idx,'K (m/j)']
-            
+            self.K_R[self.geology.geology_array==self.code] = self.geol_to_KR.loc[self.idx,'K/R half']
             self.compt += 1
             self.idx += 1
             '''if self.geol_to_KR.loc[self.idx,'K/R difference'] < self.gap:
                                                   self.idx += 1'''
-            
-        st()
-        self.save_name = self.watershed+'\\'+self.watershed+'_calibration.csv'
-        self.df.to_csv(self.out_path+self.save_name, sep='\t', index=True)
+        for i in range (0, len(self.geology.geology_code)):
+          if self.condition.loc[i,'ratio_dist'] == -9999:
+            self.K_R[self.geology.geology_array==self.condition.loc[i,'code']] = -9999
+            self.hyd_cond[self.geology.geology_array==self.condition.loc[i,'code']] = -9999 
+        np.savetxt(self.gis_path+'hyd_cond.txt', self.hyd_cond)
+        np.savetxt(self.gis_path+'K_R.txt', self.K_R)
+
+        #self.save_name = self.watershed+'\\'+self.watershed+'_calibration.csv'
+        #self.df.to_csv(self.out_path+self.save_name, sep='\t', index=True)
 
     def het_calibration(self):
         mod.modflow_model(dem_path=self.dem_model,
