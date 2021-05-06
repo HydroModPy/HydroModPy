@@ -31,10 +31,12 @@ class extract_modflow:
         # Functions
         self.param()
         self.watertable()
+        self.watertable_depth()
         self.seepage()
         self.gwflux()
         self.outflow()
         self.spedisch()
+
 
     def param(self):
         self.mf = flopy.modflow.Modflow.load(self.model_file+'.nam', verbose=False, check=False, load_only=["bas6", "dis"])
@@ -43,7 +45,16 @@ class extract_modflow:
         self.rch = flopy.modflow.ModflowRch.load(self.model_file+'.rch', self.mf)
         self.upw = flopy.modflow.ModflowUpw.load(self.model_file+'.upw', self.mf)
         self.nlay = self.dis.nlay
-            
+    
+    def watertable_depth(self):
+        self.watertable_depth = self.dem.data - self.head_data[0]
+        self.watertable_depth[self.head_data[0] == -9999] = -9999
+        # Export
+        self.ras_meta['dtype'] = self.head_data[0].dtype
+        self.ras_meta['nodata'] = -9999
+        with rio.open(self.model_save + 'watertable_depth.tif', 'w', **self.ras_meta) as dst:
+            dst.write(self.watertable_depth, 1)
+
     def watertable(self):
         self.head_fpu = fpu.HeadFile(self.model_file+'.hds')
         self.head_all = self.head_fpu.get_alldata() # mflay=None
@@ -52,6 +63,7 @@ class extract_modflow:
         self.head_data[0][self.head_data[0]==-9999] = -9999
         self.times = self.head_fpu.get_times()
         self.kstpkper = self.head_fpu.get_kstpkper()
+
         # Export
         self.ras_meta['dtype'] = self.head_data[0].dtype
         self.ras_meta['nodata'] = -9999
