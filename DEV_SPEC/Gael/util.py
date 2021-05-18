@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 def load_model(watershed='name', model_name='modflow_model'):
     import flopy
-    return flopy.modflow.Modflow.load('{}.nam'.format(model_name), model_ws=get_base_path(watershed=watershed, model_name=model_name), exe_name=mfnwt_exe, version='mfnwt')
+    return flopy.modflow.Modflow.load('{}.nam'.format(model_name), model_ws=get_modflow_path(watershed=watershed, model_name=model_name), exe_name=mfnwt_exe, version='mfnwt')
 
 def get_base_path(watershed=None, model_name=None):
     elements = [mfpath]
@@ -23,8 +23,11 @@ def get_base_path(watershed=None, model_name=None):
         elements.append(watershed)
         if model_name is not None:
             elements.append(model_name)
-            elements.append('modraw')
+            #elements.append('modraw')
     return os.path.join(*elements)
+
+def get_modflow_path(**kwargs):
+    return os.path.join(get_base_path(**kwargs), 'modraw')
 
 def modflow_file(watershed='name', model_name='modflow_model', ext='nam'):
     ext = '.' + ext.lstrip('.')
@@ -46,7 +49,7 @@ def loop_models(watershed='name', model_name_struct='R{:d}'):
     while True:
         if exists(watershed=watershed, model_name=model_name):
             yield model_name
-            model_name = model_name_struct.format(i)
             i += 1
+            model_name = model_name_struct.format(i)
         else:
             return
