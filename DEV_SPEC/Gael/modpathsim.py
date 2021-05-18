@@ -49,6 +49,7 @@ class MpModel(_mp):
         path_raw = np.concatenate(path_data)
         model_shape = self.mf.dis.top.array.shape
         path_length = np.zeros(model_shape)
+        path_length_3d = np.zeros(model_shape)
         path_time = np.zeros(model_shape)
         path_samples = np.zeros(model_shape, dtype=int)
 
@@ -59,11 +60,16 @@ class MpModel(_mp):
             x, y = origin['i0'], origin['j0']
             path_samples[x,y] += 1
             dist = 0.
+            dist3d = 0.
             n0 = line[0]
             for n1 in line[1:]:
-                dist += ((n0['x']-n1['x'])**2 + (n0['y']-n1['y'])**2)**0.5
+                dist2 = (n0['x']-n1['x'])**2 + (n0['y']-n1['y'])**2
+                dist += dist2**0.5
+                dist3d += (dist2+(n0['z']-n1['z'])**2)**0.5
+                #dist += ((n0['x']-n1['x'])**2 + (n0['y']-n1['y'])**2)**0.5
                 n0 = n1
             path_length[x,y] += dist
+            path_length_3d[x,y] += dist3d
             path_time[x,y] += line['time'][-1]
 
             i1 = i0 + len(line)
@@ -72,12 +78,15 @@ class MpModel(_mp):
             n += 1
         valid = path_samples > 0
         path_length[valid] /= path_samples[valid]
+        path_length_3d[valid] /= path_samples[valid]
         path_time[valid] /= path_samples[valid]
 
         data = {
             'path': path_raw,
             'path_index': path_index,
             'path_length': path_length,
+            'path_length_3d': path_length_3d,
+            'path_speed': path_length_3d / path_time,
             'path_time': path_time,
             'path_samples': path_samples,
             'points': self.point_data,
@@ -91,6 +100,7 @@ class MpModel(_mp):
         data = self.extract_data()
         if pth.isfile(data_path):
             old_data = np.load(data_path)
-        else:
-            old_data = {}
-        np.savez_compressed(data_path, **data, **old_data)
+            for k in old_data.keys():
+                if k not in data:
+                    data[k] = old_data[k]
+        np.savez_compressed(data_path, **data)
