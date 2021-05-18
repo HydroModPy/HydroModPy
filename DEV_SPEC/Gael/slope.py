@@ -14,21 +14,22 @@ def slope_down_inter(a, spacing=1.0):
 
     return ((a-neigh_NS)**2 + (a-neigh_EW)**2)**0.5 / spacing
 
-def slope_down_d8(a, spacing=1.0):
+def slope_down_d8(a, spacing=1.0, nodata=-99999., minimum=-100.):
+    isvalid = (a != nodata) & (a >= minimum)
     sqr_half = 0.5**0.5
     steepest = np.zeros(a.shape)
 
-    hdiff = a[:-1,:]-a[1:,:] # Positive = slope towards South
+    hdiff = (a[:-1,:]-a[1:,:]) * (isvalid[:-1,:] & isvalid[1:,:]) # Positive = slope towards South
     steepest[:-1,:] = np.maximum(steepest[:-1,:], hdiff) # to South
     steepest[1:,:] = np.maximum(steepest[1:,:], -hdiff) # to North
-    hdiff = a[:,:-1]-a[:,1:] # Positive = slope towards East
+    hdiff = (a[:,:-1]-a[:,1:]) * (isvalid[:,:-1] & isvalid[:,1:]) # Positive = slope towards East
     steepest[:,:-1] = np.maximum(steepest[:,:-1], hdiff) # to East
     steepest[:,1:] = np.maximum(steepest[:,1:], -hdiff) # to West
 
-    hdiff = (a[:-1,:-1]-a[1:,1:])*sqr_half # Positive = slope towards SE
+    hdiff = (a[:-1,:-1]-a[1:,1:])*sqr_half * (isvalid[:-1,:-1] & isvalid[1:,1:]) # Positive = slope towards SE
     steepest[:-1,:-1] = np.maximum(steepest[:-1,:-1], hdiff) # to SE
     steepest[1:,1:] = np.maximum(steepest[1:,1:], -hdiff) # to NW
-    hdiff = (a[1:,:-1]-a[:-1,1:])*sqr_half # Positive = slope towards NE
+    hdiff = (a[1:,:-1]-a[:-1,1:])*sqr_half * (isvalid[1:,:-1] & isvalid[:-1,1:]) # Positive = slope towards NE
     steepest[1:,:-1] = np.maximum(steepest[1:,:-1], hdiff) # to NE
     steepest[:-1,1:] = np.maximum(steepest[:-1,1:], -hdiff) # to SW
 
