@@ -70,15 +70,16 @@ model = model.update_processes({
 })
 
 class Topo:
-    def __init__(self, **kwargs):
+    def __init__(self, verbose=True, **kwargs):
         #self.parameters = kwargs
-        self.setup(**kwargs)
-        self.generate()
+        self.setup(verbose=verbose, **kwargs)
+        self.generate(verbose=verbose)
 
-    def setup(self, uplift_rate=1e-3, k_coef=2e-6, area_exp=0.6, slope_exp=1.5, slope_limit=0.5, size=2.5e4, resolution=200, max_time=2e7, steps=500, out_steps=1): # Disabled: diffusivity=1e-1, uplift_target=500.
+    def setup(self, uplift_rate=1e-3, k_coef=2e-6, area_exp=0.6, slope_exp=1.5, slope_limit=0.5, size=2.5e4, resolution=200, max_time=2e7, steps=500, out_steps=1, verbose=True): # Disabled: diffusivity=1e-1, uplift_target=500.
         
-        char_length = ((uplift_rate/k_coef)**(1/area_exp) * slope_limit**(-slope_exp/area_exp))**0.5
-        print('Characteristic length expected: {:6.2f} ({:6.4f} pixels)'.format(char_length, char_length/125))
+        if verbose:
+            char_length = ((uplift_rate/k_coef)**(1/area_exp) * slope_limit**(-slope_exp/area_exp))**0.5
+            print('Characteristic length expected: {:6.2f} ({:6.4f} pixels)'.format(char_length, char_length/125))
 
         self.timesteps = np.linspace(0, max_time, steps+1)
         outsteps_exact = np.linspace(0, max_time, out_steps+1)[1:] # Drop first element
@@ -116,10 +117,14 @@ class Topo:
             }
         )
 
-        print(self.in_ds)
+        if verbose:
+            print(self.in_ds)
 
-    def generate(self):
-        with xs.monitoring.ProgressBar():
+    def generate(self, verbose=True):
+        if verbose:
+            with xs.monitoring.ProgressBar():
+                self.out_ds = self.in_ds.xsimlab.run(model=model)
+        else:
             self.out_ds = self.in_ds.xsimlab.run(model=model)
 
     def get_topo(self, step=-1):
@@ -156,12 +161,17 @@ class Topo:
 
     def export(self, dem=None, drainage_area=None, slope=None, step=-1):
         time = self.outsteps[step]
+        if len(self.timesteps) == 1:
+            dt = time
+        else:
+            i = max(np.searchsorted(self.timesteps, time), 1)
+            dt = self.timesteps[i] - self.timesteps[i-1]
         if dem is not None:
-            self._make_raster(dem, self.out_ds.topography__elevation[step], type='dem', time=time)
+            self._make_raster(dem, self.out_ds.topography__elevation[step], type='dem', time=time, dt=dt)
         if drainage_area is not None:
-            self._make_raster(drainage_area, self.out_ds.drainage__area[step], type='drainage', time=time)
+            self._make_raster(drainage_area, self.out_ds.drainage__area[step], type='drainage', time=time, dt=dt)
         if slope is not None:
-            self._make_raster(slope, self.out_ds.terrain__slope[step], type='slope', time=time)
+            self._make_raster(slope, self.out_ds.terrain__slope[step], type='slope', time=time, dt=dt)
 
     def plot_slope(self, step=-1):
         from slope import slope_down_d8
