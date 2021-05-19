@@ -25,7 +25,7 @@ class modflow_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0.,
+	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0., cond_decay=0.,
                  time_step='daily', model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
 		self.watershed = watershed
@@ -42,6 +42,7 @@ class modflow_model:
 		self.bottom = bottom
 		self.nlay = lay_number
 		self.hyd_cond = hyd_cond
+		self.cond_decay = cond_decay
 		self.porosity = porosity
 		self.dem = topography.dem(self.dem_path)
 		self.exe = exe
@@ -115,6 +116,10 @@ class modflow_model:
 		self.laytype = np.ones(self.nlay)
         
 		self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
+		if self.cond_decay != 0.:
+			depth = np.zeros(self.hk.shape)
+			depth[1:,:,:] = self.dem.data - self.zbot[:-1,:,:]
+			self.hk *= np.exp(-self.cond_decay*depth)
 		'''
         for i in range(0,len(self.number_structure)):
             for j in range(0,nlay):
