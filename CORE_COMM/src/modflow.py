@@ -25,7 +25,7 @@ class modflow_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0.,
+	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0.,
                  time_step='daily', model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
 		self.watershed = watershed
@@ -38,6 +38,7 @@ class modflow_model:
 		self.SLR = SLR
 		self.time_step = time_step
 		self.thick = thick
+		self.thick_exp = thick_exp
 		self.bottom = bottom
 		self.nlay = lay_number
 		self.hyd_cond = hyd_cond
@@ -80,12 +81,18 @@ class modflow_model:
 
 		self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
 		if self.bottom is None:
-			thick_lay = self.thick / self.nlay
-			for i in range (1,self.nlay+1):
-				self.zbot[i-1] = self.dem.data - (thick_lay*i)
+			bottom_layer = self.dem.data - self.thick
 		else:
-			for i in range (1,self.nlay+1):
-				self.zbot[i-1] = self.bottom*(i/self.nlay) + self.dem.data*(1-i/self.nlay)
+			bottom_layer = self.bottom
+
+		if self.thick_exp != 1.:
+			exp_scale = 1-self.thick_exp**self.nlay
+		for i in range(1, self.nlay+1):
+			if self.thick_exp == 1.:
+				p = i / self.nlay
+			else:
+				p = (1-self.thick_exp**i) / exp_scale
+			self.zbot[i-1] = bottom_layer * p + self.dem.data * (1-p)
 
 		self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, delr=self.dem.geodata[1], delc=abs(self.dem.geodata[5]), top=self.dem.data, botm=self.zbot, itmuni=4, lenuni=2,
 		nper=self.nper, perlen=self.perlen, nstp=self.nstp, steady=self.steady, xul=self.dem.xmin,yul=self.dem.ymax)
