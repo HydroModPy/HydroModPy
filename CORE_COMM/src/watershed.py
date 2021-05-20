@@ -14,6 +14,8 @@ wbt.set_verbose_mode(False)
 ### Method 2
 # from WBT.whitebox_tools import WhiteboxTools
 # wbt = WhiteboxTools()
+
+'''
 class BV:
 	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000,
                  save_gis=True, box = False,
@@ -29,6 +31,7 @@ class BV:
 
 
 	def create_object(self):
+'''
 		
 
 
