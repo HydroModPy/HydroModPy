@@ -12,7 +12,7 @@ wbt.set_verbose_mode(False)
 from IPython.core.debugger import set_trace as st
 
 class structure:
-	def __init__(self, dem_path, geo_path = os.path.dirname(os.path.abspath(__file__))+'/data/geology/GEO1M.shp',out_path = os.path.dirname(os.getcwd())):
+	def __init__(self, dem_path, geo_path = os.path.dirname(os.path.abspath(__file__)) +'/data/geology/GEO1M.shp',out_path = os.path.dirname(os.path.abspath(__file__))):
 		self.dem_path = dem_path
 		self.geo_path = geo_path
 		self.dem = topography.dem(self.dem_path)
