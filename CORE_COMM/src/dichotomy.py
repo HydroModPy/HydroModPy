@@ -283,10 +283,11 @@ class run_het_calibration:
                                                   self.idx += 1'''
         for i in range (0, len(self.geology.geology_code)):
           if self.condition.loc[i,'ratio_dist'] == -9999:
-            self.K_R[self.geology.geology_array==self.condition.loc[i,'code']] = -9999
+            self.K_E[self.geology.geology_array==self.condition.loc[i,'code']] = -9999
             self.hyd_cond[self.geology.geology_array==self.condition.loc[i,'code']] = -9999 
         np.savetxt(self.gis_path+'hyd_cond.txt', self.hyd_cond)
         np.savetxt(self.gis_path+'K_R.txt', self.K_R)
+        
 
         #self.save_name = self.watershed+'\\'+self.watershed+'_calibration.csv'
         #self.df.to_csv(self.out_path+self.save_name, sep='\t', index=True)
