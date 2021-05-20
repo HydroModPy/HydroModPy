@@ -24,7 +24,7 @@ class modpath_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, watershed='naming', model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe')):
+	def __init__(self, watershed='naming', model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), verbose=True):
 		self.watershed = watershed
 		self.model_name = model_name
 		self.model_folder = model_folder
@@ -32,9 +32,9 @@ class modpath_model:
 		if not os.path.isdir(self.full_path):
 			raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
 		self.exe = exe
-		self.build_modpath_model()
+		self.build_modpath_model(verbose=verbose)
 
-	def build_modpath_model(self):
+	def build_modpath_model(self, verbose=True):
 		prefix = os.path.join(self.full_path, self.model_name)
 		dis_file = '{}.dis'.format(prefix)
 		head_file = '{}.hds'.format(prefix)
@@ -139,4 +139,4 @@ class modpath_model:
 		#cwd = os.path.join(os.getcwd(), self.model_name)
 		#mpsf = '{}.mpsim'.format(prefix)
 		#xstr = '{} {}'.format(self.exe, mpsf)
-		succes, buff = self.mp.run_model()
+		succes, buff = self.mp.run_model(silent=not verbose)

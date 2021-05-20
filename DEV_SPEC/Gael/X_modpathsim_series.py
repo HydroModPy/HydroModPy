@@ -30,6 +30,6 @@ for watershed in sys.argv[1:]:
         model_name = "R{:d}".format(R)
         print(watershed, model_name)
         sys.stdout.flush()
-        model = MpModel(watershed=watershed, model_name=model_name, exe='mp6')
+        model = MpModel(watershed=watershed, model_name=model_name, exe='mp6', verbose=False)
 
         model.export_data()
