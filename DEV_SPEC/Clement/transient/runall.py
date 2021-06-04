@@ -39,7 +39,7 @@ import modflow as mod
 
 #%% Input
 
-path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/DEV_SPEC/Ronan/transient/"
+path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/DEV_SPEC/Clement/transient/"
 outlets = pd.read_csv(path+"outlets_test.txt", sep='\t', header=None, engine='python')
 store = "D:/Google Drive/1.TRAVAIL/2.PROJECT/recession_flopy/"
 
@@ -68,8 +68,9 @@ def settings(time, k, n, e, r, outlet):
         site = outlet[0].values[0]
         lay_number = 1
         thick = e
-        climatic = r / 1000 # m/m
-        hyd_cond = k * 3600 * 24 * 30 # m/m
+        climatic = r / 1000 # m/s
+        hyd_cond = k # m/s
+        
         if type(climatic) == float:
             krval = hyd_cond / climatic
             mean = climatic
@@ -100,7 +101,7 @@ def settings(time, k, n, e, r, outlet):
                           hyd_cond=hyd_cond, 
                           porosity=porosity,
                           coastal_aquifer=False,
-                          time_step='monthly',
+                          time_step='daily',
                           model_name=sim_id, 
                           model_folder=store,
                           exe=git+'bin/'+'mfnwt.exe')
@@ -125,21 +126,24 @@ for idx, serie in outlets.iterrows():
     station = site
 
     # Open recharge csv
-    df_concat = pd.read_csv(path + 'df_concat.csv', sep='\t', index_col=0, parse_dates=True)
-    df_concat = df_concat[(df_concat.index.year >= 1950) & (df_concat.index.year <= 2100)]
+    #df_concat = pd.read_csv(path + 'df_concat.csv', sep='\t', index_col=0, parse_dates=True)
+    #df_concat = pd.read_csv(path + 'daily_climate_rea.csv', sep='\t', index_col=0, parse_dates=True)
+    df_concat = pd.read_csv(path + 'daily_recharge_recession.csv', sep=',', index_col=0, parse_dates=True)
+    df_concat = df_concat[(df_concat.index.year >= 1950) & (df_concat.index.year <= 1951)]
     
     # Extract chronic
-    first = df_concat[station + '_mmm'].first_valid_index().year
-    last = df_concat[station + '_mmm'].last_valid_index().year
+    first = df_concat['REC_REA'].first_valid_index().year
+    last = df_concat['REC_REA'].last_valid_index().year
     
-    first = 1995
-    last = 2005
+    first = 1950
+    last = 1951
     mask = (df_concat.index.year >= first) & (df_concat.index.year <= last)
     df_concat = df_concat[mask]
     
     # Choice scenario
-    sce = 'rea'
-    recharge = df_concat['rec_mmm_'+sce]
+    #sce = 'rea'
+    #recharge = df_concat['rec_mmm_'+sce]
+    recharge = df_concat['REC_REA']
     recharge = recharge[recharge.index.notnull()]
     rech = recharge
     
@@ -319,31 +323,31 @@ for idx, serie in outlets.iterrows():
     station = site
     
     # Open recharge csv
-    df_concat = pd.read_csv(path + 'df_concat.csv', sep='\t', index_col=0, parse_dates=True)
+    df_concat = pd.read_csv(path + 'daily_recharge_recession.csv', sep=',', index_col=0, parse_dates=True)
     df_concat = df_concat[(df_concat.index.year >= 1950) & (df_concat.index.year <= 2100)]
     
     # Extract chronic
-    first = df_concat[station + '_mmm'].first_valid_index().year
-    last = df_concat[station + '_mmm'].last_valid_index().year
+    first = df_concat['REC_REA'].first_valid_index().year
+    last = df_concat['REC_REA'].last_valid_index().year
     
-    first = 1995
-    last = 2005
+    first = 1950
+    last = 1952
     mask = (df_concat.index.year >= first) & (df_concat.index.year <= last)
     df_concat = df_concat[mask]
         
     # Dem
-    dem_path = store + site + '/gis/' + 'watershed_dem.tif'
-    pix = 75
-    maskdata = imageio.imread(dem_path)
-    toplot = np.ma.masked_array(maskdata, mask=maskdata==-99999)
-    plt.imshow(toplot, cmap='terrain')
-    plt.savefig(foldout+'dem.png', dpi=300, bbox_inches='tight')
+    # dem_path = store + site + '/gis/' + 'watershed_dem.tif'
+    # pix = 75
+    # maskdata = imageio.imread(dem_path)
+    # toplot = np.ma.masked_array(maskdata, mask=maskdata==-99999)
+    # plt.imshow(toplot, cmap='terrain')
+    # plt.savefig(foldout+'dem.png', dpi=300, bbox_inches='tight')
     
-    # Import shp
-    contour = gpd.read_file(store + site + '/gis/' + 'watershed_contour.shp')
-    bounds = contour.geometry.total_bounds
-    xlim = ([bounds[0], bounds[2]])
-    ylim = ([bounds[1], bounds[3]])
+    # # Import shp
+    # contour = gpd.read_file(store + site + '/gis/' + 'watershed_contour.shp')
+    # bounds = contour.geometry.total_bounds
+    # xlim = ([bounds[0], bounds[2]])
+    # ylim = ([bounds[1], bounds[3]])
     
     # Cmap
     cmap1 = colors.ListedColormap(['grey'])
@@ -388,7 +392,7 @@ for idx, serie in outlets.iterrows():
             
             # Outflow total
             cell = masked.count()
-            Qmod = (np.nansum(masked) / (cell * 75**2)) * 1000 # mm/m
+            Qmod = (np.nansum(masked) / (cell * 75**2)) * 1000 # mm/s
             df_chronic.loc[iplot,'drn'] = Qmod
             
             # Seepage proportion
@@ -409,7 +413,7 @@ for idx, serie in outlets.iterrows():
                 ax.imshow(np.ma.masked_array(maskdata, mask=maskdata==-99999), cmap=cmap1)
                 masked = np.ma.masked_array(masked, mask=masked<=0)
                 im = ax.imshow((masked / 75**2)*1000, vmin=0, vmax=150)
-                kstr = "{:.1e}".format(float(k)/30/24/3600)
+                kstr = "{:.1e}".format(float(k))
                 nstr = float(n)*100
                 estr = e
                 sim = 'K='+str(kstr)+' ; '+'n='+str(round(nstr,3))+' ; '+'e='+str(estr)
@@ -417,10 +421,10 @@ for idx, serie in outlets.iterrows():
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes('right', size='2%', pad=0.05)
                 cb = fig.colorbar(im, cax=cax, orientation='vertical')
-                x1 = [0,25,50,75,100,125,150]
-                cb.set_ticks(x1)
+                # x1 = [0,25,50,75,100,125,150]
+                # cb.set_ticks(x1)
                 cb.ax.tick_params(labelsize=10)
-                cb.set_label('Flux [mm/m]', fontsize=10, rotation=270, labelpad=20)
+                cb.set_label('Flux [mm/s]', fontsize=10, rotation=270, labelpad=20)
                 cb.update_ticks()
                 fig.savefig(foldout+'outflow.png', dpi=300, bbox_inches='tight')
             
@@ -437,7 +441,7 @@ for idx, serie in outlets.iterrows():
                 os.makedirs(foldout+'seep/')  
             fig.savefig(foldout+'seep/'+'seep_'+str(date)+'.png', dpi=300, bbox_inches='tight')
             plt.close()  
-            
+                
         df_chronic.to_csv(foldout + 'df_' + typ + '.csv', sep="\t", index=True)
 
 filenames = glob(foldout + 'seep/' + '*.png')  
@@ -503,11 +507,11 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% Plot discharge chronic
 
-sce = 'rea'
+sce = 'REC_REA'
 typ = 'transient'
 
-first = 1995
-last = 2005
+first = 1950
+last = 1951
 
 for idx, serie in outlets.iterrows():
         
@@ -519,7 +523,7 @@ for idx, serie in outlets.iterrows():
     station = site
 
     # Open recharge csv
-    df_concat = pd.read_csv(path + 'df_concat.csv', sep='\t', index_col=0, parse_dates=True)
+    df_concat = pd.read_csv(path + 'daily_recharge_recession.csv', sep=',', index_col=0, parse_dates=True)
     df_concat = df_concat[(df_concat.index.year >= first) & (df_concat.index.year <= last)]
             
     xy = pd.DataFrame()
@@ -548,122 +552,122 @@ for idx, serie in outlets.iterrows():
         n = str(re.findall(r'\d+\.\d+', name.split('_')[7])[0])
         e = str(re.findall(r'\d+', name.split('_')[3])[0])
         
-        obs = df_concat[station+'_mmm']
-        mod = df_chronic['drn'] + df_concat['run'+'_mmm_'+sce].values
+       # obs = df_concat['REC_REA']
+        mod = df_chronic['drn']# + df_concat['run'+'_mmm_'+sce].values
 
         # idx_nan = np.argwhere(np.isnan(obs))
         # obs = np.delete(obs, idx_nan)
         # mod = np.delete(mod, idx_nan)
         
-        obs = np.array(obs)
+        # obs = np.array(obs)
         mod = np.array(mod)
         
-        if obs.shape == mod.shape:
+        # if obs.shape == mod.shape:
 
-            RMSE = evaluator(rmse, mod, obs)
-            NSE = evaluator(nse, mod, obs)*100
-            NSElog = evaluator(nse, mod, obs, transform='log')*100
-            BAL = (np.sum(mod)/np.sum(obs))*100
-            MARE = evaluator(mare, mod, obs)*100
-            KGEcomp = evaluator(kge, mod, obs)*100 # and its three components (r, α, β)
-            KGE = KGEcomp[0]
-            SEEP = df_chronic['seep'].values.mean()
-            WT = df_chronic['wt'].values.mean()
+        #     RMSE = evaluator(rmse, mod, obs)
+        #     NSE = evaluator(nse, mod, obs)*100
+        #     NSElog = evaluator(nse, mod, obs, transform='log')*100
+        #     BAL = (np.sum(mod)/np.sum(obs))*100
+        #     MARE = evaluator(mare, mod, obs)*100
+        #     KGEcomp = evaluator(kge, mod, obs)*100 # and its three components (r, α, β)
+        #     KGE = KGEcomp[0]
+        #     SEEP = df_chronic['seep'].values.mean()
+        #     WT = df_chronic['wt'].values.mean()
         
-        df_stat.loc[item, 'kr'] = float(kr)
-        df_stat.loc[item, 'k'] = float(k)
-        df_stat.loc[item, 'n'] = float(n)
-        df_stat.loc[item, 'e'] = float(e)
-        df_stat.loc[item, 'rmse'] = RMSE
-        df_stat.loc[item, 'nse'] = NSE
-        df_stat.loc[item, 'nselog'] = NSElog
-        df_stat.loc[item, 'bal'] = BAL
-        df_stat.loc[item, 'mare'] = MARE
-        df_stat.loc[item, 'kge'] = KGE
-        df_stat.loc[item, 'seep'] = SEEP
-        df_stat.loc[item, 'wt'] = WT
+        # df_stat.loc[item, 'kr'] = float(kr)
+        # df_stat.loc[item, 'k'] = float(k)
+        # df_stat.loc[item, 'n'] = float(n)
+        # df_stat.loc[item, 'e'] = float(e)
+        # df_stat.loc[item, 'rmse'] = RMSE
+        # df_stat.loc[item, 'nse'] = NSE
+        # df_stat.loc[item, 'nselog'] = NSElog
+        # df_stat.loc[item, 'bal'] = BAL
+        # df_stat.loc[item, 'mare'] = MARE
+        # df_stat.loc[item, 'kge'] = KGE
+        # df_stat.loc[item, 'seep'] = SEEP
+        # df_stat.loc[item, 'wt'] = WT
         
         # Parameters
-        years = mdates.YearLocator(5)   # every year
-        yearsmin = mdates.YearLocator(1)
-        months = mdates.MonthLocator(6)  # every month
-        years_fmt = mdates.DateFormatter('%Y')
-        months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+        # years = mdates.YearLocator(5)   # every year
+        # yearsmin = mdates.YearLocator(1)
+        # months = mdates.MonthLocator(6)  # every month
+        # years_fmt = mdates.DateFormatter('%Y')
+        # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
                 
         # Figure configuration
-        fig = plt.figure(figsize=(12, 6))
-        gs = GridSpec(nrows=2, ncols=2, width_ratios=[3, 1], height_ratios=[1, 2])
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax2 = fig.add_subplot(gs[0, 1])
-        ax3 = fig.add_subplot(gs[1, 0])
-        ax4 = fig.add_subplot(gs[1, 1])
+        fig = plt.figure(figsize=(7, 6))
+        # gs = GridSpec(nrows=1, ncols=1, width_ratios=[3, 1], height_ratios=[1, 2])
+        # ax1 = fig.add_subplot(gs[0, 0])
+        # ax2 = fig.add_subplot(gs[0, 1])
+        # ax3 = fig.add_subplot(gs[1, 0])
+        # ax4 = fig.add_subplot(gs[1, 1])
         
         # Discharge no log
         d = df_concat.index
         
-        ax1.plot(d, obs, c='k', label='observed', lw=2)
-        ax1.plot(d, mod, c='red', label='modeled', lw=2)
-        ax1.axes.get_xaxis().set_visible(False)
-        ax1.legend(fontsize=10, prop=fontdic)
+        #ax1.plot(d, obs, c='k', label='observed', lw=2)
+        plt.plot(d, mod, c='red', label='modeled', lw=2)
+        # plt.axes.get_xaxis().set_visible(False)
+        plt.legend(fontsize=10, prop=fontdic)
         
-        kstr = "{:.1e}".format(float(k)/30/24/3600)
+        kstr = "{:.1e}".format(float(k))
         nstr = round(float(n)*100,3)
         estr = e
         
-        ax1.set_title(site.upper() + '  - '  + 'K='+str(kstr)+'m/s'+' ; '+
-                                               'n='+str(nstr)+'%'+' ; '+ 
-                                               'e='+str(estr)+'m',
-                      pad=+15, size=15)
+        # plt.set_title(site.upper() + '  - '  + 'K='+str(kstr)+'m/s'+' ; '+
+        #                                        'n='+str(nstr)+'%'+' ; '+ 
+        #                                        'e='+str(estr)+'m',
+        #               pad=+15, size=15)
         
-        ax1.grid(True)
-        ax1.set_yticks(np.arange(0, np.nanmax(obs)+10, 100))
+        plt.grid(True)
+        #ax1.set_yticks(np.arange(0, np.nanmax(obs)+10, 100))
                         
         # Show stats
-        ax2.axes.xaxis.set_visible(False)
-        ax2.axes.yaxis.set_visible(False)
-        ax2.axis('off')
-        ax2.text(0, 0.5, 
-                  "NSE = " + '%.1f' % NSE + " %" + "\n" +
-                  "NSElog = " + '%.1f' % NSElog + " %" + "\n" +
-                  "KGE = " + '%.1f' % KGE + " %" + "\n" +
-                  "RMSE = " + '%.1f' % RMSE + " %" + "\n" +
-                  "MARE = " + '%.1f' % MARE + " %" + "\n" +
-                  "BAL = " + '%.1f' % BAL + " %" + "\n" +
-                  "SEEP = " + '%.1f' % SEEP + " %" + "\n" +
-                  "WT = " + '%.1f' % WT + " m",
-                  ha='left', va='center', fontsize=16, transform=ax2.transAxes)
+        # ax2.axes.xaxis.set_visible(False)
+        # ax2.axes.yaxis.set_visible(False)
+        # ax2.axis('off')
+        # ax2.text(0, 0.5, 
+        #           "NSE = " + '%.1f' % NSE + " %" + "\n" +
+        #           "NSElog = " + '%.1f' % NSElog + " %" + "\n" +
+        #           "KGE = " + '%.1f' % KGE + " %" + "\n" +
+        #           "RMSE = " + '%.1f' % RMSE + " %" + "\n" +
+        #           "MARE = " + '%.1f' % MARE + " %" + "\n" +
+        #           "BAL = " + '%.1f' % BAL + " %" + "\n" +
+        #           "SEEP = " + '%.1f' % SEEP + " %" + "\n" +
+        #           "WT = " + '%.1f' % WT + " m",
+        #           ha='left', va='center', fontsize=16, transform=ax2.transAxes)
         
         # Discharge log
-        ax3.plot(d, obs, c='k', label='observed', lw=2)
-        ax3.plot(d, mod, c='red', lw=2)
-        ax3.set_xlabel('Date', fontsize=20, fontproperties=fontprop)
-        ax3.set_ylabel('Discharge (mm/m)', labelpad=10, fontsize=20, fontproperties=fontprop)
-        ax3.tick_params(axis='x', color='k')
-        ax3.tick_params(axis='y', colors='k')
-        ax3.set_yscale('log')
-        ax3.xaxis.set_major_locator(years)
-        ax3.xaxis.set_minor_locator(yearsmin)
-        ax3.xaxis.set_minor_locator(months)
-        ax3.xaxis.set_major_formatter(years_fmt)
-        ax3.grid(True)
+        #ax3.plot(d, obs, c='k', label='observed', lw=2)
+        # ax3.plot(d, mod, c='red', lw=2)
+        # ax3.set_xlabel('Date', fontsize=20, fontproperties=fontprop)
+        # ax3.set_ylabel('Discharge (mm/m)', labelpad=10, fontsize=20, fontproperties=fontprop)
+        # ax3.tick_params(axis='x', color='k')
+        # ax3.tick_params(axis='y', colors='k')
+        # ax3.set_yscale('log')
+        # ax3.xaxis.set_major_locator(years)
+        # ax3.xaxis.set_minor_locator(yearsmin)
+        # ax3.xaxis.set_minor_locator(months)
+        # ax3.xaxis.set_major_formatter(years_fmt)
+        # ax3.grid(True)
         
-        # Observed vs simulated
-        ax4.plot(obs, mod, color='forestgreen', marker='.', linestyle='None', lw=2)
-        ax4.set_ylabel('Simulated (mm/m)', fontproperties=fontprop)
-        ax4.set_xlabel('Observed (mm/m)', fontproperties=fontprop)
-        ax4.set_aspect('equal', adjustable='box')
-        ax4.set_xscale('log')
-        ax4.set_yscale('log')
-        ax4.grid(True)
-        maxi = np.maximum(np.nanmax(obs),np.nanmax(mod))
-        mini = np.minimum(np.nanmin(obs),np.nanmin(mod))
-        if mini == 0.0:
-            mini = 0.01
-        if not np.isnan(maxi):
-            ax4.set_ylim([mini, maxi])
-            ax4.set_xlim([mini, maxi])
-        if not np.all(np.isnan(mod)):
-            ax4.plot((mini,maxi),(mini,maxi), color='k', ls='-')
+        # # Observed vs simulated
+        # #ax4.plot(obs, mod, color='forestgreen', marker='.', linestyle='None', lw=2)
+        # ax4.set_ylabel('Simulated (mm/s)', fontproperties=fontprop)
+        # #ax4.set_xlabel('Observed (mm/m)', fontproperties=fontprop)
+        # ax4.set_aspect('equal', adjustable='box')
+        # ax4.set_xscale('log')
+        # ax4.set_yscale('log')
+        # ax4.grid(True)
+        # maxi = np.nanmax(mod)
+        # mini = np.nanmin(mod)
+        # if mini == 0.0:
+        #     mini = 0.01
+        # if not np.isnan(maxi):
+        #     ax4.set_ylim([mini, maxi])
+        #     ax4.set_xlim([mini, maxi])
+        # if not np.all(np.isnan(mod)):
+        #     ax4.plot((mini,maxi),(mini,maxi), color='k', ls='-')
 
         plt.tight_layout()
 
