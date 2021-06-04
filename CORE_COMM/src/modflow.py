@@ -25,7 +25,7 @@ class modflow_model:
 		- homogeneous : float
 		- heterogeneous : numpy array (same size as the dem)
 	"""
-	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0., cond_decay=0.,
+	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0., cond_decay=0., autofix_layers=False, min_overlap=1.0,
                  time_step='daily', model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
 		self.watershed = watershed
@@ -41,6 +41,8 @@ class modflow_model:
 		self.thick_exp = thick_exp
 		self.bottom = bottom
 		self.nlay = lay_number
+		self.autofix_layers = autofix_layers
+		self.min_overlap = min_overlap
 		self.hyd_cond = hyd_cond
 		self.cond_decay = cond_decay
 		self.porosity = porosity
@@ -94,6 +96,9 @@ class modflow_model:
 			else:
 				p = (1-self.thick_exp**i) / exp_scale
 			self.zbot[i-1] = bottom_layer * p + self.dem.data * (1-p)
+
+		if self.autofix_layers:
+			self.fix_layers(min_overlap=self.min_overlap)
 
 		self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, delr=self.dem.geodata[1], delc=abs(self.dem.geodata[5]), top=self.dem.data, botm=self.zbot, itmuni=4, lenuni=2,
 		nper=self.nper, perlen=self.perlen, nstp=self.nstp, steady=self.steady, xul=self.dem.xmin,yul=self.dem.ymax)
@@ -160,3 +165,18 @@ class modflow_model:
 		self.mf.write_input()
         # run model
 		succes, buff = self.mf.run_model(silent=True)
+
+	def fix_layers(self, min_overlap=1.0):
+		top = self.dem.data
+		for bot in self.zbot:
+			max_bot = top.copy()
+			max_bot[:-1,:] = np.minimum(max_bot[:-1,:], top[1:,:])
+			max_bot[1:,:] = np.minimum(max_bot[1:,:], top[:-1,:])
+			max_bot[:,:-1] = np.minimum(max_bot[:,:-1], top[:,1:])
+			max_bot[:,1:] = np.minimum(max_bot[:,1:], top[:,:-1])
+			max_bot -= min_overlap
+			too_high = bot > max_bot
+			if np.any(too_high):
+				bot[too_high] = max_bot[too_high]
+
+			top = bot
