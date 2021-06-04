@@ -7,6 +7,9 @@ from osgeo import gdal, osr
 from shutil import copyfile
 import numpy as np
 from IPython.core.debugger import set_trace as st
+import geographic
+import climatic
+import 
 ### Method 1
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -16,7 +19,7 @@ wbt.set_verbose_mode(False)
 # wbt = WhiteboxTools()
 
 
-class BV:
+class watershed:
 	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000,
                  save_gis=True, box = False,
                  tmp_path=os.path.dirname(os.path.dirname(__file__))+'\\tmp\\',
@@ -48,6 +51,12 @@ class BV:
 
 
 	def create_object(self):
+		self.geographic = () #2D
+		self.hillslope() #1D
+		self.climatic()
+		self.piezometric()
+		self.hydrometric() 
+		self.save_variables()
 
 		
 
