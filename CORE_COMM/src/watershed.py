@@ -15,12 +15,14 @@ wbt.set_verbose_mode(False)
 # from WBT.whitebox_tools import WhiteboxTools
 # wbt = WhiteboxTools()
 
-'''
+
 class BV:
 	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000,
                  save_gis=True, box = False,
                  tmp_path=os.path.dirname(os.path.dirname(__file__))+'\\tmp\\',
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
+
+
 		try:
 			self.load_object()
 		except:
@@ -28,21 +30,37 @@ class BV:
 
 
 	def load_object(self):
+		#chronicle
+		self.
+		#vectors
+		self.crs = 
+		self.xmin = 
+		self.xmax =
+		self.ymin =
+		self.centroid =
+		self.nrow = 
+		self.ncol = 
+		self.resolution =
+		#matrix
+		self.elevation =
+		self.watershed_mask = 
+
 
 
 	def create_object(self):
-'''
+
 		
 
 
 class extract_watershed:
-	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000,
+	def __init__(self, dem_path, name, outlet, snap_dist=150, buff_dist=1000,
                  save_gis=True, box = False,
                  tmp_path=os.path.dirname(os.path.dirname(__file__))+'\\tmp\\',
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
     
 		self.ws = os.getcwd()
-		self.dem_path = dem_path 
+		self.dem_path = dem_path
+		self.name = name 
 		self.out_path = out_path
 		self.tmp_path = tmp_path
 		self.save_gis = save_gis
@@ -56,7 +74,7 @@ class extract_watershed:
 		self.acc = self.tmp_path + 'acc.tif'
 
 		if self.save_gis == True :
-			self.gis_path = self.out_path + self.outlet[0].values[0] + '/gis/'
+			self.gis_path = self.out_path + self.name + '/gis/'
 		else:
 			self.gis_path = self.tmp_path
 
@@ -91,7 +109,8 @@ class extract_watershed:
 		wbt.d8_pointer(self.fill, self.direc, esri_pntr=False)
 		wbt.d8_flow_accumulation(self.fill, self.acc, log=True)
 		df = self.outlet
-		df.columns = ['id','x','y','snap']
+		df.columns = ['x','y']
+		#df.columns = ['id','x','y','snap']
 #		df.columns = ['local','site','x','y','snap','tif','rech','litho']
 		gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
 		gdf.to_file(self.outlet_shp)
