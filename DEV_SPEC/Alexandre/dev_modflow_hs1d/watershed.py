@@ -10,6 +10,7 @@ import deepdish as dd
 from IPython.core.debugger import set_trace as st
 import geographic
 import geology
+import climatic
 import piezometry
 ### Method 1
 import whitebox
@@ -22,7 +23,8 @@ wbt.set_verbose_mode(False)
 
 class build:
 	def __init__(self, watershed_name, dem_path, x_outlet, y_outlet, snap_dist=150, buff_dist=1000,
-                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\', load=True):
+                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
+                 surfex_path = None, load=True):
 
 		self.name = watershed_name
 		self.dem_path = dem_path
@@ -31,6 +33,7 @@ class build:
 		self.snap_dist = snap_dist
 		self.buff_dist = buff_dist
 		self.out_path = out_path
+		self.surfex_path = surfex_path
 		self.watershed_folder = out_path + '/' + watershed_name + '/'
 
 
@@ -56,15 +59,17 @@ class build:
 		#self.geology =  geology()
 
 		#MODELING DATA
-		#self.climatic = climatic()
+		if self.surfex_path != None:
+			self.climatic = climatic.extract(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
 
 		#FIELD DATA
-		self.piezometry = piezometry.extract(out_path=self.watershed_folder,geographic=self.geographic)
+		#self.piezometry = piezometry.extract(out_path=self.watershed_folder,geographic=self.geographic)
 		#self.hydrometry = hydrometry()
 		#self.geochemistry = geochemistry()
-		#self.save_variables()
+		self.save_variables()
 
 	def save_variables(self):
+		st()
 		dict_object = {"geographic":self.geographic}
 		#if 'self.geographic' in locals():
 		dd.io.save(self.watershed_folder + 'object.h5', dict_object)
