@@ -10,6 +10,7 @@ import glob
 
 class extract:
 	def __init__(self, out_path, geographic):
+		print('Extraction des données piézomètriques')
 		data_folder = out_path + 'data/piezometric/'
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)	
@@ -84,9 +85,18 @@ class extract:
 			elevation.columns = [code]
 			self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
 
-			
-
-
+	def add_data(self, data_path):
+		files = glob.glob(data_path + 'piezometry_*.csv')
+		if len(files)>0:
+			for file in files:
+				self.codes_bss.append(file.split('_')[-3])
+				self.x_coord.append(int(file.split('_')[-2]))
+				self.y_coord.append(int(file.split('_')[-1].split('.')[0]))
+				df = pd.read_csv(file, delimiter = ';',header=0, engine='python')
+				df.columns = ['Date', file.split('_')[-3]]
+				df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
+				df = df.drop(['Date'], axis=1)
+				self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
 
 
 

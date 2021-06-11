@@ -18,7 +18,7 @@ wbt.set_verbose_mode(False)
 class extract:
 	def __init__(self, dem_path, x, y, snap_dist=150, buff_dist=1000,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
-
+		print('Extraction des données géographiques')
 		self.generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
 		self.load_files(dem_path)
 
