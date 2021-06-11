@@ -15,40 +15,6 @@ wbt.set_verbose_mode(False)
 # from WBT.whitebox_tools import WhiteboxTools
 # wbt = WhiteboxTools()
 
-
-class BV:
-	def __init__(self, dem_path, outlet, snap_dist=150, buff_dist=1000,
-                 save_gis=True, box = False,
-                 tmp_path=os.path.dirname(os.path.dirname(__file__))+'\\tmp\\',
-                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
-
-
-		try:
-			self.load_object()
-		except:
-			self.create_object()
-
-
-	def load_object(self):
-		#chronicle
-		self.
-		#vectors
-		self.crs = 
-		self.xmin = 
-		self.xmax =
-		self.ymin =
-		self.centroid =
-		self.nrow = 
-		self.ncol = 
-		self.resolution =
-		#matrix
-		self.elevation =
-		self.watershed_mask = 
-
-
-
-	def create_object(self):
-
 		
 
 

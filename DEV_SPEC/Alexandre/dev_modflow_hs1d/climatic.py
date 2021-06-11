@@ -9,7 +9,7 @@ class extract:
 		data_folder = out_path + 'data/climatic/'
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)
-
+		print('Extraction des données climatiques')
 		self.extract_cells_from_shapefile(surfex_path, watershed_shp)
 		self.extract_values_from_h5file(data_folder, surfex_path)
 
