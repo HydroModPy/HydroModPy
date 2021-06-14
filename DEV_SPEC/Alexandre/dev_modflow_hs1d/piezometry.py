@@ -7,6 +7,7 @@ from selenium import webdriver
 import pandas as pd
 import time
 import glob
+from IPython.core.debugger import set_trace as st
 
 class extract:
 	def __init__(self, out_path, geographic):
@@ -14,9 +15,9 @@ class extract:
 		data_folder = out_path + 'data/piezometric/'
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)	
-		self.download_init_data(data_folder)
+		#self.download_init_data(data_folder)
 		self.exctract_piezos_from_watershed(data_folder, geographic)
-		self.extract_data_from_code_bss(data_folder)
+		#self.extract_data_from_code_bss(data_folder)
 		self.load_piezometric_data(data_folder)
 
 	def download_init_data(self,data_folder):
@@ -28,7 +29,7 @@ class extract:
 			with zipfile.ZipFile(filename, 'r') as zip_ref:
 				zip_ref.extractall(data_folder + '/' + 'shapefile')
 			os.remove(filename)
-		return
+		return self
 
 	def exctract_piezos_from_watershed(self,data_folder, geographic):
 		watershed = gpd.read_file(geographic.watershed_box_shp)
@@ -71,7 +72,7 @@ class extract:
 		self.elevation = pd.DataFrame()
 		for code in self.codes_bss:
 			file = data_folder + code + '/ades_export/Quantite/chroniques.txt'
-			df = pd.read_csv(file, delimiter = '|',header=0, engine='python')
+			df = pd.read_csv(file, delimiter = '|',header=0, engine='python', encoding='latin1')
 			depth = df[['Date de la mesure','Profondeur relative/repère de mesure']]
 			depth.columns = ['Date', 'Mesure']
 			depth.index = pd.to_datetime(depth['Date'],format='%d/%m/%Y %H:%M:%S')
@@ -92,7 +93,7 @@ class extract:
 				self.codes_bss.append(file.split('_')[-3])
 				self.x_coord.append(int(file.split('_')[-2]))
 				self.y_coord.append(int(file.split('_')[-1].split('.')[0]))
-				df = pd.read_csv(file, delimiter = ';',header=0, engine='python')
+				df = pd.read_csv(file, delimiter = ';',header=0, engine='python', encoding='latin1')
 				df.columns = ['Date', file.split('_')[-3]]
 				df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
 				df = df.drop(['Date'], axis=1)
