@@ -17,9 +17,13 @@ dependencies:
     - gdal
     - flopy
 
+    #H5 files
+    - pytables
+    - deepdish	
+
     # Data reading/writing and conversion
     - pandas
-    - geopandas
+    - geopandas #rtree failled the import of geopandas: 'conda install pygeos --channel conda-forge' and 'pip uninstall rtree'
     - imageio
     - rasterio
     - pyshp # corresponds to 'shapefile' library in the code

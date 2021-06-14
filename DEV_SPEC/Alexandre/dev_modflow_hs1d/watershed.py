@@ -1,7 +1,6 @@
 # coding:utf-8
 
 import os
-
 import geopandas as gpd
 from osgeo import gdal, osr
 from shutil import copyfile
@@ -12,13 +11,6 @@ import geographic
 import geology
 import climatic
 import piezometry
-### Method 1
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
-### Method 2
-# from WBT.whitebox_tools import WhiteboxTools
-# wbt = WhiteboxTools()
 
 class build:
 	"""
@@ -94,3 +86,15 @@ class build:
 
 	def add_piezometry_data(self):
 		self.piezometry.add_data(self.add_data_folder)
+		return self
+
+	def run_modflow(self):
+		return self
+
+	def run_hs1D(self):
+		return self
+
+	def run_calibration(self):
+		return self
+
+	

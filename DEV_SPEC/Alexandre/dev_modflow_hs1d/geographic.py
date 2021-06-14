@@ -7,13 +7,12 @@ from osgeo import gdal, osr
 from shutil import copyfile
 import numpy as np
 from IPython.core.debugger import set_trace as st
-### Method 1
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
-### Method 2
-# from WBT.whitebox_tools import WhiteboxTools
-# wbt = WhiteboxTools()
+def my_callback(value):
+	my_callback = 0
+wbt.set_default_callback(my_callback)
 
 class extract:
 	def __init__(self, dem_path, x, y, snap_dist=150, buff_dist=1000,
@@ -54,6 +53,7 @@ class extract:
 		dist = np.linspace(0,buff_dist,buff_dist+1)*np.abs(geodata[1])
 		buff_dist = dist[np.abs(dist-buff_dist).argmin()]
 		crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+		#wbt.breach_depressions_least_cost(dem_path,fill,snap_dist)
 		wbt.fill_depressions(dem_path, fill)
 		wbt.d8_pointer(fill, direc, esri_pntr=False)
 		wbt.d8_flow_accumulation(fill, acc, log=True)

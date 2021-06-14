@@ -1,6 +1,7 @@
 # coding:utf-8
 import geopandas as gpd
 import pandas as pd
+from IPython.core.debugger import set_trace as st
 import os 
 
 
@@ -24,7 +25,7 @@ class extract:
 	def extract_values_from_h5file(self,data_folder, surfex_path):
 		variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
 		scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-		simulations = ['REA','ACC1','BCC1','BNU1','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+		simulations = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
 		self.values = {}
 		for sim in simulations:
 			try:
@@ -38,7 +39,8 @@ class extract:
 				for sce in scenarios:
 					try:
 						values = pd.read_hdf(surfex_path+'/'+sim+'.h5',var+'/'+sce)
-						values = values.iloc[:,self.cells_list]
+						st()
+						values = values.loc[:,self.cells_list]
 						values['MEAN'] = values.mean(numeric_only=True, axis=1)
 						values.to_hdf(h5file, var+'/'+sce)
 						self.values[sim][var][sce] = values
