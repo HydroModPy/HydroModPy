@@ -88,6 +88,28 @@ class PlotFunctions:
             plt.subplot(x, y, iplot)
             self(*args[i0:], **kwargs)
 
+    def super(self, *args, **kwargs):
+        i0 = 0
+        for i, arg in enumerate(args):
+            if arg == '+' and i > i0:
+                self(*args[i0:i], **kwargs)
+                i0 = i+1
+        if len(args) > i0+1:
+            self(*args[i0:], **kwargs)
+
+    def view_dem(self, watershed, model_name):
+        desc = {'watershed': watershed, 'model_name': model_name}
+        data = util.load_data(**desc)
+        meta = util.load_meta(**desc)
+        dem = data['ztop']
+        gt = meta['projection']['geodata']
+        xsize = (gt[1]**2 + gt[4]**2)**0.5 * dem.shape[1]
+        ysize = (gt[2]**2 + gt[5]**2)**0.5 * dem.shape[0]
+
+        ls = mcl.LightSource(315, 45)
+        rgb = ls.shade(dem, cmap=plt.cm.terrain, dx=xsize, dy=ysize, vert_exag=1., blend_mode='soft')
+        plt.imshow(rgb, extent=(0., xsize, ysize, 0.), rasterized=True)
+
     def seep_RK(self, *watersheds):
         for watershed in watersheds:
             X = []
@@ -161,6 +183,31 @@ class PlotFunctions:
         ysize = (gt[2]**2 + gt[5]**2)**0.5 * time.shape[0]
         plt.imshow(time, norm=mcl.LogNorm(vmin=time[time>0].min(), vmax=time.max()), extent=(0., xsize, ysize, 0.), rasterized=True)
         plt.colorbar()
+
+    def view_lines(self, watershed, model_name, n):
+        desc = {'watershed': watershed, 'model_name': model_name}
+        data = util.load_data(**desc)
+        meta = util.load_meta(**desc)
+        gt = meta['projection']['geodata']
+        length = data['path_length_3d']
+        xsize = (gt[1]**2 + gt[4]**2)**0.5 * length.shape[1]
+        ysize = (gt[2]**2 + gt[5]**2)**0.5 * length.shape[0]
+        norm = mcl.Normalize(vmin=0., vmax=length.max()**.5)
+        cmap = plt.cm.plasma
+
+        index = data['path_index']
+        path = data['path']
+        count = index.shape[0]
+        for e in range(int(n)):
+            i0, i1 = index[np.random.randint(count)]
+            ipath = path[i0:i1]
+            p0 = ipath[0]
+            dist = 0.
+            for p1 in ipath[1:]:
+                dist += ((p1['x']-p0['x'])**2 + (p1['y']-p0['y'])**2 + (p1['z']-p0['z'])**2)**.5
+                p0 = p1
+
+            plt.plot(ipath['x'], ysize-ipath['y'], color=cmap(norm(dist**.5)), linewidth=0.5)
 
     def seep_ineq_RK(self, *watersheds):
         for watershed in watersheds:
