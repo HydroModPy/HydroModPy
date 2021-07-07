@@ -26,7 +26,7 @@ class Exporter:
         for n in range(head.shape[0]-2, -1, -1):
             headn = head[n]
             is_water = headn > zbot[n]
-            wt[iswater] = headn[iswater]
+            wt[is_water] = headn[is_water]
         return np.ma.masked_array(wt, wt <= zbot[-1])
 
     def get_depth(self):
