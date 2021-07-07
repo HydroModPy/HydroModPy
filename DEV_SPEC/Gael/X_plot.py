@@ -484,6 +484,37 @@ class PlotFunctions:
         plt.imshow(slope)
         #plt.colorbar()
 
+    def cross_section(self, watershed, model_name, stype, *args):
+        import flopy
+        desc = {'watershed': watershed, 'model_name': model_name}
+        ml = util.load_model(**desc)
+        data = util.load_data(**desc)
+        line = {}
+        if stype == 'line':
+            line_arg = []
+            for i in range(0, len(args)//2 * 2, 2):
+                line_arg.append((float(args[i]), float(args[i+1])))
+            print(line_arg)
+        else:
+            line_arg = int(args[0])
+        line[stype] = line_arg
+        sect = flopy.plot.PlotCrossSection(model=ml, line=line)
+        sect.plot_grid(linewidth=1., color='black', alpha=1-0.5**0.5)
+        head = data['head']
+        sect.plot_array(head, head=head)
+
+    def view_water_depth(self, watershed, model_name):
+        desc = {'watershed': watershed, 'model_name': model_name}
+        data = util.load_data(**desc)
+        head = data['head']
+        zbot = data['zbot']
+        water_table = head[-1]
+        for n in range(zbot.shape[0]-2, -1, -1):
+            headn = head[n]
+            is_water = headn > zbot[n]
+            water_table[is_water] = headn[is_water]
+        plt.imshow(np.maximum(data['ztop'] - water_table, 0.))
+
 #functions = {
     #'seep_RK': plot_seepage_RK,
     #'seep_ineq_RK': plot_seepage_ineq_RK,
