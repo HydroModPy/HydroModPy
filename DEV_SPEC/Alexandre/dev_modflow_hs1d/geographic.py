@@ -8,6 +8,7 @@ from shutil import copyfile
 import numpy as np
 from IPython.core.debugger import set_trace as st
 import whitebox
+from pyproj import Transformer
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
 def my_callback(value):
@@ -33,8 +34,8 @@ class extract:
 		self.watershed_box_shp = gis_path + 'watershed_box.shp'
 		watershed_contour_shp = gis_path + 'watershed_contour.shp'		
 		watershed_dem = gis_path + 'watershed_dem.tif'
-		watershed_fill = gis_path + 'watershed_fill.tif'
-		watershed_direc = gis_path + 'watershed_direc.tif'
+		self.watershed_fill = gis_path + 'watershed_fill.tif'
+		self.watershed_direc = gis_path + 'watershed_direc.tif'
 		buffer = gis_path + 'buff.shp'
 		self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
 		watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
@@ -74,8 +75,8 @@ class extract:
 		wbt.clip_raster_to_polygon(direc,buffer,watershed_buff_direc)
 		wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, watershed_dem,
                                    maintain_dimensions=True)
-		wbt.clip_raster_to_polygon(fill,self.watershed_shp,watershed_fill)
-		wbt.clip_raster_to_polygon(direc,self.watershed_shp,watershed_direc)
+		wbt.clip_raster_to_polygon(fill,self.watershed_shp,self.watershed_fill)
+		wbt.clip_raster_to_polygon(direc,self.watershed_shp,self.watershed_direc)
 
 		wbt.minimum_bounding_envelope(self.watershed_shp,self.watershed_box_shp, features=False)
 		site_polyg = gpd.read_file(self.watershed_box_shp)
@@ -107,3 +108,8 @@ class extract:
 		self.ymin = self.geodata[3] + self.dem_data.shape[0] * self.geodata[5]
 		self.ymax = self.geodata[3]
 		self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
+		transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
+		self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
+		self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
+		if self.centroid_long_lat_Greenwich[1]<0:
+			self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
