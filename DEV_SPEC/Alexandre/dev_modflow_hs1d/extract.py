@@ -13,7 +13,7 @@ import topography
 '''os.path.dirname(os.getcwd())'''
 sys.path.append(os.getcwd())
 
-class extract_modflow:
+class modflow:
     def __init__(self, dem_path, watershed='name', model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\',
                  param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True):
         

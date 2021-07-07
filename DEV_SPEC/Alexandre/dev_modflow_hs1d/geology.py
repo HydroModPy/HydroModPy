@@ -53,6 +53,17 @@ class extract:
 		dem_data[dem_data_T_M==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
 		self.geology_array_clip = dem_data.astype(int)
 		self.geology_code_clip = np.intersect1d(self.geology_array, self.geology_array)
+
+		#Double geology
+		self.geology_code = [int(1),int(2)]
+		for i in self.geology_code:
+			if i ==1:
+				self.geology_array[self.geology_array<1000] = int(i)
+				self.geology_array_clip[self.geology_array_clip<1000] = int(i)
+			if i ==2:
+				self.geology_array[self.geology_array>=1000] = int(i)
+				self.geology_array_clip[self.geology_array_clip>=1000] = int(i)
+
 		return self
 
 	def geology_elevation(self, geographic):
@@ -60,9 +71,9 @@ class extract:
 		for i in range(0,len(self.geology_code)):
 			self.geology_elevation[i]=np.min(geographic.dem_data[self.geology_array==self.geology_code[i]])
 		
-		idxs = self.geology_elevation.argsort()
-		self.geology_elevation = self.geology_elevation[idxs[:]]
-		self.geology_code = self.geology_code[idxs[:]]
+		#idxs = self.geology_elevation.argsort()
+		#self.geology_elevation = self.geology_elevation[idxs[:]]
+		#self.geology_code = self.geology_code[idxs[:]]
 		return self
 
 	def geo_to_K(self,K_geo_values):
