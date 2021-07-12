@@ -51,9 +51,13 @@ def haitjema_coef(data, meta):
 
     return R*L2 / (m*K*H*d)
 
+#def haitjema_local(data, meta):
+    #dmeta = meta['dem_metadata']
+    #
+
 def critical_drainage(meta):
     dmeta = meta['dem_metadata']
-    return (dmeta['uplift_rate'] / dmeta['k_coef']) ** (1/dmeta['area_exp']) * dmeta['slope_exp'] ** (dmeta['slope_exp']/dmeta['area_exp'])
+    return (dmeta['uplift_rate'] / dmeta['k_coef']) ** (1/dmeta['area_exp']) * dmeta['slope_limit'] ** (-dmeta['slope_exp']/dmeta['area_exp'])
 
 class PlotFunctions:
     def __init__(self, **kwargs):
@@ -439,6 +443,26 @@ class PlotFunctions:
                 #m = 16
 
                 #hait = R*L2 / (m*K*H*d)
+
+    def seep_haitjema(self, *args):
+        for watershed in args:
+            X = []
+            Y = []
+            for model_name in util.loop_models(watershed):
+                desc = {'watershed': watershed, 'model_name':model_name}
+                data = util.load_data(**desc)
+                meta = util.load_meta(**desc)
+                seep = (data['outflow'] > 0).mean()
+                hait = haitjema_coef(data, meta)
+                X.append(hait)
+                Y.append(seep)
+            #Y = 1/(1-np.array(Y)) - 1
+            plt.plot(X, Y, label=watershed, marker='|')
+        plt.xscale('log')
+        plt.xlabel('Haitjema parameter $\\frac{RL^2}{16KHd}$')
+        plt.yscale('log')
+        plt.ylabel('Seepage area fraction')
+        plt.legend()
 
     def slope_ratio(self, watershed, model_name, drainage):
         from osgeo import gdal
