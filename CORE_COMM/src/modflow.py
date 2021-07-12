@@ -72,7 +72,10 @@ class modflow_model:
 				self.dem.data[self.hyd_cond<0]=-9999
 		except:
 			pass
-		
+
+		if isinstance(self.climatic, int) or isinstance(self.climatic, float):
+			self.climatic = [self.climatic]
+
 		if len(self.climatic)==1:
 			self.nper = 1
 			self.perlen = 1
