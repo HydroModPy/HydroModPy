@@ -16,10 +16,12 @@ dependencies:
     - whitebox
     - gdal
     - flopy
+    - fastscape
+    - xarray-simlab # Required for FastScape, and called 'xsimlab' in the code
 
     #H5 files
     - pytables
-    - deepdish	
+    - deepdish
 
     # Data reading/writing and conversion
     - pandas
