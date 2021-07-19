@@ -10,13 +10,35 @@ from osgeo import gdal
 
 import os
 
+# Generates synthetic topographies using Fastscape library
+
+# Typical usage:
+
+#    # Import
+#    from topogen import Topo
+
+#    # Create the Topo object with the parameters you want (see below)
+#    topo = Topo(slope_exp=1.3, steps=100)
+
+#    # Export output
+#    topo.export('dem.tif') # Will also export drainage as 'dem_drn.tif' and flow directions pointers as 'dem_ptr.tif'
 
 
+# Parameters:
+# Stream power-law equation: [fluvial erosion] = k_coef * [drainage area] ^ area_exp * [slope] ^ slope_exp
 
+#    uplift_rate  float
+#    k_coef       float  scaling coefficient for erosive intensity
+#    area_exp     float  exponent defining how erosion increases with river drainage area
+#    slope_exp    float  exponent defining how erosion increases with slope
+#    slope_limit  float  greatest possible stable slope. Hillslopes are cut if they exceed this slope.
 
-
-
-
+#    size:        float  length of the simulated area (side of the square)
+#    resolution   int    grid length in pixel intervals
+#    max_time     float  simulation time
+#    steps        int    number of time steps
+#    out_steps    int    number of time steps that are kept in memory. Last step is always kept if out_steps > 0
+#    verbose      bool   whether to flood the terminal with a pretty progressbar and other superfluous stuff.
 
 class Topo:
     def __init__(self, verbose=True, **kwargs):
