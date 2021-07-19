@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# coding:utf-8
 
 import numpy as np
 import xsimlab as xs
@@ -10,56 +10,13 @@ from osgeo import gdal
 
 import os
 
-def stabilize_slope(elev, slope_max):
-    old_err = np.seterr(invalid='ignore') # Disable error for invalid square root
 
-    slope_max2 = 2*slope_max**2
-    neigh_NS = np.full(elev.shape, np.inf)
-    neigh_EW = np.full(elev.shape, np.inf)
-    while True:
-        neigh_NS[:,:] = np.inf
-        neigh_EW[:,:] = np.inf
-        neigh_NS[1:,:] = elev[:-1,:] # Elevation at North
-        neigh_EW[:,:-1] = elev[:,1:] # Elevation at East
-        neigh_NS[:-1,:] = np.minimum(neigh_NS[:-1,:], elev[1:,:]) # Elevation at South, if lower than North
-        neigh_EW[:,1:] = np.minimum(neigh_EW[:,1:], elev[:,:-1]) # Elevation at West, if lower than East
 
-        neigh_diff = np.abs(neigh_EW - neigh_NS)
-        elev_max = np.where(neigh_diff < slope_max,
-                (neigh_EW+neigh_NS+np.sqrt(slope_max2-neigh_diff**2)) / 2,
-                np.minimum(neigh_NS, neigh_EW) + slope_max
-        )
 
-        if np.all(elev <= elev_max):
-            np.seterr(**old_err) # Push old error settings back
-            return elev
-        elev = np.minimum(elev, elev_max)
 
-@xs.process
-class HillslopeLimit:
-    limit = xs.variable(description='maximal stable slope')
 
-    elevation = xs.foreign(SurfaceToErode, 'elevation')
-    dx = xs.foreign(UniformRectilinearGrid2D, 'dx')
-    #diff_erosion = xs.foreign(LinearDiffusion, 'erosion')
-    stream_erosion = xs.foreign(StreamPowerChannel, 'erosion')
-    erosion = xs.variable(
-        dims = ('y', 'x'),
-        intent='out',
-        groups='erosion',
-    )
 
-    def run_step(self):
-        elev = self.elevation - self.stream_erosion
-        hdiff_max = self.limit*self.dx
-        self.erosion = elev - stabilize_slope(elev, hdiff_max)
 
-model = basic_model
-model = model.drop_processes('diffusion')
-model = model.update_processes({
-    'slope': HillslopeLimit,
-    'flow': MultipleFlowRouter,
-})
 
 class Topo:
     def __init__(self, verbose=True, **kwargs):
@@ -174,6 +131,57 @@ class Topo:
         self._make_raster(dem, self.out_ds.topography__elevation[step], type='dem', time=time, dt=dt)
         self._make_raster(drainage_area, self.out_ds.drainage__area[step], type='drainage', time=time, dt=dt)
         self._make_raster(pointers, self.make_receiver_array(), type='receivers', time=time, dt=dt, dtype=gdal.GDT_Byte)
+
+def stabilize_slope(elev, slope_max):
+    old_err = np.seterr(invalid='ignore') # Disable error for invalid square root
+
+    slope_max2 = 2*slope_max**2
+    neigh_NS = np.full(elev.shape, np.inf)
+    neigh_EW = np.full(elev.shape, np.inf)
+    while True:
+        neigh_NS[:,:] = np.inf
+        neigh_EW[:,:] = np.inf
+        neigh_NS[1:,:] = elev[:-1,:] # Elevation at North
+        neigh_EW[:,:-1] = elev[:,1:] # Elevation at East
+        neigh_NS[:-1,:] = np.minimum(neigh_NS[:-1,:], elev[1:,:]) # Elevation at South, if lower than North
+        neigh_EW[:,1:] = np.minimum(neigh_EW[:,1:], elev[:,:-1]) # Elevation at West, if lower than East
+
+        neigh_diff = np.abs(neigh_EW - neigh_NS)
+        elev_max = np.where(neigh_diff < slope_max,
+                (neigh_EW+neigh_NS+np.sqrt(slope_max2-neigh_diff**2)) / 2,
+                np.minimum(neigh_NS, neigh_EW) + slope_max
+        )
+
+        if np.all(elev <= elev_max):
+            np.seterr(**old_err) # Push old error settings back
+            return elev
+        elev = np.minimum(elev, elev_max)
+
+@xs.process
+class HillslopeLimit:
+    limit = xs.variable(description='maximal stable slope')
+
+    elevation = xs.foreign(SurfaceToErode, 'elevation')
+    dx = xs.foreign(UniformRectilinearGrid2D, 'dx')
+    #diff_erosion = xs.foreign(LinearDiffusion, 'erosion')
+    stream_erosion = xs.foreign(StreamPowerChannel, 'erosion')
+    erosion = xs.variable(
+        dims = ('y', 'x'),
+        intent='out',
+        groups='erosion',
+    )
+
+    def run_step(self):
+        elev = self.elevation - self.stream_erosion
+        hdiff_max = self.limit*self.dx
+        self.erosion = elev - stabilize_slope(elev, hdiff_max)
+
+model = basic_model
+model = model.drop_processes('diffusion')
+model = model.update_processes({
+    'slope': HillslopeLimit,
+    'flow': MultipleFlowRouter,
+})
 
 def make_pointer_array(pointers, weights, shape, multiple=True):
     X = shape[1]
