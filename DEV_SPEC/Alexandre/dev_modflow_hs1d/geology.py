@@ -46,24 +46,29 @@ class extract:
 		self.geology_array = dem_data.astype(int)
 		self.geology_code = np.intersect1d(self.geology_array, self.geology_array)
 
-		dem_geo = gdal.Open(data_folder + 'GeoStructure_clip.tif')
-		dem_data = dem_geo.GetRasterBand(1).ReadAsArray()
-		dem_T_M = gdal.Open(data_folder + 'Land_Sea_clip.tif')
-		dem_data_T_M = dem_T_M.GetRasterBand(1).ReadAsArray()
-		dem_data[dem_data_T_M==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
-		self.geology_array_clip = dem_data.astype(int)
-		self.geology_code_clip = np.intersect1d(self.geology_array, self.geology_array)
+		dem_geo_clip = gdal.Open(data_folder + 'GeoStructure_clip.tif')
+		dem_data_clip = dem_geo_clip.GetRasterBand(1).ReadAsArray()
+		dem_T_M_clip = gdal.Open(data_folder + 'Land_Sea_clip.tif')
+		dem_data_T_M_clip = dem_T_M_clip.GetRasterBand(1).ReadAsArray()
+		dem_data_clip[dem_data_T_M_clip==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
+		dem_data_clip[dem_data_clip<0]= np.nan
+		self.geology_array_clip = dem_data_clip.astype(int)
 
+		self.geology_array[self.geology_array<=100] = int(1)
+		self.geology_array_clip[self.geology_array_clip<=100] = int(1)
+
+		self.geology_code_clip = np.intersect1d(self.geology_array_clip, self.geology_array_clip)
+		self.geology_code = self.geology_code_clip[self.geology_code_clip>=0]
+
+		'''
 		#Double geology
 		self.geology_code = [int(1),int(2)]
 		for i in self.geology_code:
 			if i ==1:
-				self.geology_array[self.geology_array<1000] = int(i)
-				self.geology_array_clip[self.geology_array_clip<1000] = int(i)
-			if i ==2:
-				self.geology_array[self.geology_array>=1000] = int(i)
-				self.geology_array_clip[self.geology_array_clip>=1000] = int(i)
+				self.geology_array[self.geology_array<=100] = int(i)
+				self.geology_array_clip[self.geology_array_clip<=100] = int(i)
 
+		'''
 		return self
 
 	def geology_elevation(self, geographic):
