@@ -66,6 +66,10 @@ class build:
 			self.oceanic = BV.oceanic
 		if ('modflow_models' in BV.__dir__()) == True:
 			self.modflow_models = BV.modflow_models
+		if ('stream_het_calibration' in BV.__dir__()) == True:
+			self.stream_het_calibration = BV.stream_het_calibration
+
+
 
 	def create_object(self):
 		#STURCUTRE DATA
