@@ -104,3 +104,9 @@ class MpModel(_mp):
                 if k not in data:
                     data[k] = old_data[k]
         np.savez_compressed(data_path, **data)
+
+if __name__ == '__main__':
+    import sys
+    watershed, model_name = sys.argv[1:3]
+    model = MpModel(watershed=watershed, model_name=model_name, exe='mp6', verbose=True)
+    model.export_data()

@@ -32,6 +32,12 @@ class Exporter:
     def get_depth(self):
         return np.maximum(self.data['ztop'] - self.get_water_table(), 0.)
 
+    def get_length(self):
+        return self.data['path_length_3d']
+
+    def get_time(self):
+        return self.data['path_time']
+
     def make_tif(self, filename, data, nodata=-32767):
         data = np.ma.masked_values(data, nodata)
         raster = drv.Create(filename, data.shape[1], data.shape[0], 1, gdal.GDT_Float32)
