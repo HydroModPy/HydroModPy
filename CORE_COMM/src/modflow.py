@@ -12,21 +12,31 @@ sys.path.append(os.getcwd())
 
 class modflow_model:
 	"""
-	model_name
-	model_path
-	dem : path of dem file (.tif)
-	climatic : float or Dataframe Datatimeseries
-	lay_number: int - number of layer - default is 1
-	thickness_aquifer: float
-	cond_hyd :
-		- homogeneous : float
-		- heterogeneous : numpy array (same size as the dem)
-	porosity: :
-		- homogeneous : float
-		- heterogeneous : numpy array (same size as the dem)
+	dem_path: path of the DEM (.tif)
+	watershed: a name referencing the area
+	model_name: a name referencing the model (conditions, etc.)
+	model_foler: where to place the simulation
+	exe: path to the executable (mfnwt.exe on Windows)
+
+	climatic: float or Dataframe Datatimeseries — Recharge
+	lay_number: int (default 1) — Number of layers
+	thick: float — Define the thickness of the aquifer below free surface
+	bottom: optional float — Alternative way to define thickness, with fixed elevation of the bottom. Overrides 'thick' if present.
+	thick_exp: float (default 1) — Factor by which depth of successive layers is multiplied.
+
+	hyd_cond: float or numpy array (size of the dem) — Hydraulic conductivity
+	cond_decay: float or numpy array (size of the dem) — Coefficient for conductivity exponential decay with depth. 0 = constant conductivity, 1e-2 = conductivity divided by e every 100m depth.
+	porosity: float or numpy array (size of the dem)
+
+	coastal_aquifer: boolean — whether points below sea level should be considered boundary conditions
+	SLR: float — sea level rise
+	autofix_layers: boolean — whether to automatically fix cells depth so that all cells of a given layer are connected
+	min_overlap: float — if autofix_layers is enabled, horizontally adjacent cells will overlap vertically by at least this length.
 	"""
-	def __init__(self, dem_path, watershed='name', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, coastal_aquifer=False, SLR = 0., cond_decay=0., autofix_layers=False, min_overlap=1.0,
-                 time_step='daily', model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
+	def __init__(self, dem_path, watershed='name', model_name='modflow_model',
+				 model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe'),
+				 climatic=8e-4, lay_number=1, thick=100., bottom=None, thick_exp=1., hyd_cond=8.64e-2, cond_decay=0., porosity=0.01,
+				 coastal_aquifer=False, SLR = 0., time_step='daily', autofix_layers=False, min_overlap=1.0):
         
 		self.watershed = watershed
 		self.model_name = model_name
@@ -62,7 +72,10 @@ class modflow_model:
 				self.dem.data[self.hyd_cond<0]=-9999
 		except:
 			pass
-		
+
+		if isinstance(self.climatic, int) or isinstance(self.climatic, float):
+			self.climatic = [self.climatic]
+
 		if len(self.climatic)==1:
 			self.nper = 1
 			self.perlen = 1
@@ -82,6 +95,7 @@ class modflow_model:
 		self.nrow = self.dem.data.shape[0]
 		self.ncol = self.dem.data.shape[1]
 
+		# Determine bottom layer
 		self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
 		if self.bottom is None:
 			bottom_layer = self.dem.data - self.thick
@@ -91,6 +105,7 @@ class modflow_model:
 		if self.thick_exp != 1.:
 			exp_scale = 1-self.thick_exp**self.nlay
 		for i in range(1, self.nlay+1):
+			# p is the ratio between top and bottom
 			if self.thick_exp == 1.:
 				p = i / self.nlay
 			else:

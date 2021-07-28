@@ -1,4 +1,3 @@
-import sys
 import os.path as pth
 import flopy
 import flopy.utils.binaryfile as fpu
@@ -71,3 +70,8 @@ class MfModel(_mf):
         np.savez_compressed(pth.join(base_path, 'data.npz'), **data)
         with open(pth.join(base_path, 'meta.json'), 'w') as f:
             json.dump(metadata, f, indent=4)
+
+if __name__ == '__main__':
+    import sys
+    model = MfModel(pth.join(util.fspath, sys.argv[1]))
+    model.export_data()
