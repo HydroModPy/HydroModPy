@@ -9,7 +9,7 @@ channels:
     - defaults
 dependencies:
     # Obvious
-    - python
+    - python=3.8
 
     # Main processing libraries
     - numpy
@@ -22,6 +22,7 @@ dependencies:
     #H5 files
     - pytables
     - deepdish
+    - netCDF4
 
     # Data reading/writing and conversion
     - pandas
@@ -35,3 +36,5 @@ dependencies:
 
     # Viewing notebooks
     - jupyter
+    - jupyterlab
+    - spyder
