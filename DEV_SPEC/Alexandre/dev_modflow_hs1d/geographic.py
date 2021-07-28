@@ -54,7 +54,7 @@ class extract:
 		dist = np.linspace(0,buff_dist,buff_dist+1)*np.abs(geodata[1])
 		buff_dist = dist[np.abs(dist-buff_dist).argmin()]
 		crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
-		#wbt.breach_depressions_least_cost(dem_path,fill,snap_dist)
+		#wbt.breach_depressions(dem_path,fill,2,75*8)
 		wbt.fill_depressions(dem_path, fill)
 		wbt.d8_pointer(fill, direc, esri_pntr=False)
 		wbt.d8_flow_accumulation(fill, acc, log=True)
@@ -107,6 +107,10 @@ class extract:
 		self.xmax = self.geodata[0] + self.dem_data.shape[1] * self.geodata[1]
 		self.ymin = self.geodata[3] + self.dem_data.shape[0] * self.geodata[5]
 		self.ymax = self.geodata[3]
+
+		self.x_coord = np.linspace(1,self.x_pixel, self.x_pixel)*(self.resolution) + self.xmin
+		self.y_coord = self.ymax - np.linspace(1,self.y_pixel, self.y_pixel)*(self.resolution)
+
 		self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
 		transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
 		self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])

@@ -5,6 +5,7 @@ import zipfile
 import geopandas as gpd
 from selenium import webdriver
 import pandas as pd
+import numpy as np
 import time
 import glob
 from IPython.core.debugger import set_trace as st
@@ -16,6 +17,10 @@ class extract:
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)	
 		self.download_init_data(data_folder)
+		self.x_coord = []
+		self.y_coord = []
+		self.x_iloc = []
+		self.y_iloc = []
 		piezos = self.exctract_piezos_from_watershed(data_folder, geographic)
 		if os.path.exists(data_folder + 'shapefile/piezos.shp'):
 			self.extract_data_from_code_bss(data_folder)
@@ -45,6 +50,11 @@ class extract:
 				self.codes_bss[i] = self.codes_bss[i].replace('/','_')
 			self.x_coord = piezos['geometry'].x.tolist()
 			self.y_coord = piezos['geometry'].y.tolist()
+			for i in range(0, len(self.x_coord)):
+				idx = (np.abs(geographic.x_coord- self.x_coord)).argmin()
+				idy = (np.abs(geographic.y_coord- self.y_coord)).argmin()
+				self.x_iloc.append(idx)
+				self.y_iloc.append(idy)
 		return self, piezos
 
 	def extract_data_from_code_bss(self,data_folder):
@@ -93,13 +103,17 @@ class extract:
 			elevation.columns = [code]
 			self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
 
-	def add_data(self, data_path):
+	def add_data(self, data_path, geographic):
 		files = glob.glob(data_path + 'piezometry_*.csv')
 		if len(files)>0:
 			for file in files:
 				self.codes_bss.append(file.split('_')[-3])
 				self.x_coord.append(int(file.split('_')[-2]))
 				self.y_coord.append(int(file.split('_')[-1].split('.')[0]))
+				idx = (np.abs(geographic.x_coord- int(file.split('_')[-2]))).argmin()
+				idy = (np.abs(geographic.y_coord- int(file.split('_')[-1].split('.')[0]))).argmin()
+				self.x_iloc.append(idx)
+				self.y_iloc.append(idy)
 				df = pd.read_csv(file, delimiter = ';',header=0, engine='python', encoding='latin1')
 				df.columns = ['Date', file.split('_')[-3]]
 				df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')

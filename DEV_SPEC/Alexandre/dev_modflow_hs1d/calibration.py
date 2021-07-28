@@ -13,6 +13,7 @@ import modflow as mod
 import extract as ext
 import calibration as cal
 import geology as geo
+import matplotlib
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 from scipy.optimize import minimize, Bounds
@@ -53,31 +54,38 @@ class run_stream_het_calibration:
         idx=0
         compt = 0
         
-        geology.geology_code = [1,2]
-        for i in geology.geology_code:
-            if i ==1:
-                geology.geology_array[geology.geology_array<1000] = i
-                geology.geology_array_clip[geology.geology_array_clip<1000] = i
-            if i ==2:
-                geology.geology_array[geology.geology_array>=1000] = i
-                geology.geology_array_clip[geology.geology_array_clip>=1000] = i
+        '''geology.geology_code = [1,2]
+                                for i in geology.geology_code:
+                                    if i ==1:
+                                        geology.geology_array[geology.geology_array<1000] = i
+                                        geology.geology_array_clip[geology.geology_array_clip<1000] = i
+                                    if i ==2:
+                                        geology.geology_array[geology.geology_array>=1000] = i
+                                        geology.geology_array_clip[geology.geology_array_clip>=1000] = i'''
         
-        lb = -4
-        ub = 4
-        start = np.ones(len(geology.geology_code)) * -1#((lb + ub) / 2)
-        bds =[]
-        for i in range(0,len(geology.geology_code)):
-            bds.append(Bounds(lb,ub))
-        root = minimize(self.func, start.tolist(),args=(geographic, geology, climatic, lay_number, thick, sea_level, folder, exe),
-            method='Nelder-Mead', bounds=Bounds(lb,ub))
-        st()
+        lb = -7
+        ub = -3
+        
+        bds = (lb, ub) * len(geology.geology_code)
+        plt.figure(figsize=(5,5))
+        strt = [((lb + ub) / 2)]#np.linspace(lb, ub, 5)
+        for i in strt:
+            start = np.ones(len(geology.geology_code)) * i #((lb + ub) / 2)
+            root = minimize(self.func, start.tolist(),args=(geographic, geology, climatic, lay_number, thick, sea_level, folder, exe),
+                method='Nelder-Mead', bounds=bds, tol=0.01)
+        plt.show()
     
     def func(self, Klog, geographic, geology, climatic, lay_number, thick, sea_level, folder, exe):
-        K = 10 ** Klog
+        K = (10 ** Klog) * (60*60*24)
+        self.hyd_cond = np.ones(np.shape(geology.geology_array))* np.mean(K)
         for i in range (0, len(geology.geology_code)):
                 self.hyd_cond[geology.geology_array==geology.geology_code[i]] = K[i]
-
+        print(K)
         print(Klog)
+        '''plt.figure()
+                                plt.imshow(self.hyd_cond,vmin=min(K), vmax=max(K))
+                                plt.colorbar()
+                                plt.show()'''
         '''plt.figure(figsize=(2,2))
                                 plt.imshow(self.hyd_cond)
                                 plt.show()'''
@@ -90,13 +98,28 @@ class run_stream_het_calibration:
         mod.extract_model(geographic, 
             watershed='sim_modflow', model_name='stream_calibration', model_folder=folder,
             param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
+        
         generate_distances(folder, geographic, type_obs='streams')
+
         df = store_dataframe_het(folder, geographic, geology, type_obs='streams')
+        
+        #test = np.abs(np.asarray(df.mean_dist_code['ratio_dist'])-1)**2 #np.log(ratio)
+        df.mean_dist_code['log10'] = np.log10(np.asarray(df.mean_dist_code['ratio_dist']))**2
         print(df.mean_dist_code)
-        test = np.abs(np.asarray(df.mean_dist_code['ratio_dist'])-1)**2 #np.log(ratio)
-        #test = np.log10(np.abs(np.asarray(df.mean_dist_code['ratio_dist']))**2)
-        print(np.sum(test))
-        return np.sum(test)
+
+
+        cmap = matplotlib.cm.get_cmap('jet')
+        norm = matplotlib.colors.LogNorm(vmin=0.01, vmax=100)
+        rgba = cmap(norm(np.sum(df.mean_dist_code['log10'])))
+
+        plt.plot(Klog[0],Klog[1],'o',markerfacecolor=rgba)
+        
+
+        func_return = np.nansum(df.mean_dist_code['log10'])
+        if func_return == np.inf:
+            func_return=1000
+        print(func_return)
+        return func_return
 
 
         '''while not(all(geol_to_KR['K/R difference'] < gap)):
@@ -297,8 +320,10 @@ class store_dataframe_het:
         obs_dist = np.zeros(np.shape(obs))*np.nan
         sim_dist = np.zeros(np.shape(sim))*np.nan
         obs_dist[obs>=0] = obs_sim_dist[obs>=0]
+        obs_dist[obs_dist==0] = 1
         sim_dist[sim>=0] = sim_obs_dist[sim>=0]
         sim_dist[sim_dist<0] = 0
+        sim_dist[sim_dist==0] = 1
         self.mean_dist_code = pd.DataFrame()
         compt = 0
         for i in range (0, len(geology.geology_code)):

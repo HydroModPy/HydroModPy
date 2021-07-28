@@ -68,7 +68,9 @@ class run_model:
 			self.perlen = 1
 			self.nstp = [1]
 			self.steady = True
+			self.start_datetime = None
 		else:
+			self.start_datetime = self.climatic.index[0]
 			self.steady = np.zeros(len(self.climatic),dtype=bool)
 			self.steady[0] = True
 			self.nstp = np.ones(len(self.climatic))
@@ -101,7 +103,7 @@ class run_model:
 		self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
 			delr=geographic.resolution, delc=geographic.resolution, top=self.dem.data, 
 			botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
-			nstp=self.nstp, steady=self.steady, xul=geographic.xmin,yul=geographic.ymax)
+			nstp=self.nstp, steady=self.steady, xul=geographic.xmin,yul=geographic.ymax, start_datetime=self.start_datetime)
 		#proj4_str=self.dem.crs)
     
 		self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))

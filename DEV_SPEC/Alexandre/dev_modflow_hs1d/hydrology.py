@@ -20,8 +20,8 @@ class extract:
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
                 
-        watershed_shp = geographic.watershed_shp
-        watershed_dem = geographic.watershed_buff_dem
+        watershed_shp = geographic.watershed_box_shp
+        watershed_dem = geographic.watershed_box_buff_dem
         
         sections = hydro_path + '/' + 'sections.shp'
         streams =  hydro_path + '/' + 'streams.shp'

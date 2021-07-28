@@ -44,7 +44,7 @@ class build:
 		self.create_folder(self.watershed_folder)
 		self.add_data_folder = self.watershed_folder + '/data/add_data/'
 		self.create_folder(self.add_data_folder)
-		self.modflow_models = {}
+		self.modflow_models = []
 
 		if load==True:
 			self.load_object()
@@ -93,9 +93,10 @@ class build:
 	def save_object(self):
 		with open(self.watershed_folder + 'python_object', 'wb') as config_dictionary_file:
 			pickle.dump(self, config_dictionary_file)
+		config_dictionary_file.close()
 
 	def add_piezometry_data(self):
-		self.piezometry.add_data(self.add_data_folder)
+		self.piezometry.add_data(self.add_data_folder, self.geographic)
 		return self
 
 	def run_modflow(self,name,climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
@@ -128,7 +129,7 @@ class build:
 		mod_type = 'het'
 		'''
 		if type_obs == 'streams' and type_mod == 'het':
-			calibration.run_stream_het_calibration(geographic, geology, climatic,
+			self.stream_het_calibration = calibration.run_stream_het_calibration(geographic, geology, climatic,
 				folder=self.watershed_folder, 
 				first=first, last=last, gap=gap, sea_level=sea_level,
 				lay_number=1, thick=thick, porosity=0.01, type_obs='streams', 
