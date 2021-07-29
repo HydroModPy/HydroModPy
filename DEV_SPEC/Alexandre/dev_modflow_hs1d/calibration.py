@@ -66,7 +66,7 @@ class run_stream_het_calibration:
         lb = -7
         ub = -3
         
-        bds = (lb, ub) * len(geology.geology_code)
+        bds = Bounds(lb, ub) #* len(geology.geology_code)
         plt.figure(figsize=(5,5))
         strt = [((lb + ub) / 2)]#np.linspace(lb, ub, 5)
         for i in strt:

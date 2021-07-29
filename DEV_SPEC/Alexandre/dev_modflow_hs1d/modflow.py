@@ -153,7 +153,10 @@ class run_model:
 			if isinstance(self.climatic,(int,float)):
 				self.rchData[kper] = self.climatic
 			else:
-				self.rchData[kper] = self.climatic[kper]
+				if kper == 0:
+					self.rchData[kper] = np.nanmean(self.climatic)
+				else:
+					self.rchData[kper] = self.climatic[kper]
 		self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
 
         # Drain package (DRN)
