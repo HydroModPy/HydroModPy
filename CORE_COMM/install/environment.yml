@@ -30,7 +30,8 @@ dependencies:
     - imageio
     - rasterio
     - pyshp # corresponds to 'shapefile' library in the code
-
+    - selenium
+    
     # Post-processing
     - matplotlib
 
