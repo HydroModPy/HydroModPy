@@ -33,7 +33,7 @@ class run_stream_het_calibration:
     def __init__(self, geographic, geology, climatic, folder, sea_level=None, first=1, 
         last=10000, gap=10, lay_number=1, thick=50, porosity=0.01,
         type_obs='streams', type_time='s', exe='/bin/mfnwt.exe'):
-
+        '''
         krval = (first + last)/2
         self.hyd_cond = np.ones(np.shape(geology.geology_array))
         self.K_R = np.ones(np.shape(geology.geology_array))
@@ -54,7 +54,7 @@ class run_stream_het_calibration:
         idx=0
         compt = 0
         
-        '''geology.geology_code = [1,2]
+        geology.geology_code = [1,2]
                                 for i in geology.geology_code:
                                     if i ==1:
                                         geology.geology_array[geology.geology_array<1000] = i
