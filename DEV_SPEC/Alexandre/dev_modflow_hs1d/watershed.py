@@ -14,6 +14,7 @@ import climatic
 import oceanic
 import piezometry
 import modflow
+import params
 import calibration
 import pickle
 
@@ -44,6 +45,8 @@ class build:
 		self.create_folder(self.watershed_folder)
 		self.add_data_folder = self.watershed_folder + '/data/add_data/'
 		self.create_folder(self.add_data_folder)
+		self.modeling_data_folder = self.watershed_folder + '/modeling_data/'
+		self.create_folder(self.modeling_data_folder)
 		self.modflow_models = []
 
 		if load==True:
@@ -88,7 +91,10 @@ class build:
 		
 		if self.surfex_path != None:
 			self.climatic = climatic.extract(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
-
+            
+		#MODELING PARAMETERS
+		self.params = params.Params(self.geology.geology_code,self.modeling_data_folder)
+            
 		#FIELD DATA
 		self.piezometry = piezometry.extract(out_path=self.watershed_folder,geographic=self.geographic)
 		#self.hydrometry = hydrometry() #doesn't exist
