@@ -5,6 +5,7 @@ import sys
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+from osgeo import gdal, osr
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
@@ -36,6 +37,11 @@ class extract:
             wbt.vector_lines_to_raster(clip_streams, tif_streams, field="FID", base=watershed_dem)
             pt_streams = data_folder + 'streams_pt.shp'
             wbt.raster_to_vector_points(tif_streams, pt_streams)
+            
+            dem_streams = gdal.Open(tif_streams)
+            self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
+            self.streams_array[self.streams_array<0] = np.nan
+            
         if type_obs == 'persistent':    
             clip_sections = data_folder + 'sections.shp'
             wbt.clip(sections, watershed_shp, clip_sections)
