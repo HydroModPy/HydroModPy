@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding:utf-8
 
 import os
 import sys
@@ -11,7 +11,6 @@ import topography
 from glob import glob
 import modflow as mod
 import extract as ext
-import calibration as cal
 import geology as geo
 import matplotlib
 import matplotlib.pyplot as plt
