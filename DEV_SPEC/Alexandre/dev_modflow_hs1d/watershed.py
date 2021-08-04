@@ -44,10 +44,10 @@ class build:
         self.add_data_folder = self.watershed_folder + '/data/add_data/'
         self.create_folder(self.add_data_folder)
         self.modeling_data_folder = self.watershed_folder + '/modeling_data/'
+        self.create_folder(self.modeling_data_folder)
         f = open(self.modeling_data_folder + 'params_to_calibrate.csv', 'w')
         f.write('k,theta,e')
         f.close
-        self.create_folder(self.modeling_data_folder)
         self.modflow_models = []
 
         if load==True:
