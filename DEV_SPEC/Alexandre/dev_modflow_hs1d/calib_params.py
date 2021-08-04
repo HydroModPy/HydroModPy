@@ -4,8 +4,9 @@ import os
 import sys
 import pandas as pd
 from IPython.core.debugger import set_trace as st
+from datetime import datetime
 
-class Params:
+class CalibParams:
     """
     A class used to identify hydraulic parameters of the watershed to calibrate
 
@@ -19,9 +20,6 @@ class Params:
         the type of each parameter
     units : list of str
         the unit of each parameter
-        
-    Returns
-    ----------
 
     Methods
     -------
@@ -30,14 +28,18 @@ class Params:
     
     """
     
-    def __init__(self, BV):
+    def __init__(self, settings_folder, results_folder, geology_code=None):
         """
         Constructor
         
         Parameters
         ----------        
-        BV : instance of watershed object
-            data and structure of the watershed
+        geology_code : list of int
+            geological codes from geology python object
+        settings_path : str
+            the path of the setting files
+        results_path : str
+            the path of the result files
         """
         
         self.names = []
@@ -45,9 +47,9 @@ class Params:
         self.types = []
         self.units = []
         
-        self.create_params(BV)
-        
-    def create_params(self, BV):
+        self.create_params(settings_folder, results_folder, geology_code)
+    
+    def create_params(self, settings_folder, results_folder, geology_code):
         """
         Create hydraulic parameters
         
@@ -55,11 +57,13 @@ class Params:
         ----------
         geology_code : list of int
             geological codes from geology python object
-        folder : str
-            the path where we save the params file
+        settings_path : str
+            the path of the setting files
+        results_path : str
+            the path of the result files
         """
         # reads parameter types to calibrate amont K,theta,e
-        self.list = list(pd.read_csv(BV.modeling_data_folder + 'params_to_calibrate.csv'))
+        self.list = list(pd.read_csv(settings_folder + '/params_to_calibrate.csv'))
         # checks that the list is made up of correct strings
         for paramtype in self.list:
             if paramtype == 'e':
@@ -70,9 +74,9 @@ class Params:
                 self.units.append('m')
             else: 
                 # Loops on id units of the watershed
-                for idunit in range(0, len(BV.geology.geology_code)):
+                for idunit in range(0, len(geology_code)):
                     self.names.append(paramtype+"_"+str(idunit))
-                    self.geo_codes.append(BV.geology.geology_code[idunit])
+                    self.geo_codes.append(geology_code[idunit])
                     if paramtype == 'k':
                         self.types.append('hydraulic conductivity')
                         self.units.append('m/s')
@@ -81,25 +85,15 @@ class Params:
                         self.units.append('-')
                 
         self.store = pd.DataFrame({'names': self.names,'geo_codes': self.geo_codes,'types': self.types, 'units': self.units})
-        # JR: déplacer le fichier dans les résultats de la simulation
-        self.store.to_csv(BV.modeling_data_folder + 'params.csv',header=False, index=False)
+
+        now = datetime.now()
+        dt_string = now.strftime("%Y_%m_%d-%H_%M")
+        self.results_path = results_folder +'/'+ dt_string
+        if not os.path.exists(self.results_path):
+            os.makedirs(self.results_path)
         
-    
-    def load_params(self):
-        """
-        Load hydraulic parameters
-
-        Parameters
-        ----------
-        sound : str, optional
-            The sound the animal makes (default is None)
-
-        Returns
-        ------
-        NotImplementedError
-            If no sound is set for the animal or passed in as a
-            parameter.
-        """
+        self.store.to_csv(self.results_path + '/params.csv',header=False, index=False)
+        
         
         
         

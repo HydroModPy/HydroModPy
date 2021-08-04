@@ -43,11 +43,9 @@ class build:
         self.create_folder(self.watershed_folder)
         self.add_data_folder = self.watershed_folder + '/data/add_data/'
         self.create_folder(self.add_data_folder)
-        self.modeling_data_folder = self.watershed_folder + '/modeling_data/'
-        self.create_folder(self.modeling_data_folder)
-        f = open(self.modeling_data_folder + 'params_to_calibrate.csv', 'w')
-        f.write('k,theta,e')
-        f.close
+        self.results_folder = self.watershed_folder + '/results'
+        self.settings_folder = self.watershed_folder + '/settings/'
+        self.create_folder(self.settings_folder)
         self.modflow_models = []
 
         if load==True:
@@ -114,7 +112,7 @@ class build:
         '''if type(sea_level) != type(climatic):
             print('sea_level and climatic chronicles must be the same length')
         else:'''
-        modflow.run_model(self.geographic, watershed='sim_modflow', 
+        modflow.run_model(self.geographic, watershed='results/sim_modflow', 
             climatic=climatic, lay_number=lay_number, thick=thick, bottom=bottom, thick_exp=thick_exp, 
             hyd_cond=hyd_cond, porosity=porosity, sea_level = sea_level, cond_decay=cond_decay,
             time_step='daily', model_name=name, model_folder= self.watershed_folder , 
@@ -127,7 +125,7 @@ class build:
 
     def load_modflow_model(self, name):
         self.modflow_models = {}
-        modflow_folder = self.watershed_folder + '/sim_modflow/'
+        modflow_folder = self.watershed_folder + '/results/sim_modflow/'
         return self
 
     
