@@ -4,7 +4,7 @@ import os
 import sys
 import pandas as pd
 
-class Strategies:
+class CalibStrategies:
     """
     A class used to find the best strategies to calibrate the hydraulic parameters
 
@@ -22,7 +22,10 @@ class Strategies:
 
     Methods
     -------
-    create_strategies(geology_code, folder)
+    check_strategies(BV)
+        check if the strategies written in the "strategies_to_calibrate" settings file  are correct with respect to the parameters write in the "params_to_calibrate" settings file 
+
+    create_strategies(BV)
         Create and save parameters
     
     """
@@ -43,7 +46,19 @@ class Strategies:
         self.observed_data = []
         self.params = params
         
-        self.create_strategies(BV)
+        self.check_strategies(BV)
+        #self.create_strategies(BV)
+        
+    def check_strategies(self, BV):
+        #load strategies
+        self.strategies = pd.read_csv(BV.settings_folder + '/strategies_to_calibrate.csv')
+        
+        
+        #Observed data
+        if ('streams_array' in BV.hydrology.__dir__()) == True:
+            self.observed_data.append('streams')
+        if len(BV.piezometry.codes_bss) > 0:
+            self.observed_data.append('piezometry')
         
     def create_strategies(self, BV):
         """
@@ -56,11 +71,6 @@ class Strategies:
         BV : Python object
             contains the informations of observed data
         """
-        #Observed data
-        if ('streams_array' in BV.hydrology.__dir__()) == True:
-            self.observed_data.append('streams')
-        if len(BV.piezometry.codes_bss) > 0:
-            self.observed_data.append('piezometry')
         
         #Strategies
         if ('streams' in self.observed_data) and ('k' in self.params.list):
