@@ -44,8 +44,6 @@ class build:
         self.add_data_folder = self.watershed_folder + '/data/add_data/'
         self.create_folder(self.add_data_folder)
         self.results_folder = self.watershed_folder + '/results'
-        self.settings_folder = self.watershed_folder + '/settings/'
-        self.create_folder(self.settings_folder)
         self.modflow_models = []
 
         if load==True:

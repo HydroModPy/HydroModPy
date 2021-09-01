@@ -46,7 +46,9 @@ class CalibParams:
         self.geo_codes = []
         self.types = []
         self.units = []
-        
+        self.lbound = []
+        self.ubound = []
+        self.init_value = []
         self.create_params(settings_folder, results_folder, geology_code)
     
     def create_params(self, settings_folder, results_folder, geology_code):
@@ -72,6 +74,9 @@ class CalibParams:
                 self.geo_codes.append('-')
                 self.types.append('thickness')
                 self.units.append('m')
+                self.lbound.append(10)
+                self.ubound.append(1000)
+                self.init_value.append(500)
             else: 
                 # Loops on id units of the watershed
                 for idunit in range(0, len(geology_code)):
@@ -80,12 +85,19 @@ class CalibParams:
                     if paramtype == 'k':
                         self.types.append('hydraulic conductivity')
                         self.units.append('m/s')
+                        self.lbound.append(0.01)
+                        self.ubound.append(0.0000001)
+                        self.init_value.append(0.0001)
                     elif paramtype == 'theta':
                         self.types.append('porosity')
                         self.units.append('-')
+                        self.lbound.append(0.01)
+                        self.ubound.append(1)
+                        self.init_value.append(0.5)
                 
-        self.store = pd.DataFrame({'names': self.names,'geo_codes': self.geo_codes,'types': self.types, 'units': self.units})
-
+        self.store = pd.DataFrame({'names': self.names,'geo_codes': self.geo_codes,'types': self.types, 'units': self.units, 'lbounds': self.lbound, 'ubounds':self.ubound, 'init_values': self.init_value})
+    
+    def save_params
         now = datetime.now()
         dt_string = now.strftime("%Y_%m_%d-%H_%M")
         self.results_path = results_folder +'/'+ dt_string
