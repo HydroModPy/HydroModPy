@@ -30,7 +30,7 @@ class CalibStrategies:
     
     """
     
-    def __init__(self, BV, params):
+    def __init__(self, BV):
         """
         Constructor
         
@@ -44,49 +44,56 @@ class CalibStrategies:
         
         self.strategies = []
         self.observed_data = []
-        self.params = params
+        self.params = []
         
+        self.load_strategies()
         self.check_strategies(BV)
         #self.create_strategies(BV)
+    def load_strategies(self):
+        """
+        Create "strategies" attribute
+        """
+        self.strategies = pd.read_csv('calib_strats.csv')
         
     def check_strategies(self, BV):
-        #load strategies
-        self.strategies = pd.read_csv(BV.settings_folder + '/strategies_to_calibrate.csv')
-        
-        
+        """
+        Checks if the strategies are possbile
+        """
+        for calib in range(0, len(self.strategies)):
+            if self.strategies['observed_data'][calib] == 'streams':
+                if ('streams_array' in BV.hydrology.__dir__()) == True:
+                    if self.strategies['homogeneous_heterogeneous'][calib] == 'homogeneous':
+                        self.params.add('k')
+                        self.params.add('e')
+                    if self.strategies['homogeneous_heterogeneous'][calib] == 'heterogeneous':
+                        self.params.add('k')
+                        self.params.add('e')
+                        self.params
+                else:
+                    self.strategies.drop[calib]
+                    print('Using steams to calibrate is not possible')
+            if self.strategies['observed_data'][calib] == 'piezometry':
+                if len(BV.piezometry.codes_bss) > 0:
+                    pass
+                else:
+                    self.strategies.drop[calib]
+                    print('Using piezometry to calibrate is not possible')
+                
+                
+            if self.strategies['homogeneous_heterogeneous'][calib] == 'homogeneous':
+            
+            if self.strategies['homogeneous_heterogeneous'][calib] == 'heterogeneous':
+                
+            if self.strategies['state'][calib] == 'steady':
+                
+            if self.strategies['state'][calib] == 'transient':
         #Observed data
         if ('streams_array' in BV.hydrology.__dir__()) == True:
             self.observed_data.append('streams')
         if len(BV.piezometry.codes_bss) > 0:
             self.observed_data.append('piezometry')
-        
-    def create_strategies(self, BV):
-        """
-        Load hydraulic parameters
-        
-        Parameters
-        ----------
-        params: Python object
-            contains the set of parameters
-        BV : Python object
-            contains the informations of observed data
-        """
-        
-        #Strategies
-        if ('streams' in self.observed_data) and ('k' in self.params.list):
-            self.strategies.append('hom_streams_k')
-        if ('streams' in self.observed_data) and (len([x for x in self.params.names if x.startswith('k')]) > 1):
-            self.strategies.append('het_streams_k')
-        if ('piezometry' in self.observed_data) and (len([x for x in self.params.names if x.startswith('k')]) > 1):
-            self.strategies.append('het_piezometry_k')
-        if ('piezometry' in self.observed_data) and ('k' in self.params.list):
-            self.strategies.append('hom_piezometry_k')
-        
-        f = open(BV.modeling_data_folder + 'calibration_strategies.csv', 'w')
-        ligne = ",".join(self.strategies) + "\n"
-        f.write(ligne)
-        f.close
-        
+    
+    def save_params()
         
         
 
