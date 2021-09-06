@@ -13,7 +13,7 @@ import topography
 '''os.path.dirname(os.getcwd())'''
 sys.path.append(os.getcwd())
 
-class modflow:
+class extract_steady:
     def __init__(self, dem_path, watershed='name', model_name='modflow_model', model_folder=os.path.dirname(os.getcwd())+'\\output\\',
                  param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True):
         
@@ -28,6 +28,7 @@ class modflow:
         with rio.open(self.dem_path) as src:
             self.ras_data = src.read()
             self.ras_meta = src.profile
+            
         # Functions
         self.param()
         self.watertable()
@@ -46,7 +47,7 @@ class modflow:
         self.upw = flopy.modflow.ModflowUpw.load(self.model_file+'.upw', self.mf)
         self.nlay = self.dis.nlay
     
-    def watertable_depth(self):
+    def depth(self):
         self.watertable_depth = self.dem.data - self.head_data[0]
         self.watertable_depth[self.head_data[0] == -9999] = -9999
         # Export
