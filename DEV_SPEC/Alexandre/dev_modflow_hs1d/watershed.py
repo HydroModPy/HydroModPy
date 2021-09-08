@@ -1,5 +1,5 @@
 # coding:utf-8
-
+# classement alphabetique
 import os
 import geopandas as gpd
 from osgeo import gdal, osr
@@ -7,7 +7,9 @@ from shutil import copyfile
 import numpy as np
 import deepdish as dd
 from IPython.core.debugger import set_trace as st
-import geographic
+
+ex: watershed.geographic
+import watershed.geographic
 import geology
 import hydrology
 import climatic
@@ -128,7 +130,7 @@ class build:
 
     
     def run_calibration(self,geographic, geology, climatic=[8e-4], type_obs='streams',
-        type_mod='het', first=1, last=10000, gap=100, compt=0, watershed='name', 
+        type_mod='het', Hlo, compt=0, watershed='name', 
         lay_number=1, thick=100, porosity=0.01, sea_level=None):
         '''
         obs_type = 'streams', 'piezos', 'ages'...
