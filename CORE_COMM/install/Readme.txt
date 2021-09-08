@@ -1,6 +1,6 @@
 Installation procedure
 
-1-Install Anconda or Miniconda
+1-Install Anaconda or Miniconda
 
 2-Create conda environment
 Open conda command window through anaconda navigator, for example
@@ -12,13 +12,14 @@ Check that environment exists: conda env list
 Selenium is a library that manages interaction with files in the web
 It requires the following file to be downloaded: https://chromedriver.chromium.org/downloads
 The .exe should be stored in a file
-The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> variables)
+The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> system parameter -> environment variables)
+Click on "Path" -> modify -> add path of the .exe
 
 4-Go into conda environment 
 Execute in command window: activate hydromodpy
 Check that libraries are installed: conda list
 
-5-Go to Ipython Notebook
-Go to folder of Ipython Notebook to run 
-Execute: jupyter lab
-Find and open notebook
+5-Go to Ipython Notebook or Spyder
+Go to folder of Ipython Notebook or spyder to run 
+Execute: jupyter lab or spyder
+Find and open notebook or script
