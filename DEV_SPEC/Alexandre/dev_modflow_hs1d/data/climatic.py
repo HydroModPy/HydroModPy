@@ -1,8 +1,7 @@
 # coding:utf-8
 import geopandas as gpd
 import pandas as pd
-from IPython.core.debugger import set_trace as st
-import display_climatic
+import data.display_climatic as display_climatic 
 import os 
 
 

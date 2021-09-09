@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 import time
 import glob
-from IPython.core.debugger import set_trace as st
 
 class extract:
 	def __init__(self, out_path, geographic):
@@ -21,7 +20,7 @@ class extract:
 		self.y_coord = []
 		self.x_iloc = []
 		self.y_iloc = []
-		piezos = self.exctract_piezos_from_watershed(data_folder, geographic)
+		self.exctract_piezos_from_watershed(data_folder, geographic)
 		if os.path.exists(data_folder + 'shapefile/piezos.shp'):
 			self.extract_data_from_code_bss(data_folder)
 			self.load_piezometric_data(data_folder)
