@@ -1,5 +1,5 @@
-observed_data,homogeneous_heterogeneous,state
-streams,homogeneous,steady
-piezometry,homogeneous,steady
-streams,heterogeneous,transient
-piezometry,heterogeneous,transient
+name;x_outlet;y_outlet;snap_dist;buff_dist;user
+Agon-Coutainville;363669;6894593;100;1000;A.Gauvain
+Baie-du-cotentin;399382;6929848;100;1000;A.Gauvain
+Barneville-Carteret;352300;6929662;100;1000;A.Gauvain
+Saint-Germain-sur-Ay;364188;6913437;100;1000;A.Gauvain
