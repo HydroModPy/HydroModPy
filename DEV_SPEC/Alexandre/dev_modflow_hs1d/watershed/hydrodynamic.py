@@ -1,0 +1,1 @@
+#définir K theta porosité

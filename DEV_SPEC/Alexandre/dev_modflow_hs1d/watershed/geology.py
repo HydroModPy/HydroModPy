@@ -2,17 +2,11 @@
 
 # Librairies
 import os
-import sys
 import numpy as np
-import topography
-from osgeo import gdal, osr
+from osgeo import gdal
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
-def my_callback(value):
-	my_callback = 0
-wbt.set_default_callback(my_callback)
-from IPython.core.debugger import set_trace as st
 
 class extract:
 	def __init__(self,out_path, geographic, geo_path):

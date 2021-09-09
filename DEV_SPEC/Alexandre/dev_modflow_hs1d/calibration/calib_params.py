@@ -23,7 +23,7 @@ class CalibParams:
 
     Methods
     -------
-    CreateParams(geology_code, folder)
+    createparams(geology_code, folder)
         Create and save parameters
     
     """
@@ -92,8 +92,8 @@ class CalibParams:
                         self.types.append('porosity')
                         self.units.append('-')
                         self.lbound.append(0.01)
-                        self.ubound.append(1)
-                        self.init_value.append(0.5)
+                        self.ubound.append(0.5)
+                        self.init_value.append(0.1)
                 
         self.store = pd.DataFrame({'names': self.names,'geo_codes': self.geo_codes,'types': self.types, 'units': self.units, 'lbounds': self.lbound, 'ubounds':self.ubound, 'init_values': self.init_value})
     

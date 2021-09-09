@@ -1,12 +1,9 @@
 import os
-import sys
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from pyproj import Transformer
-from IPython.core.debugger import set_trace as st
 from netCDF4 import Dataset
-import display_oceanic
+import data.display_oceanic as display_oceanic
 
 class extract:
 	def __init__(self, out_path, geographic, oceanic_path):

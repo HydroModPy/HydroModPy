@@ -1,4 +1,4 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
 
 import os
 import sys
@@ -11,6 +11,7 @@ import topography
 from glob import glob
 import modflow as mod
 import extract as ext
+import calibration as cal
 import geology as geo
 import matplotlib
 import matplotlib.pyplot as plt
@@ -32,6 +33,7 @@ class run_stream_het_calibration:
     def __init__(self, geographic, geology, climatic, folder, sea_level=None, first=1, 
         last=10000, gap=10, lay_number=1, thick=50, porosity=0.01,
         type_obs='streams', type_time='s', exe='/bin/mfnwt.exe'):
+
         '''
         krval = (first + last)/2
         self.hyd_cond = np.ones(np.shape(geology.geology_array))
@@ -60,8 +62,10 @@ class run_stream_het_calibration:
                                         geology.geology_array_clip[geology.geology_array_clip<1000] = i
                                     if i ==2:
                                         geology.geology_array[geology.geology_array>=1000] = i
-                                        geology.geology_array_clip[geology.geology_array_clip>=1000] = i'''
-        
+                                        geology.geology_array_clip[geology.geology_array_clip>=1000] = i
+        '''
+    
+    def perform(self,lb,ub,)    
         lb = -7
         ub = -3
         
@@ -74,20 +78,24 @@ class run_stream_het_calibration:
                 method='Nelder-Mead', bounds=bds, tol=0.01)
         plt.show()
     
-    def func(self, Klog, geographic, geology, climatic, lay_number, thick, sea_level, folder, exe):
+    def objective_function(self, Klog, geographic, geology, climatic, lay_number, thick, sea_level, folder, exe):
         K = (10 ** Klog) * (60*60*24)
         self.hyd_cond = np.ones(np.shape(geology.geology_array))* np.mean(K)
         for i in range (0, len(geology.geology_code)):
                 self.hyd_cond[geology.geology_array==geology.geology_code[i]] = K[i]
         print(K)
         print(Klog)
-        '''plt.figure()
-                                plt.imshow(self.hyd_cond,vmin=min(K), vmax=max(K))
-                                plt.colorbar()
-                                plt.show()'''
-        '''plt.figure(figsize=(2,2))
-                                plt.imshow(self.hyd_cond)
-                                plt.show()'''
+        '''
+        plt.figure()
+        plt.imshow(self.hyd_cond,vmin=min(K), vmax=max(K))
+        plt.colorbar()
+        plt.show()
+        '''
+        '''
+        plt.figure(figsize=(2,2))
+        plt.imshow(self.hyd_cond)
+        plt.show()
+        '''
         mod.run_model(geographic, watershed='sim_modflow', 
             climatic=climatic, lay_number=lay_number, thick=thick,
             hyd_cond=self.hyd_cond, sea_level = sea_level, model_name='stream_calibration', 
@@ -106,13 +114,11 @@ class run_stream_het_calibration:
         df.mean_dist_code['log10'] = np.log10(np.asarray(df.mean_dist_code['ratio_dist']))**2
         print(df.mean_dist_code)
 
-
         cmap = matplotlib.cm.get_cmap('jet')
         norm = matplotlib.colors.LogNorm(vmin=0.01, vmax=100)
         rgba = cmap(norm(np.sum(df.mean_dist_code['log10'])))
 
         plt.plot(Klog[0],Klog[1],'o',markerfacecolor=rgba)
-        
 
         func_return = np.nansum(df.mean_dist_code['log10'])
         if func_return == np.inf:
