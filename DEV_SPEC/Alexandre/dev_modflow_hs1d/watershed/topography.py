@@ -1,9 +1,8 @@
 # coding:utf-8
 
 from osgeo import gdal, osr
-from IPython.core.debugger import set_trace as st
 
-class dem:
+class Topography:
 	def __init__(self, dem_path):
 		self.dem_path = dem_path
 		self.load_dem()

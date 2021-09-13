@@ -5,7 +5,7 @@ import data.display_climatic as display_climatic
 import os 
 
 
-class extract:
+class Climatic:
 	def __init__(self,out_path, surfex_path, watershed_shp):
 		data_folder = out_path + 'data/climatic/'
 		if not os.path.exists(data_folder):

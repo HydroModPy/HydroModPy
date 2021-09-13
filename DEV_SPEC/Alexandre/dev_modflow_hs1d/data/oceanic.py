@@ -5,7 +5,7 @@ import geopandas as gpd
 from netCDF4 import Dataset
 import data.display_oceanic as display_oceanic
 
-class extract:
+class Oceanic:
 	def __init__(self, out_path, geographic, oceanic_path):
 		print('Extraction des données océaniques')
 		self.figure_folder = out_path + 'figures/oceanic/'

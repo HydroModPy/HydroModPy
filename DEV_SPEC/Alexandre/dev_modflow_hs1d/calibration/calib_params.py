@@ -1,9 +1,7 @@
 # coding:utf-8
 
 import os
-import sys
 import pandas as pd
-from IPython.core.debugger import set_trace as st
 from datetime import datetime
 
 class CalibParams:
@@ -97,7 +95,7 @@ class CalibParams:
                 
         self.store = pd.DataFrame({'names': self.names,'geo_codes': self.geo_codes,'types': self.types, 'units': self.units, 'lbounds': self.lbound, 'ubounds':self.ubound, 'init_values': self.init_value})
     
-    def save_params
+    def save_params(self,results_folder):
         now = datetime.now()
         dt_string = now.strftime("%Y_%m_%d-%H_%M")
         self.results_path = results_folder +'/'+ dt_string
