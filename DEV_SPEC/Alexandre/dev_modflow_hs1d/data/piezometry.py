@@ -9,7 +9,7 @@ import numpy as np
 import time
 import glob
 
-class extract:
+class Piezometry:
 	def __init__(self, out_path, geographic):
 		print('Extraction des données piézomètriques')
 		data_folder = out_path + 'data/piezometric/'

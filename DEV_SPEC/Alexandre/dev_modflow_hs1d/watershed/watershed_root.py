@@ -7,7 +7,9 @@ Created on Thu Sep  9 14:52:56 2021
 
 # modules
 import os
+import pandas as pd
 import pickle
+import sys
 
 # HydroModPy modules
 from data import hydrology, climatic, oceanic ,piezometry
@@ -67,8 +69,7 @@ class Watershed:
                 sea_level = None, cond_decay=0.)
         run groundwater flow model using Modflow and Flopy
     """
-    def __init__(self, watershed_name, dem_path, x_outlet, y_outlet, 
-                 snap_dist = 150, buff_dist = 1000, out_path = 
+    def __init__(self, watershed_name, dem_path, out_path = 
                  os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, modflow_path = None, load = False):
@@ -81,14 +82,6 @@ class Watershed:
             name of watershed
         dem_path : str
             folder of the regional DEM
-        x_outlet : float
-            x coordinate of the outlet of the watershed
-        y_outlet : float
-            y coordiante of the outlet of the watershed
-        snap_dist : float
-            distance of the outlet can be mooved to join the closest river
-        buff_dist : float
-            distance to increase the boundary of the watershed
         out_path : str
             root directory of results
         surfex_path : str
@@ -105,17 +98,17 @@ class Watershed:
             True to load the python object. False to create.
         """
         self.name = watershed_name
+        self.load_watershed_csv()
+
         self.dem_path = dem_path
-        self.x_outlet = x_outlet
-        self.y_outlet = y_outlet
-        self.snap_dist = snap_dist
-        self.buff_dist = buff_dist
         self.out_path = out_path
+        
         self.surfex_path = surfex_path
         self.hydrology_path = hydrology_path
         self.oceanic_path = oceanic_path
         self.geology_path = geology_path
         self.modflow_path = modflow_path
+        
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
         self.add_data_folder = os.path.join(self.watershed_folder, 'data/add_data')
@@ -130,6 +123,23 @@ class Watershed:
                 self.create_object()
         else:
             self.create_object()    
+
+    
+    def load_watershed_csv(self):
+        """
+        Load watershed informations from watershed.csv file
+        """
+        try:
+            watershed_list = pd.read_csv('../watershed.csv',delimiter=';')
+            watershed_info = watershed_list.loc[watershed_list['name'] == self.name]
+            self.x_outlet = watershed_info['x_outlet'][0]
+            self.y_outlet = watershed_info['y_outlet'][0]
+            self.snap_dist = watershed_info['snap_dist'][0]
+            self.buff_dist = watershed_info['buff_dist'][0]
+        except:
+            print("Warning : The name of watershed is not in the watershed list")
+            sys.exit()
+        
 
     def load_object(self):
         """
@@ -170,7 +180,7 @@ class Watershed:
         Creates python object
         """
         #STURCUTRE DATA
-        self.geographic = geographic.extract(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet, snap_dist=self.snap_dist, buff_dist=self.buff_dist,
+        self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet, snap_dist=self.snap_dist, buff_dist=self.buff_dist,
                  out_path=self.watershed_folder) #2D
         self.elt_def.append('geographic')
         
@@ -179,26 +189,25 @@ class Watershed:
         
         #self.hillslope = hillslope() #1D Doesn't exist
         
-        
         if self.hydrology_path != None:
-            self.hydrology = hydrology.extract(out_path=self.watershed_folder,type_obs='streams', geographic=self.geographic, hydro_path=self.hydrology_path)
+            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder,type_obs='streams', geographic=self.geographic, hydro_path=self.hydrology_path)
             self.elt_def.append('hydrology')
 
         if self.geology_path != None:
-            self.geology =  geology.extract(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path)
+            self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path)
             self.elt_def.append('geology')
 
         #MODELING DATA
         if self.oceanic_path != None:
-            self.oceanic = oceanic.extract(out_path=self.watershed_folder,oceanic_path=self.oceanic_path,geographic=self.geographic)
+            self.oceanic = oceanic.Oceanic(out_path=self.watershed_folder,oceanic_path=self.oceanic_path,geographic=self.geographic)
             self.elt_def.append('oceanic')
 
         if self.surfex_path != None:
-            self.climatic = climatic.extract(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
+            self.climatic = climatic.Climatic(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
             self.elt_def.append('surfex')
 
         #FIELD DATA
-        self.piezometry = piezometry.extract(out_path=self.watershed_folder,geographic=self.geographic)
+        self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
         self.elt_def.append('piezometry')
         #self.hydrometry = hydrometry() #doesn't exist
         #self.geochemistry = geochemistry() #doesn't exist
@@ -237,7 +246,7 @@ class Watershed:
         sea_level: None or float (default is None)
             sea level in meters
         cond_decay: float    
-            changes the hydraulic conductivity whit the depth
+            changes the hydraulic conductivity exponentially whit the depth
         thick_exp: float (default is 1)
             changes the thickness of the layers exponentially
         """

@@ -1,47 +1,71 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Sep  9 20:10:52 2021
 
-import os
-import pandas as pd
+@author: Alexandre Gauvain
+"""
+
 import geopandas as gpd
-from osgeo import gdal, osr
-from shutil import copyfile
 import numpy as np
-from IPython.core.debugger import set_trace as st
-import whitebox
+import os
+from osgeo import gdal, osr
+import pandas as pd
 from pyproj import Transformer
+import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
-def my_callback(value):
-    my_callback = 0
-wbt.set_default_callback(my_callback)
 
-class extract:
+class Geographic:
+    """
+    class Geographic used to clip the watershed from regional DEM
+
+    Attributes
+    ----------
+    watershed_shp: str
+        path of watershed shapefile
+    watershed_box_shp: str
+        path of watershed shapefile (boundaries box)
+    watershed_fill: str
+        path of watershed filled
+    watershed_dir: str
+        path of watershed flow direction
+    
+    
+    
+    Methods
+    -------
+    generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
+        creates files to extract watershed from regional DEM
+    load_files(dem_path)
+        loads files to 
+    """
+    
     def __init__(self, dem_path, x, y, snap_dist=150, buff_dist=1000,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         print('Extraction des données géographiques')
+        
         self.generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
         self.load_files(dem_path)
 
     def generate_files(self,dem_path, x, y, snap_dist, buff_dist, out_path):
         gis_path = out_path + '/data/geographic/'
+        self.watershed_shp = gis_path + 'watershed.shp'
+        self.watershed_box_shp = gis_path + 'watershed_box.shp'
+        self.watershed_fill = gis_path + 'watershed_fill.tif'
+        self.watershed_direc = gis_path + 'watershed_direc.tif'
+        self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
+        self.watershed_box_buff_dem = gis_path + 'watershed_box_buff_dem.tif'
         fill = gis_path + 'region_fill.tif'
         direc = gis_path + 'region_direc.tif'
         acc = gis_path + 'region_acc.tif'
         outlet_shp = gis_path + 'outlet.shp'
         outlet_snap_shp = gis_path + 'outlet_snap.shp'
         watershed = gis_path + 'watershed.tif'
-        self.watershed_shp = gis_path + 'watershed.shp'
-        self.watershed_box_shp = gis_path + 'watershed_box.shp'
         watershed_contour_shp = gis_path + 'watershed_contour.shp'        
         watershed_dem = gis_path + 'watershed_dem.tif'
-        self.watershed_fill = gis_path + 'watershed_fill.tif'
-        self.watershed_direc = gis_path + 'watershed_direc.tif'
         buffer = gis_path + 'buff.shp'
-        self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
         watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
         watershed_buff_direc = gis_path + 'watershed_buff_direc.tif'
-
-        self.watershed_box_buff_dem = gis_path + 'watershed_box_buff_dem.tif'
         watershed_box_buff_fill = gis_path + 'watershed_box_buff_fill.tif'
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
 
@@ -89,7 +113,7 @@ class extract:
         wbt.clip_raster_to_polygon(dem_path,buffer,self.watershed_box_buff_dem)
         wbt.clip_raster_to_polygon(fill,buffer,watershed_box_buff_fill)
         wbt.clip_raster_to_polygon(direc,buffer,watershed_box_buff_direc)
-        return self
+        
 
     def load_files(self, dem_path):
         dem = gdal.Open(self.watershed_buff_dem)

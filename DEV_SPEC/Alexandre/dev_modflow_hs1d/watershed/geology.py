@@ -8,7 +8,7 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
 
-class extract:
+class Geology:
 	def __init__(self,out_path, geographic, geo_path):
 		print('Extraction des données géologiques')
 		data_folder = out_path + 'data/geoglogy/'

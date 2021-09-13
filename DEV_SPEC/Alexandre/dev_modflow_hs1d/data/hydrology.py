@@ -14,7 +14,7 @@ def my_callback(value):
 wbt.set_default_callback(my_callback)
 
 
-class extract:
+class Hydrology:
     def __init__(self,out_path, type_obs, geographic, hydro_path):
         print("Extraction des données hydrologiques")
         data_folder = out_path + 'data/hydrology/'
