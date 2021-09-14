@@ -5,6 +5,7 @@ Created on Thu Sep  9 20:10:52 2021
 @author: Alexandre Gauvain
 """
 
+# Modules
 import geopandas as gpd
 import numpy as np
 import os
@@ -14,6 +15,9 @@ from pyproj import Transformer
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
+
+# HydroModPy modules
+from tools import file_adds
 
 class Geographic:
     """
@@ -30,13 +34,11 @@ class Geographic:
     watershed_dir: str
         path of watershed flow direction
     
-    
-    
     Methods
     -------
-    generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
+    processing(dem_path, x, y, snap_dist, buff_dist, out_path)
         creates files to extract watershed from regional DEM
-    load_files(dem_path)
+    post_processing_dem(dem_path)
         loads files to 
     """
     
@@ -44,11 +46,15 @@ class Geographic:
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         print('Extraction des données géographiques')
         
-        self.generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
-        self.load_files(dem_path)
+        self.processing(dem_path, x, y, snap_dist, buff_dist, out_path)
+        self.post_processing_dem(dem_path)
 
-    def generate_files(self,dem_path, x, y, snap_dist, buff_dist, out_path):
-        gis_path = out_path + '/data/geographic/'
+    def processing(self,dem_path, x, y, snap_dist, buff_dist, out_path):
+        # Generate folder where processing files are stored
+        # gis_path = out_path + '/data/geographic/'
+        self.gis_path = os.path.join(out_path, 'data/geographic/')
+        file_adds.create_folder(self.gis_path)
+
         self.watershed_shp = gis_path + 'watershed.shp'
         self.watershed_box_shp = gis_path + 'watershed_box.shp'
         self.watershed_fill = gis_path + 'watershed_fill.tif'
@@ -68,9 +74,6 @@ class Geographic:
         watershed_buff_direc = gis_path + 'watershed_buff_direc.tif'
         watershed_box_buff_fill = gis_path + 'watershed_box_buff_fill.tif'
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
-
-        if not os.path.exists(gis_path):
-                os.makedirs(gis_path)
 
         dem = gdal.Open(dem_path)
         proj = osr.SpatialReference(wkt=dem.GetProjection())
@@ -115,7 +118,7 @@ class Geographic:
         wbt.clip_raster_to_polygon(direc,buffer,watershed_box_buff_direc)
         
 
-    def load_files(self, dem_path):
+    def post_processing_dem(self, dem_path):
         dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = dem.GetRasterBand(1).ReadAsArray()
         dem = gdal.Open(self.watershed_box_buff_dem)
