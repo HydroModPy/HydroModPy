@@ -14,6 +14,7 @@ import pandas as pd
 from pyproj import Transformer
 import whitebox
 wbt = whitebox.WhiteboxTools()
+wbt.set_compress_rasters(True)
 wbt.set_verbose_mode(False)
 
 # HydroModPy modules
@@ -158,10 +159,11 @@ class Geographic:
         site_bound = gpd.read_file(self.watershed_box_shp)
         site_bound.to_file(self.watershed_box_shp)
         site_bound['geometry'] = site_bound.geometry.buffer(buff_dist)
-        site_bound.to_file(buffer)
-        wbt.minimum_bounding_envelope(buffer, buffer, features=False)
-        site_bound = gpd.read_file(buffer)
-        site_bound.to_file(buffer)
+        box_buffer = gis_path + 'box_buff.shp'
+        site_bound.to_file(box_buffer)
+        wbt.minimum_bounding_envelope(box_buffer, box_buffer, features=False)
+        site_bound = gpd.read_file(box_buffer)
+        site_bound.to_file(box_buffer)
         
         """
         Clip to reach buffer size
@@ -204,12 +206,12 @@ class Geographic:
         
     def post_processing_dem(self, dem_path):
 
-        # Open buffer contour watershed dem
-        dem = gdal.Open(dem_path)
-        self.dem_data = dem.GetRasterBand(1).ReadAsArray()
-        self.geodata = dem.GetGeoTransform()
+        # Open DEM used for modeling
+        self.dem = gdal.Open(dem_path)
+        self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
+        self.geodata = self.dem.GetGeoTransform()
         # Extract the coordinate system
-        proj = osr.SpatialReference(wkt=dem.GetProjection())
+        proj = osr.SpatialReference(wkt=self.dem.GetProjection())
         self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
         # Extract size characteristics
         self.x_pixel = self.dem_data.shape[1] # columns

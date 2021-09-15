@@ -17,7 +17,7 @@ import flopy.utils.postprocessing as pp
 import deepdish as dd
 
 # HydroModPy modules
-import topography
+from watershed import topography
 from tools import tif_adds
 
 # Temporary
@@ -56,6 +56,7 @@ class extract_model:
         self.nstp = self.dis.nstp
         self.kper = np.arange(0,self.nper,1) # ==> time
         self.kstp = self.nstp[self.kper] - 1
+        # save file text
     
     def open_simulation(self):
         self.head_fpu = fpu.HeadFile(self.full_path+'.hds')        

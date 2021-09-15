@@ -12,7 +12,7 @@ import glob
 class Piezometry:
 	def __init__(self, out_path, geographic):
 		print('Extraction des données piézomètriques')
-		data_folder = out_path + 'data/piezometric/'
+		data_folder = out_path + '/data/piezometric/'
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)	
 		self.download_init_data(data_folder)
