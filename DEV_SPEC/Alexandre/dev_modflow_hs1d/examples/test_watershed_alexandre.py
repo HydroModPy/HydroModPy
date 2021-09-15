@@ -20,8 +20,8 @@ elif user_path=="Jean-Raynald":
     root_path= "C:/DATA/codes-gitlab-public/HydroModPy_data/"
     out_path = "C:/DATA/results/HydroModPy"
 elif user_path=="Ronan":
-    root_path= ""
-    out_path = ""
+    root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+    out_path = "D:/Users/abherve/HYDROMODPY"
 else:
     print("Define a well-validated name of user")
 
