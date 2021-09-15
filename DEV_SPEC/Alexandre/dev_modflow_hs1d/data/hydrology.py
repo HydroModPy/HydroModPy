@@ -9,15 +9,14 @@ from osgeo import gdal, osr
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
-def my_callback(value):
-    my_callback = 0
-wbt.set_default_callback(my_callback)
-
+# def my_callback(value):
+#     my_callback = 0
+# wbt.set_default_callback(my_callback)
 
 class Hydrology:
     def __init__(self,out_path, type_obs, geographic, hydro_path):
         print("Extraction des données hydrologiques")
-        data_folder = out_path + 'data/hydrology/'
+        data_folder = out_path + '/data/hydrology/'
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
                 
