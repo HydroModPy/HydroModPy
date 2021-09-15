@@ -222,7 +222,7 @@ class Watershed:
         
 
     def run_modflow(self,name,climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
-        hyd_cond=8.64e-2, porosity=0.01, sea_level = None, cond_decay=0.):
+                    hyd_cond=8.64e-2, porosity=0.01, sea_level = None, cond_decay=0.):
         """ 
         build and run modflow model
         
@@ -256,13 +256,13 @@ class Watershed:
             model = modflow.Modflow(self.geographic, watershed='results/sim_modflow', 
                                     climatic=climatic, lay_number=lay_number, thick=thick, bottom=bottom, thick_exp=thick_exp, 
                                     hyd_cond=hyd_cond, porosity=porosity, sea_level = sea_level, cond_decay=cond_decay,
-                                    time_step='daily', model_name=name, model_folder= self.watershed_folder , 
-                                    exe= self.modflow_path +'/bin/mfnwt.exe')
+                                    time_step='daily', model_name=name, model_folder= self.watershed_folder, 
+                                    exe=self.modflow_path +'/bin/mfnwt.exe')
 
         model.run(geographic)
 
         model.save(self.geographic, watershed='sim_modflow', model_name=name, model_folder=self.watershed_folder,
-            param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
+                   param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
         
 
     def run_hs1D(self):
