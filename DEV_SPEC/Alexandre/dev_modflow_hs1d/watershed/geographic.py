@@ -48,7 +48,7 @@ class Geographic:
         print('Extraction des données géographiques')
         
         self.processing(dem_path, x, y, snap_dist, buff_dist, out_path)
-        self.post_processing_dem(dem_path)
+        self.post_processing_dem()
 
     def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
         
@@ -182,8 +182,8 @@ class Geographic:
         Clip to reach watershed size
         """
         # Clip buffer watershed DEM from watershed shapefile polygon
-        watershed_dem = gis_path + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, watershed_dem, maintain_dimensions=True)
+        self.watershed_dem = gis_path + 'watershed_dem.tif'
+        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, maintain_dimensions=True)
         # Clip corrected regional DEM from watershed shapefile polygon
         self.watershed_fill = gis_path + 'watershed_fill.tif'
         wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill)
@@ -204,10 +204,10 @@ class Geographic:
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, buffer, watershed_box_buff_direc)
         
-    def post_processing_dem(self, dem_path):
+    def post_processing_dem(self):
 
         # Open DEM used for modeling
-        self.dem = gdal.Open(dem_path)
+        self.dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
         self.geodata = self.dem.GetGeoTransform()
         # Extract the coordinate system
@@ -219,6 +219,7 @@ class Geographic:
         # Extract resolution
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative
+        self.resolution = self.resolution_x
         # Extract bounds size
         self.xmin = self.geodata[0] # originX
         self.ymax = self.geodata[3] # originY

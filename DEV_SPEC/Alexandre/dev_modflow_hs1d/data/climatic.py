@@ -7,15 +7,17 @@ import os
 
 class Climatic:
 	def __init__(self,out_path, surfex_path, watershed_shp):
-		data_folder = out_path + 'data/climatic/'
+		data_folder = out_path + '/data/climatic/'
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)
-		self.figure_folder = out_path + 'figures/climatic/'
+		self.figure_folder = out_path + '/figures/climatic/'
 		if not os.path.exists(self.figure_folder):
 				os.makedirs(self.figure_folder)
 		print('Extraction des données climatiques')
 		self.extract_cells_from_shapefile(surfex_path, watershed_shp)
 		self.extract_values_from_h5file(data_folder, surfex_path)
+        
+		self.display_all_variables(model='REA', start='1960', end='2010')
 
 	def extract_cells_from_shapefile(self, surfex_path, watershed_shp):
 		mesh_path = surfex_path + '/shapefile/maille_meteo_fr_pr93.shp'
@@ -46,7 +48,7 @@ class Climatic:
 							values.index.freq = values.index.inferred_freq
 						values = values.loc[:,self.cells_list]
 						values['MEAN'] = values.mean(numeric_only=True, axis=1)
-						#values.to_hdf(h5file, var+'/'+sce)
+						values.to_hdf(h5file, var+'/'+sce)
 						self.values[sim][var][sce] = values
 					except:
 						pass
@@ -63,6 +65,7 @@ class Climatic:
 			display_climatic.display_all_variables(self.values,self.figure_folder, model, start, end)
 
 	def display_intermensual_scenarios(self, var=None):
+		mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA']		
 		var_list = ['all','TAS','PPT','ETP','RUN','REC','SNOW']
 		if var == None or (var not in var_list):
 			print('You must specify the variable you want to display')
@@ -74,6 +77,7 @@ class Climatic:
 			display_climatic.display_intermensual_scenarios(self.values,self.figure_folder, var)
 
 	def display_annual_scenarios(self, var=None):
+		mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA']
 		var_list = ['all','TAS','PPT','ETP','RUN','REC','SNOW']
 		if var == None or (var not in var_list):
 			print('You must specify the variable you want to display')

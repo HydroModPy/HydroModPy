@@ -10,7 +10,15 @@ import sys
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
+import matplotlib.pyplot as plt
 
+import warnings
+warnings.filterwarnings("ignore", 
+                        message=".*An exception was ignored while fetching the attribute.*",
+                        category=DeprecationWarning)
+
+# warnings.warn("You won't see this warning")
+                                            
 # HydroModPy modules
 from watershed import watershed_root
 
@@ -34,19 +42,14 @@ load = False
 watershed_name = 'Canut'
 library_path = df + '/watershed.csv'
 
-dem_path = root_path + "Bretagne.tif"
-
-# surfex_path =  root_path + 'SURFEX/EBR_REA_h5'
-# geology_path = root_path + 'GEOLOGY'
-# oceanic_path = root_path + 'OCEAN'
-# modflow_path = root_path + 'MODFLOW'
-# hydrology_path = root_path + 'HYDROLOGY'
+dem_path = root_path + "BDALTI_bzh_75m.tif"
 
 surfex_path =  None
 geology_path = None
-oceanic_path = None
-modflow_path = None
 hydrology_path = None
+modflow_path = root_path + 'MODFLOW'
+piezometric_path = None
+oceanic_path = None
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               library_path=library_path,
@@ -55,6 +58,8 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               surfex_path=surfex_path,
                               geology_path=geology_path,
                               hydrology_path=hydrology_path,
+                              piezometric_path=piezometric_path,
                               oceanic_path=oceanic_path, 
                               modflow_path=modflow_path,
                               load=load)
+

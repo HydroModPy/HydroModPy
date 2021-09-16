@@ -16,6 +16,7 @@ import deepdish as dd
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
+from osgeo import gdal, osr
 
 # HydroModPy modules
 from tools import tif_adds
@@ -54,17 +55,16 @@ class Modflow:
         self.bottom = bottom
         self.nlay = lay_number
         self.hyd_cond = hyd_cond
+        self.porosity = porosity
         self.cond_decay = cond_decay
         if sea_level == None:
             self.dem = geographic.dem_data
         else:
-            self.dem = geographic.dem_box_data
-            self.porosity = porosity
+            self.dem = geographic.dem_box_data        
         self.exe = exe
 
-        self.build(geographic)
-
     def build(self, geographic):
+        print('Construction d\'un modèle')
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
                                         model_ws=self.full_path, external_path=self.full_path)
@@ -196,22 +196,20 @@ class Modflow:
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
     def run(self):
+        print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
         # run model
         succes, buff = self.mf.run_model(silent=True)
         
-"""        
-    def extract_model(self, dem_path):            
+
+    def extract_model(self, dem_path):     
+        print('Extraction des résultats d\'un modèle')
         self.dem_path = dem_path
-        self.dem = topography.load_dem(self.dem_path)
-        self.dem_mask = (self.dem.data==-99999)
-    
-        # Functions
-        self.model_parameters()
-        self.open_essential()
-        self.iterate_times()
-    
+        self.dem = gdal.Open(self.dem_path)
+        self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
+        self.dem_mask = (self.dem_data==-99999)
+        
         def model_parameters(self):
             self.mf = flopy.modflow.Modflow.load(self.full_path+'.nam', verbose=False, check=False, load_only=["bas6", "dis"])
             self.bas = flopy.modflow.ModflowBas.load(self.full_path+'.bas', self.mf)
@@ -267,7 +265,7 @@ class Modflow:
                          self.model_folder+'/watertable_elevation_t(0).tif')
             
             ### Watertable depth
-            self.wt_depth = self.dem.data - self.wt_elev
+            self.wt_depth = self.dem_data - self.wt_elev
             # Mask
             self.wt_depth[self.dem_mask] = -9999
             # Export
@@ -276,7 +274,7 @@ class Modflow:
                          self.model_folder+'/watertable_depth_t(0).tif')
             
             ### Watertable intercept
-            self.seep_area = self.dem.data - self.wt_elev
+            self.seep_area = self.dem_data - self.wt_elev
             # Mask
             self.seep_area[self.seep_area > 0] = 0
             self.seep_area[self.seep_area <= 0] = 1
@@ -358,4 +356,3 @@ class Modflow:
             dd.io.save(self.model_folder+'outflow_drain.h5', self.dict_watertable_elevation)
             dd.io.save(self.model_folder+'gw_flux.h5', self.dict_watertable_elevation)
             dd.io.save(self.model_folder+'specific_discharge.h5', self.dict_watertable_elevation)
-"""
