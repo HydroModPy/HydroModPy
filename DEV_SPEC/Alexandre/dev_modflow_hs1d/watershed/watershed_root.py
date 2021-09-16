@@ -5,39 +5,39 @@ Created on Thu Sep  9 14:52:56 2021
 @author: Alexandre Gauvain
 """
 
-# modules
+# Modules
 import os
 import pandas as pd
 import pickle
 import sys
+from os.path import dirname, abspath
+df = dirname(dirname(abspath(__file__)))
+sys.path.append(df)
 
 # HydroModPy modules
-from data import hydrology, climatic, oceanic ,piezometry
+from data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow
 from tools import file_adds
-from watershed import geographic, geology, hydrodynamic, watershed_display
+from watershed import geographic, geology, hydrodynamic
 
 class Watershed:
     """
-    class Watershed is used to manage watershed:
-        - extract watershed
-        - extract data from watershed boundaries
-        - run groundwater flow model
+    class Watershed is used to extract watershed and its data from regional DEM
 
     Attributes
     ----------
     name: str
         name of watershed
     dem_path : str
-        file of the regional DEM
+        folder of the regional DEM
     x_outlet : float
-        x coordinate of the outlet of the watershed 
+        x coordinate of the outlet of the watershed
     y_outlet : float
         y coordiante of the outlet of the watershed
     snap_dist : float
-        distance over which the outlet can be mooved to join the closest river
+        distance of the outlet can be mooved to join the closest river
     buff_dist : float
-        safety distance to broaden the watershed and avoid boundary effects
+        distance to increase the boundary of the watershed
     out_path : str
         root directory of results
     surfex_path : str
@@ -54,7 +54,7 @@ class Watershed:
         root directory of results of watershed class
     add_data_folder : str
         folder if you want add data manually
-    results_folder : str
+    simulations_folder : str
         root directory of simulation results
     elt_def : list
         list of elements in the python object
@@ -67,13 +67,13 @@ class Watershed:
         create watershed object
     save_object(self)
         save watershed object in the watershed folder (python_object)
-    run_modflow(self,name,climatic=8e-4, lay_number=1, thick=100, bottom=None,
+    run_modflow(self,name, climatic=8e-4, lay_number=1, thick=100, bottom=None,
                 thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                 sea_level = None, cond_decay=0.)
         run groundwater flow model using Modflow and Flopy
     """
-    def __init__(self, watershed_name, dem_path, out_path = 
-                 os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
+    def __init__(self, watershed_name, library_path, dem_path, 
+                 out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, modflow_path = None, load = False):
         """ 
@@ -101,7 +101,8 @@ class Watershed:
             True to load the python object. False to create.
         """
         self.name = watershed_name
-        self.load_watershed_metadata()
+        self.library_path = library_path
+        self.load_watershed_csv()
 
         self.dem_path = dem_path
         self.out_path = out_path
@@ -116,7 +117,8 @@ class Watershed:
         file_adds.create_folder(self.watershed_folder)
         self.add_data_folder = os.path.join(self.watershed_folder, 'data/add_data')
         file_adds.create_folder(self.add_data_folder)
-        self.results_folder = self.watershed_folder + '/results'
+        self.simulations_folder = os.path.join(self.watershed_folder, 'simulations')
+        file_adds.create_folder(self.simulations_folder)
         self.elt_def = []
 
         if load==True:
@@ -128,23 +130,23 @@ class Watershed:
             self.create_object()    
 
     
-    def load_watershed_metadata(self):
+    def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file
         """
         try:
-            watershed_list = pd.read_csv('../watershed_librabry.csv',delimiter=';')
+            # watershed_list = pd.read_csv('../watershed.csv', delimiter=';')
+            watershed_list = pd.read_csv(self.library_path, delimiter=';')
             watershed_info = watershed_list.loc[watershed_list['name'] == self.name]
-            self.x_outlet = watershed_info['x_outlet'][0]
-            self.y_outlet = watershed_info['y_outlet'][0]
-            self.snap_dist = watershed_info['snap_dist'][0]
-            self.buff_dist = watershed_info['buff_dist'][0]
+            self.x_outlet = watershed_info.iloc[0]['x_outlet']
+            self.y_outlet = watershed_info.iloc[0]['y_outlet']
+            self.snap_dist = watershed_info.iloc[0]['snap_dist']
+            self.buff_dist = watershed_info.iloc[0]['buff_dist']
         except:
-            print("Warning : The name of watershed is not in the watershed library")
-            print("Check watershed_name or add the watershed metadata in the 'watershed_library.csv' file")
+            print("Warning : The name of watershed is not in the watershed list")
             sys.exit()
+            return watershed_list
         
-
     def load_object(self):
         """
         Loads python object
@@ -225,15 +227,15 @@ class Watershed:
         config_dictionary_file.close()
         
 
-    def run_modflow(self,name,climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
-        hyd_cond=8.64e-2, porosity=0.01, sea_level = None, cond_decay=0.):
+    def run_modflow(self, ident='temporary', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
+                    hyd_cond=8.64e-2, porosity=0.01, sea_level = None, cond_decay=0.):
         """ 
         build and run modflow model
         
         Arguments
         ---------
-        name: str
-            name of the model
+        ident: str
+            identity name of the model
         climatic: float or list of float
             recharge chronicle of the model in m/d
         lay_number: int
@@ -257,34 +259,19 @@ class Watershed:
         if type(sea_level) != type(climatic):
             print('Error : sea_level and climatic chronicles must be the same length')
         else:
-            model = modflow.Modflow(self.geographic, watershed='results/sim_modflow', 
+            model = modflow.Modflow(self.geographic, watershed=self.name, 
                                     climatic=climatic, lay_number=lay_number, thick=thick, bottom=bottom, thick_exp=thick_exp, 
                                     hyd_cond=hyd_cond, porosity=porosity, sea_level = sea_level, cond_decay=cond_decay,
-                                    time_step='daily', model_name=name, model_folder= self.watershed_folder , 
-                                    exe= self.modflow_path +'/bin/mfnwt.exe')
-
+                                    time_step='monthly', model_name=ident, model_folder=self.simulations_folder, 
+                                    exe=self.modflow_path +'/bin/mfnwt.exe')
+        
         model.build()
         model.run()
+        model.extract_model(self.dem_path)
 
-        model.save(self.geographic, watershed='sim_modflow', model_name=name, model_folder=self.watershed_folder,
-            param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
+        # model.save(self.geographic, watershed='sim_modflow', model_name=name, model_folder=self.watershed_folder,
+        #            param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
         
-    
-    def display(self, display_type = "watershed"):
-        """
-        displays maps of elevation, goeology ...
+    def run_hs1D(self):
+        return self
 
-        Parameters
-        ----------
-        display_type : str (default is "watershed")
-            
-
-        Returns
-        -------
-        None.
-
-        """
-        if display_type == 'watershed':
-            watershed_display.watershed(self.geographic)
-            
-        
