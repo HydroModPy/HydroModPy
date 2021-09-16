@@ -13,10 +13,18 @@ sys.path.append(df)
 import matplotlib.pyplot as plt
 
 import warnings
+
 warnings.filterwarnings("ignore", 
                         message=".*An exception was ignored while fetching the attribute.*",
                         category=DeprecationWarning)
+warnings.filterwarnings("ignore", 
+                        message=".*`np.object` is a deprecated alias for the builtin `object`.*",
+                        category=DeprecationWarning)
+warnings.filterwarnings("ignore", 
+                        message=".*is deprecated. Use tobytes().*",
+                        category=DeprecationWarning)
 
+warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                                             
 # HydroModPy modules
@@ -66,3 +74,5 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 
 #%%
 # read_dictionary = np.load('D:/Users/abherve/HYDROMODPY/Canut/simulations/watertable_elevation.h5.npy', allow_pickle='TRUE').item()
+
+# climatic ==> pd.Series([8e-4,7.5e-4,7.0e-4])
