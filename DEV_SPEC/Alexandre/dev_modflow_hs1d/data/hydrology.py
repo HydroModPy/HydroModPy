@@ -23,8 +23,8 @@ class Hydrology:
         watershed_shp = geographic.watershed_box_shp
         watershed_dem = geographic.watershed_box_buff_dem
         
-        sections = hydro_path + '/' + 'sections.shp'
-        streams =  hydro_path + '/' + 'streams.shp'
+        sections = hydro_path + '/' + 'sections_fr.shp'
+        streams =  hydro_path + '/' + 'streams_fr.shp'
         
         self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
         

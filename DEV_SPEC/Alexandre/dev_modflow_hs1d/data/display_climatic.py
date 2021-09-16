@@ -108,7 +108,8 @@ def display_all_variables(data, figure_folder, mod, start, end):
 		plt.tight_layout()
 		name_out = figure_folder + 'RESUME_' + mod.upper() + '_' + sce.upper()
 		fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
-
+		plt.close()
+        
 def display_intermensual_scenarios(data, figure_folder, var):
 	mod_list = ['ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1','REA']
 	var_list = ['TAS','PPT','ETP','RUN','REC','SNOW']
