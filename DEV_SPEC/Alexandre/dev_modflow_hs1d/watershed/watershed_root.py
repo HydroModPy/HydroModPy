@@ -137,7 +137,6 @@ class Watershed:
         
         self.run_modflow()
 
-    
     def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file
@@ -275,6 +274,7 @@ class Watershed:
             model.build(self.geographic)
             model.run()
             model.extract_model(self.geographic.watershed_dem)
+            model.iterate_times()
             
         else:
             print('Error : sea_level and climatic chronicles must be the same length')

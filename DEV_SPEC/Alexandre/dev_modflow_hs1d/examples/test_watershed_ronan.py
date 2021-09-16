@@ -21,6 +21,7 @@ warnings.filterwarnings("ignore",
                                             
 # HydroModPy modules
 from watershed import watershed_root
+from tools import tif_adds
 
 # Users
 user = "Ronan"
@@ -40,11 +41,11 @@ else:
 # test of watershed class
 load = False
 watershed_name = 'Canut'
-library_path = df + '/watershed.csv'
+library_path = df + '/watershed_library.csv'
 
 dem_path = root_path + "BDALTI_bzh_75m.tif"
 
-surfex_path =  None
+surfex_path =  root_path + 'SURFEX'
 geology_path = None
 hydrology_path = None
 modflow_path = root_path + 'MODFLOW'
@@ -63,3 +64,5 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               load=load)
 
+#%%
+# read_dictionary = np.load('D:/Users/abherve/HYDROMODPY/Canut/simulations/watertable_elevation.h5.npy', allow_pickle='TRUE').item()
