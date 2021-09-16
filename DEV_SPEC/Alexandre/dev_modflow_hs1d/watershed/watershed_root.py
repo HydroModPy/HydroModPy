@@ -15,10 +15,10 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy modules
-from data import hydrology, climatic, oceanic, piezometry
+from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow
 from tools import file_adds
-from watershed import geographic, geology, hydrodynamic
+from watershed import geographic, geology, hydrodynamic, watershed_display
 
 class Watershed:
     """
@@ -72,7 +72,7 @@ class Watershed:
                 sea_level = None, cond_decay=0.)
         run groundwater flow model using Modflow and Flopy
     """
-    def __init__(self, watershed_name, library_path, dem_path, 
+    def __init__(self, watershed_name, dem_path, library_path = '../watershed_library.csv',
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, modflow_path = None, load = False):
@@ -85,6 +85,8 @@ class Watershed:
             name of watershed
         dem_path : str
             folder of the regional DEM
+        library_path: str
+            path of the library file
         out_path : str
             root directory of results
         surfex_path : str
@@ -127,7 +129,7 @@ class Watershed:
                 print("Object was not loaded as demanded but created from scratch")
                 self.create_object()
         else:
-            self.create_object()    
+            self.create_object()
 
     
     def load_watershed_csv(self):
@@ -135,7 +137,6 @@ class Watershed:
         Load watershed informations from watershed.csv file
         """
         try:
-            # watershed_list = pd.read_csv('../watershed.csv', delimiter=';')
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
             watershed_info = watershed_list.loc[watershed_list['name'] == self.name]
             self.x_outlet = watershed_info.iloc[0]['x_outlet']
@@ -152,7 +153,7 @@ class Watershed:
         Loads python object
         """
         if not os.path.exists(self.watershed_folder + 'python_object'):
-            with open(self.watershed_folder + 'python_object', 'rb') as config_dictionary_file:
+            with open(os.path.join(self.watershed_folder, 'python_object'), 'rb') as config_dictionary_file:
               BV = pickle.load(config_dictionary_file)
             if ('geographic' in BV.__dir__()) == True:
                 self.geographic = BV.geographic
@@ -274,4 +275,7 @@ class Watershed:
         
     def run_hs1D(self):
         return self
+    
+    def display(self):
+        watershed_display.watershed(self.geographic)
 

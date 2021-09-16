@@ -20,8 +20,7 @@ import sys
 import imageio
 import re
 import deepdish as dd
-from hydroeval import *
-import gdal
+from osgeo import gdal
 import rasterio
 
 # Plots
@@ -85,4 +84,5 @@ fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
 def watershed(geographic):
+    a=0
     

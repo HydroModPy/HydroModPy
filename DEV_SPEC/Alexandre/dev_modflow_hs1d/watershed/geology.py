@@ -68,7 +68,7 @@ class Geology:
 	def geology_elevation(self, geographic):
 		self.geology_elevation = np.ones(len(self.geology_code))
 		for i in range(0,len(self.geology_code)):
-			self.geology_elevation[i]=np.min(geographic.dem_data[self.geology_array==self.geology_code[i]])
+			self.geology_elevation[i]= np.min(geographic.dem_data[self.geology_array==self.geology_code[i]])
 		
 		#idxs = self.geology_elevation.argsort()
 		#self.geology_elevation = self.geology_elevation[idxs[:]]
