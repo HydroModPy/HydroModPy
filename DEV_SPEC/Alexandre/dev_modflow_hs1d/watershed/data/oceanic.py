@@ -3,7 +3,12 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 from netCDF4 import Dataset
-import data.display_oceanic as display_oceanic
+import sys
+from os.path import dirname, abspath
+df = dirname(dirname(abspath(__file__)))
+sys.path.append(df)
+
+from data import oceanic_display
 
 class Oceanic:
 	def __init__(self, out_path, geographic, oceanic_path):

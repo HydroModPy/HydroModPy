@@ -1,14 +1,9 @@
 # coding:utf-8
-import numpy as np
-import pandas as pd
+
 import matplotlib.pyplot as plt
-import os
 import matplotlib as mpl
-import numpy as np
-import matplotlib.dates as mdates
 from matplotlib.font_manager import FontProperties
-import matplotlib.ticker as ticker
-from IPython.core.debugger import set_trace as st
+
 
 # Parameters
 # Parameters plot : v2.0 to classic customized

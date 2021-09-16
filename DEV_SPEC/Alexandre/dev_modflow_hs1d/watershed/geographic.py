@@ -48,7 +48,7 @@ class Geographic:
         print('Extraction des données géographiques')
         
         self.processing(dem_path, x, y, snap_dist, buff_dist, out_path)
-        self.post_processing_dem(dem_path)
+        self.post_processing_dem()
 
     def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
         
@@ -196,19 +196,21 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_dem = gis_path + 'watershed_box_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_box_buff_dem)
+        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem)
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
         watershed_box_buff_fill = gis_path + 'watershed_box_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, buffer, watershed_box_buff_fill)
+        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill)
         # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, buffer, watershed_box_buff_direc)
+        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
         
-    def post_processing_dem(self, dem_path):
+    def post_processing_dem(self):
 
         # Open DEM used for modeling
-        self.dem = gdal.Open(dem_path)
+        self.dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
+        self.dem_box = gdal.Open(self.watershed_box_buff_dem)
+        self.dem_box_data = self.dem.GetRasterBand(1).ReadAsArray()
         self.geodata = self.dem.GetGeoTransform()
         # Extract the coordinate system
         proj = osr.SpatialReference(wkt=self.dem.GetProjection())
