@@ -8,12 +8,20 @@ Created on Thu Sep  9 20:10:52 2021
 import geopandas as gpd
 import numpy as np
 import os
+from os.path import dirname, abspath
 from osgeo import gdal, osr
 import pandas as pd
 from pyproj import Transformer
+import sys
+
+df = dirname(dirname(abspath(__file__)))
+sys.path.append(df)
+
+from tools import file_adds
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
+
 
 class Geographic:
     """
@@ -31,7 +39,6 @@ class Geographic:
         path of watershed flow direction
     
     
-    
     Methods
     -------
     generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
@@ -39,15 +46,9 @@ class Geographic:
     load_files(dem_path)
         loads files to 
     """
-    
     def __init__(self, dem_path, x, y, snap_dist=150, buff_dist=1000,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         print('Extraction des données géographiques')
-        
-        self.generate_files(dem_path, x, y, snap_dist, buff_dist, out_path)
-        self.load_files(dem_path)
-
-    def generate_files(self,dem_path, x, y, snap_dist, buff_dist, out_path):
         gis_path = out_path + '/data/geographic/'
         self.watershed_shp = gis_path + 'watershed.shp'
         self.watershed_box_shp = gis_path + 'watershed_box.shp'
@@ -55,6 +56,51 @@ class Geographic:
         self.watershed_direc = gis_path + 'watershed_direc.tif'
         self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
         self.watershed_box_buff_dem = gis_path + 'watershed_box_buff_dem.tif'
+        
+        
+        self.dem_data = None
+        self.dem_box_data = None
+        self.geodata = None
+        self.resolution = None
+        self.x_pixel = None
+        self.y_pixel = None
+        self.crs = None
+        self.xmin = None
+        self.xmax = None
+        self.ymin = None
+        self.ymax = None
+        self.x_coord = None
+        self.y_coord = None
+        self.centroid = None
+        
+        self.processing_wbt(dem_path, x, y, snap_dist, buff_dist, out_path, gis_path)
+        self.post_processing_dem()
+
+    def processing_wbt(self, dem_path, x, y, snap_dist, buff_dist, out_path, gis_path):
+        """
+        Parameters
+        ----------
+        dem_path : TYPE
+            DESCRIPTION.
+        x : TYPE
+            DESCRIPTION.
+        y : TYPE
+            DESCRIPTION.
+        snap_dist : TYPE
+            DESCRIPTION.
+        buff_dist : TYPE
+            DESCRIPTION.
+        out_path : TYPE
+            DESCRIPTION.
+        gis_path : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        # whitebox tools uses the intermediary files that will be specified as follows
         fill = gis_path + 'region_fill.tif'
         direc = gis_path + 'region_direc.tif'
         acc = gis_path + 'region_acc.tif'
@@ -68,54 +114,73 @@ class Geographic:
         watershed_buff_direc = gis_path + 'watershed_buff_direc.tif'
         watershed_box_buff_fill = gis_path + 'watershed_box_buff_fill.tif'
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
-
-        if not os.path.exists(gis_path):
-                os.makedirs(gis_path)
-
-        dem = gdal.Open(dem_path)
-        proj = osr.SpatialReference(wkt=dem.GetProjection())
-        geodata = dem.GetGeoTransform()
-        dist = np.linspace(0,buff_dist,buff_dist+1)*np.abs(geodata[1])
-        buff_dist = dist[np.abs(dist-buff_dist).argmin()]
-        crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+        
+        #if working directory doesn't exist, creates it
+        file_adds.create_folder(gis_path)
+        
+        # 1. Load and geopatial treatment of regional DEM
+        dem = gdal.Open(dem_path) # Open regional DEM
+        proj = osr.SpatialReference(wkt=dem.GetProjection()) # Get projection system
+        crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) # Get CRS 
+        geodata = dem.GetGeoTransform() # Get geospatial informations
         #wbt.breach_depressions(dem_path,fill,2,75*8)
         wbt.fill_depressions(dem_path, fill)
         wbt.d8_pointer(fill, direc, esri_pntr=False)
         wbt.d8_flow_accumulation(fill, acc, log=True)
+        
+        # 2. Create outlet from watershed accumulation
         df = pd.DataFrame({'x': [x], 'y': [y]})
         gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=crs)
         gdf.to_file(outlet_shp)
         wbt.snap_pour_points(outlet_shp, acc, outlet_snap_shp, snap_dist)
-        wbt.watershed(direc, outlet_snap_shp, watershed, esri_pntr=False)
-        wbt.raster_to_vector_polygons(watershed, self.watershed_shp)
-        wbt.polygons_to_lines(self.watershed_shp, watershed_contour_shp)
-        site_polyg = gpd.read_file(self.watershed_shp)
-        site_polyg.to_file(self.watershed_shp)
-
-        site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
-        site_polyg.to_file(buffer)
-        wbt.clip_raster_to_polygon(dem_path,buffer,self.watershed_buff_dem)
-        wbt.clip_raster_to_polygon(fill,buffer,watershed_buff_fill)
-        wbt.clip_raster_to_polygon(direc,buffer,watershed_buff_direc)
-        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, watershed_dem,
-                                   maintain_dimensions=True)
-        wbt.clip_raster_to_polygon(fill,self.watershed_shp,self.watershed_fill)
-        wbt.clip_raster_to_polygon(direc,self.watershed_shp,self.watershed_direc)
-
-        wbt.minimum_bounding_envelope(self.watershed_shp,self.watershed_box_shp, features=False)
-        site_polyg = gpd.read_file(self.watershed_box_shp)
-        site_polyg.to_file(self.watershed_box_shp)
-        site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
-        site_polyg.to_file(buffer)
-        wbt.minimum_bounding_envelope(buffer,buffer, features=False)
-        site_polyg = gpd.read_file(buffer)
-        site_polyg.to_file(buffer)
-        wbt.clip_raster_to_polygon(dem_path,buffer,self.watershed_box_buff_dem)
-        wbt.clip_raster_to_polygon(fill,buffer,watershed_box_buff_fill)
-        wbt.clip_raster_to_polygon(direc,buffer,watershed_box_buff_direc)
+        
+        # 3. Clip watershed from regional DEM with outlet
+        wbt.watershed(direc, outlet_snap_shp, watershed, esri_pntr=False) # create watershed dem
+        wbt.raster_to_vector_polygons(watershed, self.watershed_shp) # create watershed polygon
+        wbt.polygons_to_lines(self.watershed_shp, watershed_contour_shp) # create watershed contour
+        
+        # 4. Create watershed buffered
+        site_polyg = gpd.read_file(self.watershed_shp) # Load watershed dem
+        site_polyg.to_file(self.watershed_shp) # save watershed dem
+        dist = np.linspace(0,buff_dist,buff_dist+1)*np.abs(geodata[1]) # translate buffer distance to buffer pixel
+        buff_dist = dist[np.abs(dist-buff_dist).argmin()] # translate buffer distance to buffer pixel
+        site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist) # add buffer to watershed boundaries
+        site_polyg.to_file(buffer) # save buffered watershed
+        
+        # 5. Create buffered watershed files
+        wbt.clip_raster_to_polygon(dem_path,buffer,self.watershed_buff_dem) # create watershed buffered DEM
+        wbt.clip_raster_to_polygon(fill,buffer,watershed_buff_fill) # creat watershed buffred filled depressions
+        wbt.clip_raster_to_polygon(direc,buffer,watershed_buff_direc) # create watershed buffered flow direction
+        
+        # 6. Create watershed files
+        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp,
+                                   watershed_dem, maintain_dimensions=True) # create watershed DEM 
+        wbt.clip_raster_to_polygon(fill,self.watershed_shp,self.watershed_fill) # create watershef filled depressions
+        wbt.clip_raster_to_polygon(direc,self.watershed_shp,self.watershed_direc) # create watershed flow direction
+        
+        # 7. Create watershed files with box boundaries
+        wbt.minimum_bounding_envelope(self.watershed_shp,self.watershed_box_shp, features=False) # create box boundaries
+        site_polyg = gpd.read_file(self.watershed_box_shp) # load box shapefile
+        site_polyg.to_file(self.watershed_box_shp) # save box shapefile because crs
+        site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist) # add buffer to the box
+        site_polyg.to_file(buffer) # save box buffered
+        wbt.minimum_bounding_envelope(buffer,buffer, features=False) # recreate buffer files
+        site_polyg = gpd.read_file(buffer) # load buffer shapefile
+        site_polyg.to_file(buffer) # save buffer shapefile
+        wbt.clip_raster_to_polygon(dem_path,buffer,self.watershed_box_buff_dem) # create box watershed DEM
+        wbt.clip_raster_to_polygon(fill,buffer,watershed_box_buff_fill) # create box fill depression
+        wbt.clip_raster_to_polygon(direc,buffer,watershed_box_buff_direc) # creat box flow direction
         
 
-    def load_files(self, dem_path):
+    def post_processing_dem(self):
+        """
+        
+        
+        Returns
+        -------
+        None.
+
+        """
         dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = dem.GetRasterBand(1).ReadAsArray()
         dem = gdal.Open(self.watershed_box_buff_dem)

@@ -15,26 +15,29 @@ import sys
 from data import hydrology, climatic, oceanic ,piezometry
 from groundwater_flow import modflow
 from tools import file_adds
-from watershed import geographic, geology, hydrodynamic
+from watershed import geographic, geology, hydrodynamic, watershed_display
 
 class Watershed:
     """
-    class Watershed is used to extract watershed and its data from regional DEM
+    class Watershed is used to manage watershed:
+        - extract watershed
+        - extract data from watershed boundaries
+        - run groundwater flow model
 
     Attributes
     ----------
     name: str
         name of watershed
     dem_path : str
-        folder of the regional DEM
+        file of the regional DEM
     x_outlet : float
-        x coordinate of the outlet of the watershed
+        x coordinate of the outlet of the watershed 
     y_outlet : float
         y coordiante of the outlet of the watershed
     snap_dist : float
-        distance of the outlet can be mooved to join the closest river
+        distance over which the outlet can be mooved to join the closest river
     buff_dist : float
-        distance to increase the boundary of the watershed
+        safety distance to broaden the watershed and avoid boundary effects
     out_path : str
         root directory of results
     surfex_path : str
@@ -98,7 +101,7 @@ class Watershed:
             True to load the python object. False to create.
         """
         self.name = watershed_name
-        self.load_watershed_csv()
+        self.load_watershed_metadata()
 
         self.dem_path = dem_path
         self.out_path = out_path
@@ -125,19 +128,20 @@ class Watershed:
             self.create_object()    
 
     
-    def load_watershed_csv(self):
+    def load_watershed_metadata(self):
         """
         Load watershed informations from watershed.csv file
         """
         try:
-            watershed_list = pd.read_csv('../watershed.csv',delimiter=';')
+            watershed_list = pd.read_csv('../watershed_librabry.csv',delimiter=';')
             watershed_info = watershed_list.loc[watershed_list['name'] == self.name]
             self.x_outlet = watershed_info['x_outlet'][0]
             self.y_outlet = watershed_info['y_outlet'][0]
             self.snap_dist = watershed_info['snap_dist'][0]
             self.buff_dist = watershed_info['buff_dist'][0]
         except:
-            print("Warning : The name of watershed is not in the watershed list")
+            print("Warning : The name of watershed is not in the watershed library")
+            print("Check watershed_name or add the watershed metadata in the 'watershed_library.csv' file")
             sys.exit()
         
 
@@ -259,12 +263,28 @@ class Watershed:
                                     time_step='daily', model_name=name, model_folder= self.watershed_folder , 
                                     exe= self.modflow_path +'/bin/mfnwt.exe')
 
-        model.run(geographic)
+        model.build()
+        model.run()
 
         model.save(self.geographic, watershed='sim_modflow', model_name=name, model_folder=self.watershed_folder,
             param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
         
+    
+    def display(self, display_type = "watershed"):
+        """
+        displays maps of elevation, goeology ...
 
-    def run_hs1D(self):
-        return self
+        Parameters
+        ----------
+        display_type : str (default is "watershed")
+            
 
+        Returns
+        -------
+        None.
+
+        """
+        if display_type == 'watershed':
+            watershed_display.watershed(self.geographic)
+            
+        
