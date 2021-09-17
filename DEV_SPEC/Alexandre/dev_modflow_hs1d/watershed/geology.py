@@ -9,42 +9,52 @@ wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
 
 class Geology:
-	def __init__(self,out_path, geographic, geo_path):
+	def __init__(self, out_path, geographic, geo_path, landsea):
 		print('Extraction des données géologiques')
 		data_folder = os.path.join(out_path,'data/geoglogy/')
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)
 		geo_file = geo_path + '/GEO1M.shp'
 		structure_dem_path = data_folder + 'GeoStructure.tif'
-		land_sea_dem_path = data_folder + 'Land_Sea.tif'
 		structure_clip = data_folder + 'GeoStructure_clip.tif'
-		land_sea_clip = data_folder + 'Land_Sea_clip.tif'
+        # Be careful, column T_M_num not exist in default geo_file
+		self.landsea = landsea
+		if self.landsea != None:
+				d_sea_dem_path = data_folder + 'Land_Sea.tif'
+				land_sea_clip = data_folder + 'Land_Sea_clip.tif'
 		watershed_shp = data_folder + 'watershed.shp'
 		self.generate_structure_dem(geo_file, data_folder, geographic)
 		self.geology_array(data_folder)
-		self.geology_elevation(geographic)
+        
+		""""""
+        # Problem with this function (sizes of arrays)
+# 		self.geology_elevation(geographic)
+		""""""
 
-	def generate_structure_dem(self,geo_file, data_folder, geographic):
+	def generate_structure_dem(self, geo_file, data_folder, geographic):
 		wbt.vector_polygons_to_raster(geo_file, data_folder + 'GeoStructure.tif' , field="CODE_LEG", nodata=None, base=geographic.watershed_buff_dem)
 		wbt.clip_raster_to_polygon(data_folder + 'GeoStructure.tif', geographic.watershed_shp, data_folder + 'GeoStructure_clip.tif')
-		wbt.vector_polygons_to_raster(geo_file, data_folder + 'Land_Sea.tif', field="T_M_num", nodata=None, base=geographic.watershed_buff_dem)
-		wbt.clip_raster_to_polygon(data_folder + 'Land_Sea.tif', geographic.watershed_shp, data_folder + 'Land_Sea_clip.tif')
+		if self.landsea != None:
+				wbt.vector_polygons_to_raster(geo_file, data_folder + 'Land_Sea.tif', field="T_M_num", nodata=None, base=geographic.watershed_buff_dem)
+				wbt.clip_raster_to_polygon(data_folder + 'Land_Sea.tif', geographic.watershed_shp, data_folder + 'Land_Sea_clip.tif')
 		return self
 
 	def geology_array(self,data_folder):
 		dem_geo = gdal.Open(data_folder + 'GeoStructure.tif')
 		dem_data = dem_geo.GetRasterBand(1).ReadAsArray()
-		dem_T_M = gdal.Open(data_folder + 'Land_Sea.tif')
-		dem_data_T_M = dem_T_M.GetRasterBand(1).ReadAsArray()
-		dem_data[dem_data_T_M==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
+		if self.landsea != None:
+				dem_T_M = gdal.Open(data_folder + 'Land_Sea.tif')
+				dem_data_T_M = dem_T_M.GetRasterBand(1).ReadAsArray()
+				dem_data[dem_data_T_M==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
 		self.geology_array = dem_data.astype(int)
 		self.geology_code = np.intersect1d(self.geology_array, self.geology_array)
 
 		dem_geo_clip = gdal.Open(data_folder + 'GeoStructure_clip.tif')
 		dem_data_clip = dem_geo_clip.GetRasterBand(1).ReadAsArray()
-		dem_T_M_clip = gdal.Open(data_folder + 'Land_Sea_clip.tif')
-		dem_data_T_M_clip = dem_T_M_clip.GetRasterBand(1).ReadAsArray()
-		dem_data_clip[dem_data_T_M_clip==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
+		if self.landsea != None:
+				dem_T_M_clip = gdal.Open(data_folder + 'Land_Sea_clip.tif')
+				dem_data_T_M_clip = dem_T_M_clip.GetRasterBand(1).ReadAsArray()
+				dem_data_clip[dem_data_T_M_clip==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
 		dem_data_clip[dem_data_clip<0]= np.nan
 		self.geology_array_clip = dem_data_clip.astype(int)
 

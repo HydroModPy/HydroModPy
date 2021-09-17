@@ -31,15 +31,19 @@ class Climatic:
 
         """
         
+
         data_folder = os.path.join(out_path, 'data/climatic/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
         self.figure_folder = os.path.join(out_path, 'figures/climatic/')
+
         if not os.path.exists(self.figure_folder):
                 os.makedirs(self.figure_folder)
         print('Extraction des données climatiques')
         self.extract_cells_from_shapefile(surfex_path, watershed_shp)
         self.extract_values_from_h5file(data_folder, surfex_path)
+
+        self.display_all_variables(model='REA', start='1960', end='2010')
 
     def extract_cells_from_shapefile(self, surfex_path, watershed_shp):
         """
@@ -84,7 +88,7 @@ class Climatic:
                             values.index.freq = values.index.inferred_freq
                         values = values.loc[:,self.cells_list]
                         values['MEAN'] = values.mean(numeric_only=True, axis=1)
-                        #values.to_hdf(h5file, var+'/'+sce)
+                        values.to_hdf(h5file, var+'/'+sce)
                         self.values[sim][var][sce] = values
                     except:
                         pass
