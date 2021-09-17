@@ -182,8 +182,8 @@ class Geographic:
         Clip to reach watershed size
         """
         # Clip buffer watershed DEM from watershed shapefile polygon
-        watershed_dem = gis_path + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, watershed_dem, maintain_dimensions=True)
+        self.watershed_dem = gis_path + 'watershed_dem.tif'
+        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, maintain_dimensions=True)
         # Clip corrected regional DEM from watershed shapefile polygon
         self.watershed_fill = gis_path + 'watershed_fill.tif'
         wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill)
@@ -221,6 +221,7 @@ class Geographic:
         # Extract resolution
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative
+        self.resolution = self.resolution_x
         # Extract bounds size
         self.xmin = self.geodata[0] # originX
         self.ymax = self.geodata[3] # originY

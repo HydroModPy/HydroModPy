@@ -16,6 +16,7 @@ import deepdish as dd
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
+from osgeo import gdal, osr
 
 # HydroModPy modules
 from tools import tif_adds
@@ -54,17 +55,16 @@ class Modflow:
         self.bottom = bottom
         self.nlay = lay_number
         self.hyd_cond = hyd_cond
+        self.porosity = porosity
         self.cond_decay = cond_decay
         if sea_level == None:
             self.dem = geographic.dem_data
         else:
-            self.dem = geographic.dem_box_data
-            self.porosity = porosity
+            self.dem = geographic.dem_box_data        
         self.exe = exe
 
-        self.build(geographic)
-
     def build(self, geographic):
+        print('Construction d\'un modèle')
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
                                         model_ws=self.full_path, external_path=self.full_path)
@@ -196,62 +196,70 @@ class Modflow:
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
     def run(self):
+        print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
         # run model
         succes, buff = self.mf.run_model(silent=True)
         
-"""        
-    def extract_model(self, dem_path):            
-        self.dem_path = dem_path
-        self.dem = topography.load_dem(self.dem_path)
-        self.dem_mask = (self.dem.data==-99999)
-    
-        # Functions
-        self.model_parameters()
-        self.open_essential()
-        self.iterate_times()
-    
-        def model_parameters(self):
-            self.mf = flopy.modflow.Modflow.load(self.full_path+'.nam', verbose=False, check=False, load_only=["bas6", "dis"])
-            self.bas = flopy.modflow.ModflowBas.load(self.full_path+'.bas', self.mf)
-            self.dis = flopy.modflow.ModflowDis.load(self.full_path+'.dis', self.mf)
-            self.rch = flopy.modflow.ModflowRch.load(self.full_path+'.rch', self.mf)
-            self.upw = flopy.modflow.ModflowUpw.load(self.full_path+'.upw', self.mf)
-            self.nlay = self.dis.nlay
-            self.nper = self.dis.nper
-            self.nstp = self.dis.nstp
-            self.kper = np.arange(0,self.nper,1) # ==> time
-            self.kstp = self.nstp[self.kper] - 1
-            # save file text
+    def extract_model(self, dem_path):     
+        print('Extraction des résultats d\'un modèle')
         
-        def open_simulation(self):
-            self.head_fpu = fpu.HeadFile(self.full_path+'.hds')        
-            self.cbb = fpu.CellBudgetFile(self.full_path+'.cbc')
+        # DEM model
+        self.dem_path = dem_path
+        self.dem = gdal.Open(self.dem_path)
+        self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
+        self.dem_mask = (self.dem_data==-99999)
+        
+        # Model parameters
+        self.path_file = os.path.join(self.full_path, self.model_name)
+        self.mf = flopy.modflow.Modflow.load(self.path_file+'.nam', verbose=False, check=False, load_only=["bas6", "dis"])
+        self.bas = flopy.modflow.ModflowBas.load(self.path_file+'.bas', self.mf)
+        self.dis = flopy.modflow.ModflowDis.load(self.path_file+'.dis', self.mf)
+        self.rch = flopy.modflow.ModflowRch.load(self.path_file+'.rch', self.mf)
+        self.upw = flopy.modflow.ModflowUpw.load(self.path_file+'.upw', self.mf)
+        self.nlay = self.dis.nlay
+        self.nper = self.dis.nper
+        self.nstp = self.dis.nstp
+        self.kper = np.arange(0,self.nper,1) # ==> time
+        self.kstp = self.nstp[self.kper] - 1
+        # --> add save file text
+    
+        # Import essential data
+        self.head_fpu = fpu.HeadFile(self.path_file+'.hds')        
+        self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
+        
+        # Import times
+        self.times = self.head_fpu.get_times()
+        self.kstpkper = self.head_fpu.get_kstpkper()
+        if len(self.times) == 1:
+            self.kstpkper = self.kstpkper[0]
+        
+        # Create dictionnaries
+        self.dict_watertable_elevation = {}
+        self.dict_watertable_depth = {}
+        self.dict_seepage_areas = {}
+        self.dict_outflow_drain = {}
+        self.dict_gw_flux = {}
+        self.dict_specific_discharge = {}
+        
+    def iterate_times(self):
+        for item, time in enumerate(self.times):
+            print('Time : ', item)
             
-            self.times = self.head_fpu.get_times()
-            self.kstpkper = self.head_fpu.get_kstpkper()
+            if len(self.times) > 1:
+                self.kstpkper = (self.kstp[item], self.kper[item])
             
-            self.dict_watertable_elevation = {}
-            self.dict_watertable_depth = {}
-            self.dict_seepage_areas = {}
-            self.dict_outflow_drain = {}
-            self.dict_gw_flux = {}
-            self.dict_specific_discharge = {}
-            
-        def iterate_times(self):
-            for item, time in enumerate(self.times):
-                print('Time : ', item)
-                
-                self.watertable_outputs(time=time)
-                self.gw_flux(time=time)
-                self.outflow_drain(time=time)
-                
-                self.store_indict(item=item)
-            
-            self.save_dict()
-                
-        def watertable_outputs(self, item, time):
+            # self.watertable_outputs(time=time)
+            # self.gw_flux(time=time)
+            # self.outflow_drain(time=time)
+            # self.store_dict(item=item)
+            # self.save_dict()
+        
+            """
+            watertable_outputs
+            """
+            # --> def watertable_outputs(self, item, time):
             # Import data
             self.head_all = self.head_fpu.get_alldata() # mflay=None
             self.head_data = self.head_fpu.get_data(totim=time)
@@ -263,33 +271,41 @@ class Modflow:
             self.wt_elev[self.dem_mask] = -9999
             # Export
             if item == 0:
-                tif_adds(self.dem_path, self.wt_elev, -9999,
+                tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
                          self.model_folder+'/watertable_elevation_t(0).tif')
-            
+                print('export watertable_elevation')
+                
             ### Watertable depth
-            self.wt_depth = self.dem.data - self.wt_elev
+            self.wt_depth = self.dem_data - self.wt_elev
             # Mask
             self.wt_depth[self.dem_mask] = -9999
             # Export
             if item == 0:
-                tif_adds(self.dem_path, self.wt_depth, -9999,
+                tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
                          self.model_folder+'/watertable_depth_t(0).tif')
+                print('export watertable_depth')
             
             ### Watertable intercept
-            self.seep_area = self.dem.data - self.wt_elev
+            self.seep_area = self.dem_data - self.wt_elev
             # Mask
             self.seep_area[self.seep_area > 0] = 0
-            self.seep_area[self.seep_area <= 0] = 1
+            self.seep_area[self.seep_area == 0] = 0.5
+            self.seep_area[self.seep_area < 0] = 1
             self.seep_area[self.dem_mask] = -9999
             # Export
             if item == 0:
-                tif_adds(self.dem_path, self.seep_area, -9999,
+                tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
                          self.model_folder+'/seepage_areas_t(0).tif')
-            
-        def outflow_drain(self, item, time):
+                print('export seepage_areas')
+        
+            """
+            outflow_drain
+            """
+            # --> def outflow_drain(self, item, time):
             # Import data
             self.out_all = np.ones((1, self.dis.nrow, self.dis.ncol))
             self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)
+            # self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper)
             # Loop storage
             sim = 0
             count = 0
@@ -303,59 +319,80 @@ class Modflow:
             self.out_drn[self.dem_mask] = -9999
             # Export
             if item == 0:
-                tif_adds(self.dem_path, self.out_drn, -9999,
-                         self.model_folder+'outflow_drain_t(0).tif')
-                
-        def gw_flux(self, item, time):
+                tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
+                         self.model_folder+'/outflow_drain_t(0).tif')
+                print('export outflow_drain')
+        
+            """
+            gw_flux
+            """
+            # --> def gw_flux(self, item, time):
             ### Groundwater flux
             # Import data
             self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
             self.frf = self.cbb.get_data(text='FLOW RIGHT FACE', kstpkper=self.kstpkper, totim=time)[0]
             self.fff = self.cbb.get_data(text='FLOW FRONT FACE', kstpkper=self.kstpkper, totim=time)[0]
             # Depend nlayers
-            if self.nlay ==1:
+            if self.nlay == 1:
                 self.flux = np.sqrt(self.frf**2 + self.fff**2)        
-                self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
-                                                                       self.mf, self.full_path+'.cbc')
             if self.nlay > 1:
                 self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
                 self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
-                self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
-                                                                       self.mf, self.full_path+'.cbc')
+                
             # Top layer
             self.flux_top = self.flux[0]
             # Mask
             self.flux_top[self.dem_mask] = -9999
             # Export
             if item == 0:
-                tif_adds(self.dem_path, self.flux_top, -9999,
+                tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
                          self.model_folder+'/gw_flux_t(0).tif')
+                print('export gw_flux')
             
             ### Specific discharge
-            # Import data
-            self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
-            # Top layer
-            self.sepcif_disch_top = self.specif_disch[0]
-            # Mask
-            self.sepcif_disch_top[self.dem_mask] = -9999
-            # Export
-            if item == 0:
-                tif_adds(self.dem_path, self.specif_disch, -9999,
-                         self.model_folder+'specific_discharge_t(0).tif')
-            
-        def store_indict(self, item):    
+            # # Import data
+            # if self.nlay == 1:
+            #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
+            #                                                            self.mf, self.path_file+'.cbc')
+            # if self.nlay > 1:
+            #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
+            #                                                            self.mf, self.path_file+'.cbc')            
+            # self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
+            # # Top layer
+            # self.sepcif_disch_top = self.specif_disch[0]
+            # # Mask
+            # self.sepcif_disch_top[self.dem_mask] = -9999
+            # # Export
+            # if item == 0:
+            #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
+            #              self.model_folder+'specific_discharge_t(0).tif')
+            #     print('export specific_discharge')
+        
+            """
+            store_dict
+            """
+            # --> def store_dict(self, item):    
             self.dict_watertable_elevation[item] = self.wt_elev
             self.dict_watertable_depth[item] = self.wt_depth
             self.dict_seepage_areas[item] = self.seep_area
             self.dict_outflow_drain[item] = self.out_drn
             self.dict_gw_flux[item] = self.flux_top
-            self.dict_specific_discharge[item] = self.specif_disch
+            # self.dict_specific_discharge[item] = self.specif_disch
             
-        def save_dict(self):    
-            dd.io.save(self.model_folder+'watertable_elevation.h5', self.dict_watertable_elevation)
-            dd.io.save(self.model_folder+'watertable_depth.h5', self.dict_watertable_elevation)
-            dd.io.save(self.model_folder+'seepage_areas.h5', self.dict_watertable_elevation)
-            dd.io.save(self.model_folder+'outflow_drain.h5', self.dict_watertable_elevation)
-            dd.io.save(self.model_folder+'gw_flux.h5', self.dict_watertable_elevation)
-            dd.io.save(self.model_folder+'specific_discharge.h5', self.dict_watertable_elevation)
-"""
+        """
+        save_dict
+        """
+        # --> def save_dict(self):
+        np.save(self.model_folder+'/watertable_elevation.h5', self.dict_watertable_elevation) 
+        np.save(self.model_folder+'/watertable_depth.h5', self.dict_watertable_depth)
+        np.save(self.model_folder+'/seepage_areas.h5', self.dict_seepage_areas)
+        np.save(self.model_folder+'/outflow_drain.h5', self.dict_outflow_drain)
+        np.save(self.model_folder+'/gw_flux.h5', self.dict_gw_flux)
+        # dd.io.save(self.model_folder+'/specific_discharge.h5', self.dict_specific_discharge)
+        
+        # dd.io.save(self.model_folder+'/watertable_elevation.h5', self.dict_watertable_elevation)
+        # dd.io.save(self.model_folder+'/watertable_depth.h5', self.dict_watertable_depth)
+        # dd.io.save(self.model_folder+'/seepage_areas.h5', self.dict_seepage_areas)
+        # dd.io.save(self.model_folder+'/outflow_drain.h5', self.dict_outflow_drain)
+        # dd.io.save(self.model_folder+'/gw_flux.h5', self.dict_gw_flux)
+        # dd.io.save(self.model_folder+'/specific_discharge.h5', self.dict_specific_discharge)

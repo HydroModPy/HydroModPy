@@ -75,7 +75,8 @@ class Watershed:
     def __init__(self, watershed_name, dem_path, library_path = os.path.join(root_dir, 'watershed_library.csv'),
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
-                 hydrology_path = None, modflow_path = None, load = False):
+                 hydrology_path = None, piezometric_path = None, modflow_path = None, 
+                 load = False):
         """ 
         Constructor
         
@@ -111,6 +112,7 @@ class Watershed:
         
         self.surfex_path = surfex_path
         self.hydrology_path = hydrology_path
+        self.piezometric_path = piezometric_path
         self.oceanic_path = oceanic_path
         self.geology_path = geology_path
         self.modflow_path = modflow_path
@@ -132,8 +134,11 @@ class Watershed:
                 self.create_object()
         else:
             self.create_object()
+            
+        # self.save_object()
+        
+        self.run_modflow()
 
-    
     def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file
@@ -191,7 +196,7 @@ class Watershed:
         """
         #STURCUTRE DATA
         self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet, snap_dist=self.snap_dist, buff_dist=self.buff_dist,
-                 out_path=self.watershed_folder) #2D
+                                                out_path=self.watershed_folder) #2D
         self.elt_def.append('geographic')
         
         self.hydrodynamic = hydrodynamic.Hydrodynamic()
@@ -204,7 +209,7 @@ class Watershed:
             self.elt_def.append('hydrology')
 
         if self.geology_path != None:
-            self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path)
+            self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None)
             self.elt_def.append('geology')
 
         #MODELING DATA
@@ -214,11 +219,13 @@ class Watershed:
 
         if self.surfex_path != None:
             self.climatic = climatic.Climatic(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
+            
             self.elt_def.append('surfex')
 
         #FIELD DATA
-        self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
-        self.elt_def.append('piezometry')
+        if self.piezometric_path != None:
+            self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
+            self.elt_def.append('piezometry')
         #self.hydrometry = hydrometry() #doesn't exist
         #self.geochemistry = geochemistry() #doesn't exist
 
@@ -226,13 +233,13 @@ class Watershed:
         """
         Saves python object
         """
-        with open(self.watershed_folder + 'python_object', 'wb') as config_dictionary_file:
+        with open(self.watershed_folder + '/python_object', 'wb') as config_dictionary_file:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
         
 
     def run_modflow(self, ident='temporary', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
-                    hyd_cond=8.64e-2, porosity=0.01, sea_level = None, cond_decay=0.):
+                    hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
         """ 
         build and run modflow model
         
@@ -260,21 +267,20 @@ class Watershed:
         thick_exp: float (default is 1)
             changes the thickness of the layers exponentially
         """
-        if type(sea_level) != type(climatic):
-            print('Error : sea_level and climatic chronicles must be the same length')
-        else:
-            model = modflow.Modflow(self.geographic, watershed=self.name, 
-                                    climatic=climatic, lay_number=lay_number, thick=thick, bottom=bottom, thick_exp=thick_exp, 
-                                    hyd_cond=hyd_cond, porosity=porosity, sea_level = sea_level, cond_decay=cond_decay,
-                                    time_step='monthly', model_name=ident, model_folder=self.simulations_folder, 
-                                    exe=self.modflow_path +'/bin/mfnwt.exe')
         
-        model.build()
-        model.run()
-        model.extract_model(self.dem_path)
-
-        # model.save(self.geographic, watershed='sim_modflow', model_name=name, model_folder=self.watershed_folder,
-        #            param=True, watertable=True, seepage=True, gwflux=True, outflow=True, spedisch=True)
+        if (sea_level == None) | (type(sea_level) == type(climatic)):
+            model = modflow.Modflow(self.geographic, watershed=self.name, 
+                            climatic=climatic, lay_number=lay_number, thick=thick, bottom=bottom, thick_exp=thick_exp, 
+                            hyd_cond=hyd_cond, porosity=porosity, sea_level = sea_level, cond_decay=cond_decay,
+                            time_step='monthly', model_name=ident, model_folder=self.simulations_folder, 
+                            exe=self.modflow_path +'/bin/mfnwt.exe')
+            model.build(self.geographic)
+            model.run()
+            model.extract_model(self.geographic.watershed_dem)
+            model.iterate_times()
+            
+        else:
+            print('Error : sea_level and climatic chronicles must be the same length')
         
     def run_hs1D(self):
         return self
