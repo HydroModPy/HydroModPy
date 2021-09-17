@@ -135,10 +135,8 @@ class Watershed:
         else:
             self.create_object()
             
-        # self.save_object()
+        self.save_object()
         
-        self.run_modflow()
-
     def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file

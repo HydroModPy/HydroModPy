@@ -21,7 +21,6 @@ from osgeo import gdal, osr
 # HydroModPy modules
 from tools import file_adds
 from tools import tif_adds
-from watershed import topography
 
 class Modflow:
     """
