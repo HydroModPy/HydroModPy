@@ -195,7 +195,8 @@ class Watershed:
         Creates python object
         """
         #STURCUTRE DATA
-        self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet, snap_dist=self.snap_dist, buff_dist=self.buff_dist,
+        self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet,
+                                                snap_dist=self.snap_dist, buff_dist=self.buff_dist,
                                                 out_path=self.watershed_folder) #2D
         self.elt_def.append('geographic')
         
