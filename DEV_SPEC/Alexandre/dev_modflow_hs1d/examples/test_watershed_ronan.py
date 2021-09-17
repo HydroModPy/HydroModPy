@@ -11,6 +11,7 @@ from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 import matplotlib.pyplot as plt
+import pandas as pd
 
 import warnings
 
@@ -51,7 +52,7 @@ load = False
 watershed_name = 'Canut'
 library_path = df + '/watershed' + '/watershed_library.csv'
 
-dem_path = root_path + "BDALTI_bzh_75m.tif"
+dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
 surfex_path =  root_path + 'SURFEX'
 geology_path = None
@@ -71,6 +72,11 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               oceanic_path=oceanic_path, 
                               modflow_path=modflow_path,
                               load=load)
+
+rech = pd.Series([0.02,0.025,0.032,0.027,0.018])
+
+BV.run_modflow(ident='temporary', climatic=rech, lay_number=1, thick=100, bottom=None, thick_exp=1., 
+               hyd_cond=21, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%%
 # read_dictionary = np.load('D:/Users/abherve/HYDROMODPY/Canut/simulations/watertable_elevation.h5.npy', allow_pickle='TRUE').item()

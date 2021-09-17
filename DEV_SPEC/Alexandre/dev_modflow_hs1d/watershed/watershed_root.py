@@ -135,7 +135,7 @@ class Watershed:
         else:
             self.create_object()
             
-        self.save_object()
+        # self.save_object()
         
     def load_watershed_csv(self):
         """
@@ -236,7 +236,6 @@ class Watershed:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
         
-
     def run_modflow(self, ident='temporary', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
                     hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
         """ 
