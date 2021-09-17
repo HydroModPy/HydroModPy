@@ -49,7 +49,7 @@ else:
 # test of watershed class
 load = False
 watershed_name = 'Canut'
-library_path = df + '/watershed_library.csv'
+library_path = df + '/watershed' + '/watershed_library.csv'
 
 dem_path = root_path + "BDALTI_bzh_75m.tif"
 
