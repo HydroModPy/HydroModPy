@@ -13,7 +13,7 @@ from data import oceanic_display
 class Oceanic:
 	def __init__(self, out_path, geographic, oceanic_path):
 		print('Extraction des données océaniques')
-		self.figure_folder = out_path + 'figures/oceanic/'
+		self.figure_folder = os.path.jon(out_path,'figures/oceanic/')
 		if not os.path.exists(self.figure_folder):
 				os.makedirs(self.figure_folder)
 		self.mean_sea_level(geographic,oceanic_path)

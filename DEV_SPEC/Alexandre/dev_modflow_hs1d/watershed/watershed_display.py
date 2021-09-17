@@ -83,6 +83,52 @@ fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
-def watershed(geographic):
-    a=0
+def watershed(BV):
+    fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
+    streams = gpd.read_file(BV.hydrology.streams)
+    #polyg = gpd.read_file(BV.geographic.watershed_shp)
+    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+
+    
+    bounds = contour.geometry.total_bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_title(BV.name, fontproperties=fontprop)
+    ax.set(aspect='equal') 
+
+    """image_hidden = ax.imshow(np.ma.masked_where(BV.geographic.dem_box_data < 0, BV.geographic.dem_box_data), 
+                             cmap='terrain')"""
+
+    image_hidden = plt.imshow(BV.geographic.dem_box_data, 
+                              cmap='terrain', alpha=1, zorder=2, aspect="auto")
+
+
+    streams.plot(ax=ax, lw=1.5, color='navy', zorder=3)
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
+    
+    divider = make_axes_locatable(ax)
+    cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+    fig.add_axes(cax)
+    cbar = fig.colorbar(image_hidden, cax=cax, orientation="horizontal")
+    cbar.ax.get_ymajorticklabels()
+    list(cbar.get_ticks())
+    val = np.ma.masked_where(BV.geographic.dem_box_data < 0, BV.geographic.dem_box_data)
+    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+    cbar.set_ticks([minVal, meanVal, maxVal])
+    cbar.set_ticklabels([minVal, meanVal, maxVal])
+    cbar.mappable.set_clim(minVal, maxVal)
+    cbar.ax.tick_params(labelsize=10)
+    cbar.ax.yaxis.set_ticks_position('left')
+    cbar.ax.tick_params(size=0)
+    
+    fig.tight_layout()
+    
+    fig.savefig(os.path.join(BV.figure_folder,'watershed_dem.png'), dpi=300, bbox_inches='tight', transparent=False)
     

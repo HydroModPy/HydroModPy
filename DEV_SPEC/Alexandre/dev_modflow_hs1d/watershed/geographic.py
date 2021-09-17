@@ -14,7 +14,7 @@ import pandas as pd
 from pyproj import Transformer
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_compress_rasters(True)
+#wbt.set_compress_rasters(True)
 wbt.set_verbose_mode(False)
 
 # HydroModPy modules
@@ -133,8 +133,8 @@ class Geographic:
         self.watershed_shp = gis_path + 'watershed.shp'
         wbt.raster_to_vector_polygons(watershed, self.watershed_shp)
         # Create shapefile polyline of the watershed
-        watershed_contour_shp = gis_path + 'watershed_contour.shp'    
-        wbt.polygons_to_lines(self.watershed_shp, watershed_contour_shp)
+        self.watershed_contour_shp = gis_path + 'watershed_contour.shp'    
+        wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
         
         """
         Buffer distance operations
@@ -207,13 +207,13 @@ class Geographic:
     def post_processing_dem(self):
 
         # Open DEM used for modeling
-        self.dem = gdal.Open(self.watershed_buff_dem)
-        self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
-        self.dem_box = gdal.Open(self.watershed_box_buff_dem)
-        self.dem_box_data = self.dem.GetRasterBand(1).ReadAsArray()
-        self.geodata = self.dem.GetGeoTransform()
+        dem = gdal.Open(self.watershed_buff_dem)
+        self.dem_data = dem.GetRasterBand(1).ReadAsArray()
+        dem_box = gdal.Open(self.watershed_box_buff_dem)
+        self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
+        self.geodata = dem.GetGeoTransform()
         # Extract the coordinate system
-        proj = osr.SpatialReference(wkt=self.dem.GetProjection())
+        proj = osr.SpatialReference(wkt=dem.GetProjection())
         self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
         # Extract size characteristics
         self.x_pixel = self.dem_data.shape[1] # columns

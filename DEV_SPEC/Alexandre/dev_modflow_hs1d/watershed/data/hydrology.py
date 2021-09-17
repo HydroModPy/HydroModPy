@@ -30,10 +30,10 @@ class Hydrology:
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
         if type_obs == 'streams':
-            clip_streams = data_folder + 'streams.shp'
-            wbt.clip(streams, watershed_shp, clip_streams)
+            self.streams = data_folder + 'streams.shp'
+            wbt.clip(streams, watershed_shp, self.streams)
             tif_streams = data_folder + 'streams.tif'
-            wbt.vector_lines_to_raster(clip_streams, tif_streams, field="FID", base=watershed_dem)
+            wbt.vector_lines_to_raster(self.streams, tif_streams, field="FID", base=watershed_dem)
             pt_streams = data_folder + 'streams_pt.shp'
             wbt.raster_to_vector_points(tif_streams, pt_streams)
             

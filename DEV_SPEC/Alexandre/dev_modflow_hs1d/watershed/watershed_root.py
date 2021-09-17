@@ -11,8 +11,8 @@ import pandas as pd
 import pickle
 import sys
 from os.path import dirname, abspath
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
+root_dir = dirname(dirname(abspath(__file__)))
+sys.path.append(root_dir)
 
 # HydroModPy modules
 from watershed.data import hydrology, climatic, oceanic, piezometry
@@ -72,7 +72,7 @@ class Watershed:
                 sea_level = None, cond_decay=0.)
         run groundwater flow model using Modflow and Flopy
     """
-    def __init__(self, watershed_name, dem_path, library_path = '../watershed_library.csv',
+    def __init__(self, watershed_name, dem_path, library_path = os.path.join(root_dir, 'watershed_library.csv'),
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, modflow_path = None, load = False):
@@ -121,6 +121,8 @@ class Watershed:
         file_adds.create_folder(self.add_data_folder)
         self.simulations_folder = os.path.join(self.watershed_folder, 'simulations')
         file_adds.create_folder(self.simulations_folder)
+        self.figure_folder = os.path.join(self.watershed_folder, 'figures/watershed/')
+        file_adds.create_folder(self.figure_folder)
         self.elt_def = []
 
         if load==True:
@@ -136,6 +138,7 @@ class Watershed:
         """
         Load watershed informations from watershed.csv file
         """
+        watershed_list = pd.read_csv(self.library_path, delimiter=';')
         try:
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
             watershed_info = watershed_list.loc[watershed_list['name'] == self.name]
@@ -152,7 +155,7 @@ class Watershed:
         """
         Loads python object
         """
-        if not os.path.exists(self.watershed_folder + 'python_object'):
+        if not os.path.exists(os.path.join(self.watershed_folder, 'python_object')):
             with open(os.path.join(self.watershed_folder, 'python_object'), 'rb') as config_dictionary_file:
               BV = pickle.load(config_dictionary_file)
             if ('geographic' in BV.__dir__()) == True:
@@ -276,6 +279,7 @@ class Watershed:
     def run_hs1D(self):
         return self
     
-    def display(self):
-        watershed_display.watershed(self.geographic)
+    def display(self,type = 'watershed'):
+        if type == 'watershed':
+            watershed_display.watershed(self)
 
