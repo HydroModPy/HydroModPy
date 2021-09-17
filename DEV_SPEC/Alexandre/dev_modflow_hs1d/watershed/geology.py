@@ -6,12 +6,12 @@ import numpy as np
 from osgeo import gdal
 import whitebox
 wbt = whitebox.WhiteboxTools()
-# wbt.set_verbose_mode(False)
+wbt.set_verbose_mode(False)
 
 class Geology:
 	def __init__(self,out_path, geographic, geo_path):
 		print('Extraction des données géologiques')
-		data_folder = out_path + 'data/geoglogy/'
+		data_folder = os.path.join(out_path,'data/geoglogy/')
 		if not os.path.exists(data_folder):
 				os.makedirs(data_folder)
 		geo_file = geo_path + '/GEO1M.shp'

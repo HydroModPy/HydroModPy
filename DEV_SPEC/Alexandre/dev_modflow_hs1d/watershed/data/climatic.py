@@ -31,10 +31,10 @@ class Climatic:
 
         """
         
-        data_folder = out_path + 'data/climatic/'
+        data_folder = os.path.join(out_path, 'data/climatic/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
-        self.figure_folder = out_path + 'figures/climatic/'
+        self.figure_folder = os.path.join(out_path, 'figures/climatic/')
         if not os.path.exists(self.figure_folder):
                 os.makedirs(self.figure_folder)
         print('Extraction des données climatiques')

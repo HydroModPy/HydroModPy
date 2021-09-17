@@ -6,8 +6,8 @@ Created on Thu Sep  9 20:10:52 2021
 """
 import sys
 from os.path import dirname, abspath
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
+root_dir = dirname(dirname(abspath(__file__)))
+sys.path.append(root_dir)
 from watershed import watershed_root
 
 # Users
@@ -26,7 +26,7 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = False
+load = True
 watershed_name = 'Agon-Coutainville'
 
 dem_path = root_path + "MNT_TOPO_BATH_75m_corr.tif"
@@ -36,6 +36,12 @@ oceanic_path = root_path + 'OCEAN'
 modflow_path = root_path + 'MODFLOW'
 hydrology_path = root_path + 'HYDROLOGY'
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path,surfex_path=surfex_path, geology_path = geology_path, 
-                              hydrology_path=hydrology_path, oceanic_path=oceanic_path, 
+                              out_path=out_path,surfex_path=None, geology_path = geology_path, 
+                              hydrology_path=hydrology_path, oceanic_path=None, 
                               modflow_path=modflow_path , load=load)
+
+if load == False:
+    BV.piezometry.add_data()
+    BV.save_object()
+    
+BV.display()
