@@ -1,7 +1,8 @@
 Recharge:
-- Create sinusoidal recharge from sinus function
+- Sinusoidal recharge from sinus function
 
 Landslide:
+- See whiteboxtools possibilities
 
-Post-processing:
-df = df.rolling(window=space).mean().shift()
+Environment:
+- Add ==> mayavi, scipy
