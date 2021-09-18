@@ -1,0 +1,7 @@
+Recharge:
+- Create sinusoidal recharge from sinus function
+
+Landslide:
+
+Post-processing:
+df = df.rolling(window=space).mean().shift()
