@@ -30,7 +30,7 @@ warnings.filterwarnings("ignore")
                                             
 # HydroModPy modules
 from watershed import watershed_root
-from tools import tif_adds
+from tools import tif_adds, serie_transf
 
 # Users
 user = "Ronan"
@@ -79,6 +79,22 @@ BV.run_modflow(ident='temporary', climatic=rech, lay_number=1, thick=100, bottom
                hyd_cond=21, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%%
+
+path_h5 = "D:/LOCAL/CLIMATE/REA.h5"
+variable = 'REC'
+scenario = 'historic'
+
+raw = pd.read_hdf(path_h5, variable+'/'+scenario)
+raw = raw[(raw.index.year >= 2000) & (raw.index.year <= 2005)]
+raw = raw.resample('M').sum()
+serie = raw.mean(numeric_only=True, axis=1)
+serie = serie.reset_index()
+sin = serie_transf.create_sinusoidal(serie, 'monthly', 1,1,1,1)
+plt.plot(serie[0],c='b')
+plt.plot(sin,c='r')
+
+#%%
+
 # read_dictionary = np.load('D:/Users/abherve/HYDROMODPY/Canut/simulations/watertable_elevation.h5.npy', allow_pickle='TRUE').item()
 
 # climatic ==> pd.Series([8e-4,7.5e-4,7.0e-4])
