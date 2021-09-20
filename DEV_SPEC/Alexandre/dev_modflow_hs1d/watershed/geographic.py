@@ -148,7 +148,7 @@ class Geographic:
         site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
         buffer = gis_path + 'buff.shp'
         site_polyg.to_file(buffer)
-        
+
         """
         Box extent operations
         """
