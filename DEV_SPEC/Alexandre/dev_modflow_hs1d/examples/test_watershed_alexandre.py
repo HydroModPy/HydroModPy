@@ -36,12 +36,12 @@ oceanic_path = root_path + 'OCEAN'
 modflow_path = root_path + 'MODFLOW'
 hydrology_path = root_path + 'HYDROLOGY'
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path,surfex_path=None, geology_path = geology_path, 
-                              hydrology_path=hydrology_path, oceanic_path=None, 
+                              out_path=out_path,surfex_path=surfex_path, geology_path = geology_path, 
+                              hydrology_path=hydrology_path, oceanic_path=oceanic_path, piezometry_path=True ,
                               modflow_path=modflow_path , load=load)
 
 if load == False:
     BV.piezometry.add_data()
     BV.save_object()
     
-BV.display()
+BV.display(type = 'watershed_geology')

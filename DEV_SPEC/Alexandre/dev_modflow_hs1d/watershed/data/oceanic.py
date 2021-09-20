@@ -13,7 +13,7 @@ from data import oceanic_display
 class Oceanic:
 	def __init__(self, out_path, geographic, oceanic_path):
 		print('Extraction des données océaniques')
-		self.figure_folder = os.path.jon(out_path,'figures/oceanic/')
+		self.figure_folder = os.path.join(out_path,'figures/oceanic/')
 		if not os.path.exists(self.figure_folder):
 				os.makedirs(self.figure_folder)
 		self.mean_sea_level(geographic,oceanic_path)
@@ -91,7 +91,7 @@ class Oceanic:
 		if values not in values_list:
 			print('You must specify the values you want to display')
 		if values =='RMSL':
-			display_oceanic.display_data(self.RMSL,self.figure_folder+'RMSL')
+			oceanic_display.display_data(self.RMSL,self.figure_folder+'RMSL')
 		if values =='RSL':
-			display_oceanic.display_data(self.RSL,self.figure_folder+'RSL')
+			oceanic_display.display_data(self.RSL,self.figure_folder+'RSL')
 

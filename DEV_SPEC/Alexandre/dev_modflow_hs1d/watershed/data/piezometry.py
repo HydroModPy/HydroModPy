@@ -24,6 +24,7 @@ class Piezometry:
         self.x_iloc = []
         self.y_iloc = []
         self.exctract_piezos_from_watershed(data_folder, geographic)
+        self.piezos_shp = os.path.join(data_folder,'shapefile/piezos.shp')
         if os.path.exists(data_folder + 'shapefile/piezos.shp'):
             self.extract_data_from_code_bss(data_folder)
             self.load_piezometric_data(data_folder)
@@ -121,7 +122,9 @@ class Piezometry:
                 df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
                 df = df.drop(['Date'], axis=1)
                 self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
-
+        df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
+        gdf.to_file(self.piezos_shp)
 
 
 
