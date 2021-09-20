@@ -1,26 +1,22 @@
 # coding:utf-8
 
 # Modules
+import flopy
+import numpy as np
 import os
 import sys
-import flopy
-import flopy.utils.binaryfile as fpu
-import flopy.utils.formattedfile as ff
-import flopy.utils.postprocessing as pp
-import numpy as np
-import rasterio as rio
-from IPython.core.debugger import set_trace as st
-import deepdish as dd
-'''os.path.dirname(os.getcwd())'''
-'''sys.path.append(os.getcwd())'''
 from os.path import dirname, abspath
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
-from osgeo import gdal, osr
+from osgeo import gdal
+
+import flopy.utils.binaryfile as fpu
 
 # HydroModPy modules
+df = dirname(dirname(abspath(__file__)))
+sys.path.append(df)
 from tools import file_adds
 from tools import tif_adds
+
+# VARIABLES GLOBALES
 
 class Modflow:
     """
@@ -37,8 +33,10 @@ class Modflow:
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, geographic, watershed='name', climatic=8e-4, lay_number=1, thick=50, 
-                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, sea_level = None, cond_decay=0.,
+    def __init__(self, geographic, watershed='name', climatic=8e-4, lay_number=1,
+                  thick=50, 
+                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
+                  sea_level=None, cond_decay=0.,
                   time_step='daily', model_name='modflow_model', 
                   model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                   exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
@@ -202,7 +200,8 @@ class Modflow:
         # run model
         succes, buff = self.mf.run_model(silent=True)
         
-    def extract_model(self, dem_path):     
+    def extract_model(self, dem_path):
+        # post_processing
         print('Extraction des résultats d\'un modèle')
         
         # DEM model
@@ -239,6 +238,8 @@ class Modflow:
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
         
+    def iterate_times(self):
+        
         # Create dictionnaries
         self.dict_watertable_elevation = {}
         self.dict_watertable_depth = {}
@@ -247,7 +248,6 @@ class Modflow:
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
         
-    def iterate_times(self):
         for item, time in enumerate(self.times):
             print('Time : ', item)
                         
