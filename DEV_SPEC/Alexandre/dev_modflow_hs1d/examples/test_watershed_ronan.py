@@ -32,6 +32,8 @@ warnings.filterwarnings("ignore")
 from watershed import watershed_root
 from tools import tif_adds, serie_transf
 
+#%%
+
 # Users
 user = "Ronan"
 
@@ -80,7 +82,7 @@ BV.run_modflow(ident='temporary', climatic=rech, lay_number=1, thick=100, bottom
 
 #%%
 
-path_h5 = "D:/LOCAL/CLIMATE/REA.h5"
+path_h5 = "D:/Users/abherve/HYDROMODPY/Canut/data/climatic/REA.h5"
 variable = 'REC'
 scenario = 'historic'
 
