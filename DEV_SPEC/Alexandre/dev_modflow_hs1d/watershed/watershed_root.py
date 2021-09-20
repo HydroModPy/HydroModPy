@@ -136,7 +136,8 @@ class Watershed:
                 self.create_object()
         else:
             self.create_object()
-
+   
+        self.save_object()
 
     def load_watershed_csv(self):
         """
@@ -194,7 +195,8 @@ class Watershed:
         Creates python object
         """
         #STURCUTRE DATA
-        self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet, snap_dist=self.snap_dist, buff_dist=self.buff_dist,
+        self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet,
+                                                snap_dist=self.snap_dist, buff_dist=self.buff_dist,
                                                 out_path=self.watershed_folder) #2D
         self.elt_def.append('geographic')
         
@@ -235,7 +237,6 @@ class Watershed:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
         
-
     def run_modflow(self, ident='temporary', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
                     hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
         """ 

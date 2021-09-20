@@ -19,8 +19,8 @@ sys.path.append(df)
 from osgeo import gdal, osr
 
 # HydroModPy modules
+from tools import file_adds
 from tools import tif_adds
-from watershed import topography
 
 class Modflow:
     """
@@ -213,6 +213,7 @@ class Modflow:
         
         # Model parameters
         self.path_file = os.path.join(self.full_path, self.model_name)
+
         self.mf = flopy.modflow.Modflow.load(self.path_file+'.nam', verbose=False, check=False, load_only=["bas6", "dis"])
         self.bas = flopy.modflow.ModflowBas.load(self.path_file+'.bas', self.mf)
         self.dis = flopy.modflow.ModflowDis.load(self.path_file+'.dis', self.mf)
@@ -224,7 +225,10 @@ class Modflow:
         self.kper = np.arange(0,self.nper,1) # ==> time
         self.kstp = self.nstp[self.kper] - 1
         # --> add save file text
-    
+        
+        self.save_file = os.path.join(self.full_path, '_extraction')
+        file_adds.create_folder(self.save_file)
+        
         # Import essential data
         self.head_fpu = fpu.HeadFile(self.path_file+'.hds')        
         self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
@@ -246,7 +250,7 @@ class Modflow:
     def iterate_times(self):
         for item, time in enumerate(self.times):
             print('Time : ', item)
-            
+                        
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
             
@@ -272,7 +276,7 @@ class Modflow:
             # Export
             if item == 0:
                 tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
-                         self.model_folder+'/watertable_elevation_t(0).tif')
+                         self.save_file+'/watertable_elevation_t(0).tif')
                 print('export watertable_elevation')
                 
             ### Watertable depth
@@ -282,7 +286,7 @@ class Modflow:
             # Export
             if item == 0:
                 tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
-                         self.model_folder+'/watertable_depth_t(0).tif')
+                         self.save_file+'/watertable_depth_t(0).tif')
                 print('export watertable_depth')
             
             ### Watertable intercept
@@ -295,7 +299,7 @@ class Modflow:
             # Export
             if item == 0:
                 tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
-                         self.model_folder+'/seepage_areas_t(0).tif')
+                         self.save_file+'/seepage_areas_t(0).tif')
                 print('export seepage_areas')
         
             """
@@ -320,7 +324,7 @@ class Modflow:
             # Export
             if item == 0:
                 tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
-                         self.model_folder+'/outflow_drain_t(0).tif')
+                         self.save_file+'/outflow_drain_t(0).tif')
                 print('export outflow_drain')
         
             """
@@ -346,7 +350,7 @@ class Modflow:
             # Export
             if item == 0:
                 tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
-                         self.model_folder+'/gw_flux_t(0).tif')
+                         self.save_file+'/gw_flux_t(0).tif')
                 print('export gw_flux')
             
             ### Specific discharge
@@ -365,7 +369,7 @@ class Modflow:
             # # Export
             # if item == 0:
             #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
-            #              self.model_folder+'specific_discharge_t(0).tif')
+            #              self.save_file+'/specific_discharge_t(0).tif')
             #     print('export specific_discharge')
         
             """
@@ -383,12 +387,12 @@ class Modflow:
         save_dict
         """
         # --> def save_dict(self):
-        np.save(self.model_folder+'/watertable_elevation.h5', self.dict_watertable_elevation) 
-        np.save(self.model_folder+'/watertable_depth.h5', self.dict_watertable_depth)
-        np.save(self.model_folder+'/seepage_areas.h5', self.dict_seepage_areas)
-        np.save(self.model_folder+'/outflow_drain.h5', self.dict_outflow_drain)
-        np.save(self.model_folder+'/gw_flux.h5', self.dict_gw_flux)
-        # dd.io.save(self.model_folder+'/specific_discharge.h5', self.dict_specific_discharge)
+        np.save(self.save_file+'/watertable_elevation.h5', self.dict_watertable_elevation) 
+        np.save(self.save_file+'/watertable_depth.h5', self.dict_watertable_depth)
+        np.save(self.save_file+'/seepage_areas.h5', self.dict_seepage_areas)
+        np.save(self.save_file+'/outflow_drain.h5', self.dict_outflow_drain)
+        np.save(self.save_file+'/gw_flux.h5', self.dict_gw_flux)
+        # dd.io.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
         
         # dd.io.save(self.model_folder+'/watertable_elevation.h5', self.dict_watertable_elevation)
         # dd.io.save(self.model_folder+'/watertable_depth.h5', self.dict_watertable_depth)
