@@ -75,7 +75,7 @@ class Watershed:
     def __init__(self, watershed_name, dem_path, library_path = os.path.join(root_dir, 'watershed_library.csv'),
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
-                 hydrology_path = None, piezometric_path = None, modflow_path = None, 
+                 hydrology_path = None, piezometry_path = False, modflow_path = None, 
                  load = False):
         """ 
         Constructor
@@ -112,7 +112,7 @@ class Watershed:
         
         self.surfex_path = surfex_path
         self.hydrology_path = hydrology_path
-        self.piezometric_path = piezometric_path
+        self.piezometry_path = piezometry_path
         self.oceanic_path = oceanic_path
         self.geology_path = geology_path
         self.modflow_path = modflow_path
@@ -129,15 +129,14 @@ class Watershed:
 
         if load==True:
              succes = self.load_object()
+             if succes == True:
+                print("Object was loaded successfully")
              if succes == False:
                 print("Object was not loaded as demanded but created from scratch")
                 self.create_object()
         else:
             self.create_object()
-            
-        # self.save_object()
-        
-        self.run_modflow()
+
 
     def load_watershed_csv(self):
         """
@@ -160,7 +159,7 @@ class Watershed:
         """
         Loads python object
         """
-        if not os.path.exists(os.path.join(self.watershed_folder, 'python_object')):
+        if os.path.exists(os.path.join(self.watershed_folder, 'python_object')):
             with open(os.path.join(self.watershed_folder, 'python_object'), 'rb') as config_dictionary_file:
               BV = pickle.load(config_dictionary_file)
             if ('geographic' in BV.__dir__()) == True:
@@ -219,11 +218,10 @@ class Watershed:
 
         if self.surfex_path != None:
             self.climatic = climatic.Climatic(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
-            
             self.elt_def.append('surfex')
 
         #FIELD DATA
-        if self.piezometric_path != None:
+        if self.piezometry_path == True:
             self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
             self.elt_def.append('piezometry')
         #self.hydrometry = hydrometry() #doesn't exist
@@ -286,6 +284,8 @@ class Watershed:
         return self
     
     def display(self,type = 'watershed'):
-        if type == 'watershed':
-            watershed_display.watershed(self)
+        if type == 'watershed_dem':
+            watershed_display.watershed_dem(self)
+        if type == 'watershed_geology':
+            watershed_display.watershed_geology(self)    
 
