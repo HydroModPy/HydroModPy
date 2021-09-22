@@ -60,7 +60,7 @@ surfex_path =  root_path + 'SURFEX'
 geology_path = None
 hydrology_path = None
 modflow_path = root_path + 'MODFLOW'
-piezometric_path = None
+piezometry_path = None
 oceanic_path = None
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -70,7 +70,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               surfex_path=surfex_path,
                               geology_path=geology_path,
                               hydrology_path=hydrology_path,
-                              piezometric_path=piezometric_path,
+                              piezometry_path=piezometry_path,
                               oceanic_path=oceanic_path, 
                               modflow_path=modflow_path,
                               load=load)
