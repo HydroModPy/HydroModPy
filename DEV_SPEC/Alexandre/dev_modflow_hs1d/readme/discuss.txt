@@ -1,0 +1,15 @@
+20/09/2021
+
+- waterhed to waterhed_name
+- créer une class "chronic ou forçage de préparation des inpus (en privé) dans tools
+- ajouter start et end de la simul modflow
+- cond et thick dans hydrodynamic
+- bin : VARIABLE GLOBALES au début, cherher utilisateur (install modflow dans environnement .yml ?, voir avec des experts)
+- check des données d'entrée dans modflow
+- model_update ? Refaire tout à chaque fois ? build invariable ?
+- profiler pour voir le temps des fonctions du code
+- results and results_stable, 2 fois Canut
+- création de la grille ==> generate_grid() (créer des méthodes privées)
+- créer une focntion de passage avec la géologie
+- calssique : 1 create grid, 2 fill grid, 3 initial cond, 4 boundary, 5 forcing
+- pour extraction : ouverture et ecriture
