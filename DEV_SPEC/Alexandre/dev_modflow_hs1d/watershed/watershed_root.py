@@ -9,6 +9,7 @@ Created on Thu Sep  9 14:52:56 2021
 import os
 import pandas as pd
 import pickle
+import _pickle as cPickle
 import sys
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
@@ -134,12 +135,12 @@ class Watershed:
              if succes == False:
                 print("Object was not loaded as demanded but created from scratch")
                 self.create_object()
+                self.save_object()
         else:
             print("Create new object")
             self.create_object()
+            self.save_object()
         
-        self.save_object()
-
     def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file
@@ -190,7 +191,6 @@ class Watershed:
             print("Warning : file doesn't exist, python_object", self.watershed_folder)
             return False
 
-
     def create_object(self):
         """
         Creates python object
@@ -237,6 +237,7 @@ class Watershed:
         with open(self.watershed_folder + '/python_object', 'wb') as config_dictionary_file:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
+        # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
         
     def run_modflow(self, ident='modflow', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
                     hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
