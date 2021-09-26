@@ -4,6 +4,7 @@
 import flopy
 import numpy as np
 import os
+import pandas as pd
 import sys
 from os.path import dirname, abspath
 from osgeo import gdal
@@ -33,7 +34,7 @@ class Modflow:
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, geographic, watershed='name', climatic=8e-4, lay_number=1,
+    def __init__(self, geographic, climatic=8e-4, lay_number=1,
                   thick=50, 
                   bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                   sea_level=None, cond_decay=0.,
@@ -41,7 +42,6 @@ class Modflow:
                   model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                   exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
           
-        self.watershed = watershed
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
@@ -50,6 +50,7 @@ class Modflow:
         self.time_step = time_step
         self.thick = thick
         self.thick_exp = thick_exp
+        self.resolution = geographic.resolution
         self.bottom = bottom
         self.nlay = lay_number
         self.hyd_cond = hyd_cond
@@ -57,11 +58,16 @@ class Modflow:
         self.cond_decay = cond_decay
         if sea_level == None:
             self.dem = geographic.dem_data
+            self.dem_path = geographic.watershed_buff_dem
         else:
-            self.dem = geographic.dem_box_data        
+            self.dem = geographic.dem_box_data     
+            self.dem_path = geographic.watershed_box_buff_dem
+        bv = gdal.Open(geographic.watershed_dem)
+        self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
         self.exe = exe
+        self.geographic = geographic
 
-    def build(self, geographic):
+    def pre_processing(self):
         print('Construction d\'un modèle')
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
@@ -112,9 +118,9 @@ class Modflow:
             self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
 
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
-            delr=geographic.resolution, delc=geographic.resolution, top=self.dem.data, 
+            delr=self.geographic.resolution, delc=self.geographic.resolution, top=self.dem.data, 
             botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
-            nstp=self.nstp, steady=self.steady, xul=geographic.xmin,yul=geographic.ymax, start_datetime=self.start_datetime)
+            nstp=self.nstp, steady=self.steady, xul=self.geographic.xmin,yul=self.geographic.ymax, start_datetime=self.start_datetime)
 		#proj4_str=self.dem.crs)
     
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
@@ -179,7 +185,7 @@ class Modflow:
                 self.drnData[compt, 1] = i #row
                 self.drnData[compt, 2] = j #col
                 self.drnData[compt, 3]= self.dem[i, j]#elev
-                self.drnData[compt, 4] =self.hk[0, i, j]* self.thick *geographic.resolution**2  #cond() 
+                self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.geographic.resolution**2  #cond() 
                 compt += 1
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
@@ -193,38 +199,37 @@ class Modflow:
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
-    def run(self):
+    def processing(self):
         print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
         # run model
         succes, buff = self.mf.run_model(silent=True)
         
-    def extract_model(self, dem_path):
+    def post_processing(self):
         # post_processing
         print('Extraction des résultats d\'un modèle')
         
-        # DEM model
-        self.dem_path = dem_path
-        self.dem = gdal.Open(self.dem_path)
-        self.dem_data = self.dem.GetRasterBand(1).ReadAsArray()
-        self.dem_mask = (self.dem_data==-99999)
+        self.dem_mask = (self.dem_clip==-99999)
         
         # Model parameters
         self.path_file = os.path.join(self.full_path, self.model_name)
 
-        self.mf = flopy.modflow.Modflow.load(self.path_file+'.nam', verbose=False, check=False, load_only=["bas6", "dis"])
-        self.bas = flopy.modflow.ModflowBas.load(self.path_file+'.bas', self.mf)
-        self.dis = flopy.modflow.ModflowDis.load(self.path_file+'.dis', self.mf)
-        self.rch = flopy.modflow.ModflowRch.load(self.path_file+'.rch', self.mf)
-        self.upw = flopy.modflow.ModflowUpw.load(self.path_file+'.upw', self.mf)
-        self.nlay = self.dis.nlay
         self.nper = self.dis.nper
-        self.nstp = self.dis.nstp
         self.kper = np.arange(0,self.nper,1) # ==> time
         self.kstp = self.nstp[self.kper] - 1
-        # --> add save file text
         
+        self.rechval = self.rch.rech[0][0,0]
+        
+        col = ['nrow','ncol','res','nlay','nper','rech','hk','sy']
+        var = [self.nrow,self.ncol,self.resolution,self.nlay,self.nper,self.rechval,self.hyd_cond,self.porosity]
+        params = pd.DataFrame(var).T
+        params.columns = col
+        params = params.round(3)
+        self.params = params
+        self.params.to_csv(self.full_path+'/_model_parameters.txt', sep=';', index=False)
+        # np.savetxt(self.path_file+'_model_parameters.txt', self.params, delimiter=';')
+
         self.save_file = os.path.join(self.full_path, '_extraction')
         file_adds.create_folder(self.save_file)
         
@@ -237,9 +242,7 @@ class Modflow:
         self.kstpkper = self.head_fpu.get_kstpkper()
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
-        
-    def iterate_times(self):
-        
+                
         # Create dictionnaries
         self.dict_watertable_elevation = {}
         self.dict_watertable_depth = {}
@@ -254,16 +257,9 @@ class Modflow:
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
             
-            # self.watertable_outputs(time=time)
-            # self.gw_flux(time=time)
-            # self.outflow_drain(time=time)
-            # self.store_dict(item=item)
-            # self.save_dict()
-        
             """
             watertable_outputs
             """
-            # --> def watertable_outputs(self, item, time):
             # Import data
             self.head_all = self.head_fpu.get_alldata() # mflay=None
             self.head_data = self.head_fpu.get_data(totim=time)
@@ -280,7 +276,7 @@ class Modflow:
                 print('export watertable_elevation')
                 
             ### Watertable depth
-            self.wt_depth = self.dem_data - self.wt_elev
+            self.wt_depth = self.dem - self.wt_elev
             # Mask
             self.wt_depth[self.dem_mask] = -9999
             # Export
@@ -290,7 +286,7 @@ class Modflow:
                 print('export watertable_depth')
             
             ### Watertable intercept
-            self.seep_area = self.dem_data - self.wt_elev
+            self.seep_area = self.dem - self.wt_elev
             # Mask
             self.seep_area[self.seep_area > 0] = 0
             self.seep_area[self.seep_area == 0] = 0.5
@@ -305,7 +301,6 @@ class Modflow:
             """
             outflow_drain
             """
-            # --> def outflow_drain(self, item, time):
             # Import data
             self.out_all = np.ones((1, self.dis.nrow, self.dis.ncol))
             self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)
@@ -330,7 +325,6 @@ class Modflow:
             """
             gw_flux
             """
-            # --> def gw_flux(self, item, time):
             ### Groundwater flux
             # Import data
             self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
@@ -375,7 +369,6 @@ class Modflow:
             """
             store_dict
             """
-            # --> def store_dict(self, item):    
             self.dict_watertable_elevation[item] = self.wt_elev
             self.dict_watertable_depth[item] = self.wt_depth
             self.dict_seepage_areas[item] = self.seep_area
@@ -386,17 +379,9 @@ class Modflow:
         """
         save_dict
         """
-        # --> def save_dict(self):
         np.save(self.save_file+'/watertable_elevation.h5', self.dict_watertable_elevation) 
         np.save(self.save_file+'/watertable_depth.h5', self.dict_watertable_depth)
         np.save(self.save_file+'/seepage_areas.h5', self.dict_seepage_areas)
         np.save(self.save_file+'/outflow_drain.h5', self.dict_outflow_drain)
         np.save(self.save_file+'/gw_flux.h5', self.dict_gw_flux)
-        # dd.io.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
-        
-        # dd.io.save(self.model_folder+'/watertable_elevation.h5', self.dict_watertable_elevation)
-        # dd.io.save(self.model_folder+'/watertable_depth.h5', self.dict_watertable_depth)
-        # dd.io.save(self.model_folder+'/seepage_areas.h5', self.dict_seepage_areas)
-        # dd.io.save(self.model_folder+'/outflow_drain.h5', self.dict_outflow_drain)
-        # dd.io.save(self.model_folder+'/gw_flux.h5', self.dict_gw_flux)
-        # dd.io.save(self.model_folder+'/specific_discharge.h5', self.dict_specific_discharge)
+        # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)  
