@@ -71,7 +71,7 @@ class Modflow:
         print('Construction d\'un modèle')
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
-                                        model_ws=self.full_path, external_path=self.full_path)
+                                        model_ws=self.full_path) # external_path=self.full_path
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,iprnwt=0,ibotav=0, options='COMPLEX')
 
         try:
@@ -257,6 +257,8 @@ class Modflow:
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
             
+            lead_numb = "%03d" % (item,)
+            
             """
             watertable_outputs
             """
@@ -270,20 +272,20 @@ class Modflow:
             # Mask
             self.wt_elev[self.dem_mask] = -9999
             # Export
-            if item == 0:
-                tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
-                         self.save_file+'/watertable_elevation_t(0).tif')
-                print('export watertable_elevation')
+            # if item == 0:
+            tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
+                                self.save_file+'/watertable_elevation_('+lead_numb+').tif')
+            # print('export watertable_elevation')
                 
             ### Watertable depth
             self.wt_depth = self.dem - self.wt_elev
             # Mask
             self.wt_depth[self.dem_mask] = -9999
             # Export
-            if item == 0:
-                tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
-                         self.save_file+'/watertable_depth_t(0).tif')
-                print('export watertable_depth')
+            # if item == 0:
+            tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
+                                self.save_file+'/watertable_depth_t('+lead_numb+').tif')
+            # print('export watertable_depth')
             
             ### Watertable intercept
             self.seep_area = self.dem - self.wt_elev
@@ -293,10 +295,10 @@ class Modflow:
             self.seep_area[self.seep_area < 0] = 1
             self.seep_area[self.dem_mask] = -9999
             # Export
-            if item == 0:
-                tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
-                         self.save_file+'/seepage_areas_t(0).tif')
-                print('export seepage_areas')
+            # if item == 0:
+            tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
+                                self.save_file+'/seepage_areas_t('+lead_numb+').tif')
+            # print('export seepage_areas')
         
             """
             outflow_drain
@@ -317,10 +319,10 @@ class Modflow:
             # Mask
             self.out_drn[self.dem_mask] = -9999
             # Export
-            if item == 0:
-                tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
-                         self.save_file+'/outflow_drain_t(0).tif')
-                print('export outflow_drain')
+            # if item == 0:
+            tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
+                                self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+            # print('export outflow_drain')
         
             """
             gw_flux
@@ -342,10 +344,10 @@ class Modflow:
             # Mask
             self.flux_top[self.dem_mask] = -9999
             # Export
-            if item == 0:
-                tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
-                         self.save_file+'/gw_flux_t(0).tif')
-                print('export gw_flux')
+            # if item == 0:
+            tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
+                                self.save_file+'/gw_flux_t('+lead_numb+').tif')
+            # print('export gw_flux')
             
             ### Specific discharge
             # # Import data
@@ -363,7 +365,7 @@ class Modflow:
             # # Export
             # if item == 0:
             #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
-            #              self.save_file+'/specific_discharge_t(0).tif')
+            #              self.save_file+'/specific_discharge_t('+lead_numb+').tif')
             #     print('export specific_discharge')
         
             """
@@ -379,9 +381,9 @@ class Modflow:
         """
         save_dict
         """
-        np.save(self.save_file+'/watertable_elevation.h5', self.dict_watertable_elevation) 
-        np.save(self.save_file+'/watertable_depth.h5', self.dict_watertable_depth)
-        np.save(self.save_file+'/seepage_areas.h5', self.dict_seepage_areas)
-        np.save(self.save_file+'/outflow_drain.h5', self.dict_outflow_drain)
-        np.save(self.save_file+'/gw_flux.h5', self.dict_gw_flux)
+        np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation) 
+        np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
+        np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+        np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+        np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
         # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)  
