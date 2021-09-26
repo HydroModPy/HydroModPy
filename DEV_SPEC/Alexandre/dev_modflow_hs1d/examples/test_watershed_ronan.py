@@ -50,7 +50,7 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = False
+load = True
 watershed_name = 'Canut'
 library_path = df + '/watershed' + '/watershed_library.csv'
 
@@ -77,12 +77,12 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 
 rech = pd.Series([0.02,0.025,0.032,0.027,0.018])
 
-BV.run_modflow(ident='temporary', climatic=rech, lay_number=1, thick=100, bottom=None, thick_exp=1., 
+BV.run_modflow(ident='model_modflow', climatic=rech, lay_number=1, thick=100, bottom=None, thick_exp=1., 
                hyd_cond=21, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%%
-
-path_h5 = "D:/Users/abherve/HYDROMODPY/Canut/data/climatic/REA.h5"
+"""
+path_h5 = "D:/Users/abherve/HYDROMODPY/Canut/results_stable/climatic/REA.h5"
 variable = 'REC'
 scenario = 'historic'
 
@@ -94,9 +94,4 @@ serie = serie.reset_index()
 sin = serie_transf.create_sinusoidal(serie, 'monthly', 1,1,1,1)
 plt.plot(serie[0],c='b')
 plt.plot(sin,c='r')
-
-#%%
-
-# read_dictionary = np.load('D:/Users/abherve/HYDROMODPY/Canut/simulations/watertable_elevation.h5.npy', allow_pickle='TRUE').item()
-
-# climatic ==> pd.Series([8e-4,7.5e-4,7.0e-4])
+"""

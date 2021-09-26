@@ -11,7 +11,7 @@ wbt.set_verbose_mode(False)
 class Geology:
     def __init__(self, out_path, geographic, geo_path, landsea):
         print('Extraction des données géologiques')
-        data_folder = os.path.join(out_path,'data/geoglogy/')
+        data_folder = os.path.join(out_path,'results_stable/geoglogy/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
         self.geol_file = geo_path + '/GEO1M.shp'
