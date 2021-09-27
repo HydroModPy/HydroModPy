@@ -14,7 +14,7 @@ wbt.set_verbose_mode(False)
 # wbt.set_default_callback(my_callback)
 
 class Hydrology:
-    def __init__(self,out_path, type_obs, geographic, hydro_path):
+    def __init__(self, out_path, type_obs, geographic, hydro_path):
         print("Extraction des données hydrologiques")
         data_folder = out_path + '/results_stable/hydrology/'
         if not os.path.exists(data_folder):

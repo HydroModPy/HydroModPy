@@ -34,13 +34,13 @@ class Modflow:
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, geographic, climatic=8e-4, lay_number=1,
-                  thick=50, 
-                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                  sea_level=None, cond_decay=0.,
-                  time_step='daily', model_name='modflow_model', 
-                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
-                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
+    def __init__(self, geographic,
+                 climatic=8e-4, lay_number=1, thick=50,
+                 bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
+                 sea_level=None, cond_decay=0.,
+                 time_step='daily', model_name='modflow_model', 
+                 model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
+                 exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
           
         self.model_name = model_name
         self.model_folder = model_folder
@@ -204,7 +204,7 @@ class Modflow:
         # write input files
         self.mf.write_input()
         # run model
-        succes, buff = self.mf.run_model(silent=True)
+        succes, buff = self.mf.run_model(silent=False) # True without msg
         
     def post_processing(self):
         # post_processing
@@ -290,8 +290,7 @@ class Modflow:
             ### Watertable intercept
             self.seep_area = self.dem - self.wt_elev
             # Mask
-            self.seep_area[self.seep_area > 0] = 0
-            self.seep_area[self.seep_area == 0] = 0.5
+            self.seep_area[self.seep_area >= 0] = 0
             self.seep_area[self.seep_area < 0] = 1
             self.seep_area[self.dem_mask] = -9999
             # Export
@@ -381,9 +380,86 @@ class Modflow:
         """
         save_dict
         """
-        np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation) 
+        np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
         np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
         np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
         np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
         np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
-        # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)  
+        # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
+
+class Chronics:
+    def __init__(self, geographic, 
+                 first=1960, last=2020, time_step='monthly',
+                 model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output')):
+                 
+        bv = gdal.Open(geographic.watershed_dem)
+        geodata = bv.GetGeoTransform()
+        self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
+        self.resolution = geodata[1]
+        
+        self.first = first
+        self.last = last
+        self.time_step = time_step
+        
+        self.model_name = model_name
+        self.model_folder = model_folder
+        self.full_path = os.path.join(model_folder, model_name)
+        self.save_file = os.path.join(self.full_path, '_extraction')
+        
+        self.generate_chronic()
+        
+    def generate_chronic(self):
+        
+        df = pd.DataFrame()
+        
+        def mask_by_dem(target_data, mask_data, value_masked):
+            masked = np.ma.masked_array(target_data, mask=mask_data==value_masked)
+            return masked
+
+        if self.time_step=='monthly':
+            freq = 'M'
+            df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
+            
+        if self.time_step=='daily':
+            freq = 'D'
+            df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
+        
+        loaded = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
+        for key in loaded:
+            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+            calc = np.nanmean(masked)
+            df.loc[key,'watertable_elevation'] = calc
+
+        loaded = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
+        for key in loaded:
+            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+            calc = np.nanmean(masked)
+            df.loc[key,'watertable_depth'] = calc
+
+        loaded = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
+        for key in loaded:
+            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+            cell = masked.count()
+            count = (masked > 0).sum()
+            calc = (count/cell) * 100
+            df.loc[key,'seepage_areas'] = calc
+            
+        loaded = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
+        for key in loaded:
+            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+            cell = masked.count()
+            calc = (np.nansum(masked) / (cell * self.resolution**2)) # mm/m
+            df.loc[key,'outflow_drain'] = calc
+
+        loaded = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
+        for key in loaded:
+            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+            calc = np.nanmean(masked)
+            df.loc[key,'gw_flux'] = calc
+        
+        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+        df = df.set_index(['date'])
+        df = df.round(2)
+        df.to_csv(self.save_file + '/_simulated_chronics.csv', sep=';')
+        
+        
