@@ -17,6 +17,23 @@ sys.path.append(df)
 from tools import file_adds
 from tools import tif_adds
 
+# class GroundwaterFlow(abc.ABC):
+# @abc.abstractmethod
+# def preprocessing(self,t):
+#     pass
+# LPM.__init__( self, "exp", parameter_values, parameter_units, directory_lpm)
+# class LPM_exp(LPM):
+#     """ Lumped Parameter Model
+#         Exponential
+#     """
+#     def __init__(self, mu=10, directory_lpm=None):  
+#         """ Constructor
+#             Specific
+#         """
+#         parameter_values={'mu':mu}
+#         parameter_units={'mu':'year'}
+#         LPM.__init__( self, "exp", parameter_values, parameter_units, directory_lpm)
+
 # VARIABLES GLOBALES
 
 class Modflow:
