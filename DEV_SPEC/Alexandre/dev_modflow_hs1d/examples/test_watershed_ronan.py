@@ -46,17 +46,17 @@ elif user=="Jean-Raynald":
 elif user=="Ronan":
     root_path= "D:/Users/abherve/HYDROMODPY/_data/"
     out_path = "D:/Users/abherve/HYDROMODPY"
-    out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
-    analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
+    # out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
+    # analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
 else:
     print("Define a well-validated name of user")
 
 # test of watershed class
 load = True
 watershed_name = 'Canut'
-watershed_name = 'Out'
+# watershed_name = 'Out'
 library_path = df + '/watershed' + '/watershed_library.csv'
-library_path = analy_path + '/outlets_basins.txt'
+# library_path = analy_path + '/outlets_basins.txt'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 

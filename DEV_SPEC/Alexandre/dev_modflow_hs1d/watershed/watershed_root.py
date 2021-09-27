@@ -20,6 +20,7 @@ from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow
 from tools import file_adds
 from watershed import geographic, geology, hydrodynamic, watershed_display
+from calibration import calib_dichotomy
 
 class Watershed:
     """
@@ -120,14 +121,19 @@ class Watershed:
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
-        self.add_data_folder = os.path.join(self.watershed_folder, 'results_stable/add_data')
+        
+        self.stable_folder = os.path.join(self.watershed_folder, 'results_stable')
+        file_adds.create_folder(self.stable_folder)                
+        self.add_data_folder = os.path.join(self.stable_folder, 'add_data/')
         file_adds.create_folder(self.add_data_folder)
+        self.figure_folder = os.path.join(self.stable_folder, '_figures/watershed/')
+        file_adds.create_folder(self.figure_folder)
+        
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         file_adds.create_folder(self.simulations_folder)
-        self.figure_folder = os.path.join(self.watershed_folder, 'results_stable/_figures/watershed/')
-        file_adds.create_folder(self.figure_folder)
+        
         self.elt_def = []
-
+        
         if load==True:
              succes = self.load_object()
              if succes == True:
@@ -239,7 +245,8 @@ class Watershed:
         config_dictionary_file.close()
         # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
         
-    def run_modflow(self, ident='modflow', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
+    def run_modflow(self, ident='modflow', climatic=8e-4,
+                    lay_number=1, thick=100, bottom=None, thick_exp=1., 
                     hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
         """ 
         build and run modflow model
@@ -273,6 +280,38 @@ class Watershed:
             model = modflow.Modflow(self.geographic, time_step='monthly',
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
+                                    climatic=climatic, sea_level=sea_level,
+                                    model_name=ident, model_folder=self.simulations_folder, 
+                                    exe=self.modflow_path +'/bin/mfnwt.exe')
+            # model.pre_processing()
+            # model.processing()
+            # model.post_processing()
+            
+        else:
+            print('Error : sea_level and climatic chronicles must be the same length')
+               
+    def chronics_modflow(self, ident='modflow', first=1960, last=2020, time_step='monthly'): 
+            chronics = modflow.Chronics(self.geographic,
+                                        first=first, last=last, time_step=time_step,
+                                        model_name=ident, model_folder=self.simulations_folder)
+                                        
+    def calib_dichotomy(self, ident='modflow', climatic=8e-4, lay_number=1, thick=50, bottom=None, thick_exp=1., 
+                        first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.):
+
+        self.diff = last - first
+        
+        self.df = pd.DataFrame()
+        
+        compt = 0
+        while (self.diff > gap):
+            half = (first + last) / 2
+            hyd_cond = half * climatic.values[0]
+            
+            ident = str('dic')+'-'+str(round(half,3))+'-'+str(round(climatic.values[0],3))+'-'+str(round(thick,3))
+            
+            model = modflow.Modflow(self.geographic, time_step=time_step,
+                                    lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
+                                    hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
                                     climatic=climatic, sea_level=sea_level, 
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
@@ -280,8 +319,33 @@ class Watershed:
             model.processing()
             model.post_processing()
             
-        else:
-            print('Error : sea_level and climatic chronicles must be the same length')
+            dicot = calib_dichotomy.Dichotomy(self.geographic, 
+                                              type_river='streams',
+                                              hydrology_stable=os.path.join(self.stable_folder, 'hydrology'), 
+                                              simulations_folder=os.path.join(self.simulations_folder, ident))
+            mean_obs_to_sim, mean_sim_to_obs, condition = dicot.mean_distances()
+            
+            if condition > 1:
+                first = half
+            else:
+                last = half
+                
+            self.diff = last - first
+            
+            print('==> Simulation : '+str(compt))            
+            print('    Ecart = '+str(round(self.diff,2)))
+            print('    K/R = '+str(round(half, 2)))
+            print('    Condition = '+str(condition))
+            
+            self.df.loc[compt,'KR'] = round(half, 4)
+            self.df.loc[compt,'K'] = round(hyd_cond, 4)
+            self.df.loc[compt,'Sflow'] = round(mean_sim_to_obs, 4)
+            self.df.loc[compt,'Oflow'] = round(mean_obs_to_sim, 4)
+            self.df.loc[compt,'Cond'] = round(condition, 4)    
+            
+            compt += 1
+        
+        self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy.csv'), sep=';', index=True)
         
     def run_hs1D(self):
         return self
@@ -292,3 +356,7 @@ class Watershed:
         if type == 'watershed_geology':
             watershed_display.watershed_geology(self)    
 
+
+            
+            
+            
