@@ -46,13 +46,17 @@ elif user=="Jean-Raynald":
 elif user=="Ronan":
     root_path= "D:/Users/abherve/HYDROMODPY/_data/"
     out_path = "D:/Users/abherve/HYDROMODPY"
+    out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
+    analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
 else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = False
+load = True
 watershed_name = 'Canut'
+watershed_name = 'Out'
 library_path = df + '/watershed' + '/watershed_library.csv'
+library_path = analy_path + '/outlets_basins.txt'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
@@ -60,7 +64,7 @@ surfex_path =  root_path + 'SURFEX'
 geology_path = None
 hydrology_path = None
 modflow_path = root_path + 'MODFLOW'
-piezometric_path = None
+piezometry_path = None
 oceanic_path = None
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -70,19 +74,31 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               surfex_path=surfex_path,
                               geology_path=geology_path,
                               hydrology_path=hydrology_path,
-                              piezometric_path=piezometric_path,
+                              piezometry_path=piezometry_path,
                               oceanic_path=oceanic_path, 
                               modflow_path=modflow_path,
                               load=load)
 
-rech = pd.Series([0.02,0.025,0.032,0.027,0.018])
+rech_path = out_path+'/'+watershed_name+'/'+'results_stable/'+'climatic/'+'REA.h5'
+rech = pd.read_hdf(rech_path,'REC/'+'historic')
+first = 2009
+last = 2010
+rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+rech = rech.MEAN
+rech = rech.resample('M').sum()
+rech = rech / 1000
 
-BV.run_modflow(ident='temporary', climatic=rech, lay_number=1, thick=100, bottom=None, thick_exp=1., 
-               hyd_cond=21, porosity=0.01, sea_level=None, cond_decay=0.)
+K = 1.5e-5 * 3600 * 24 * 30
+P = 0.001
+
+ident = str(round(K,3))+'-'+str(round(P*100,3))
+
+BV.run_modflow(ident=ident, climatic=rech, lay_number=1, thick=50, bottom=None, thick_exp=1., 
+               hyd_cond=K, porosity=P, sea_level=None, cond_decay=0.)
 
 #%%
-
-path_h5 = "D:/Users/abherve/HYDROMODPY/Canut/data/climatic/REA.h5"
+"""
+path_h5 = "D:/Users/abherve/HYDROMODPY/Canut/results_stable/climatic/REA.h5"
 variable = 'REC'
 scenario = 'historic'
 
@@ -94,9 +110,4 @@ serie = serie.reset_index()
 sin = serie_transf.create_sinusoidal(serie, 'monthly', 1,1,1,1)
 plt.plot(serie[0],c='b')
 plt.plot(sin,c='r')
-
-#%%
-
-# read_dictionary = np.load('D:/Users/abherve/HYDROMODPY/Canut/simulations/watertable_elevation.h5.npy', allow_pickle='TRUE').item()
-
-# climatic ==> pd.Series([8e-4,7.5e-4,7.0e-4])
+"""

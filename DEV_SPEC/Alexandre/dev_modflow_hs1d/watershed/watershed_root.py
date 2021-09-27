@@ -9,6 +9,7 @@ Created on Thu Sep  9 14:52:56 2021
 import os
 import pandas as pd
 import pickle
+import _pickle as cPickle
 import sys
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
@@ -119,11 +120,11 @@ class Watershed:
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
-        self.add_data_folder = os.path.join(self.watershed_folder, 'data/add_data')
+        self.add_data_folder = os.path.join(self.watershed_folder, 'results_stable/add_data')
         file_adds.create_folder(self.add_data_folder)
-        self.simulations_folder = os.path.join(self.watershed_folder, 'simulations')
+        self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         file_adds.create_folder(self.simulations_folder)
-        self.figure_folder = os.path.join(self.watershed_folder, 'figures/watershed/')
+        self.figure_folder = os.path.join(self.watershed_folder, 'results_stable/_figures/watershed/')
         file_adds.create_folder(self.figure_folder)
         self.elt_def = []
 
@@ -134,11 +135,12 @@ class Watershed:
              if succes == False:
                 print("Object was not loaded as demanded but created from scratch")
                 self.create_object()
+                self.save_object()
         else:
+            print("Create new object")
             self.create_object()
-   
-        self.save_object()
-
+            self.save_object()
+        
     def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file
@@ -189,7 +191,6 @@ class Watershed:
             print("Warning : file doesn't exist, python_object", self.watershed_folder)
             return False
 
-
     def create_object(self):
         """
         Creates python object
@@ -236,8 +237,9 @@ class Watershed:
         with open(self.watershed_folder + '/python_object', 'wb') as config_dictionary_file:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
+        # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
         
-    def run_modflow(self, ident='temporary', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
+    def run_modflow(self, ident='modflow', climatic=8e-4, lay_number=1, thick=100, bottom=None, thick_exp=1., 
                     hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
         """ 
         build and run modflow model
@@ -268,15 +270,15 @@ class Watershed:
         """
         
         if (sea_level == None) | (type(sea_level) == type(climatic)):
-            model = modflow.Modflow(self.geographic, watershed=self.name, 
-                            climatic=climatic, lay_number=lay_number, thick=thick, bottom=bottom, thick_exp=thick_exp, 
-                            hyd_cond=hyd_cond, porosity=porosity, sea_level = sea_level, cond_decay=cond_decay,
-                            time_step='monthly', model_name=ident, model_folder=self.simulations_folder, 
-                            exe=self.modflow_path +'/bin/mfnwt.exe')
-            model.build(self.geographic)
-            model.run()
-            model.extract_model(self.geographic.watershed_dem)
-            model.iterate_times()
+            model = modflow.Modflow(self.geographic, time_step='monthly',
+                                    lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
+                                    hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
+                                    climatic=climatic, sea_level=sea_level, 
+                                    model_name=ident, model_folder=self.simulations_folder, 
+                                    exe=self.modflow_path +'/bin/mfnwt.exe')
+            model.pre_processing()
+            model.processing()
+            model.post_processing()
             
         else:
             print('Error : sea_level and climatic chronicles must be the same length')
