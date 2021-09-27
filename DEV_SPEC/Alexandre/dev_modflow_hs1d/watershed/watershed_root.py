@@ -343,6 +343,8 @@ class Watershed:
             self.df.loc[compt,'Oflow'] = round(mean_obs_to_sim, 4)
             self.df.loc[compt,'Cond'] = round(condition, 4)    
             
+            # Condition d'arrêt + message
+            
             compt += 1
         
         self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy.csv'), sep=';', index=True)
