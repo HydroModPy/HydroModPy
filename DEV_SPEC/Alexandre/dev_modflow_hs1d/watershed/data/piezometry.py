@@ -12,7 +12,7 @@ import glob
 class Piezometry:
     def __init__(self, out_path, geographic):
         print('Extraction des données piézomètriques')
-        data_folder = os.path.join(out_path,'data/piezometric/')
+        data_folder = os.path.join(out_path,'results_stable/piezometric/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)    
         self.download_init_data(data_folder)
@@ -107,7 +107,7 @@ class Piezometry:
             self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
 
     def add_data(self):
-        files = glob.glob(os.path.join(self.out_path, 'data/add_data/piezometry_*.csv'))
+        files = glob.glob(os.path.join(self.out_path, 'results_stable/add_data/piezometry_*.csv'))
         if len(files)>0:
             for file in files:
                 self.codes_bss.append(file.split('_')[-3])

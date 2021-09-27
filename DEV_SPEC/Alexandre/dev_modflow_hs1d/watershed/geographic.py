@@ -53,48 +53,8 @@ class Geographic:
     def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
         
         # Generate folder where processing files are stored
-        gis_path = os.path.join(out_path, 'data/geographic/')
+        gis_path = os.path.join(out_path, 'results_stable/geographic/')
         file_adds.create_folder(gis_path)
-        
-        """
-        ----------
-        Output files paths : 
-            Stay here or include in the code below ?
-        
-        ### Raw regional DEM
-        # fill = gis_path + 'region_fill.tif'
-        # direc = gis_path + 'region_direc.tif'
-        # acc = gis_path + 'region_acc.tif'
-        
-        ### Extract watershed from an outlet
-        # outlet_shp = gis_path + 'outlet.shp'
-        # outlet_snap_shp = gis_path + 'outlet_snap.shp'        
-        # watershed = gis_path + 'watershed.tif'
-        # self.watershed_shp = gis_path + 'watershed.shp'
-        # watershed_contour_shp = gis_path + 'watershed_contour.shp'          
-        
-        ### Buffer distance operations
-        # buffer = gis_path + 'buff.shp'
-        
-        ### Box extent operations
-        # self.watershed_box_shp = gis_path + 'watershed_box.shp'
-        
-        ### Clip to reach buffer size
-        # self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
-        # watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
-        # watershed_buff_direc = gis_path + 'watershed_buff_direc.tif'
-        
-        ### Clip to reach watershed size
-        # watershed_dem = gis_path + 'watershed_dem.tif'        
-        # self.watershed_fill = gis_path + 'watershed_fill.tif'
-        # self.watershed_direc = gis_path + 'watershed_direc.tif'
-        
-        ### Clip to reach box extent size
-        # self.watershed_box_buff_dem = gis_path + 'watershed_box_buff_dem.tif'
-        # watershed_box_buff_fill = gis_path + 'watershed_box_buff_fill.tif'
-        # watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
-        ----------
-        """
         
         """
         Raw regional DEM

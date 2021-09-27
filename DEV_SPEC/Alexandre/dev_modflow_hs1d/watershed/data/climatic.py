@@ -32,18 +32,16 @@ class Climatic:
         """
         
 
-        data_folder = os.path.join(out_path, 'data/climatic/')
+        data_folder = os.path.join(out_path, 'results_stable/climatic/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
-        self.figure_folder = os.path.join(out_path, 'figures/climatic/')
+        self.figure_folder = os.path.join(out_path, 'results_stable/_figures/climatic/')
 
         if not os.path.exists(self.figure_folder):
                 os.makedirs(self.figure_folder)
         print('Extraction des données climatiques')
         self.extract_cells_from_shapefile(surfex_path, watershed_shp)
         self.extract_values_from_h5file(data_folder, surfex_path)
-
-        self.display_all_variables(model='REA', start='1960', end='2010')
 
     def extract_cells_from_shapefile(self, surfex_path, watershed_shp):
         """
@@ -102,7 +100,7 @@ class Climatic:
                 for i in mod_list:
                     climatic_display.display_all_variables(self.values,self.figure_folder, i, start, end)
 
-            climatic_display.display_all_variables(self.values,self.figure_folder, model, start, end)
+            climatic_display.display_all_variables(self.values, self.figure_folder, model, start, end)
 
     def display_intermensual_scenarios(self, var=None):
         var_list = ['all','TAS','PPT','ETP','RUN','REC','SNOW']
