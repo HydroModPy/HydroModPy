@@ -19,7 +19,7 @@ sys.path.append(root_dir)
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow
 from tools import file_adds
-from watershed import geographic, geology, hydrodynamic, watershed_display
+from watershed import geographic, geology, hydrodynamic, subbasins, watershed_display
 from calibration import calib_dichotomy
 
 class Watershed:
@@ -348,11 +348,30 @@ class Watershed:
             compt += 1
         
         self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy.csv'), sep=';', index=True)
+    
+    def generate_subbasins(self, file_name='data', type_data='environmental',
+                                 code_column='ABC', label_column='ABC',
+                                 x_column=0, y_column=1,
+                                 start_column=1990, end_column=2000,
+                                 snap_dist=100):
+        sub = subbasins.Subbasins(self.geographic)
+        df_auto = sub.automatic_coord(self.hydrology_path, os.path.join(self.stable_folder, 'hydrology'))
+        df_manual = sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
+                                     file_name,  
+                                     type_data,
+                                     code_column,
+                                     label_column,
+                                     x_column,
+                                     y_column,
+                                     start_column,
+                                     end_column)
+        sub.extract_subbasins(snap_dist, self.stable_folder)
+        return df_auto, df_manual
         
     def run_hs1D(self):
         return self
     
-    def display(self,type = 'watershed'):
+    def display(self, type = 'watershed'):
         if type == 'watershed_dem':
             watershed_display.watershed_dem(self)
         if type == 'watershed_geology':
