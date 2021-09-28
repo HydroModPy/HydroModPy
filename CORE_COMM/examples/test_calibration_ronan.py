@@ -92,10 +92,18 @@ rech = rech.MEAN
 rech = rech.resample('M').sum()
 rech = rech / 1000
 
+#%% GENERATE SUBBASINS
+"""
+df_auto, df_manual = BV.generate_subbasins(file_name='subbasins_coord.txt', type_data='rejet',
+                                           code_column='name', label_column='name',
+                                           x_column='x_outlet', y_column='y_outlet',
+                                           start_column=0, end_column=0,
+                                           snap_dist=200)
+"""
 #%% DICHOTOMY CALIBRATION
 """
-BV.calib_dichotomy(ident=None, climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
-                    first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
+BV.calib_dichotomy(ident=None, calib=True, climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
+                   first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
 """
 #%% EXTRPOLATION CALIBRATION
 
@@ -117,10 +125,10 @@ for i, porosity in enumerate(porosities):
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    BV.run_modflow(ident=ident,
-                   climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                   hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    BV.chronics_modflow(ident=ident, first=first, last=last, time_step='monthly')
+    # BV.run_modflow(ident=ident, calib=True,
+    #                climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+    #                hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    BV.chronics_modflow(ident=ident, mask=True, first=first, last=last, time_step='monthly')
     
     step = 'ext_satur'
     first = 2014
@@ -128,17 +136,15 @@ for i, porosity in enumerate(porosities):
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    BV.run_modflow(ident=ident,
-                   climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                   hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    BV.chronics_modflow(ident=ident, first=first, last=last, time_step='monthly')
-
+    # BV.run_modflow(ident=ident, calib=True,
+    #                climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+    #                hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    BV.chronics_modflow(ident=ident, mask=True, first=first, last=last, time_step='monthly')
+    
 #%% GENERATE CHRONICS
 
 
-
 #%% CALIBRATED MODEL
-
 
 
 #%%
