@@ -8,6 +8,8 @@ Created on Thu Sep  9 20:10:52 2021
 # Modules
 import glob
 import geopandas as gpd
+import imageio
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 from osgeo import gdal, osr
@@ -103,7 +105,7 @@ class Subbasins:
         df_manual = pd.DataFrame(columns=columns)
 
         for i in range(len(coord_data)):
-            raw = coord_data.iloc[0]
+            raw = coord_data.iloc[i]
             to_append = [type_data,
                          raw[code_column],
                          raw[label_column],
@@ -123,6 +125,16 @@ class Subbasins:
         self.subbasins_folder = os.path.join(stable_folder, 'subbasins')
         file_adds.create_folder(self.subbasins_folder)
         
+        # Open
+        dem_path = self.geographic.watershed_buff_dem
+        dem = gdal.Open(dem_path)
+        geodata = dem.GetGeoTransform()
+        watshd_data = dem.GetRasterBand(1).ReadAsArray()
+        dem_shp = gpd.read_file(self.geographic.watershed_shp)
+        
+        fig, ax = plt.subplots(1,1, figsize=(8,8), dpi=300)
+        dem_shp.plot(ax=ax, facecolor="none", edgecolor="black", linewidth=2)
+        
         for i in range(len(self.df)):
             
             print('Generate subbasin : '+str(i+1)+' / '+str(len(self.df)))
@@ -134,6 +146,7 @@ class Subbasins:
             label = raw.label
             x = raw.x
             y = raw.y
+            
             identity = str(typ)+'_'+str(code)+'_'+str(label)+'-'+str(round(x))+'-'+str(round(y))
             
             self.subbasin_folder = os.path.join(self.subbasins_folder, identity+'/')
@@ -145,10 +158,6 @@ class Subbasins:
             """
             Raw buff watershed DEM
             """
-            # Open
-            dem_path = self.geographic.watershed_buff_dem
-            dem = gdal.Open(dem_path)
-            geodata = dem.GetGeoTransform()
             # Correction
             fill = gis_path + 'watershed_buff_fill.tif'
             wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
@@ -181,9 +190,17 @@ class Subbasins:
             # Create shapefile polyline of the watershed
             subbasin_contour_shp = gis_path + 'subbasin_contour.shp'    
             wbt.polygons_to_lines(subbasin_shp, subbasin_contour_shp)
-            # Clip buffer watershed DEM from watershed shapefile polygon
-            subbasin_dem = gis_path + 'subbasin_dem.tif'
-            wbt.clip_raster_to_polygon(dem_path, subbasin_shp, subbasin_dem, maintain_dimensions=True)
+            # Plot dem
+            if typ == 'hydrometric':
+                color='dodgerblue'
+            if typ == 'onde':
+                color='darkorange'
+            if (typ != 'hydrometric') & (typ != 'onde'):
+                color='forestgreen'
+            sub = gpd.read_file(subbasin_shp)
+            snp = gpd.read_file(outlet_snap_shp)
+            sub.plot(ax=ax, facecolor="none", edgecolor=color, linewidth=1)
+            snp.plot(ax=ax, facecolor=color, edgecolor='k', linewidth=0.5)
             
 #%%
 """
