@@ -217,7 +217,7 @@ class Modflow():
 
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
-        self.kstp = self.nstp[self.kper] - 1
+        # self.kstp = self.nstp[self.kper] - 1
         
         self.rechval = self.rch.rech[0][0,0]
         
