@@ -100,7 +100,7 @@ runof = runof.resample('M').sum()
 runof = runof / 1000
 
 #%% GENERATE SUBBASINS
-
+"""
 df_auto, df_manual = BV.generate_subbasins(file_name='rejets_coord.txt',
                                            fonction_column='fonction',
                                            type_data='rejet',
@@ -108,12 +108,12 @@ df_auto, df_manual = BV.generate_subbasins(file_name='rejets_coord.txt',
                                            x_column='x_outlet', y_column='y_outlet',
                                            start_column=0, end_column=0,
                                            snap_dist=200)
-
+"""
 #%% DICHOTOMY CALIBRATION
-
+"""
 BV.calib_dichotomy(ident=None, calib=True, climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
                    first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
-
+"""
 #%% EXTRPOLATION CALIBRATION
 
 dic = pd.read_csv(simulations_folder+'_dichotomy.csv', sep=';')
@@ -135,44 +135,75 @@ for i, porosity in enumerate(porosities):
     run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    BV.run_modflow(ident=ident, calib=True,
-                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    obs_data, sim_data, df_stats = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
-                                             first=first, last=last, time_step='monthly')
+    # BV.run_modflow(ident=ident, calib=True,
+    #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+    #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    obs_data, sim_data, df_stats, mask_name = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
+                                                        first=first, last=last, time_step='monthly')
     
-    fig, ax = plt.subplots(1,1, figsize=(5,3))
-    ax.plot(rch*1000, color='dodgerblue')
-    ax.plot(obs_data['disch_norm']*1000, color='k')
-    ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
-    ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
-    ax.set_yscale('log')
-    ax.set_ylim(0.1, None)
-    ax.set_title(ident)
-    
-    fig, ax = plt.subplots(1,1, figsize=(5,3))
-    ax.plot(rch*1000, color='dodgerblue')
-    ax.plot(sim_data['seepage_areas'], color='forestgreen')
-    ax.axhline(y=8, color='grey')
-    ax.set_ylim(0, 25)
-    ax.set_title(ident)
-    
+    # fig, ax = plt.subplots(1,1, figsize=(5,3))
+    # ax.plot(rch*1000, color='dodgerblue')
+    # ax.plot(obs_data['disch_norm']*1000, color='k')
+    # ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
+    # ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
+    # ax.set_yscale('log')
+    # ax.set_ylim(0.1, None)
+    # ax.set_title(mask_name+'\n'+ident)
+        
     #################
 
-    step = 'ext_satur'
-    first = 2014
-    last = 2019
-    rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-    run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
-    print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
-    ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    BV.run_modflow(ident=ident, calib=True,
-                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    # step = 'ext_satur'
+    # first = 2014
+    # last = 2019
+    # rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+    # run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
+    # print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
+    # ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
+    # # BV.run_modflow(ident=ident, calib=True,
+    # #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+    # #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    # obs_data, sim_data, df_stats, mask_name = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
+    #                                           first=first, last=last, time_step='monthly')
     
-#%% CALIBRATED MODEL
+    # fig, ax = plt.subplots(1,1, figsize=(5,3))
+    # ax.plot(sim_data['seepage_areas'], color='forestgreen')
+    # ax.axhline(y=8, color='grey')
+    # ax.set_ylim(0, 25)
+    # ax.set_title(mask_name+'\n'+ident)
 
-
+#%% 
+"""
+mask_list = os.listdir('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/subbasins')
+mask_list = [x for x in mask_list if x.split('_')[1] == 'onde']
+for mask_name in mask_list:
+    print(mask_name)
+    subasin_folder = os.path.join('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/subbasins', mask_name)
+    masked_file = os.path.join('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_simulations/ext_satur-0.001-29.438-50-0.017/_masked', mask_name)
+    sim_path = os.path.join(masked_file, '_simulated_chronics.csv')
+    sim_data = pd.read_csv(sim_path, sep=';', parse_dates=True)
+    sim_data['date'] = pd.to_datetime(sim_data['date'] , format='%Y-%m-%d %H:%M:%S')
+    sim_data = sim_data.set_index('date')
+    
+    sim = np.array(sim_data['seepage_areas'].values)
+    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    ax.plot(sim)
+"""
+"""
+from tools import tif_masks
+npy = 'D:/Users/abherve/RESULTS/rejets_metropole/Out/results_simulations/ext_disch-0.001-29.438-50-0.013/_extraction/seepage_areas.npy'
+n = np.load(npy, allow_pickle=True)
+plot = n.item()[1]
+plt.imshow(plot)
+x = gdal.Open(os.path.join('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/subbasins/calib_onde_J7384000_la Cotardière_341706_6794353','subbasin.tif'))
+x = gdal.Open(os.path.join('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/subbasins/calib_onde_J73-0310_la Vaunoise_338945_6793945','subbasin.tif'))
+mask_data = x.GetRasterBand(1).ReadAsArray()
+masked = tif_masks.mask_by_dem(plot, mask_data, '!=', 1)
+cell = masked.count()
+count = (masked > 0).sum()
+calc = (count/cell) * 100
+df.loc[key,data_process] = calc
+"""
+     
 #%%
 """
 path_h5 = "D:/Users/abherve/HYDROMODPY/Canut/results_stable/climatic/REA.h5"

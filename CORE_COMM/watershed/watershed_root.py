@@ -318,9 +318,15 @@ class Watershed:
                                         model_name=ident, model_folder=self.simulations_folder,
                                         hydrology_path=self.hydrology_path)
             chronics.extract_chronic()
-            obs_data, sim_data, df_stats = chronics.compar_dicharge_chronic()
-            return obs_data, sim_data, df_stats
-
+            
+            if ident.split('-')[0] == 'ext_disch':
+                obs_data, sim_data, df_stats, mask_name = chronics.compar_discharge_chronic()
+                return obs_data, sim_data, df_stats, mask_name
+            
+            # if ident.split('-')[0] == 'ext_satur':
+            #     obs_data, sim_data, df_stats, mask_name = chronics.compar_saturation_chronic()
+            #     return obs_data, sim_data, df_stats, mask_name
+            
     def calib_dichotomy(self, ident='modflow', calib=True, climatic=8e-4, lay_number=1, thick=50, bottom=None, thick_exp=1., 
                         first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.):
 

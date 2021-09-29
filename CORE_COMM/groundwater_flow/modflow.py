@@ -223,7 +223,8 @@ class Modflow():
 
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
-        # self.kstp = self.nstp[self.kper] - 1
+        if len(self.times) > 1:
+            self.kstp = self.nstp[self.kper] - 1
         
         self.rechval = self.rch.rech[0][0,0]
         
@@ -456,17 +457,20 @@ class Chronics:
             masked = tif_masks.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             calc = np.nanmean(masked)
             df.loc[key,data_process] = calc
+            return masked
         def calc_sum(df, key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
             masked = tif_masks.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             calc = (np.nansum(masked) / (cell * resolution**2))
             df.loc[key,data_process] = calc
+            return masked
         def calc_percent(df, key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = tif_masks.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             count = (masked > 0).sum()
             calc = (count/cell) * 100
-            df.loc[key,data_process] = calc 
+            df.loc[key,data_process] = calc
+            return masked
 
         if self.time_step=='monthly':
             freq = 'M'
@@ -533,30 +537,30 @@ class Chronics:
                 
                 for key in watertable_elevation:
                     calc_mean(self.df_subbasin, key, 'watertable_elevation', watertable_elevation,
-                              self.dem_clip, '==', -99999)
+                              self.dem_mask, '!=', 1)
                     # print ('chronic'+' 1 '+str(key)+'/'+str(len(watertable_elevation)))
                 for key in watertable_depth:
                     calc_mean(self.df_subbasin, key, 'watertable_depth', watertable_depth,
-                              self.dem_clip, '==', -99999)
+                              self.dem_mask, '!=', 1)
                     # print ('chronic'+' 2 '+str(key)+'/'+str(len(watertable_depth)))
                 for key in seepage_areas:
-                    calc_percent(self.df_subbasin, key, 'seepage_areas', seepage_areas,
-                              self.dem_clip, '==', -99999)
+                    masked = calc_percent(self.df_subbasin, key, 'seepage_areas', seepage_areas,
+                              self.dem_mask, '!=', 1)
                     # print ('chronic'+' 3 '+str(key)+'/'+str(len(seepage_areas)))
                 for key in outflow_drain:
                     calc_sum(self.df_subbasin, key, 'outflow_drain', outflow_drain,
-                              self.dem_clip, '==', -99999, self.resolution)
+                              self.dem_mask, '!=', 1, self.resolution)
                     # print ('chronic'+' 4 '+str(key)+'/'+str(len(outflow_drain)))
                 for key in gw_flux:
                     calc_mean(self.df_subbasin, key, 'gw_flux', gw_flux,
-                              self.dem_clip, '==', -99999)
+                              self.dem_mask, '!=', 1)
                     # print ('chronic'+' 5 '+str(key)+'/'+str(len(gw_flux)))
 
                 self.df_subbasin = self.df_subbasin.set_index(['date'])                
                 self.df_subbasin = self.df_watershed.round(5)
                 self.df_subbasin.to_csv(self.masked_file + '/_simulated_chronics.csv', sep=';')
       
-    def compar_dicharge_chronic(self):
+    def compar_discharge_chronic(self):
                 
         ### OBSERVED DISCHARGE
         
@@ -610,16 +614,19 @@ class Chronics:
             sim = np.array(sim_data['outflow_drain'].values)
             
             df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
-            list_stats = serie_transf.efficiency_criteria(sim, obs)
+            try:
+                list_stats = serie_transf.efficiency_criteria(sim, obs)
+            except:
+                print('list_stats = None')            
             df_stats = df.append(list_stats)
             df_stats.to_csv(os.path.join(self.save_file, '_efficiendy_criteria.csv'), sep=';')
             
         if self.mask==True:
             mask_list = os.listdir(self.subbasins_folder)
             mask_list = [x for x in mask_list if x.split('_')[1] == 'hydrometric']
-            for i in mask_list:
-                subasin_folder = os.path.join(self.subbasins_folder, i)
-                masked_file = os.path.join(self.masked_folder, i)
+            for mask_name in mask_list:
+                subasin_folder = os.path.join(self.subbasins_folder, mask_name)
+                masked_file = os.path.join(self.masked_folder, mask_name)
                 sim_path = os.path.join(masked_file, '_simulated_chronics.csv')
                 sim_data = pd.read_csv(sim_path, sep=';', parse_dates=True)
                 sim_data['date'] = pd.to_datetime(sim_data['date'] , format='%Y-%m-%d %H:%M:%S')
@@ -627,23 +634,47 @@ class Chronics:
                 
                 sim = np.array(sim_data['outflow_drain'].values)
                 
-                # fig, ax = plt.subplots(1,1, figsize=(5,3))
-                # ax.plot(obs_data['disch_norm']*1000, color='dodgerblue')
-                # ax.plot(sim_data['outflow_drain']*1000, color='red', label=str(NSElog.round(3)))
-                # ax.set_yscale('log')
-                # ax.set_ylim(0.1, None)
-                # ax.set_title(self.model_name)
-                # ax.legend()
-                
                 df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
-                list_stats = serie_transf.efficiency_criteria(sim, obs)
+                try:
+                    list_stats = serie_transf.efficiency_criteria(sim, obs)
+                except:
+                    print('list_stats = None')
+                    list_stats = None
                 df_stats.loc[len(df_stats)] = list_stats
                 df_stats.to_csv(os.path.join(masked_file, '_efficiendy_criteria.csv'), sep=';')
 
-                return obs_data, sim_data, df_stats
+                return obs_data, sim_data, df_stats, mask_name
                 
-                
+    def compar_saturation_chronic(self):
+        
+        obs_data = np.nan
+        df_stats = np.nan
+        
+        ### SIMULATED SATURATION
+        if (self.outlet_type=='hydrometric'):
+            # Waterhed
+            sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
+            sim_data = pd.read_csv(sim_path, sep=';', parse_dates=True)
+            sim_data = sim_data.set_index('date')
+            sim_data['date'] = pd.to_datetime(sim_data['date'] , format='%Y-%m-%d %H:%M:%S')
+            
+            sim = np.array(sim_data['seepage_areas'].values)
 
+        if self.mask==True:
+            mask_list = os.listdir(self.subbasins_folder)
+            mask_list = [x for x in mask_list if x.split('_')[1] == 'onde']
+            for mask_name in mask_list:
+                
+                subasin_folder = os.path.join(self.subbasins_folder, mask_name)
+                masked_file = os.path.join(self.masked_folder, mask_name)
+                sim_path = os.path.join(masked_file, '_simulated_chronics.csv')
+                sim_data = pd.read_csv(sim_path, sep=';', parse_dates=True)
+                sim_data['date'] = pd.to_datetime(sim_data['date'] , format='%Y-%m-%d %H:%M:%S')
+                sim_data = sim_data.set_index('date')
+                
+                sim = np.array(sim_data['seepage_areas'].values)
+                                
+                return obs_data, sim_data, df_stats, mask_name
 
         
    
