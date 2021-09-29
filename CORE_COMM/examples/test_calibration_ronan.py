@@ -125,6 +125,7 @@ time_step = 'monthly'
 
 # Extrapolation
 porosities = np.linspace(0.001, 0.05, 5).round(3)
+porosities = [0.001]
 
 for i, porosity in enumerate(porosities):
     
@@ -138,39 +139,35 @@ for i, porosity in enumerate(porosities):
     # BV.run_modflow(ident=ident, calib=True,
     #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
     #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    obs_data, sim_data, df_stats, mask_name = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
-                                                        first=first, last=last, time_step='monthly')
+    obs_data, sim_data, df_stats, mask_name = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, 
+                                                                  calib_only=True, 
+                                                                  first=first, last=last, time_step='monthly')
     
-    # fig, ax = plt.subplots(1,1, figsize=(5,3))
-    # ax.plot(rch*1000, color='dodgerblue')
-    # ax.plot(obs_data['disch_norm']*1000, color='k')
-    # ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
-    # ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
-    # ax.set_yscale('log')
-    # ax.set_ylim(0.1, None)
-    # ax.set_title(mask_name+'\n'+ident)
+    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    ax.plot(rch*1000, color='dodgerblue')
+    ax.plot(obs_data['disch_norm']*1000, color='k')
+    ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
+    ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
+    ax.set_yscale('log')
+    ax.set_ylim(0.1, None)
+    ax.set_title(mask_name+'\n'+ident)
+    ax.grid(True)
         
     #################
 
-    # step = 'ext_satur'
-    # first = 2014
-    # last = 2019
-    # rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-    # run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
-    # print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
-    # ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    # # BV.run_modflow(ident=ident, calib=True,
-    # #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-    # #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    # obs_data, sim_data, df_stats, mask_name = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
-    #                                           first=first, last=last, time_step='monthly')
+    step = 'ext_satur'
+    first = 2014
+    last = 2019
+    rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+    run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
+    print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
+    ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
+    # BV.run_modflow(ident=ident, calib=True,
+    #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+    #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
+                        first=first, last=last, time_step='monthly')
     
-    # fig, ax = plt.subplots(1,1, figsize=(5,3))
-    # ax.plot(sim_data['seepage_areas'], color='forestgreen')
-    # ax.axhline(y=8, color='grey')
-    # ax.set_ylim(0, 25)
-    # ax.set_title(mask_name+'\n'+ident)
-
 #%% 
 """
 mask_list = os.listdir('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/subbasins')
