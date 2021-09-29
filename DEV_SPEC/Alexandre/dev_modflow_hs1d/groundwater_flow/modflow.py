@@ -408,7 +408,7 @@ class Chronics:
     def __init__(self, geographic, 
                  first=1960, last=2020, time_step='monthly',
                  model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output')):
-                 
+        
         bv = gdal.Open(geographic.watershed_dem)
         geodata = bv.GetGeoTransform()
         self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
