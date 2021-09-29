@@ -88,14 +88,14 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               load=load)
 
-rech_path = stable_folder+'climatic/'+'REA.h5'
-rech = pd.read_hdf(rech_path,'REC/'+'historic')
-first = 1960
-last = 2019
-rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-rech = rech.MEAN
-rech = rech.resample('M').sum()
-rech = rech / 1000
+# rech_path = stable_folder+'climatic/'+'REA.h5'
+# rech = pd.read_hdf(rech_path,'REC/'+'historic')
+# first = 1960
+# last = 2019
+# rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+# rech = rech.MEAN
+# rech = rech.resample('M').sum()
+# rech = rech / 1000
 
 #%% RUN MODFLOW
 
@@ -104,12 +104,12 @@ e=25;
 K=rch*200;
 porosity = 0.1
 ident = str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch,3))
+
 BV.run_modflow(ident=ident,
                climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
                hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
 
 #%% DICHOTOMY CALIBRATION
-
 BV.calib_dichotomy(ident=ident, climatic=pd.Series(rch), lay_number=1, thick=e, bottom=None, thick_exp=1., 
                     first=1, last=10000, gap=10, porosity=porosity, sea_level=None, cond_decay=0.)
 
@@ -148,6 +148,8 @@ BV.calib_dichotomy(ident=ident, climatic=pd.Series(rch), lay_number=1, thick=e, 
 #                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
 #                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
 #     BV.chronics_modflow(ident=ident, first=first, last=last, time_step='monthly')
+
+
 
 #%% GENERATE CHRONICS
 

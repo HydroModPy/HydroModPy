@@ -302,9 +302,9 @@ class Watershed:
                                     climatic=climatic, sea_level=sea_level,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
-            # model.pre_processing()
-            # model.processing()
-            # model.post_processing()
+            model.pre_processing()
+            model.processing()
+            model.post_processing()
             
         else:
             print('Error : sea_level and climatic chronicles must be the same length')
