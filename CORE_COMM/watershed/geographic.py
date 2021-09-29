@@ -169,9 +169,11 @@ class Geographic:
         # Open DEM used for modeling
         dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = dem.GetRasterBand(1).ReadAsArray()
+        self.geodata = dem.GetGeoTransform()
         dem_box = gdal.Open(self.watershed_box_buff_dem)
         self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
-        self.geodata = dem.GetGeoTransform()
+        bv = gdal.Open(self.watershed_dem)
+        self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
         # Extract the coordinate system
         proj = osr.SpatialReference(wkt=dem.GetProjection())
         self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 

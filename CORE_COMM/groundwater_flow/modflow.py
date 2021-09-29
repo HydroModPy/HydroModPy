@@ -24,7 +24,7 @@ from tools import tif_features
 
 # VARIABLES GLOBALES
 
-class Modflow:
+class Modflow():
     """
     model_name
     model_path
@@ -62,16 +62,16 @@ class Modflow:
         self.hyd_cond = hyd_cond
         self.porosity = porosity
         self.cond_decay = cond_decay
+        self.xul = geographic.xmin
+        self.yul = geographic.ymax
         if sea_level == None:
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
         else:
             self.dem = geographic.dem_box_data     
             self.dem_path = geographic.watershed_box_buff_dem
-        bv = gdal.Open(geographic.watershed_dem)
-        self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
+        self.dem_clip = geographic.dem_clip
         self.exe = exe
-        self.geographic = geographic
 
     def pre_processing(self):
         print('Construction d\'un modèle')
@@ -124,9 +124,9 @@ class Modflow:
             self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
 
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
-            delr=self.geographic.resolution, delc=self.geographic.resolution, top=self.dem.data, 
+            delr=self.resolution, delc=self.resolution, top=self.dem.data, 
             botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
-            nstp=self.nstp, steady=self.steady, xul=self.geographic.xmin,yul=self.geographic.ymax, start_datetime=self.start_datetime)
+            nstp=self.nstp, steady=self.steady, xul=self.xul, yul=self.yul, start_datetime=self.start_datetime)
 		#proj4_str=self.dem.crs)
     
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
@@ -191,7 +191,7 @@ class Modflow:
                 self.drnData[compt, 1] = i #row
                 self.drnData[compt, 2] = j #col
                 self.drnData[compt, 3]= self.dem[i, j]#elev
-                self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.geographic.resolution**2  #cond() 
+                self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  #cond() 
                 compt += 1
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
@@ -223,7 +223,7 @@ class Modflow:
 
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
-        self.kstp = self.nstp[self.kper] - 1
+        # self.kstp = self.nstp[self.kper] - 1
         
         self.rechval = self.rch.rech[0][0,0]
         
@@ -419,7 +419,7 @@ class Chronics:
                  mask=False, calib_only=False, subbasins_folder=None, 
                  first=1960, last=2020, time_step='monthly', hydrology_path=None,
                  model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output')):
-        
+
         self.watershed_name = watershed_name
         self.hydrology_path = hydrology_path
         self.outlet_type = outlet_type
