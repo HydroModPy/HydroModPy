@@ -20,7 +20,7 @@ from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow
 from tools import file_adds
 from watershed import geographic, geology, hydrodynamic, subbasins, watershed_display
-from calibration import calib_dichotomy
+from calibration import calib_dichotomy, calib_chronics
 
 class Watershed:
     """
@@ -105,7 +105,7 @@ class Watershed:
         load : bool
             True to load the python object. False to create.
         """
-        self.name = watershed_name
+        self.watershed_name = watershed_name
         self.library_path = library_path
         self.load_watershed_csv()
 
@@ -154,7 +154,7 @@ class Watershed:
         watershed_list = pd.read_csv(self.library_path, delimiter=';')
         try:
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
-            watershed_info = watershed_list.loc[watershed_list['name'] == self.name]
+            watershed_info = watershed_list.loc[watershed_list['name'] == self.watershed_name]
             self.x_outlet = watershed_info.iloc[0]['x_outlet']
             self.y_outlet = watershed_info.iloc[0]['y_outlet']
             self.snap_dist = watershed_info.iloc[0]['snap_dist']
@@ -245,8 +245,8 @@ class Watershed:
         config_dictionary_file.close()
         # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
     
-    def generate_subbasins(self, file_name='data', type_data='environmental',
-                                 code_column='ABC', label_column='ABC',
+    def generate_subbasins(self, file_name='data.txt', fonction_column='fonction', type_data='hydro',
+                                 code_column='code', label_column='name',
                                  x_column=0, y_column=1,
                                  start_column=1990, end_column=2000,
                                  snap_dist=100):
@@ -254,6 +254,7 @@ class Watershed:
         df_auto = sub.automatic_coord(self.hydrology_path, os.path.join(self.stable_folder, 'hydrology'))
         df_manual = sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
                                      file_name,  
+                                     fonction_column,
                                      type_data,
                                      code_column,
                                      label_column,
@@ -302,19 +303,24 @@ class Watershed:
                                     climatic=climatic, sea_level=sea_level,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
-            # model.pre_processing()
-            # model.processing()
-            # model.post_processing()
+            model.pre_processing()
+            model.processing()
+            model.post_processing()
             
         else:
             print('Error : sea_level and climatic chronicles must be the same length')
                
-    def chronics_modflow(self, ident='modflow', mask=False, first=1960, last=2020, time_step='monthly'): 
-            chronics = modflow.Chronics(self.geographic, mask=mask, 
+    def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 
+            chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
+                                        mask=mask, outlet_type=outlet_type, calib_only=calib_only,
                                         subbasins_folder=os.path.join(self.stable_folder, 'subbasins'),
                                         first=first, last=last, time_step=time_step,
-                                        model_name=ident, model_folder=self.simulations_folder)
-                                        
+                                        model_name=ident, model_folder=self.simulations_folder,
+                                        hydrology_path=self.hydrology_path)
+            chronics.extract_chronic()
+            obs_data, sim_data, df_stats = chronics.compar_dicharge_chronic()
+            return obs_data, sim_data, df_stats
+
     def calib_dichotomy(self, ident='modflow', calib=True, climatic=8e-4, lay_number=1, thick=50, bottom=None, thick_exp=1., 
                         first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.):
 

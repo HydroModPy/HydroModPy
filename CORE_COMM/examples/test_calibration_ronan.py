@@ -83,28 +83,37 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               load=load)
 
-rech_path = stable_folder+'climatic/'+'REA.h5'
-rech = pd.read_hdf(rech_path,'REC/'+'historic')
+rea_path = stable_folder+'climatic/'+'REA.h5'
 first = 1960
 last = 2019
+
+rech = pd.read_hdf(rea_path,'REC/'+'historic')
 rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
 rech = rech.MEAN
 rech = rech.resample('M').sum()
 rech = rech / 1000
 
+runof = pd.read_hdf(rea_path,'RUN/'+'historic')
+runof = runof[(runof.index.year >= first) & (runof.index.year <= last)]
+runof = runof.MEAN
+runof = runof.resample('M').sum()
+runof = runof / 1000
+
 #%% GENERATE SUBBASINS
-"""
-df_auto, df_manual = BV.generate_subbasins(file_name='subbasins_coord.txt', type_data='rejet',
+
+df_auto, df_manual = BV.generate_subbasins(file_name='rejets_coord.txt',
+                                           fonction_column='fonction',
+                                           type_data='rejet',
                                            code_column='name', label_column='name',
                                            x_column='x_outlet', y_column='y_outlet',
                                            start_column=0, end_column=0,
                                            snap_dist=200)
-"""
+
 #%% DICHOTOMY CALIBRATION
-"""
+
 BV.calib_dichotomy(ident=None, calib=True, climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
                    first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
-"""
+
 #%% EXTRPOLATION CALIBRATION
 
 dic = pd.read_csv(simulations_folder+'_dichotomy.csv', sep=';')
@@ -115,7 +124,7 @@ e = 50
 time_step = 'monthly'
 
 # Extrapolation
-porosities = np.linspace(0.1, 5, 10).round(2)
+porosities = np.linspace(0.001, 0.05, 5).round(3)
 
 for i, porosity in enumerate(porosities):
     
@@ -123,27 +132,44 @@ for i, porosity in enumerate(porosities):
     first = 1972
     last = 1989
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+    run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    # BV.run_modflow(ident=ident, calib=True,
-    #                climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-    #                hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    BV.chronics_modflow(ident=ident, mask=True, first=first, last=last, time_step='monthly')
+    BV.run_modflow(ident=ident, calib=True,
+                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    obs_data, sim_data, df_stats = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
+                                             first=first, last=last, time_step='monthly')
     
+    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    ax.plot(rch*1000, color='dodgerblue')
+    ax.plot(obs_data['disch_norm']*1000, color='k')
+    ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
+    ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
+    ax.set_yscale('log')
+    ax.set_ylim(0.1, None)
+    ax.set_title(ident)
+    
+    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    ax.plot(rch*1000, color='dodgerblue')
+    ax.plot(sim_data['seepage_areas'], color='forestgreen')
+    ax.axhline(y=8, color='grey')
+    ax.set_ylim(0, 25)
+    ax.set_title(ident)
+    
+    #################
+
     step = 'ext_satur'
     first = 2014
     last = 2019
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+    run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    # BV.run_modflow(ident=ident, calib=True,
-    #                climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-    #                hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    BV.chronics_modflow(ident=ident, mask=True, first=first, last=last, time_step='monthly')
+    BV.run_modflow(ident=ident, calib=True,
+                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
     
-#%% GENERATE CHRONICS
-
-
 #%% CALIBRATED MODEL
 
 
@@ -214,3 +240,4 @@ d2.item()[5]
 x= pd.read_csv("D:/Users/abherve/RESULTS/rejets_metropole/Out/results_simulations/ext_disch-0.1-29.438-50-0.013/_extraction/_simulated_chronics.csv", sep=';',
                parse_dates=True, index_col=0)
 """
+#%%
