@@ -1,6 +1,7 @@
 # coding:utf-8
 
 # Modules
+from hydroeval import *
 import flopy
 import numpy as np
 import os
@@ -8,6 +9,7 @@ import pandas as pd
 import sys
 from os.path import dirname, abspath
 from osgeo import gdal
+import matplotlib.pyplot as plt
 
 import flopy.utils.binaryfile as fpu
 
@@ -16,6 +18,9 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 from tools import file_adds
 from tools import tif_adds
+from tools import tif_masks
+from tools import serie_transf
+from tools import tif_features
 
 # VARIABLES GLOBALES
 
@@ -408,18 +413,21 @@ class Modflow:
         np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
         # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
 
+#%%
 class Chronics:
-    def __init__(self, geographic, mask=False, subbasins_folder=None, 
-                 first=1960, last=2020, time_step='monthly',
+    def __init__(self, geographic, watershed_name='x', outlet_type='hydrometric',
+                 mask=False, calib_only=False, subbasins_folder=None, 
+                 first=1960, last=2020, time_step='monthly', hydrology_path=None,
                  model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output')):
-                 
+        
+        self.watershed_name = watershed_name
+        self.hydrology_path = hydrology_path
+        self.outlet_type = outlet_type
+        
         bv = gdal.Open(geographic.watershed_dem)
         geodata = bv.GetGeoTransform()
         self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
         self.resolution = geodata[1]
-        
-        self.mask = mask
-        self.subbasins_folder = subbasins_folder
         
         self.first = first
         self.last = last
@@ -429,132 +437,213 @@ class Chronics:
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
         self.save_file = os.path.join(self.full_path, '_extraction')
-                        
-        self.watershed_chronic()
         
+        self.masked_folder = os.path.join(self.full_path, '_masked')
+        file_adds.create_folder(self.masked_folder)
+                        
+        self.mask = mask
+        self.calib_only = calib_only
+        self.subbasins_folder = subbasins_folder
         if self.mask==True:
             self.mask_list = os.listdir(self.subbasins_folder)
             self.mask_save = os.path.join(self.full_path, '_extraction')
-            
-            self.masks_chronic()
-            
-    def watershed_chronic(self):
+        if self.calib_only==True:
+            self.mask_list = [x for x in self.mask_list if x.split('_')[0] == 'calib']
         
-        def mask_by_dem(target_data, mask_data, value_masked):
-            masked = np.ma.masked_array(target_data, mask=mask_data==value_masked)
-            return masked
+    def extract_chronic(self):
         
-        df = pd.DataFrame()
-        
-        if self.time_step=='monthly':
-            freq = 'M'
-            df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
-            
-        if self.time_step=='daily':
-            freq = 'D'
-            df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
-            
-        loaded = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
-        for key in loaded:
-            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+        def calc_mean(df, key, data_process, target_data, mask_data, cond_symb, value_masked):
+            masked = tif_masks.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             calc = np.nanmean(masked)
-            df.loc[key,'watertable_elevation'] = calc
-
-        loaded = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
-        for key in loaded:
-            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
-            calc = np.nanmean(masked)
-            df.loc[key,'watertable_depth'] = calc
-
-        loaded = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
-        for key in loaded:
-            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
+            df.loc[key,data_process] = calc
+        def calc_sum(df, key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+            masked = tif_masks.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
+            cell = masked.count()
+            calc = (np.nansum(masked) / (cell * resolution**2))
+            df.loc[key,data_process] = calc
+        def calc_percent(df, key, data_process, target_data, mask_data, cond_symb, value_masked):
+            masked = tif_masks.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             count = (masked > 0).sum()
             calc = (count/cell) * 100
-            df.loc[key,'seepage_areas'] = calc
-            
-        loaded = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
-        for key in loaded:
-            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
-            cell = masked.count()
-            calc = (np.nansum(masked) / (cell * self.resolution**2)) # mm/m
-            df.loc[key,'outflow_drain'] = calc
+            df.loc[key,data_process] = calc 
 
-        loaded = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
-        for key in loaded:
-            masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
-            calc = np.nanmean(masked)
-            df.loc[key,'gw_flux'] = calc
+        if self.time_step=='monthly':
+            freq = 'M'
+        if self.time_step=='daily':
+            freq = 'D'
+        time = serie_transf.date_range(self.first, self.last, freq)
+                
+        watertable_elevation = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
+        watertable_depth = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
+        seepage_areas = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
+        outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
+        gw_flux = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
+                
+        ### WATERSHED SCALE
         
-        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
-        df = df.set_index(['date'])
-        df = df.round(2)
-        df.to_csv(self.save_file + '/_simulated_chronics.csv', sep=';')
+        print('watershed')
+        
+        self.df_watershed = pd.DataFrame()
+        self.df_watershed['date'] = time
+        self.df_watershed['date'] = pd.to_datetime(self.df_watershed['date'], format='%Y-%m-%d')
+        
+        for key in watertable_elevation:
+            calc_mean(self.df_watershed, key, 'watertable_elevation', watertable_elevation,
+                      self.dem_clip, '==', -99999)
+            # print ('chronic'+' 1 '+str(key)+'/'+str(len(watertable_elevation)))
+        for key in watertable_depth:
+            calc_mean(self.df_watershed, key, 'watertable_depth', watertable_depth,
+                      self.dem_clip, '==', -99999)
+            # print ('chronic'+' 2 '+str(key)+'/'+str(len(watertable_depth)))
+        for key in seepage_areas:
+            calc_percent(self.df_watershed, key, 'seepage_areas', seepage_areas,
+                         self.dem_clip, '==', -99999)
+            # print ('chronic'+' 3 '+str(key)+'/'+str(len(seepage_areas)))
+        for key in outflow_drain:
+            calc_sum(self.df_watershed, key, 'outflow_drain', outflow_drain,
+                      self.dem_clip, '==', -99999, self.resolution)
+            # print ('chronic'+' 4 '+str(key)+'/'+str(len(outflow_drain)))
+        for key in gw_flux:
+            calc_mean(self.df_watershed, key, 'gw_flux', gw_flux,
+                      self.dem_clip, '==', -99999)            
+            # print ('chronic'+' 5 '+str(key)+'/'+str(len(gw_flux)))
+        
+        self.df_watershed = self.df_watershed.set_index(['date'])
+        self.df_watershed = self.df_watershed.round(5)
+        self.df_watershed.to_csv(self.save_file + '/_simulated_chronics.csv', sep=';')
+
+        ### SUBBASIN SCALE
     
-    def masks_chronic(self):
-        
-        def mask_by_dem(target_data, mask_data, value_masked):
-            masked = np.ma.masked_array(target_data, mask=mask_data!=value_masked)
-            return masked
-        
-        for i in self.mask_list:
-            self.subasin_folder = os.path.join(self.subbasins_folder,i)
-            sub = gdal.Open(os.path.join(self.subasin_folder,'subbasin.tif'))
-            self.dem_mask = sub.GetRasterBand(1).ReadAsArray()
-            
-            self.masked_folder = os.path.join(self.full_path, '_masked')
-            file_adds.create_folder(self.masked_folder)
-            self.masked_file = os.path.join(self.masked_folder, i)
-            file_adds.create_folder(self.masked_file)
-            
-            df = pd.DataFrame()
-            
-            if self.time_step=='monthly':
-                freq = 'M'
-                df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
+        if self.mask==True:
+            for i in self.mask_list:
                 
-            if self.time_step=='daily':
-                freq = 'D'
-                df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
+                print(i)
                 
-            loaded = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
-            for key in loaded:
-                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
-                calc = np.nanmean(masked)
-                df.loc[key,'watertable_elevation'] = calc
-
-            loaded = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
-            for key in loaded:
-                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
-                calc = np.nanmean(masked)
-                df.loc[key,'watertable_depth'] = calc
-
-            loaded = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
-            for key in loaded:
-                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
-                cell = masked.count()
-                count = (masked > 0).sum()
-                calc = (count/cell) * 100
-                df.loc[key,'seepage_areas'] = calc
+                self.df_subbasin = pd.DataFrame()
+                self.df_subbasin['date'] = time
+                self.df_subbasin['date'] = pd.to_datetime(self.df_subbasin['date'], format='%Y-%m-%d')
                 
-            loaded = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
-            for key in loaded:
-                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
-                cell = masked.count()
-                calc = (np.nansum(masked) / (cell * self.resolution**2)) # mm/m
-                df.loc[key,'outflow_drain'] = calc
+                self.subasin_folder = os.path.join(self.subbasins_folder, i)
+                sub = gdal.Open(os.path.join(self.subasin_folder,'subbasin.tif'))
+                self.dem_mask = sub.GetRasterBand(1).ReadAsArray()
+                
+                self.masked_file = os.path.join(self.masked_folder, i)
+                file_adds.create_folder(self.masked_file)
+                
+                for key in watertable_elevation:
+                    calc_mean(self.df_subbasin, key, 'watertable_elevation', watertable_elevation,
+                              self.dem_clip, '==', -99999)
+                    # print ('chronic'+' 1 '+str(key)+'/'+str(len(watertable_elevation)))
+                for key in watertable_depth:
+                    calc_mean(self.df_subbasin, key, 'watertable_depth', watertable_depth,
+                              self.dem_clip, '==', -99999)
+                    # print ('chronic'+' 2 '+str(key)+'/'+str(len(watertable_depth)))
+                for key in seepage_areas:
+                    calc_percent(self.df_subbasin, key, 'seepage_areas', seepage_areas,
+                              self.dem_clip, '==', -99999)
+                    # print ('chronic'+' 3 '+str(key)+'/'+str(len(seepage_areas)))
+                for key in outflow_drain:
+                    calc_sum(self.df_subbasin, key, 'outflow_drain', outflow_drain,
+                              self.dem_clip, '==', -99999, self.resolution)
+                    # print ('chronic'+' 4 '+str(key)+'/'+str(len(outflow_drain)))
+                for key in gw_flux:
+                    calc_mean(self.df_subbasin, key, 'gw_flux', gw_flux,
+                              self.dem_clip, '==', -99999)
+                    # print ('chronic'+' 5 '+str(key)+'/'+str(len(gw_flux)))
 
-            loaded = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
-            for key in loaded:
-                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
-                calc = np.nanmean(masked)
-                df.loc[key,'gw_flux'] = calc
+                self.df_subbasin = self.df_subbasin.set_index(['date'])                
+                self.df_subbasin = self.df_watershed.round(5)
+                self.df_subbasin.to_csv(self.masked_file + '/_simulated_chronics.csv', sep=';')
+      
+    def compar_dicharge_chronic(self):
+                
+        ### OBSERVED DISCHARGE
+        
+        chronic_path = os.path.join(self.hydrology_path, 'chronics')        
+        obs_files = os.listdir(chronic_path)
+        
+        if (self.outlet_type=='hydrometric'):
+            # Waterhed
+            basin_area = tif_features.basin_area(self.dem_clip, self.dem_clip, '==', -99999, self.resolution)
+            obs_file = [x for x in obs_files if x.split('_')[3] == self.watershed_name]
+            obs_file = obs_file[0]
+            sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
+            sim_data = pd.read_csv(sim_path, sep=';')
+        
+        if self.mask==True:
+            mask_list = os.listdir(self.subbasins_folder)
+            mask_list = [x for x in mask_list if x.split('_')[1] == 'hydrometric']
+            for i in mask_list:
+                subasin_folder = os.path.join(self.subbasins_folder, i)
+                sub = gdal.Open(os.path.join(subasin_folder,'subbasin.tif'))
+                dem_mask = sub.GetRasterBand(1).ReadAsArray()
+                basin_area = tif_features.basin_area(dem_mask, dem_mask, '!=', 1, self.resolution)
+                station_name = i.split('_')[3]
+                obs_file = [x for x in obs_files if x.split('_')[2] == station_name]
+                obs_file = obs_file[0]       
+                
+        obs_path = os.path.join(chronic_path, obs_file)
+        obs_data = pd.read_csv(obs_path, names = ['year','month','day','disch'], 
+                               sep='\s+', header = None, parse_dates=True) # sep='\s+'
+        time = pd.to_datetime(obs_data[['year','month','day']]) # create datetime
+        time = time.sort_values()
+        obs = pd.Series(obs_data['disch']) # create series discharge
+        obs = obs*24*60*60 #m3/j
+        obs_data = pd.DataFrame({'date':time, 'disch':obs}) # dataframe
+        obs_data['disch_norm'] = obs_data['disch'] / (60 * 1000000) # m/j
+        obs_data = obs_data.set_index('date')
+        
+        if self.time_step=='monthly':
+            obs_data = obs_data.resample('M').sum()
+        
+        obs = np.array(obs_data['disch_norm'].values)
+        
+        ### SIMULATED DISCHARGE  
+        if (self.outlet_type=='hydrometric'):
+            # Waterhed
+            sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
+            sim_data = pd.read_csv(sim_path, sep=';', parse_dates=True)
+            sim_data = sim_data.set_index('date')
+            sim_data['date'] = pd.to_datetime(sim_data['date'] , format='%Y-%m-%d %H:%M:%S')
             
-            df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
-            df = df.set_index(['date'])
-            df = df.round(2)
-            df.to_csv(self.masked_file + '/_simulated_chronics.csv', sep=';')
-        
+            sim = np.array(sim_data['outflow_drain'].values)
+            
+            df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
+            list_stats = serie_transf.efficiency_criteria(sim, obs)
+            df_stats = df.append(list_stats)
+            df_stats.to_csv(os.path.join(self.save_file, '_efficiendy_criteria.csv'), sep=';')
+            
+        if self.mask==True:
+            mask_list = os.listdir(self.subbasins_folder)
+            mask_list = [x for x in mask_list if x.split('_')[1] == 'hydrometric']
+            for i in mask_list:
+                subasin_folder = os.path.join(self.subbasins_folder, i)
+                masked_file = os.path.join(self.masked_folder, i)
+                sim_path = os.path.join(masked_file, '_simulated_chronics.csv')
+                sim_data = pd.read_csv(sim_path, sep=';', parse_dates=True)
+                sim_data['date'] = pd.to_datetime(sim_data['date'] , format='%Y-%m-%d %H:%M:%S')
+                sim_data = sim_data.set_index('date')
+                
+                sim = np.array(sim_data['outflow_drain'].values)
+                
+                # fig, ax = plt.subplots(1,1, figsize=(5,3))
+                # ax.plot(obs_data['disch_norm']*1000, color='dodgerblue')
+                # ax.plot(sim_data['outflow_drain']*1000, color='red', label=str(NSElog.round(3)))
+                # ax.set_yscale('log')
+                # ax.set_ylim(0.1, None)
+                # ax.set_title(self.model_name)
+                # ax.legend()
+                
+                df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
+                list_stats = serie_transf.efficiency_criteria(sim, obs)
+                df_stats.loc[len(df_stats)] = list_stats
+                df_stats.to_csv(os.path.join(masked_file, '_efficiendy_criteria.csv'), sep=';')
+
+                return obs_data, sim_data, df_stats
+                
+                
+
 
         
+   
