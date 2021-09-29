@@ -33,14 +33,15 @@ class Modflow():
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, geographic,
+    def __init__(self, geographic, calib=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0.,
                  time_step='daily', model_name='modflow_model', 
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
-          
+        
+        self.calib = calib
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
@@ -271,9 +272,13 @@ class Modflow():
             # Mask
             self.wt_elev[self.dem_mask] = -9999
             # Export
-            # if item == 0:
-            tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
-                                self.save_file+'/watertable_elevation_('+lead_numb+').tif')
+            if self.calib == True:
+                if item == 0:
+                    tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
+                        self.save_file+'/watertable_elevation_('+lead_numb+').tif')
+            else:
+                tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
+                    self.save_file+'/watertable_elevation_('+lead_numb+').tif')                
             # print('export watertable_elevation')
                 
             ### Watertable depth
@@ -281,9 +286,13 @@ class Modflow():
             # Mask
             self.wt_depth[self.dem_mask] = -9999
             # Export
-            # if item == 0:
-            tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
-                                self.save_file+'/watertable_depth_t('+lead_numb+').tif')
+            if self.calib == True:
+                if item == 0:
+                    tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
+                                        self.save_file+'/watertable_depth_t('+lead_numb+').tif')
+            else:
+                tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
+                                    self.save_file+'/watertable_depth_t('+lead_numb+').tif')
             # print('export watertable_depth')
             
             ### Watertable intercept
@@ -293,9 +302,13 @@ class Modflow():
             self.seep_area[self.seep_area < 0] = 1
             self.seep_area[self.dem_mask] = -9999
             # Export
-            # if item == 0:
-            tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
-                                self.save_file+'/seepage_areas_t('+lead_numb+').tif')
+            if self.calib == True:
+                if item == 0:
+                    tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
+                                        self.save_file+'/seepage_areas_t('+lead_numb+').tif')
+            else:
+                tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
+                                    self.save_file+'/seepage_areas_t('+lead_numb+').tif')                
             # print('export seepage_areas')
         
             """
@@ -317,9 +330,13 @@ class Modflow():
             # Mask
             self.out_drn[self.dem_mask] = -9999
             # Export
-            # if item == 0:
-            tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
-                                self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+            if self.calib == True:
+                if item == 0:
+                    tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
+                                        self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+            else:
+                tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
+                                    self.save_file+'/outflow_drain_t('+lead_numb+').tif')
             # print('export outflow_drain')
         
             """
@@ -342,9 +359,13 @@ class Modflow():
             # Mask
             self.flux_top[self.dem_mask] = -9999
             # Export
-            # if item == 0:
-            tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
-                                self.save_file+'/gw_flux_t('+lead_numb+').tif')
+            if self.calib == True:
+                if item == 0:
+                    tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
+                                        self.save_file+'/gw_flux_t('+lead_numb+').tif')
+            else:
+                tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
+                                    self.save_file+'/gw_flux_t('+lead_numb+').tif')
             # print('export gw_flux')
             
             ### Specific discharge
@@ -387,13 +408,16 @@ class Modflow():
         # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
 
 class Chronics:
-    def __init__(self, geographic, 
+    def __init__(self, geographic, mask=False, subbasins_folder=None, 
                  first=1960, last=2020, time_step='monthly',
                  model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output')):
                  
         
         self.dem_clip = geographic.dem_clip
         self.resolution = geographic.resolution
+        
+        self.mask = mask
+        self.subbasins_folder = subbasins_folder
         
         self.first = first
         self.last = last
@@ -403,17 +427,23 @@ class Chronics:
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
         self.save_file = os.path.join(self.full_path, '_extraction')
+                        
+        self.watershed_chronic()
         
-        self.generate_chronic()
-        
-    def generate_chronic(self):
-        
-        df = pd.DataFrame()
+        if self.mask==True:
+            self.mask_list = os.listdir(self.subbasins_folder)
+            self.mask_save = os.path.join(self.full_path, '_extraction')
+            
+            self.masks_chronic()
+            
+    def watershed_chronic(self):
         
         def mask_by_dem(target_data, mask_data, value_masked):
             masked = np.ma.masked_array(target_data, mask=mask_data==value_masked)
             return masked
-
+        
+        df = pd.DataFrame()
+        
         if self.time_step=='monthly':
             freq = 'M'
             df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
@@ -421,7 +451,7 @@ class Chronics:
         if self.time_step=='daily':
             freq = 'D'
             df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
-        
+            
         loaded = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
         for key in loaded:
             masked = mask_by_dem(loaded[key], self.dem_clip, -99999)
@@ -459,5 +489,70 @@ class Chronics:
         df = df.set_index(['date'])
         df = df.round(2)
         df.to_csv(self.save_file + '/_simulated_chronics.csv', sep=';')
+    
+    def masks_chronic(self):
         
+        def mask_by_dem(target_data, mask_data, value_masked):
+            masked = np.ma.masked_array(target_data, mask=mask_data!=value_masked)
+            return masked
+        
+        for i in self.mask_list:
+            self.subasin_folder = os.path.join(self.subbasins_folder,i)
+            sub = gdal.Open(os.path.join(self.subasin_folder,'subbasin.tif'))
+            self.dem_mask = sub.GetRasterBand(1).ReadAsArray()
+            
+            self.masked_folder = os.path.join(self.full_path, '_masked')
+            file_adds.create_folder(self.masked_folder)
+            self.masked_file = os.path.join(self.masked_folder, i)
+            file_adds.create_folder(self.masked_file)
+            
+            df = pd.DataFrame()
+            
+            if self.time_step=='monthly':
+                freq = 'M'
+                df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
+                
+            if self.time_step=='daily':
+                freq = 'D'
+                df['date'] = pd.date_range(str(self.first),str(self.last+1),freq=freq)
+                
+            loaded = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
+            for key in loaded:
+                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
+                calc = np.nanmean(masked)
+                df.loc[key,'watertable_elevation'] = calc
+
+            loaded = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
+            for key in loaded:
+                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
+                calc = np.nanmean(masked)
+                df.loc[key,'watertable_depth'] = calc
+
+            loaded = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
+            for key in loaded:
+                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
+                cell = masked.count()
+                count = (masked > 0).sum()
+                calc = (count/cell) * 100
+                df.loc[key,'seepage_areas'] = calc
+                
+            loaded = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
+            for key in loaded:
+                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
+                cell = masked.count()
+                calc = (np.nansum(masked) / (cell * self.resolution**2)) # mm/m
+                df.loc[key,'outflow_drain'] = calc
+
+            loaded = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
+            for key in loaded:
+                masked = mask_by_dem(loaded[key], self.dem_mask, 1)
+                calc = np.nanmean(masked)
+                df.loc[key,'gw_flux'] = calc
+            
+            df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+            df = df.set_index(['date'])
+            df = df.round(2)
+            df.to_csv(self.masked_file + '/_simulated_chronics.csv', sep=';')
+        
+
         
