@@ -19,14 +19,16 @@ class Hydrology:
         data_folder = out_path + '/results_stable/hydrology/'
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
-                
+        
         watershed_shp = geographic.watershed_box_shp
         watershed_dem = geographic.watershed_box_buff_dem
         
         sections = hydro_path + '/' + 'sections_fr.shp'
         streams =  hydro_path + '/' + 'streams_fr.shp'
+        zh = hydro_path + '/' + 'zhtempo_09.shp'
         
         self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
+        self.clip_zh(zh, data_folder, watershed_shp, watershed_dem)
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
         if type_obs == 'streams':
@@ -52,4 +54,31 @@ class Hydrology:
             wbt.vector_lines_to_raster(clip_persistent, tif_persistent, field="Persistanc", base=watershed_dem)
             pt_persistent = data_folder + 'persistent_pt.shp'
             wbt.raster_to_vector_points(tif_persistent, pt_persistent)
+            
+        if type_obs == 'intermittent':    
+            clip_sections = data_folder + 'sections.shp'
+            wbt.clip(sections, watershed_shp, clip_sections)
+            clip_sections_intermit = gpd.read_file(clip_sections)
+            clip_sections_intermit = clip_sections_intermit[clip_sections_intermit['Persistanc'] == '3']
+            clip_intermittent = data_folder + 'intermittent.shp'
+            clip_sections_intermit.to_file(clip_intermittent)
+            tif_intermittent = data_folder + 'intermittent.tif'
+            wbt.vector_lines_to_raster(clip_intermittent, tif_intermittent, field="Persistanc", base=watershed_dem)
+            pt_intermittent = data_folder + 'intermittent_pt.shp'
+            wbt.raster_to_vector_points(tif_intermittent, pt_intermittent)
+        
         return self
+    
+    def clip_zh(self, zh, data_folder, watershed_shp, watershed_dem):
+        try:
+            clip_zh = data_folder + 'zh.shp'
+            wbt.clip(zh, watershed_shp, clip_zh)
+            tif_zh = data_folder + 'zh.tif'
+            wbt.vector_polygons_to_raster(zh, tif_zh, field="FID", base=watershed_dem)
+            pt_zh = data_folder + 'zh_pt.shp'
+            wbt.raster_to_vector_points(tif_zh, pt_zh)
+        except:
+            print('There is no wetlands in data')
+            
+            
+            

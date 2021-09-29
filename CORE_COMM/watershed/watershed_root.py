@@ -20,7 +20,7 @@ from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow
 from tools import file_adds
 from watershed import geographic, geology, hydrodynamic, subbasins, watershed_display
-from calibration import calib_dichotomy, calib_chronics
+from calibration import calib_dichotomy
 
 class Watershed:
     """
@@ -213,7 +213,7 @@ class Watershed:
         #self.hillslope = hillslope() #1D Doesn't exist
         
         if self.hydrology_path != None:
-            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder,type_obs='streams', geographic=self.geographic, hydro_path=self.hydrology_path)
+            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, type_obs='streams', geographic=self.geographic, hydro_path=self.hydrology_path)
             self.elt_def.append('hydrology')
 
         if self.geology_path != None:
@@ -222,11 +222,11 @@ class Watershed:
 
         #MODELING DATA
         if self.oceanic_path != None:
-            self.oceanic = oceanic.Oceanic(out_path=self.watershed_folder,oceanic_path=self.oceanic_path,geographic=self.geographic)
+            self.oceanic = oceanic.Oceanic(out_path=self.watershed_folder, oceanic_path=self.oceanic_path,geographic=self.geographic)
             self.elt_def.append('oceanic')
 
         if self.surfex_path != None:
-            self.climatic = climatic.Climatic(out_path=self.watershed_folder,surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
+            self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
             self.elt_def.append('surfex')
 
         #FIELD DATA
@@ -323,11 +323,12 @@ class Watershed:
                 obs_data, sim_data, df_stats, mask_name = chronics.compar_discharge_chronic()
                 return obs_data, sim_data, df_stats, mask_name
             
-            # if ident.split('-')[0] == 'ext_satur':
-            #     obs_data, sim_data, df_stats, mask_name = chronics.compar_saturation_chronic()
-            #     return obs_data, sim_data, df_stats, mask_name
+            if ident.split('-')[0] == 'ext_satur':
+                obs_data, sim_data, df_stats, mask_name = chronics.compar_saturation_chronic()
+                return obs_data, sim_data, df_stats, mask_name
             
-    def calib_dichotomy(self, ident='modflow', calib=True, climatic=8e-4, lay_number=1, thick=50, bottom=None, thick_exp=1., 
+    def calib_dichotomy(self, ident='modflow', type_river='streams', calib=True, climatic=8e-4, 
+                        lay_number=1, thick=50, bottom=None, thick_exp=1., 
                         first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.):
 
         self.diff = last - first
@@ -339,7 +340,7 @@ class Watershed:
             half = (first + last) / 2
             hyd_cond = half * climatic.values[0]
             
-            ident = str('dic')+'-'+str(round(half,3))+'-'+str(round(climatic.values[0],3))+'-'+str(round(thick,3))
+            ident = str('dic')+'-'+str(type_river)+'-'+str(round(half,3))+'-'+str(round(climatic.values[0],3))+'-'+str(round(thick,3))
             
             model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
@@ -352,7 +353,7 @@ class Watershed:
             model.post_processing()
             
             dicot = calib_dichotomy.Dichotomy(self.geographic, 
-                                              type_river='streams',
+                                              type_river=type_river,
                                               hydrology_stable=os.path.join(self.stable_folder, 'hydrology'), 
                                               simulations_folder=os.path.join(self.simulations_folder, ident))
             mean_obs_to_sim, mean_sim_to_obs, condition = dicot.mean_distances()
