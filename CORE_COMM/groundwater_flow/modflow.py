@@ -1,7 +1,6 @@
 # coding:utf-8
 
 # Modules
-from hydroeval import *
 import flopy
 import numpy as np
 import os

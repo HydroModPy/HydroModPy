@@ -125,7 +125,7 @@ time_step = 'monthly'
 
 # Extrapolation
 porosities = np.linspace(0.001, 0.05, 5).round(3)
-porosities = [0.001]
+# porosities = [0.001]
 
 for i, porosity in enumerate(porosities):
     
@@ -139,9 +139,9 @@ for i, porosity in enumerate(porosities):
     # BV.run_modflow(ident=ident, calib=True,
     #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
     #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    obs_data, sim_data, df_stats, mask_name = BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, 
-                                                                  calib_only=True, 
-                                                                  first=first, last=last, time_step='monthly')
+    BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
+                        first=first, last=last, time_step='monthly')
+    obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_discharge_chronic()
     
     fig, ax = plt.subplots(1,1, figsize=(5,3))
     ax.plot(rch*1000, color='dodgerblue')
@@ -167,6 +167,7 @@ for i, porosity in enumerate(porosities):
     #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
     BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
                         first=first, last=last, time_step='monthly')
+    obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_saturation_chronic()
     
 #%% 
 """
@@ -269,3 +270,12 @@ x= pd.read_csv("D:/Users/abherve/RESULTS/rejets_metropole/Out/results_simulation
                parse_dates=True, index_col=0)
 """
 #%%
+"""
+# if ident.split('-')[0] == 'ext_disch':
+# obs_data, sim_data, df_stats, mask_name = chronics.compar_discharge_chronic()
+    # return obs_data, sim_data, df_stats, mask_name
+
+# if ident.split('-')[0] == 'ext_satur':
+# obs_data, sim_data, df_stats, mask_name = chronics.compar_saturation_chronic()
+    # return obs_data, sim_data, df_stats, mask_name
+"""

@@ -25,10 +25,12 @@ class Hydrology:
         
         sections = hydro_path + '/' + 'sections_fr.shp'
         streams =  hydro_path + '/' + 'streams_fr.shp'
-        zh = hydro_path + '/' + 'zhtempo_09.shp'
+        zh_digit = hydro_path + '/' + 'zh_digit.shp'
+        stream_digit = hydro_path + '/' + 'stream_digit.shp'
         
         self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
-        self.clip_zh(zh, data_folder, watershed_shp, watershed_dem)
+        self.clip_zh(zh_digit, data_folder, watershed_shp, watershed_dem)
+        self.clip_streams(stream_digit, data_folder, watershed_shp, watershed_dem)
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
         if type_obs == 'streams':
@@ -69,16 +71,27 @@ class Hydrology:
         
         return self
     
-    def clip_zh(self, zh, data_folder, watershed_shp, watershed_dem):
+    def clip_zh(self, zh_digit, data_folder, watershed_shp, watershed_dem):
         try:
-            clip_zh = data_folder + 'zh.shp'
-            wbt.clip(zh, watershed_shp, clip_zh)
-            tif_zh = data_folder + 'zh.tif'
-            wbt.vector_polygons_to_raster(zh, tif_zh, field="FID", base=watershed_dem)
-            pt_zh = data_folder + 'zh_pt.shp'
+            clip_zh = data_folder + 'zh_digit.shp'
+            wbt.clip(zh_digit, watershed_shp, clip_zh)
+            tif_zh = data_folder + 'zh_digit.tif'
+            wbt.vector_polygons_to_raster(zh_digit, tif_zh, field="FID", base=watershed_dem)
+            pt_zh = data_folder + 'zh_digit_pt.shp'
             wbt.raster_to_vector_points(tif_zh, pt_zh)
         except:
             print('There is no wetlands in data')
+    
+    def clip_streams(self, stream_digit, data_folder, watershed_shp, watershed_dem):
+        try:
+            clip_zh = data_folder + 'stream_digit.shp'
+            wbt.clip(stream_digit, watershed_shp, clip_zh)
+            tif_zh = data_folder + 'stream_digit.tif'
+            wbt.vector_polygons_to_raster(stream_digit, tif_zh, field="FID", base=watershed_dem)
+            pt_zh = data_folder + 'stream_digit_pt.shp'
+            wbt.raster_to_vector_points(tif_zh, pt_zh)
+        except:
+            print('There is no streams in data')
             
             
             

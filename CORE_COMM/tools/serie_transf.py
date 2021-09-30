@@ -21,7 +21,6 @@ def efficiency_criteria(sim, obs):
     KGE = KGEcomp[0]
     return [RMSE[0], NSE[0], NSElog[0], BAL, MARE[0], KGE[0]]
 
-
 def date_range(first, last, freq):
     time = pd.date_range(str(first),str(last+1),freq=freq)
     return time
