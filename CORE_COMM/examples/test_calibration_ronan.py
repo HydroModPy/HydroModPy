@@ -53,7 +53,7 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = True
+load = False
 # watershed_name = 'Canut'
 watershed_name = 'Out'
 # library_path = df + '/watershed' + '/watershed_library.csv'

@@ -8,7 +8,7 @@ import numpy as np
 from osgeo import gdal, osr
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
+wbt.set_verbose_mode(True)
 # def my_callback(value):
 #     my_callback = 0
 # wbt.set_default_callback(my_callback)
@@ -29,8 +29,9 @@ class Hydrology:
         stream_digit = hydro_path + '/' + 'stream_digit.shp'
         
         self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
+        
         self.clip_zh(zh_digit, data_folder, watershed_shp, watershed_dem)
-        self.clip_streams(stream_digit, data_folder, watershed_shp, watershed_dem)
+        self.clip_stream(stream_digit, data_folder, watershed_shp, watershed_dem)
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
         if type_obs == 'streams':
@@ -76,22 +77,31 @@ class Hydrology:
             clip_zh = data_folder + 'zh_digit.shp'
             wbt.clip(zh_digit, watershed_shp, clip_zh)
             tif_zh = data_folder + 'zh_digit.tif'
-            wbt.vector_polygons_to_raster(zh_digit, tif_zh, field="FID", base=watershed_dem)
+            wbt.vector_polygons_to_raster(clip_zh, tif_zh, field="FID", base=watershed_dem)
             pt_zh = data_folder + 'zh_digit_pt.shp'
             wbt.raster_to_vector_points(tif_zh, pt_zh)
         except:
             print('There is no wetlands in data')
     
-    def clip_streams(self, stream_digit, data_folder, watershed_shp, watershed_dem):
+    def clip_stream(self, stream_digit, data_folder, watershed_shp, watershed_dem):
         try:
-            clip_zh = data_folder + 'stream_digit.shp'
-            wbt.clip(stream_digit, watershed_shp, clip_zh)
-            tif_zh = data_folder + 'stream_digit.tif'
-            wbt.vector_polygons_to_raster(stream_digit, tif_zh, field="FID", base=watershed_dem)
-            pt_zh = data_folder + 'stream_digit_pt.shp'
-            wbt.raster_to_vector_points(tif_zh, pt_zh)
+            clip_stream = data_folder + 'stream_digit.shp'
+            wbt.clip(stream_digit, watershed_shp, clip_stream)
+            tif_stream = data_folder + 'stream_digit.tif'
+            wbt.vector_lines_to_raster(clip_stream, tif_stream, field="FID", base=watershed_dem)
+            pt_stream = data_folder + 'stream_digit_pt.shp'
+            wbt.raster_to_vector_points(tif_stream, pt_stream)
         except:
             print('There is no streams in data')
             
-            
+#%%
+# hydro_path = hydrology_path
+# stream_digit = hydro_path + '/' + 'stream_digit.shp'
+# watershed_shp = out_path + '/Lasset/results_stable/geographic/watershed.shp'
+# watershed_dem = out_path + '/Lasset/results_stable/geographic/watershed_dem.tif'
+# data_folder = out_path + '/results_stable/hydrology/'
+# clip_stream = out_path + '/Lasset/results_stable/hydrology/' + 'stream_digit.shp'
+# wbt.clip(stream_digit, watershed_shp, clip_stream)
+# tif_stream = out_path + '/Lasset/results_stable/hydrology/' + 'stream_digit.tif'
+# wbt.vector_lines_to_raster(clip_stream, tif_stream, field="FID", base=watershed_dem)
             
