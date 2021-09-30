@@ -311,22 +311,14 @@ class Watershed:
             print('Error : sea_level and climatic chronicles must be the same length')
                
     def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 
-            chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
+            self.chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
                                         mask=mask, outlet_type=outlet_type, calib_only=calib_only,
                                         subbasins_folder=os.path.join(self.stable_folder, 'subbasins'),
                                         first=first, last=last, time_step=time_step,
                                         model_name=ident, model_folder=self.simulations_folder,
                                         hydrology_path=self.hydrology_path)
-            chronics.extract_chronic()
-            
-            if ident.split('-')[0] == 'ext_disch':
-                obs_data, sim_data, df_stats, mask_name = chronics.compar_discharge_chronic()
-                return obs_data, sim_data, df_stats, mask_name
-            
-            if ident.split('-')[0] == 'ext_satur':
-                obs_data, sim_data, df_stats, mask_name = chronics.compar_saturation_chronic()
-                return obs_data, sim_data, df_stats, mask_name
-            
+            self.chronics.extract_chronic()
+                        
     def calib_dichotomy(self, ident='modflow', type_river='streams', calib=True, climatic=8e-4, 
                         lay_number=1, thick=50, bottom=None, thick_exp=1., 
                         first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.):
@@ -378,7 +370,7 @@ class Watershed:
             
             compt += 1
         
-        self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy.csv'), sep=';', index=True)
+        self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy_'+type_river+'.csv'), sep=';', index=True)
         
     def run_hs1D(self):
         return self
