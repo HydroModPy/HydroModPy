@@ -13,6 +13,12 @@ sys.path.append(df)
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from osgeo import gdal
+import rasterio as rio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+#wbt.set_compress_rasters(True)
+wbt.set_verbose_mode(False)
 
 import warnings
 
@@ -98,7 +104,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 # rech = rech / 1000
 
 #%% RUN MODFLOW
-
+"""
 rch = 1e-3
 e=25;
 K=rch*200;
@@ -108,10 +114,31 @@ ident = str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(r
 BV.run_modflow(ident=ident,
                climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
                hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+"""
+
+#%% RUN MODFLOW
+#Merger les points shp
+pt_streams = stable_folder + 'hydrology/' + 'streams_pt.shp'
+pt_zh = stable_folder + 'hydrology/' + 'zh_pt.shp'
+merge_path = pt_streams+';'+pt_zh
+pt_zhstreams = stable_folder + 'hydrology/' + 'zhstreams_pt.shp'
+wbt.merge_vectors(merge_path, pt_zhstreams)
+
+#Merger les tifs
+tif_streams = stable_folder + 'hydrology/' + 'streams.tif'
+tif_zh = stable_folder + 'hydrology/' + 'zh.tif'
+merge_path = tif_streams+';'+tif_zh
+tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
+wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
 #%% DICHOTOMY CALIBRATION
-BV.calib_dichotomy(ident=ident, climatic=pd.Series(rch), lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                    first=1, last=10000, gap=10, porosity=porosity, sea_level=None, cond_decay=0.)
+
+types_river = ['streams','zhstreams']
+for type_river in types_river:
+    BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=pd.Series(1e-3), 
+                       lay_number=1, thick=50, bottom=None, thick_exp=1., 
+                       first=1, last=500, gap=10, porosity=0.01, 
+                       sea_level=None, cond_decay=0.)
 
 #%% EXTRPOLATION CALIBRATION
 
