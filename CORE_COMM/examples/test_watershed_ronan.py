@@ -109,22 +109,22 @@ BV.run_modflow(ident=ident,
 #%% MERGE ZH STREAMS
 
 #Merger les points shp
-pt_streams = stable_folder + 'hydrology/' + 'streams_pt.shp'
-pt_zh = stable_folder + 'hydrology/' + 'zh_pt.shp'
+pt_streams = stable_folder + 'hydrology/' + 'stream_digit_pt.shp'
+pt_zh = stable_folder + 'hydrology/' + 'zh_digit_pt.shp'
 merge_path = pt_streams+';'+pt_zh
-pt_zhstreams = stable_folder + 'hydrology/' + 'zhstreams_pt.shp'
+pt_zhstreams = stable_folder + 'hydrology/' + 'zhstream_digit_pt.shp'
 wbt.merge_vectors(merge_path, pt_zhstreams)
 
 #Merger les tifs
-tif_streams = stable_folder + 'hydrology/' + 'streams.tif'
-tif_zh = stable_folder + 'hydrology/' + 'zh.tif'
+tif_streams = stable_folder + 'hydrology/' + 'stream_digit.tif'
+tif_zh = stable_folder + 'hydrology/' + 'zh_digit.tif'
 merge_path = tif_streams+';'+tif_zh
-tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
+tif_zhstreams = stable_folder + 'hydrology/' + 'zhstream_digit.tif'
 wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
 #%% DICHOTOMY CALIBRATION
 
-types_river = ['streams','zhstreams']
+types_river = ['stream_digit','zh_digit','zhstream_digit']
 for type_river in types_river:
     BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=pd.Series(1e-3), 
                        lay_number=1, thick=50, bottom=None, thick_exp=1., 
@@ -164,4 +164,18 @@ for type_river in types_river:
 # runof = runof.resample('M').sum()
 # runof = runof / 1000
 
+#%%
+# #Merger les points shp
+# pt_streams = stable_folder + 'hydrology/' + 'streams_pt.shp'
+# pt_zh = stable_folder + 'hydrology/' + 'zh_pt.shp'
+# merge_path = pt_streams+';'+pt_zh
+# pt_zhstreams = stable_folder + 'hydrology/' + 'zhstreams_pt.shp'
+# wbt.merge_vectors(merge_path, pt_zhstreams)
+
+# #Merger les tifs
+# tif_streams = stable_folder + 'hydrology/' + 'streams.tif'
+# tif_zh = stable_folder + 'hydrology/' + 'zh.tif'
+# merge_path = tif_streams+';'+tif_zh
+# tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
+# wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 #%%
