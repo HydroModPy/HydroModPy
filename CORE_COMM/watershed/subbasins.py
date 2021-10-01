@@ -21,7 +21,7 @@ from pyproj import Transformer
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
-wbt.set_verbose_mode(False)
+wbt.verbose = False
 
 # HydroModPy modules
 from tools import file_adds
