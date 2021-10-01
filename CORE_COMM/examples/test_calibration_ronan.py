@@ -53,7 +53,7 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = False
+load = True
 # watershed_name = 'Canut'
 watershed_name = 'Out'
 # library_path = df + '/watershed' + '/watershed_library.csv'
@@ -143,16 +143,33 @@ for i, porosity in enumerate(porosities):
                         first=first, last=last, time_step='monthly')
     obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_discharge_chronic()
     
-    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    fig, axs = plt.subplots(1,2, figsize=(8,3))
+    axs = axs.ravel()
+    ax = axs[0]
     ax.plot(rch*1000, color='dodgerblue')
     ax.plot(obs_data['disch_norm']*1000, color='k')
     ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
     ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
     ax.set_yscale('log')
     ax.set_ylim(0.1, None)
-    ax.set_title(mask_name+'\n'+ident)
+    plt.suptitle(mask_name+'\n'+ident, y=1.05)
     ax.grid(True)
-        
+    ax = axs[1]
+    ax.scatter(obs_data['disch_norm']*1000, sim_data['outflow_drain']*1000+run*1000, c='forestgreen')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    mini = np.minimum((obs_data['disch_norm']*1000).min(),(sim_data['outflow_drain']*1000+run*1000).min())
+    maxi = np.maximum((obs_data['disch_norm']*1000).max(),(sim_data['outflow_drain']*1000+run*1000).max())
+    ax.plot((mini,maxi),(mini,maxi),ls='-',c='k')
+    ax.set_xlim(0.1,maxi)
+    ax.set_ylim(0.1,maxi)
+    
+    def calc_rmse(predictions, targets):
+        rmse = np.sqrt(((predictions - targets) ** 2).mean())
+        nrmse = rmse / targets.mean() * 100
+        return rmse, nrmse
+    rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
+    
     #################
 
     step = 'ext_satur'
