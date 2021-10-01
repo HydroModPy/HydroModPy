@@ -8,7 +8,7 @@ Created on
 import numpy as np
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
+wbt.verbose = False
 
 from tools import tif_masks
 

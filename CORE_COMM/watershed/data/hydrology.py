@@ -8,10 +8,8 @@ import numpy as np
 from osgeo import gdal, osr
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(True)
-# def my_callback(value):
-#     my_callback = 0
-# wbt.set_default_callback(my_callback)
+wbt.verbose = False
+
 
 class Hydrology:
     def __init__(self, out_path, type_obs, geographic, hydro_path):
@@ -29,9 +27,14 @@ class Hydrology:
         stream_digit = hydro_path + '/' + 'stream_digit.shp'
         
         self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
-        
-        self.clip_zh(zh_digit, data_folder, watershed_shp, watershed_dem)
-        self.clip_stream(stream_digit, data_folder, watershed_shp, watershed_dem)
+        try:
+            self.clip_zh(zh_digit, data_folder, watershed_shp, watershed_dem)
+        except:
+            pass
+        try:
+            self.clip_stream(stream_digit, data_folder, watershed_shp, watershed_dem)
+        except:
+            pass
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
         if type_obs == 'streams':

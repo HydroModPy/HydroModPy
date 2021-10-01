@@ -23,7 +23,7 @@ import pandas as pd
 import shutil
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
+wbt.verbose = False
 
 from tools import file_adds
 from tools import tif_masks
