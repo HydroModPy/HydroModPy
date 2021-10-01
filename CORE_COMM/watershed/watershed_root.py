@@ -74,7 +74,8 @@ class Watershed:
                 sea_level = None, cond_decay=0.)
         run groundwater flow model using Modflow and Flopy
     """
-    def __init__(self, watershed_name, dem_path, library_path = os.path.join(root_dir, 'watershed_library.csv'),
+    def __init__(self, watershed_name, dem_path, 
+                 library_path = os.path.join(dirname(abspath(__file__)), 'watershed_library.csv'),
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, piezometry_path = False, modflow_path = None, 

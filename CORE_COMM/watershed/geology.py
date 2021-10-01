@@ -6,7 +6,7 @@ import numpy as np
 from osgeo import gdal
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
+wbt.verbose = False
 
 class Geology:
     def __init__(self, out_path, geographic, geo_path, landsea):

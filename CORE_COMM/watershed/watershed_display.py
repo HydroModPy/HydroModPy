@@ -14,7 +14,7 @@ import threading
 import geopandas as gpd
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
+wbt.verbose = False
 import shutil
 import sys
 import imageio
@@ -107,7 +107,7 @@ def watershed_dem(BV):
     streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     piezos.plot(ax=ax, color='r',zorder=5,legend=True, label='Piezometers')
-    ax.legend(loc='best', title = BV.name,framealpha=0.8)
+    ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
     fig.add_axes(cax)
@@ -162,7 +162,7 @@ def watershed_geology(BV):
     streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     piezos.plot(ax=ax, color='r',zorder=5,legend=True, label='Piezometers')
-    ax.legend(loc='best', title = BV.name,framealpha=0.8)
+    ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     fig.tight_layout ()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
 
