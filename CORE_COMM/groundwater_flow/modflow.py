@@ -619,7 +619,7 @@ class Chronics:
             
             sim = np.array(sim_data['outflow_drain'].values)
             
-            df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
+            df_stats = pd.DataFrame(columns=['RMSE', 'nRMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
             try:
                 list_stats = serie_transf.efficiency_criteria(sim, obs)
             except:
@@ -639,7 +639,7 @@ class Chronics:
                 
                 sim = np.array(sim_data['outflow_drain'].values)
                 
-                df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
+                df_stats = pd.DataFrame(columns=['RMSE', 'nRMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
                 try:
                     list_stats = serie_transf.efficiency_criteria(sim, obs)
                 except:
