@@ -137,7 +137,8 @@ class Subbasins:
         dem_shp = gpd.read_file(self.geographic.watershed_shp)
         
         fig, ax = plt.subplots(1,1, figsize=(8,8), dpi=300)
-        dem_shp.plot(ax=ax, facecolor="none", edgecolor="black", linewidth=2)
+        
+        dem_shp.plot(ax=ax, facecolor="none", edgecolor="black", linewidth=4)
         
         for i in range(len(self.df)):
             
@@ -198,14 +199,19 @@ class Subbasins:
             # Plot dem
             if typ == 'hydrometric':
                 color='dodgerblue'
+                lw = 3
             if typ == 'onde':
                 color='darkorange'
+                lw = 2
             if (typ != 'hydrometric') & (typ != 'onde'):
                 color='forestgreen'
+                lw= 1
             sub = gpd.read_file(subbasin_shp)
             snp = gpd.read_file(outlet_snap_shp)
-            sub.plot(ax=ax, facecolor="none", edgecolor=color, linewidth=1)
+            sub.plot(ax=ax, facecolor="none", edgecolor=color, linewidth=lw)
             snp.plot(ax=ax, facecolor=color, edgecolor='k', linewidth=0.5)
+            ax.axes.xaxis.set_visible(False)
+            ax.axes.yaxis.set_visible(False)
             
 #%%
 """
