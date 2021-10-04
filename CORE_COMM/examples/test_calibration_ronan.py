@@ -5,14 +5,18 @@ Created on
 @author: Ronan Abhervé
 """
 
+#%% MODULES
+
 # Modules
 import sys
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
 
 import warnings
 
@@ -33,7 +37,62 @@ warnings.filterwarnings("ignore")
 from watershed import watershed_root
 from tools import tif_adds, serie_transf
 
-#%%
+#%% PARAMS
+
+# Parameters plot : v2.0 to classic customized
+# mpl.style.use('default')
+# mpl.rcParams.update(mpl.rcParamsDefault)
+
+# # # Classic
+mpl.style.use('classic')
+mpl.rcParams["figure.facecolor"] = 'white'
+mpl.rcParams['grid.color'] = 'darkgrey'
+mpl.rcParams['grid.linestyle'] = '-'
+mpl.rcParams['grid.alpha'] = 0.8
+mpl.rcParams['axes.axisbelow'] = True
+mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['savefig.dpi'] = 300
+mpl.rcParams['patch.force_edgecolor'] = True
+mpl.rcParams['image.interpolation'] = 'nearest'
+mpl.rcParams['image.resample'] = True
+mpl.rcParams['axes.autolimit_mode'] = 'data' # 'round_numbers'
+# mpl.rcParams['axes.autolimit_mode'] = 'round_numbers' # 'data' 
+mpl.rcParams['axes.xmargin'] = 0.1
+mpl.rcParams['axes.ymargin'] = 0.1
+mpl.rcParams['xtick.direction'] = 'in'
+mpl.rcParams['ytick.direction'] = 'in'
+mpl.rcParams['xtick.top'] = True
+mpl.rcParams['ytick.right'] = True
+mpl.rcParams['legend.numpoints'] = 1
+mpl.rcParams['legend.scatterpoints'] = 1
+mpl.rcParams['legend.edgecolor'] = 'grey'
+mpl.rcParams['date.autoformatter.year'] = '%Y'
+mpl.rcParams['date.autoformatter.month'] = '%Y-%m'
+mpl.rcParams['date.autoformatter.day'] = '%Y-%m-%d'
+mpl.rcParams['date.autoformatter.hour'] = '%H:%M'
+mpl.rcParams['date.autoformatter.minute'] = '%H:%M:%S'
+mpl.rcParams['date.autoformatter.second'] = '%H:%M:%S'
+
+# Parameters size plot
+smal = 8
+medium = 16
+large = 20
+
+plt.rc('font', size=smal)                         # controls default text sizes **font
+plt.rc('figure', titlesize=large)                   # fontsize of the figure title
+plt.rc('legend', fontsize=smal)                     # legend fontsize
+plt.rc('axes', titlesize=medium, labelpad=8)        # fontsize of the axes title
+plt.rc('axes', labelsize=medium, labelpad=12)        # fontsize of the x and y labels
+plt.rc('xtick', labelsize=medium)                   # fontsize of the tick labels
+plt.rc('ytick', labelsize=medium)                   # fontsize of the tick labels
+plt.rcParams["font.family"] = "arial"
+
+# Font label and legend properties
+fontprop = FontProperties()
+fontprop.set_family('arial') # for x and y label
+fontdic = {'family' : 'arial'} # for legend
+
+#%% PATHS
 
 # Users
 user = "Ronan"
@@ -53,7 +112,7 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = False
+load = True
 # watershed_name = 'Canut'
 watershed_name = 'Out'
 # library_path = df + '/watershed' + '/watershed_library.csv'
@@ -114,6 +173,7 @@ df_auto, df_manual = BV.generate_subbasins(file_name='rejets_coord.txt',
 BV.calib_dichotomy(ident=None, calib=True, climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
                    first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
 """
+
 #%% EXTRPOLATION CALIBRATION
 
 dic = pd.read_csv(simulations_folder+'_dichotomy.csv', sep=';')
@@ -125,7 +185,7 @@ time_step = 'monthly'
 
 # Extrapolation
 porosities = np.linspace(0.001, 0.05, 5).round(3)
-# porosities = [0.001]
+porosities = [0.001]
 
 for i, porosity in enumerate(porosities):
     
@@ -144,15 +204,36 @@ for i, porosity in enumerate(porosities):
     obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_discharge_chronic()
     
     fig, ax = plt.subplots(1,1, figsize=(5,3))
-    ax.plot(rch*1000, color='dodgerblue')
+    # ax.plot(rch*1000, color='dodgerblue')
     ax.plot(obs_data['disch_norm']*1000, color='k')
-    ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
+    # ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
     ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
     ax.set_yscale('log')
     ax.set_ylim(0.1, None)
-    ax.set_title(mask_name+'\n'+ident)
+    # ax.set_title(mask_name+'\n'+ident)
+    ax.set_title(mask_name.split('_')[3])
     ax.grid(True)
-        
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Discharge [mm/months]')
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,4))
+    ax.scatter(obs_data['disch_norm']*1000, sim_data['outflow_drain']*1000+run*1000, c='dodgerblue')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    mini = np.minimum((obs_data['disch_norm']*1000).min(),(sim_data['outflow_drain']*1000+run*1000).min())
+    maxi = np.maximum((obs_data['disch_norm']*1000).max(),(sim_data['outflow_drain']*1000+run*1000).max())
+    ax.plot((mini,maxi),(mini,maxi),ls='-',c='k')
+    ax.set_xlim(1,maxi)
+    ax.set_ylim(1,maxi)
+    ax.set_xlabel('Observed [mm/m]')
+    ax.set_ylabel('Simulated [mm/m]')
+    
+    def calc_rmse(predictions, targets):
+        rmse = np.sqrt(((predictions - targets) ** 2).mean())
+        nrmse = rmse / targets.mean() * 100
+        return rmse, nrmse
+    rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
+    
     #################
 
     step = 'ext_satur'
