@@ -277,7 +277,7 @@ class Modflow():
             # Top layer
             self.wt_elev = self.head_data[0]
             # Mask
-            self.wt_elev[self.dem_mask] = -9999
+            #self.wt_elev[self.dem_mask] = -9999
             # Export
             if self.calib == True:
                 if item == 0:
