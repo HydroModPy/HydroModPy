@@ -297,19 +297,16 @@ class Watershed:
             changes the thickness of the layers exponentially
         """
         
-        if (sea_level == None) | (type(sea_level) == type(climatic)):
-            model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
+        model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
                                     climatic=climatic, sea_level=sea_level,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
-            model.pre_processing()
-            model.processing()
-            model.post_processing()
+        model.pre_processing()
+        model.processing()
+        model.post_processing()
             
-        else:
-            print('Error : sea_level and climatic chronicles must be the same length')
                
     def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 
             self.chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,

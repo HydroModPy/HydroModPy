@@ -164,6 +164,12 @@ class Geographic:
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
         
+        """
+        Create depressions raster
+        """
+        self.depressions = gis_path + 'depressions.tif'
+        wbt.sink(self.watershed_box_buff_dem, self.depressions)
+        
     def post_processing_dem(self):
 
         # Open DEM used for modeling
@@ -174,6 +180,9 @@ class Geographic:
         self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
         bv = gdal.Open(self.watershed_dem)
         self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
+        # Open DEM depressions
+        dem_dep = gdal.Open(self.depressions)
+        self.depressions_data = dem_dep.GetRasterBand(1).ReadAsArray()
         # Extract the coordinate system
         proj = osr.SpatialReference(wkt=dem.GetProjection())
         self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
