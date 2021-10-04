@@ -619,7 +619,7 @@ class Chronics:
             
             sim = np.array(sim_data['outflow_drain'].values)
             
-            df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
+            df_stats = pd.DataFrame(columns=['RMSE', 'nRMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
             try:
                 list_stats = serie_transf.efficiency_criteria(sim, obs)
             except:
@@ -639,7 +639,7 @@ class Chronics:
                 
                 sim = np.array(sim_data['outflow_drain'].values)
                 
-                df_stats = pd.DataFrame(columns=['RMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
+                df_stats = pd.DataFrame(columns=['RMSE', 'nRMSE', 'NSE', 'NSElog', 'BAL', 'MARE', 'KGE'])
                 try:
                     list_stats = serie_transf.efficiency_criteria(sim, obs)
                 except:
@@ -678,11 +678,14 @@ class Chronics:
                 sim = np.array(sim_data['seepage_areas'].values)
                 
                 fig, ax = plt.subplots(1,1, figsize=(5,3))
-                ax.plot(sim_data['seepage_areas'], color='forestgreen')
+                ax.plot(sim_data['seepage_areas'], color='red')
                 ax.axhline(y=3, color='k', ls='--')
                 ax.axhline(y=8, color='grey', ls='--')
                 ax.set_ylim(-0.5, 25)
-                ax.set_title(mask_name+'\n'+self.model_name)
+                ax.set_xlabel('Date')
+                ax.set_ylabel('Saturation [%]')
+                # ax.set_title(mask_name+'\n'+self.model_name)
+                ax.set_title(mask_name.split('_')[3])
                 ax.grid(True)
                 
             return obs_data, sim_data, df_stats, mask_name
