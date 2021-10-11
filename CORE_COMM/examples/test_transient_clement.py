@@ -151,7 +151,7 @@ porosities = np.linspace(1, 1, 1).round(2)
 #types_river = ['streams','zhstreams']
 types_river = ['zhstreams']
 for type_river in types_river:
-    BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=rech.mean(), 
+    BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=pd.Series(np.mean(rech)), 
                        lay_number=1, thick=e, bottom=None, thick_exp=1., 
                        first=1, last=500, gap=1, porosity=0.01, 
                        sea_level=None, cond_decay=0.)
