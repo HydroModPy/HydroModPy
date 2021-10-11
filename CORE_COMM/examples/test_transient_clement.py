@@ -94,14 +94,6 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               load=load)
 
-# rech_path = stable_folder+'climatic/'+'REA.h5'
-# rech = pd.read_hdf(rech_path,'REC/'+'historic')
-# first = 1960
-# last = 2019
-# rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-# rech = rech.MEAN
-# rech = rech.resample('M').sum()
-# rech = rech / 1000
 
 #%% RUN MODFLOW
 """
@@ -131,51 +123,75 @@ merge_path = tif_streams+';'+tif_zh
 tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
 wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
+
+#%% EXTRACT RECHARGE FROM SURFEX
+rech_path = stable_folder+'climatic/'+'REA.h5'
+rech = pd.read_hdf(rech_path,'REC/'+'historic')
+first = 2000
+last = 2019
+rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+rech = rech.MEAN
+rech = rech.resample('D').sum()
+rech = rech / 1000 #mm to m
+
+fig1 = plt.figure(1)
+ax1 = fig1.add_subplot(1,1,1)
+ax1.set_xlabel("time, [-]")
+ax1.set_ylabel("recharge [m/d]")
+#ax.set_xscale("log")
+ax1.plot(rech)
+fig1.show()
+
+
 #%% DICHOTOMY CALIBRATION
+
+e = 50
+porosities = np.linspace(1, 1, 1).round(2)
 
 #types_river = ['streams','zhstreams']
 types_river = ['zhstreams']
 for type_river in types_river:
-    BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=pd.Series(1e-3), 
-                       lay_number=1, thick=50, bottom=None, thick_exp=1., 
+    BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=rech.mean(), 
+                       lay_number=1, thick=e, bottom=None, thick_exp=1., 
                        first=1, last=500, gap=1, porosity=0.01, 
                        sea_level=None, cond_decay=0.)
 
-#%% EXTRPOLATION CALIBRATION
 
-# dic = pd.read_csv(simulations_folder+'_dichotomy.csv', sep=';')
+#%% Transient simulations
 
-# # Fixed
-# K = dic.iloc[-1]['K']
-# e = 50
-# time_step = 'monthly'
+dic = pd.read_csv(simulations_folder+'_dichotomy.csv', sep=';')
 
-# # Extrapolation
-# porosities = np.linspace(0.1, 5, 10).round(2)
+# Fixed
+K = dic.iloc[-1]['K']
+#K = K #
+time_step = 'daily'
 
-# for i, porosity in enumerate(porosities):
+for i, porosity in enumerate(porosities):
     
-#     step = 'ext_disch'
-#     first = 1972
-#     last = 1989
-#     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-#     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
-#     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-#     BV.run_modflow(ident=ident,
-#                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-#                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-#     BV.chronics_modflow(ident=ident, first=first, last=last, time_step='monthly')
+    step = '_transient_daily'
+    first = 2000
+    last = 2019
+    rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+    print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
+    ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
+    BV.run_modflow(ident=ident,
+                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    BV.chronics_modflow(ident=ident, first=first, last=last, time_step=time_step)
     
-#     step = 'ext_satur'
-#     first = 2014
-#     last = 2019
-#     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-#     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
-#     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-#     BV.run_modflow(ident=ident,
-#                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-#                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-#     BV.chronics_modflow(ident=ident, first=first, last=last, time_step='monthly')
+    # step = 'ext_satur'
+    # first = 2014
+    # last = 2019
+    # rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+    # print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
+    # ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
+    # BV.run_modflow(ident=ident,
+    #                 climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
+    #                 hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    # BV.chronics_modflow(ident=ident, first=first, last=last, time_step='monthly')
+    
+#Questions for Ronan and Alexandre: 
+    #how transient simulation are initiated?
 
 
 
