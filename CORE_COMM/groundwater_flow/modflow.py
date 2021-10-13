@@ -38,7 +38,7 @@ class Modflow():
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, geographic, calib=True,
+    def __init__(self, geographic, calib=True, sink_fill = False,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0.,
@@ -56,6 +56,8 @@ class Modflow():
         self.thick = thick
         self.thick_exp = thick_exp
         self.resolution = geographic.resolution
+        self.sink_fill = sink_fill
+        self.sink = geographic.depressions_data
         self.bottom = bottom
         self.nlay = lay_number
         self.hyd_cond = hyd_cond
@@ -190,7 +192,13 @@ class Modflow():
                 self.drnData[compt, 1] = i #row
                 self.drnData[compt, 2] = j #col
                 self.drnData[compt, 3]= self.dem[i, j]#elev
-                self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  #cond() 
+                if self.sink_fill == False:
+                    self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  #cond()
+                else:
+                    if self.sink[i,j]>0:
+                        self.drnData[compt, 4] = 0
+                    else:
+                        self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  
                 compt += 1
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
@@ -209,7 +217,7 @@ class Modflow():
         # write input files
         self.mf.write_input()
         # run model
-        succes, buff = self.mf.run_model(silent=False) # True without msg
+        succes, buff = self.mf.run_model(silent=True) # True without msg
         
     def post_processing(self):
         # post_processing
@@ -257,10 +265,10 @@ class Modflow():
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
-        
+        print('post-processing en cours')  
         for item, time in enumerate(self.times):
-            print('Time : ', item)
-                        
+            #print('Time : ', item)
+                     
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
             
