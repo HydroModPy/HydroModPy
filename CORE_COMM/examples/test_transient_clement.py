@@ -127,17 +127,17 @@ wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 #%% EXTRACT RECHARGE FROM SURFEX
 rech_path = stable_folder+'climatic/'+'REA.h5'
 rech = pd.read_hdf(rech_path,'REC/'+'historic')
-first = 2000
+first = 1970
 last = 2019
 rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
 rech = rech.MEAN
-rech = rech.resample('D').sum()
+rech = rech.resample('M').sum()
 rech = rech / 1000 #mm to m
 
 fig1 = plt.figure(1)
 ax1 = fig1.add_subplot(1,1,1)
 ax1.set_xlabel("time, [-]")
-ax1.set_ylabel("recharge [m/d]")
+ax1.set_ylabel("recharge [m/M]")
 #ax.set_xscale("log")
 ax1.plot(rech)
 fig1.show()
@@ -146,7 +146,7 @@ fig1.show()
 #%% DICHOTOMY CALIBRATION
 
 e = 50
-porosities = np.linspace(1, 1, 1).round(2)
+porosities = np.linspace(0.1, 0.1, 1).round(2)
 
 #types_river = ['streams','zhstreams']
 types_river = ['zhstreams']
@@ -159,18 +159,16 @@ for type_river in types_river:
 
 #%% Transient simulations
 
-dic = pd.read_csv(simulations_folder+'_dichotomy.csv', sep=';')
+dic = pd.read_csv(simulations_folder+'_dichotomy_zhstreams.csv', sep=';')
 
 # Fixed
 K = dic.iloc[-1]['K']
-#K = K #
-time_step = 'daily'
+
+time_step = 'monthly'
 
 for i, porosity in enumerate(porosities):
     
-    step = '_transient_daily'
-    first = 2000
-    last = 2019
+    step = '_transient_monthly'
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
     print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
     ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
@@ -192,6 +190,9 @@ for i, porosity in enumerate(porosities):
     
 #Questions for Ronan and Alexandre: 
     #how transient simulation are initiated?
+    #K form dichotomy is given in m/M
+    #add units in the output files
+    #add recharge in and runoff from surfex._simulated_chronics
 
 
 
