@@ -266,7 +266,7 @@ class Watershed:
         sub.extract_subbasins(snap_dist, self.stable_folder)
         return df_auto, df_manual
     
-    def run_modflow(self, ident='modflow', calib=True, climatic=8e-4,
+    def run_modflow(self, ident='modflow', calib=True, sink_fill = False, climatic=8e-4,
                     lay_number=1, thick=100, bottom=None, thick_exp=1., 
                     hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
         """ 
@@ -297,7 +297,7 @@ class Watershed:
             changes the thickness of the layers exponentially
         """
         
-        model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
+        model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
                                     climatic=climatic, sea_level=sea_level,
