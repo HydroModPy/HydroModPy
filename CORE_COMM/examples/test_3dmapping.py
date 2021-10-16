@@ -100,14 +100,6 @@ rech = rech.MEAN
 rech = rech.resample('M').sum()
 rech = rech #mm/M
 
-fig1 = plt.figure(1)
-ax1 = fig1.add_subplot(1,1,1)
-ax1.set_xlabel("time")
-ax1.set_ylabel("recharge, [mm/M]")
-#ax.set_xscale("log")
-ax1.plot(rech)
-fig1.show()
-
 #%% Import DEM and plot
 dem_cut = stable_folder + 'geographic/watershed_dem.tif'
 demDs = gdal.Open(dem_cut)
@@ -141,17 +133,24 @@ outflow_path = dir_to_analyse + 'outflow_drain.npy'
 wt_all = np.load(water_table_path, allow_pickle=True).item() 
 outflow_all = np.load(outflow_path, allow_pickle=True).item() 
 
+surface_sat = []
 for key in wt_all:
-
+    
     wt = wt_all[key]
     wt = np.ma.masked_array(wt, mask=msk)
+    
+    wt_len = len(wt[wt>0])
     
     outflow = outflow_all[key]
     msk_outflow = (outflow==np.min(outflow))
     outflow = np.ma.masked_array(outflow, mask=msk_outflow)
     outflow = np.ma.masked_where(outflow==0,outflow)
     
+    outflow_len = len(outflow[outflow>0])
+    surface_sats = outflow_len/wt_len*100
+    surface_sat.append(surface_sats)
     
+   
     #fig, (ax1, ax2, ax3, ax4) = plt.subplots(figsize=(13, 3), ncols=3)
     fig = plt.figure(figsize=(11,6))
     ax1=fig.add_subplot(2,2,(1,3))
@@ -159,7 +158,7 @@ for key in wt_all:
     ls = LightSource(azdeg=315, altdeg=45)
     cmap = plt.cm.gist_earth
     rgb = ls.shade(demData, cmap=cmap, blend_mode='soft',
-                           vert_exag=1, dx=dx, dy=dy)
+                       vert_exag=1, dx=dx, dy=dy)
     ax1.imshow(rgb,alpha=1)
     
     #plot the head contour lines
@@ -181,6 +180,12 @@ for key in wt_all:
     ax2.set_ylabel("recharge, [mm/M]")
     #ax.set_xscale("log")
     ax2.plot(rechs)
+    
+    ax3=fig.add_subplot(2,2,2)
+    #ax3.set_xlabel("time")
+    ax3.set_ylabel("saturated area, [%]")
+    ax3.plot(surface_sat,'m')
+    plt.setp(ax3.get_xticklabels(), visible=False)
     
     name_fig = 'dyn_' + str(key) + '.png'
     plt.savefig(figdir + 'png/' + name_fig)
