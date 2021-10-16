@@ -90,6 +90,24 @@ modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
 
+#%% EXTRACT RECHARGE FROM SURFEX
+rech_path = stable_folder+'climatic/'+'REA.h5'
+rech = pd.read_hdf(rech_path,'REC/'+'historic')
+first = 1970
+last = 2019
+rech = rech[(rech.index.year >= first) & (rech.index.year <= last)]
+rech = rech.MEAN
+rech = rech.resample('M').sum()
+rech = rech #mm/M
+
+fig1 = plt.figure(1)
+ax1 = fig1.add_subplot(1,1,1)
+ax1.set_xlabel("time")
+ax1.set_ylabel("recharge, [mm/M]")
+#ax.set_xscale("log")
+ax1.plot(rech)
+fig1.show()
+
 #%% Import DEM and plot
 dem_cut = stable_folder + 'geographic/watershed_dem.tif'
 demDs = gdal.Open(dem_cut)
@@ -124,7 +142,7 @@ wt_all = np.load(water_table_path, allow_pickle=True).item()
 outflow_all = np.load(outflow_path, allow_pickle=True).item() 
 
 for key in wt_all:
-#key = 10
+
     wt = wt_all[key]
     wt = np.ma.masked_array(wt, mask=msk)
     
@@ -134,33 +152,41 @@ for key in wt_all:
     outflow = np.ma.masked_where(outflow==0,outflow)
     
     
-    
-    fig = plt.figure(figsize=(8,6))
+    #fig, (ax1, ax2, ax3, ax4) = plt.subplots(figsize=(13, 3), ncols=3)
+    fig = plt.figure(figsize=(11,6))
+    ax1=fig.add_subplot(2,2,(1,3))
     
     ls = LightSource(azdeg=315, altdeg=45)
     cmap = plt.cm.gist_earth
     rgb = ls.shade(demData, cmap=cmap, blend_mode='soft',
                            vert_exag=1, dx=dx, dy=dy)
-    plt.imshow(rgb,alpha=1)
+    ax1.imshow(rgb,alpha=1)
     
     #plot the head contour lines
     cmap = plt.get_cmap('Blues')
     levels = np.arange(1000, 3000, 100)
-    hc=plt.contour(xx, yy, wt, alpha=1, cmap=cmap,linewidths=0.5, levels=levels)
-    plt.clabel(hc, inline=True, fontsize=9, fmt='%1.0f')
+    hc=ax1.contour(xx, yy, wt, alpha=1, cmap=cmap,linewidths=0.5, levels=levels)
+    ax1.clabel(hc, inline=True, fontsize=9, fmt='%1.0f')
     
     levels_outflow = np.arange(-1, 4, 0.5)
-    plt.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap=cm.afmhot_r, alpha=1,antialiased = True)
-    plt.colorbar()
+    cf=ax1.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap=cm.afmhot_r, alpha=1,antialiased = True)
+    fig.colorbar(cf,ax = ax1)
     
     plt.xlim(xx_mi-0.1*ext_x,xx_ma+0.1*ext_x)
     plt.ylim(yy_ma+0.1*ext_y,yy_mi-0.1*ext_y)
-    name_fig = 'dyn_' + str(key) + '.png'
     
+    ax2=fig.add_subplot(2,2,4)
+    rechs = rech[0:key]
+    ax2.set_xlabel("time")
+    ax2.set_ylabel("recharge, [mm/M]")
+    #ax.set_xscale("log")
+    ax2.plot(rechs)
+    
+    name_fig = 'dyn_' + str(key) + '.png'
     plt.savefig(figdir + 'png/' + name_fig)
     plt.close(fig)
     print(str(key))
-    
+        
 #%% MAKE A GIF
 import glob
 
