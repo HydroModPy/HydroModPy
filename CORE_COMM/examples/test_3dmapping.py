@@ -134,31 +134,42 @@ wt_all = np.load(water_table_path, allow_pickle=True).item()
 outflow_all = np.load(outflow_path, allow_pickle=True).item() 
 
 surface_sat = []
+rech_for_gif = []
+time_for_gif = []
+flow_rate = []
+
+
 for key in wt_all:
+    
+    t_temp = rech.index[key]
+    time_for_gif.append(t_temp)
     
     wt = wt_all[key]
     wt = np.ma.masked_array(wt, mask=msk)
-    
     wt_len = len(wt[wt>0])
     
     outflow = outflow_all[key]
     msk_outflow = (outflow==np.min(outflow))
     outflow = np.ma.masked_array(outflow, mask=msk_outflow)
     outflow = np.ma.masked_where(outflow==0,outflow)
-    
     outflow_len = len(outflow[outflow>0])
+    
+    flow_rate_temp = np.sum(outflow)
+    flow_rate.append(flow_rate_temp)
+    
     surface_sats = outflow_len/wt_len*100
     surface_sat.append(surface_sats)
     
    
     #fig, (ax1, ax2, ax3, ax4) = plt.subplots(figsize=(13, 3), ncols=3)
     fig = plt.figure(figsize=(11,6))
-    ax1=fig.add_subplot(2,2,(1,3))
-    
-    ls = LightSource(azdeg=315, altdeg=45)
+    gs = fig.add_gridspec(3,2)
+    ax1=fig.add_subplot(gs[:, 0])
+    ls = LightSource(azdeg=45, altdeg=45)
     cmap = plt.cm.gist_earth
     rgb = ls.shade(demData, cmap=cmap, blend_mode='soft',
-                       vert_exag=1, dx=dx, dy=dy)
+                       vert_exag=2, dx=dx, dy=dy)
+    
     ax1.imshow(rgb,alpha=1)
     
     #plot the head contour lines
@@ -166,27 +177,32 @@ for key in wt_all:
     levels = np.arange(1000, 3000, 100)
     hc=ax1.contour(xx, yy, wt, alpha=1, cmap=cmap,linewidths=0.5, levels=levels)
     ax1.clabel(hc, inline=True, fontsize=9, fmt='%1.0f')
-    
     levels_outflow = np.arange(-1, 4, 0.5)
     cf=ax1.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap=cm.afmhot_r, alpha=1,antialiased = True)
     fig.colorbar(cf,ax = ax1)
-    
     plt.xlim(xx_mi-0.1*ext_x,xx_ma+0.1*ext_x)
     plt.ylim(yy_ma+0.1*ext_y,yy_mi-0.1*ext_y)
     
-    ax2=fig.add_subplot(2,2,4)
-    rechs = rech[0:key]
-    ax2.set_xlabel("time")
+    ax2=fig.add_subplot(gs[0, 1])
+    rechs = rech[key]
+    rech_for_gif.append(rechs)
     ax2.set_ylabel("recharge, [mm/M]")
-    #ax.set_xscale("log")
-    ax2.plot(rechs)
+    ax2.plot(time_for_gif,rech_for_gif,'m')
+    plt.setp(ax2.get_xticklabels(), visible=False)
     
-    ax3=fig.add_subplot(2,2,2)
+    ax3=fig.add_subplot(gs[1, 1])
     #ax3.set_xlabel("time")
     ax3.set_ylabel("saturated area, [%]")
-    ax3.plot(surface_sat,'m')
+    ax3.plot(time_for_gif,surface_sat,'r')
     plt.setp(ax3.get_xticklabels(), visible=False)
     
+    ax4=fig.add_subplot(gs[2, 1])
+    ax4.set_xlabel("time")
+    ax4.set_ylabel("discharge, [mm/M]")
+    ax4.plot(time_for_gif,flow_rate,'b')
+    ax4.set_yscale("log")
+
+
     name_fig = 'dyn_' + str(key) + '.png'
     plt.savefig(figdir + 'png/' + name_fig)
     plt.close(fig)
@@ -205,7 +221,7 @@ def make_gif(frame_folder):
     frames = [Image.open(image) for image in glob.glob(f"{frame_folder}/*.PNG")]
     frame_one = frames[0]
     frame_one.save(path_gif + 'dyn_outflow.gif', format="GIF", append_images=frames,
-               save_all=True, duration=100, loop=0)
+               save_all=True, duration=200, loop=0)
     
 
 if __name__ == "__main__":
