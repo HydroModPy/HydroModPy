@@ -29,4 +29,7 @@ OK - 2 branch
 - class hérite d'une autre : connait attributs et méthodes
 - __moment_ k ==> privé
 
-
+11/10/2021
+- Function objective à travailler, le reste généralisable
+- Normlisation par l'erreur des données (pondération)
+- Faire la class forçage climatique + discharge banque hydro
