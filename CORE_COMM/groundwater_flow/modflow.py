@@ -593,14 +593,22 @@ class Chronics:
             mask_list = os.listdir(self.subbasins_folder)
             mask_list = [x for x in mask_list if x.split('_')[1] == 'hydrometric']
             for mask_name in mask_list:
+                x=2
                 subasin_folder = os.path.join(self.subbasins_folder, mask_name)
                 sub = gdal.Open(os.path.join(subasin_folder,'subbasin.tif'))
                 dem_mask = sub.GetRasterBand(1).ReadAsArray()
                 basin_area = tif_features.basin_area(dem_mask, dem_mask, '!=', 1, self.resolution)
                 station_name = mask_name.split('_')[3]
-                obs_file = [x for x in obs_files if x.split('_')[2] == station_name]
-                obs_file = obs_file[0]       
-                
+                for x in obs_files:
+                    try:
+                        cond_split = x.split('_')[2]
+                    except:
+                        continue
+                    if cond_split == station_name:
+                        obs_file = x
+                # obs_file = obs_file[0]
+        
+        print(obs_file)
         obs_path = os.path.join(chronic_path, obs_file)
         obs_data = pd.read_csv(obs_path, names = ['year','month','day','disch'], 
                                sep='\s+', header = None, parse_dates=True) # sep='\s+'
