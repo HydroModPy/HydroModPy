@@ -17,6 +17,7 @@ from matplotlib.font_manager import FontProperties
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 
 import warnings
 
@@ -36,6 +37,7 @@ warnings.filterwarnings("ignore")
 # HydroModPy modules
 from watershed import watershed_root
 from tools import tif_adds, serie_transf
+from tools import file_adds
 
 #%% PARAMS
 
@@ -113,7 +115,7 @@ else:
 
 # test of watershed class
 load = True
-watershed_name = 'Canut1'
+watershed_name = 'Canut2'
 # watershed_name = 'Out'
 library_path = df + '/watershed' + '/watershed_library.csv'
 # library_path = analy_path + '/outlets_basins.txt'
@@ -158,229 +160,8 @@ runof = runof.MEAN
 runof = runof.resample('M').sum()
 runof = runof / 1000
 
-#%% CLIMATIC ANALYSIS
-
-variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
-scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
-# simulations = ['IPS1']
-
-colors = {'historic':'k',
-          'RCP2.6':'forestgreen',
-          'RCP4.5':'dodgerblue',
-          'RCP6.0':'darkorange',
-          'RCP8.5':'darkred'}
-
-# for var in variables:
-
-clim_path = stable_folder+'climatic/'
-
-periods = [[1961,2009],
-           [2021,2069]]
-
-# var = 'REC'
-
-for per in periods:
-    
-    df = pd.DataFrame(simulations, columns=['sim'])
-    df = df.set_index('sim')
-    df[scenarios] = np.nan
-
-    df25 = pd.DataFrame(simulations, columns=['sim'])
-    df25 = df25.set_index('sim')
-    df25[scenarios] = np.nan
-
-    df50 = pd.DataFrame(simulations, columns=['sim'])
-    df50 = df50.set_index('sim')
-    df50[scenarios] = np.nan
-
-    df75= pd.DataFrame(simulations, columns=['sim'])
-    df75 = df75.set_index('sim')
-    df75[scenarios] = np.nan
-    
-    for var in variables:
-
-    # fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
-    # ax.set_ylabel(var)
-    # ax.set_xlabel('Date')
-    # ax.set_title(per)
-    
-        for sce in scenarios:
-            for sim in simulations:
-            
-                try:
-                    raw = pd.read_hdf(clim_path + sim +'.h5',var+'/'+sce)
-                    raw = raw[(raw.index.year >= per[0]) & (raw.index.year <= per[1])]
-                    raw = raw.MEAN
-                                       
-                    if var=='TAS':
-                        chro = raw.resample('Y').mean()
-                        # q75 = raw.resample('Y').quantile(0.75)
-                        # q25 = raw.resample('Y').quantile(0.50)
-                        raw = chro.mean()
-                        q25 = chro.quantile(0.25)
-                        # q50 = chro.quantile(0.50)
-                        q75 = chro.quantile(0.75)
-                    else:
-                        chro = raw.resample('Y').sum()
-                        # q75 = raw.resample('Y').quantile(0.75) * 1000
-                        # q25 = raw.resample('Y').quantile(0.50) * 1000
-                        raw = chro.mean()
-                        q25 = chro.quantile(0.25)
-                        # q50 = chro.quantile(0.50)
-                        q75 = chro.quantile(0.75)
-                    
-                    # ax.plot(chro, color=colors[sce], label=sce)
-                    # ax.fill_between(chro.index, q25, q75, color=colors[sce], alpha=0.5)
-                    df.loc[sim, sce] = raw
-                    df25.loc[sim, sce] = q25
-                    # df50.loc[sim, sce] = q50
-                    df75.loc[sim, sce] = q75
-                    
-                except:
-                    df.loc[sim, sce] = np.nan
-                    pass
-                
-        fig, ax = plt.subplots(figsize=(5, 5), dpi=300)    
-        df.plot.barh(ax=ax, color=['k','forestgreen','dodgerblue','darkorange','darkred'])
-        # df25.plot(ax=ax, marker='o', color=['k','royalblue','skyblue','darkorange','darkred'])
-        ax.axvline(x=df.loc['REA','historic'], ls='--', color='k')
-        ax.invert_yaxis()
-        ax.set_xlabel(var)
-        ax.set_ylabel('Climatic models')
-        ax.set_title(per)
-        ax.legend(bbox_to_anchor=(1.25, 1))
-
-#%% QMNA
-
-variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
-variables = ['REC']
-scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-# simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
-simulations = ['CAN1']
-
-colors = {'historic':'k',
-          'RCP2.6':'forestgreen',
-          'RCP4.5':'dodgerblue',
-          'RCP6.0':'darkorange',
-          'RCP8.5':'darkred'}
-
-# for var in variables:
-
-clim_path = stable_folder+'climatic/'
-
-# periods = [[1961,2009],
-#            [2021,2069]]
-
-periods = [[2020,2100]]
-
-# var = 'REC'
-
-for per in periods:
-    
-    df = pd.DataFrame(simulations, columns=['sim'])
-    df = df.set_index('sim')
-    df[scenarios] = np.nan
-
-    df25 = pd.DataFrame(simulations, columns=['sim'])
-    df25 = df25.set_index('sim')
-    df25[scenarios] = np.nan
-
-    df50 = pd.DataFrame(simulations, columns=['sim'])
-    df50 = df50.set_index('sim')
-    df50[scenarios] = np.nan
-
-    df75= pd.DataFrame(simulations, columns=['sim'])
-    df75 = df75.set_index('sim')
-    df75[scenarios] = np.nan
-    
-    for var in variables:
-
-    # fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
-    # ax.set_ylabel(var)
-    # ax.set_xlabel('Date')
-    # ax.set_title(per)
-    
-        fig, ax = plt.subplots(figsize=(6, 4), dpi=300)
-
-        for sce in scenarios:
-
-            for sim in simulations:
-            
-                try:
-                    raw = pd.read_hdf(clim_path + sim +'.h5',var+'/'+sce)
-                    raw = raw[(raw.index.year >= per[0]) & (raw.index.year <= per[1])]
-                    raw = raw.MEAN
-                    raw = raw.to_frame()
-                                       
-                    if var=='TAS':
-                        chro = raw.resample('Y').mean()
-                        # q75 = raw.resample('Y').quantile(0.75)
-                        # q25 = raw.resample('Y').quantile(0.50)
-                        # raw = chro.mean()
-                        q25 = chro.quantile(0.25)
-                        # q50 = chro.quantile(0.50)
-                        q75 = chro.quantile(0.75)
-                    else:
-                        chro = raw.resample('Y').sum()
-                        # q75 = raw.resample('Y').quantile(0.75) * 1000
-                        # q25 = raw.resample('Y').quantile(0.50) * 1000
-                        # raw = chro.mean()
-                        q25 = chro.quantile(0.25)
-                        # q50 = chro.quantile(0.50)
-                        q75 = chro.quantile(0.75)
-                        
-                        mens = raw.resample('M').sum()
-                        qmna = mens.groupby(mens.index.year).min().round(1)
-                        qmna_sort = qmna.sort_values(by='MEAN')
-                        freq = qmna_sort.groupby(['MEAN']).size().reset_index(name='counts') 
-                        freq['frequency'] = freq.counts/freq.counts.sum() #freq
-                        freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
-                        freq['retour'] = 1/freq['cumulative_frequency']
-                        freq['target'] = 5
-                        Mean = raw.MEAN.mean()
-                        Min = raw.MEAN.min()
-                        Q10 = raw.MEAN.quantile(0.10)
-                        Q50 = raw.MEAN.quantile(0.5)
-                        Q90 = raw.MEAN.quantile(0.90)
-                        Max = raw.MEAN.max()
-
-                        # ax.plot(freq.retour, freq.MEAN, color=colors[sce], marker='o', ls='-', lw=1)
-                        # # df25.plot(ax=ax, marker='o', color=['k','royalblue','skyblue','darkorange','darkred'])
-                        # ax.axvline(x=5, ls='--', color='k')
-                        # ax.set_xlabel('Return period')
-                        # ax.set_ylabel('QMNA')
-                        # ax.set_title(per)
-                        # # ax.legend(bbox_to_anchor=(1.25, 1))
-                        # ax.set_xlim(1,5)
-                        # ax.set_ylim(0,5)
-                        
-                        ax.plot(qmna.index.to_list(), qmna.MEAN, color=colors[sce], marker='o', ls='-', lw=1)
-                        ax.set_yscale('log')
-                        
-                    # ax.plot(chro, color=colors[sce], label=sce)
-                    # ax.fill_between(chro.index, q25, q75, color=colors[sce], alpha=0.5)
-                    df.loc[sim, sce] = raw
-                    df25.loc[sim, sce] = q25
-                    # df50.loc[sim, sce] = q50
-                    df75.loc[sim, sce] = q75
-                    
-                except:
-                    df.loc[sim, sce] = np.nan
-                    continue
-                
-
-        
-#%% TEST CLIMATE
-
-sim = 'REA'
-var = 'TAS'
-sce = 'historic'
-x = pd.read_hdf(clim_path + sim +'.h5',var+'/'+sce)
-# x = x[(x.index.year >= per[0]) & (x.index.year <= per[1])]  
-       
 #%% GENERATE SUBBASINS
-"""
+
 df_auto, df_manual = BV.generate_subbasins(file_name='station_x.txt',
                                            fonction_column='fonction',
                                            type_data='intermittent',
@@ -388,15 +169,15 @@ df_auto, df_manual = BV.generate_subbasins(file_name='station_x.txt',
                                            x_column='x_outlet', y_column='y_outlet',
                                            start_column=0, end_column=0,
                                            snap_dist=200)
-"""
+
 #%% DICHOTOMY CALIBRATION
-"""
+
 BV.calib_dichotomy(ident=None, calib=True, type_river='streams',
                    climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
                    first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
-"""
+
 #%% EXTRPOLATION CALIBRATION
-"""
+
 type_river='streams'
 dic = pd.read_csv(simulations_folder+'_dichotomy_'+type_river+'.csv', sep=';')
 
@@ -407,15 +188,10 @@ e = 50
 time_step = 'monthly'
 
 # Extrapolation
-porosities = np.linspace(0.001, 0.05, 5).round(3)
 porosities = [0.001]
 
-periods = range(1990, 2000+1)
-periods = [[1990,1994],
-           [1995,1999],
-           [2005,2009],
-           [2010,2014],
-           [2015,2019]]
+# Time
+periods = [[1990,1991]]
 
 for period in periods:
     first = period[0]
@@ -423,7 +199,7 @@ for period in periods:
     
     for i, porosity in enumerate(porosities):
         
-        step = 'ext_disch'
+        step = 'trans_disch'
 
         rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
         run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
@@ -452,6 +228,8 @@ for period in periods:
         ax.grid(True)
         ax.set_xlabel('Date')
         ax.set_ylabel('Discharge [mm/months]')
+        yearsFmt = DateFormatter('%Y')
+        ax.xaxis.set_major_formatter(yearsFmt)
         
         fig, ax = plt.subplots(1,1, figsize=(4,4))
         ax.scatter(obs_data['disch_norm']*1000, sim_data['outflow_drain']*1000+run*1000, c='dodgerblue')
@@ -471,13 +249,13 @@ for period in periods:
             return rmse, nrmse
         rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
         
-        obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_saturation_chronic()
-"""        
+        # obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_saturation_chronic()
+      
         #################
-    """
-        step = 'ext_satur'
+"""
+        step = 'trans_satur'
         first = 2015
-        last = 2019
+        last = 2016
         rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
         run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
         print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
@@ -488,7 +266,299 @@ for period in periods:
         BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
                             first=first, last=last, time_step='monthly')
         obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_saturation_chronic()
-    """
+"""
+#%% DISPLAY CLEMENT
+
+from glob import glob
+from matplotlib.colors import LightSource
+from matplotlib.pyplot import cm
+
+##### DEM #####
+
+dem_cut = stable_folder + 'geographic/watershed_dem.tif'
+demDs = gdal.Open(dem_cut)
+demData = demDs.GetRasterBand(1).ReadAsArray()
+geot = demDs.GetGeoTransform()
+dx = geot[1] #delta x
+dy = abs(geot[5]) #delta y
+demData_raw = demData
+msk = (demData==np.min(demData))
+demData = np.ma.masked_array(demData, mask=msk)
+lx,ly = demData.shape
+x = np.linspace(0,lx,lx)
+y = np.linspace(0,ly,ly)
+xx, yy = np.meshgrid(y,x)
+xx_mi = np.min(np.ma.array(xx, mask=msk))
+xx_ma = np.max(np.ma.array(xx, mask=msk))
+ext_x = xx_ma-xx_mi
+yy_mi = np.min(np.ma.array(yy, mask=msk))
+yy_ma = np.max(np.ma.array(yy, mask=msk))
+ext_y = yy_ma-yy_mi
+
+##### MODLOW #####
+
+dir_to_analyse = simulations_folder + 'trans_disch-0.001-19.833-50-0.014/_extraction/'
+figdir = dir_to_analyse + '_fig/'
+pngdir = dir_to_analyse + '_fig/_png/'
+gifdir = dir_to_analyse + '_fig/_gif/'
+file_adds.create_folder(figdir)
+file_adds.create_folder(pngdir)
+file_adds.create_folder(gifdir)
+water_table_path = dir_to_analyse + 'watertable_elevation.npy'
+outflow_path = dir_to_analyse + 'outflow_drain.npy'
+
+wt_all = np.load(water_table_path, allow_pickle=True).item() 
+outflow_all = np.load(outflow_path, allow_pickle=True).item() 
+
+surface_sat = []
+rech_for_gif = []
+time_for_gif = []
+flow_rate = []
+
+##### INTERMITTENCE #####
+
+
+##### PLOT #####
+
+for key in wt_all:
+    
+    t_temp = rech.index[key]
+    time_for_gif.append(t_temp)
+    
+    wt = wt_all[key]
+    wt = np.ma.masked_array(wt, mask=msk)
+    wt_len = len(wt[wt>0])
+    
+    outflow = outflow_all[key]
+    msk_outflow = (outflow==np.min(outflow))
+    outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+    outflow = np.ma.masked_where(outflow==0,outflow)
+    outflow_len = len(outflow[outflow>0])
+    
+    flow_rate_temp = np.sum(outflow)
+    flow_rate.append(flow_rate_temp)
+    
+    surface_sats = outflow_len/wt_len*100
+    surface_sat.append(surface_sats)
+    
+    fig = plt.figure(figsize=(11,6))
+    gs = fig.add_gridspec(3,2)
+    ax1=fig.add_subplot(gs[:, 0])
+    ls = LightSource(azdeg=45, altdeg=45)
+    cmap = plt.cm.gist_earth
+    rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=dx, dy=dy)
+    
+    ax1.imshow(rgb,alpha=1)    
+    cmap = plt.get_cmap('Blues')
+    # levels = np.arange(1000, 3000, 100)
+    hc=ax1.contour(xx, yy, wt, alpha=1, cmap=cmap, linewidths=0.5)
+    ax1.clabel(hc, inline=True, fontsize=9, fmt='%1.0f')
+    levels_outflow = np.arange(-1, 4, 0.5)
+    cf=ax1.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap=cm.afmhot_r, alpha=1,antialiased = True)
+    fig.colorbar(cf,ax = ax1)
+    plt.xlim(xx_mi-0.1*ext_x,xx_ma+0.1*ext_x)
+    plt.ylim(yy_ma+0.1*ext_y,yy_mi-0.1*ext_y)
+    plt.tight_layout()
+    
+    ax2=fig.add_subplot(gs[0, 1])
+    rechs = rech[key]
+    rech_for_gif.append(rechs)
+    ax2.set_ylabel("recharge, [mm/M]")
+    ax2.plot(time_for_gif,rech_for_gif,'m')
+    plt.setp(ax2.get_xticklabels(), visible=False)
+    plt.tight_layout()
+    
+    ax3=fig.add_subplot(gs[1, 1])
+    #ax3.set_xlabel("time")
+    ax3.set_ylabel("saturated area, [%]")
+    ax3.plot(time_for_gif,surface_sat,'r')
+    plt.setp(ax3.get_xticklabels(), visible=False)
+    plt.tight_layout()
+    
+    ax4=fig.add_subplot(gs[2, 1])
+    ax4.set_xlabel("time")
+    ax4.set_ylabel("discharge, [mm/M]")
+    ax4.plot(time_for_gif,flow_rate,'b')
+    ax4.set_yscale("log")
+    plt.tight_layout()
+
+    name_fig = 'dyn_' + str(key) + '.png'
+    plt.tight_layout()
+    plt.savefig(pngdir + name_fig)
+    plt.close(fig)
+    print(str(key))
+        
+# from PIL import Image
+# frame_folder = pngdir
+# path_gif = gifdir
+# def make_gif(frame_folder):
+#     frames = [Image.open(image) for image in glob(f"{frame_folder}/*.PNG")]
+#     frame_one = frames[0]
+#     frame_one.save(path_gif + 'dyn_outflow.gif', format="GIF", append_images=frames,
+#                save_all=True, duration=200, loop=0)
+# if __name__ == "__main__":
+#     make_gif(frame_folder)
+
+filenames = glob(pngdir+'/'+'*.png')  
+import imageio
+images = []
+for filename in filenames:
+    images.append(imageio.imread(filename))
+imageio.mimsave(gifdir+'/'+'dyn_outflow.gif', images, duration=1, loop=1)
+
+#%% DISPLAY RONAN
+
+site= 'Canut'
+
+import imageio
+import rasterio
+import geopandas as gpd
+from glob import glob
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+compt = 1
+c1 = 0
+c12 = 12
+
+dir_to_analyse = simulations_folder + 'trans_disch-0.001-19.833-50-0.014/_extraction/'
+list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
+
+figdir = dir_to_analyse + '_fig/'
+pngdir = dir_to_analyse + '_fig/_png/'
+gifdir = dir_to_analyse + '_fig/_gif/'
+file_adds.create_folder(figdir)
+file_adds.create_folder(pngdir)
+file_adds.create_folder(gifdir)
+
+one = pd.DataFrame(columns=['x','y'])
+for i in list_traces:
+    inter = list_traces[c1:c12]
+    one_x = []
+    one_y = []
+    test = []
+    for j in inter:
+        outflow = gpd.read_file(j)
+        x_list = outflow.geometry.x
+        y_list = outflow.geometry.y
+        mix = list(zip(x_list, y_list))
+        test.extend(mix)
+    df = pd.DataFrame(test, columns=['x','y'])
+    df['z'] = df['x'].astype(str) + df['y'].astype(str)
+    values = df['z'].value_counts()
+    values = values[values==12]
+    for j in inter:
+        outflow = gpd.read_file(j)
+        outflow['x'] = outflow.geometry.x
+        outflow['y'] = outflow.geometry.y
+        outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
+        outflow['persit'] = 0
+        for h in values.index:
+            outflow.loc[outflow['z']==h,'persit'] = 1
+        outflow.to_file(j)
+    c1+=12
+    c12+=12
+    compt+=1
+
+compt = 0
+for i in glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp'):
+    outflow = gpd.read_file(i)
+
+    fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
+    
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    img = imageio.imread(BV.geographic.watershed_dem)
+    contour = gpd.read_file(stable_folder+'/geographic/'+'watershed_contour.shp')
+    
+    streams = gpd.read_file(stable_folder+'/hydrology/'+'streams.shp')
+    # streams.plot(ax=ax, lw=1.5, color='navy', zorder=3)
+    
+    bounds = contour.geometry.total_bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])
+    
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_title(site, fontproperties=fontprop)
+    ax.set(aspect='equal') 
+    
+    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='Greys')
+    mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform,
+                             cmap='Greys', alpha=0.5, zorder=2)
+    
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="1%", pad=0.05)
+    fig.add_axes(cax)
+    cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+    val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+    cbar.set_ticks([minVal, meanVal, maxVal])
+    cbar.set_ticklabels([minVal, meanVal, maxVal])
+    cbar.mappable.set_clim(minVal, maxVal)
+    cbar.ax.tick_params(labelsize=10)
+    
+    # outflow.plot(ax=ax, alpha=1, column='persit', cmap="winter_r", 
+    #               marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+    #               scheme="User_Defined", 
+    #               classification_kwds=dict(bins=[1, 0]),
+    #               zorder=4)
+       
+    # from matplotlib.colors import ListedColormap
+    # cmap = ListedColormap(['darkorange','blue'])
+    
+    outflow[outflow.persit==0].plot(ax=ax, alpha=1, column='persit', color='darkorange', 
+                                    marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                                    zorder=4)
+    
+    outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='blue', 
+                                    marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                                    zorder=4)
+    
+    name_fig = 'dyn_' + str(compt) + '.png'
+    plt.tight_layout()
+    plt.savefig(pngdir + name_fig)
+    
+    compt+=1
+
+filenames = glob(pngdir+'/'+'*.png')  
+import imageio
+images = []
+for filename in filenames:
+    images.append(imageio.imread(filename))
+imageio.mimsave(gifdir+'/'+'dyn_outflow.gif', images, duration=1, loop=1)
+
+#%%
+"""
+from watershed import surfaceflow
+lead_numb = '005'
+surfaceflow.SurfaceFlow(BV.geographic,
+                         'outflow_drain_t('+lead_numb+').tif',
+                         '_temp_outflow_drain_t(xxx).shp',
+                         '_temp_trace_outflow_drain_t(xxx).tif',
+                         'trace_outflow_drain_t('+lead_numb+').shp',
+                         extraction_folder=
+                         'D:/Users/abherve/HYDROMODPY/Canut2/results_simulations/trans_disch-0.001-19.833-50-0.014/_extraction')
+"""
+#%%
+"""
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+
+x = wbt.raster_summary_stats(
+    'D:/Users/abherve/HYDROMODPY/Canut2/results_simulations/trans_disch-0.001-19.833-50-0.014/_extraction/outflow_drain_t(000).tif')
+
+x = wbt.zonal_statistics(
+    'D:/Users/abherve/HYDROMODPY/Canut2/results_simulations/trans_disch-0.001-19.833-50-0.014/_extraction/outflow_drain_t(000).tif', 
+    'D:/Users/abherve/HYDROMODPY/Canut2/results_simulations/trans_disch-0.001-19.833-50-0.014/_extraction/seepage_areas_t(000).tif', 
+    output='D:/Users/abherve/HYDROMODPY/Canut2/results_simulations/trans_disch-0.001-19.833-50-0.014/_extraction/test_number_t(000).tif', 
+    stat='total', 
+    out_table=None)
+"""
 #%% 
 """
 mask_list = os.listdir('D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/subbasins')

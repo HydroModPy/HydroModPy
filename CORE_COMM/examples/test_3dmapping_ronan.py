@@ -47,7 +47,6 @@ from matplotlib.pyplot import cm
 
 # Users
 user = "Ronan"
-user = "Clement_portable"
 
 if user=="Alexandre":
     root_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
@@ -72,17 +71,17 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = False
+load = True
 # watershed_name = 'Canut'
-watershed_name = 'Lasset'
+watershed_name = 'Canut'
 library_path = df + '/watershed' + '/watershed_library.csv'
 #library_path = analy_path + '/outlets_basins.txt'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-dem_path = root_path + "/DEM/" + "BDALTI_25M_09_MERGED.tif"
-#dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
+# dem_path = root_path + "/DEM/" + "BDALTI_09_25m.tif"
+dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
 surfex_path =  root_path + 'SURFEX'
 geology_path = root_path + 'GEOLOGY'
@@ -91,7 +90,21 @@ modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
 
+########################################
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              library_path=library_path,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              surfex_path=surfex_path,
+                              geology_path=geology_path,
+                              hydrology_path=hydrology_path,
+                              piezometry_path=piezometry_path,
+                              oceanic_path=oceanic_path, 
+                              modflow_path=modflow_path,
+                              load=load)
+
 #%% EXTRACT RECHARGE FROM SURFEX
+
 rech_path = stable_folder+'climatic/'+'REA.h5'
 rech = pd.read_hdf(rech_path,'REC/'+'historic')
 first = 1970
@@ -128,7 +141,7 @@ ext_y = yy_ma-yy_mi
 
 #%% IMPORT modflow results
 
-dir_to_analyse = simulations_folder + '0.1-0.2-25-0.001/_extraction/'
+dir_to_analyse = simulations_folder + 'ext-0.1-19.833-50-0.018/_extraction/'
 figdir = dir_to_analyse + 'fig/'
 water_table_path = dir_to_analyse + 'watertable_elevation.npy'
 outflow_path = dir_to_analyse + 'outflow_drain.npy'
@@ -205,8 +218,8 @@ for key in wt_all:
     ax4.plot(time_for_gif,flow_rate,'b')
     ax4.set_yscale("log")
 
-
     name_fig = 'dyn_' + str(key) + '.png'
+    plt.tight_layout()
     plt.savefig(figdir + 'png/' + name_fig)
     plt.close(fig)
     print(str(key))
