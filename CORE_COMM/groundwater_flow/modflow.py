@@ -21,9 +21,9 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
-import vtk_grid
-import vtk_watertable
-import vtk_pathlines
+# import vtk_grid
+# import vtk_watertable
+# import vtk_pathlines
 
 from watershed import surfaceflow
 
@@ -272,7 +272,9 @@ class Modflow():
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
+        
         print('Post-processing en cours')  
+        
         for item, time in enumerate(self.times):
             #print('Time : ', item)
                      
@@ -333,6 +335,7 @@ class Modflow():
                     tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
                                         self.save_file+'/seepage_areas_t('+lead_numb+').tif')                
                 # print('export seepage_areas')
+                
                 self.dict_watertable_elevation[item] = self.wt_elev
                 self.dict_watertable_depth[item] = self.wt_depth
                 self.dict_seepage_areas[item] = self.seep_area
@@ -370,46 +373,10 @@ class Modflow():
                                              '_temp_outflow_drain_t(xxx).shp',
                                              '_temp_trace_outflow_drain_t(xxx).tif',
                                              'trace_outflow_drain_t('+lead_numb+').shp',
-                                             extraction_folder=self.save_file)
-                    
-            else:
-                tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
-                                    self.save_file+'/outflow_drain_t('+lead_numb+').tif')
-                surfaceflow.SurfaceFlow(self.geographic,
-                                         'outflow_drain_t('+lead_numb+').tif',
-                                         '_temp_outflow_drain_t(xxx).shp',
-                                         '_temp_trace_outflow_drain_t(xxx).tif',
-                                         'trace_outflow_drain_t('+lead_numb+').shp',
-                                         extraction_folder=self.save_file)
-
-            # print('export outflow_drain')
-        
-            """
-            gw_flux
-            """
-            ### Groundwater flux
-            # Import data
-            self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
-            self.frf = self.cbb.get_data(text='FLOW RIGHT FACE', kstpkper=self.kstpkper, totim=time)[0]
-            self.fff = self.cbb.get_data(text='FLOW FRONT FACE', kstpkper=self.kstpkper, totim=time)[0]
-            # Depend nlayers
-            if self.nlay == 1:
-                self.flux = np.sqrt(self.frf**2 + self.fff**2)        
-            if self.nlay > 1:
-                self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
-                self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
-                
-            # Top layer
-            self.flux_top = self.flux[0]
-            # Mask
-            self.flux_top[self.dem_mask] = -9999
-            # Export
-            if self.calib == True:
-                if item == 0:
-
-                # print('export outflow_drain')
+                                             extraction_folder=self.save_file)    
                 self.dict_outflow_drain[item] = self.out_drn
-            
+                # print('export outflow_drain')
+        
             if gw_flux == True:
                 """
                 gw_flux
@@ -441,48 +408,49 @@ class Modflow():
                 self.dict_gw_flux[item] = self.flux_top
                 # print('export gw_flux')
                 
-                ### Specific discharge
-                # # Import data
-                # if self.nlay == 1:
-                #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
-                #                                                            self.mf, self.path_file+'.cbc')
-                # if self.nlay > 1:
-                #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
-                #                                                            self.mf, self.path_file+'.cbc')            
-                # self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
-                # # Top layer
-                # self.sepcif_disch_top = self.specif_disch[0]
-                # # Mask
-                # self.sepcif_disch_top[self.dem_mask] = -9999
-                # # Export
-                # if item == 0:
-                #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
-                #              self.save_file+'/specific_discharge_t('+lead_numb+').tif')
-                #     print('export specific_discharge')
-            """
-            store_dict
-            """
-            # self.dict_specific_discharge[item] = self.specif_disch
+            # if specific_discharge == True:   
+            #     """
+            #     specific_discharge
+            #     """                
+            #     ### Specific discharge
+            #     # Import data
+            #     if self.nlay == 1:
+            #         self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
+            #                                                                 self.mf, self.path_file+'.cbc')
+            #     if self.nlay > 1:
+            #         self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
+            #                                                                 self.mf, self.path_file+'.cbc')            
+            #     self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
+            #     # Top layer
+            #     self.sepcif_disch_top = self.specif_disch[0]
+            #     # Mask
+            #     self.sepcif_disch_top[self.dem_mask] = -9999
+            #     # Export
+            #     if item == 0:
+            #         tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
+            #                   self.save_file+'/specific_discharge_t('+lead_numb+').tif')
+            #         print('export specific_discharge')
+            #     self.dict_specific_discharge[item] = self.specif_disch
             
         if save_dict == True :
-        """
-        save_dict
-        """
-        np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
-        np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
-        np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
-        np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
-        np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
-        # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
+            """
+            save_dict
+            """
+            np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
+            np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
+            np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+            np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+            np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
+            # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
         
-        if vtk_files == True:
-        '''
-        vtk files
-        '''
-        vtk_grid.build()
-        vtk_watertable.build()
-        if modpath_sim == True:
-            vtk_pathlines.build()
+        # if vtk_files == True:
+        #     '''
+        #     vtk files
+        #     '''
+        #     vtk_grid.build()
+        #     vtk_watertable.build()
+        # if modpath_sim == True:
+        #     vtk_pathlines.build()
 
 #%% Extract results
 

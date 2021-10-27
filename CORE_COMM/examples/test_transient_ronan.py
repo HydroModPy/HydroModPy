@@ -191,7 +191,7 @@ time_step = 'monthly'
 porosities = [0.001]
 
 # Time
-periods = [[1990,1991]]
+periods = [[1990,1999]]
 
 for period in periods:
     first = period[0]
@@ -420,7 +420,7 @@ compt = 1
 c1 = 0
 c12 = 12
 
-dir_to_analyse = simulations_folder + 'trans_disch-0.001-19.833-50-0.014/_extraction/'
+dir_to_analyse = simulations_folder + ident + '/_extraction/'
 list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
 
 figdir = dir_to_analyse + '_fig/'
