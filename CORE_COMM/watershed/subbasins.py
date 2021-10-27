@@ -6,6 +6,7 @@ Created on Thu Sep  9 20:10:52 2021
 """
 
 # Modules
+import datetime
 import glob
 import geopandas as gpd
 import geopandas as gpd
@@ -44,12 +45,17 @@ class Subbasins:
         clip_hydrometric_shp = gpd.clip(hydrometric_shp, watershed_shp)
         clip_hydrometric_shp.to_file(os.path.join(hydrology_stable, 'hydrometric.shp'))
         
-        clip_hydrometric_shp = gpd.read_file("D:/Users/abherve/RESULTS/rejets_metropole/Out/results_stable/hydrology/hydrometric.shp")
+        clip_hydrometric_shp = gpd.read_file(os.path.join(hydrology_stable, 'hydrometric.shp'))
+        
+        # x = gpd.read_file('D:/Users/abherve/HYDROMODPY/Canut1/results_stable/hydrology/hydrometric.shp')
+        # raw = x.iloc[0]
         
         df_hydro = pd.DataFrame(columns=self.columns)
         
         for i in range(len(clip_hydrometric_shp)):
             raw = clip_hydrometric_shp.iloc[0]
+            if raw['DtFermetur'] == None:
+                raw['DtFermetur'] = datetime.datetime.today().strftime('%Y-%m-%d')
             to_append = ['calib',
                           'hydrometric',
                           raw['CdStatio_1'],
@@ -57,7 +63,7 @@ class Subbasins:
                           raw['CoordXStat'],
                           raw['CoordYStat'],
                           pd.to_datetime(raw['timePositi'][0:10], format='%Y-%m-%d'),
-                          pd.to_datetime(raw['DtFermetur'][0:10],format='%Y-%m-%d')]
+                          pd.to_datetime(raw['DtFermetur'][0:10], format='%Y-%m-%d')]
             df_hydro.loc[i] = to_append
         
         self.df = self.df.append(df_hydro, ignore_index = True)
@@ -180,6 +186,7 @@ class Subbasins:
             # proj = osr.SpatialReference(wkt=dem.GetProjection())
             # crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
             # Create outlet shapefile from x and y coordinates
+            print('coord')
             df = pd.DataFrame({'x': [x], 'y': [y]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']))
             outlet_shp = gis_path + 'outlet.shp'
