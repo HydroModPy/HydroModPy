@@ -9,6 +9,7 @@ import sys
 from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 
 import flopy.utils.binaryfile as fpu
 
@@ -20,6 +21,8 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
+
+from watershed import surfaceflow
 
 # VARIABLES GLOBALES
 
@@ -55,6 +58,7 @@ class Modflow():
         self.time_step = time_step
         self.thick = thick
         self.thick_exp = thick_exp
+        self.geographic = geographic
         self.resolution = geographic.resolution
         self.sink_fill = sink_fill
         self.sink = geographic.depressions_data
@@ -265,7 +269,7 @@ class Modflow():
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
-        print('post-processing en cours')  
+        print('Post-processing en cours')  
         for item, time in enumerate(self.times):
             #print('Time : ', item)
                      
@@ -349,9 +353,23 @@ class Modflow():
                 if item == 0:
                     tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                         self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+                    surfaceflow.SurfaceFlow(self.geographic,
+                                             'outflow_drain_t('+lead_numb+').tif',
+                                             '_temp_outflow_drain_t(xxx).shp',
+                                             '_temp_trace_outflow_drain_t(xxx).tif',
+                                             'trace_outflow_drain_t('+lead_numb+').shp',
+                                             extraction_folder=self.save_file)
+                    
             else:
                 tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                     self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+                surfaceflow.SurfaceFlow(self.geographic,
+                                         'outflow_drain_t('+lead_numb+').tif',
+                                         '_temp_outflow_drain_t(xxx).shp',
+                                         '_temp_trace_outflow_drain_t(xxx).tif',
+                                         'trace_outflow_drain_t('+lead_numb+').shp',
+                                         extraction_folder=self.save_file)
+
             # print('export outflow_drain')
         
             """
@@ -422,7 +440,8 @@ class Modflow():
         np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
         # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
 
-#%%
+#%% Extract results
+
 class Chronics:
     def __init__(self, geographic, watershed_name='x', outlet_type='hydrometric',
                  mask=False, calib_only=False, subbasins_folder=None, 
@@ -487,7 +506,7 @@ class Chronics:
         seepage_areas = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
         outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
         gw_flux = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
-                
+        
         ### WATERSHED SCALE
         
         print('watershed')
@@ -626,6 +645,7 @@ class Chronics:
         obs = np.array(obs_data['disch_norm'].values)
         
         ### SIMULATED DISCHARGE  
+        
         if (self.outlet_type=='hydrometric'):
             # Waterhed
             sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
@@ -672,6 +692,7 @@ class Chronics:
         df_stats = np.nan
         
         ### SIMULATED SATURATION
+        
         if (self.outlet_type=='onde'):
             # Waterhed
             sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
@@ -703,6 +724,8 @@ class Chronics:
                 # ax.set_title(mask_name+'\n'+self.model_name)
                 ax.set_title(mask_name.split('_')[3])
                 ax.grid(True)
+                yearsFmt = DateFormatter('%Y')
+                ax.xaxis.set_major_formatter(yearsFmt)
                 
             return obs_data, sim_data, df_stats, mask_name
 

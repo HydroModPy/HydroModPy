@@ -251,13 +251,13 @@ for per in periods:
         ax.set_title(per)
         ax.legend(bbox_to_anchor=(1.25, 1))
 
-#%%
+#%% QMNA
 
 variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
 variables = ['REC']
 scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
-simulations = ['REA','IPS1']
+# simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
+simulations = ['CAN1']
 
 colors = {'historic':'k',
           'RCP2.6':'forestgreen',
@@ -272,7 +272,7 @@ clim_path = stable_folder+'climatic/'
 # periods = [[1961,2009],
 #            [2021,2069]]
 
-periods = [[1961,2009]]
+periods = [[2020,2100]]
 
 # var = 'REC'
 
@@ -301,19 +301,23 @@ for per in periods:
     # ax.set_xlabel('Date')
     # ax.set_title(per)
     
+        fig, ax = plt.subplots(figsize=(6, 4), dpi=300)
+
         for sce in scenarios:
+
             for sim in simulations:
             
                 try:
                     raw = pd.read_hdf(clim_path + sim +'.h5',var+'/'+sce)
                     raw = raw[(raw.index.year >= per[0]) & (raw.index.year <= per[1])]
                     raw = raw.MEAN
+                    raw = raw.to_frame()
                                        
                     if var=='TAS':
                         chro = raw.resample('Y').mean()
                         # q75 = raw.resample('Y').quantile(0.75)
                         # q25 = raw.resample('Y').quantile(0.50)
-                        raw = chro.mean()
+                        # raw = chro.mean()
                         q25 = chro.quantile(0.25)
                         # q50 = chro.quantile(0.50)
                         q75 = chro.quantile(0.75)
@@ -321,28 +325,39 @@ for per in periods:
                         chro = raw.resample('Y').sum()
                         # q75 = raw.resample('Y').quantile(0.75) * 1000
                         # q25 = raw.resample('Y').quantile(0.50) * 1000
-                        raw = chro.mean()
+                        # raw = chro.mean()
                         q25 = chro.quantile(0.25)
                         # q50 = chro.quantile(0.50)
                         q75 = chro.quantile(0.75)
                         
                         mens = raw.resample('M').sum()
                         qmna = mens.groupby(mens.index.year).min().round(1)
-                        qmna = qmna.to_frame(['MEAN'])
-                        qmna_sort = qmna.sort_values()
+                        qmna_sort = qmna.sort_values(by='MEAN')
                         freq = qmna_sort.groupby(['MEAN']).size().reset_index(name='counts') 
                         freq['frequency'] = freq.counts/freq.counts.sum() #freq
                         freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
                         freq['retour'] = 1/freq['cumulative_frequency']
                         freq['target'] = 5
-                        Mean = raw.outflow_drain.mean()
-                        Min = raw.outflow_drain.min()
-                        Q10 = raw.outflow_drain.quantile(0.10)
-                        Q50 = raw.outflow_drain.quantile(0.5)
-                        Q90 = raw.outflow_drain.quantile(0.90)
-                        Max = raw.outflow_drain.max()
+                        Mean = raw.MEAN.mean()
+                        Min = raw.MEAN.min()
+                        Q10 = raw.MEAN.quantile(0.10)
+                        Q50 = raw.MEAN.quantile(0.5)
+                        Q90 = raw.MEAN.quantile(0.90)
+                        Max = raw.MEAN.max()
+
+                        # ax.plot(freq.retour, freq.MEAN, color=colors[sce], marker='o', ls='-', lw=1)
+                        # # df25.plot(ax=ax, marker='o', color=['k','royalblue','skyblue','darkorange','darkred'])
+                        # ax.axvline(x=5, ls='--', color='k')
+                        # ax.set_xlabel('Return period')
+                        # ax.set_ylabel('QMNA')
+                        # ax.set_title(per)
+                        # # ax.legend(bbox_to_anchor=(1.25, 1))
+                        # ax.set_xlim(1,5)
+                        # ax.set_ylim(0,5)
                         
-                    
+                        ax.plot(qmna.index.to_list(), qmna.MEAN, color=colors[sce], marker='o', ls='-', lw=1)
+                        ax.set_yscale('log')
+                        
                     # ax.plot(chro, color=colors[sce], label=sce)
                     # ax.fill_between(chro.index, q25, q75, color=colors[sce], alpha=0.5)
                     df.loc[sim, sce] = raw
@@ -352,17 +367,9 @@ for per in periods:
                     
                 except:
                     df.loc[sim, sce] = np.nan
-                    pass
+                    continue
                 
-        fig, ax = plt.subplots(figsize=(5, 5), dpi=300)    
-        df.plot.barh(ax=ax, color=['k','forestgreen','dodgerblue','darkorange','darkred'])
-        # df25.plot(ax=ax, marker='o', color=['k','royalblue','skyblue','darkorange','darkred'])
-        ax.axvline(x=df.loc['REA','historic'], ls='--', color='k')
-        ax.invert_yaxis()
-        ax.set_xlabel(var)
-        ax.set_ylabel('Climatic models')
-        ax.set_title(per)
-        ax.legend(bbox_to_anchor=(1.25, 1))
+
         
 #%% TEST CLIMATE
 

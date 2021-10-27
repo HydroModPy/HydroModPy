@@ -46,6 +46,7 @@ from matplotlib.pyplot import cm
 #%%
 
 # Users
+user = "Ronan"
 user = "Clement_portable"
 
 if user=="Alexandre":
@@ -56,9 +57,9 @@ elif user=="Jean-Raynald":
     out_path = "C:/DATA/results/HydroModPy"
 elif user=="Ronan":
     root_path= "D:/Users/abherve/HYDROMODPY/_data/"
-    # out_path = "D:/Users/abherve/HYDROMODPY"
-    out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
-    analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
+    out_path = "D:/Users/abherve/HYDROMODPY"
+    # out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
+    # analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
 elif user=="Clement":
     root_path= "D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_data/"
     out_path = "D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/"
@@ -101,6 +102,7 @@ rech = rech.resample('M').sum()
 rech = rech #mm/M
 
 #%% Import DEM and plot
+
 dem_cut = stable_folder + 'geographic/watershed_dem.tif'
 demDs = gdal.Open(dem_cut)
 demData = demDs.GetRasterBand(1).ReadAsArray()
@@ -125,7 +127,8 @@ yy_ma = np.max(np.ma.array(yy, mask=msk))
 ext_y = yy_ma-yy_mi
 
 #%% IMPORT modflow results
-dir_to_analyse = simulations_folder + '_transient_monthly-0.1-0.892-50-0.038/_extraction/'
+
+dir_to_analyse = simulations_folder + '0.1-0.2-25-0.001/_extraction/'
 figdir = dir_to_analyse + 'fig/'
 water_table_path = dir_to_analyse + 'watertable_elevation.npy'
 outflow_path = dir_to_analyse + 'outflow_drain.npy'
