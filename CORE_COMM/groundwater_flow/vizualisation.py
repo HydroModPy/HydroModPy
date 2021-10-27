@@ -78,10 +78,9 @@ pos = (min(mesh1.points()[:, 0])- xs ,min(mesh1.points()[:,1])- ys,max(mesh1.poi
 print(pos)
 cam = dict(pos = pos)
 
-lbox = LegendBox((mesh4, mesh5), alpha=0.2)
 plt.show(mesh2, at=0, axes=True)
 plt.show(mesh0, mesh1, at=1)
-plt.show(mesh4, mesh5,lbox, at=2)
-plt.show(mesh0, mesh3, at=3, camera=cam, viewup ='z').screenshot('image.png')
+plt.show(mesh4, mesh5, at=2)
+plt.show(mesh0, mesh3, at=3, camera=cam, viewup ='z', interactive=1)#.screenshot('image.png')
 
 plt.close()
