@@ -94,6 +94,35 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               load=load)
 
+#%% GEOMORPHO
+
+site='Lasset'
+dem = stable_folder + 'geographic/'+'watershed_dem.tif'
+d8_pntr = stable_folder + 'geographic/'+'watershed_direc.tif'
+
+wbt.find_ridges(
+    dem, 
+    stable_folder + 'geographic/'+'find_ridges.tif', 
+    line_thin=True)
+
+wbt.flow_length_diff(
+    d8_pntr,
+    stable_folder + 'geographic/''flow_length_diff.tif')
+    
+wbt.max_branch_length(
+    dem, 
+    stable_folder + 'geographic/''max_branch_length.tif', 
+    log=False)
+
+fill_path = stable_folder + 'geographic/'+'watershed_fill.tif'
+dinf_path = stable_folder + 'geographic/''d_inf.tif'
+slope_path = stable_folder + 'geographic/''slope.tif'
+wbt.d_inf_flow_accumulation(fill_path, dinf_path, out_type="Specific Contributing Area", 
+                            threshold=None, log=False, clip=False, pntr=False)
+wbt.slope(fill_path, slope_path)
+wti_path = stable_folder + 'geographic/''wti.tif'
+wbt.wetness_index(dinf_path, slope_path, wti_path)
+
 #%% RUN MODFLOW
 """
 rch = 1e-3
