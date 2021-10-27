@@ -6,10 +6,9 @@ from osgeo import gdal
 import flopy
 from flopy.export import vtk as fv
 import flopy.utils.binaryfile as bf
-from get_geological_structure import get_geological_structure as ggs
 from workingFunctions import Functions # functions from the workingFunctions.py file
 
-def vtk_export_grid(modelname, modelfolder, coord):
+def build(modelname, modelfolder, coord):
     print('Import Georeferences')
 
     def GetExtent(gt,geotx, geoty, cols, rows):
@@ -32,41 +31,7 @@ def vtk_export_grid(modelname, modelfolder, coord):
     cols = demData_g.shape[1]
     rows = demData_g.shape[0]
     ext = GetExtent(geot_g,geotx_g,geoty_g, cols, rows)
-    # import flow
-    """
-    cbb = bf.CellBudgetFile(modelfolder+modelname+'.cbc')
-    text_list = cbb.textlist
-    RF = cbb.get_data(kstpkper=(0, 0), text='FLOW RIGHT FACE')
-    FF = cbb.get_data(kstpkper=(0, 0), text='FLOW FRONT FACE')
-    LF = cbb.get_data(kstpkper=(0, 0), text='FLOW LOWER FACE')
-    RF = RF[0]
-    FF = FF[0]
-    LF = LF[0]
-
-    #RF_pad = np.lib.pad(RF, (1, 1), 'constant', constant_values=0)
-    #FF_pad = np.lib.pad(FF, (1, 1), 'constant', constant_values=0)
-    LF_pad = np.lib.pad(LF, (1, 1), 'constant', constant_values=0)
-    sum_flow = np.ones((cbb.nlay, RF.shape[1], RF.shape[2]))
-
-    for i in range(1, cbb.nlay + 1):
-        for j in range(1, RF.shape[1] + 1):
-            for k in range(1, RF.shape[2] + 1):
-                temp_sum = 0
-                if RF_pad[i, j, k - 1] > 0:
-                    temp_sum = temp_sum + np.abs(RF_pad[i, j, k - 1])
-                if RF_pad[i, j, k + 1] < 0:
-                    temp_sum = temp_sum + np.abs(RF_pad[i, j, k + 1])
-                if FF_pad[i, j - 1, k] > 0:
-                    temp_sum = temp_sum + np.abs(FF_pad[i, j - 1, k])
-                if FF_pad[i, j + 1, k] < 0:
-                    temp_sum = temp_sum + np.abs(FF_pad[i, j + 1, k])
-                if LF_pad[i + 1, j, k] < 0:
-                    temp_sum = temp_sum + np.abs(LF_pad[i + 1, j, k])
-                if LF_pad[i - 1, j, k] > 0:
-                    temp_sum = temp_sum + np.abs(LF_pad[i - 1, j, k])
-
-                sum_flow[i - 1, j - 1, k - 1] = temp_sum
-    """
+    
     # change directory to the script path
     os.chdir(modelfolder)  # use your own path
 
@@ -258,7 +223,6 @@ def vtk_export_grid(modelname, modelfolder, coord):
     # empty list to store all ibound
     listIBound = []
     listHk = []
-    listFlow = []
     # definition of IBOUND
     for lay in range(modDis['cellLays']):
         for item in modBas['cellIboundList']['lay' + str(lay)]:
@@ -320,7 +284,6 @@ def vtk_export_grid(modelname, modelfolder, coord):
     listActiveHexaSequenceDef = []
     listIBoundDef = []
     listHkDef = []
-    listFlowDef = []
 
     # filter hexahedrons and heads for active cells
     for i in range(len(listIBound)):

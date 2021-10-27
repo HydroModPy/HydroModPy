@@ -20,6 +20,9 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
+import vtk_grid
+import vtk_watertable
+import vtk_pathlines
 
 # VARIABLES GLOBALES
 
@@ -219,23 +222,26 @@ class Modflow():
         # run model
         succes, buff = self.mf.run_model(silent=True) # True without msg
         
-    def post_processing(self):
+    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, vtk_files = True):
+        self.wt_elev = []
+        self.wt_depth = []
+        self.seep_area = []
+        self.out_drn  = []
+        self.flux_top = []
         # post_processing
         print('Extraction des résultats d\'un modèle')
-        
         # self.dem_mask = (self.dem_clip==-99999)
         self.dem_mask = (self.dem_clip<0)
+        self.save_file = os.path.join(self.full_path, '_extraction')
+        file_adds.create_folder(self.save_file)
         
         # Model parameters
         self.path_file = os.path.join(self.full_path, self.model_name)
-
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
         if len(self.kper) > 1:
             self.kstp = self.nstp[self.kper] - 1
-        
         self.rechval = self.rch.rech[0][0,0]
-        
         col = ['nrow','ncol','res','nlay','nper','rech','hk','sy']
         var = [self.nrow,self.ncol,self.resolution,self.nlay,self.nper,self.rechval,self.hyd_cond,self.porosity]
         params = pd.DataFrame(var).T
@@ -245,9 +251,6 @@ class Modflow():
         self.params.to_csv(self.full_path+'/_model_parameters.txt', sep=';', index=False)
         # np.savetxt(self.path_file+'_model_parameters.txt', self.params, delimiter=';')
 
-        self.save_file = os.path.join(self.full_path, '_extraction')
-        file_adds.create_folder(self.save_file)
-        
         # Import essential data
         self.head_fpu = fpu.HeadFile(self.path_file+'.hds')        
         self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
@@ -274,144 +277,147 @@ class Modflow():
             
             lead_numb = "%03d" % (item,)
             
-            """
-            watertable_outputs
-            """
-            # Import data
-            self.head_all = self.head_fpu.get_alldata() # mflay=None
-            self.head_data = self.head_fpu.get_data(totim=time)
-            
-            ### Watertable elevation
-            # Top layer
-            self.wt_elev = self.head_data[0]
-            # Mask
-            #self.wt_elev[self.dem_mask] = -9999
-            # Export
-            if self.calib == True:
-                if item == 0:
-                    tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
-                        self.save_file+'/watertable_elevation_('+lead_numb+').tif')
-            else:
-                tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
-                    self.save_file+'/watertable_elevation_('+lead_numb+').tif')                
-            # print('export watertable_elevation')
+            if watertable == True :
+                """
+                watertable_outputs
+                """
+                # Import data
+                self.head_all = self.head_fpu.get_alldata() # mflay=None
+                self.head_data = self.head_fpu.get_data(totim=time)
                 
-            ### Watertable depth
-            self.wt_depth = self.dem - self.wt_elev
-            # Mask
-            self.wt_depth[self.dem_mask] = -9999
-            # Export
-            if self.calib == True:
-                if item == 0:
+                ### Watertable elevation
+                # Top layer
+                self.wt_elev = self.head_data[0]
+                # Mask
+                #self.wt_elev[self.dem_mask] = -9999
+                # Export
+                if self.calib == True:
+                    if item == 0:
+                        tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
+                            self.save_file+'/watertable_elevation_('+lead_numb+').tif')
+                else:
+                    tif_adds.export_tif(self.dem_path, self.wt_elev, -9999,
+                        self.save_file+'/watertable_elevation_('+lead_numb+').tif')                
+                # print('export watertable_elevation')
+                    
+                ### Watertable depth
+                self.wt_depth = self.dem - self.wt_elev
+                # Mask
+                self.wt_depth[self.dem_mask] = -9999
+                # Export
+                if self.calib == True:
+                    if item == 0:
+                        tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
+                                            self.save_file+'/watertable_depth_t('+lead_numb+').tif')
+                else:
                     tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
                                         self.save_file+'/watertable_depth_t('+lead_numb+').tif')
-            else:
-                tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
-                                    self.save_file+'/watertable_depth_t('+lead_numb+').tif')
-            # print('export watertable_depth')
-            
-            ### Watertable intercept
-            self.seep_area = self.dem - self.wt_elev
-            # Mask
-            self.seep_area[self.seep_area >= 0] = 0
-            self.seep_area[self.seep_area < 0] = 1
-            self.seep_area[self.dem_mask] = -9999
-            # Export
-            if self.calib == True:
-                if item == 0:
+                # print('export watertable_depth')
+                
+                ### Watertable intercept
+                self.seep_area = self.dem - self.wt_elev
+                # Mask
+                self.seep_area[self.seep_area >= 0] = 0
+                self.seep_area[self.seep_area < 0] = 1
+                self.seep_area[self.dem_mask] = -9999
+                # Export
+                if self.calib == True:
+                    if item == 0:
+                        tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
+                                            self.save_file+'/seepage_areas_t('+lead_numb+').tif')
+                else:
                     tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
-                                        self.save_file+'/seepage_areas_t('+lead_numb+').tif')
-            else:
-                tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
-                                    self.save_file+'/seepage_areas_t('+lead_numb+').tif')                
-            # print('export seepage_areas')
-        
-            """
-            outflow_drain
-            """
-            # Import data
-            self.out_all = np.ones((1, self.dis.nrow, self.dis.ncol))
-            self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)
-            # self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper)
-            # Loop storage
-            sim = 0
-            count = 0
-            for i in range(0, self.dis.nrow):
-                for j in range(0, self.dis.ncol):
-                    self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
-                    count = count + 1
-            # Top layer
-            self.out_drn = self.out_all[0]
-            # Mask
-            self.out_drn[self.dem_mask] = -9999
-            # Export
-            if self.calib == True:
-                if item == 0:
+                                        self.save_file+'/seepage_areas_t('+lead_numb+').tif')                
+                # print('export seepage_areas')
+                self.dict_watertable_elevation[item] = self.wt_elev
+                self.dict_watertable_depth[item] = self.wt_depth
+                self.dict_seepage_areas[item] = self.seep_area
+            
+            if outflow_drain == True:
+                """
+                outflow_drain
+                """
+                # Import data
+                self.out_all = np.ones((1, self.dis.nrow, self.dis.ncol))
+                self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)
+                # self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper)
+                # Loop storage
+                sim = 0
+                count = 0
+                for i in range(0, self.dis.nrow):
+                    for j in range(0, self.dis.ncol):
+                        self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
+                        count = count + 1
+                # Top layer
+                self.out_drn = self.out_all[0]
+                # Mask
+                self.out_drn[self.dem_mask] = -9999
+                # Export
+                if self.calib == True:
+                    if item == 0:
+                        tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
+                                            self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+                else:
                     tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                         self.save_file+'/outflow_drain_t('+lead_numb+').tif')
-            else:
-                tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
-                                    self.save_file+'/outflow_drain_t('+lead_numb+').tif')
-            # print('export outflow_drain')
-        
-            """
-            gw_flux
-            """
-            ### Groundwater flux
-            # Import data
-            self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
-            self.frf = self.cbb.get_data(text='FLOW RIGHT FACE', kstpkper=self.kstpkper, totim=time)[0]
-            self.fff = self.cbb.get_data(text='FLOW FRONT FACE', kstpkper=self.kstpkper, totim=time)[0]
-            # Depend nlayers
-            if self.nlay == 1:
-                self.flux = np.sqrt(self.frf**2 + self.fff**2)        
-            if self.nlay > 1:
-                self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
-                self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
-                
-            # Top layer
-            self.flux_top = self.flux[0]
-            # Mask
-            self.flux_top[self.dem_mask] = -9999
-            # Export
-            if self.calib == True:
-                if item == 0:
+                # print('export outflow_drain')
+                self.dict_outflow_drain[item] = self.out_drn
+            
+            if gw_flux == True:
+                """
+                gw_flux
+                """
+                ### Groundwater flux
+                # Import data
+                self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
+                self.frf = self.cbb.get_data(text='FLOW RIGHT FACE', kstpkper=self.kstpkper, totim=time)[0]
+                self.fff = self.cbb.get_data(text='FLOW FRONT FACE', kstpkper=self.kstpkper, totim=time)[0]
+                # Depend nlayers
+                if self.nlay == 1:
+                    self.flux = np.sqrt(self.frf**2 + self.fff**2)        
+                if self.nlay > 1:
+                    self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
+                    self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
+                    
+                # Top layer
+                self.flux_top = self.flux[0]
+                # Mask
+                self.flux_top[self.dem_mask] = -9999
+                # Export
+                if self.calib == True:
+                    if item == 0:
+                        tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
+                                            self.save_file+'/gw_flux_t('+lead_numb+').tif')
+                else:
                     tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
                                         self.save_file+'/gw_flux_t('+lead_numb+').tif')
-            else:
-                tif_adds.export_tif(self.dem_path, self.flux_top, -9999,
-                                    self.save_file+'/gw_flux_t('+lead_numb+').tif')
-            # print('export gw_flux')
-            
-            ### Specific discharge
-            # # Import data
-            # if self.nlay == 1:
-            #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
-            #                                                            self.mf, self.path_file+'.cbc')
-            # if self.nlay > 1:
-            #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
-            #                                                            self.mf, self.path_file+'.cbc')            
-            # self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
-            # # Top layer
-            # self.sepcif_disch_top = self.specif_disch[0]
-            # # Mask
-            # self.sepcif_disch_top[self.dem_mask] = -9999
-            # # Export
-            # if item == 0:
-            #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
-            #              self.save_file+'/specific_discharge_t('+lead_numb+').tif')
-            #     print('export specific_discharge')
-        
+                self.dict_gw_flux[item] = self.flux_top
+                # print('export gw_flux')
+                
+                ### Specific discharge
+                # # Import data
+                # if self.nlay == 1:
+                #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
+                #                                                            self.mf, self.path_file+'.cbc')
+                # if self.nlay > 1:
+                #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
+                #                                                            self.mf, self.path_file+'.cbc')            
+                # self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
+                # # Top layer
+                # self.sepcif_disch_top = self.specif_disch[0]
+                # # Mask
+                # self.sepcif_disch_top[self.dem_mask] = -9999
+                # # Export
+                # if item == 0:
+                #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
+                #              self.save_file+'/specific_discharge_t('+lead_numb+').tif')
+                #     print('export specific_discharge')
             """
             store_dict
             """
-            self.dict_watertable_elevation[item] = self.wt_elev
-            self.dict_watertable_depth[item] = self.wt_depth
-            self.dict_seepage_areas[item] = self.seep_area
-            self.dict_outflow_drain[item] = self.out_drn
-            self.dict_gw_flux[item] = self.flux_top
             # self.dict_specific_discharge[item] = self.specif_disch
             
+        if save_dict == True :
         """
         save_dict
         """
@@ -421,6 +427,15 @@ class Modflow():
         np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
         np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
         # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
+        
+        if vtk_files == True:
+        '''
+        vtk files
+        '''
+        vtk_grid.build()
+        vtk_watertable.build()
+        if modpath_sim == True:
+            vtk_pathlines.build()
 
 #%%
 class Chronics:
