@@ -132,8 +132,8 @@ class Geographic:
         self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
         wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem)
         # Clip corrected regional DEM from buffer watershed shapefile polygon
-        watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, buffer, watershed_buff_fill)
+        self.watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
+        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill)
         # Clip flow direction regional DEM from buffer watershed shapefile polygon
         watershed_buff_direc = gis_path + 'watershed_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc)
