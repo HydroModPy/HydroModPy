@@ -49,7 +49,7 @@ from tools import file_adds
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+wbt.verbose = True
 
 #%% PARAMETERS PLOT
 
@@ -344,12 +344,13 @@ for i, porosity in enumerate(porosities):
         nrmse = rmse / targets.mean() * 100
         return rmse, nrmse
     rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
-      
+
+#%%
     #################
 
     step = 'trans_satur'
     first = 2014
-    last = 2019
+    last = 2015
     
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
     run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
@@ -431,7 +432,9 @@ for i in list_traces:
     contour = gpd.read_file(stable_folder+'/geographic/'+'watershed_contour.shp')
     
     streams = gpd.read_file(stable_folder+'/hydrology/'+'streams.shp')
-    # streams.plot(ax=ax, lw=1.5, color='navy', zorder=3)
+    sections = gpd.read_file(stable_folder+'/hydrology/'+'sections.shp')
+    sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='k', ls='--', zorder=7)
+    sections[sections.Persistanc=='4'].plot(ax=ax, lw=1, color='k', ls='-', zorder=7)
     
     bounds = contour.geometry.total_bounds
     xlim = ([bounds[0], bounds[2]])
@@ -475,7 +478,7 @@ for i in list_traces:
                                     marker='s', markersize=7.5, lw=0.1, edgecolor='none',
                                     zorder=4)
     
-    outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='blue', 
+    outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='dodgerblue', 
                                     marker='s', markersize=7.5, lw=0.1, edgecolor='none',
                                     zorder=4)
     
@@ -508,7 +511,7 @@ imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=1, loop=1)
 ##### RECHARGE #####
 
 first = 2014
-last = 2019
+last = 2015
 rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
 run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
 
@@ -537,6 +540,7 @@ ext_y = yy_ma-yy_mi
 ##### MODLOW #####
 
 dir_to_analyse = simulations_folder + ident + '/_extraction/'
+mass_to_analyse = simulations_folder + ident + '/_extraction/_surfaceflow/'
 figdir = dir_to_analyse + '_fig/'
 pngdir = dir_to_analyse + '_fig/_png/'
 gifdir = dir_to_analyse + '_fig/_gif/'
@@ -586,7 +590,8 @@ for key in wt_all:
     t_temp = rch.index[key]
     time_for_gif.append(t_temp)
     
-    outflow = outflow_all[key] 
+    outflow = imageio.imread(mass_to_analyse+'mass_outflow_drain_t('+lead_numb+')'+'.tif')
+    
     msk_outflow = (outflow<0)
     outflow = np.ma.masked_array(outflow, mask=msk_outflow)
     outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
@@ -800,6 +805,92 @@ for per in periods:
         ax.set_ylabel('Climatic models')
         ax.set_title(per)
         ax.legend(bbox_to_anchor=(1.25, 1))
+
+#%% TEST GEOMORPHO
+
+wbt.raster_to_vector_polygons(
+    'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_temp_trace_outflow_drain_t(xxx).tif', 
+    'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_polytemp_trace_outflow_drain_t(xxx).shp')
+
+wbt.raster_to_vector_lines(
+    'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_temp_trace_outflow_drain_t(xxx).tif', 
+    'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_linetemp_trace_outflow_drain_t(xxx).shp')
+
+dem = 'D:/Users/abherve/HYDROMODPY/Canut/results_stable/geographic/watershed_fill.tif'
+loading = 'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_load_d8massflux_outflow_drain_t(000).tif'
+efficiency = 'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_eff_d8massflux_outflow_drain_t(000).tif'
+absorption = 'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_abs_d8massflux_outflow_drain_t(000).tif'
+output = 'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/_surfaceflow/_test_d8massflux_outflow_drain_t(000).tif'
+
+shp_path = 'D:/Users/abherve/HYDROMODPY/Canut/results_stable/geographic/watershed.shp'
+tif_path = 'D:/Users/abherve/HYDROMODPY/Canut/results_simulations/trans_satur-0.001-19.833-50-0.017/_extraction/outflow_drain_t(000).tif'
+wbt.clip_raster_to_polygon(tif_path, shp_path, loading)
+
+x = imageio.imread(loading)
+y = imageio.imread(efficiency)
+
+dem_data = imageio.imread(loading)
+dem_data[dem_data<0] = 0
+rio = rasterio
+with rio.open(dem) as src:
+    ras_data = src.read()
+    ras_nodata = src.nodatavals
+    ras_dtype = src.dtypes
+    ras_meta = src.profile
+# Type of data
+data_dtype = dem_data.dtype
+# Change base dem from data
+ras_meta['dtype'] = data_dtype
+ras_meta['nodata'] = -99999
+# Create new data raster with base dem size
+with rio.open(loading, 'w', **ras_meta) as dst:
+    dst.write(dem_data, 1)
+
+dem_data = imageio.imread(dem)
+dem_data[dem_data>0] = 1
+rio = rasterio
+with rio.open(dem) as src:
+    ras_data = src.read()
+    ras_nodata = src.nodatavals
+    ras_dtype = src.dtypes
+    ras_meta = src.profile
+# Type of data
+data_dtype = dem_data.dtype
+# Change base dem from data
+ras_meta['dtype'] = data_dtype
+ras_meta['nodata'] = -99999
+# Create new data raster with base dem size
+with rio.open(efficiency, 'w', **ras_meta) as dst:
+    dst.write(dem_data, 1)
+    
+dem_data = imageio.imread(dem)
+dem_data[dem_data>0] = 0
+rio = rasterio
+with rio.open(dem) as src:
+    ras_data = src.read()
+    ras_nodata = src.nodatavals
+    ras_dtype = src.dtypes
+    ras_meta = src.profile
+# Type of data
+data_dtype = dem_data.dtype
+# Change base dem from data
+ras_meta['dtype'] = data_dtype
+ras_meta['nodata'] = -99999
+# Create new data raster with base dem size
+with rio.open(absorption, 'w', **ras_meta) as dst:
+    dst.write(dem_data, 1)
+
+wbt.d8_mass_flux(dem, loading, efficiency, absorption, output)
+
+out = imageio.imread(output)
+dem_cut = stable_folder + 'geographic/watershed_dem.tif'
+demDs = gdal.Open(dem_cut)
+demData = demDs.GetRasterBand(1).ReadAsArray()
+msk = (demData==np.min(demData))
+demData = np.ma.masked_array(demData, mask=msk)
+cell = demData.count()
+summ = np.max(out) / (cell * 75**2)
+# out = np.ma.masked_where(out < 0, out)
 
 #%% ADD GEOMORPHOLOGY
 
