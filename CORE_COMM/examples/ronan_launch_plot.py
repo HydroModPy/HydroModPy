@@ -137,9 +137,9 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-surfex_path =  root_path + 'SURFEX'
+surfex_path =  None
 geology_path = root_path + 'GEOLOGY'
-hydrology_path = root_path + 'HYDROLOGY'
+hydrology_path = None
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
@@ -345,12 +345,11 @@ for i, porosity in enumerate(porosities):
         return rmse, nrmse
     rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
 
-#%%
     #################
 
     step = 'trans_satur'
     first = 2014
-    last = 2015
+    last = 2019
     
     rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
     run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
@@ -422,7 +421,7 @@ compt = 0
 for i in list_traces:
     
     lead_numb = "%03d" % (compt,)
-
+    print(lead_numb)
     outflow = gpd.read_file(i)
 
     fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
@@ -482,6 +481,15 @@ for i in list_traces:
                                     marker='s', markersize=7.5, lw=0.1, edgecolor='none',
                                     zorder=4)
     
+    hydro = gpd.read_file(stable_folder + '/hydrology/' + 'hydrometric.shp')
+    hydro.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=7)
+    
+    onde = gpd.read_file(stable_folder + '/hydrology/' + 'onde.shp')
+    allsta = onde['<LbSiteHyd'].unique()
+    for idx, lib in enumerate(allsta):
+        sta = onde[onde['<LbSiteHyd']==lib]
+        sta.plot(ax=ax, lw=1, facecolor='yellow', marker='^', edgecolor='k', alpha=1, zorder=8)
+    
     name_fig = 'interm_' + str(lead_numb) + '.png'
     plt.tight_layout()
     plt.savefig(pngdir + name_fig)
@@ -511,7 +519,7 @@ imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=1, loop=1)
 ##### RECHARGE #####
 
 first = 2014
-last = 2015
+last = 2019
 rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
 run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
 
@@ -625,8 +633,9 @@ for key in wt_all:
     ax.clabel(hc, inline=True, fontsize=8, fmt='%1.0f')
     # levels_outflow = np.arange(-1, 3.5, 0.5)
     # cf=ax.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap='jet_r', alpha=1, antialiased = True)
-    norm = mpl.colors.Normalize(vmin=-1, vmax=3)
-    cf=ax.imshow(np.log10(outflow), cmap='jet_r', alpha=1, vmin=-1, vmax=3)
+    # norm = mpl.colors.Normalize(vmin=-1, vmax=4)
+    # cf=ax.imshow(np.log10(outflow), cmap='jet_r', alpha=1, vmin=-1, vmax=4)
+    cf=ax.imshow(outflow / 75**2, cmap='jet_r', alpha=1, vmin=0, vmax=int(round(rch.mean()*1000)))
     plt.xlim(xx_mi-0.1*ext_x,xx_ma+0.1*ext_x)
     plt.ylim(yy_ma+0.1*ext_y,yy_mi-0.1*ext_y)
  
@@ -647,10 +656,10 @@ for key in wt_all:
     cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
     fig.add_axes(cax)
     cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-    ticks = np.arange(-1, 3.5, 0.5)
+    ticks = np.arange(0, int(round(rch.mean()*1000))+5, 5)
     cbar.set_ticks(ticks)
     cbar.set_ticklabels(ticks)
-    cbar.set_label('log(Discharge) [mm/M]')
+    cbar.set_label('CumuLated upstream discharge [mm/M]')
     plt.tight_layout()
     
     ax = ax2
