@@ -224,7 +224,7 @@ class Modflow():
         # write input files
         self.mf.write_input()
         # run model
-        succes, buff = self.mf.run_model(silent=True) # True without msg
+        succes, buff = self.mf.run_model(silent=False) # True without msg
         
     def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, vtk_files = True):
         self.wt_elev = []
@@ -364,6 +364,18 @@ class Modflow():
                     if item == 0:
                         tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                             self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+
+                        surfaceflow.SurfaceFlow(self.geographic,
+                                                 'outflow_drain_t('+lead_numb+').tif',
+                                                 '_temp_outflow_drain_t(xxx).shp',
+                                                 '_temp_trace_outflow_drain_t(xxx).tif',
+                                                 'trace_outflow_drain_t('+lead_numb+').shp',
+                                                 '_load_outflow_drain_t('+lead_numb+').tif', 
+                                                 '_eff_outflow_drain_t(xxx).tif', 
+                                                 '_abs_outflow_drain_t(xxx).tif',
+                                                 'mass_outflow_drain_t('+lead_numb+').tif',
+                                                 extraction_folder=self.save_file)
+                    
                 else:
                     tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                         self.save_file+'/outflow_drain_t('+lead_numb+').tif')
@@ -373,7 +385,12 @@ class Modflow():
                                              '_temp_outflow_drain_t(xxx).shp',
                                              '_temp_trace_outflow_drain_t(xxx).tif',
                                              'trace_outflow_drain_t('+lead_numb+').shp',
-                                             extraction_folder=self.save_file)    
+                                             '_load_outflow_drain_t('+lead_numb+').tif', 
+                                             '_eff_outflow_drain_t(xxx).tif', 
+                                             '_abs_outflow_drain_t(xxx).tif',
+                                             'mass_outflow_drain_t('+lead_numb+').tif',
+                                             extraction_folder=self.save_file)
+                    
                 self.dict_outflow_drain[item] = self.out_drn
                 # print('export outflow_drain')
         

@@ -9,14 +9,17 @@ import geopandas as gpd
 import numpy as np
 import os
 import whitebox
+import imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 from tools import file_adds
+from tools import tif_adds
 
 class SurfaceFlow:
     def __init__(self, geographic,
                  raw_rast_name, raw_pt_name, out_rast_name, out_pt_name,
+                 load_rast_name, eff_rast_name, abs_rast_name, mass_rast_name,
                  extraction_folder=None):
 
         self.geographic = geographic
@@ -26,6 +29,8 @@ class SurfaceFlow:
         self.watershed_fill = geographic.watershed_fill
         self.watershed_direc = geographic.watershed_direc
         
+        self.watershed_buff_fill = geographic.watershed_buff_fill
+        
         self.shp_folder = os.path.join(self.extraction_folder, '_surfaceflow')
         file_adds.create_folder(self.shp_folder)
         
@@ -33,8 +38,14 @@ class SurfaceFlow:
         self.raw_pt_path = os.path.join(self.shp_folder, raw_pt_name)
         self.out_rast_path = os.path.join(self.shp_folder, out_rast_name)
         self.out_pt_path = os.path.join(self.shp_folder, out_pt_name)
-
+        
+        self.load_rast_path = os.path.join(self.shp_folder, load_rast_name)
+        self.eff_rast_path = os.path.join(self.shp_folder, eff_rast_name)
+        self.abs_rast_path = os.path.join(self.shp_folder, abs_rast_name)
+        self.mass_rast_path = os.path.join(self.shp_folder, mass_rast_name)
+        
         self.trace_downslope()
+        self.trace_cumulated()
 
     def trace_downslope(self):
         # Sim to points
@@ -46,3 +57,21 @@ class SurfaceFlow:
         # Extra
         wbt.add_point_coordinates_to_table(self.out_pt_path)
         wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
+
+    def trace_cumulated(self):
+        ### Loading ###
+        im = imageio.imread(self.raw_rast_path)
+        im[im<0] = 0
+        tif_adds.export_tif(self.watershed_buff_fill, im, -99999, self.load_rast_path)
+        ### Efficiency ###
+        im = imageio.imread(self.watershed_buff_fill)
+        im[im>=0] = 1
+        tif_adds.export_tif(self.watershed_buff_fill, im, -99999, self.eff_rast_path)        
+        ### Adsorption ###
+        im = imageio.imread(self.watershed_buff_fill)
+        im[im>=0] = 0
+        tif_adds.export_tif(self.watershed_buff_fill, im, -99999, self.abs_rast_path)
+        ### d8massflux ###
+        wbt.d8_mass_flux(self.watershed_buff_fill, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
+        
+        
