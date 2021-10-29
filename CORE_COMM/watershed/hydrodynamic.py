@@ -64,7 +64,39 @@ class Hydrodynamic:
         """
         self.thickness = np.ones(np.shape(self.thickness)) * thickness_value
         
+    def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
+        """
+        Update the hydraulic conductivity for each geology entities
 
+        Parameters
+        ----------
+        geology_code : int list or 1D array
+            list of geology entities.
+        geology_array : int 2D array
+            localisation fo the geology entities in the DEM.
+        hyd_cond_values : float list (must be the same lenght of geology_code)
+            hydraulic conductivity values for each geology code.
+        """
+        self.hyd_cond = np.ones(np.shape(self.hyd_cond))
+        for i in range(0,len(geology_code)):
+            self.hyd_cond[geology_array==geology_code[i]] == hyd_cond_values[i]
+    
+    def update_porosity_with_geology(self, geology_code, geology_array, porosity_values):
+        """
+        Update the porosity for each geology entities
+
+        Parameters
+        ----------
+        geology_code : int list or 1D array
+            list of geology entities.
+        geology_array : int 2D array
+            localisation fo the geology entities in the DEM.
+        porosity_values : float list (must be the same lenght of geology_code)
+            porosity values for each geology code.
+        """
+        self.porosity = np.ones(np.shape(self.porosity))
+        for i in range(0,len(geology_code)):
+            self.porosity[geology_array==geology_code[i]] == porosity_values[i]
         
         
         
