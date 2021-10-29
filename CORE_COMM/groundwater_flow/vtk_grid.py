@@ -6,7 +6,7 @@ from osgeo import gdal
 import flopy
 from flopy.export import vtk as fv
 import flopy.utils.binaryfile as bf
-from workingFunctions import Functions # functions from the workingFunctions.py file
+# from workingFunctions import Functions # functions from the workingFunctions.py file
 
 def build(modelname, modelfolder, coord):
     print('Import Georeferences')
