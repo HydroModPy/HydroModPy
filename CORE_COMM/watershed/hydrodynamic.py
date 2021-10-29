@@ -1,6 +1,72 @@
-#définir K theta porosité
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 29 10:29:14 2021
+
+@author: Alexandre Gauvain
+"""
+
+# Modules
+import numpy as np
 
 class Hydrodynamic:
-    def __init__(self):
-        a=0
+    def __init__(self, nrow, ncol, hyd_cond_init = 8.64, porosity_init = 0.1, 
+                 thickness_init = 50):
+        """
+        Constructor
+
+        Parameters
+        ----------
+        nrow : int
+            number of rows in the DEM.
+        ncol : int
+            number of columns in the DEM.
+        hyd_cond_init : float, optional
+            initial hydraulic conductivy of the aquifer. The default is 8.64.
+        porosity_init : TYPE, optional
+            initial porosity of the aquifer. The default is 0.1.
+        thickness_init : TYPE, optional
+            initial thickness of the aquifer. The default is 50.
+        """
+        self.hyd_cond = np.ones(nrow, ncol) * hyd_cond_init
+        self.porosity = np.ones(nrow, ncol) * porosity_init
+        self.thickness = np.ones(nrow, ncol) * thickness_init
+    
+    def update_hyd_cond(self, hyd_cond_value):
+        """
+        Update the hydraulic conductivity with a constant value
+
+        Parameters
+        ----------
+        hyd_cond_value : float
+            hydraulic conductivy of the aquifer.
+        """
+        self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
+    
+    def update_porosity(self, porosity_value):
+        """
+        Update the porosity with a constant value
+
+        Parameters
+        ----------
+        porosity_value : float
+            porosity of the aquifer.
+        """
+        self.porosity = np.ones(np.shape(self.porosity)) * porosity_value
+        
+    def update_thickness(self, thickness_value):
+        """
+        Update the thickness with a constant value
+
+        Parameters
+        ----------
+        thickness_value : float
+            thickness of the aquifer.
+        """
+        self.thickness = np.ones(np.shape(self.thickness)) * thickness_value
+        
+    def update_hyd_cond_with_geology()
+        
+        
+        
+        
         
