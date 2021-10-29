@@ -267,8 +267,8 @@ class Watershed:
         return df_auto, df_manual
     
     def run_modflow(self, ident='modflow', calib=True, sink_fill = False, climatic=8e-4,
-                    lay_number=1, thick=100, bottom=None, thick_exp=1., 
-                    hyd_cond=8.64e-2, porosity=0.01, sea_level=None, cond_decay=0.):
+                    lay_number=1, bottom=None, thick_exp=1., 
+                    sea_level=None, cond_decay=0.):
         """ 
         build and run modflow model
         
@@ -280,15 +280,9 @@ class Watershed:
             recharge chronicle of the model in m/d
         lay_number: int
             number of layer of the model
-        thick: float
-            thickness of the model
         bottom : None or float (default is None)
             if bottom is None, the model has a constant thickness
             if bottom is float, the model hast à flat bottom at the float elevation
-        hyd_cond: float or array of float
-            hydraulic conductivity of the model. The array must be the same size of the dem
-        porosity: float or array of float
-            porosity of the model. The array must be the same size of the dem
         sea_level: None or float (default is None)
             sea level in meters
         cond_decay: float    
@@ -298,8 +292,8 @@ class Watershed:
         """
         
         model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
-                                    lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
-                                    hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
+                                    lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
+                                    hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                     climatic=climatic, sea_level=sea_level,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
