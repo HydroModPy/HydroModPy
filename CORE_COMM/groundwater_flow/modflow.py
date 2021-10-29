@@ -9,6 +9,7 @@ import sys
 from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 
 import flopy.utils.binaryfile as fpu
 
@@ -20,9 +21,11 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
-import vtk_grid
-import vtk_watertable
-import vtk_pathlines
+# import vtk_grid
+# import vtk_watertable
+# import vtk_pathlines
+
+from watershed import surfaceflow
 
 # VARIABLES GLOBALES
 
@@ -58,6 +61,7 @@ class Modflow():
         self.time_step = time_step
         self.thick = thick
         self.thick_exp = thick_exp
+        self.geographic = geographic
         self.resolution = geographic.resolution
         self.sink_fill = sink_fill
         self.sink = geographic.depressions_data
@@ -220,7 +224,7 @@ class Modflow():
         # write input files
         self.mf.write_input()
         # run model
-        succes, buff = self.mf.run_model(silent=True) # True without msg
+        succes, buff = self.mf.run_model(silent=False) # True without msg
         
     def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, vtk_files = True):
         self.wt_elev = []
@@ -268,7 +272,9 @@ class Modflow():
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
-        print('post-processing en cours')  
+        
+        print('Post-processing en cours')  
+        
         for item, time in enumerate(self.times):
             #print('Time : ', item)
                      
@@ -329,6 +335,7 @@ class Modflow():
                     tif_adds.export_tif(self.dem_path, self.seep_area, -9999,
                                         self.save_file+'/seepage_areas_t('+lead_numb+').tif')                
                 # print('export seepage_areas')
+                
                 self.dict_watertable_elevation[item] = self.wt_elev
                 self.dict_watertable_depth[item] = self.wt_depth
                 self.dict_seepage_areas[item] = self.seep_area
@@ -357,12 +364,36 @@ class Modflow():
                     if item == 0:
                         tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                             self.save_file+'/outflow_drain_t('+lead_numb+').tif')
+
+                        surfaceflow.SurfaceFlow(self.geographic,
+                                                 'outflow_drain_t('+lead_numb+').tif',
+                                                 '_temp_outflow_drain_t(xxx).shp',
+                                                 '_temp_trace_outflow_drain_t(xxx).tif',
+                                                 'trace_outflow_drain_t('+lead_numb+').shp',
+                                                 '_load_outflow_drain_t('+lead_numb+').tif', 
+                                                 '_eff_outflow_drain_t(xxx).tif', 
+                                                 '_abs_outflow_drain_t(xxx).tif',
+                                                 'mass_outflow_drain_t('+lead_numb+').tif',
+                                                 extraction_folder=self.save_file)
+                    
                 else:
                     tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                         self.save_file+'/outflow_drain_t('+lead_numb+').tif')
-                # print('export outflow_drain')
+
+                    surfaceflow.SurfaceFlow(self.geographic,
+                                             'outflow_drain_t('+lead_numb+').tif',
+                                             '_temp_outflow_drain_t(xxx).shp',
+                                             '_temp_trace_outflow_drain_t(xxx).tif',
+                                             'trace_outflow_drain_t('+lead_numb+').shp',
+                                             '_load_outflow_drain_t('+lead_numb+').tif', 
+                                             '_eff_outflow_drain_t(xxx).tif', 
+                                             '_abs_outflow_drain_t(xxx).tif',
+                                             'mass_outflow_drain_t('+lead_numb+').tif',
+                                             extraction_folder=self.save_file)
+                    
                 self.dict_outflow_drain[item] = self.out_drn
-            
+                # print('export outflow_drain')
+        
             if gw_flux == True:
                 """
                 gw_flux
@@ -394,50 +425,52 @@ class Modflow():
                 self.dict_gw_flux[item] = self.flux_top
                 # print('export gw_flux')
                 
-                ### Specific discharge
-                # # Import data
-                # if self.nlay == 1:
-                #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
-                #                                                            self.mf, self.path_file+'.cbc')
-                # if self.nlay > 1:
-                #     self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
-                #                                                            self.mf, self.path_file+'.cbc')            
-                # self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
-                # # Top layer
-                # self.sepcif_disch_top = self.specif_disch[0]
-                # # Mask
-                # self.sepcif_disch_top[self.dem_mask] = -9999
-                # # Export
-                # if item == 0:
-                #     tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
-                #              self.save_file+'/specific_discharge_t('+lead_numb+').tif')
-                #     print('export specific_discharge')
-            """
-            store_dict
-            """
-            # self.dict_specific_discharge[item] = self.specif_disch
+            # if specific_discharge == True:   
+            #     """
+            #     specific_discharge
+            #     """                
+            #     ### Specific discharge
+            #     # Import data
+            #     if self.nlay == 1:
+            #         self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, None), 
+            #                                                                 self.mf, self.path_file+'.cbc')
+            #     if self.nlay > 1:
+            #         self.qx, self.qy, self.qz = pp.get_specific_discharge((self.frf, self.fff, self.flf),                                                                    
+            #                                                                 self.mf, self.path_file+'.cbc')            
+            #     self.specif_disch = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
+            #     # Top layer
+            #     self.sepcif_disch_top = self.specif_disch[0]
+            #     # Mask
+            #     self.sepcif_disch_top[self.dem_mask] = -9999
+            #     # Export
+            #     if item == 0:
+            #         tif_adds.export_tif(self.dem_path, self.specif_disch, -9999,
+            #                   self.save_file+'/specific_discharge_t('+lead_numb+').tif')
+            #         print('export specific_discharge')
+            #     self.dict_specific_discharge[item] = self.specif_disch
             
         if save_dict == True :
-        """
-        save_dict
-        """
-        np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
-        np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
-        np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
-        np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
-        np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
-        # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
+            """
+            save_dict
+            """
+            np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
+            np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
+            np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+            np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+            np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
+            # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
         
-        if vtk_files == True:
-        '''
-        vtk files
-        '''
-        vtk_grid.build()
-        vtk_watertable.build()
-        if modpath_sim == True:
-            vtk_pathlines.build()
+        # if vtk_files == True:
+        #     '''
+        #     vtk files
+        #     '''
+        #     vtk_grid.build()
+        #     vtk_watertable.build()
+        # if modpath_sim == True:
+        #     vtk_pathlines.build()
 
-#%%
+#%% Extract results
+
 class Chronics:
     def __init__(self, geographic, watershed_name='x', outlet_type='hydrometric',
                  mask=False, calib_only=False, subbasins_folder=None, 
@@ -502,7 +535,7 @@ class Chronics:
         seepage_areas = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
         outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
         gw_flux = np.load(os.path.join(self.save_file, 'gw_flux'+'.npy'), allow_pickle=True).item()
-                
+        
         ### WATERSHED SCALE
         
         print('watershed')
@@ -641,6 +674,7 @@ class Chronics:
         obs = np.array(obs_data['disch_norm'].values)
         
         ### SIMULATED DISCHARGE  
+        
         if (self.outlet_type=='hydrometric'):
             # Waterhed
             sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
@@ -687,6 +721,7 @@ class Chronics:
         df_stats = np.nan
         
         ### SIMULATED SATURATION
+        
         if (self.outlet_type=='onde'):
             # Waterhed
             sim_path = os.path.join(self.save_file, '_simulated_chronics.csv')
@@ -718,6 +753,8 @@ class Chronics:
                 # ax.set_title(mask_name+'\n'+self.model_name)
                 ax.set_title(mask_name.split('_')[3])
                 ax.grid(True)
+                yearsFmt = DateFormatter('%Y')
+                ax.xaxis.set_major_formatter(yearsFmt)
                 
             return obs_data, sim_data, df_stats, mask_name
 
