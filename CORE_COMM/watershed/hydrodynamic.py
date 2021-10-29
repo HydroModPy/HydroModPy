@@ -9,6 +9,33 @@ Created on Fri Oct 29 10:29:14 2021
 import numpy as np
 
 class Hydrodynamic:
+    """
+    class Hydrodynamic is used to specify the values of hydraulic conductivity,
+    porosity and thickness of the modelised aquifer.
+    
+    Attributes
+    ----------
+    hydr_cond : 2D array (float)
+        array of hydraulic conductivity of the aquifer
+    porosity : 2D array (float) between 0 and 1
+        array of porosity of the aquifer
+    thickness : float
+        thickness of the aquifer
+    
+    Methods
+    -------
+    update_hyd_cond(self, hyd_cond_value)
+        Update the hydraulic conductivity with a constant value
+    update_porosity(self, porosity_value)
+        Update the porosity with a constant value
+    update_thickness(self, thickness_value)
+        Update the thickness with a constant value
+    update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values)
+        Update the hydraulic conductivity for each geology entities
+    update_porosity_with_geology(self, geology_code, geology_array, porosity_values)
+        Update the porosity for each geology entities
+        
+    """
     def __init__(self, nrow, ncol, hyd_cond_init = 8.64, porosity_init = 0.1, 
                  thickness_init = 50):
         """
@@ -29,7 +56,7 @@ class Hydrodynamic:
         """
         self.hyd_cond = np.ones(nrow, ncol) * hyd_cond_init
         self.porosity = np.ones(nrow, ncol) * porosity_init
-        self.thickness = np.ones(nrow, ncol) * thickness_init
+        self.thickness = thickness_init
     
     def update_hyd_cond(self, hyd_cond_value):
         """
@@ -62,7 +89,7 @@ class Hydrodynamic:
         thickness_value : float
             thickness of the aquifer.
         """
-        self.thickness = np.ones(np.shape(self.thickness)) * thickness_value
+        self.thickness =  thickness_value
         
     def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
         """
