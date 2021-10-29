@@ -64,7 +64,7 @@ class Hydrodynamic:
         """
         self.thickness = np.ones(np.shape(self.thickness)) * thickness_value
         
-    def update_hyd_cond_with_geology()
+
         
         
         
