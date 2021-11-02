@@ -25,7 +25,7 @@ from tools import tif_features
 # import vtk_watertable
 # import vtk_pathlines
 
-from watershed import surfaceflow
+from surface_flow import routing_dem
 
 # VARIABLES GLOBALES
 

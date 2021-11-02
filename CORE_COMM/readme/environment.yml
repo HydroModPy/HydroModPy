@@ -19,7 +19,7 @@ dependencies:
     - fastscape
     - xarray-simlab # Required for FastScape, and called 'xsimlab' in the code
 
-    #H5 files
+    # H5 files
     - pytables
     - deepdish
     - netCDF4
@@ -35,7 +35,7 @@ dependencies:
     # Post-processing
     - matplotlib
     - vedo
-    - hydroeval
+    # hydroeval
 
     # Viewing notebooks
     - jupyter
