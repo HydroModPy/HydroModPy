@@ -51,7 +51,6 @@ class Geographic:
         self.post_processing_dem()
 
     def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
-        
         # Generate folder where processing files are stored
         gis_path = os.path.join(out_path, 'results_stable/geographic/')
         file_adds.create_folder(gis_path)
