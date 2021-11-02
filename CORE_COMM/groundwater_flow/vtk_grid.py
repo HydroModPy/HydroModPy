@@ -3,12 +3,66 @@
 import os, re
 import numpy as np
 from osgeo import gdal
+import math
+from scipy.interpolate import griddata
 import flopy
 from flopy.export import vtk as fv
 import flopy.utils.binaryfile as bf
-# from workingFunctions import Functions # functions from the workingFunctions.py file
 
-def build(modelname, modelfolder, coord):
+class Functions:
+    def __init__(self, name):
+        self.name = name
+        
+    def getListFromDEL(initbreaker,disLines,celldim):
+        if 'CONSTANT' in disLines[initbreaker]:
+            constElevation = float(disLines[initbreaker].split()[1])
+            anyLines = [constElevation for x in range(celldim)]
+        
+        elif 'INTERNAL' in disLines[initbreaker]:
+            #empty array and number of lines 
+            anyLines = []
+            #final breaker
+            finalbreaker = initbreaker+1+math.ceil(celldim/10)
+            #append to list all items
+            for linea in range(initbreaker+1,finalbreaker,1):
+                listaitem = [float(item) for item in disLines[linea].split()]
+                for item in listaitem: anyLines.append(item)
+        else:
+            anylines = []
+        return np.asarray(anyLines)
+
+    def getListFromBreaker(initbreaker,modDis,fileLines):
+        #empty array and number of lines
+        anyLines = []
+        finalbreaker = initbreaker+1+math.ceil(modDis['cellRows'])
+        #append to list all items
+        for linea in range(initbreaker+1,finalbreaker,1):
+            listaitem = [float(item) for item in fileLines[linea].split()]
+            for item in listaitem: anyLines.append(item)
+        return anyLines
+
+    def getListFromBreaker2(initbreaker,modDis,fileLines):
+        #empty array and number of lines 
+        anyLines = []
+        finalbreaker = initbreaker+1+math.ceil(modDis['cellCols']/10)*modDis['cellRows']
+        #append to list all items
+        for linea in range(initbreaker+1,finalbreaker,1):
+            listaitem = [float(item) for item in fileLines[linea].split()]
+            for item in listaitem: anyLines.append(item)
+        return anyLines
+
+    #function that return a dictionary of z values on the vertex
+    def interpolateCelltoVertex(modDis,item):
+        dictZVertex = {}
+        for lay in modDis[item].keys():
+            values = np.asarray(modDis[item][lay])
+            grid_z = griddata(modDis['cellCentroids'], values, 
+                          (modDis['vertexXgrid'], modDis['vertexYgrid']), 
+                          method='nearest')
+            dictZVertex[lay]=grid_z
+        return dictZVertex
+
+def build(modelname, modelfolder, save_file, geographic):
     print('Import Georeferences')
 
     def GetExtent(gt,geotx, geoty, cols, rows):
@@ -24,20 +78,17 @@ def build(modelname, modelfolder, coord):
                 print(x, y)
             yarr.reverse()
         return ext
-
-    mf1 = flopy.modflow.Modflow.load(modelfolder+modelname+'.nam', verbose=False, check=False, load_only=['upw', 'dis'])
+    
+    mf1 = flopy.modflow.Modflow.load(os.path.join(modelfolder,modelname+'.nam'), verbose=False, check=False, load_only=['upw', 'dis'])
     hk = mf1.upw.hk
-    geot_g, geotx_g, geoty_g, demData_g, lay_wt_g, lay_ft_g, lay_kb_g, lay_kf_g, lay_kw_g, sea_earth_g,river_g= ggs(coord)
-    cols = demData_g.shape[1]
-    rows = demData_g.shape[0]
-    ext = GetExtent(geot_g,geotx_g,geoty_g, cols, rows)
+    ext = GetExtent(geographic.geodata,geographic.x_coord,geographic.y_coord, geographic.x_pixel, geographic.y_pixel)
     
     # change directory to the script path
     os.chdir(modelfolder)  # use your own path
 
     # open the DIS, BAS files
-    disLines = open(modelfolder+modelname+'.dis').readlines()  # discretization data
-    basLines = open(modelfolder+modelname+'.bas').readlines()  # active / inactive data
+    disLines = open(os.path.join(modelfolder,modelname+'.dis')).readlines()  # discretization data
+    basLines = open(os.path.join(modelfolder,modelname+'.bas')).readlines()  # active / inactive data
 
     # create a empty dictionay to store the model features
     modDis = {}
@@ -330,7 +381,7 @@ def build(modelname, modelfolder, coord):
     # In[37]:
 
     print('Create files')
-    textoVtk = open(modelfolder+'output_files/VTU_Grid.vtu', 'w')
+    textoVtk = open(os.path.join(save_file,'VTU_Grid.vtu'), 'w')
 
     # add header
     textoVtk.write('<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')

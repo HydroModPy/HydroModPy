@@ -177,6 +177,9 @@ class Watershed:
             else:
                 print("Warning : geographic doesn't exist in object")
                 return False
+            if ('hydrodynamic' in BV.__dir__()) == True:
+                self.hydrodynamic = BV.hydrodynamic
+                self.elt_def.append('hydrodynamic')
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
                 self.elt_def.append('climatic')
@@ -289,7 +292,6 @@ class Watershed:
         thick_exp: float (default is 1)
             changes the thickness of the layers exponentially
         """
-        
         model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
