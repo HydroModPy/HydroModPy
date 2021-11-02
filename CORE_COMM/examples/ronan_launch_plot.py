@@ -49,7 +49,7 @@ from tools import file_adds
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = True
+wbt.verbose = False
 
 #%% PARAMETERS PLOT
 
@@ -118,8 +118,10 @@ elif user=="Jean-Raynald":
     root_path= "C:/DATA/codes-gitlab-public/HydroModPy_data/"
     out_path = "C:/DATA/results/HydroModPy"
 elif user=="Ronan":
-    root_path= "D:/Users/abherve/HYDROMODPY/_data/"
-    out_path = "D:/Users/abherve/HYDROMODPY"
+    # root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+    # out_path = "D:/Users/abherve/HYDROMODPY"
+    root_path= "D:/HYDROMODPY/_data/"
+    out_path = "D:/HYDROMODPY"    
     # out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
     # analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
 else:
@@ -137,9 +139,9 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-surfex_path =  None
+surfex_path =  root_path + 'SURFEX'
 geology_path = root_path + 'GEOLOGY'
-hydrology_path = None
+hydrology_path = root_path + 'HYDROLOGY'
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
