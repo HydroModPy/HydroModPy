@@ -204,9 +204,12 @@ class Geographic:
         # Calculate centroids
         self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
         # Transform centroids to World Geodetic System 1984
-        transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
-        self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
-        # Transform to longitude/latitude London Greenwich
-        self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
-        if self.centroid_long_lat_Greenwich[1]<0:
-            self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
+        try:
+            transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
+            self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
+            # Transform to longitude/latitude London Greenwich
+            self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
+            if self.centroid_long_lat_Greenwich[1]<0:
+                self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
+        except:
+            pass
