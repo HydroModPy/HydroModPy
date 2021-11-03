@@ -48,7 +48,7 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0.,
-                 time_step='daily', model_name='modflow_model', 
+                 time_step='daily', model_name='modflow_model', modpath_sim = False,
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
@@ -72,6 +72,7 @@ class Modflow():
         self.cond_decay = cond_decay
         self.xul = geographic.xmin
         self.yul = geographic.ymax
+        self.modpath_sim = modpath_sim
         if sea_level == None:
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
@@ -365,7 +366,7 @@ class Modflow():
                         tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                             self.save_file+'/outflow_drain_t('+lead_numb+').tif')
 
-                        surfaceflow.SurfaceFlow(self.geographic,
+                        routing_dem.SurfaceFlow(self.geographic,
                                                  'outflow_drain_t('+lead_numb+').tif',
                                                  '_temp_outflow_drain_t(xxx).shp',
                                                  '_temp_trace_outflow_drain_t(xxx).tif',
@@ -380,7 +381,7 @@ class Modflow():
                     tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                         self.save_file+'/outflow_drain_t('+lead_numb+').tif')
 
-                    surfaceflow.SurfaceFlow(self.geographic,
+                    routing_dem.SurfaceFlow(self.geographic,
                                              'outflow_drain_t('+lead_numb+').tif',
                                              '_temp_outflow_drain_t(xxx).shp',
                                              '_temp_trace_outflow_drain_t(xxx).tif',
@@ -466,7 +467,8 @@ class Modflow():
              '''
              vtk.grid(self.model_name, self.full_path, self.save_file, self.geographic)
              vtk.watertable(self.model_name, self.full_path, self.save_file, self.geographic)
-             if modpath_sim == True:
+             vtk.piezometers(self.save_file, self.geographic)
+             if self.modpath_sim == True:
                  vtk.pathlines(self.model_name, self.full_path, self.save_file, self.geographic)
 
 #%% Extract results

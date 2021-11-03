@@ -107,8 +107,6 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### General model features as modDis dict
 
-    # In[3]:
-
     # get the extreme coordinates form the dis header
 
     modDis["vertexXmin"] = float(ext[0][0])
@@ -129,7 +127,6 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### Get the DIS Breakers
 
-    # In[4]:
     print('Import DIS')
 
     # get the grid breakers
@@ -150,14 +147,10 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### Get the DEL Info
 
-    # In[5]:
-
     modDis['DELR'] = Functions.getListFromDEL(modDis['disBreakers']['DELR'], disLines, modDis['cellCols'])
     modDis['DELC'] = Functions.getListFromDEL(modDis['disBreakers']['DELC'], disLines, modDis['cellRows'])
 
     # ### Get the Cell Centroid Z
-
-    # In[6]:
 
     modDis['cellCentroidZList'] = {}
 
@@ -177,8 +170,6 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### List of arrays of cells and vertex coord
 
-    # In[7]:
-
     modDis['vertexEasting'] = np.array(
         [modDis['vertexXmin'] + np.sum(modDis['DELR'][:col]) for col in range(modDis['vertexCols'])])
     modDis['vertexNorthing'] = np.array(
@@ -196,8 +187,6 @@ def grid(modelname, modelfolder, save_file, geographic):
     # # Get the BAS Info
 
     # ### Get the grid breakers
-
-    # In[8]:
     print('Import DATA')
 
     # empty dict to store BAS breakers
@@ -217,8 +206,6 @@ def grid(modelname, modelfolder, save_file, geographic):
                     pass
 
     # ### Store ibound per lay
-
-    # In[9]:
 
     # empty dict to store cell ibound per layer
     modBas['cellIboundList'] = {}
@@ -240,8 +227,6 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### Store Cell Centroids as a Numpy array
 
-    # In[10]:
-
     # empty list to store cell centroid
     cellCentroidList = []
 
@@ -262,8 +247,6 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### Definition of xyz points for all vertex
 
-    # In[22]:
-
     # empty list to store all vertex XYZ
     vertexXYZPoints = []
 
@@ -277,8 +260,6 @@ def grid(modelname, modelfolder, save_file, geographic):
                     modDis['vertexZGrid']['lay' + str(lay)][row, col]
                 ]
                 vertexXYZPoints.append(xyz)
-
-    # In[25]:
 
     # empty list to store all ibound
     listIBound = []
@@ -294,13 +275,9 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### Definition of Cell Ibound List
 
-    # In[28]:
-
     # # Hexahedrons and Quads sequences for the VTK File
 
     # ### List of Layer Quad Sequences (Works only for a single layer)
-
-    # In[29]:
 
     # empty list to store cell coordinates
     listLayerQuadSequence = []
@@ -316,8 +293,6 @@ def grid(modelname, modelfolder, save_file, geographic):
             listLayerQuadSequence.append(anyList)
 
     # ### List of Hexa Sequences
-
-    # In[30]:
 
     # empty list to store cell coordinates
     listHexaSequence = []
@@ -339,8 +314,6 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # ### Active Cells and Hexa Sequences
 
-    # In[32]:
-
     listActiveHexaSequenceDef = []
     listIBoundDef = []
     listHkDef = []
@@ -351,43 +324,6 @@ def grid(modelname, modelfolder, save_file, geographic):
             listActiveHexaSequenceDef.append(listHexaSequence[i])
             listIBoundDef.append(listIBound[i])
             listHkDef.append(listHk[i])
-#            listFlowDef.append(listFlow[i])
-
-    # In[34]:
-
-    # # VTK creation
-
-    # ### Summary of lists for the vtk creation
-
-    # In[35]:
-
-    ### Point sets
-    #   vertexXYZPoints                    for XYZ in all cell vertex
-    #   vertexWaterTableXYZPoints          for XYZ in all water table quad vertex
-    #   listDrainCellQuadXYZPoints         for XYZ in all drain cells quad vertex
-
-    ### Quad and Hexa secuences
-    #   listHexaSequenceDef                for Head Hexa Sequence in all active cells
-    #   listActiveHexaSequenceDef          for Active Hexa Sequence in all active cells
-    #   listWaterTableQuadSequenceDef      for Water Table Quad Sequence in all active cells
-    #   listDrainsCellsSecuenceDef         for Drain Cell Quad Sequence in drain cells
-
-    ### Cell data
-    #   listCellHeadDef                    for filtered active cells
-    #   listIBoundDef
-    #   listWaterTableCellDef              for filtered water table cells
-    #   listDrainsCellsIODef               for filtered drains cells
-
-    ### Point data
-    #   listVertexHead                     for heads in all cells
-
-    # ### Heads on Vertex and Cells VTK
-
-    # In[36]:
-
-    # ### Active Cell VTK
-
-    # In[37]:
 
     print('Create files')
     textoVtk = open(os.path.join(save_file,'VTU_Grid.vtu'), 'w')
@@ -542,13 +478,13 @@ def watertable(modelname, modelfolder,save_file, geographic):
     else:
         tsn = np.linspace(0,len(kstpkper)-1,len(kstpkper),dtype=int)
 
-    textoVtk = open(modelfolder+'output_files/VTU_WaterTable.pvd', 'w')
+    textoVtk = open(os.path.join(save_file,'VTU_WaterTable.pvd'), 'w')
     textoVtk.write('<VTKFile type="Collection" version="0.1">\n')
     textoVtk.write('  <Collection>\n')
     for time_step_num in range(0, len(tsn)):
         time_step = tsn[time_step_num]
-        textoVtk.write('    <DataSet timestep="' + str(time_step) + '" part="0" file="'+modelfolder+'output_files/VTU_WaterTable_' + str(
-            time_step) + '.vtu" />\n')
+        textoVtk.write('    <DataSet timestep="' + str(time_step) + '" part="0" file="'+os.path.join(save_file,'VTU_WaterTable_' + str(
+            time_step) + '.vtu" />\n'))
     textoVtk.write('  </Collection>\n')
     textoVtk.write('</VTKFile>\n')
     textoVtk.close()
@@ -687,8 +623,6 @@ def watertable(modelname, modelfolder,save_file, geographic):
 
             vertexHKGridCentroid['lay' + str(lay)] = matrix
 
-        # In[15]:
-
         modFhd['vertexHeadGrid'] = {}
         for lay in range(modDis['vertexLays']):
             anyGrid = vertexHeadGridCentroid
@@ -761,7 +695,7 @@ def watertable(modelname, modelfolder,save_file, geographic):
             drawdown = modDis['cellCentroidZList']['lay0'][item] - listWaterTableCellDef[item]
             listDrawdownCellDef.append(drawdown)
 
-        textoVtk = open(modelfolder+'output_files/VTU_WaterTable_' + str(time_step) + '.vtu', 'w')
+        textoVtk = open(os.path.join(save_file,'VTU_WaterTable_' + str(time_step) + '.vtu'), 'w')
         # add header
         textoVtk.write(
             '<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
@@ -1035,17 +969,9 @@ def pathlines(modelname, modelfolder, save_file, geographic):
     #   textoVtk.write(str(v_store[i]) + '\n')
     textoVtk.close()
 
-def piezometers(save_file):
-    modelfolder = 'H:/Users/gauvain/DEM/Guidel/'
-    modelname = 'Guidel1'
-    mf1 = flopy.modflow.Modflow()
-    dis = flopy.modflow.ModflowDis.load(modelfolder+modelname+'.dis',mf1)
-    
-    rows = dis.nrow
-    
-    piezos =['xyPSR1','xyPSR2','xyPSR15','xyPZ15','xyPZ16','xyPZ17','xyPZ19','xyPZ21','xyPZ26']
-    
-    textoVtk = open(os.path.join(save_file,'VTU_Pathlines.vtk'), 'w')
+def piezometers(save_file,piezometry):
+    piezos = piezometry.codes_bss
+    textoVtk = open(os.path.join(save_file,'VTU_Piezometers.vtk'), 'w')
     # add header
     textoVtk.write('# vtk DataFile Version 2.0\n')
     textoVtk.write('Particles Pathlines Modpath\n')
@@ -1053,11 +979,10 @@ def piezometers(save_file):
     textoVtk.write('DATASET POLYDATA\n')
     textoVtk.write('POINTS ' + '18' + ' float\n')
     for i in range(0, np.alen(piezos)):
-        piezo = pd.read_table(modelfolder+piezos[i]+'.txt', header=None)
-        x=(int(piezo._values[1]))*10
-        y=(rows-int(piezo._values[0]))*10
-        z=dis.top[int(piezo._values[0,0])-1,int(piezo._values[1,0])-1]+1
-        d=dis.top[int(piezo._values[0,0])-1, int(piezo._values[1,0])-1]-piezo._values[2,0]
+        x=piezometry.x_coord[i]
+        y=piezometry.y_coord[i]
+        z=piezometry.elevation_well[i]
+        d=piezometry.depth_well[i]
         textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(z) + '\n')
         textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(d) + '\n')
     textoVtk.write('\n')
