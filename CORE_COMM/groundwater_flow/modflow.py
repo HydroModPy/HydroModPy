@@ -21,7 +21,7 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
-from groundwater_flow import vtk_grid
+from groundwater_flow import vtk
 # import vtk_watertable
 # import vtk_pathlines
 
@@ -464,10 +464,10 @@ class Modflow():
              '''
              vtk files
              '''
-             vtk_grid.build(self.model_name, self.full_path, self.save_file, self.geographic)
-        #     vtk_watertable.build()
-        # if modpath_sim == True:
-        #     vtk_pathlines.build()
+             vtk.grid(self.model_name, self.full_path, self.save_file, self.geographic)
+             vtk.watertable(self.model_name, self.full_path, self.save_file, self.geographic)
+             if modpath_sim == True:
+                 vtk.pathlines(self.model_name, self.full_path, self.save_file, self.geographic)
 
 #%% Extract results
 
