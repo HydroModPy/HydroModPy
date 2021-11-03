@@ -1,4 +1,9 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jan 25 17:51:53 2021
+
+@author: Alexandre Gauvain
+"""
 
 # Modules
 import flopy
@@ -9,7 +14,7 @@ import sys
 from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+from matplotlib.dates import DateFormatter
 
 import flopy.utils.binaryfile as fpu
 
@@ -21,9 +26,7 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
-from groundwater_flow import vtk
-# import vtk_watertable
-# import vtk_pathlines
+from tools import vtk
 
 from surface_flow import routing_dem
 
@@ -48,7 +51,7 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0.,
-                 time_step='daily', model_name='modflow_model', modpath_sim = False,
+                 time_step='daily', model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
@@ -72,7 +75,6 @@ class Modflow():
         self.cond_decay = cond_decay
         self.xul = geographic.xmin
         self.yul = geographic.ymax
-        self.modpath_sim = modpath_sim
         if sea_level == None:
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
@@ -220,12 +222,12 @@ class Modflow():
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
-    def processing(self):
+    def processing(self, verbose=True):
         print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
         # run model
-        succes, buff = self.mf.run_model(silent=False) # True without msg
+        succes, buff = self.mf.run_model(silent=not verbose) # True without msg
         
     def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, vtk_files = True):
         self.wt_elev = []
@@ -467,9 +469,7 @@ class Modflow():
              '''
              vtk.grid(self.model_name, self.full_path, self.save_file, self.geographic)
              vtk.watertable(self.model_name, self.full_path, self.save_file, self.geographic)
-             vtk.piezometers(self.save_file, self.geographic)
-             if self.modpath_sim == True:
-                 vtk.pathlines(self.model_name, self.full_path, self.save_file, self.geographic)
+             
 
 #%% Extract results
 

@@ -1,19 +1,19 @@
-from vedo import *
+import vedo
 from vedo.applications import Browser, FreeHandCutPlotter
 import numpy as np
 
 file = 'C:/Users/alexa/Dropbox/HP_Article_Data/Data/output_files/VTU_Grid.vtu'
-mesh2 = Mesh(file)
+mesh2 = vedo.Mesh(file)
 mesh0 = mesh2.clone().wireframe()
 file1 = 'C:/Users/alexa/Dropbox/HP_Article_Data/Data/output_files/VTU_WaterTable_0.vtu'
-mesh1 = Mesh(file1)
+mesh1 = vedo.Mesh(file1)
 mesh3 = mesh1.clone()
 mesh4 = mesh1.clone()
 file2 = 'C:/Users/alexa/Dropbox/HP_Article_Data/Data/output_files/VTU_Pathlines.vtk'
-mesh5 = Mesh(file2)
+mesh5 = vedo.Mesh(file2)
 
 # Create a plotter and add landSurface to it
-plt = Plotter(N=4, axes=dict(xtitle='m', ytitle='m', ztitle='m', yzGrid=False),
+plt = vedo.Plotter(N=4, axes=dict(xtitle='m', ytitle='m', ztitle='m', yzGrid=False),
               bg2='lb', size=(1500,1080)) # screen size
 
 # Watertable
