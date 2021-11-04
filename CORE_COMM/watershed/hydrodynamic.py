@@ -54,8 +54,8 @@ class Hydrodynamic:
         thickness_init : TYPE, optional
             initial thickness of the aquifer. The default is 50.
         """
-        self.hyd_cond = np.ones(nrow, ncol) * hyd_cond_init
-        self.porosity = np.ones(nrow, ncol) * porosity_init
+        self.hyd_cond = np.ones((nrow, ncol)) * hyd_cond_init
+        self.porosity = np.ones((nrow, ncol)) * porosity_init
         self.thickness = thickness_init
     
     def update_hyd_cond(self, hyd_cond_value):
