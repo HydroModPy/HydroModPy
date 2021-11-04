@@ -44,4 +44,11 @@ if load == False:
     BV.piezometry.add_data()
     BV.save_object()
     
-BV.display(type = 'watershed_geology')
+#BV.display(type = 'watershed_geology')
+climatic = BV.climatic.values['REA']['REC']['historic']['MEAN'].mean()/1000
+BV.hydrodynamic.update_hyd_cond(0.0864)
+#BV.run_modflow(climatic=climatic, sea_level=0.48, modpath_sim = True)
+
+from groundwater_flow import vizualisation
+visu = vizualisation.Vizualisation(BV, 'modflow')
+visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='north-west')
