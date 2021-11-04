@@ -77,7 +77,8 @@ class Watershed:
                  library_path = os.path.join(dirname(abspath(__file__)), 'watershed_library.csv'),
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
-                 hydrology_path = None, piezometry_path = False, modflow_path = None, 
+                 hydrology_path = None, piezometry_path = False, modflow_path = None,
+                 hydrodynamic_path = None, save_object = True,
                  load = False):
         """ 
         Constructor
@@ -118,6 +119,7 @@ class Watershed:
         self.oceanic_path = oceanic_path
         self.geology_path = geology_path
         self.modflow_path = modflow_path
+        self.hydrodynamic_path = hydrodynamic_path
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
@@ -141,11 +143,13 @@ class Watershed:
              if succes == False:
                 print("Object was not loaded as demanded but created from scratch")
                 self.create_object()
-                self.save_object()
+                if save_object == True:
+                    self.save_object()
         else:
             print("Create new object")
             self.create_object()
-            self.save_object()
+            if save_object == True:
+                self.save_object()
         
     def load_watershed_csv(self):
         """
@@ -210,8 +214,9 @@ class Watershed:
                                                 out_path=self.watershed_folder) #2D
         self.elt_def.append('geographic')
         
-        self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
-        self.elt_def.append('hydrodynamic')
+        if self.hydrodynamic_path != None:
+            self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
+            self.elt_def.append('hydrodynamic')
         
         #self.hillslope = hillslope() #1D Doesn't exist
         
