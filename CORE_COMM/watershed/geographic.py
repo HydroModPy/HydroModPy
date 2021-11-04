@@ -166,8 +166,11 @@ class Geographic:
         """
         Create depressions raster
         """
-        self.depressions = gis_path + 'depressions.tif'
-        wbt.sink(self.watershed_box_buff_dem, self.depressions)
+        try:
+            self.depressions = gis_path + 'depressions.tif'
+            wbt.sink(self.watershed_box_buff_dem, self.depressions)
+        except:
+            pass
         
     def post_processing_dem(self):
 
