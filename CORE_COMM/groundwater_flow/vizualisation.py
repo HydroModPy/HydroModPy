@@ -1,86 +1,145 @@
 import vedo
-from vedo.applications import Browser, FreeHandCutPlotter
 import numpy as np
+import os
 
-file = 'C:/Users/alexa/Dropbox/HP_Article_Data/Data/output_files/VTU_Grid.vtu'
-mesh2 = vedo.Mesh(file)
-mesh0 = mesh2.clone().wireframe()
-file1 = 'C:/Users/alexa/Dropbox/HP_Article_Data/Data/output_files/VTU_WaterTable_0.vtu'
-mesh1 = vedo.Mesh(file1)
-mesh3 = mesh1.clone()
-mesh4 = mesh1.clone()
-file2 = 'C:/Users/alexa/Dropbox/HP_Article_Data/Data/output_files/VTU_Pathlines.vtk'
-mesh5 = vedo.Mesh(file2)
 
-# Create a plotter and add landSurface to it
-plt = vedo.Plotter(N=4, axes=dict(xtitle='m', ytitle='m', ztitle='m', yzGrid=False),
-              bg2='lb', size=(1500,1080)) # screen size
+class Vizualisation():
+    def __init__(self, watershed, modelname):
+        self.watershed = watershed
+        self.modelname = modelname
+    
+    def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', 
+                 interactive = False, lines=100):
+        """
+        3Dvisual shows the vtk objects from an interactive windows or a 
+        screenshot.
 
-# Watertable
-zvals = mesh1.points()[:, 2]
-mesh1.addElevationScalars(lowPoint=(0,0,-30),highPoint=(0,0,100), vrange=(-30, 100))
-mesh1.cmap('jet',zvals, vmin=min(zvals))
-mesh1.addScalarBar(pos=(0.1,0.8), title='Watertable elevation (m)', horizontal=True, titleFontSize=20)
-#mesh1.color('b')
-mesh1.scale([1,1,20])
-plt += mesh1.flag()   
+        Parameters
+        ----------
+        object_list : list of str, optional
+            list of visualisation.
+            possible options: grid, watertable, watertable_depth, pathlines
+            The default is ['grid', 'watertable'].
+        view : str, optional
+            position of view to see the 3D visual.
+            possible options: north, north-east, east, south-east, south,
+            south-west, west, north-west
+            The default is 'south-west'.
+        interactive : bool, optional
+            activate the interactive window, if True the figure doesn't save. 
+            The default is False.
+        lines : int, optional
+            the number of random pathlines displayed
+        """
+        plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
+                                          yzGrid=False), bg2='lb', size=(1500,1080))
+        # load files
+        try:
+            grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction','VTU_Grid.vtu')
+            grid_mesh = vedo.Mesh(grid) #grid_mesh
+            grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
+            grid_wireframe.color('white')
+            grid_wireframe.scale([1,1,20])
+            grid_wireframe.alpha(0.2)
+            plt += grid_wireframe.flag()
+            
+            zvals = grid_mesh.points()[:, 2]
+            grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
+            grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
+            grid_mesh.addScalarBar(pos=(0.1,0.8), title='Topography elevation (m)', horizontal=True, titleFontSize=20)
+            grid_mesh.scale([1,1,20])
+            plt += grid_mesh.flag()     
+            plt += grid_mesh.isolines(5).lw(1).c('k')
+        except:
+            print("VTK grid doesn't exist")
+        try: 
+            watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction','VTU_Watertable_0.vtu')
+            watertable_elev = vedo.Mesh(watertable) # 1 Elevation
+            watertable_depth = vedo.Mesh(watertable) # 3 Depth
+            watertable_blue = vedo.Mesh(watertable) # 4 blue
+            
+            zvals = watertable_elev.points()[:, 2]
+            watertable_elev.cmap('jet',zvals, vmin=min(zvals))
+            watertable_elev.addScalarBar(pos=(0.1,0.8), title='Watertable elevation (m)', horizontal=True, titleFontSize=20)
+            watertable_elev.scale([1,1,20])
+            plt += watertable_elev.flag() 
+            
+            watertable_depth.mapCellsToPoints()
+            watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=2)
+            watertable_depth.addScalarBar(pos=(0.1,0.8), title='Watertable depth (m)', horizontal=True, titleFontSize=20)
+            watertable_depth.scale([1,1,20])
+            plt += watertable_depth.flag()
+            
+            watertable_blue.color('b')
+            watertable_blue.alpha(0.2)
+            watertable_blue.scale([1,1,20])
+            watertable_blue.legend('Watertable')
+            plt += watertable_blue.flag()  
+        except:
+            print("VTK watertable doesn't exist")
+        try:
+            pathlines = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction','VTU_Pathlines.vtk')
+            pathlines_mesh = vedo.Mesh(pathlines) #5
+            
+            #Pathlines
+            vmax = max(pathlines_mesh.pointdata['Time'])
+            pathlines_mesh.cmap('hot',input_array='Time',vmax=vmax/50).lw(5)
+            pathlines_mesh.addScalarBar(pos=(0.1,0.8), title='Time (d)', horizontal=True, titleFontSize=20)
+            pathlines_mesh.scale([1,1,20],)
+            pathlines_mesh.renderLinesAsTubes(value=True)
+            pathlines_mesh.legend('Pathlines')
+            n = lines
+            x = pathlines_mesh.lines()
+            length = max(map(len, x))
+            y=np.array([xi+[None]*(length-len(xi)) for xi in x])
+            number_of_rows = y.shape[0]
+            random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
+            y1 = y[random_indices, :].flatten()
+            pts =  y1[y1 != np.array(None)]
+            pathlines_mesh.deletePoints(pts)
+        except:
+            print("VTK pathlines doesn't exist")
 
-mesh3.mapCellsToPoints()
-mesh3.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=2)
-mesh3.addScalarBar(pos=(0.1,0.8), title='Watertable depth (m)', horizontal=True, titleFontSize=20)
-mesh3.scale([1,1,20])
-plt += mesh3.flag()
+        #View
+        xs = max(watertable_elev.points()[:, 0]) - min(watertable_elev.points()[:, 0])
+        ys = max(watertable_elev.points()[:, 1]) - min(watertable_elev.points()[:, 1])
+        if view == 'north':
+            pos = (min(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'north-east':
+            pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'east':
+            pos = (max(watertable_elev.points()[:, 0])+ xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'south-east':
+            pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'south':
+            pos = (min(watertable_elev.points()[:, 0])+ xs ,min(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'south-west':
+            pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'west':
+            pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+        if view == 'north-west':
+            pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+        print(pos)
+        cam = dict(pos = pos)
+        
+        
+        for i in range (0,len(object_list)):
+            obj = object_list[i]
+            if obj == 'grid':
+                print(obj,i)
+                plt.show(grid_mesh, at=i, axes = 13)
+            if obj == 'watertable':
+                print(obj,i)
+                plt.show(grid_wireframe, watertable_elev,camera=cam, viewup ='z', at=i)
+            if obj == 'watertable_depth':
+                print(obj,i)
+                plt.show(grid_wireframe, watertable_depth,camera=cam, viewup ='z', at=i)
+            if obj == 'pathlines':
+                print(obj,i)
+                plt.show(grid_wireframe, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i)      
+        
+        if interactive == True:
+            plt.show(interactive=1).close()
+        else:
+            plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_figure','3Dvisual')).close()
 
-mesh4.color('b')
-mesh4.alpha(0.2)
-mesh4.scale([1,1,20])
-mesh4.legend('Watertable')
-plt += mesh4.flag()              
-
-# Grid
-mesh0.color('white')
-mesh0.scale([1,1,20])
-mesh0.alpha(0.2)
-plt += mesh0.flag()     
-
-#Grid
-mesh2.addElevationScalars(lowPoint=(0,0,-30),highPoint=(0,0,100), vrange=(-30, 100))
-zvals = mesh2.points()[:, 2]
-mesh2.cmap('terrain',zvals, vmin=-30)
-mesh2.addScalarBar(pos=(0.1,0.8), title='Topography elevation (m)', horizontal=True, titleFontSize=20)
-mesh2.scale([1,1,20])
-plt += mesh2.flag()     
-plt += mesh2.isolines(5).lw(1).c('k')
-
-#Pathlines
-vmax = max(mesh5.pointdata['Time'])
-mesh5.cmap('hot',input_array='Time',vmax=vmax/50).lw(5)
-mesh5.addScalarBar(pos=(0.1,0.8), title='Time (d)', horizontal=True, titleFontSize=20)
-mesh5.scale([1,1,20],)
-mesh5.renderLinesAsTubes(value=True)
-mesh5.legend('Pathlines')
-
-n = 100
-x = mesh5.lines()
-length = max(map(len, x))
-y=np.array([xi+[None]*(length-len(xi)) for xi in x])
-number_of_rows = y.shape[0]
-random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
-y1 = y[random_indices, :].flatten()
-pts =  y1[y1 != np.array(None)]
-mesh5.deletePoints(pts)
-
-# faire les vues
-xs = max(mesh1.points()[:, 0]) - min(mesh1.points()[:, 0])
-ys = max(mesh1.points()[:, 1]) - min(mesh1.points()[:, 1])
-zs = max(mesh1.points()[:, 2]) - min(mesh1.points()[:, 2])
-pos = (min(mesh1.points()[:, 0])- xs ,min(mesh1.points()[:,1])- ys,max(mesh1.points()[:, 2])*10)
-print(pos)
-cam = dict(pos = pos)
-
-plt.show(mesh2, at=0, axes=True)
-plt.show(mesh0, mesh1, at=1)
-plt.show(mesh4, mesh5, at=2)
-plt.show(mesh0, mesh3, at=3, camera=cam, viewup ='z', interactive=1)#.screenshot('image.png')
-
-plt.close()

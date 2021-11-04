@@ -241,6 +241,8 @@ class Modflow():
         self.dem_mask = (self.dem_clip<0)
         self.save_file = os.path.join(self.full_path, '_extraction')
         file_adds.create_folder(self.save_file)
+        self.figure_file = os.path.join(self.full_path, '_figure')
+        file_adds.create_folder(self.figure_file)
         
         # Model parameters
         self.path_file = os.path.join(self.full_path, self.model_name)
