@@ -12,7 +12,7 @@ import glob
 class Piezometry:
     def __init__(self, out_path, geographic):
         print('Extraction des données piézomètriques')
-        data_folder = os.path.join(out_path,'results_stable/piezometric/')
+        data_folder = os.path.join(out_path,'results_stable','piezometric/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)    
         self.download_init_data(data_folder)
@@ -23,9 +23,11 @@ class Piezometry:
         self.y_coord = []
         self.x_iloc = []
         self.y_iloc = []
+        self.depth_well = []
+        self.elevation_well = []
         self.exctract_piezos_from_watershed(data_folder, geographic)
-        self.piezos_shp = os.path.join(data_folder,'shapefile/piezos.shp')
-        if os.path.exists(data_folder + 'shapefile/piezos.shp'):
+        self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
+        if os.path.exists(data_folder + 'shapefile','piezos.shp'):
             self.extract_data_from_code_bss(data_folder)
             self.load_piezometric_data(data_folder)
 
@@ -91,6 +93,10 @@ class Piezometry:
         self.depth = pd.DataFrame()
         self.elevation = pd.DataFrame()
         for code in self.codes_bss:
+            desc_file = os.path.join(data_folder,'ades_export','Descriptif','descriptif.txt')
+            df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
+            self.depth_well.append(df1['Profondeur investigation maximale'][0])
+            self.elevation_well.append(df1['Altitude'][0])
             file = data_folder + code + '/ades_export/Quantite/chroniques.txt'
             df = pd.read_csv(file, delimiter = '|',header=0, engine='python', encoding='latin1')
             depth = df[['Date de la mesure','Profondeur relative/repère de mesure']]
@@ -110,9 +116,11 @@ class Piezometry:
         files = glob.glob(os.path.join(self.out_path, 'results_stable/add_data/piezometry_*.csv'))
         if len(files)>0:
             for file in files:
-                self.codes_bss.append(file.split('_')[-3])
-                self.x_coord.append(float(file.split('_')[-2]))
-                self.y_coord.append(float(file.split('_')[-1].split('.')[0]))
+                self.codes_bss.append(file.split('_')[-5])
+                self.x_coord.append(float(file.split('_')[-4]))
+                self.y_coord.append(float(file.split('_')[-3]))
+                self.elevation_well.append(float(file.split('_')[-2]))
+                self.depth_well.append(float(file.split('_')[-1].split('.')[0]))
                 idx = (np.abs(self.geo_x_coord- int(file.split('_')[-2]))).argmin()
                 idy = (np.abs(self.geo_y_coord- int(file.split('_')[-1].split('.')[0]))).argmin()
                 self.x_iloc.append(idx)

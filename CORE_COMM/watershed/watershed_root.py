@@ -16,7 +16,7 @@ sys.path.append(root_dir)
 
 # HydroModPy modules
 from watershed.data import hydrology, climatic, oceanic, piezometry
-from groundwater_flow import modflow
+from groundwater_flow import modflow, modpath
 from tools import file_adds
 from watershed import geographic, geology, hydrodynamic, subbasins, watershed_display
 from calibration import calib_dichotomy
@@ -181,6 +181,9 @@ class Watershed:
             else:
                 print("Warning : geographic doesn't exist in object")
                 return False
+            if ('hydrodynamic' in BV.__dir__()) == True:
+                self.hydrodynamic = BV.hydrodynamic
+                self.elt_def.append('hydrodynamic')
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
                 self.elt_def.append('climatic')
@@ -270,9 +273,9 @@ class Watershed:
         sub.extract_subbasins(snap_dist, self.stable_folder)
         return df_auto, df_manual
     
-    def run_modflow(self, ident='modflow', calib=True, sink_fill = False, climatic=8e-4,
+    def run_modflow(self, ident='modflow', modpath_sim=False, calib=True, sink_fill = False, climatic=8e-4,
                     lay_number=1, bottom=None, thick_exp=1., 
-                    sea_level=None, cond_decay=0.):
+                    sea_level=None, cond_decay=0., verbose=True):
         """ 
         build and run modflow model
         
@@ -280,6 +283,8 @@ class Watershed:
         ---------
         ident: str
             identity name of the model
+        modpath_sim: bool
+            run modapth model
         climatic: float or list of float
             recharge chronicle of the model in m/d
         lay_number: int
@@ -294,16 +299,23 @@ class Watershed:
         thick_exp: float (default is 1)
             changes the thickness of the layers exponentially
         """
-        
-        model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
+        flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                     climatic=climatic, sea_level=sea_level,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
-        model.pre_processing()
-        model.processing()
-        model.post_processing()
+        flow_model.pre_processing()
+        flow_model.processing(verbose = verbose)
+        flow_model.post_processing()
+        
+        if modpath_sim == True:
+            transit_model = modpath.Modpath(model_name=ident,  
+                                            model_folder=self.simulations_folder,
+                                            exe=self.modflow_path + '/bin/mp6.exe')
+            transit_model.pre_processing()
+            transit_model.processing(verbose = verbose)
+            transit_model.post_processing(self.geographic)
             
                
     def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 

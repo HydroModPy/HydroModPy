@@ -5,8 +5,6 @@ Created on Mon Oct 25 17:51:53 2021
 @author: ronan
 """
 
-import geopandas as gpd
-import numpy as np
 import os
 import whitebox
 import imageio
