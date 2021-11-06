@@ -45,9 +45,8 @@ warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                                             
 # HydroModPy modules
-from watershed import watershed_root
-from tools import tif_adds, serie_transf, tif_features
-from tools import file_adds
+from watershed import watershed_root, forcing
+from tools import tif_adds, serie_transf, tif_features, file_adds
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -141,9 +140,9 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-surfex_path =  root_path + 'SURFEX'
+surfex_path =  root_path + 'SURFEX/ebr'
 geology_path = root_path + 'GEOLOGY'
-hydrology_path = root_path + 'HYDROLOGY'
+hydrology_path = None
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
@@ -217,7 +216,7 @@ def extract_surfex_variables(h5_folder, model_name, scenario, first, last):
         run = np.nan
     
     try:
-        rec = pd.read_hdf(h5_path,'REC/'+scenario)
+        rec = pd.read_hdf("D:/HYDROMODPY/Canut/results_stable/climatic/REA.h5",'REC/'+scenario)
         rec = rec[(rec.index.year >= first) & (rec.index.year <= last)]
         rec = rec.MEAN
         rec = rec.resample('M').sum()
@@ -260,6 +259,49 @@ sin = serie_transf.create_sinusoidal(serie, 'monthly', 1,1,1,1)
 plt.plot(serie[0],c='b')
 plt.plot(sin,c='r')
 
+#%% IMPORT REHCARGE
+
+time_step = 'Y'
+
+# forcing.Forcing(out_path=out_path+'/'+watershed_name+'/', time_step=time_step)
+
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
+scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
+simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
+
+sce_colors=["k","dodgerblue","forestgreen","darkorange","red"]
+color_dict = dict(zip(scenarios, sce_colors))
+
+for var in variables:
+    df = pd.read_csv(stable_folder+'climatic/'+'_'+var+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
+    fig, ax = plt.subplots(1,1, figsize=(7,3))
+    for sce in scenarios:
+        try:
+            dfb = df.filter(regex=sce)
+            if sce == 'historic':
+                dfb = dfb[(dfb.index.year >= 1960) & (dfb.index.year <= 2009)]
+            else:
+                dfb = dfb[(dfb.index.year >= 2009) & (dfb.index.year <= 2099)]
+            dfs = pd.DataFrame(index=dfb.index)
+            # ax.plot(dfb, lw=0.2, color=color_dict[sce])
+            dfs['MEAN'] = dfb.mean(axis=1)
+            dfs['MIN'] = dfb.min(axis=1)
+            dfs['MAX'] = dfb.max(axis=1)
+            dfs['Q25'] = dfb.quantile(q=0.25, axis=1)
+            dfs['Q50'] = dfb.quantile(q=0.50, axis=1)
+            dfs['Q75'] = dfb.quantile(q=0.75, axis=1)
+            ax.fill_between(dfs.index, dfs['Q25'], dfs['Q75'], color=color_dict[sce], alpha=0.2, edgecolor='none')
+            ax.plot(dfs['MEAN'], lw=1, color=color_dict[sce], label=sce)
+            ax.set_xlim(pd.to_datetime('1960'), pd.to_datetime('2100'))
+            ax.set_title(var)
+            ax.legend(loc='upper left')
+            ax.axvline(pd.to_datetime('2010'), color='k', ls='--')
+            from datetime import date
+            ax.axvline(date.today(), color='k', ls='-')
+        except:
+            pass
+    fig.savefig(stable_folder+'climatic/'+'_'+var+'_'+time_step+'.png', dpi=300, bbox_inches='tight')
+        
 #%% GENERATE SUBBASINS
 
 df_auto, df_manual = BV.generate_subbasins(file_name='station_x.txt',
@@ -1454,7 +1496,7 @@ for idx, station in enumerate(stations[:]):
     fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
                 station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
 
-#%%
+#%% HYSTERESIS BOXPLOT
 
 import seaborn as sns
 
