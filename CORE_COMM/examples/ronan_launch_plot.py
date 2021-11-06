@@ -913,6 +913,7 @@ df_coord['snap_dist'] = 300
 df_coord['buff_dist'] = 1000
 df_coord['user'] = 'R.Abherve'
 df_coord['name'] = df_coord['name'].str.lower()
+
 df_coord.to_csv(data_path+'coord/'+'hydromodpy_stations.csv', sep=';')
 
 load = False
@@ -920,31 +921,25 @@ library_path = data_path+'coord/'+'hydromodpy_stations.csv'
 
 library = pd.read_csv(library_path, sep=';', index_col=0)
 
-compt= 0
-
-for watershed_name in library['name'][12:]:
-    
+for idx, watershed_name in enumerate(library['name'][:]):
+    x=2
     try:
-    
         stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
         simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
     
-        print(str(compt) + ' - ' + watershed_name)
-    
-        BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                      library_path=library_path,
-                                      dem_path=dem_path, 
-                                      out_path=out_path,
-                                      surfex_path=surfex_path,
-                                      geology_path=geology_path,
-                                      hydrology_path=hydrology_path,
-                                      piezometry_path=piezometry_path,
-                                      oceanic_path=oceanic_path, 
-                                      modflow_path=modflow_path,
-                                      load=load,
-                                      save_object=save_object)
-    
-    
+        # BV = watershed_root.Watershed(watershed_name=watershed_name,
+        #                               library_path=library_path,
+        #                               dem_path=dem_path, 
+        #                               out_path=out_path,
+        #                               surfex_path=surfex_path,
+        #                               geology_path=geology_path,
+        #                               hydrology_path=hydrology_path,
+        #                               piezometry_path=piezometry_path,
+        #                               oceanic_path=oceanic_path, 
+        #                               modflow_path=modflow_path,
+        #                               load=load,
+        #                               save_object=save_object)
+        
         model = 'REA'
         scenario = 'historic'
         first = 1960
@@ -952,7 +947,8 @@ for watershed_name in library['name'][12:]:
         
         # Recharge modflow
         tas, ppt, etp, run, rec = extract_surfex_variables(stable_folder + 'climatic/', 
-                                                           model, scenario, first, last)
+                                                            model, scenario, first, last)
+        
         df = pd.DataFrame()
         df.index = rec.index
         df['ppt'] = ppt.values *1000 # mm/m
@@ -967,7 +963,10 @@ for watershed_name in library['name'][12:]:
         #                                      -99999,
         #                                      75)
         
-        q = pd.read_csv(data_path + watershed_name.lower() + '.csv', sep='\t', index_col='time', parse_dates=True)
+        if watershed_name=='canut_nord' or watershed_name=='cheze_plelan':
+            q = pd.read_csv(data_path + 'raw/' + watershed_name.lower() + '.txt', sep='\t', index_col='time', parse_dates=True)
+        else:
+            q = pd.read_csv(data_path + 'raw/' + watershed_name.lower() + '.csv', sep='\t', index_col='time', parse_dates=True)
         q = q * 3600 * 24 # m3/J
         q = q.resample('M').sum() # m3/m
         
@@ -977,101 +976,69 @@ for watershed_name in library['name'][12:]:
         # Name modflow
         df.to_csv(data_path+'hydroclimat/'+watershed_name+'.csv', sep=';')
         
-        compt +=1
-    except:
-        continue
-    
-#%% PLOT HYSTERESIS
-
-stations = coord['STATION_NAME'].unique()
-
-for idx, station in enumerate(stations[0:1]):
+        print('OK - ' + str(idx) + ' - ' + watershed_name)
         
-    df = pd.read_csv(data_path+'hydroclimat/'+station+'.csv', sep=';', index_col='date', parse_dates=True)
+    except:
+        print('NO - ' + str(idx) + ' - ' + watershed_name)
+        continue
+            
+#%% HYSTERESIS TOTAL
 
+def hysteresis_total(station, index, xm, ym, out, first, last):
     # Create figure
     fig, ax = plt.subplots(1,1,figsize=(5, 4))
     fig.add_subplot(111, frameon=False)
-    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, 
-                    right=False) # hide tick and tick label of the big axis
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False) # hide tick and tick label of the big axis
     plt.xlabel("P - E [mm]", labelpad=+15)
     plt.ylabel("Q / A [mm]", labelpad=+25)
-    # (ax1,ax2,ax3),(ax4,ax5,ax6),(ax7,ax8,ax9) = axs1
-    # axs = axs.ravel()
     cmap = 'jet'
-
     # Create variables
-    xm = df.eff
-    ym = df.spe
-    cms = pd.Series(df.index.month)
-    cms = cms.replace([10,11,12,1,2,3,4,5,6,7,8,9],
-                    [1,2,3,4,5,6,7,8,9,10,11,12])
-
+    xm = xm
+    ym = ym
+    cms = pd.Series(index.month)
+    cms = cms.replace([10,11,12,1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9,10,11,12])
     # Create intermensual  
-    df_intm = df.groupby([lambda x: x.month]).mean()
-    df_intm['m'] = df_intm.index
-
-    xintm = df_intm.eff
-    yintm = df_intm.spe
-    cintm = df_intm.m
-    
+    xintm = xm.groupby([lambda x: x.month]).mean()
+    yintm = ym.groupby([lambda x: x.month]).mean()
+    cintm = xintm.index
     # Create xerror bar                
     xerr = pd.DataFrame()
     xerr['q25'] = (xm.groupby(df.index.month).quantile(0.25))
     xerr['q75'] = (xm.groupby(df.index.month).quantile(0.75))
     xerr['moy'] = xm.groupby(df.index.month).mean()
-    # xerr=xerr.T.to_numpy()
-    
     # Create yerror bar                   
     yerr = pd.DataFrame()
     yerr['q25'] = (ym.groupby(df.index.month).quantile(0.25))
     yerr['q75'] = (ym.groupby(df.index.month).quantile(0.75))
-    yerr['moy'] = ym.groupby(df.index.month).mean()
-    # yerr=yerr.T.to_numpy()
-    
+    yerr['moy'] = ym.groupby(df.index.month).mean()    
     # Plot x/y points                
-    scat = ax.scatter(xm, ym, c=cms,cmap=cmap, marker="o", s=15,
-                          vmin=1, vmax=12, ec='none')
+    scat = ax.scatter(xm, ym, c=cms,cmap=cmap, marker="o", s=15, vmin=1, vmax=12, ec='none')
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-    
     # Plot intermensual points            
-    ax.plot(xintm, yintm, marker="o", markersize=12,
-                      markeredgecolor='black',markerfacecolor='white',
-                      linestyle = 'None')    
-    
+    ax.plot(xintm, yintm, marker="o", markersize=12, markeredgecolor='black', 
+            markerfacecolor='white', linestyle = 'None')    
     # Plot annotate intermensual points                
     for k in cintm:
-        ax.annotate(cintm[k],(xintm[k],yintm[k]),
-                      family='sans-serif', fontsize=7, 
-                      color='black', weight="bold", ha='center', va='center')
+        ax.annotate(k,(xintm[k],yintm[k]), family='sans-serif', fontsize=7, 
+                    color='black', weight="bold", ha='center', va='center')
     # Plot 1:1 line           
     x = np.linspace(*ax.get_xlim())
     ax.plot(x, x, linestyle='--',color='black', linewidth=1, zorder=1)
-    
     # Plot error bars
-    ax.errorbar(xintm, yintm, 
-                        yerr=np.vstack([yintm-yerr.q25, yerr.q75-yintm]),
-                        xerr=np.vstack([xintm-xerr.q25, xerr.q75-xintm]),
-                        ecolor = 'black',
-                            fmt = 'none', capsize = 1, elinewidth=0.5, 
-                            capthick=0.5, zorder=1)
-    
+    ax.errorbar(xintm, yintm, yerr=np.vstack([yintm-yerr.q25, yerr.q75-yintm]),
+                              xerr=np.vstack([xintm-xerr.q25, xerr.q75-xintm]),
+                              ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
+                              capthick=0.5, zorder=1)
     # Parameter log
-    # axs1[compt].set_xscale('log')
     ax.set_yscale('log')
-    # ax.yaxis.set_major_formatter(ScalarFormatter())
-    
     # Parameter lim       
-    ax.set_xlim(-150,150)
-    ax.set_ylim(0.01,400)
+    ax.set_xlim(-100,150)
+    ax.set_ylim(0.3,200)
     ax.set_xticks(np.linspace(-150, 150, 5))
-    
     # Parameter title 
-    ax.set_title(watershed_name)
-    
+    ax.set_title(station+' '+str(first)+'-'+str(last)) 
     # Tidy
     plt.tight_layout()
-    
     # Color bar        
     position = fig.add_axes([0.95,0.32,0.02,0.5])
     cb = plt.colorbar(scat,cax=position)
@@ -1081,160 +1048,459 @@ for idx, station in enumerate(stations[0:1]):
     cb.set_ticklabels(squad)
     cb.ax.tick_params(labelsize=10)
     cb.update_ticks()
+    # Save
+    fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/hysteres/"+
+                station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
+    plt.close()
     
-    fig.savefig(stable_folder + '/_figures/' + 'hysteresis_total' + '.png', dpi=300, bbox_inches='tight')
-    
-#%% PLOT SUPERPOSE
+user = "Ronan"
+root_path = "D:/HYDROMODPY/_data/"
+out_path = "D:/HYDROMODPY/_HYSTERESIS/"    
+data_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
+import chardet
+with open(data_path+'coord/'+'all_stations.csv', 'rb') as f:
+    result = chardet.detect(f.read())  # or readline if the file is large
+coord = pd.read_csv(data_path+'coord/'+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
+stations = coord['STATION_NAME'].unique()
 
-coord[coord['STATION_NAME'].str.lower()=='aff_paimpont']['MAIN_LITHOLOGY'] = 'Schistes et gres du Primaire '
+for idx, station in enumerate(stations[:]):
+    print(str(idx) + ' - ' + station)
+    stable_folder = out_path+'/'+station.lower()+'/'+'results_stable/'
+    try:
+        df = pd.read_csv(data_path+'hydroclimat/'+station+'.csv', sep=';', index_col='date', parse_dates=True)
+        first = df.spe.first_valid_index().year
+        last = df.spe.last_valid_index().year
+        hysteresis_total(station, df.index, df.eff, df.spe, stable_folder, first, last)
+    except:
+        continue
 
-coord.loc[coord['STATION_NAME'].str.lower()=='aff_paimpont', 'MAIN_LITHOLOGY'] = 'Schistes et gres du Primaire '
-coord.loc[coord['STATION_NAME'].str.lower()=='cheze_plelan', 'MAIN_LITHOLOGY'] = 'Schistes et gres du Primaire '
+#%% HYSTERESIS SUPERPOSE
 
+# coord.loc[coord['STATION_NAME'].str.lower()=='aff_paimpont', 'MAIN_LITHOLOGY'] = 'Schistes et gres du Primaire '
+# coord.loc[coord['STATION_NAME'].str.lower()=='cheze_plelan', 'MAIN_LITHOLOGY'] = 'Schistes et gres du Primaire '
+# couleurs = ["red", "forestgreen", "hotpink", "grey", 'turquoise', 'darkorange', 'navy']
+
+user = "Ronan"
+root_path = "D:/HYDROMODPY/_data/"
+out_path = "D:/HYDROMODPY/_HYSTERESIS/"    
+data_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
+import chardet
+with open(data_path+'coord/'+'all_stations.csv', 'rb') as f:
+    result = chardet.detect(f.read())  # or readline if the file is large
+coord = pd.read_csv(data_path+'coord/'+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
 stations = coord['STATION_NAME'].unique()
 
 litho = coord['MAIN_LITHOLOGY'].unique()
-couleurs = ["red", "forestgreen", "hotpink", "grey", 'turquoise', 'darkorange', 'navy']
-
+couleurs = ["red", "forestgreen", "hotpink", "grey"]
 diclitho = dict(zip(litho, couleurs))
 
 for case in litho:
-    
+    print(case)
     cp = 0
     
     fig, ax = plt.subplots(1,1,figsize=(5.5, 4.5))
     fig.add_subplot(111, frameon=False)
-    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, 
-                    right=False) # hide tick and tick label of the big axis
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False) # hide tick and tick label of the big axis
     plt.xlabel("P - E [mm.m$^-$$^1$]", labelpad=+15)
     plt.ylabel("Q / A [mm.m$^-$$^1$]", labelpad=+25)
-    ax.set_title(case)
-    
+
     stations = coord.loc[coord['MAIN_LITHOLOGY']==case, 'STATION_NAME'].unique()
     
     for idx, station in enumerate(stations[:]):
-        
         print(str(idx) + ' - ' + station)
-        
         geol = coord.loc[coord['STATION_NAME'].str.lower()==station.lower(), 'MAIN_LITHOLOGY'].values[0]
+        couleur = diclitho[geol] 
         
         try:
             df_concat = pd.read_csv(data_path+'hydroclimat/'+station+'.csv', sep=';', index_col='date', parse_dates=True)
         except:
             continue
-        
-        couleur = diclitho[geol]    
     
         # Create variables
         xm = df_concat.eff
-        # xm = df_concat[piezo + '_mbgs']
         ym = df_concat.spe
         cms = pd.Series(df_concat.index.month)
-        cms = cms.replace([10,11,12,1,2,3,4,5,6,7,8,9],
-                        [1,2,3,4,5,6,7,8,9,10,11,12])
-    
+        cms = cms.replace([10,11,12,1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9,10,11,12])
         # Create intermensual  
         df_intm = df_concat.groupby([lambda x: x.month]).mean()
-        df_intm['m'] = df_intm.index
-    
+        df_intm['m'] = df_intm.index   
         xintm = df_intm.eff
-        # xintm = df_intm[piezo + '_mbgs']
         yintm = df_intm.spe
-        cintm = df_intm.m
-        
+        cintm = df_intm.m            
         # Create xerror bar                
         xerr = pd.DataFrame()
         xerr['q25'] = (xm.groupby(df_concat.index.month).quantile(0.25))
         xerr['q75'] = (xm.groupby(df_concat.index.month).quantile(0.75))
         xerr['moy'] = xm.groupby(df_concat.index.month).mean()
-        # xerr=xerr.T.to_numpy()
-        
         # Create yerror bar                   
         yerr = pd.DataFrame()
         yerr['q25'] = (ym.groupby(df_concat.index.month).quantile(0.25))
         yerr['q75'] = (ym.groupby(df_concat.index.month).quantile(0.75))
-        yerr['moy'] = ym.groupby(df_concat.index.month).mean()
-        # yerr=yerr.T.to_numpy()
-        
-        # # Plot x/y points                
-        # scat = ax.scatter(xm, ym, c=cm,cmap=cmap, marker="o", s=15,
-        #                       vmin=1, vmax=12, ec='none')
-        # ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-    
+        yerr['moy'] = ym.groupby(df_concat.index.month).mean()                  
         # Plot intermensual points            
         # ax.plot(xintm, yintm, marker="o", markersize=14,
         #                   markeredgecolor=couleur,markerfacecolor='white',
-        #                   mew=2,
-        #                   linestyle = 'None', zorder=3+cp)    
-        
+        #                   mew=2, linestyle = 'None', zorder=3+cp)
         # # Plot annotate intermensual points   
         # for k in cintm:
         #     ax.annotate(cintm[k],(xintm[k],yintm[k]),
         #                   family='sans-serif', fontsize=8, 
         #                   color='k', weight="bold", ha='center', va='center',
         #                   zorder=4+cp)
-            
         # Plot lines
         xline = xintm.append(xintm.iloc[[0]])
         xline.index = np.arange(1,14,1)
         yline = yintm.append(yintm.iloc[[0]])
         yline.index = np.arange(1,14,1)
         ax.plot(xline, yline, linestyle = '-', lw=1, color=couleur, zorder=2+cp)    
-        
-    
-    
-        
         # Plot error bars
         # ax.errorbar(xintm, yintm, 
         #                     yerr=np.vstack([yintm-yerr.q25, yerr.q75-yintm]),
         #                     xerr=np.vstack([xintm-xerr.q25, xerr.q75-xintm]),
-        #                     ecolor = couleur,
-        #                         fmt = 'none', capsize = 1, elinewidth=0.5, 
-        #                         capthick=0.5, zorder=1+cp)
-        
+        #                     ecolor = couleur, fmt = 'none', capsize = 1, elinewidth=0.5, 
+        #                     capthick=0.5, zorder=1+cp)        
         # Parameter log
-        # axs1[compt].set_xscale('log')
-        ax.set_yscale('log')
-        # ax.yaxis.set_major_formatter(ScalarFormatter())
-        
+        ax.set_yscale('log')        
         # Parameter lim   
         minx = -100
         maxx = 150
         ax.set_xlim(minx,maxx)
-        # ax.set_xlim(4,13)
-        # ax.set_ylim(-2,85)
-        # ax.set_xticks(np.linspace(-150, 150, 5))
-        # ax.set_xticks(np.arange(minx, maxx, 60))
-        # ax.set_yticks(np.linspace(0, 100, 5))
         ax.set_ylim(0.3,200)
-        
         # Plot 1:1 line
         x = np.linspace(*ax.get_xlim())
         ax.plot(x, x, linestyle='-',color='k', linewidth=2, zorder=0)
-        
         # Parameter title 
-        # ax.set_title(station)
-        
+        ax.set_title(case)
         ax.grid(True)
-        
         # Tidy
         plt.tight_layout()
         cp += 3
         
-        # ax.invert_xaxis()
-        
-        # # Color bar        
-        # position = fig.add_axes([0.92,0.32,0.02,0.5])
-        # cb = plt.colorbar(scat,cax=position)
-        # x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
-        # squad = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
-        # cb.set_ticks(x1)
-        # cb.set_ticklabels(squad)
-        # cb.ax.tick_params(labelsize=10)
-        # cb.update_ticks()
-        
     fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/"+
-                'hysteresis_' + str(case) + '.png',
+                'corrected_hysteresis_' + str(case) + '.png',
                 dpi=300, bbox_inches='tight')
 
+#%% HYSTERESIS DESCRIBE
+
+import scipy.stats as sp
+import shapely.geometry as SG
+import matplotlib.pylab as pl
+import math
+
+def linregress(inx,iny,ax):
+    x=np.array(inx.values, dtype=float)
+    y=np.array(iny.values, dtype=float)
+    xmas = np.ma.masked_array(x,mask=np.isnan(y)).compressed()
+    ymas = np.ma.masked_array(y,mask=np.isnan(y)).compressed()
+    slope, intercept, r_value, p_value, std_err = sp.linregress(xmas,ymas)    
+    xf = np.linspace(min(x),max(x),100)
+    xf1 = xf.copy()
+    xf1 = pd.to_datetime(xf1)
+    yf = (slope*xf)+intercept
+    center_x = xf.mean()
+    center_y = yf.mean()
+    lenght_reg = [[xf.min(),xf.max()],[yf.min(),yf.max()]]
+    return (center_x,center_y, slope, intercept, r_value, p_value, std_err, lenght_reg)
+
+def line(x, line_point1, line_point2, get_eq=False):
+    m = (line_point1[1] - line_point2[1])/(line_point1[0] - line_point2[0])
+    b = line_point1[1] - m*line_point1[0]
+    if get_eq:
+        return m, b
+    else:
+        return m*x + b
+    
+def perpendicular_line(x, line_point1, line_point2, random_point, get_eq=False):
+    m, b = line(0, line_point1, line_point2, True)
+    m2 = -1/m
+    b2 = random_point[1] - m2*random_point[0]
+    if get_eq:
+        return m2, b2
+    else:
+        return m2*x + b2
+    
+def get_intersection(line_point1, line_point2, random_point):
+    m, b = line(0, line_point1, line_point2, True)
+    m2, b2 = perpendicular_line(0, line_point1, line_point2, random_point, True)
+    x = (b2 - b) / (m - m2)
+    y = line(x, line_point1, line_point2)
+    return [x, y]
+
+def plus_sum(aList):
+    s = 0 
+    for l in aList:
+       if l > 0:
+           s = s + l
+    return s
+
+def minus_sum(aList):
+    s = 0 
+    for l in aList:
+       if l <= 0:
+           s = s + l
+    return s
+
+def hysteresis_parameters(station, index, xm, ym, out):
+            
+        # Create variables
+        xm = xm
+        ym = ym
+        cms = pd.Series(index.month)
+        cms = cms.replace([10,11,12,1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9,10,11,12])
+        
+        # Create intermensual  
+        xintm = xm.groupby([lambda x: x.month]).mean()
+        yintm = ym.groupby([lambda x: x.month]).mean()
+        cintm = xintm.index  
+    
+        # Create line
+        xline = xintm.append(xintm.iloc[[0]])
+        xline.index = np.arange(1,14,1)
+        yline = yintm.append(yintm.iloc[[0]])
+        yline.index = np.arange(1,14,1)
+        data= pd.DataFrame()
+        data['inx'] = xline
+        data['iny'] = yline
+        
+        # Indicators
+        qmax = data.iny.max()
+        qmin = data.iny.min()
+        q0 = data.iny[10]    # octobre
+        qmid = (q0+qmax)/2
+        qsep = (qmin+qmax)/2
+        
+        line = SG.LineString(list(zip(data.inx,data.iny)))
+        y0 = qmid
+        yline = SG.LineString([(min(data.inx), y0), (max(data.inx), y0)])
+        coords = np.array(line.intersection(yline))
+        hi = coords[1,0] - coords[0,0]
+        
+        # Rescale
+        data.inx = data.inx[0:-1]
+        data.iny = data.iny[0:-1]
+        
+        # Regression    
+        reg = linregress(data.inx,data.iny,ax)
+        reg_stat = pd.DataFrame(columns=['center_x','center_y','slope','intercept',
+                                         'r_value','p_value','std_err','lenght_reg'])
+        reg_stat.loc[len(reg_stat)] = reg
+    
+        # Distance
+        one = np.arange(min(data.min()),max(data.max()),0.1)
+        line_point1 = [one.min(),one.min()]
+        line_point2 = [one.max(),one.max()]
+        compteur = 1
+        ortho = pd.DataFrame(index=range(1,len(data)))
+        for d in range(1,len(data)):
+            random_point = [data.inx.loc[d], data.iny.loc[d]]
+            domain = np.linspace(np.min(data.min()), np.max(data.max()))
+            intersection = get_intersection(line_point1, line_point2, random_point)
+            xgiv = (random_point[0] - intersection[0])
+            ygiv = (random_point[1] - intersection[1])
+            distance = ((random_point[0] - intersection[0])**2 + (random_point[1] - intersection[1])**2)**0.5
+            if ygiv <= 0:
+                distance = distance * -1
+            ortho.loc[compteur,'ecart'] = distance
+            ortho.loc[compteur,'inters_x'] = intersection[0]
+            ortho.loc[compteur,'inters_y'] = intersection[1]
+            compteur += 1
+            
+        # Center regression distance
+        random_point = [reg_stat.center_x, reg_stat.center_y]
+        domain = np.linspace(xm.min(), xm.max())
+        intersection = get_intersection(line_point1, line_point2, random_point)
+        xgiv = (random_point[0] - intersection[0])
+        ygiv = (random_point[1] - intersection[1])
+        ecart_center = ((random_point[0] - intersection[0])**2 + (random_point[1] - intersection[1])**2)**0.5
+            
+        return qmax, qmin, q0, qmid, qsep, hi, reg_stat, ortho, intersection, ecart_center
+
+user = "Ronan"
+root_path = "D:/HYDROMODPY/_data/"
+out_path = "D:/HYDROMODPY/_HYSTERESIS/"    
+data_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
+import chardet
+with open(data_path+'coord/'+'all_stations.csv', 'rb') as f:
+    result = chardet.detect(f.read())  # or readline if the file is large
+coord = pd.read_csv(data_path+'coord/'+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
+stations = coord['STATION_NAME'].unique()
+
+litho = coord['MAIN_LITHOLOGY'].unique()
+couleurs = ["red", "forestgreen", "hotpink", "grey"]
+diclitho = dict(zip(litho, couleurs))
+
+# fig, ax = plt.subplots(1,1,figsize=(5.5, 4.5))
+# fig.add_subplot(111, frameon=False)
+# plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False) # hide tick and tick label of the big axis
+# plt.xlabel("P - E [mm.m$^-$$^1$]", labelpad=+15)
+# plt.ylabel("Q / A [mm.m$^-$$^1$]", labelpad=+25)
+
+recap = pd.DataFrame()
+compt = 0
+
+for idx, station in enumerate(stations[:]):
+    print(str(idx) + ' - ' + station)
+    geol = coord.loc[coord['STATION_NAME'].str.lower()==station.lower(), 'MAIN_LITHOLOGY'].values[0]
+    couleur = diclitho[geol]
+
+    stable_folder = out_path+'/'+station.lower()+'/'+'results_stable/'
+    
+    try:
+        df = pd.read_csv(data_path+'hydroclimat/'+station+'.csv', sep=';', index_col='date', parse_dates=True)
+        qmax, qmin, q0, qmid, qsep, hi, reg_stat, ortho, intersection, ecart_center = hysteresis_parameters(station, df.index, df.eff, df.spe, stable_folder)
+    except:
+        continue
+    
+    first = df.spe.first_valid_index().year
+    last = df.spe.last_valid_index().year
+
+    # Parameters
+    horiz = ortho.inters_x
+    verti = ortho.ecart
+    points = pd.Series(ortho.index)
+    data_color = points.replace([10,11,12,1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9,10,11,12])
+    
+    frame ={'xm':df.eff,'ym':df.spe}
+    scatot = pd.DataFrame(frame)
+    scatot = scatot.dropna()
+    
+    # Plot
+    fig, ax = plt.subplots(1,1,figsize=(6, 5))
+    fig.add_subplot(111, frameon=False)
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False) # hide tick and tick label of the big axis
+    plt.xlabel("P - E [mm]", labelpad=+15)
+    plt.ylabel("Q / A [mm]", labelpad=+25)
+    cmap = 'jet'
+    n = 12
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    cmap = 'jet'
+
+    forme = ax.scatter(horiz, verti, c = data_color, cmap=cmap, alpha=0.5, s = 180, edgecolor = 'grey')
+    for col in range(1,len(ortho)+1):
+        if verti[col] < 0 :
+            lines = ax.plot((horiz[col],horiz[col]),(verti[col]+1,0),linestyle='-', lw=1,color = 'grey')
+        if verti[col] > 0 :
+            lines = ax.plot((horiz[col],horiz[col]),(verti[col]-1,0),linestyle='-', lw=1,color = 'grey')        
+    for k in range(1,len(ortho)+1):
+            ax.annotate(points[k-1],(horiz[k],verti[k]),family='sans-serif', fontsize=9, color='black', weight="bold", ha='center', va='center')        
+    ax.axhline(y=0, color='k', linestyle='-',linewidth = 1)
+    ax.plot(intersection[0], ecart_center, marker ='+', markersize=11, mew=2, color = 'k')
+    ax.set_xlim(-150,150)
+    ax.set_ylim(-75,75)
+    ax.set_title(station+' '+str(first)+'-'+str(last))
+    ax.grid(color='grey',alpha=0.2)
+    
+    # Store                   
+    recap.loc[compt,'stations'] = station
+    recap.loc[compt,'qmid'] = qmid
+    recap.loc[compt,'counts'] = len(scatot)
+    recap.loc[compt,'qsep'] = qsep
+    recap.loc[compt,'hi'] = hi
+    recap.loc[compt,'slope'] = reg_stat.loc[0,'slope']
+    recap.loc[compt,'rval'] = reg_stat.loc[0,'r_value']
+    recap.loc[compt,'interc'] = reg_stat.loc[0,'intercept']
+    recap.loc[compt,'center'] = ecart_center[0]
+    recap.loc[compt,'centerx'] = reg_stat.center_x.values[0]
+    recap.loc[compt,'centery'] = reg_stat.center_y.values[0]
+    recap.loc[compt,'linreg'] = abs(reg_stat.loc[0,'lenght_reg'][0][1] - reg_stat.loc[0,'lenght_reg'][0][0])
+    recap.loc[compt,'psum'] = plus_sum(verti)
+    recap.loc[compt,'nsum'] = minus_sum(verti)
+    recap.loc[compt,'tsum'] = plus_sum(verti) + abs(minus_sum(verti))
+    recap.loc[compt,'pmoy'] = plus_sum(verti) / len(verti.loc[verti > 0])
+    recap.loc[compt,'nmoy'] = minus_sum(verti) / len(verti.loc[verti <= 0])
+    recap.loc[compt,'tmoy'] = (plus_sum(verti) + abs(minus_sum(verti))) / 12
+    recap.loc[compt,'long'] = horiz.max()-horiz.min()
+    recap.loc[compt,'haut'] = verti.max()-verti.min()
+    recap.loc[compt,'excent'] =  recap.loc[compt,'haut'] / recap.loc[compt,'long']
+    recap.loc[compt,'execent_bis'] = np.sqrt(1-((recap.loc[compt,'haut']**2)/(recap.loc[compt,'long']**2)))
+    recap.loc[compt,'aire'] = math.pi * recap.loc[compt,'haut'] * recap.loc[compt,'long']
+    recap = recap.round(2)
+    recap.loc[compt,'geol'] = geol
+    
+    # Add legend
+    ax.text(0.76, 0.82, 
+                     'Counts = ' +str(recap.loc[compt,'counts']) + '\n'
+                     'Qmid = '+str(recap.loc[compt,'qmid']) + '\n'
+                     'Qsep = '+str(recap.loc[compt,'qsep']) + '\n'
+                     'Interc = '+str(recap.loc[compt,'interc']) + '\n'
+                     'Center = '+str(recap.loc[compt,'center']) + '\n'
+                     'HI = '+str(recap.loc[compt,'hi']) + '\n',
+                     horizontalalignment='left',
+                     verticalalignment='center', 
+                     transform=ax.transAxes,
+                     fontsize = 10)
+    
+    ax.text(0.046, 0.17, 
+                     'Length = ' +str(recap.loc[compt,'long']) + '\n'
+                     'Height = ' +str(recap.loc[compt,'haut']) + '\n'
+                     'Excent = '+str(recap.loc[compt,'excent']) + '\n'
+                     'Slope = '+str(recap.loc[compt,'slope']) + '\n'
+                     'Posit = ' +str(recap.loc[compt,'psum']) + '\n'
+                     'Negat - = ' +str(recap.loc[compt,'nsum']) + '\n'
+                     'Total = = ' +str(recap.loc[compt,'tsum']) + '\n',
+                     horizontalalignment='left',
+                     verticalalignment='center', 
+                     transform=ax.transAxes,
+                     fontsize = 10)
+
+    # End parameters
+    plt.tight_layout()
+    plt.close()
+    compt += 1
+    
+    # Save
+    recap.to_csv("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
+                 '_recap_describe'+'.csv', sep=';')   
+    fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
+                station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
+
 #%%
+
+import seaborn as sns
+
+geol = recap.geol.unique().tolist()
+geol_colors=["red","forestgreen","hotpink","grey"]
+color_dict = dict(zip(geol, geol_colors))
+
+fig, axs = plt.subplots(5,5,figsize=(15, 15))
+axs = axs.ravel()
+
+cols = recap.columns[1:-1]
+
+for idx, to_look in enumerate(cols):
+
+    ax=axs[idx]
+
+    bplot=sns.boxplot(ax=ax, y=to_look, x='geol', 
+                      data=recap, 
+                      width=0.5)                  
+    
+    for i in range(0,3):
+        mybox = bplot.artists[i]
+        mybox.set_facecolor(color_dict[geol[i]])
+    
+    bplot = sns.stripplot(ax=ax, y=to_look, x='geol', 
+                          data=recap,
+                          jitter=True, marker='o',
+                          alpha=0.8, 
+                          color="black")
+    
+    plt.xticks(rotation = 10, fontsize=8, horizontalalignment="center")
+    ax.get_xaxis().set_visible(False)
+    ax.yaxis.label.set_visible(False)
+    ax.set_title(to_look.upper())
+
+plt.tight_layout()
+fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
+            '_recap_figure'+'.png', dpi=300, bbox_inches='tight')
+
+
+#%% NOTES
+
+# globals()[station] = pd.DataFrame()
+# recap = globals()[station]
+# ax.yaxis.set_major_formatter(ScalarFormatter())
+# (ax1,ax2,ax3),(ax4,ax5,ax6),(ax7,ax8,ax9) = axs1
+# axs = axs.ravel()
+# yerr=yerr.T.to_numpy()
+# xerr=xerr.T.to_numpy()   
