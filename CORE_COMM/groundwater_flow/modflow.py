@@ -281,7 +281,7 @@ class Modflow():
         print('Post-processing en cours')  
         
         for item, time in enumerate(self.times):
-            #print('Time : ', item)
+            print('PP time : ', item)
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])

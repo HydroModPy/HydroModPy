@@ -107,7 +107,7 @@ class Subbasins:
                               end_column):
         
         print('Search manual data in watershed')
-        
+
         coord_path = os.path.join(add_data_stable, file_name)
         coord_data = pd.read_csv(coord_path, sep=';')
 
@@ -129,7 +129,7 @@ class Subbasins:
         self.df = self.df.reset_index(drop=True)
         
         return self.df
-        
+    
     def extract_subbasins(self, snap_dist, stable_folder):
         
         self.subbasins_folder = os.path.join(stable_folder, 'subbasins')

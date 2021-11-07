@@ -18,7 +18,7 @@ sys.path.append(root_dir)
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow, modpath
 from tools import file_adds
-from watershed import geographic, geology, hydrodynamic, subbasins, watershed_display
+from watershed import forcing, geographic, geology, hydrodynamic, subbasins, watershed_display
 from calibration import calib_dichotomy
 
 class Watershed:
@@ -78,7 +78,7 @@ class Watershed:
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, piezometry_path = False, modflow_path = None,
-                 hydrodynamic_path = None, save_object = True,
+                 hydrodynamic_path = True, save_object = True,
                  load = False):
         """ 
         Constructor
@@ -186,6 +186,7 @@ class Watershed:
                 self.elt_def.append('hydrodynamic')
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
+                self.forcing = BV.forcing
                 self.elt_def.append('climatic')
             if ('hydrology' in BV.__dir__()) == True:
                 self.hydrology = BV.hydrology
@@ -235,6 +236,8 @@ class Watershed:
 
         if self.surfex_path != None:
             self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
+            climatic.Merge(out_path=self.watershed_folder)
+            self.forcing = forcing.Forcing(out_path=self.watershed_folder)
             self.elt_def.append('surfex')
 
         #FIELD DATA
@@ -260,18 +263,21 @@ class Watershed:
                                  snap_dist=100):
         sub = subbasins.Subbasins(self.geographic)
         df_auto = sub.automatic_coord(self.hydrology_path, os.path.join(self.stable_folder, 'hydrology'))
-        df_manual = sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
-                                     file_name,  
-                                     fonction_column,
-                                     type_data,
-                                     code_column,
-                                     label_column,
-                                     x_column,
-                                     y_column,
-                                     start_column,
-                                     end_column)
+        try:
+            df_manual = sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
+                                         file_name,  
+                                         fonction_column,
+                                         type_data,
+                                         code_column,
+                                         label_column,
+                                         x_column,
+                                         y_column,
+                                         start_column,
+                                         end_column)
+        except:
+            pass
         sub.extract_subbasins(snap_dist, self.stable_folder)
-        return df_auto, df_manual
+        return df_auto
     
     def run_modflow(self, ident='modflow', modpath_sim=False, calib=True, sink_fill = False, climatic=8e-4,
                     lay_number=1, bottom=None, thick_exp=1., 
@@ -307,7 +313,7 @@ class Watershed:
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing()
         flow_model.processing(verbose = verbose)
-        flow_model.post_processing()
+        flow_model.post_processing(vtk_files = False)
         
         if modpath_sim == True:
             transit_model = modpath.Modpath(model_name=ident,  
@@ -350,7 +356,7 @@ class Watershed:
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
             model.pre_processing()
             model.processing()
-            model.post_processing()
+            model.post_processing(vtk_files = False)
             
             dicot = calib_dichotomy.Dichotomy(self.geographic, 
                                               type_river=type_river,

@@ -47,6 +47,7 @@ warnings.filterwarnings("ignore")
 # HydroModPy modules
 from watershed import watershed_root, forcing
 from tools import tif_adds, serie_transf, tif_features, file_adds
+from watershed.data import hydrology, climatic, oceanic, piezometry
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -119,10 +120,10 @@ elif user=="Jean-Raynald":
     root_path= "C:/DATA/codes-gitlab-public/HydroModPy_data/"
     out_path = "C:/DATA/results/HydroModPy"
 elif user=="Ronan":
-    # root_path= "D:/Users/abherve/HYDROMODPY/_data/"
-    # out_path = "D:/Users/abherve/HYDROMODPY"
-    root_path= "D:/HYDROMODPY/_data/"
-    out_path = "D:/HYDROMODPY"    
+    root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+    out_path = "D:/Users/abherve/HYDROMODPY"
+    # root_path= "D:/HYDROMODPY/_data/"
+    # out_path = "D:/HYDROMODPY"    
     # out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
     # analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
 else:
@@ -130,7 +131,7 @@ else:
 
 # test of watershed class
 load = True
-watershed_name = 'Canut'
+watershed_name = 'RejetVaunoise'
 # watershed_name = 'Out'
 library_path = df + '/watershed' + '/watershed_library.csv'
 # library_path = analy_path + '/outlets_basins.txt'
@@ -140,9 +141,9 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-surfex_path =  root_path + 'SURFEX/ebr'
-geology_path = root_path + 'GEOLOGY'
-hydrology_path = None
+surfex_path =  root_path + 'SURFEX'
+geology_path = None
+hydrology_path = root_path + 'HYDROLOGY'
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
@@ -263,8 +264,6 @@ plt.plot(sin,c='r')
 
 time_step = 'Y'
 
-# forcing.Forcing(out_path=out_path+'/'+watershed_name+'/', time_step=time_step)
-
 variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
 scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
 simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
@@ -318,101 +317,135 @@ BV.calib_dichotomy(ident=None, calib=True, type_river='streams',
                    climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
                    first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
 
-#%% EXTRAPOLATION DISCHSATUR
+#%% LAUNCH MODELS
 
+# Parameters
 type_river='streams'
 dic = pd.read_csv(simulations_folder+'_dichotomy_'+type_river+'.csv', sep=';')
-
-# Fixed
 K = dic.iloc[-1]['K']
-# K = 20
 e = 50
+porosity = 0.001
 time_step = 'monthly'
 
-# Extrapolation
-porosities = [0.001]
+BV.hydrodynamic.update_hyd_cond(K)
+BV.hydrodynamic.update_porosity(porosity)
+BV.hydrodynamic.update_thickness(e)
 
-for i, porosity in enumerate(porosities):
+# Past
+mod = 'REA'
+sce = 'historic'
+step = mod+'_'+sce+'_'
+first = 1990
+last = 2019
+BV.forcing.update_recharge(mod, sce, first, last, 'M', 'transient')
+BV.forcing.update_runoff(mod, sce, first, last, 'M', 'transient')
+rch = BV.forcing.recharge / 1000 # m/m
+run = BV.forcing.runoff / 1000 # m/m
+
+print('==> Simulation ' + step + ' ' + ' / ' + str((porosity)))
+param_ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))
+clim_ident = str(round(rch.mean(),3))+'-'+str(first)+'-'+str(last)
+ident = param_ident+'-'+clim_ident
+
+BV.run_modflow(ident=ident, modpath_sim=False, calib=False, sink_fill=False, climatic=rch,
+                lay_number=1, bottom=None, thick_exp=1., 
+                sea_level=None, cond_decay=0., verbose=True)
+BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=False, 
+                    first=first, last=last, time_step='monthly')
+
+# Future
+mod = 'IPS1'
+scenarios = ['RCP4.5', 'RCP8.5']
+
+for sce in scenarios:
+    step = mod+'_'+sce+'_'
+    first = 2020
+    last = 2049
+    BV.forcing.update_recharge(mod, sce, first, last, 'M', 'transient')
+    BV.forcing.update_runoff(mod, sce, first, last, 'M', 'transient')
+    rch = BV.forcing.recharge / 1000
+    run = BV.forcing.runoff / 1000
     
-    step = 'trans_disch'
-    first = 1990
-    last = 1999
-
-    rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-    run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
-    print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
-    ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    BV.run_modflow(ident=ident, calib=False,
-                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
+    print('==> Simulation ' + step + ' ' + ' / ' + str((porosity)))
+    param_ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))
+    clim_ident = str(round(rch.mean(),3))+'-'+str(first)+'-'+str(last)
+    ident = param_ident+'-'+clim_ident
+    
+    BV.run_modflow(ident=ident, modpath_sim=False, calib=False, sink_fill=False, climatic=rch,
+                    lay_number=1, bottom=None, thick_exp=1., 
+                    sea_level=None, cond_decay=0., verbose=True)
     BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=False, 
                         first=first, last=last, time_step='monthly')
-    obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_discharge_chronic()
-    
-    first_year = sim_data.first_valid_index().year
-    last_year = sim_data.last_valid_index().year
-    obs_data = obs_data[(obs_data.index.year >= first_year) & (obs_data.index.year <= last_year)]
-    
-    fig = plt.figure(figsize=(10,4))
-    gs = fig.add_gridspec(1,3)
-    ax1 = fig.add_subplot(gs[:, :-1])
-    ax2 = fig.add_subplot(gs[:, -1])
-    
-    ax = ax1
-    # ax.plot(rch*1000, color='dodgerblue')
-    ax.plot(obs_data['disch_norm']*1000, color='k')
-    # ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
-    ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
-    ax.set_yscale('log')
-    ax.set_ylim(0.1, None)
-    # ax.set_title(mask_name+'\n'+ident)
-    ax.set_title(mask_name.split('_')[3])
-    ax.grid(True)
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Discharge [mm/months]')
-    yearsFmt = DateFormatter('%Y')
-    ax.xaxis.set_major_formatter(yearsFmt)
-    
-    ax = ax2
-    ax.scatter(obs_data['disch_norm']*1000, sim_data['outflow_drain']*1000+run*1000, c='dodgerblue')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    mini = np.minimum((obs_data['disch_norm']*1000).min(),(sim_data['outflow_drain']*1000+run*1000).min())
-    maxi = np.maximum((obs_data['disch_norm']*1000).max(),(sim_data['outflow_drain']*1000+run*1000).max())
-    ax.plot((mini,maxi),(mini,maxi),ls='-',c='k')
-    ax.set_xlim(1,maxi)
-    ax.set_ylim(1,maxi)
-    ax.set_xlabel('Observed [mm/m]')
-    ax.set_ylabel('Simulated [mm/m]')
-    
-    plt.tight_layout()
-    
-    def calc_rmse(predictions, targets):
-        rmse = np.sqrt(((predictions - targets) ** 2).mean())
-        nrmse = rmse / targets.mean() * 100
-        return rmse, nrmse
-    rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
 
-    #################
+#%% COMPARE DISCHSATUR
 
-    step = 'trans_satur'
-    first = 2014
-    last = 2019
-    
-    rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-    run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
-    print('==> Simulation ' + step + ' ' + str(i+1) + ' / ' + str(len(porosities)))
-    ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))+'-'+str(round(rch.mean(),3))
-    BV.run_modflow(ident=ident, calib=False,
-                    climatic=rch, lay_number=1, thick=e, bottom=None, thick_exp=1., 
-                    hyd_cond=K, porosity=porosity, sea_level=None, cond_decay=0.)
-    BV.chronics_modflow(ident=ident, mask=True, outlet_type=None, calib_only=True, 
-                        first=first, last=last, time_step='monthly')
-    obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_saturation_chronic()
+obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_discharge_chronic()
 
-#%% GIF INTERMITTENT
+first_year = sim_data.first_valid_index().year
+last_year = sim_data.last_valid_index().year
+obs_data = obs_data[(obs_data.index.year >= first_year) & (obs_data.index.year <= last_year)]
 
-site= 'Canut'
+fig = plt.figure(figsize=(10,4))
+gs = fig.add_gridspec(1,3)
+ax1 = fig.add_subplot(gs[:, :-1])
+ax2 = fig.add_subplot(gs[:, -1])
+
+ax = ax1
+# ax.plot(rch*1000, color='dodgerblue')
+ax.plot(obs_data['disch_norm']*1000, color='k')
+# ax.plot(sim_data['outflow_drain']*1000, color='darkorange')
+ax.plot(sim_data['outflow_drain']*1000+run*1000, color='red')
+ax.set_yscale('log')
+ax.set_ylim(0.1, None)
+# ax.set_title(mask_name+'\n'+ident)
+ax.set_title(mask_name.split('_')[3])
+ax.grid(True)
+ax.set_xlabel('Date')
+ax.set_ylabel('Discharge [mm/months]')
+yearsFmt = DateFormatter('%Y')
+ax.xaxis.set_major_formatter(yearsFmt)
+
+ax = ax2
+ax.scatter(obs_data['disch_norm']*1000, sim_data['outflow_drain']*1000+run*1000, c='dodgerblue')
+ax.set_xscale('log')
+ax.set_yscale('log')
+mini = np.minimum((obs_data['disch_norm']*1000).min(),(sim_data['outflow_drain']*1000+run*1000).min())
+maxi = np.maximum((obs_data['disch_norm']*1000).max(),(sim_data['outflow_drain']*1000+run*1000).max())
+ax.plot((mini,maxi),(mini,maxi),ls='-',c='k')
+ax.set_xlim(1,maxi)
+ax.set_ylim(1,maxi)
+ax.set_xlabel('Observed [mm/m]')
+ax.set_ylabel('Simulated [mm/m]')
+
+plt.tight_layout()
+
+def calc_rmse(predictions, targets):
+    rmse = np.sqrt(((predictions - targets) ** 2).mean())
+    nrmse = rmse / targets.mean() * 100
+    return rmse, nrmse
+rmse, nrmspe = calc_rmse(sim_data['outflow_drain']*1000+run*1000, obs_data['disch_norm']*1000)
+
+obs_data, sim_data, df_stats, mask_name = BV.chronics.compar_saturation_chronic()
+
+#%% GIFS RESULTS
+
+mod = 'IPS1'
+sce = 'RCP8.5'
+
+step = mod+'_'+sce+'_'
+first = 2020
+last = 2049
+BV.forcing.update_recharge(mod, sce, first, last, 'M', 'transient')
+BV.forcing.update_runoff(mod, sce, first, last, 'M', 'transient')
+rch = BV.forcing.recharge / 1000
+run = BV.forcing.runoff / 1000
+
+print('==> Simulation ' + step + ' ' + ' / ' + str((porosity)))
+param_ident = str(step)+'-'+str(round(porosity,3))+'-'+str(round(K,3))+'-'+str(round(e,3))
+clim_ident = str(round(rch.mean(),3))+'-'+str(first)+'-'+str(last)
+ident = param_ident+'-'+clim_ident
+
+site= 'RejetVaunoise'
 
 ### PATH ###
 
@@ -434,6 +467,7 @@ c12 = 12
 
 one = pd.DataFrame(columns=['x','y'])
 for i in list_traces:
+    print('Detect intermittency : '+str(compt))
     inter = list_traces[c1:c12]
     one_x = []
     one_y = []
@@ -480,7 +514,7 @@ for i in list_traces:
     
     streams = gpd.read_file(stable_folder+'/hydrology/'+'streams.shp')
     sections = gpd.read_file(stable_folder+'/hydrology/'+'sections.shp')
-    sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='k', ls='--', zorder=7)
+    sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='grey', ls='-', zorder=7)
     sections[sections.Persistanc=='4'].plot(ax=ax, lw=1, color='k', ls='-', zorder=7)
     
     bounds = contour.geometry.total_bounds
@@ -554,7 +588,6 @@ for filename in filenames:
     images.append(imageio.imread(filename))
 imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=1, loop=1)
 
-#%% GIF OUTFLOW
 
 # from matplotlib.gridspec import GridSpec
 # fig = plt.figure(figsize=(12, 6))
@@ -563,13 +596,6 @@ imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=1, loop=1)
 # ax2 = fig.add_subplot(gs[0, 1])
 # ax3 = fig.add_subplot(gs[1, 0])
 # ax4 = fig.add_subplot(gs[1, 1])
-
-##### RECHARGE #####
-
-first = 2014
-last = 2019
-rch = rech[(rech.index.year >= first) & (rech.index.year <= last)]
-run = runof[(runof.index.year >= first) & (runof.index.year <= last)]
 
 ##### DEM #####
 
@@ -619,7 +645,6 @@ time_tot = rch.index
 ##### LOOP #####
 
 for key in wt_all:
-    
     ### PREP ###
        
     outflow = outflow_all[key]
@@ -640,7 +665,6 @@ for key in wt_all:
     surface_sat.append(surface_sats)
 
 for key in wt_all:
-    
     lead_numb = "%03d" % (key,)
     
     t_temp = rch.index[key]
@@ -707,7 +731,7 @@ for key in wt_all:
     ticks = np.arange(0, int(round(rch.mean()*1000))+5, 5)
     cbar.set_ticks(ticks)
     cbar.set_ticklabels(ticks)
-    cbar.set_label('CumuLated upstream discharge [mm/M]')
+    cbar.set_label('Cumulated upstream discharge [mm/M]')
     plt.tight_layout()
     
     ax = ax2
@@ -748,7 +772,7 @@ for key in wt_all:
     plt.savefig(pngdir + name_fig)
     plt.close(fig)
     print(str(key))
-       
+           
 filenames = glob(pngdir+'/'+'dyn_*.png')  
 import imageio
 images = []
