@@ -51,4 +51,4 @@ BV.hydrodynamic.update_hyd_cond(0.0864)
 
 from groundwater_flow import vizualisation
 visu = vizualisation.Vizualisation(BV, 'modflow')
-visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='north-west')
+visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')

@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import time
 import glob
+import ssl
 
 class Piezometry:
     def __init__(self, out_path, geographic):
@@ -27,15 +28,16 @@ class Piezometry:
         self.elevation_well = []
         self.exctract_piezos_from_watershed(data_folder, geographic)
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
-        if os.path.exists(data_folder + 'shapefile','piezos.shp'):
+        if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
             self.extract_data_from_code_bss(data_folder)
             self.load_piezometric_data(data_folder)
 
     def download_init_data(self,data_folder):
         filename = data_folder + 'piezometers.zip'
         folder = data_folder + '/' + 'shapefile'
-        url = 'https://www.data.gouv.fr/fr/datasets/r/509bbb07-e375-45a2-81ac-c17820f57546'
+        url = 'https://www.data.gouv.fr/fr/datasets/r/f10f3f18-eac3-4cee-b178-4c577c4fd689'
         if not os.path.exists(folder):
+            ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
             with zipfile.ZipFile(filename, 'r') as zip_ref:
                 zip_ref.extractall(data_folder + '/' + 'shapefile')
@@ -130,9 +132,9 @@ class Piezometry:
                 df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
                 df = df.drop(['Date'], axis=1)
                 self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
-        df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
-        gdf.to_file(self.piezos_shp)
+            df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
+            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
+            gdf.to_file(self.piezos_shp)
 
 
 
