@@ -183,8 +183,11 @@ class Geographic:
         bv = gdal.Open(self.watershed_dem)
         self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
         # Open DEM depressions
-        dem_dep = gdal.Open(self.depressions)
-        self.depressions_data = dem_dep.GetRasterBand(1).ReadAsArray()
+        try:
+            dem_dep = gdal.Open(self.depressions)
+            self.depressions_data = dem_dep.GetRasterBand(1).ReadAsArray()
+        except:
+            pass
         # Extract the coordinate system
         proj = osr.SpatialReference(wkt=dem.GetProjection())
         self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
