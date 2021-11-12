@@ -24,6 +24,7 @@ class Piezometry:
         self.y_coord = []
         self.x_iloc = []
         self.y_iloc = []
+        self.codes_bss = []
         self.depth_well = []
         self.elevation_well = []
         self.exctract_piezos_from_watershed(data_folder, geographic)
@@ -95,7 +96,7 @@ class Piezometry:
         self.depth = pd.DataFrame()
         self.elevation = pd.DataFrame()
         for code in self.codes_bss:
-            desc_file = os.path.join(data_folder,'ades_export','Descriptif','descriptif.txt')
+            desc_file = os.path.join(data_folder,code,'ades_export','Descriptif','descriptif.txt')
             df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
             self.depth_well.append(df1['Profondeur investigation maximale'][0])
             self.elevation_well.append(df1['Altitude'][0])
