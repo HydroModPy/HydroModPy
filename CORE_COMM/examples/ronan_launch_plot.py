@@ -1560,6 +1560,243 @@ plt.tight_layout()
 fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
             '_recap_figure'+'.png', dpi=300, bbox_inches='tight')
 
+#%% CLIMAT SEASON
+
+time_step = 'M'
+
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
+# variables = ['REC']
+scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
+scenarios = ['historic','RCP4.5','RCP8.5']
+scenarios = ['historic','RCP2.6','RCP8.5']
+simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
+simulations = ['ACC1','BCC1','BNU1','CAN1','CSI1','IPS1','MIR1','NOR1']
+simulations = ['BCC1','CAN1','IPS1','NOR1']
+simulations = 'BCC1|CAN1|IPS1|NOR1'
+
+sce_colors=["k","dodgerblue","forestgreen","darkorange","red"]
+sce_colors=["k","dodgerblue","red"]
+color_dict = dict(zip(scenarios, sce_colors))
+
+seasons = ['9,10,11',
+           '12,1,2',
+           '3,4,5',
+           '6,7,8']
+string = ['SON','DJF','MAM','JJA']
+seas_dict = dict(zip(seasons, string))
+
+space = 5
+
+for var in variables:
+    df = pd.read_csv(stable_folder+'climatic/'+'_'+var+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
+    df = df.filter(regex=simulations)
+    fig, axs = plt.subplots(2,2, figsize=(10,5))
+    axs = axs.ravel()
+    for i, sea in enumerate(seasons):
+        ax = axs[i]
+        for sce in scenarios:
+            try:
+                dfb = df.filter(regex=sce)
+                # if sce == 'historic':
+                    # dfb = dfb[(dfb.index.year >= 1960) & (dfb.index.year <= 2009)]
+                    
+                    # rea = dfb['REA_historic']
+                    # rea = rea.groupby([(rea.index.year),(rea.index.month)]).mean()
+                    # rea = rea.rename_axis(["year", "month"]).to_frame()
+                    # rea = rea.query("month == "+"["+sea+"]")
+                    # rea = rea.groupby('year').sum()
+                    # rea.index =  pd.to_datetime(rea.index, format='%Y')
+                    
+                # else:
+                dfb = dfb[(dfb.index.year >= 1960) & (dfb.index.year <= 2099)]
+                
+                dfb = dfb.groupby([(dfb.index.year),(dfb.index.month)]).mean()
+                dfb = dfb.rename_axis(["year", "month"])
+                
+                dfb = dfb.query("month == "+"["+sea+"]")
+                dfb = dfb.dropna()
+                dfb = dfb.groupby('year').sum()
+                dfb.index =  pd.to_datetime(dfb.index, format='%Y')
+                
+                dfs = pd.DataFrame(index=dfb.index)
+                # ax.plot(dfb, lw=0.1, color=color_dict[sce])
+                dfs['MEAN'] = dfb.mean(axis=1)
+                dfs['MIN'] = dfb.min(axis=1)
+                dfs['MAX'] = dfb.max(axis=1)
+                dfs['Q25'] = dfb.quantile(q=0.25, axis=1)
+                dfs['Q50'] = dfb.quantile(q=0.50, axis=1)
+                dfs['Q75'] = dfb.quantile(q=0.75, axis=1)
+                dfs['STD'] = dfb.std(axis=1)
+                dfs = dfs.iloc[1:-1]
+                
+                dfs = dfs.rolling(window=space).mean().shift(-space)
+                
+                # ax.plot(rea, ls='-', color='k', lw=0.25)
+                ax.fill_between(dfs.index, dfs['Q25'], dfs['Q75'], color=color_dict[sce], alpha=0.2, edgecolor='none')
+                # ax.plot(dfs['Q50'], lw=1, color=color_dict[sce], label=sce)
+                # ax.fill_between(dfs.index, dfs.MEAN-dfs['STD'], dfs.MEAN+dfs['STD'], color=color_dict[sce], alpha=0.2, edgecolor='none')
+                ax.plot(dfs['MEAN'], lw=1, color=color_dict[sce], label=sce)
+                ax.set_xlim(pd.to_datetime('1960'), pd.to_datetime('2100'))
+                ax.set_title(seas_dict[sea])
+                # ax.legend(loc='upper left')
+                # ax.axvline(pd.to_datetime('2010'), color='k', ls='--')
+                from datetime import date
+                ax.axvline(date.today(), color='k', ls='-')
+                
+                ax.axvline(dfs.first_valid_index(), color='grey', ls='-', lw=0.1)
+                ax.axvline(dfs.last_valid_index(), color='grey', ls='-', lw=0.1)
+                # ax.text(dfs.first_valid_index(),0.8, str(dfs.first_valid_index().year), rotation=90,
+                #         transform=ax.get_xaxis_transform())
+                
+            except:
+                pass
+    fig.suptitle(var)
+    plt.tight_layout()
+    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/surfex_plot/fig/SEASON_ROLLING/'
+                    +str(space)+'_'+var+'_'+time_step+'_'+'.png', dpi=300, bbox_inches='tight')
+
+#%% CLIMAT FREQ
+
+time_step = 'M'
+
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
+# variables = ['REC']
+scenarios = ['historic','RCP2.6','RCP8.5']
+simulations = 'BCC1|CAN1|IPS1|NOR1'
+
+sce_colors=["k","dodgerblue","forestgreen","darkorange","red"]
+sce_colors=["k","dodgerblue","red"]
+color_dict = dict(zip(scenarios, sce_colors))
+
+seasons = ['9,10,11',
+           '12,1,2',
+           '3,4,5',
+           '6,7,8']
+string = ['SON','DJF','MAM','JJA']
+seas_dict = dict(zip(seasons, string))
+
+for var in variables:
+    df = pd.read_csv(stable_folder+'climatic/'+'_'+var+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
+    df = df.filter(regex=simulations)
+    fig, axs = plt.subplots(1,4, figsize=(10.5,2.5))
+    axs = axs.ravel()
+    for i, sea in enumerate(seasons):
+        ax = axs[i]
+        for sce in scenarios:
+            try:
+                dfb = df.filter(regex=sce)
+                if sce == 'historic':
+                    dfb = dfb[(dfb.index.year >= 1990) & (dfb.index.year <= 2009)]
+                else:
+                    dfb = dfb[(dfb.index.year >= 2010) & (dfb.index.year <= 2049)]
+        
+                dfb = dfb.groupby([(dfb.index.year),(dfb.index.month)]).mean()
+                dfb = dfb.rename_axis(["year", "month"])
+                
+                dfb = dfb.query("month == "+"["+sea+"]")
+                dfb = dfb.dropna()
+                dfb = dfb.groupby('year').sum()
+                dfb.index =  pd.to_datetime(dfb.index, format='%Y')
+        
+                dfs = pd.DataFrame(index=dfb.index)
+                dfs['MEAN'] = dfb.mean(axis=1).round(1)
+                dfs['MIN'] = dfb.min(axis=1)
+                dfs['MAX'] = dfb.max(axis=1)
+                dfs['Q25'] = dfb.quantile(q=0.25, axis=1)
+                dfs['Q50'] = dfb.quantile(q=0.50, axis=1)
+                dfs['Q75'] = dfb.quantile(q=0.75, axis=1)
+                dfs['STD'] = dfb.std(axis=1)
+                
+                freq = dfs.groupby(by='MEAN').size().reset_index(name='counts')
+                freq['frequency'] = freq.counts/freq.counts.sum() #freq
+                freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
+                
+                ax.plot(freq.cumulative_frequency, freq.MEAN, color=color_dict[sce])
+                ax.set_yscale('log')
+                ax.set_xticks(np.linspace(0,1,3))
+                ax.set_title(seas_dict[sea])
+                ax.set_xlabel('Frequency')
+                ax.set_ylabel(var + ' [mm]')
+                ax.plot(0.10, dfs['MEAN'].quantile(0.10), 'o',markersize=5, color=color_dict[sce], markeredgecolor='none')
+                ax.plot(0.50, dfs['MEAN'].quantile(0.50), 'o',markersize=5, color=color_dict[sce], markeredgecolor='none')
+                ax.plot(0.90, dfs['MEAN'].quantile(0.90), 'o',markersize=5, color=color_dict[sce], markeredgecolor='none')
+                ax.set_xlim(0,1)
+                
+            except:
+                pass
+    plt.tight_layout()
+    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/surfex_plot/fig/ANO_FREQ/'
+                +'FREQ_'+'_'+var+'_'+time_step+'_'+'.png', dpi=300, bbox_inches='tight')
+
+#%% CLIMAT ANOMALY
+
+time_step = 'M'
+
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
+# variables = ['REC']
+scenarios = ['RCP2.6','RCP8.5']
+simulations = 'BCC1|CAN1|IPS1|NOR1'
+
+sce_colors=["k","dodgerblue","forestgreen","darkorange","red"]
+sce_colors=["dodgerblue","red"]
+color_dict = dict(zip(scenarios, sce_colors))
+
+periods = [[2020,2030],
+           [2030,2040],
+           [2040,2050],
+           [2050,2060]]
+
+for var in variables:
+    df = pd.read_csv(stable_folder+'climatic/'+'_'+var+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
+    dfh = df.filter(regex=simulations)
+    dfh = df.filter(regex='historic')
+    hist = dfh[(dfh.index.year >= 1960) & (dfh.index.year <= 2009)]
+    hist = hist.groupby([lambda x: x.month]).mean()
+    hist = hist.mean(axis=1)
+    
+    fig, axs = plt.subplots(1,4, figsize=(12,2.5))
+    axs = axs.ravel()
+    for i, per in enumerate(periods):
+        ax = axs[i]
+        for j, sce in enumerate(scenarios):
+            try:
+                dfb = df.filter(regex=sce)
+                dfb = dfb[(dfb.index.year >= per[0]) & (dfb.index.year <= per[1])]
+                dfb = dfb.groupby([lambda x: x.month]).mean()
+                dfb = dfb.mean(axis=1)
+
+                ano = ( (dfb - hist) / hist.mean() ) * 100
+                
+                if sce == 'RCP2.6':
+                    space=-0.1
+                if sce == 'RCP8.5':
+                    space=+0.1
+                    
+                ax.bar(ano.index+(space), ano.values, width=0.2, align='center',
+                       color=color_dict[sce], edgecolor='k', lw=0.1, label=sce, alpha=1)
+                ax.axhline(y=0, linewidth=0.2, color='k')
+            
+                x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
+                squad = ['J','F','M','A','M','J','J','A','S','O','N','D']
+                ax.set_xticks(x1)
+                ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+                plt.xticks(rotation='horizontal')
+                ax.set_xlim(0.5,12.5)
+                ax.set_ylim(-50, +50)
+                import matplotlib.ticker as ticker
+                minorXlocator = ticker.MultipleLocator(0.5)
+                ax.xaxis.set_minor_locator(minorXlocator)
+                ax.grid(True, which='minor')
+                ax.set_title(str(per[0])+'-'+str(per[1]))                
+                ax.set_xlabel('Months')
+                if i == 0:
+                    ax.set_ylabel(var + ' [%]' + '\n' + '1960-2010')
+                
+            except:
+                pass
+    plt.tight_layout()
+    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/surfex_plot/fig/ANO_FREQ/'
+                +'ANO_'+'_'+var+'_'+time_step+'_'+'.png', dpi=300, bbox_inches='tight')
 
 #%% NOTES
 
