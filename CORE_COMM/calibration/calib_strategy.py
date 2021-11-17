@@ -48,11 +48,6 @@ class CalibStrategies:
         
         self.load_strategies()
         self.check_strategies(BV)
-        #self.create_strategies(BV)
-    def load_strategies(self):
-        """
-        Create "strategies" attribute
-        """
         self.strategies = pd.read_csv('calib_strats.csv')
         
     def check_strategies(self, BV):
