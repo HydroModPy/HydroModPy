@@ -78,8 +78,7 @@ class Watershed:
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, piezometry_path = False, modflow_path = None,
-                 hydrodynamic_path = True, save_object = True,
-                 load = False):
+                 save_object = True, load = False):
         """ 
         Constructor
         
@@ -119,7 +118,6 @@ class Watershed:
         self.oceanic_path = oceanic_path
         self.geology_path = geology_path
         self.modflow_path = modflow_path
-        self.hydrodynamic_path = hydrodynamic_path
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
@@ -186,11 +184,13 @@ class Watershed:
                 self.elt_def.append('hydrodynamic')
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
-                self.forcing = BV.forcing
                 self.elt_def.append('climatic')
             if ('hydrology' in BV.__dir__()) == True:
                 self.hydrology = BV.hydrology
                 self.elt_def.append('hydrology')
+            if ('forcing' in BV.__dir__()) == True:
+                self.forcing = BV.forcing
+                self.elt_def.append('forcing')
             if ('piezometry' in BV.__dir__()) == True:
                 self.piezometry = BV.piezometry
                 self.elt_def.append('piezometry')
@@ -215,9 +215,10 @@ class Watershed:
                                                 out_path=self.watershed_folder) #2D
         self.elt_def.append('geographic')
         
-        if self.hydrodynamic_path != None:
-            self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
-            self.elt_def.append('hydrodynamic')
+        self.forcing = forcing.Forcing(out_path=self.watershed_folder)
+        self.elt_def.append('forcing')
+        self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
+        self.elt_def.append('hydrodynamic')
         
         #self.hillslope = hillslope() #1D Doesn't exist
         
@@ -237,7 +238,6 @@ class Watershed:
         if self.surfex_path != None:
             self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
             climatic.Merge(out_path=self.watershed_folder)
-            self.forcing = forcing.Forcing(out_path=self.watershed_folder)
             self.elt_def.append('surfex')
 
         #FIELD DATA
@@ -251,7 +251,8 @@ class Watershed:
         """
         Saves python object
         """
-        with open(self.watershed_folder + '/python_object', 'wb') as config_dictionary_file:
+        os.remove(os.path.join(self.watershed_folder,'python_object'))
+        with open(os.path.join(self.watershed_folder,'python_object'), 'wb') as config_dictionary_file:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
         # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
@@ -308,12 +309,12 @@ class Watershed:
         flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
-                                    climatic=climatic, sea_level=sea_level,
+                                    climatic=self.forcing.recharge, sea_level=sea_level,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing()
         flow_model.processing(verbose = verbose)
-        flow_model.post_processing(vtk_files = False)
+        flow_model.post_processing(vtk_files = True)
         
         if modpath_sim == True:
             transit_model = modpath.Modpath(model_name=ident,  

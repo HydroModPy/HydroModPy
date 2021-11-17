@@ -124,7 +124,7 @@ class Modpath:
                                     break
                             stldata[compt]['j0'] = j
                             stldata[compt]['i0'] = i
-                            stldata[compt]['zloc0'] = 0.9
+                            stldata[compt]['zloc0'] = 1
                             stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
                             stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
                             compt = compt + 1
