@@ -8,7 +8,7 @@ Created on Wed Nov 17 12:42:06 2021
 import os
 
 #HydroModPy modules
-import objective_function
+from calibration import objective_function
 
 
 def run_calibration(params, watershed, observation = 'streams'):
@@ -23,6 +23,7 @@ def run_calibration(params, watershed, observation = 'streams'):
         obj_func = objective_function.streams(watershed.geographic, 
                                    hydrology_stable=os.path.join(watershed.stable_folder, 'hydrology'), 
                                    simulations_folder=os.path.join(watershed.simulations_folder, ident))
+    
     
     indicator = obj_func.get_indicator()
     return (indicator)

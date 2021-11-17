@@ -10,6 +10,7 @@ from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 from watershed import watershed_root
+from calibration import calibration_root
 
 # Users
 user_path = "Alexandre"
@@ -40,13 +41,10 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
                               hydrology_path=hydrology_path, oceanic_path=oceanic_path, piezometry_path=True ,
                               modflow_path=modflow_path , load=load)
 
-if load == False:
-    BV.save_object()
-    
-#BV.display(type = 'watershed_geology')
-climatic = BV.climatic.values['REA']['REC']['historic']['MEAN'].mean()/1000
-BV.hydrodynamic.update_hyd_cond(0.0864)
-#BV.run_modflow(climatic=climatic, sea_level=0.48, modpath_sim = True)
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
+BV.hydrodynamic.update_hyd_cond(0.864)
+BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
 
 from groundwater_flow import vizualisation
 visu = vizualisation.Vizualisation(BV, 'modflow')
