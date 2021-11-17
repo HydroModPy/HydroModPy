@@ -251,7 +251,8 @@ class Watershed:
         """
         Saves python object
         """
-        os.remove(os.path.join(self.watershed_folder,'python_object'))
+        if os.path.exists(os.path.join(self.watershed_folder,'python_object')):
+            os.remove(os.path.join(self.watershed_folder,'python_object'))
         with open(os.path.join(self.watershed_folder,'python_object'), 'wb') as config_dictionary_file:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
