@@ -5,6 +5,8 @@ Created on Fri Nov 12 10:21:56 2021
 @author: Alexandre Gauvain
 """
 
+# Download data on my Dropbox at this link: https://www.dropbox.com/sh/eidukc992nvi6jc/AAC0cwuwCnY7bDjiN57qwODva?dl=0
+
 import sys
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
@@ -30,7 +32,7 @@ else:
 load = True #False to build and save python object
 watershed_name = 'Agon-Coutainville'
 
-dem_path = root_path + "MNT_TOPO_BATH_75m.tif"
+dem_path = root_path + "MNT_25m.tif"
 surfex_path =  root_path + 'SURFEX/Normandie_h5'
 geology_path = root_path + 'GEOLOGY'
 oceanic_path = root_path + 'OCEAN'
@@ -44,7 +46,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 BV.hydrodynamic.update_hyd_cond(0.864)
-BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
+BV.run_modflow(sea_level=0.48,lay_number= 1, modpath_sim = True)
 
 from groundwater_flow import vizualisation
 visu = vizualisation.Vizualisation(BV, 'modflow')

@@ -250,11 +250,18 @@ def grid(modelname, modelfolder, save_file, geographic):
     for lay in range(modDis['vertexLays']):
         for row in range(modDis['vertexRows']):
             for col in range(modDis['vertexCols']):
+                if modDis['vertexZGrid']['lay' + str(lay)][row, col]< -100:
+                    a = modDis['vertexZGrid']['lay' + str(lay)]
+                    z = np.max(a[np.max([row-1, 0]):np.min([row+1, modDis['vertexRows']-1])+1, np.max([col-1, 0]):np.min([col+1, modDis['vertexCols']-1])+1])
+                else :
+                    z = modDis['vertexZGrid']['lay' + str(lay)][row, col]
+                
                 xyz = [
                     modDis['vertexEasting'][col],
                     modDis['vertexNorthing'][row],
-                    modDis['vertexZGrid']['lay' + str(lay)][row, col]
+                    z
                 ]
+                
                 vertexXYZPoints.append(xyz)
 
     # empty list to store all ibound
@@ -316,7 +323,11 @@ def grid(modelname, modelfolder, save_file, geographic):
 
     # filter hexahedrons and heads for active cells
     for i in range(len(listIBound)):
-        if listIBound[i] > -10:
+        if listIBound[i] == -1:
+            listActiveHexaSequenceDef.append(listHexaSequence[i])
+            listIBoundDef.append(listIBound[i])
+            listHkDef.append(listHk[i])
+        if listIBound[i] == 1:
             listActiveHexaSequenceDef.append(listHexaSequence[i])
             listIBoundDef.append(listIBound[i])
             listHkDef.append(listHk[i])
@@ -555,10 +566,10 @@ def watertable(modelname, modelfolder,save_file, geographic):
         # definition of hexahedrons cell coordinates
         for row in range(modDis['cellRows']):
             for col in range(modDis['cellCols']):
-                pt0 = modDis['vertexCols'] * (row + 1) + col
-                pt1 = modDis['vertexCols'] * (row + 1) + col + 1
-                pt2 = modDis['vertexCols'] * (row) + col + 1
-                pt3 = modDis['vertexCols'] * (row) + col
+                pt0 = modDis['vertexCols'] * (row + 1 ) + col
+                pt1 = modDis['vertexCols'] * (row + 1 ) + col + 1
+                pt2 = modDis['vertexCols'] * (row ) + col + 1
+                pt3 = modDis['vertexCols'] * (row ) + col
                 anyList = [pt0, pt1, pt2, pt3]
                 listLayerQuadSequence.append(anyList)
 
@@ -573,12 +584,12 @@ def watertable(modelname, modelfolder,save_file, geographic):
                                           headLay[row, col]]
                     headList = []
                     for item in neighcartesianlist:
-                        if item > -100:
+                        if item > -200:
                             headList.append(item)
                     if len(headList) > 0:
                         headMean = sum(headList) / len(headList)
                     else:
-                        headMean = -100
+                        headMean = -200
 
                     matrix[row, col] = headMean
 
@@ -601,12 +612,12 @@ def watertable(modelname, modelfolder,save_file, geographic):
                                           headLay[row, col]]
                     headList = []
                     for item in neighcartesianlist:
-                        if item > -100:
+                        if item > -200:
                             headList.append(item)
                     if len(headList) > 0:
                         headMean = sum(headList) / len(headList)
                     else:
-                        headMean = -100
+                        headMean = -200
 
                     matrix[row, col] = headMean
 
@@ -640,11 +651,11 @@ def watertable(modelname, modelfolder,save_file, geographic):
                 for lay in range(modDis['cellLays']):
                     anyList.append(modFhd['vertexHeadGrid']['lay' + str(lay)][row, col])
                 a = np.asarray(anyList)
-                if list(a[a > -100]) != []:  # just in case there are some inactive zones
+                if list(a[a >-100]) != []:  # just in case there are some inactive zones
                     waterTableVertexGrid[row, col] = a[a > -100][0]
                 else:
-                    waterTableVertexGrid[row, col] = -100
-
+                    waterTableVertexGrid[row, col] = np.max(modFhd['vertexHeadGrid']['lay' + str(lay)][np.max([row-1, 0]):np.min([row+1, modDis['vertexRows']-1])+1, np.max([col-1, 0]):np.min([col+1, modDis['vertexCols']-1])+1])
+                    
         # empty list to store all vertex Water Table XYZ
         vertexWaterTableXYZPoints = []
         # definition of xyz points for all vertex
@@ -653,7 +664,7 @@ def watertable(modelname, modelfolder,save_file, geographic):
                 if waterTableVertexGrid[row, col] > -100:
                     waterTable = waterTableVertexGrid[row, col]
                 else:
-                    waterTable = 1000
+                    waterTable = np.max(waterTableVertexGrid[np.max([row-1, 0]):np.min([row+1, modDis['vertexRows']-1])+1, np.max([col-1, 0]):np.min([col+1, modDis['vertexCols']-1])+1])
                 xyz = [
                     modDis['vertexEasting'][col],
                     modDis['vertexNorthing'][row],
@@ -670,7 +681,7 @@ def watertable(modelname, modelfolder,save_file, geographic):
                 for lay in range(modDis['cellLays']):
                     anyList.append(modFhd['cellHeadGrid']['lay' + str(lay)][row, col])
                 a = np.asarray(anyList)
-                if list(a[a > -1e+10]) != []:  # just in case there are some inactive zones
+                if list(a[a > -100]) != []:  # just in case there are some inactive zones
                     waterTableCellGrid[row, col] = a[a > -100][0]
                 else:
                     waterTableCellGrid[row, col] = -100
@@ -684,10 +695,9 @@ def watertable(modelname, modelfolder,save_file, geographic):
             if listWaterTableCell[item] > -100:
                 listWaterTableQuadSequenceDef.append(listLayerQuadSequence[item])
                 listWaterTableCellDef.append(listWaterTableCell[item])
-        for item in range(len(listWaterTableCellDef)):
-            drawdown = modDis['cellCentroidZList']['lay0'][item] - listWaterTableCellDef[item]
-            listDrawdownCellDef.append(drawdown)
-
+                drawdown = modDis['cellCentroidZList']['lay0'][item] - listWaterTableCell[item]
+                listDrawdownCellDef.append(drawdown)
+                
         textoVtk = open(os.path.join(save_file,'VTU_WaterTable_' + str(time_step) + '.vtu'), 'w')
         # add header
         textoVtk.write(
@@ -730,7 +740,7 @@ def watertable(modelname, modelfolder,save_file, geographic):
                 textoVtk.write("          %.2f %.2f %.2f " % tuplevalue)
             elif item % 4 == 0:
                 textoVtk.write('%.2f %.2f %.2f \n          ' % tuplevalue)
-            elif item == len(vertexWaterTableXYZPoints) - 1:
+            elif item == len(vertexWaterTableXYZPoints):
                 textoVtk.write("%.2f %.2f %.2f \n" % tuplevalue)
             else:
                 textoVtk.write("%.2f %.2f %.2f " % tuplevalue)
