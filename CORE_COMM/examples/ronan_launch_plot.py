@@ -122,43 +122,47 @@ elif user=="Jean-Raynald":
 elif user=="Ronan":
     root_path= "D:/Users/abherve/HYDROMODPY/_data/"
     out_path = "D:/Users/abherve/HYDROMODPY"
-    # root_path= "D:/HYDROMODPY/_data/"
-    # out_path = "D:/HYDROMODPY"    
-    # out_path = "D:/Users/abherve/RESULTS/rejets_metropole"
-    # analy_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/rejets_metropole"
+    root_path= "D:/HYDROMODPY/_data/"
+    out_path = "D:/HYDROMODPY"    
 else:
     print("Define a well-validated name of user")
 
 # test of watershed class
 load = True
-watershed_name = 'RejetVaunoise'
-# watershed_name = 'Out'
+watershed_name = 'Canut1'
 library_path = df + '/watershed' + '/watershed_library.csv'
-# library_path = analy_path + '/outlets_basins.txt'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-surfex_path =  root_path + 'SURFEX'
+# surfex_path =  root_path + 'SURFEX/ebr/'
+surfex_path =  None
 geology_path = None
-hydrology_path = root_path + 'HYDROLOGY'
+hydrology_path = None
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
 
-BV = watershed_root.Watershed(watershed_name=watershed_name,
-                              library_path=library_path,
-                              dem_path=dem_path, 
-                              out_path=out_path,
-                              surfex_path=surfex_path,
-                              geology_path=geology_path,
-                              hydrology_path=hydrology_path,
+BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
+                              out_path=out_path,surfex_path=surfex_path, 
+                              geology_path = geology_path, 
+                              hydrology_path=hydrology_path, oceanic_path=oceanic_path, 
                               piezometry_path=piezometry_path,
-                              oceanic_path=oceanic_path, 
-                              modflow_path=modflow_path,
-                              load=load)
+                              modflow_path=modflow_path , load=load)
+
+#%% RAW VT
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'M', sim_state='steady')
+BV.hydrodynamic.update_hyd_cond(1e-5*3600*24*30)
+BV.run_modflow(sea_level=0, lay_number= 1, modpath_sim = True)
+
+from groundwater_flow import vizualisation
+visu = vizualisation.Vizualisation(BV, 'modflow')
+visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')
+
+#%% Example recharge fct
 
 rea_path = stable_folder+'climatic/'+'REA.h5'
 first = 1960
