@@ -93,6 +93,7 @@ class Hydrodynamic:
         
     def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
         """
+        AG/JR 11/2021 : Voir comment généraliser avec la porosité
         Update the hydraulic conductivity for each geology entities
 
         Parameters

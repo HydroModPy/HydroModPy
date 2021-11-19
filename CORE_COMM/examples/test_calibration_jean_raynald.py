@@ -45,14 +45,18 @@ hydrology_path = root_path + 'HYDROLOGY'
                               modflow_path=modflow_path , load=load)'''
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path,modflow_path=modflow_path,hydrology_path=hydrology_path,piezometry_path=True ,load = False)
+                              out_path=out_path,modflow_path=modflow_path,hydrology_path=hydrology_path,piezometry_path=True ,load = True)
 #BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 BV.forcing.update_recharge(values=[0.0003], sim_state = 'steady')
 BV.hydrodynamic.update_hyd_cond(0.864)
-BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
+#BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
 
+indicator = calibration_root.run_calibration(0.864, BV, observation='streams')
+
+'''
 from tools import vtk
 from groundwater_flow import vizualisation
 vtk.VTK(BV, 'modflow')
 visu = vizualisation.Vizualisation(BV, 'modflow')
-visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')
+visu.visual3D(interactive=True, object_list=['grid'], view='south-west')
+'''
