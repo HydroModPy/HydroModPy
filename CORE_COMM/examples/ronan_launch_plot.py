@@ -128,14 +128,15 @@ else:
     print("Define a well-validated name of user")
 
 # test of watershed class
-load = True
-watershed_name = 'Canut1'
+load = False
+watershed_name = 'Agon-Coutainville'
 library_path = df + '/watershed' + '/watershed_library.csv'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
+# dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
+dem_path = root_path + "/DEM/" + "BDALTI_norm-manch_75m.tif"
 
 # surfex_path =  root_path + 'SURFEX/ebr/'
 surfex_path =  None
@@ -154,13 +155,38 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 
 #%% RAW VT
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'M', sim_state='steady')
+# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'M', sim_state='steady')
+BV.forcing.update_recharge([25/1000], 'steady')
 BV.hydrodynamic.update_hyd_cond(1e-5*3600*24*30)
-BV.run_modflow(sea_level=0, lay_number= 1, modpath_sim = True)
+BV.run_modflow(sea_level=None, lay_number= 1, modpath_sim = False)
 
-from groundwater_flow import vizualisation
-visu = vizualisation.Vizualisation(BV, 'modflow')
-visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')
+# from groundwater_flow import vizualisation
+# visu = vizualisation.Vizualisation(BV, 'modflow')
+# visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')
+
+#%% CORRECTED NODATA
+
+z = "D:/HYDROMODPY/Agon-Coutainville/results_stable/geographic/watershed.tif"
+# Open base dem
+import rasterio as rio
+base_dem_path = z
+data_to_tif = imageio.imread(z)
+data_nodata_val = -99999
+with rio.open(base_dem_path) as src:
+    ras_data = src.read()
+    ras_nodata = src.nodatavals
+    ras_dtype = src.dtypes
+    ras_meta = src.profile
+# Type of data
+data_to_tif = data_to_tif.astype(np.float64)
+data_dtype = data_to_tif.dtype
+# Change base dem from data
+ras_meta['dtype'] = data_dtype
+ras_meta['nodata'] = data_nodata_val
+# Create new data raster with base dem size
+data_tif_path = "D:/HYDROMODPY/test.tif"
+with rio.open(data_tif_path, 'w', **ras_meta) as dst:
+    dst.write(data_to_tif, 1)
 
 #%% Example recharge fct
 
