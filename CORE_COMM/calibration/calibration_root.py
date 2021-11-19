@@ -20,7 +20,7 @@ def run_calibration(params, watershed, observation = 'streams'):
     watershed.run_modflow(ident)
     # Use objective function from the type of observation
     if observation == 'streams':
-        obj_func = objective_function.streams(watershed.geographic, 
+        obj_func = objective_function.Streams(watershed.geographic, 
                                    hydrology_stable=os.path.join(watershed.stable_folder, 'hydrology'), 
                                    simulations_folder=os.path.join(watershed.simulations_folder, ident))
     

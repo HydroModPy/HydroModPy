@@ -96,6 +96,6 @@ class Streams:
         sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
-        indicator = round((1-(self.mean_sim_to_obs / self.mean_obs_to_sim))**2, 2)  
+        indicator = (1-(self.mean_sim_to_obs / self.mean_obs_to_sim))**2  
         return (indicator)
     
