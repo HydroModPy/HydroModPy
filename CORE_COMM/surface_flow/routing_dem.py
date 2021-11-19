@@ -72,4 +72,3 @@ class SurfaceFlow:
         ### d8massflux ###
         wbt.d8_mass_flux(self.watershed_buff_fill, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
         
-        

@@ -10,7 +10,6 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-
 class Hydrology:
     def __init__(self, out_path, type_obs, geographic, hydro_path):
         print("Extraction des données hydrologiques")
