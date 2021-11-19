@@ -18,7 +18,7 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # HydroModPy modules
-from tools import file_adds
+from tools import file_adds, vtk
 
 class Geographic:
     """
@@ -48,7 +48,7 @@ class Geographic:
         print('Extraction des données géographiques')
         
         self.processing(dem_path, x, y, snap_dist, buff_dist, out_path)
-        self.post_processing_dem()
+        self.post_processing_dem(out_path)
 
     def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
         # Generate folder where processing files are stored
@@ -58,9 +58,12 @@ class Geographic:
         """
         Raw regional DEM
         """
+        wbt.modify_no_data_value(dem_path, new_value='-99999.0')
+        
         # Open
         dem = gdal.Open(dem_path)
         geodata = dem.GetGeoTransform()
+        
         # Correction
         fill = gis_path + 'region_fill.tif'
         wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
@@ -92,7 +95,7 @@ class Geographic:
         self.watershed_shp = gis_path + 'watershed.shp'
         wbt.raster_to_vector_polygons(watershed, self.watershed_shp)
         # Create shapefile polyline of the watershed
-        self.watershed_contour_shp = gis_path + 'watershed_contour.shp'    
+        self.watershed_contour_shp = gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
         
         """
@@ -172,7 +175,7 @@ class Geographic:
         except:
             pass
         
-    def post_processing_dem(self):
+    def post_processing_dem(self, out_path):
 
         # Open DEM used for modeling
         dem = gdal.Open(self.watershed_buff_dem)
@@ -218,3 +221,4 @@ class Geographic:
                 self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
         except:
             pass
+        

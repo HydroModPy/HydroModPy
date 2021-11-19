@@ -26,7 +26,6 @@ from tools import tif_adds
 from tools import tif_masks
 from tools import serie_transf
 from tools import tif_features
-from tools import vtk
 
 from surface_flow import routing_dem
 
@@ -229,7 +228,7 @@ class Modflow():
         # run model
         succes, buff = self.mf.run_model(silent=not verbose) # True without msg
         
-    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, vtk_files = True):
+    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True):
         self.wt_elev = []
         self.wt_depth = []
         self.seep_area = []
@@ -464,13 +463,6 @@ class Modflow():
             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
             np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
             # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
-        
-        if vtk_files == True:
-             '''
-             vtk files
-             '''
-             vtk.grid(self.model_name, self.full_path, self.save_file, self.geographic)
-             vtk.watertable(self.model_name, self.full_path, self.save_file, self.geographic)
              
 
 #%% Extract results

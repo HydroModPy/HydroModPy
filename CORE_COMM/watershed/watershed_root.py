@@ -307,6 +307,7 @@ class Watershed:
         thick_exp: float (default is 1)
             changes the thickness of the layers exponentially
         """
+        print(self.modflow_path)
         flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
@@ -315,7 +316,7 @@ class Watershed:
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing()
         flow_model.processing(verbose = verbose)
-        flow_model.post_processing(vtk_files = True)
+        flow_model.post_processing()
         
         if modpath_sim == True:
             transit_model = modpath.Modpath(model_name=ident,  
@@ -323,7 +324,7 @@ class Watershed:
                                             exe=self.modflow_path + '/bin/mp6.exe')
             transit_model.pre_processing()
             transit_model.processing(verbose = verbose)
-            transit_model.post_processing(self.geographic)
+            #transit_model.post_processing()
             
                
     def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 

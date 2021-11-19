@@ -9,7 +9,6 @@ from os.path import dirname, abspath
 # HydroModPy modules
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
-from tools import vtk, file_adds
 
 class Modpath:
     """
@@ -138,7 +137,3 @@ class Modpath:
     def processing(self, verbose=True):
         succes, buff = self.mp.run_model(silent=not verbose)
     
-    def post_processing(self, geographic):
-        self.save_file = os.path.join(self.full_path, '_extraction')
-        file_adds.create_folder(self.save_file)
-        vtk.pathlines(self.model_name, self.full_path, self.save_file, geographic)

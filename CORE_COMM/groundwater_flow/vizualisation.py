@@ -34,8 +34,18 @@ class Vizualisation():
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
                                           yzGrid=False), bg2='lb', size=(1500,1080))
         # load files
+        contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_watershed_contour.vtk'))
+        contour.scale([1,1,20])
+        contour.color('k').lw(5)
+        contour.renderLinesAsTubes(value=True)
+        
+        stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_streams.vtk'))
+        stream.scale([1,1,20])
+        stream.color('b').lw(5)
+        stream.renderLinesAsTubes(value=True)
+        
         try:
-            grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction','VTU_Grid.vtu')
+            grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Grid.vtu')
             grid_mesh = vedo.Mesh(grid) #grid_mesh
             grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
             grid_wireframe.color('white')
@@ -53,7 +63,7 @@ class Vizualisation():
         except:
             print("VTK grid doesn't exist")
         try: 
-            watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction','VTU_Watertable_0.vtu')
+            watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Watertable_0.vtu')
             watertable_elev = vedo.Mesh(watertable) # 1 Elevation
             watertable_depth = vedo.Mesh(watertable) # 3 Depth
             watertable_blue = vedo.Mesh(watertable) # 4 blue
@@ -78,7 +88,7 @@ class Vizualisation():
         except:
             print("VTK watertable doesn't exist")
         try:
-            pathlines = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction','VTU_Pathlines.vtk')
+            pathlines = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Pathlines.vtk')
             pathlines_mesh = vedo.Mesh(pathlines) #5
             
             #Pathlines
@@ -127,16 +137,16 @@ class Vizualisation():
             obj = object_list[i]
             if obj == 'grid':
                 print(obj,i)
-                plt.show(grid_mesh, at=i, axes = 13)
+                plt.show(grid_mesh,contour,stream, at=i, axes = 13)
             if obj == 'watertable':
                 print(obj,i)
-                plt.show(grid_wireframe, watertable_elev,camera=cam, viewup ='z', at=i)
+                plt.show(grid_wireframe,contour,stream, watertable_elev,camera=cam, viewup ='z', at=i)
             if obj == 'watertable_depth':
                 print(obj,i)
-                plt.show(grid_wireframe, watertable_depth,camera=cam, viewup ='z', at=i)
+                plt.show(grid_wireframe,contour,stream, watertable_depth,camera=cam, viewup ='z', at=i)
             if obj == 'pathlines':
                 print(obj,i)
-                plt.show(grid_wireframe, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i)      
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i)      
         
         if interactive == True:
             plt.show(interactive=1).close()
