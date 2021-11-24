@@ -1,0 +1,3 @@
+Problème de debuggage de spyder
+- Solution: mettre à jour spyder
+- conda install --upgrade spyder

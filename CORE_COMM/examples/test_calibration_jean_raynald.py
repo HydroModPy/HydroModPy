@@ -17,6 +17,7 @@ from calibration import calibration_root
 
 # Users
 user_path = "Alexandre"
+user_path = "Jean-Raynald"
 
 if user_path=="Alexandre":
     root_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
@@ -30,7 +31,8 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = False #False to build and save python object
+load = True #False to build and save python object
+load = False
 watershed_name = 'Agon-Coutainville' #'Canut'
 
 dem_path = root_path + "MNT_TOPO_BATH_75m.tif"#'BDALTI_bzh_75m.tif' 
@@ -45,7 +47,7 @@ hydrology_path = root_path + 'HYDROLOGY'
                               modflow_path=modflow_path , load=load)'''
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path,modflow_path=modflow_path,hydrology_path=hydrology_path,piezometry_path=True ,load = load)
+                              out_path=out_path,modflow_path=modflow_path,hydrology_path=hydrology_path,piezometry_path=False ,load = load)
 #BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 #BV.forcing.update_recharge(values=[0.0003], sim_state = 'steady')
 #BV.hydrodynamic.update_hyd_cond(0.864)
