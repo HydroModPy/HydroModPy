@@ -37,7 +37,6 @@ class Streams:
         self.obs_to_sim()
         
     def prepare_files(self):
-        print ('Dichotomy calibration')
         # New folder results
         self.dichotomy_folder = os.path.join(self.simulations_folder, '_dichotomy')
         file_adds.create_folder(self.dichotomy_folder)

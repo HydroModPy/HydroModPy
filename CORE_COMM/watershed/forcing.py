@@ -3,22 +3,42 @@
 import pandas as pd
 import numpy as np
 import os 
-import sys
-from os.path import dirname, abspath
 
 class Forcing:
-    
     def __init__(self, out_path):
-
-        self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
+        '''
+        Constructor
         
+        Parameters
+        ----------
+        out_path : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        '''
+        self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
         self.recharge = None
         self.runoff = None
     
-    def update_recharge(self, values , sim_state):
+    def update_recharge(self, values, sim_state):
         self.recharge = values # recharge
         if sim_state == 'steady':
             self.recharge = np.mean(self.recharge)
+    
+    def update_synthetic_recharge(self, rech, shape, years, start_years= "2020" ,start_month = "SEP", freq = None):
+        days = years*365
+        self.recharge = pd.date_range(start_years, periods=days, freq=freq)
+        t = np.linspace(1,365,365)
+        time = []
+        for y in range(0,years):
+            time = np.concatenate((time,t))
+        mean = 180
+        pdf = (((mean*shape)/(2*np.pi*time**3))**0.5*np.exp(-(shape*(time-mean)**2)/(2*mean*time)))*rech
+        print(pdf[0],pdf[-1])
+        self.recharge = pdf
     
     def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state):
         climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
