@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
+"""
+Created on Thu Sep  9 14:52:56 2021
+
+@author: Alexandre Gauvain
+"""
 
 import os
-import sys
 import geopandas as gpd
-import pandas as pd
 import numpy as np
-from osgeo import gdal, osr
+from osgeo import gdal
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -40,7 +43,6 @@ class Hydrology:
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
         # if type_obs == 'streams':
-        print('Clip streams : fast')
         self.streams = data_folder + 'streams.shp'
         wbt.clip(streams, watershed_shp, self.streams)
         tif_streams = data_folder + 'streams.tif'
@@ -52,7 +54,6 @@ class Hydrology:
         self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
         self.streams_array[self.streams_array<0] = np.nan
         
-        print('Clip sections : long')
         # if type_obs == 'sections':    
         clip_sections = data_folder + 'sections.shp'
         wbt.clip(sections, watershed_shp, clip_sections)
@@ -84,8 +85,6 @@ class Hydrology:
             wbt.vector_lines_to_raster(clip_intermittent, tif_intermittent, field="Persistanc", base=watershed_dem)
             pt_intermittent = data_folder + 'intermittent_pt.shp'
             wbt.raster_to_vector_points(tif_intermittent, pt_intermittent)
-        
-        return self
     
     def clip_zh(self, zh_digit, data_folder, watershed_shp, watershed_dem):
         try:
@@ -108,15 +107,3 @@ class Hydrology:
             wbt.raster_to_vector_points(tif_stream, pt_stream)
         except:
             print('There is no streams in data')
-            
-#%%
-# hydro_path = hydrology_path
-# stream_digit = hydro_path + '/' + 'stream_digit.shp'
-# watershed_shp = out_path + '/Lasset/results_stable/geographic/watershed.shp'
-# watershed_dem = out_path + '/Lasset/results_stable/geographic/watershed_dem.tif'
-# data_folder = out_path + '/results_stable/hydrology/'
-# clip_stream = out_path + '/Lasset/results_stable/hydrology/' + 'stream_digit.shp'
-# wbt.clip(stream_digit, watershed_shp, clip_stream)
-# tif_stream = out_path + '/Lasset/results_stable/hydrology/' + 'stream_digit.tif'
-# wbt.vector_lines_to_raster(clip_stream, tif_stream, field="FID", base=watershed_dem)
-            

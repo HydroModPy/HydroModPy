@@ -11,11 +11,14 @@ import pandas as pd
 import pickle
 import sys
 from os.path import dirname, abspath
+data_dir = os.path.join(dirname(abspath(__file__)),'data')
+sys.path.append(data_dir)
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy modules
-from watershed.data import hydrology, climatic, oceanic, piezometry
+#from watershed.data import  climatic, oceanic, piezometry, hydrology
+import  climatic, oceanic, piezometry, hydrology
 from groundwater_flow import modflow, modpath
 from tools import file_adds
 from watershed import forcing, geographic, geology, hydrodynamic, subbasins, watershed_display
@@ -253,7 +256,7 @@ class Watershed:
         """
         if os.path.exists(os.path.join(self.watershed_folder,'python_object')):
             os.remove(os.path.join(self.watershed_folder,'python_object'))
-        with open(os.path.join(self.watershed_folder,'python_object'), 'wb') as config_dictionary_file:
+        with open(os.path.join(self.watershed_folder,'python_object'), 'xb') as config_dictionary_file:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
         # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
