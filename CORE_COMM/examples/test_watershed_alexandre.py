@@ -1,16 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep  9 20:10:52 2021
+Created on Fri Nov 12 10:21:56 2021
 
 @author: Alexandre Gauvain
 """
+
+# Download data on my Dropbox at this link: https://www.dropbox.com/sh/eidukc992nvi6jc/AAC0cwuwCnY7bDjiN57qwODva?dl=0
+
 import sys
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 from watershed import watershed_root
+from calibration import calibration_root
+
 
 # Users
+user_path = "Jean-Raynald"
 user_path = "Alexandre"
 
 if user_path=="Alexandre":
@@ -25,11 +31,10 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-# test of watershed class
-load = True
-watershed_name = 'Agon-Coutainville'
+load = True #False to build and save python object
+watershed_name = 'Agon-Coutainville' #'Canut'
 
-dem_path = root_path + "MNT_TOPO_BATH_75m_corr.tif"
+dem_path = root_path + "MNT_TOPO_BATH_75m.tif"#'BDALTI_bzh_75m.tif' 
 surfex_path =  root_path + 'SURFEX/Normandie_h5'
 geology_path = root_path + 'GEOLOGY'
 oceanic_path = root_path + 'OCEAN'
@@ -40,15 +45,21 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
                               hydrology_path=hydrology_path, oceanic_path=oceanic_path, piezometry_path=True ,
                               modflow_path=modflow_path , load=load)
 
-if load == False:
-    BV.piezometry.add_data()
-    BV.save_object()
-    
-#BV.display(type = 'watershed_geology')
-climatic = BV.climatic.values['REA']['REC']['historic']['MEAN'].mean()/1000
-BV.hydrodynamic.update_hyd_cond(0.0864)
-#BV.run_modflow(climatic=climatic, sea_level=0.48, modpath_sim = True)
+#BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
+#BV.forcing.update_recharge(values=[0.0003], sim_state = 'steady')
+#BV.hydrodynamic.update_hyd_cond(0.864)
+#BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
 
+#indicator = calibration_root.run_calibration(0.864, BV, observation='streams')
+BV.forcing.update_synthetic_recharge(0.300,5.5,2)
+
+import matplotlib.pyplot as plt
+plt.figure
+plt.plot(BV.forcing.recharge)
+
+
+'''from tools import vtk
 from groundwater_flow import vizualisation
+vtk.VTK(BV, 'modflow')
 visu = vizualisation.Vizualisation(BV, 'modflow')
-visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')
+visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines', 'watertable_depth'], view='south-west')'''
