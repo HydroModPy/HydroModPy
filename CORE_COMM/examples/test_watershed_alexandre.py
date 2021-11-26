@@ -8,6 +8,8 @@ Created on Fri Nov 12 10:21:56 2021
 # Download data on my Dropbox at this link: https://www.dropbox.com/sh/eidukc992nvi6jc/AAC0cwuwCnY7bDjiN57qwODva?dl=0
 
 import sys
+import numpy as np
+
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
@@ -47,16 +49,31 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 
 #BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 #BV.forcing.update_recharge(values=[0.0003], sim_state = 'steady')
-#BV.hydrodynamic.update_hyd_cond(0.864)
-#BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
+
 
 #indicator = calibration_root.run_calibration(0.864, BV, observation='streams')
-BV.forcing.update_synthetic_recharge(0.300,5.5,2)
+BV.forcing.update_synthetic_recharge(0.300,55,10, dis='normal')
+BV.hydrodynamic.update_hyd_cond(0.864)
+BV.hydrodynamic.update_porosity(0.1)
+BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
 
+
+'''years = np.linspace(1958,2018,2018-1958+1)
+x = np.linspace(1,365,365)
+chroniques = []
+for i in years:
+    chronicle = BV.climatic.values['REA']['REC']['historic']['MEAN'][str(int(i))+'-08':str(int(i)+1)+'-07'].values
+    if len(chronicle)==365:   
+        chroniques.appen'd(chronic'le)
 import matplotlib.pyplot as plt
 plt.figure
+BV.forcing.update_synthetic_recharge(0.300,200,2, freq='M', dis='uniform')
 plt.plot(BV.forcing.recharge)
-
+BV.forcing.update_synthetic_recharge(0.300,30,2, freq='M', dis='normal')
+plt.plot(BV.forcing.recharge)
+BV.forcing.update_synthetic_recharge(0.300,10,2, freq='M', dis='inverse-gaussian')
+plt.plot(BV.forcing.recharge)
+plt.plot(x,np.mean(np.asarray(chroniques)/1000,axis=0),c='k')'''
 
 '''from tools import vtk
 from groundwater_flow import vizualisation
