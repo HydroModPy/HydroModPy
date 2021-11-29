@@ -352,9 +352,9 @@ class Watershed:
         compt = 0
         while (self.diff > ((gap/100) * half)):
             half = (first + last) / 2
-            hyd_cond = half * climatic.values[0]
+            hyd_cond = half * climatic
             
-            ident = str('dic')+'-'+str(type_river)+'-'+str(round(half,3))+'-'+str(round(climatic.values[0],3))+'-'+str(round(thick,3))
+            ident = str('dic')+'-'+str(type_river)+'-'+str(round(half,3))+'-'+str(round(climatic,3))+'-'+str(round(thick,3))
             
             model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
@@ -364,7 +364,7 @@ class Watershed:
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
             model.pre_processing()
             model.processing()
-            model.post_processing(vtk_files = False)
+            model.post_processing()
             
             dicot = calib_dichotomy.Dichotomy(self.geographic, 
                                               type_river=type_river,
