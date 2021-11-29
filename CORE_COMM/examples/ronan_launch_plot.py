@@ -111,47 +111,55 @@ fontdic = {'family' : 'arial'} # for legend
 #%% PATHS LOAD
 
 # Users
-user = "Ronan"
+root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+out_path = "D:/Users/abherve/HYSTERESIS"
 
-if user=="Alexandre":
-    root_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
-    out_path = 'C:/Users/alexa/Dropbox/HydroModPy'
-elif user=="Jean-Raynald":
-    root_path= "C:/DATA/codes-gitlab-public/HydroModPy_data/"
-    out_path = "C:/DATA/results/HydroModPy"
-elif user=="Ronan":
-    root_path= "D:/Users/abherve/HYDROMODPY/_data/"
-    out_path = "D:/Users/abherve/HYDROMODPY"
-    root_path= "D:/HYDROMODPY/_data/"
-    out_path = "D:/HYDROMODPY"    
-else:
-    print("Define a well-validated name of user")
-
-# test of watershed class
-load = False
-watershed_name = 'Agon-Coutainville'
-library_path = df + '/watershed' + '/watershed_library.csv'
-
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-
-# dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
-dem_path = root_path + "/DEM/" + "BDALTI_norm-manch_75m.tif"
-
-# surfex_path =  root_path + 'SURFEX/ebr/'
-surfex_path =  None
 geology_path = None
-hydrology_path = None
+hydrology_path = root_path + 'HYDROLOGY'
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
+dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path,surfex_path=surfex_path, 
-                              geology_path = geology_path, 
-                              hydrology_path=hydrology_path, oceanic_path=oceanic_path, 
-                              piezometry_path=piezometry_path,
-                              modflow_path=modflow_path , load=load)
+# library_path = df + '/watershed' + '/watershed_library.csv'
+# surfex_path =  root_path + 'SURFEX/ebr/'
+# watershed_name = 'Canut'
+# outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
+# outlets = outlets[outlets['name'] == watershed_name]
+
+library_path = df + '/watershed' + '/watershed_bretagne_library.csv'
+surfex_path =  root_path + 'SURFEX/bzh/'
+outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
+
+for idx, row in outlets.iloc[19:].iterrows():
+    
+    load = True
+    watershed_name = row['name']
+    
+    print('##### '+watershed_name.upper()+' #####')
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  surfex_path=surfex_path, 
+                                  geology_path = geology_path, 
+                                  hydrology_path=hydrology_path,
+                                  oceanic_path=oceanic_path, 
+                                  piezometry_path=piezometry_path,
+                                  modflow_path=modflow_path,
+                                  library_path=library_path,
+                                  load=load)
+
+# DICHOTOMY CALIBRATION
+    # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+    #                                   first_year = 1960, last_year = 2019, time_step = 'D', sim_state='steady')
+    # rech = BV.forcing.recharge
+    # BV.calib_dichotomy(ident=None, calib=True, type_river='streams', climatic=rech,
+    #                    lay_number=1, thick=30, bottom=None, thick_exp=1., 
+    #                    first=1, last=15000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%% RAW VTK
 
@@ -340,12 +348,6 @@ df_auto, df_manual = BV.generate_subbasins(file_name='station_x.txt',
                                            x_column='x_outlet', y_column='y_outlet',
                                            start_column=0, end_column=0,
                                            snap_dist=200)
-
-#%% DICHOTOMY CALIBRATION
-
-BV.calib_dichotomy(ident=None, calib=True, type_river='streams',
-                   climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
-                   first=1, last=10000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%% LAUNCH MODELS
 
