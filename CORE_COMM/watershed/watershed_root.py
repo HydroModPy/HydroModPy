@@ -341,14 +341,16 @@ class Watershed:
                         
     def calib_dichotomy(self, ident='modflow', type_river='streams', calib=True, climatic=8e-4, 
                         lay_number=1, thick=50, bottom=None, thick_exp=1., 
-                        first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.):
+                        first=1, last=10000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.):
 
         self.diff = last - first
+        half = (first + last) / 2
+        self.gap = gap
         
         self.df = pd.DataFrame()
         
         compt = 0
-        while (self.diff > gap):
+        while (self.diff > ((gap/100) * half)):
             half = (first + last) / 2
             hyd_cond = half * climatic.values[0]
             
