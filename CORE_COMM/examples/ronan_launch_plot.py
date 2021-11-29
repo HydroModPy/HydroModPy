@@ -153,7 +153,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
                               piezometry_path=piezometry_path,
                               modflow_path=modflow_path , load=load)
 
-#%% RAW VT
+#%% RAW VTK
 
 # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'M', sim_state='steady')
 BV.forcing.update_recharge([25/1000], 'steady')
@@ -188,7 +188,7 @@ data_tif_path = "D:/HYDROMODPY/test.tif"
 with rio.open(data_tif_path, 'w', **ras_meta) as dst:
     dst.write(data_to_tif, 1)
 
-#%% Example recharge fct
+#%% OPEN H5
 
 rea_path = stable_folder+'climatic/'+'REA.h5'
 first = 1960
@@ -345,7 +345,7 @@ df_auto, df_manual = BV.generate_subbasins(file_name='station_x.txt',
 
 BV.calib_dichotomy(ident=None, calib=True, type_river='streams',
                    climatic=pd.Series(rech.mean()), lay_number=1, thick=50, bottom=None, thick_exp=1., 
-                   first=1, last=10000, gap=10, porosity=0.01, sea_level=None, cond_decay=0.)
+                   first=1, last=10000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%% LAUNCH MODELS
 
@@ -969,7 +969,7 @@ types_river = ['stream_digit','zh_digit','zhstream_digit']
 for type_river in types_river:
     BV.calib_dichotomy(ident=None, calib=True, type_river=type_river, climatic=pd.Series(1e-3), 
                        lay_number=1, thick=50, bottom=None, thick_exp=1., 
-                       first=1, last=500, gap=10, porosity=0.01, 
+                       first=1, last=500, gap=1, porosity=0.01, 
                        sea_level=None, cond_decay=0.)
 
 #%% STICKY TIME
