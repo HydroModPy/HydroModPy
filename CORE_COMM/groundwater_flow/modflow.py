@@ -221,7 +221,7 @@ class Modflow():
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
-    def processing(self, verbose=True):
+    def processing(self, verbose=False):
         print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
