@@ -32,6 +32,7 @@ class Hydrology:
         stream_digit = hydro_path + '/' + 'stream_digit.shp'
         
         self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
+        
         try:
             self.clip_zh(zh_digit, data_folder, watershed_shp, watershed_dem)
         except:
@@ -42,25 +43,26 @@ class Hydrology:
             pass
         
     def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
-        # if type_obs == 'streams':
-        self.streams = data_folder + 'streams.shp'
-        wbt.clip(streams, watershed_shp, self.streams)
-        tif_streams = data_folder + 'streams.tif'
-        wbt.vector_lines_to_raster(self.streams, tif_streams, field="FID", base=watershed_dem)
-        pt_streams = data_folder + 'streams_pt.shp'
-        wbt.raster_to_vector_points(tif_streams, pt_streams)
-    
-        dem_streams = gdal.Open(tif_streams)
-        self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
-        self.streams_array[self.streams_array<0] = np.nan
         
-        # if type_obs == 'sections':    
-        clip_sections = data_folder + 'sections.shp'
-        wbt.clip(sections, watershed_shp, clip_sections)
-        tif_sections = data_folder + 'sections.tif'
-        wbt.vector_lines_to_raster(clip_sections, tif_sections, field="Persistanc", base=watershed_dem)
-        pt_sections = data_folder + 'sections_pt.shp'
-        wbt.raster_to_vector_points(tif_sections, pt_sections)
+        if type_obs == 'streams':
+            self.streams = data_folder + 'streams.shp'
+            wbt.clip(streams, watershed_shp, self.streams)
+            tif_streams = data_folder + 'streams.tif'
+            wbt.vector_lines_to_raster(self.streams, tif_streams, field="FID", base=watershed_dem)
+            pt_streams = data_folder + 'streams_pt.shp'
+            wbt.raster_to_vector_points(tif_streams, pt_streams)
+        
+            dem_streams = gdal.Open(tif_streams)
+            self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
+            self.streams_array[self.streams_array<0] = np.nan
+            
+        if type_obs == 'sections':    
+            clip_sections = data_folder + 'sections.shp'
+            wbt.clip(sections, watershed_shp, clip_sections)
+            tif_sections = data_folder + 'sections.tif'
+            wbt.vector_lines_to_raster(clip_sections, tif_sections, field="Persistanc", base=watershed_dem)
+            pt_sections = data_folder + 'sections_pt.shp'
+            wbt.raster_to_vector_points(tif_sections, pt_sections)
             
         if type_obs == 'persistent':    
             clip_sections = data_folder + 'sections.shp'
