@@ -395,7 +395,7 @@ class Watershed:
     def run_hs1D(self):
         return self
     
-    def display(self,type = 'watershed'):
+    def display(self,type = 'watershed_dem'):
         if type == 'watershed_dem':
             watershed_display.watershed_dem(self)
         if type == 'watershed_geology':

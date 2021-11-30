@@ -9,14 +9,17 @@ import numpy as np
 import time
 import glob
 import ssl
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
 
 class Piezometry:
     def __init__(self, out_path, geographic):
         print('Extraction des données piézomètriques')
-        data_folder = os.path.join(out_path,'results_stable','piezometric/')
+        data_folder = os.path.join(out_path,'results_stable','piezometric')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)    
-        self.download_init_data(data_folder)
+        self.download_init_data(data_folder, geographic)
         self.out_path = out_path
         self.geo_x_coord = geographic.x_coord
         self.geo_y_coord = geographic.y_coord
@@ -31,40 +34,95 @@ class Piezometry:
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
         if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
             self.extract_data_from_code_bss(data_folder)
-            self.load_piezometric_data(data_folder)
+        self.load_piezometric_data(data_folder)
 
-    def download_init_data(self,data_folder):
-        filename = data_folder + 'piezometers.zip'
-        folder = data_folder + '/' + 'shapefile'
+    def download_init_data(self,data_folder, geographic):
+        #ADES continue data
+        filename = os.path.join(data_folder, 'piezometers.zip')
+        folder = os.path.join(data_folder, 'shapefile')
         url = 'https://www.data.gouv.fr/fr/datasets/r/f10f3f18-eac3-4cee-b178-4c577c4fd689'
         if not os.path.exists(folder):
             ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
             with zipfile.ZipFile(filename, 'r') as zip_ref:
-                zip_ref.extractall(data_folder + '/' + 'shapefile')
+                zip_ref.extractall(folder)
             os.remove(filename)
-        return self
-
+        
+        #BSS discrete data
+        filename = data_folder + 'BSS.zip'
+        folder = os.path.join(data_folder, 'shapefile')
+        bss = 'bss_export_' + str(geographic.dep_code) + '.zip'
+        bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
+        url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
+        try:
+            ssl._create_default_https_context = ssl._create_unverified_context
+            urllib.request.urlretrieve(url, filename)
+            with zipfile.ZipFile(filename, 'r') as zip_ref:
+                zip_ref.extractall(folder)
+            os.remove(filename)
+        except:
+            pass
+        combined_csv = pd.read_csv(os.path.join(folder, bss_csv),sep=";")
+        combined_csv = combined_csv[combined_csv['date_eau_sol'].notna()]
+        combined_csv = combined_csv[combined_csv['prof_eau_sol'].notna()]
+        combined_csv = combined_csv[combined_csv['x_ref06'].notna()]
+        combined_csv = combined_csv[combined_csv['y_ref06'].notna()]
+        combined_csv = combined_csv[combined_csv['z_bdalti'].notna()]
+        df = combined_csv[['ID_BSS','indice','date_eau_sol','z_bdalti','prof_eau_sol','x_ref06','y_ref06']]
+        df = df[pd.to_numeric(df['prof_eau_sol'], errors='coerce').notnull()]
+        for i in ['z_bdalti','prof_eau_sol','x_ref06','y_ref06']:
+            df[i] = df[i].astype('float64')
+        df['cote_eau'] = df['z_bdalti'] - df['prof_eau_sol']
+        df.to_csv(os.path.join(folder,"BSS.csv"), index=False, encoding='utf-8-sig')
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x_ref06, df.y_ref06))
+        gdf = gdf.set_crs(epsg=2154)
+        gdf.to_file(os.path.join(folder,"BSS.shp"))
+        os.remove(os.path.join(folder, bss_csv))
+            
+            
     def exctract_piezos_from_watershed(self,data_folder, geographic):
+        # ADES continue data
         watershed = gpd.read_file(geographic.watershed_box_shp)
-        piezos_shp = data_folder + 'shapefile/point_eau_piezo.shp'
+        piezos_shp = os.path.join(data_folder, 'shapefile','point_eau_piezo.shp')
         piezos_fr = gpd.read_file(piezos_shp)
         piezos_fr.to_crs(epsg=2154, inplace=True)
         piezos = gpd.clip(piezos_fr, watershed)
         if len(piezos)!=0:
-            piezos.to_file(data_folder + 'shapefile/piezos.shp')
+            piezos.to_file(os.path.join(data_folder, 'shapefile','piezos.shp'))
             self.codes_bss = piezos['code_bss'].tolist()
             for i in range (0, len(self.codes_bss)):
                 self.codes_bss[i] = self.codes_bss[i].replace('/','_')
             self.x_coord = piezos['geometry'].x.tolist()
             self.y_coord = piezos['geometry'].y.tolist()
             for i in range(0, len(self.x_coord)):
-                idx = (np.abs(geographic.x_coord- self.x_coord)).argmin()
-                idy = (np.abs(geographic.y_coord- self.y_coord)).argmin()
+                idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
+                idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
                 self.x_iloc.append(idx)
                 self.y_iloc.append(idy)
-        return self, piezos
-
+        
+    
+        #BSS discrete data
+        bss_shp = os.path.join(data_folder,'shapefile','BSS.shp')
+        bss_fr = gpd.read_file(bss_shp)
+        bss_fr.to_crs(epsg=2154, inplace=True)
+        bss = gpd.clip(bss_fr, watershed)
+        self.codes_bss_discrete = bss['indice'].tolist()
+        self.date_discrete = bss['date_eau_s'].tolist()
+        self.elevation_discrete = bss['cote_eau'].tolist()
+        self.depth_discrete = bss['prof_eau_s'].tolist()
+        self.x_coord_discrete = bss['x_ref06'].tolist()
+        self.y_coord_discrete = bss['y_ref06'].tolist()
+        self.x_iloc_discrete = []
+        self.y_iloc_discrete = []
+        for i in range(0, len(self.x_coord_discrete)):
+            idx = (np.abs(geographic.x_coord- self.x_coord_discrete[i])).argmin()
+            idy = (np.abs(geographic.y_coord- self.y_coord_discrete[i])).argmin()
+            self.x_iloc_discrete.append(idx)
+            self.y_iloc_discrete.append(idy)
+        bss.to_file(os.path.join(data_folder,'shapefile','piezos_discrete.shp'))
+        
+        return piezos
+        
     def extract_data_from_code_bss(self,data_folder):
         for code in self.codes_bss:
             code_ = code.replace('_','/')
@@ -100,7 +158,7 @@ class Piezometry:
             df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
             self.depth_well.append(df1['Profondeur investigation maximale'][0])
             self.elevation_well.append(df1['Altitude'][0])
-            file = data_folder + code + '/ades_export/Quantite/chroniques.txt'
+            file = os.path.join(data_folder, code, 'ades_export','Quantite','chroniques.txt')
             df = pd.read_csv(file, delimiter = '|',header=0, engine='python', encoding='latin1')
             depth = df[['Date de la mesure','Profondeur relative/repère de mesure']]
             depth.columns = ['Date', 'Mesure']
@@ -119,17 +177,18 @@ class Piezometry:
         files = glob.glob(os.path.join(self.out_path, 'results_stable/add_data/piezometry_*.csv'))
         if len(files)>0:
             for file in files:
-                self.codes_bss.append(file.split('_')[-5])
-                self.x_coord.append(float(file.split('_')[-4]))
-                self.y_coord.append(float(file.split('_')[-3]))
-                self.elevation_well.append(float(file.split('_')[-2]))
-                self.depth_well.append(float(file.split('_')[-1].split('.')[0]))
-                idx = (np.abs(self.geo_x_coord- int(file.split('_')[-2]))).argmin()
-                idy = (np.abs(self.geo_y_coord- int(file.split('_')[-1].split('.')[0]))).argmin()
+                file1 = file.split('piezometry')[-1].split('.csv')[0].split('_')
+                self.codes_bss.append(file1[1])
+                self.x_coord.append(float(file1[2]))
+                self.y_coord.append(float(file1[3]))
+                self.elevation_well.append(float(file1[4]))
+                self.depth_well.append(float(file1[5]))
+                idx = (np.abs(self.geo_x_coord- int(file1[2]))).argmin()
+                idy = (np.abs(self.geo_y_coord- int(file1[3]))).argmin()
                 self.x_iloc.append(idx)
                 self.y_iloc.append(idy)
                 df = pd.read_csv(file, delimiter = ';',header=0, engine='python', encoding='latin1')
-                df.columns = ['Date', file.split('_')[-3]]
+                df.columns = ['Date', file1[1]]
                 df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
                 df = df.drop(['Date'], axis=1)
                 self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
