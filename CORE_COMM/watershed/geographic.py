@@ -16,9 +16,10 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
 wbt.verbose = False
+from geopy.geocoders import Nominatim
 
 # HydroModPy modules
-from tools import file_adds, vtk
+from tools import file_adds
 
 class Geographic:
     """
@@ -221,4 +222,6 @@ class Geographic:
                 self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
         except:
             pass
-        
+        locator = Nominatim(user_agent='google')
+        location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+        self.dep_code = int(location.address.split(',')[-2][0:3])

@@ -18,7 +18,6 @@ from calibration import calibration_root
 
 
 # Users
-user_path = "Jean-Raynald"
 user_path = "Alexandre"
 
 if user_path=="Alexandre":
@@ -36,7 +35,7 @@ else:
 load = True #False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Canut'
 
-dem_path = root_path + "MNT_TOPO_BATH_75m.tif"#'BDALTI_bzh_75m.tif' 
+dem_path = root_path + "MNT_25m_cor.tif"#'BDALTI_bzh_75m.tif' 
 surfex_path =  root_path + 'SURFEX/Normandie_h5'
 geology_path = root_path + 'GEOLOGY'
 oceanic_path = root_path + 'OCEAN'
@@ -46,7 +45,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
                               out_path=out_path,surfex_path=surfex_path, geology_path = geology_path, 
                               hydrology_path=hydrology_path, oceanic_path=oceanic_path, piezometry_path=True ,
                               modflow_path=modflow_path , load=load)
-
+BV.piezometry.add_data()
 #BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 #BV.forcing.update_recharge(values=[0.0003], sim_state = 'steady')
 
@@ -55,25 +54,25 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 BV.forcing.update_synthetic_recharge(0.300,55,10, dis='normal')
 BV.hydrodynamic.update_hyd_cond(0.864)
 BV.hydrodynamic.update_porosity(0.1)
-BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)
+'''BV.run_modflow(sea_level=0.48, lay_number= 1, modpath_sim = True)'''
 
 
-'''years = np.linspace(1958,2018,2018-1958+1)
+years = np.linspace(1958,2018,2018-1958+1)
 x = np.linspace(1,365,365)
 chroniques = []
 for i in years:
     chronicle = BV.climatic.values['REA']['REC']['historic']['MEAN'][str(int(i))+'-08':str(int(i)+1)+'-07'].values
     if len(chronicle)==365:   
-        chroniques.appen'd(chronic'le)
+        chroniques.append(chronicle)
 import matplotlib.pyplot as plt
 plt.figure
 BV.forcing.update_synthetic_recharge(0.300,200,2, freq='M', dis='uniform')
 plt.plot(BV.forcing.recharge)
-BV.forcing.update_synthetic_recharge(0.300,30,2, freq='M', dis='normal')
+BV.forcing.update_synthetic_recharge(0.300,55,2, freq='M', dis='normal')
 plt.plot(BV.forcing.recharge)
 BV.forcing.update_synthetic_recharge(0.300,10,2, freq='M', dis='inverse-gaussian')
 plt.plot(BV.forcing.recharge)
-plt.plot(x,np.mean(np.asarray(chroniques)/1000,axis=0),c='k')'''
+plt.plot(x,np.mean(np.asarray(chroniques)/1000,axis=0),c='k')
 
 '''from tools import vtk
 from groundwater_flow import vizualisation
