@@ -42,6 +42,7 @@ class Dichotomy:
         
         self.results_folder=os.path.join(self.simulations_folder, '_extraction')
         
+        self.watershed_dem = geographic.watershed_dem
         self.watershed_shp = geographic.watershed_shp
         self.watershed_fill = geographic.watershed_fill
         self.watershed_direc = geographic.watershed_direc
@@ -51,7 +52,14 @@ class Dichotomy:
         self.obs_to_sim()
         
     def prepare_files(self):
-        print ('Dichotomy calibration')
+        print ('Dichotomy calibration') 
+        # Clip raw observed
+        streams = self.hydrology_satble + self.type_river +'.shp'
+        wbt.clip(streams, self.watershed_shp, streams)
+        tif_streams = self.hydrology_satble + self.type_river + '.tif'
+        wbt.vector_lines_to_raster(streams, tif_streams, field="FID", base=self.watershed_dem)
+        pt_streams = self.hydrology_satble + self.type_river + '_pt.shp'
+        wbt.raster_to_vector_points(tif_streams, pt_streams)
         # New folder results
         self.dichotomy_folder = os.path.join(self.simulations_folder, '_dichotomy')
         file_adds.create_folder(self.dichotomy_folder)
