@@ -11,8 +11,8 @@ Created on
 import sys
 import os
 from os.path import dirname, abspath
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
+DIR = dirname(dirname(abspath(__file__)))
+sys.path.append(DIR)
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import numpy as np
@@ -53,7 +53,7 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-#%% PARAMETERS PLOT
+#%% PARAMETERS HYDROMODPY
 
 # Parameters plot : v2.0 to classic customized
 # mpl.style.use('default')
@@ -91,7 +91,8 @@ mpl.rcParams['date.autoformatter.second'] = '%H:%M:%S'
 
 # Parameters size plot
 smal = 8
-medium = 16
+intm = 15
+medium = 18
 large = 20
 
 plt.rc('font', size=smal)                         # controls default text sizes **font
@@ -108,9 +109,70 @@ fontprop = FontProperties()
 fontprop.set_family('arial') # for x and y label
 fontdic = {'family' : 'arial'} # for legend
 
+#%% PARAMETERS ARTCLE
+
+mpl.style.use('classic')
+# mpl.rcParams['backend'] = 'wxAgg'
+mpl.rcParams["figure.facecolor"] = 'white'
+mpl.rcParams['grid.color'] = 'darkgrey'
+mpl.rcParams['grid.linestyle'] = '-'
+mpl.rcParams['grid.alpha'] = 0.8
+mpl.rcParams['axes.axisbelow'] = True
+mpl.rcParams['axes.linewidth'] = 1.5
+mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['savefig.dpi'] = 300
+mpl.rcParams['patch.force_edgecolor'] = True
+mpl.rcParams['image.interpolation'] = 'nearest'
+mpl.rcParams['image.resample'] = True
+mpl.rcParams['axes.autolimit_mode'] = 'data' # 'round_numbers' # 
+mpl.rcParams['axes.xmargin'] = 0.05
+mpl.rcParams['axes.ymargin'] = 0.05
+mpl.rcParams['xtick.direction'] = 'in'
+mpl.rcParams['ytick.direction'] = 'in'
+mpl.rcParams['xtick.major.size'] = 5
+mpl.rcParams['xtick.minor.size'] = 3
+mpl.rcParams['xtick.major.width'] = 1.5
+mpl.rcParams['xtick.minor.width'] = 1
+mpl.rcParams['ytick.major.size'] = 5
+mpl.rcParams['ytick.minor.size'] = 1.5
+mpl.rcParams['ytick.major.width'] = 1.5
+mpl.rcParams['ytick.minor.width'] = 1
+mpl.rcParams['xtick.top'] = True
+mpl.rcParams['ytick.right'] = True
+mpl.rcParams['legend.numpoints'] = 1
+mpl.rcParams['legend.scatterpoints'] = 1
+mpl.rcParams['legend.edgecolor'] = 'grey'
+mpl.rcParams['date.autoformatter.year'] = '%Y'
+mpl.rcParams['date.autoformatter.month'] = '%Y-%m'
+mpl.rcParams['date.autoformatter.day'] = '%Y-%m-%d'
+mpl.rcParams['date.autoformatter.hour'] = '%H:%M'
+mpl.rcParams['date.autoformatter.minute'] = '%H:%M:%S'
+mpl.rcParams['date.autoformatter.second'] = '%H:%M:%S'
+
+smal = 8
+intm = 15
+medium = 18
+large = 20
+
+plt.rc('font', size=smal)                         # controls default text sizes **font
+plt.rc('figure', titlesize=large)                   # fontsize of the figure title
+plt.rc('legend', fontsize=smal)                     # legend fontsize
+plt.rc('axes', titlesize=medium, labelpad=10)        # fontsize of the axes title
+plt.rc('axes', labelsize=medium, labelpad=12)        # fontsize of the x and y labels
+plt.rc('xtick', labelsize=intm)                   # fontsize of the tick labels
+plt.rc('ytick', labelsize=intm)                   # fontsize of the tick labels
+plt.rc('font', family='arial')
+fontprop = FontProperties()
+fontprop.set_family('arial') # for x and y label
+fontdic = {'family' : 'arial', 'weight' : 'bold'} # for legend
+
+par = {'mathtext.default': 'regular' }          
+mpl.rcParams.update(par)
+
 #%% PATHS LOAD
 
 # Users
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 root_path= "D:/Users/abherve/HYDROMODPY/_data/"
 out_path = "D:/Users/abherve/HYSTERESIS"
 
@@ -119,7 +181,7 @@ hydrology_path = root_path + 'HYDROLOGY'
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
-dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
+dem_path = root_path + "/DEM/" + "BDALTI_bzhext_75m.tif"
 
 # library_path = df + '/watershed' + '/watershed_library.csv'
 # surfex_path =  root_path + 'SURFEX/ebr/'
@@ -127,13 +189,16 @@ dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 # outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 # outlets = outlets[outlets['name'] == watershed_name]
 
-library_path = df + '/watershed' + '/watershed_bretagne_library.csv'
-surfex_path =  root_path + 'SURFEX/bzh/'
+library_path = DIR + '/watershed' + '/watershed_bretagne_library.csv'
+# surfex_path =  root_path + 'SURFEX/bzh/'
+surfex_path =  root_path + 'SURFEX/fr/'
 outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 
-for idx, row in outlets.iloc[19:].iterrows():
+notok = []
+
+for idx, row in outlets.iloc[:].iterrows():
     
-    load = True
+    load = False
     watershed_name = row['name']
     
     print('##### '+watershed_name.upper()+' #####')
@@ -141,25 +206,29 @@ for idx, row in outlets.iloc[19:].iterrows():
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  surfex_path=surfex_path, 
-                                  geology_path = geology_path, 
-                                  hydrology_path=hydrology_path,
-                                  oceanic_path=oceanic_path, 
-                                  piezometry_path=piezometry_path,
-                                  modflow_path=modflow_path,
-                                  library_path=library_path,
-                                  load=load)
+    try:
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dem_path, 
+                                      out_path=out_path,
+                                      surfex_path=surfex_path, 
+                                      geology_path = geology_path, 
+                                      hydrology_path=hydrology_path,
+                                      oceanic_path=oceanic_path, 
+                                      piezometry_path=piezometry_path,
+                                      modflow_path=modflow_path,
+                                      library_path=library_path,
+                                      load=load)
+    except:
+        notok.append(watershed_name)
+        print('NOT OK')
 
 # DICHOTOMY CALIBRATION
-    # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-    #                                   first_year = 1960, last_year = 2019, time_step = 'D', sim_state='steady')
-    # rech = BV.forcing.recharge
-    # BV.calib_dichotomy(ident=None, calib=True, type_river='streams', climatic=rech,
-    #                    lay_number=1, thick=30, bottom=None, thick_exp=1., 
-    #                    first=1, last=15000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
+    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                      first_year = 1960, last_year = 2019, time_step = 'D', sim_state='steady')
+    rech = BV.forcing.recharge # m/j
+    BV.calib_dichotomy(ident=None, calib=True, type_river='streams', climatic=rech,
+                        lay_number=1, thick=30, bottom=None, thick_exp=1., 
+                        first=1, last=15000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
 
 #%% RAW VTK
 
@@ -1179,11 +1248,11 @@ for idx, station in enumerate(stations[:]):
 # couleurs = ["red", "forestgreen", "hotpink", "grey", 'turquoise', 'darkorange', 'navy']
 
 user = "Ronan"
-root_path = "D:/HYDROMODPY/_data/"
-out_path = "D:/HYDROMODPY/_HYSTERESIS/"    
-data_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
+root_path = "D:/Users/abherve/HYDROMODPY/_data/"
+out_path = "D:/Users/abherve/_HYSTERESIS/"    
+data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
 import chardet
-with open(data_path+'coord/'+'all_stations.csv', 'rb') as f:
+with open(data_path+'coord/'+'all_stations_ronan.csv', 'rb') as f:
     result = chardet.detect(f.read())  # or readline if the file is large
 coord = pd.read_csv(data_path+'coord/'+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
 stations = coord['STATION_NAME'].unique()
@@ -1830,6 +1899,202 @@ for var in variables:
     fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/surfex_plot/fig/ANO_FREQ/'
                 +'ANO_'+'_'+var+'_'+time_step+'_'+'.png', dpi=300, bbox_inches='tight')
 
+#%% DICHOTOMY MAPGEOL
+
+from decimal import Decimal
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib_scalebar.scalebar import ScaleBar
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+out_path = "D:/Users/abherve/HYSTERESIS"
+
+file_adds.create_folder(out_path+'/_dichotomy/')
+
+library_path = git_path + '/watershed' + '/watershed_bretagne_library.csv'
+dem_path = root_path + "/DEM/" + "BDALTI_bzhext_75m.tif"
+
+outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
+
+# geol_s = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
+# geol_l = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
+
+obs= 'streams'
+    
+for idx, row in outlets.iloc[[7]].iterrows():
+    
+    fig, axs = plt.subplots(1, 2, figsize=(4,4), dpi=300)
+    axs = axs.ravel()
+    
+    watershed_name = row['name']
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    
+    print('#################### SITE '+str(idx)+' PLOT '+' : '+watershed_name.upper()+' ####################')
+    
+    df = pd.read_csv(simulations_folder+'_dichotomy_'+obs+'.csv', sep=';', header=0)
+    kroptim = df.iloc[-1]['KR'].round(3)
+    koptim = df.iloc[-1]['K'].round(3)
+    doptim =  int(((df.iloc[-1]['Oflow'] + df.iloc[-1]['Sflow'].round(3))/2).round(0))
+    scan = sorted(glob(simulations_folder+'/'+'dic*'), key=os.path.getmtime)
+    for ids, j in enumerate(scan):
+        split = j.split('\\')[-1].split('-')[2]
+        if split==str(kroptim):
+            optimcase = j
+            
+    streams = gpd.read_file(stable_folder+'hydrology/'+obs+'.shp')
+    polyg = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+    contour = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+    bounds = contour.geometry.total_bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])   
+    dem = stable_folder+'geographic/'+'watershed_extent.tif'
+    gdal.Translate(dem, gdal.Open(dem_path), projWin=[xlim[0],ylim[1],xlim[1],ylim[0]], noData=-99999)
+    hill = stable_folder+'geographic/'+'watershed_extent_hill.tif'
+    wbt.hillshade(dem, hill, azimuth=315.0, altitude=45.0, zfactor=2)    
+    dem = rasterio.open(stable_folder+'geographic/'+'watershed_extent.tif')
+    hill = rasterio.open(stable_folder+'geographic/'+'watershed_extent_hill.tif')
+    img = imageio.imread(stable_folder+'geographic/'+'watershed_extent.tif')
+    
+    simflow = gpd.read_file(optimcase+'/_dichotomy'+'/simflow.shp')
+    raster = rasterio.open(optimcase+'/_dichotomy'+'/simflow.tif')
+    
+    ax=axs[0] 
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_title(watershed_name.upper(), fontproperties=fontprop)
+    ax.set(aspect='equal')
+    scalebar = AnchoredSizeBar(ax.transData, 2000, '2 km', 'lower right', 
+                               pad=0.2, color='white', frameon=False, size_vertical=1,
+                               fontproperties=fontprop)
+    ax.add_artist(scalebar)
+
+    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='terrain')
+    mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto")
+    hil = rasterio.plot.show(np.ma.masked_where(hill.read(1) < 0, hill.read(1)), ax=ax, transform=dem.transform, cmap='Greys_r', alpha=0.5, zorder=2, aspect="auto")
+    streams.plot(ax=ax, lw=1, color='navy', zorder=3, edgecolor='none')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
+    # simflow.plot(ax=ax, alpha=1, column='VALUE1', cmap=mpl.colors.ListedColormap('red'), 
+    #              marker='s', markersize=10, lw=0.1, edgecolor='none', scheme="User_Defined", 
+    #              classification_kwds=dict(bins=[75, 500, 1000]), zorder=4)
+    divider = make_axes_locatable(ax)
+    cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+    fig.add_axes(cax)
+    cbar = fig.colorbar(image_hidden, cax=cax, orientation="horizontal")
+    ticklabels = cbar.ax.get_ymajorticklabels()
+    ticks = list(cbar.get_ticks())
+    val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+    cbar.set_ticks([minVal, meanVal, maxVal])
+    cbar.set_ticklabels([minVal, meanVal, maxVal])
+    cbar.mappable.set_clim(minVal, maxVal)
+    cbar.ax.tick_params(labelsize=10)    
+    cbar.ax.yaxis.set_ticks_position('left')
+    cbar.ax.tick_params(size=0)
+    
+    ax=axs[1]
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_title('K = '+('%.1E'%Decimal(koptim/24/3600))+' m/s'+'  -  '+'D = '+str(doptim)+' m', fontproperties=fontprop)
+    # ax.tick_params(axis='both', which='major', labelsize=10)
+    # ax.tick_params(axis='y', rotation=90)
+    # ax.ticklabel_format(axis='both', style='plain', useOffset=False)
+    xlims = ax.get_xlim()[1] - ax.get_xlim()[0]
+    ylims = ax.get_ylim()[1] - ax.get_ylim()[0]
+    bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+    width, height = bbox.width, bbox.height
+    width *= fig.dpi
+    height *= fig.dpi
+    
+    hil = rasterio.plot.show(np.ma.masked_where(hill.read(1) < 0, hill.read(1)), ax=ax, transform=dem.transform, cmap='Greys_r', alpha=0.5, zorder=2)
+    geol_s.plot(ax=ax, color=list(geol_s['hex']),alpha=0.3, edgecolor='dimgrey', zorder=0) 
+    geol_l.plot(ax=ax, color=list(geol_l['hex']), alpha=1, zorder=1)
+    streams.plot(ax=ax, lw=1, color='navy', zorder=3, edgecolor='none')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=5)    
+    # rast = rasterio.plot.show(np.ma.masked_where(raster.read(1) < 0, raster.read(1)), ax=ax, transform=dem.transform, vmin=0, vmax=1000, cmap='RdYlGn_r', alpha=1, zorder=4)
+    simflow.plot(ax=ax, alpha=1, column='VALUE1', cmap="RdYlGn_r", 
+                  marker='s', markersize=5, lw=0.1, edgecolor='none', scheme="User_Defined", 
+                  classification_kwds=dict(bins=[150, 450, 750]), zorder=4)
+    
+    # plt.tight_layout()
+    fig.tight_layout()
+    fig.savefig(out_path+'/_dichotomy/'+watershed_name+'_'+str(int(kroptim))+'.png', dpi=300, bbox_inches='tight', transparent=False)
+    # plt.close()
+
+#%% DICHOTOMY GRAPH
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+out_path = "D:/Users/abherve/HYSTERESIS"
+
+file_adds.create_folder(out_path+'/_dichotomy/')
+
+library_path = git_path + '/watershed' + '/watershed_bretagne_library.csv'
+dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
+
+outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
+
+specif_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/coord/"
+import chardet
+with open(specif_path+'all_stations_ronan.csv', 'rb') as f:
+    result = chardet.detect(f.read())  # or readline if the file is large
+coord = pd.read_csv(specif_path+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
+litho = coord['MAIN_LITHOLOGY'].unique()
+couleurs = ["red", "forestgreen", "hotpink", "grey"]
+diclitho = dict(zip(litho, couleurs))
+
+fig, ax = plt.subplots(1, 1, dpi=300, figsize=(5,4.5), sharex=True, sharey=True)
+# ax.set_xlabel('$K_{eq}$'+ ' [m.s$^-$$^1$]' + '\n' + 'Hydraulic conductivity')
+ax.set_xlabel('K / R'+ ' [-]' + '\n' + 'Hydraulic conductivity / Recharge')
+ax.set_ylabel('Distance criterion' + '\n' + '$D_{optim}$' + ' [m]')
+
+cpt1 = 1
+cpt2 = 1
+ 
+obs = 'streams'
+
+for idx, row in outlets.iloc[:].iterrows():
+    
+    watershed_name = row['name']
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    
+    geol = coord.loc[coord['STATION_NAME'].str.lower()==watershed_name.lower(), 'MAIN_LITHOLOGY'].values[0]
+    couleur = diclitho[geol]
+    
+    print('#################### SITE '+str(idx)+' PLOT '+' : '+watershed_name.upper()+' ####################')
+    
+    df = pd.read_csv(simulations_folder+'_dichotomy_'+obs+'.csv', sep=';', header=0)
+    # x = koptim = df.iloc[-1]['K'].round(3) / 3600 / 24
+    x = kroptim = df.iloc[-1]['KR'].round(3)
+    y = doptim =  int(((df.iloc[-1]['Oflow'] + df.iloc[-1]['Sflow'].round(3))/2).round(0))
+
+    # couleur = couleurs[idx]
+    
+    # ax.set_xlim(1e-6,1e-4)
+    # ax.set_xlim(1e-3,1)
+    # ax.set_ylim(0,300)
+    # ax.set_yticks(np.arange(0,301,75))
+    ax.set_xscale('log')
+    
+    ax.scatter(x, y, s=100, marker='o', edgecolor='none', color=couleur, lw=0, alpha=0.5, zorder=cpt1, label=watershed_name)
+    ax.scatter(x, y, s=100, marker='o', edgecolor=couleur, color='none', lw=1, alpha=1, zorder=cpt1, label=watershed_name)
+    # ax.legend(frameon=False, fontsize=5, loc='upper left', markerscale=0.5, bbox_to_anchor=(1, 1), borderaxespad=0)
+    ax.annotate(idx, (x,y), family='sans-serif', fontsize=5, color='dimgray', weight="bold", ha='center', va='center', zorder=cpt2)
+    ax.axhline(y=75, ls='--', lw=1, c='k', zorder=0)
+    
+    cpt1 += 1
+    cpt2 += 1
+    
+fig.tight_layout()
+fig.savefig(out_path+'/_dichotomy/'+'_KRoptim_lithology'+'.png', dpi=300, bbox_inches='tight', transparent=False)
+
 #%% NOTES
 
 # globals()[station] = pd.DataFrame()
@@ -1839,3 +2104,15 @@ for var in variables:
 # axs = axs.ravel()
 # yerr=yerr.T.to_numpy()
 # xerr=xerr.T.to_numpy()   
+
+    
+### Ticks tips
+# from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
+# import matplotlib.ticker as ticker
+# from matplotlib.ticker import ScalarFormatter
+# from matplotlib.ticker import FormatStrFormatter
+# plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter())
+# ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y, pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
+# ax.xaxis.set_major_formatter(ScalarFormatter())
+# ax.xaxis.set_minor_formatter(FormatStrFormatter("%.0f"))
+# ax.xaxis.set_minor_locator(plt.FixedLocator([200,3000]))
