@@ -18,7 +18,7 @@ sys.path.append(root_dir)
 
 # HydroModPy modules
 #from watershed.data import  climatic, oceanic, piezometry, hydrology
-import  climatic, oceanic, piezometry, hydrology
+import climatic, oceanic, piezometry, hydrology
 from groundwater_flow import modflow, modpath
 from tools import file_adds
 from watershed import forcing, geographic, geology, hydrodynamic, subbasins, watershed_display
@@ -81,7 +81,7 @@ class Watershed:
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, piezometry_path = False, modflow_path = None,
-                 save_object = True, load = False):
+                 save_object = True, load = False, type_river = 'streams'):
         """ 
         Constructor
         
@@ -121,6 +121,8 @@ class Watershed:
         self.oceanic_path = oceanic_path
         self.geology_path = geology_path
         self.modflow_path = modflow_path
+        
+        self.type_river = type_river
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
@@ -226,7 +228,7 @@ class Watershed:
         #self.hillslope = hillslope() #1D Doesn't exist
         
         if self.hydrology_path != None:
-            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, type_obs='streams', geographic=self.geographic, hydro_path=self.hydrology_path)
+            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, type_obs=self.type_river, geographic=self.geographic, hydro_path=self.hydrology_path)
             self.elt_def.append('hydrology')
 
         if self.geology_path != None:
