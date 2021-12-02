@@ -222,6 +222,9 @@ class Geographic:
                 self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
         except:
             pass
-        locator = Nominatim(user_agent='google')
-        location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-        self.dep_code = int(location.address.split(',')[-2][0:3])
+        try:
+            locator = Nominatim(user_agent='google')
+            location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+            self.dep_code = int(location.address.split(',')[-2][0:3])
+        except:
+            pass
