@@ -44,8 +44,6 @@ class Forcing:
             pdf = np.zeros(len(time)) 
             pdf[(time >= (180-(shape/2))) & (time < ((shape/2)+180))] = rech/shape
         self.recharge = pd.Series(data = pdf, index=date)
-<<<<<<< Updated upstream
-=======
         #self.recharge = pdf
         
     def update_sinusoid_recharge(self, serie, period, amplitude, offset, omega, phase):
@@ -74,7 +72,6 @@ class Forcing:
         sinus = sinusoid(X, *param)
         self.recharge = pd.Series(data = sinus, index=date)
         self.recharge[self.recharge < 0] = 0
->>>>>>> Stashed changes
     
     def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state):
         climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
