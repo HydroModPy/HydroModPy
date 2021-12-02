@@ -383,6 +383,7 @@ class Watershed:
             print('    Ecart = '+str(round(self.diff,2)))
             print('    K/R = '+str(round(half, 2)))
             print('    Condition = '+str(condition))
+            print('    Gap = '+str(round((gap/100) * half, 2)))
             
             self.df.loc[compt,'KR'] = round(half, 4)
             self.df.loc[compt,'K'] = round(hyd_cond, 4)
