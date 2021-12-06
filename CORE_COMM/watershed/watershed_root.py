@@ -81,7 +81,8 @@ class Watershed:
                  out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
                  surfex_path = None, oceanic_path = None, geology_path = None, 
                  hydrology_path = None, piezometry_path = False, modflow_path = None,
-                 save_object = True, load = False, type_river = 'streams'):
+                 save_object = True, load = False,
+                 types_obs=['streams'], fields_obs=['FID']):
         """ 
         Constructor
         
@@ -122,7 +123,8 @@ class Watershed:
         self.geology_path = geology_path
         self.modflow_path = modflow_path
         
-        self.type_river = type_river
+        self.types_obs = types_obs
+        self.fields_obs = fields_obs
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
@@ -228,7 +230,7 @@ class Watershed:
         #self.hillslope = hillslope() #1D Doesn't exist
         
         if self.hydrology_path != None:
-            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, type_obs=self.type_river, geographic=self.geographic, hydro_path=self.hydrology_path)
+            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, types_obs=self.types_obs, fields_obs=self.fields_obs, geographic=self.geographic, hydro_path=self.hydrology_path)
             self.elt_def.append('hydrology')
 
         if self.geology_path != None:
