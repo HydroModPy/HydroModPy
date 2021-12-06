@@ -14,7 +14,7 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 class Hydrology:
-    def __init__(self, out_path, type_obs, geographic, hydro_path):
+    def __init__(self, out_path, types_obs, fields_obs, geographic, hydro_path):
         
         print("Extraction des données hydrologiques")
         
@@ -25,73 +25,42 @@ class Hydrology:
         # watershed_shp = geographic.watershed_box_shp
         # watershed_dem = geographic.watershed_box_buff_dem
         
-        self.hydro_path = hydro_path
+        self.hydro_path = hydro_path 
         
         watershed_shp = geographic.watershed_shp
         watershed_dem = geographic.watershed_dem
+
+        for type_obs, field_obs in zip(types_obs, fields_obs):
+            self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
+            
+        try:
+            self.clip_data(hydro_path, data_folder, watershed_shp, watershed_dem)
+        except:
+            pass
         
-        sections = self.hydro_path + '/' + 'sections_fr.shp'
-        streams =  self.hydro_path + '/' + 'streams_fr.shp'
+    def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem):
+        
+        streams = hydro_path + '/' +  type_obs +'.shp'
+        self.streams = data_folder + type_obs +'.shp'
+        wbt.clip(streams, watershed_shp, self.streams)
+        tif_streams = data_folder + type_obs + '.tif'
+        wbt.vector_lines_to_raster(self.streams, tif_streams, field=field_obs, base=watershed_dem)
+        pt_streams = data_folder + type_obs + '_pt.shp'
+        wbt.raster_to_vector_points(tif_streams, pt_streams)
+        
+        dem_streams = gdal.Open(tif_streams)
+        self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
+        self.streams_array[self.streams_array<0] = np.nan
     
-        self.clip_observed(type_obs, watershed_shp, sections, streams, data_folder, watershed_dem)
-                    
-    def clip_observed(self, type_obs, watershed_shp, sections, streams, data_folder, watershed_dem):
-                        
-        if type_obs == 'streams':  
-            self.streams = data_folder + 'streams.shp'
-            wbt.clip(streams, watershed_shp, self.streams)
-            tif_streams = data_folder + 'streams.tif'
-            wbt.vector_lines_to_raster(self.streams, tif_streams, field="FID", base=watershed_dem)
-            pt_streams = data_folder + 'streams_pt.shp'
-            wbt.raster_to_vector_points(tif_streams, pt_streams)
+    def clip_data(self, hydro_path, data_folder, watershed_shp, watershed_dem):
+        hydrometric_data = hydro_path + '/' +  'hydrometric' +'.shp'
+        hydrometric_clip = data_folder + 'hydrometric' +'.shp'
+        wbt.clip(hydrometric_data, watershed_shp, hydrometric_clip)
         
-            dem_streams = gdal.Open(tif_streams)
-            self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
-            self.streams_array[self.streams_array<0] = np.nan
-            
-        if type_obs == 'sections':    
-            clip_sections = data_folder + 'sections.shp'
-            wbt.clip(sections, watershed_shp, clip_sections)
-            tif_sections = data_folder + 'sections.tif'
-            wbt.vector_lines_to_raster(clip_sections, tif_sections, field="Persistanc", base=watershed_dem)
-            pt_sections = data_folder + 'sections_pt.shp'
-            wbt.raster_to_vector_points(tif_sections, pt_sections)
-            
-        if type_obs == 'persistent':    
-            clip_sections = data_folder + 'sections.shp'
-            wbt.clip(sections, watershed_shp, clip_sections)
-            clip_sections_persist = gpd.read_file(clip_sections)
-            clip_sections_persist = clip_sections_persist[clip_sections_persist['Persistanc'] == '4']
-            clip_persistent = data_folder + 'persistent.shp'
-            clip_sections_persist.to_file(clip_persistent)
-            tif_persistent = data_folder + 'persistent.tif'
-            wbt.vector_lines_to_raster(clip_persistent, tif_persistent, field="Persistanc", base=watershed_dem)
-            pt_persistent = data_folder + 'persistent_pt.shp'
-            wbt.raster_to_vector_points(tif_persistent, pt_persistent)
-            
-        if type_obs == 'intermittent':    
-            clip_sections = data_folder + 'sections.shp'
-            wbt.clip(sections, watershed_shp, clip_sections)
-            clip_sections_intermit = gpd.read_file(clip_sections)
-            clip_sections_intermit = clip_sections_intermit[clip_sections_intermit['Persistanc'] == '3']
-            clip_intermittent = data_folder + 'intermittent.shp'
-            clip_sections_intermit.to_file(clip_intermittent)
-            tif_intermittent = data_folder + 'intermittent.tif'
-            wbt.vector_lines_to_raster(clip_intermittent, tif_intermittent, field="Persistanc", base=watershed_dem)
-            pt_intermittent = data_folder + 'intermittent_pt.shp'
-            wbt.raster_to_vector_points(tif_intermittent, pt_intermittent)
-
-        if (type_obs!='streams') | (type_obs!='sections') | (type_obs!='persistent') | (type_obs!='intermittent'):
-            wbt.clip(self.hydro_path + '/' + type_obs + '.shp',
-                     watershed_shp,
-                     data_folder + type_obs + '.shp')
-            wbt.vector_lines_to_raster(data_folder + type_obs + '.shp',
-                                       data_folder + type_obs + '.tif',
-                                       field="FID",
-                                       base=watershed_dem)
-            wbt.raster_to_vector_points(data_folder + type_obs + '.tif',
-                                        data_folder + type_obs + '_pt.shp')
-
+        onde_data = hydro_path + '/' +  'onde' +'.shp'
+        onde_clip = data_folder + 'onde' +'.shp'
+        wbt.clip(onde_data, watershed_shp, onde_clip)
+        
 #%% Notes
     
 # zh_digit = hydro_path + '/' + 'zh_digit.shp'
@@ -126,3 +95,27 @@ class Hydrology:
 #         wbt.raster_to_vector_points(tif_stream, pt_stream)
 #     except:
 #         print('There is no streams in data')
+
+# if type_obs == 'persistent':
+#     clip_sections = data_folder + 'sections.shp'
+#     wbt.clip(sections, watershed_shp, clip_sections)
+#     clip_sections_persist = gpd.read_file(clip_sections)
+#     clip_sections_persist = clip_sections_persist[clip_sections_persist['Persistanc'] == '4']
+#     clip_persistent = data_folder + 'persistent.shp'
+#     clip_sections_persist.to_file(clip_persistent)
+#     tif_persistent = data_folder + 'persistent.tif'
+#     wbt.vector_lines_to_raster(clip_persistent, tif_persistent, field="Persistanc", base=watershed_dem)
+#     pt_persistent = data_folder + 'persistent_pt.shp'
+#     wbt.raster_to_vector_points(tif_persistent, pt_persistent)
+    
+# if type_obs == 'intermittent':    
+#     clip_sections = data_folder + 'sections.shp'
+#     wbt.clip(sections, watershed_shp, clip_sections)
+#     clip_sections_intermit = gpd.read_file(clip_sections)
+#     clip_sections_intermit = clip_sections_intermit[clip_sections_intermit['Persistanc'] == '3']
+#     clip_intermittent = data_folder + 'intermittent.shp'
+#     clip_sections_intermit.to_file(clip_intermittent)
+#     tif_intermittent = data_folder + 'intermittent.tif'
+#     wbt.vector_lines_to_raster(clip_intermittent, tif_intermittent, field="Persistanc", base=watershed_dem)
+#     pt_intermittent = data_folder + 'intermittent_pt.shp'
+#     wbt.raster_to_vector_points(tif_intermittent, pt_intermittent)

@@ -77,7 +77,7 @@ class Forcing:
         climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
-        self.recharge = climatic/1000 # recharge
+        self.recharge = climatic/1000 # recharge in meters
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
@@ -85,7 +85,7 @@ class Forcing:
         climatic = pd.read_csv(self.data_folder+'_'+'RUN'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
-        self.runoff = climatic/1000  
+        self.runoff = climatic/1000 # recharge in meters
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
         
