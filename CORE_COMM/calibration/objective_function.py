@@ -15,6 +15,7 @@ wbt.verbose = False
 #HydroModPy tools
 from tools import file_adds
 from tools import tif_masks
+from tools import serie_transf
 
 class Streams:
     def __init__(self, 
@@ -97,4 +98,21 @@ class Streams:
         
         indicator = (1-(self.mean_sim_to_obs / self.mean_obs_to_sim))**2  
         return (indicator)
+
+class Piezometry:
+    def __init__(self, piezometry, simulations_folder):
+        self.piezometry = piezometry
+        self.simulations_folder = simulations_folder
     
+    def load_data(self):
+        first = '2020'
+        last ='2021'
+        watertable_elevation = np.load(os.path.join(self.simulations_folder,'_extraction', 'watertable_elevation.npy'), allow_pickle=True).item()
+        for j in range(1,len(self.piezometry.codes_bss)):
+            sim = [watertable_elevation[a_dict][self.piezometry.y_iloc[j],self.piezometry.x_iloc[j]] for a_dict in watertable_elevation]
+            obs = self.piezometry.elevation[self.piezometry.codes_bss[j]].loc[str(first):str(last)].resample('M').mean().values 
+            list_stats = serie_transf.efficiency_criteria(sim, obs)
+        print(list_stats)
+    
+    def get_indicator(self):
+        a=1

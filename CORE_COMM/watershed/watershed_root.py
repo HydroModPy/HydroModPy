@@ -228,7 +228,7 @@ class Watershed:
         if self.hydrology_path != None:
             self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, type_obs='streams', geographic=self.geographic, hydro_path=self.hydrology_path)
             self.elt_def.append('hydrology')
-
+            
         if self.geology_path != None:
             self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None)
             self.elt_def.append('geology')

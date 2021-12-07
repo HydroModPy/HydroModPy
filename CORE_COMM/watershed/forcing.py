@@ -42,8 +42,10 @@ class Forcing:
             pdf = ((1/(shape*np.sqrt(2*np.pi)))*np.exp(-((time-mean)**2/(2*shape**2))))*rech
         if dis == 'uniform':
             pdf = np.zeros(len(time)) 
-            pdf[(time >= (180-(shape/2))) & (time < ((shape/2)+180))] = rech/shape
+            pdf[(time >= (mean-(shape/2))) & (time < ((shape/2)+mean))] = rech/shape
         self.recharge = pd.Series(data = pdf, index=date)
+        if freq != None:
+            self.recharge = self.recharge.resample(freq).sum()
     
     def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state):
         climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)

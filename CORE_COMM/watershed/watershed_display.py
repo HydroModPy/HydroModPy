@@ -87,7 +87,7 @@ fontdic = {'family' : 'serif'} # for legend
 def watershed_dem(BV):
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     streams = gpd.read_file(BV.hydrology.streams)
-    piezos = gpd.read_file(BV.piezometry.piezos_shp)
+    
     #polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
@@ -106,8 +106,11 @@ def watershed_dem(BV):
          cmap='terrain', alpha=1, zorder=2, aspect="auto")
     streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
-    piezos.plot(ax=ax, color='r',zorder=6,legend=True, label='Piezometers: continue')
-    ax.plot(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, '^b', zorder=5, label='Piezometers: discrete')
+    if os.path.exists(BV.piezometry.piezos_shp):
+        piezos = gpd.read_file(BV.piezometry.piezos_shp)
+        piezos.plot(ax=ax, color='r',zorder=6,legend=True, label='Piezometers: continue')
+    if len(BV.piezometry.x_coord_discrete)>0:
+        ax.plot(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, '^b', zorder=5, label='Piezometers: discrete')
     ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
@@ -132,7 +135,7 @@ def watershed_dem(BV):
 def watershed_geology(BV):
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     streams = gpd.read_file(BV.hydrology.streams)
-    piezos = gpd.read_file(BV.piezometry.piezos_shp)
+    
     #polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
     bounds = contour.geometry.total_bounds
@@ -162,7 +165,11 @@ def watershed_geology(BV):
     
     streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
-    piezos.plot(ax=ax, color='r',zorder=5,legend=True, label='Piezometers')
+    if os.path.exists(BV.piezometry.piezos_shp):
+        piezos = gpd.read_file(BV.piezometry.piezos_shp)
+        piezos.plot(ax=ax, color='r',zorder=5,legend=True, label='Piezometers')
+    if len(BV.piezometry.x_coord_discrete)>0:
+        ax.plot(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, '^b', zorder=5, label='Piezometers: discrete')
     ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     fig.tight_layout ()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
