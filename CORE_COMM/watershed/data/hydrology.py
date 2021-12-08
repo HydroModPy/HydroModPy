@@ -31,8 +31,10 @@ class Hydrology:
         watershed_dem = geographic.watershed_dem
 
         for type_obs, field_obs in zip(types_obs, fields_obs):
-            self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
-            
+            try:
+                self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
+            except:
+                pass
         try:
             self.clip_data(hydro_path, data_folder, watershed_shp, watershed_dem)
         except:
