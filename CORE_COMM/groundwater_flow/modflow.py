@@ -66,7 +66,10 @@ class Modflow():
         self.geographic = geographic
         self.resolution = geographic.resolution
         self.sink_fill = sink_fill
-        self.sink = geographic.depressions_data
+        try : 
+            self.sink = geographic.depressions_data
+        except:
+            pass
         self.bottom = bottom
         self.nlay = lay_number
         self.hyd_cond = hyd_cond
