@@ -4,6 +4,7 @@ Created on Fri Nov 12 10:21:56 2021
 
 @author: Alexandre Gauvain
 """
+# <codecell>
 
 # Download data on my Dropbox at this link: https://www.dropbox.com/sh/eidukc992nvi6jc/AAC0cwuwCnY7bDjiN57qwODva?dl=0
 import os
@@ -14,7 +15,7 @@ from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 from watershed import watershed_root
-from calibration import calibration_root
+#from calibration import calib_root
 
 
 # Users
@@ -32,25 +33,31 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = True #False to build and save python object
+load = True#False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 
-dem_path = root_path + "MNT_TOPO_BATH_75m.tif"#'BDALTI_bzh_75m.tif' 
+dem_path = root_path + "MNT_75m_cor.tif"#'BDALTI_bzh_75m.tif' 
 surfex_path =  root_path + 'SURFEX/Normandie_h5'
 geology_path = root_path + 'GEOLOGY'
 oceanic_path = root_path + 'OCEAN'
 modflow_path = root_path + 'MODFLOW'
 hydrology_path = root_path + 'HYDROLOGY'
+types_obs = ['streams_fr']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path,surfex_path=surfex_path, geology_path = geology_path, 
                               hydrology_path=hydrology_path, oceanic_path=oceanic_path, piezometry_path=True ,
-                              modflow_path=modflow_path , load=load)
+                              modflow_path=modflow_path,types_obs=types_obs, load=load)
 if load == False:
     BV.piezometry.add_data()
     BV.save_object()
 
 #%% Calibration Model
+from calibration import calib_root
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
+BV.hydrodynamic.update_thickness(100)
+params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.exploration(resolution=50)
 #indicator = calibration_root.run_calibration(0.864, BV, observation='streams')
 
 #%% Run Modflow Steady state
