@@ -181,6 +181,7 @@ rech = BV.forcing.recharge
 plt.plot(rech*1000, c='k', lw=0.5)
 
 # sce0 = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1) # serie, period, amplitude, offset, omega, phase
+# rech = BV.forcing.recharge
 # plt.plot(BV.forcing.recharge*1000, c='blue')
 # sce_offm = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1/2, 1, 1)
 # plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
@@ -206,18 +207,22 @@ plt.plot(rech*1000, c='k', lw=0.5)
 df = pd.read_csv(simulations_folder+'_dichotomy_'+'streams'+'.csv', sep=';', header=0)
 koptim = df.iloc[-1]['K'].round(1) # / 30 / 3600 / 24
 
+sce = 'sinus1'
+
 k = koptim
 BV.hydrodynamic.update_hyd_cond(k)
-sy = 0.001
-BV.hydrodynamic.update_porosity(sy)
 ep = 30
 BV.hydrodynamic.update_thickness(ep)
+sys = [0.001, 0.01, 0.1]
 
-ident = 'rech_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
-# BV.run_modflow(ident=ident, modpath_sim=False, calib=False, sink_fill=False, 
-#                 lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., verbose=True)
-# BV.chronics_modflow(ident=ident, mask=False, outlet_type=True, calib_only=False, 
-#                     first=1990, last=2019, time_step='monthly')
+for sy in sys:
+    sy = sy
+    BV.hydrodynamic.update_porosity(sy)
+    ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
+    # BV.run_modflow(ident=ident, modpath_sim=False, calib=False, sink_fill=False, 
+    #                 lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., verbose=True)
+    # BV.chronics_modflow(ident=ident, mask=False, outlet_type=True, calib_only=False, 
+    #                     first=1990, last=2019, time_step='monthly')
 
 # from groundwater_flow import vizualisation
 # visu = vizualisation.Vizualisation(BV, ident)
@@ -231,7 +236,7 @@ import scipy.stats as sp
 import shapely.geometry as SG
 import seaborn as sns
 
-def hysteresis_total(station, index, xm, ym, out, first, last):
+def hysteresis_total(station, index, xm, ym, out, first, last, xlim, ylim):
     # Create figure
     fig, ax = plt.subplots(1,1,figsize=(5, 4))
     fig.add_subplot(111, frameon=False)
@@ -279,9 +284,9 @@ def hysteresis_total(station, index, xm, ym, out, first, last):
     # Parameter log
     ax.set_yscale('log')
     # Parameter lim       
-    ax.set_xlim(-100,100)
-    ax.set_ylim(0.1,200)
-    ax.set_xticks(np.linspace(-150, 150, 5))
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    # ax.set_xticks(np.linspace(-150, 150, 5))
     # Parameter title 
     ax.set_title(station.upper(), pad=+10) 
     # Tidy
@@ -299,9 +304,9 @@ def hysteresis_total(station, index, xm, ym, out, first, last):
     fig.savefig(simulations_folder+ident+'/_figure/'+'hysteresis_total'+'.png', dpi=300, bbox_inches='tight')
     # plt.close()
 
-def hysteresis_superpose(ident, df):
+def hysteresis_superpose(ident, df, xlim, ylim):
     cp = 0
-    couleur = 'k'
+    couleur = 'red'
     fig, ax = plt.subplots(1,1,figsize=(5.5, 4.5))
     fig.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False) # hide tick and tick label of the big axis
@@ -344,7 +349,7 @@ def hysteresis_superpose(ident, df):
     xline.index = np.arange(1,14,1)
     yline = yintm.append(yintm.iloc[[0]])
     yline.index = np.arange(1,14,1)
-    ax.plot(xline, yline, linestyle = '-', lw=1, color=couleur, zorder=2+cp)    
+    ax.plot(xline, yline, linestyle = '-', lw=3, color=couleur, zorder=2+cp)    
     # Plot error bars
     # ax.errorbar(xintm, yintm, 
     #                     yerr=np.vstack([yintm-yerr.q25, yerr.q75-yintm]),
@@ -354,10 +359,10 @@ def hysteresis_superpose(ident, df):
     # Parameter log
     ax.set_yscale('log')        
     # Parameter lim   
-    minx = -100
-    maxx = 100
-    ax.set_xlim(minx,maxx)
-    ax.set_ylim(0.1,100)
+    # minx = -100
+    # maxx = 100
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     # Plot 1:1 line
     x = np.linspace(*ax.get_xlim())
     ax.plot(x, x, linestyle='-',color='k', linewidth=2, zorder=0)
@@ -369,7 +374,7 @@ def hysteresis_superpose(ident, df):
     cp += 3
     fig.savefig(simulations_folder+ident+'/_figure/'+'hysteresis_superpose'+'.png', dpi=300, bbox_inches='tight')
     
-def linregress(inx,iny,ax):
+def linregress(inx,iny):
     x=np.array(inx.values, dtype=float)
     y=np.array(iny.values, dtype=float)
     xmas = np.ma.masked_array(x,mask=np.isnan(y)).compressed()
@@ -461,7 +466,7 @@ def parameters_loop(station, index, xm, ym, out):
         data.iny = data.iny[0:-1]
         
         # Regression    
-        reg = linregress(data.inx,data.iny,ax)
+        reg = linregress(data.inx,data.iny)
         reg_stat = pd.DataFrame(columns=['center_x','center_y','slope','intercept',
                                          'r_value','p_value','std_err','lenght_reg'])
         reg_stat.loc[len(reg_stat)] = reg
@@ -496,7 +501,7 @@ def parameters_loop(station, index, xm, ym, out):
             
         return qmax, qmin, q0, qmid, qsep, hi, reg_stat, ortho, intersection, ecart_center
 
-def hysteresis_describe(ident, df, stable_folder):
+def hysteresis_describe(ident, df, stable_folder, xlim, ylim):
     recap = pd.DataFrame()
     compt = 0
     station = ident
@@ -531,8 +536,8 @@ def hysteresis_describe(ident, df, stable_folder):
             ax.annotate(points[k-1],(horiz[k],verti[k]),family='sans-serif', fontsize=9, color='black', weight="bold", ha='center', va='center')        
     ax.axhline(y=0, color='k', linestyle='-',linewidth = 1)
     ax.plot(intersection[0], ecart_center, marker ='+', markersize=11, mew=2, color = 'k')
-    ax.set_xlim(-150,150)
-    ax.set_ylim(-75,75)
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     ax.set_title(station.upper(), pad=10)
     ax.grid(color='grey',alpha=0.2)
     # Store                   
@@ -616,322 +621,366 @@ def hysteresis_boxplot(recap):
 
 #%% LAUNCH FUNCTIONS
 
-sy = 0.001
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-ident = 'rech_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
-df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
-first = df.first_valid_index().year
-last = df.last_valid_index().year
+sce = 'rech'
+sys = [0.001, 0.01, 0.1]
+    
+for sy in sys:
 
-ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
-etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+    sy = sy
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
+    df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
+    first = df.first_valid_index().year
+    last = df.last_valid_index().year
+    
+    ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+    etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+    
+    dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+    area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
 
-dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
-area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
-
-df['spe'] = (df.outflow_drain) * 1000 # mm/m
-df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
-df['rec'] = rech * 1000
-
-hysteresis_total(ident, df.index, df.eff, df.spe, stable_folder, first, last)
-hysteresis_superpose(ident, df)
-recap = hysteresis_describe(ident, df, stable_folder)
-# hysteresis_boxplot(recap)
+    df['spe'] = (df.outflow_drain) * 1000 # mm/m
+    # df['spe'] = (df.seepage_areas) # %
+    df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
+    # df['eff'] = rech * 1000
+    df['rec'] = rech * 1000
+        
+    xlim = (-150,+150)
+    ylim = (0.1,150)
+    hysteresis_total(ident, df.index, df.eff, df.spe, stable_folder, first, last, xlim, ylim)
+    # xlim = (-20,+50)
+    # ylim = (0.5,100)
+    # hysteresis_superpose(ident, df, xlim, ylim)
+    # xlim = (0,+50)
+    # ylim = (-20,20)
+    # recap = hysteresis_describe(ident, df, stable_folder, xlim, ylim)
+    # hysteresis_boxplot(recap)
 
 #%% GIF INTERMITTENCY
 
-dir_to_analyse = simulations_folder + ident + '/_extraction/'
-list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
+    dir_to_analyse = simulations_folder + ident + '/_extraction/'
+    list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
+    
+    figdir = dir_to_analyse + '_fig/'
+    pngdir = dir_to_analyse + '_fig/_png/'
+    gifdir = dir_to_analyse + '_fig/_gif/'
+    file_adds.create_folder(figdir)
+    file_adds.create_folder(pngdir)
+    file_adds.create_folder(gifdir)
+    
+    ### INTERMITTENCY ###
+    compt = 1
+    c1 = 0
+    c12 = 12
+    one = pd.DataFrame(columns=['x','y'])
+    for i in list_traces:    
+        inter = list_traces[c1:c12]
+        one_x = []
+        one_y = []
+        test = []
+        for j in inter:
+            outflow = gpd.read_file(j)
+            x_list = outflow.geometry.x
+            y_list = outflow.geometry.y
+            mix = list(zip(x_list, y_list))
+            test.extend(mix)
+        dfc = pd.DataFrame(test, columns=['x','y'])
+        dfc['z'] = dfc['x'].astype(str) + dfc['y'].astype(str)
+        values = dfc['z'].value_counts()
+        values = values[values==12]
+        for j in inter:
+            
+            outflow = gpd.read_file(j)
+            outflow['x'] = outflow.geometry.x
+            outflow['y'] = outflow.geometry.y
+            outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
+            outflow['persit'] = 0
+            for h in values.index:
+                # print('Detect intermittency : '+str(compt))
+                outflow.loc[outflow['z']==h,'persit'] = 1
+            outflow.to_file(j) 
+        c1+=12
+        c12+=12
+        compt+=1
+    
+    ### PLOT STREAMS ###
+    compt = 0
+    for i in list_traces:
+        lead_numb = "%03d" % (compt,)
+        print(lead_numb)
+        outflow = gpd.read_file(i)
+        fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
+        dem = rasterio.open(BV.geographic.watershed_dem)
+        img = imageio.imread(BV.geographic.watershed_dem)
+        contour = gpd.read_file(stable_folder+'/geographic/'+'watershed_contour.shp')
+        streams = gpd.read_file(stable_folder+'/hydrology/'+'streams_fr.shp')
+        sections = gpd.read_file(stable_folder+'/hydrology/'+'sections_fr.shp')
+        sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='grey', ls='-', zorder=7)
+        sections[sections.Persistanc=='4'].plot(ax=ax, lw=1, color='k', ls='-', zorder=7)
+        bounds = contour.geometry.total_bounds
+        xlim = ([bounds[0], bounds[2]])
+        ylim = ([bounds[1], bounds[3]])
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_title(str(df.index[compt])[:10], fontproperties=fontprop)
+        ax.set(aspect='equal') 
+        image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='Greys')
+        mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform,
+                                 cmap='Greys', alpha=0.5, zorder=2)
+        contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="1%", pad=0.05)
+        fig.add_axes(cax)
+        cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+        val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+        minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+        maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+        meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+        cbar.set_ticks([minVal, meanVal, maxVal])
+        cbar.set_ticklabels([minVal, meanVal, maxVal])
+        cbar.mappable.set_clim(minVal, maxVal)
+        cbar.ax.tick_params(labelsize=10)
+        # outflow.plot(ax=ax, alpha=1, column='persit', cmap="winter_r", 
+        #               marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+        #               scheme="User_Defined", 
+        #               classification_kwds=dict(bins=[1, 0]),
+        #               zorder=4)
+           
+        # from matplotlib.colors import ListedColormap
+        # cmap = ListedColormap(['darkorange','blue'])
+        outflow[outflow.persit==0].plot(ax=ax, alpha=1, column='persit', color='darkorange', 
+                                        marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                                        zorder=4)
+        outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='dodgerblue', 
+                                        marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                                        zorder=4)
+        hydro = gpd.read_file(stable_folder + '/hydrology/' + 'hydrometric.shp')
+        hydro.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=7)
+        onde = gpd.read_file(stable_folder + '/hydrology/' + 'onde.shp')
+        allsta = onde['<LbSiteHyd'].unique()
+        for idx, lib in enumerate(allsta):
+            sta = onde[onde['<LbSiteHyd']==lib]
+            sta.plot(ax=ax, lw=1, facecolor='yellow', marker='^', edgecolor='k', alpha=1, zorder=8)
+        name_fig = 'interm_' + str(lead_numb) + '.png'
+        plt.tight_layout()
+        plt.savefig(pngdir + name_fig)
+        plt.close()
+        compt+=1
+    
+    ### MAKE GIF ###
+    filenames = glob(pngdir+'/'+'interm_*.png')  
+    import imageio
+    images = []
+    for filename in filenames:
+        images.append(imageio.imread(filename))
+    imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=0.5, loop=1)
 
-figdir = dir_to_analyse + '_fig/'
-pngdir = dir_to_analyse + '_fig/_png/'
-gifdir = dir_to_analyse + '_fig/_gif/'
-file_adds.create_folder(figdir)
-file_adds.create_folder(pngdir)
-file_adds.create_folder(gifdir)
-
-### INTERMITTENCY ###
-compt = 1
-c1 = 0
-c12 = 12
-one = pd.DataFrame(columns=['x','y'])
-for i in list_traces:    
-    inter = list_traces[c1:c12]
-    one_x = []
-    one_y = []
-    test = []
-    for j in inter:
-        outflow = gpd.read_file(j)
-        x_list = outflow.geometry.x
-        y_list = outflow.geometry.y
-        mix = list(zip(x_list, y_list))
-        test.extend(mix)
-    df = pd.DataFrame(test, columns=['x','y'])
-    df['z'] = df['x'].astype(str) + df['y'].astype(str)
-    values = df['z'].value_counts()
-    values = values[values==12]
-    for j in inter:
-        
-        outflow = gpd.read_file(j)
-        outflow['x'] = outflow.geometry.x
-        outflow['y'] = outflow.geometry.y
-        outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
-        outflow['persit'] = 0
-        for h in values.index:
-            print('Detect intermittency : '+str(compt))
-            outflow.loc[outflow['z']==h,'persit'] = 1
-        outflow.to_file(j) 
-    c1+=12
-    c12+=12
-    compt+=1
-
-### PLOT STREAMS ###
-compt = 0
-for i in list_traces:
-    lead_numb = "%03d" % (compt,)
-    print(lead_numb)
-    outflow = gpd.read_file(i)
-    fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
-    dem = rasterio.open(BV.geographic.watershed_dem)
-    img = imageio.imread(BV.geographic.watershed_dem)
-    contour = gpd.read_file(stable_folder+'/geographic/'+'watershed_contour.shp')
-    streams = gpd.read_file(stable_folder+'/hydrology/'+'streams_fr.shp')
-    sections = gpd.read_file(stable_folder+'/hydrology/'+'sections_fr.shp')
-    sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='grey', ls='-', zorder=7)
-    sections[sections.Persistanc=='4'].plot(ax=ax, lw=1, color='k', ls='-', zorder=7)
-    bounds = contour.geometry.total_bounds
-    xlim = ([bounds[0], bounds[2]])
-    ylim = ([bounds[1], bounds[3]])
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    ax.set_title(str(df.index[compt])[:10], fontproperties=fontprop)
-    ax.set(aspect='equal') 
-    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='Greys')
-    mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform,
-                             cmap='Greys', alpha=0.5, zorder=2)
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="1%", pad=0.05)
-    fig.add_axes(cax)
-    cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
-    val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
-    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-    cbar.set_ticks([minVal, meanVal, maxVal])
-    cbar.set_ticklabels([minVal, meanVal, maxVal])
-    cbar.mappable.set_clim(minVal, maxVal)
-    cbar.ax.tick_params(labelsize=10)
-    # outflow.plot(ax=ax, alpha=1, column='persit', cmap="winter_r", 
-    #               marker='s', markersize=7.5, lw=0.1, edgecolor='none',
-    #               scheme="User_Defined", 
-    #               classification_kwds=dict(bins=[1, 0]),
-    #               zorder=4)
-       
-    # from matplotlib.colors import ListedColormap
-    # cmap = ListedColormap(['darkorange','blue'])
-    outflow[outflow.persit==0].plot(ax=ax, alpha=1, column='persit', color='darkorange', 
-                                    marker='s', markersize=7.5, lw=0.1, edgecolor='none',
-                                    zorder=4)
-    outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='dodgerblue', 
-                                    marker='s', markersize=7.5, lw=0.1, edgecolor='none',
-                                    zorder=4)
-    hydro = gpd.read_file(stable_folder + '/hydrology/' + 'hydrometric.shp')
-    hydro.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=7)
-    onde = gpd.read_file(stable_folder + '/hydrology/' + 'onde.shp')
-    allsta = onde['<LbSiteHyd'].unique()
-    for idx, lib in enumerate(allsta):
-        sta = onde[onde['<LbSiteHyd']==lib]
-        sta.plot(ax=ax, lw=1, facecolor='yellow', marker='^', edgecolor='k', alpha=1, zorder=8)
-    name_fig = 'interm_' + str(lead_numb) + '.png'
-    plt.tight_layout()
-    plt.savefig(pngdir + name_fig)
-    plt.close()
-    compt+=1
-
-### MAKE GIF ###
-filenames = glob(pngdir+'/'+'interm_*.png')  
-import imageio
-images = []
-for filename in filenames:
-    images.append(imageio.imread(filename))
-imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=1, loop=1)
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
+    df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
+    first = df.first_valid_index().year
+    last = df.last_valid_index().year    
+    ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+    etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+    dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+    area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
+    df['spe'] = (df.outflow_drain) * 1000 # mm/m
+    # df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
+    df['eff'] = rech * 1000
+    df['rec'] = rech * 1000
 
 #%% GIF DISCHARGE
-
-##### DEM #####
-dem_cut = stable_folder + 'geographic/watershed_dem.tif'
-demDs = gdal.Open(dem_cut)
-demData = demDs.GetRasterBand(1).ReadAsArray()
-geot = demDs.GetGeoTransform()
-dx = geot[1] #delta x
-dy = abs(geot[5]) #delta y
-demData_raw = demData
-msk = (demData==np.min(demData))
-demData = np.ma.masked_array(demData, mask=msk)
-lx,ly = demData.shape
-x = np.linspace(0,lx,lx)
-y = np.linspace(0,ly,ly)
-xx, yy = np.meshgrid(y,x)
-xx_mi = np.min(np.ma.array(xx, mask=msk))
-xx_ma = np.max(np.ma.array(xx, mask=msk))
-ext_x = xx_ma-xx_mi
-yy_mi = np.min(np.ma.array(yy, mask=msk))
-yy_ma = np.max(np.ma.array(yy, mask=msk))
-ext_y = yy_ma-yy_mi
-
-##### MODLOW #####
-dir_to_analyse = simulations_folder + ident + '/_extraction/'
-mass_to_analyse = simulations_folder + ident + '/_extraction/_surfaceflow/'
-figdir = dir_to_analyse + '_fig/'
-pngdir = dir_to_analyse + '_fig/_png/'
-gifdir = dir_to_analyse + '_fig/_gif/'
-file_adds.create_folder(figdir)
-file_adds.create_folder(pngdir)
-file_adds.create_folder(gifdir)
-water_table_path = dir_to_analyse + 'watertable_elevation.npy'
-outflow_path = dir_to_analyse + 'outflow_drain.npy'
-wt_all = np.load(water_table_path, allow_pickle=True).item() 
-outflow_all = np.load(outflow_path, allow_pickle=True).item() 
-surface_sat = []
-rch_for_gif = []
-time_for_gif = []
-flow_rate = []
-time_tot = df.index
-
-##### LOOP #####
-for key in wt_all:
-    ### PREP ###  
-    outflow = outflow_all[key]
-    msk_outflow = (outflow==np.min(outflow))
-    outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-    outflow = np.ma.masked_where(outflow==0,outflow)
-    outflow_len = len(outflow[outflow>0])
-    cell = demData.count()
-    flow_rate_temp = np.sum(outflow) / (cell * 75**2)
-    flow_rate.append(flow_rate_temp)
-    wt = wt_all[key]
-    wt = np.ma.masked_array(wt, mask=msk)
-    wt_len = len(wt[wt>0])
-    surface_sats = outflow_len/wt_len*100
-    surface_sat.append(surface_sats)
-
-for key in wt_all:
-    lead_numb = "%03d" % (key,)
-    t_temp = df.index[key]
-    time_for_gif.append(t_temp)
-    outflow = imageio.imread(mass_to_analyse+'mass_outflow_drain_t('+lead_numb+')'+'.tif')
-    msk_outflow = (outflow<0)
-    outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-    outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
-    outflow_len = len(outflow[outflow>0])
-    cell = demData.count()
-    wt = wt_all[key]
-    wt = np.ma.masked_array(wt, mask=msk)
-    wt_len = len(wt[wt>0])
-    ls = LightSource(azdeg=45, altdeg=45)
-    cmap = plt.cm.Greys
-    rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=dx, dy=dy)
     
-    ### PLOT ###
-    fig = plt.figure(figsize=(11,6))
-    gs = fig.add_gridspec(3,2)
-    ax1 = fig.add_subplot(gs[:, 0])
-    ax2 = fig.add_subplot(gs[0, 1])
-    ax3 = fig.add_subplot(gs[1, 1])
-    ax4 = fig.add_subplot(gs[2, 1])
-    ax = ax1
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-    # levels = np.arange(1000, 3000, 100)
-    hc=ax.contour(xx, yy, wt, alpha=0.25, cmap=mpl.colors.ListedColormap('k'), linewidths=1)
-    ax.clabel(hc, inline=True, fontsize=8, fmt='%1.0f')
-    # levels_outflow = np.arange(-1, 3.5, 0.5)
-    # cf=ax.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap='jet_r', alpha=1, antialiased = True)
-    # norm = mpl.colors.Normalize(vmin=-1, vmax=4)
-    # cf=ax.imshow(np.log10(outflow), cmap='jet_r', alpha=1, vmin=-1, vmax=4)
-    cf=ax.imshow(outflow / 75**2, cmap='jet_r', alpha=1, vmin=0, vmax=int(round(df.spe.mean())))
-    plt.xlim(xx_mi-0.1*ext_x,xx_ma+0.1*ext_x)
-    plt.ylim(yy_ma+0.1*ext_y,yy_mi-0.1*ext_y)
-    divider = make_axes_locatable(ax)
-    # Legend 1
-    cax = divider.append_axes("right", size="1%", pad=0.05)
-    fig.add_axes(cax)
-    cbar = fig.colorbar(im, cax=cax, orientation="vertical")
-    val = np.ma.masked_where(demData < 0, demData)
-    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-    cbar.set_ticks([minVal, meanVal, maxVal])
-    cbar.set_ticklabels([minVal, meanVal, maxVal])
-    cbar.mappable.set_clim(minVal, maxVal)
-    cbar.ax.tick_params(labelsize=10)
-    # Legend 2
-    cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
-    fig.add_axes(cax)
-    cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-    ticks = np.arange(0, int(round(df.spe.mean()))+5, 5)
-    cbar.set_ticks(ticks)
-    cbar.set_ticklabels(ticks)
-    cbar.set_label('Cumulated upstream discharge [mm/M]')
-    plt.tight_layout()
+    ##### DEM #####
+    dem_cut = stable_folder + 'geographic/watershed_dem.tif'
+    demDs = gdal.Open(dem_cut)
+    demData = demDs.GetRasterBand(1).ReadAsArray()
+    geot = demDs.GetGeoTransform()
+    dx = geot[1] #delta x
+    dy = abs(geot[5]) #delta y
+    demData_raw = demData
+    msk = (demData==np.min(demData))
+    demData = np.ma.masked_array(demData, mask=msk)
+    lx,ly = demData.shape
+    x = np.linspace(0,lx,lx)
+    y = np.linspace(0,ly,ly)
+    xx, yy = np.meshgrid(y,x)
+    xx_mi = np.min(np.ma.array(xx, mask=msk))
+    xx_ma = np.max(np.ma.array(xx, mask=msk))
+    ext_x = xx_ma-xx_mi
+    yy_mi = np.min(np.ma.array(yy, mask=msk))
+    yy_ma = np.max(np.ma.array(yy, mask=msk))
+    ext_y = yy_ma-yy_mi
     
-    ax = ax2
-    xlim = [pd.to_datetime(str(first-1)), pd.to_datetime(str(last+2))]
-    rechs = df.iloc[key]
-    rch_for_gif.append(rechs)
-    ax.set_title("Recharge, [mm/M]")
-    ax.plot(time_tot, df.rec, color='magenta', lw=2)
-    ax.axvline(x=t_temp, color='k', lw=2)
-    plt.setp(ax.get_xticklabels(), visible=False)
-    ax.set_xlim(xlim)
-    ax.set_ylim(df.rec.min(), df.rec.max())
-    plt.tight_layout()
-
-    ax = ax3
-    #ax3.set_xlabel("time")
-    ax.set_title("Saturated area, [%]")
-    ax.plot(time_tot, surface_sat,'darkorange', lw=2)
-    plt.setp(ax.get_xticklabels(), visible=False)
-    ax.axvline(x=t_temp, color='k', lw=2)
-    ax.set_xlim(xlim)
-    ax.set_ylim(np.array(surface_sat).min(), np.array(surface_sat).max())
-    plt.tight_layout()
-
-    ax = ax4
-    ax.set_xlabel("Time")
-    ax.set_title("Discharge, [mm/M]")
-    ax.plot(time_tot, np.array(flow_rate)*1000,'dodgerblue', lw=2)
-    ax.axvline(x=t_temp, color='k', lw=2)
-    # ax.set_yscale("log")
-    ax.invert_yaxis()
-    ax.set_xlim(xlim)
-    ax.set_ylim(np.array(flow_rate).min()*1000, np.array(flow_rate).max()*1000)
-    plt.tight_layout()
+    ##### MODLOW #####
+    dir_to_analyse = simulations_folder + ident + '/_extraction/'
+    mass_to_analyse = simulations_folder + ident + '/_extraction/_surfaceflow/'
+    figdir = dir_to_analyse + '_fig/'
+    pngdir = dir_to_analyse + '_fig/_png/'
+    gifdir = dir_to_analyse + '_fig/_gif/'
+    file_adds.create_folder(figdir)
+    file_adds.create_folder(pngdir)
+    file_adds.create_folder(gifdir)
+    water_table_path = dir_to_analyse + 'watertable_elevation.npy'
+    outflow_path = dir_to_analyse + 'outflow_drain.npy'
+    wt_all = np.load(water_table_path, allow_pickle=True).item() 
+    outflow_all = np.load(outflow_path, allow_pickle=True).item() 
+    surface_sat = []
+    rch_for_gif = []
+    time_for_gif = []
+    flow_rate = []
+    time_tot = df.index
     
-    name_fig = 'dyn_' + str(lead_numb) + '.png'
-    plt.tight_layout()
-    plt.savefig(pngdir + name_fig)
-    plt.close(fig)
-    print(str(key))
-           
-filenames = glob(pngdir+'/'+'dyn_*.png')  
-import imageio
-images = []
-for filename in filenames:
-    images.append(imageio.imread(filename))
-imageio.mimsave(gifdir+'/'+'dyn_outflow.gif', images, duration=1, loop=1)
+    ##### LOOP #####
+    for key in wt_all:
+        ### PREP ###  
+        outflow = outflow_all[key]
+        msk_outflow = (outflow==np.min(outflow))
+        outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+        outflow = np.ma.masked_where(outflow==0,outflow)
+        outflow_len = len(outflow[outflow>0])
+        cell = demData.count()
+        flow_rate_temp = np.sum(outflow) / (cell * 75**2)
+        flow_rate.append(flow_rate_temp)
+        wt = wt_all[key]
+        wt = np.ma.masked_array(wt, mask=msk)
+        wt_len = len(wt[wt>0])
+        surface_sats = outflow_len/wt_len*100
+        surface_sat.append(surface_sats)
+    
+    for key in wt_all:
+        lead_numb = "%03d" % (key,)
+        t_temp = df.index[key]
+        time_for_gif.append(t_temp)
+        outflow = imageio.imread(mass_to_analyse+'mass_outflow_drain_t('+lead_numb+')'+'.tif')
+        msk_outflow = (outflow<0)
+        outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+        outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
+        outflow_len = len(outflow[outflow>0])
+        cell = demData.count()
+        wt = wt_all[key]
+        wt = np.ma.masked_array(wt, mask=msk)
+        wt_len = len(wt[wt>0])
+        ls = LightSource(azdeg=45, altdeg=45)
+        cmap = plt.cm.Greys
+        rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=dx, dy=dy)
+        
+        ### PLOT ###
+        fig = plt.figure(figsize=(11,6))
+        gs = fig.add_gridspec(3,2)
+        ax1 = fig.add_subplot(gs[:, 0])
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax3 = fig.add_subplot(gs[1, 1])
+        ax4 = fig.add_subplot(gs[2, 1])
+        ax = ax1
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+        # levels = np.arange(1000, 3000, 100)
+        hc=ax.contour(xx, yy, wt, alpha=0.25, cmap=mpl.colors.ListedColormap('k'), linewidths=1)
+        ax.clabel(hc, inline=True, fontsize=8, fmt='%1.0f')
+        # levels_outflow = np.arange(-1, 3.5, 0.5)
+        # cf=ax.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap='jet_r', alpha=1, antialiased = True)
+        # norm = mpl.colors.Normalize(vmin=-1, vmax=4)
+        # cf=ax.imshow(np.log10(outflow), cmap='jet_r', alpha=1, vmin=-1, vmax=4)
+        cf=ax.imshow(outflow / 75**2, cmap='jet_r', alpha=1, vmin=0, vmax=int(round(df.spe.mean())))
+        plt.xlim(xx_mi-0.1*ext_x,xx_ma+0.1*ext_x)
+        plt.ylim(yy_ma+0.1*ext_y,yy_mi-0.1*ext_y)
+        divider = make_axes_locatable(ax)
+        # Legend 1
+        cax = divider.append_axes("right", size="1%", pad=0.05)
+        fig.add_axes(cax)
+        cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+        val = np.ma.masked_where(demData < 0, demData)
+        minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+        maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+        meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+        cbar.set_ticks([minVal, meanVal, maxVal])
+        cbar.set_ticklabels([minVal, meanVal, maxVal])
+        cbar.mappable.set_clim(minVal, maxVal)
+        cbar.ax.tick_params(labelsize=10)
+        # Legend 2
+        cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+        fig.add_axes(cax)
+        cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
+        ticks = np.arange(0, int(round(df.spe.mean()))+5, 5)
+        cbar.set_ticks(ticks)
+        cbar.set_ticklabels(ticks)
+        cbar.set_label('Cumulated upstream discharge [mm/M]')
+        plt.tight_layout()
+        
+        ax = ax2
+        xlim = [pd.to_datetime(str(first-1)), pd.to_datetime(str(last+2))]
+        rechs = df.iloc[key]
+        rch_for_gif.append(rechs)
+        ax.set_title("Recharge, [mm/M]")
+        ax.plot(time_tot, df.rec, color='magenta', lw=2)
+        ax.axvline(x=t_temp, color='k', lw=2)
+        plt.setp(ax.get_xticklabels(), visible=False)
+        ax.set_xlim(xlim)
+        ax.set_ylim(df.rec.min(), df.rec.max())
+        plt.tight_layout()
+    
+        ax = ax3
+        #ax3.set_xlabel("time")
+        ax.set_title("Saturated area, [%]")
+        ax.plot(time_tot, surface_sat,'darkorange', lw=2)
+        plt.setp(ax.get_xticklabels(), visible=False)
+        ax.axvline(x=t_temp, color='k', lw=2)
+        ax.set_xlim(xlim)
+        ax.set_ylim(np.array(surface_sat).min(), np.array(surface_sat).max())
+        plt.tight_layout()
+    
+        ax = ax4
+        ax.set_xlabel("Time")
+        ax.set_title("Discharge, [mm/M]")
+        ax.plot(time_tot, np.array(flow_rate)*1000,'dodgerblue', lw=2)
+        ax.axvline(x=t_temp, color='k', lw=2)
+        # ax.set_yscale("log")
+        ax.invert_yaxis()
+        ax.set_xlim(xlim)
+        ax.set_ylim(np.array(flow_rate).min()*1000, np.array(flow_rate).max()*1000)
+        plt.tight_layout()
+        
+        name_fig = 'dyn_' + str(lead_numb) + '.png'
+        plt.tight_layout()
+        plt.savefig(pngdir + name_fig)
+        plt.close(fig)
+        print(str(key))
+               
+    filenames = glob(pngdir+'/'+'dyn_*.png')  
+    import imageio
+    images = []
+    for filename in filenames:
+        ima = imageio.imread(filename)
+        images.append(ima)
+    imageio.mimsave(gifdir+'/'+'dyn_outflow.gif', images, duration=0.5, loop=1)
+    
+    # from PIL import Image
+    # frame_folder = pngdir
+    # path_gif = gifdir
+    # def make_gif(frame_folder):
+    #     frames = [Image.open(image) for image in glob(f"{frame_folder}/*.PNG")]
+    #     frame_one = frames[0]
+    #     frame_one.save(path_gif + 'dyn_outflow.gif', format="GIF", append_images=frames,
+    #                save_all=True, duration=200, loop=0)
+    # if __name__ == "__main__":
+    #     make_gif(frame_folder)
+    
+#%% YVEL
 
-# from PIL import Image
-# frame_folder = pngdir
-# path_gif = gifdir
-# def make_gif(frame_folder):
-#     frames = [Image.open(image) for image in glob(f"{frame_folder}/*.PNG")]
-#     frame_one = frames[0]
-#     frame_one.save(path_gif + 'dyn_outflow.gif', format="GIF", append_images=frames,
-#                save_all=True, duration=200, loop=0)
-# if __name__ == "__main__":
-#     make_gif(frame_folder)
+yvelgpd = gpd.read_file('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/YVEL/StreamWaterChemistry.csv')
+yveldf = pd.read_csv('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/YVEL/StreamWaterChemistry.csv',
+                     parse_dates=True, index_col='date.sampling', sep=';', error_bad_lines=False)
+uni = yveldf['flow.condition'].unique()
+yveldf['code'] = np.nan
+
+lists = yveldf['p.sampling'].unique()
+for samp in lists:
+    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    df = yveldf[yveldf['p.sampling']==samp]
+    ax.plot(df.index, df['temperature'])
+
+
