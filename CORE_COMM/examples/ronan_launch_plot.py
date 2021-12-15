@@ -2095,6 +2095,191 @@ for idx, row in outlets.iloc[:].iterrows():
 fig.tight_layout()
 fig.savefig(out_path+'/_dichotomy/'+'_KRoptim_lithology'+'.png', dpi=300, bbox_inches='tight', transparent=False)
 
+#%% EXTRACT CARACT
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+out_path = "D:/Users/abherve/HYSTERESIS"
+glee_tif = root_path + 'GEOLOGY/' + 'GLHYMPS_bzh-norm_75m.tif'
+glee_shp = root_path + 'GEOLOGY/' + 'GLHYMPS_bzh-norm.shp'
+
+file_adds.create_folder(out_path+'/_dichotomy/')
+
+library_path = git_path + '/watershed' + '/watershed_bretagne_library.csv'
+dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
+
+outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
+
+specif_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/coord/"
+import chardet
+with open(specif_path+'all_stations_ronan.csv', 'rb') as f:
+    result = chardet.detect(f.read())  # or readline if the file is large
+coord = pd.read_csv(specif_path+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
+litho = coord['MAIN_LITHOLOGY'].unique()
+couleurs = ["red", "forestgreen", "hotpink", "grey"]
+diclitho = dict(zip(litho, couleurs))
+
+df = coord.copy()
+df['watershed_name'] = df['STATION_NAME'].str.lower()
+
+obs = 'streams'
+
+for idx, row in outlets.iloc[:].iterrows():
+    
+    watershed_name = row['name']
+    site = watershed_name
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    
+    geol = df.loc[coord['STATION_NAME'].str.lower()==watershed_name.lower(), 'MAIN_LITHOLOGY'].values[0]
+    couleur = diclitho[geol]
+    
+    print('#################### SITE '+str(idx)+' PLOT '+' : '+watershed_name.upper()+' ####################')
+    
+    dfdic = pd.read_csv(simulations_folder+'_dichotomy_'+obs+'.csv', sep=';', header=0)
+    koptim = dfdic.iloc[-1]['K'].round(3) / 3600 / 24
+    kroptim = dfdic.iloc[-1]['KR'].round(3)
+    doptim =  int(((dfdic.iloc[-1]['Oflow'] + dfdic.iloc[-1]['Sflow'].round(3))/2).round(0))
+
+    streams = gpd.read_file(stable_folder+'/hydrology/'+obs+'.shp')
+    polyg = gpd.read_file(stable_folder+'/geographic/'+'watershed.shp')
+    dem = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
+    
+    dempath = stable_folder+'geographic/'+'watershed_dem.tif'
+    outslope = stable_folder+'geographic/'+'watershed_slope.tif'
+    
+    streams['length'] = streams.geometry.length
+    
+    wbt.slope(dempath, outslope, zfactor=None, units="percent")
+    
+    slope = imageio.imread(outslope)
+    slope[slope<0] = np.nan
+    
+    length_drainage = streams['length'].sum().round(1) / 1000
+    area_polygon = polyg.geometry.area.round(1) / 1e6
+    slope_mean = np.nanmedian(slope).round(1).astype(float).round(1)
+    
+    outrugness = stable_folder+'/geographic/'+'watershed_rugness.tif'
+    wbt.ruggedness_index(dempath, outrugness)
+    rug = imageio.imread(outrugness)
+    rug[rug<0] = np.nan
+    rugness_mean = np.nanmedian(rug).round(1).astype(float).round(1)
+            
+    file_adds.create_folder(stable_folder+'geology/')
+    glee_clip_shp = stable_folder+'geology/'+'gleeson_k.shp'    
+    wbt.clip(glee_shp, stable_folder+'geographic/'+'watershed.shp', glee_clip_shp)
+    
+    # gleepor_clip_tif = stable_folder+'geology/'+'gleeson_n.tif'
+    # # shp = gpd.read_file(glee_clip_shp)
+    # wbt.vector_polygons_to_raster(glee_clip_shp,
+    #                               gleepor_clip_tif, 
+    #                               field="Porosity_x", 
+    #                               nodata=True, 
+    #                               cell_size=None, 
+    #                               base=dempath)
+    
+    glee_clip_tif = stable_folder+'geology/'+'gleeson_k.tif'
+    wbt.clip_raster_to_polygon(
+                glee_tif, 
+                stable_folder+'geographic/'+'watershed.shp', 
+                glee_clip_tif, 
+                maintain_dimensions=False)
+    
+    # por = imageio.imread(gleepor_clip_tif)
+    # por[por<-2000] = np.nan
+    # por = np.nanmean(por)
+    
+    glee = imageio.imread(glee_clip_tif)
+    glee[glee<-2000] = np.nan
+    glee = np.nanmean(glee).round(1).astype(float).round(1)
+        
+    bdticm_path = root_path + 'GEOLOGY/' + "bdticm_250m_fr_lamb93.tif"
+    
+    wbt.clip_raster_to_polygon(
+        bdticm_path, 
+        stable_folder+'/geographic/'+'watershed.shp', 
+        stable_folder+'/geology/'+'bdticm_e.tif', 
+        maintain_dimensions=False)
+    
+    bdticm = imageio.imread(stable_folder+'/geology/'+'bdticm_e.tif')
+    bdticm = bdticm.astype(float)
+    bdticm[bdticm<0] = np.nan
+    bdticm = (np.nanmean(bdticm)).astype(int)
+    
+    df.loc[df['watershed_name']==watershed_name,'Area'] = area_polygon.values.round(1)
+    df.loc[df['watershed_name']==watershed_name,'Slope'] = round(slope_mean,1)
+    df.loc[df['watershed_name']==watershed_name,'Rugness'] = round(rugness_mean, 1)
+    df.loc[df['watershed_name']==watershed_name,'Drainage'] = (length_drainage / area_polygon.values).round(1)
+    df.loc[df['watershed_name']==watershed_name,'K/R'] = dfdic.iloc[-1].KR.round(1)
+    df.loc[df['watershed_name']==watershed_name,'R'] = (1/((dfdic.iloc[-1].KR)/(dfdic.iloc[-1].K))*1000*365).round(1)
+    df.loc[df['watershed_name']==watershed_name,'Keq'] = '{:0.1e}'.format(dfdic.iloc[-1].K/3600/24)
+    df.loc[df['watershed_name']==watershed_name,'Doptim'] = int(round(dfdic.iloc[-1].Sflow))
+    df.loc[df['watershed_name']==watershed_name,'Kgleeson'] = '{:0.1e}'.format((10**(glee/100))*1e7)
+    df.loc[df['watershed_name']==watershed_name,'Bdticm'] = round(int(bdticm) / 1000, 1)
+    # df.loc[df['watershed_name']==watershed_name,'Porosity_gleeson'] = por
+
+df.to_csv(out_path+'/_output_characteristics.csv', sep=';')
+
+#%% GLHYMPS
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+root_path= "D:/Users/abherve/HYDROMODPY/_data/"
+out_path = "D:/Users/abherve/HYSTERESIS"
+
+library_path = git_path + '/watershed' + '/watershed_bretagne_library.csv'
+outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
+
+fig, ax = plt.subplots(1, 1, figsize=(4.5,3.5), dpi=300)
+
+df = pd.read_csv(out_path+'/_output_characteristics.csv', sep=';', header=0)
+dfs = pd.read_csv(out_path+'/_output_characteristics.csv', sep=';', header=0)
+
+specif_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/coord/"
+import chardet
+with open(specif_path+'all_stations_ronan.csv', 'rb') as f:
+    result = chardet.detect(f.read())  # or readline if the file is large
+coord = pd.read_csv(specif_path+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
+litho = coord['MAIN_LITHOLOGY'].unique()
+couleurs = ["red", "forestgreen", "hotpink", "grey"]
+diclitho = dict(zip(litho, couleurs))
+
+x = dfs.Kgleeson
+y = dfs.Keq
+# y = dfs['K/R']
+z = dfs.Area
+    
+ax.set_xscale('log')
+ax.set_yscale('log')
+
+ax.set_xlabel('$K_{GLHYMPS}$ litterature [m.s$^-$$^1$]')
+ax.set_ylabel('$K_{eq}$ estimated [m.s$^-$$^1$]')
+
+#'[km$^2$]'
+#'[m.$s^{-1}$]'
+
+ax.set_xlim(1e-9,1e-6)
+ax.set_ylim(1e-6,1e-3)
+
+# ax.plot((min(dfs.Kgleeson), 1e-4),(min(dfs.Kgleeson), 1e-4),
+#         color='k', ls='--')
+
+count= 10
+for idx, row in outlets.iloc[:].iterrows():
+    watershed_name = row['name']
+    geol = df.loc[coord['STATION_NAME'].str.lower()==watershed_name.lower(), 'MAIN_LITHOLOGY'].values[0]
+    couleur = diclitho[geol]
+
+    site = watershed_name
+    im = ax.scatter(x[idx], y[idx], c=couleur, marker='o', s=100, zorder=count)
+    # ax.annotate(outlets.loc[idx,0],(x[idx],y[idx]),
+    #               family='sans-serif', fontsize=5, 
+    #               color='k', weight="bold", ha='center', va='center', zorder=count)
+    count +=1
+
+ax.grid()
+ax.plot((1e-9, 1e-4),(1e-9, 1e-4), color='k', ls='--')
+
 #%% NOTES
 
 # globals()[station] = pd.DataFrame()
@@ -2116,3 +2301,31 @@ fig.savefig(out_path+'/_dichotomy/'+'_KRoptim_lithology'+'.png', dpi=300, bbox_i
 # ax.xaxis.set_major_formatter(ScalarFormatter())
 # ax.xaxis.set_minor_formatter(FormatStrFormatter("%.0f"))
 # ax.xaxis.set_minor_locator(plt.FixedLocator([200,3000]))
+
+    # shp = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+    # shp.set_crs(epsg=2154, inplace=True)
+    # shp.to_file(stable_folder+'geographic/'+'watershed.shp')
+    
+    # wbt.vector_polygons_to_raster(glee_clip_shp,
+    #                               glee_clip_tif, 
+    #                               field="logK_Ferr_", 
+    #                               nodata=True, 
+    #                               cell_size=None, 
+    #                               base=dempath)
+    
+    # if idx==16 or 18 <= idx <= 23:
+    #     shp = gpd.read_file(glee_shp)
+    #     # shp['FID'] = [-1410,-1410,-1410,-1410,-1052]
+    #     shp['OBJECTID_1'] = shp['logK_Ferr_'].values
+    #     shp.to_file(glee_shp)
+    #     wbt.vector_polygons_to_raster(glee_shp, glee_out, 
+    #                       field="OBJECTID_1", 
+    #                       nodata=True, 
+    #                       cell_size=None, 
+    #                       base=dempath)
+
+    # OutTile = gdal.Warp(glee_path, 
+    #                 glee_out, 
+    #                 cutlineDSName=stable_folder+'geographic/'+'buff.shp',
+    #                 cropToCutline=True,
+    #                 dstNodata = 0)
