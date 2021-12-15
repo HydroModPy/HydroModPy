@@ -1,1 +1,2 @@
-k,theta,e
+params,init_values,lower_bounds,higher_bounds,units
+k1,86.0,860,0.086,m/j

@@ -238,8 +238,9 @@ class Watershed:
             self.elt_def.append('geology')
 
         #MODELING DATA
+        self.oceanic = oceanic.Oceanic()
         if self.oceanic_path != None:
-            self.oceanic = oceanic.Oceanic(out_path=self.watershed_folder, oceanic_path=self.oceanic_path,geographic=self.geographic)
+            self.oceanic.extract_data(out_path=self.watershed_folder, oceanic_path=self.oceanic_path,geographic=self.geographic)
             self.elt_def.append('oceanic')
 
         if self.surfex_path != None:
@@ -318,21 +319,22 @@ class Watershed:
         flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
-                                    climatic=self.forcing.recharge, sea_level=sea_level,
+                                    climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing()
-        flow_model.processing(verbose = verbose)
-        flow_model.post_processing()
+        succes = flow_model.processing(verbose = verbose)
+        if succes == True:
+            flow_model.post_processing()
         
-        if modpath_sim == True:
-            transit_model = modpath.Modpath(model_name=ident,  
+            if modpath_sim == True:
+                transit_model = modpath.Modpath(model_name=ident,  
                                             model_folder=self.simulations_folder,
                                             exe=self.modflow_path + '/bin/mp6.exe')
-            transit_model.pre_processing()
-            transit_model.processing(verbose = verbose)
-            #transit_model.post_processing()
-            
+                transit_model.pre_processing()
+                transit_model.processing(verbose = verbose)
+                #transit_model.post_processing()
+        return succes
                
     def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 
             self.chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
