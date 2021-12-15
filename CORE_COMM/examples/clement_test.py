@@ -56,7 +56,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 # Hydrographic network
 # types_obs = ['guadeloupe_rivers']
 # fields_obs = ['FID']
-types_obs = ['zhstreams'] # shapefile cours d'eau
+types_obs = ['stream_digit'] # shapefile cours d'eau
 
 # Generate watershed
 load = False
@@ -105,7 +105,7 @@ BV.run_modflow(ident=name_model, sea_level=None, lay_number=1, modpath_sim=False
 
 #%% CALIBRATION
 
-BV.calib_dichotomy(ident=None, calib=True, type_river='zhstreams', climatic=BV.forcing.recharge,
+BV.calib_dichotomy(ident=None, calib=True, type_river='stream_digit', climatic=BV.forcing.recharge,
                     lay_number=1, thick=BV.hydrodynamic.thickness, bottom=None, thick_exp=1., 
                     first=10, last=1000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
 
@@ -116,7 +116,7 @@ from groundwater_flow import vizualisation
 vtk.VTK(BV, name_model)
 visu = vizualisation.Vizualisation(BV, name_model)
 # visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
-visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth'], view='south-west')
+visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth'], view='north-east')
 
 #%%
 
@@ -203,7 +203,7 @@ file_adds.create_folder(out_path+'/_dichotomy/')
 geol_s = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
 geol_l = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
 
-obs= 'streams_fr'
+obs= 'stream_digit'
     
 for idx, row in outlets.iloc[:].iterrows():
     
@@ -313,7 +313,7 @@ for idx, row in outlets.iloc[:].iterrows():
 
 #%% GRAPH
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
 file_adds.create_folder(out_path+'/_dichotomy/')
 
 fig, ax = plt.subplots(1, 1, dpi=300, figsize=(5,4.5), sharex=True, sharey=True)
@@ -324,7 +324,7 @@ ax.set_ylabel('Distance criterion' + '\n' + '$D_{optim}$' + ' [m]')
 cpt1 = 1
 cpt2 = 1
  
-obs = 'streams_fr'
+obs = 'stream_digit'
 couleur = 'k'
 
 for idx, row in outlets.iloc[:].iterrows():
