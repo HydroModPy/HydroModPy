@@ -57,7 +57,7 @@ class Vizualisation():
             grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
             grid_mesh.addScalarBar(pos=(0.1,0.8), title='Topography elevation (m)', horizontal=True, titleFontSize=20)
-            grid_mesh.scale([1,1z_scale])
+            grid_mesh.scale([1,1,z_scale])
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
         except:
