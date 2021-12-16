@@ -4,6 +4,7 @@
 
 # Modules
 import sys
+import os
 from os.path import dirname, abspath
 DIR = dirname(dirname(abspath(__file__)))
 sys.path.append(DIR)
@@ -30,35 +31,46 @@ from watershed.data import hydrology, climatic, oceanic, piezometry
 #%% LOAD
 
 # General paths
-root_path= "D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_data/"
+root_path= os.path.join("D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_data/")
 
 
 # Specific paths
-hydrology_path = root_path + 'HYDROLOGY' # cours d'eau
-modflow_path = root_path + 'MODFLOW' # executable + bin
-dem_path = root_path + "/DEM/" + "BDALTI_25M_09_MERGED.tif"
-surfex_path =  root_path + 'SURFEX'
+hydrology_path = os.path.join(root_path, "HYDROLOGY") # cours d'eau
+modflow_path = os.path.join(root_path, "MODFLOW") # executable + bin
+dem_path = os.path.join(root_path,"DEM","BDALTI_25M_09_MERGED.tif")
+surfex_path =  os.path.join(root_path,"SURFEX")
 
 # Selected watershed
-library_path = DIR + '/watershed' + '/watershed_library.csv'
+library_path = os.path.join(DIR, "watershed", "watershed_library.csv")
 # watershed_name = 'Guadeloupe'
-watershed_name = 'Lasset'
+watershed_name = "Lasset"
 
 # Import library
 outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 outlets = outlets[outlets['name'] == watershed_name]
 
 # Results paths
-out_path = "D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/"
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+out_path = os.path.join("D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
+stable_folder = os.path.join(out_path,watershed_name,"results_stable/")
+simulations_folder = os.path.join(out_path, watershed_name, "results_simulations/")
 
-# Hydrographic network
-# types_obs = ['guadeloupe_rivers']
-# fields_obs = ['FID']
-types_obs = ['stream_digit'] # shapefile cours d'eau
+#%% Merger les points shp
+pt_streams = stable_folder + 'hydrology/' + 'stream_digit_pt.shp'
+pt_zh = stable_folder + 'hydrology/' + 'zh_digit_pt.shp'
+merge_path = pt_streams+';'+pt_zh
+pt_zhstreams = stable_folder + 'hydrology/' + 'zhstreams_pt.shp'
+wbt.merge_vectors(merge_path, pt_zhstreams)
 
-# Generate watershed
+#Merger les tifs
+tif_streams = stable_folder + 'hydrology/' + 'stream_digit.tif'
+tif_zh = stable_folder + 'hydrology/' + 'zh_digit.tif'
+merge_path = tif_streams+';'+tif_zh
+tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
+wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
+
+types_obs = ["zhstreams"] # shapefile cours d'eau
+
+#%%  Generate watershed
 load = False
 print('##### '+watershed_name.upper()+' #####')
 
@@ -77,6 +89,9 @@ dem_data = imageio.imread(BV.geographic.watershed_dem)
 dem_data[dem_data<0] = np.nan
 x = plt.imshow(dem_data)
 
+#%% Merge streams and ZH
+
+
 #%% PARAMETERS
 
 # Define recharge
@@ -85,35 +100,46 @@ x = plt.imshow(dem_data)
 BV.forcing.update_recharge_surfex('REA','historic',1960,2019,'D','steady')
 
 # Define hydraulic conductivity
+K_dic = 3.7312*BV.forcing.recharge;
+#BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
 BV.hydrodynamic.update_hyd_cond(1e-5*3600*24) # m/s en m/j
 
+length_K_decay = 10
+length_K_decay_inv = length_K_decay**-1
+thick = 10*length_K_decay
 
-BV.hydrodynamic.update_thickness(50)
+BV.hydrodynamic.update_thickness(thick)
 
-# Name of model
-# name_model = 'test'
-#%%
+thick_exp = 1.25
+layer_min_thick = 5
+nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
+#nlay = 1
 
-# from osgeo import gdal
-# bv = gdal.Open(BV.geographic.watershed_dem)
-# dem = bv.GetRasterBand(1).ReadAsArray()
-
-#%% MODEL
-
-# Launch model
-# BV.run_modflow(ident=name_model, sea_level=None, lay_number=1, modpath_sim=False)
 
 #%% CALIBRATION
 
-BV.calib_dichotomy(ident=None, calib=True, type_river='stream_digit', climatic=BV.forcing.recharge,
-                    lay_number=1, thick=BV.hydrodynamic.thickness, bottom=None, thick_exp=1., 
-                    first=10, last=1000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
+BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV.forcing.recharge,
+                    lay_number=nlay, thick=BV.hydrodynamic.thickness, bottom=1000, thick_exp = thick_exp, 
+                    first=1, last=100, gap=1, porosity=0.01, sea_level=None, cond_decay = length_K_decay_inv)
+
+#%% MODEL
+# Name of model
+#name_model = "test"
+# Launch model
+#BV.run_modflow(ident=name_model, sea_level=None, lay_number=2, modpath_sim=False,thick_exp=1.,cond_decay=0.,bottom=1000)
 
 #%% VTK
 
-name_model = 'dic-stream_digit-37.312-0.001-50'
-from groundwater_flow import vizualisation
+name_model = "dic-zhstreams-35.225-0.001-100"
 
+K_dic = 35.225*BV.forcing.recharge;
+BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
+
+BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=True,
+               thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=None)
+
+
+from groundwater_flow import vizualisation
 vtk.VTK(BV, name_model)
 visu = vizualisation.Vizualisation(BV, name_model)
 # visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
@@ -204,7 +230,7 @@ file_adds.create_folder(out_path+'/_dichotomy/')
 geol_s = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
 geol_l = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
 
-obs= 'stream_digit'
+obs= 'zhstreams'
     
 for idx, row in outlets.iloc[:].iterrows():
     
@@ -325,7 +351,7 @@ ax.set_ylabel('Distance criterion' + '\n' + '$D_{optim}$' + ' [m]')
 cpt1 = 1
 cpt2 = 1
  
-obs = 'stream_digit'
+obs = 'zhstreams'
 couleur = 'k'
 
 for idx, row in outlets.iloc[:].iterrows():
@@ -361,4 +387,11 @@ for idx, row in outlets.iloc[:].iterrows():
 fig.tight_layout()
 # fig.savefig(out_path+'/_dichotomy/'+'_KRoptim_lithology'+'.png', dpi=300, bbox_inches='tight', transparent=False)
 
-#%% NOTES
+#%% VTK
+
+from groundwater_flow import vizualisation
+
+vtk.VTK(BV, name_model)
+visu = vizualisation.Vizualisation(BV, name_model)
+# visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
+visu.visual3D(interactive=None, object_list=['grid','watertable', 'watertable_depth'], view='north-east',z_scale = 1)
