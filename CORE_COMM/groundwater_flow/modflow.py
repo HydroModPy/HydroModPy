@@ -229,7 +229,8 @@ class Modflow():
         # write input files
         self.mf.write_input()
         # run model
-        succes, buff = self.mf.run_model(silent=not verbose) # True without msg
+        succes, buff = self.mf.run_model(silent=not verbose)# True without msg
+        return succes
         
     def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True):
         self.wt_elev = []
