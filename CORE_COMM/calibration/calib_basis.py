@@ -238,7 +238,7 @@ class CalibrationBasis:
             X,Y= np.meshgrid(p1, p2)
             Z=obj_function.reshape((len(p1),len(p2)))
             figadd.figure_init(xlab=column_names[0],ylab=column_names[1],figname='objective function 2D')
-            plt.pcolor(X,Y,Z,cmap=figadd.cmap_white_jet())
+            plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.colorbar()
             # Whatevert the dimension, saves figure
             plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(i)),dpi=300)
