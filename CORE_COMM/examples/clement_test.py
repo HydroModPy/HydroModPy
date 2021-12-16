@@ -91,7 +91,7 @@ BV.hydrodynamic.update_hyd_cond(1e-5*3600*24) # m/s en m/j
 BV.hydrodynamic.update_thickness(50)
 
 # Name of model
-name_model = 'test'
+# name_model = 'test'
 #%%
 
 # from osgeo import gdal
@@ -101,7 +101,7 @@ name_model = 'test'
 #%% MODEL
 
 # Launch model
-BV.run_modflow(ident=name_model, sea_level=None, lay_number=1, modpath_sim=False)
+# BV.run_modflow(ident=name_model, sea_level=None, lay_number=1, modpath_sim=False)
 
 #%% CALIBRATION
 
@@ -111,12 +111,13 @@ BV.calib_dichotomy(ident=None, calib=True, type_river='stream_digit', climatic=B
 
 #%% VTK
 
-name_model = 'dic-zhstreams-23.656-0.001-50'
+name_model = 'dic-stream_digit-37.312-0.001-50'
 from groundwater_flow import vizualisation
+
 vtk.VTK(BV, name_model)
 visu = vizualisation.Vizualisation(BV, name_model)
 # visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
-visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth'], view='north-east')
+visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth'], view='north-east',z_scale = 1)
 
 #%%
 
