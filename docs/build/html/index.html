@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>A “How to” Guide for Sphinx + ReadTheDocs &mdash; Sphinx-RTD-Tutorial  documentation</title>
+  <title>Welcome to simpleble’s documentation! &mdash; simpleble 0.0.1 documentation</title>
   
 
   
@@ -35,8 +35,8 @@
         <link rel="index" title="Index"
               href="genindex.html"/>
         <link rel="search" title="Search" href="search.html"/>
-    <link rel="top" title="Sphinx-RTD-Tutorial  documentation" href="#"/>
-        <link rel="next" title="Installation" href="install.html"/> 
+    <link rel="top" title="simpleble 0.0.1 documentation" href="#"/>
+        <link rel="next" title="Introduction" href="intro.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -55,7 +55,7 @@
           
 
           
-            <a href="#" class="icon icon-home"> Sphinx-RTD-Tutorial
+            <a href="#" class="icon icon-home"> simpleble
           
 
           
@@ -85,16 +85,11 @@
               
             
             
-              <p class="caption"><span class="caption-text">Contents:</span></p>
+              <p class="caption"><span class="caption-text">Contents</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="folders.html">Folder structure</a></li>
-<li class="toctree-l1"><a class="reference internal" href="project.html">Project setup</a></li>
-<li class="toctree-l1"><a class="reference internal" href="sphinx-quickstart.html">Sphinx Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="sphinx-config.html">Sphinx Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docstrings.html">Writing docstrings</a></li>
-<li class="toctree-l1"><a class="reference internal" href="build-the-docs.html">Populating our documentation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="read-the-docs.html">Publishing the documentation to ReadTheDocs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simpleble.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Example Codes</a></li>
 </ul>
 
             
@@ -109,7 +104,7 @@
       <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
         
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">Sphinx-RTD-Tutorial</a>
+          <a href="#">simpleble</a>
         
       </nav>
 
@@ -139,7 +134,7 @@
     
       <li><a href="#">Docs</a> &raquo;</li>
         
-      <li>A “How to” Guide for Sphinx + ReadTheDocs</li>
+      <li>Welcome to <code class="docutils literal notranslate"><span class="pre">simpleble</span></code>’s documentation!</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -158,43 +153,26 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="a-how-to-guide-for-sphinx-readthedocs">
-<h1>A “How to” Guide for Sphinx + ReadTheDocs<a class="headerlink" href="#a-how-to-guide-for-sphinx-readthedocs" title="Permalink to this headline">¶</a></h1>
-<p>This document aims to describe a standard way of creating a Python package, which can be documented using Sphinx and then consequently published to ReadTheDocs, so that it’s made available to whoever needs to read it.</p>
+  <div class="section" id="welcome-to-simpleble-s-documentation">
+<h1>Welcome to <code class="docutils literal notranslate"><span class="pre">simpleble</span></code>’s documentation!<a class="headerlink" href="#welcome-to-simpleble-s-documentation" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
-<p class="caption"><span class="caption-text">Contents:</span></p>
+<p class="caption"><span class="caption-text">Contents</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="folders.html">Folder structure</a></li>
-<li class="toctree-l1"><a class="reference internal" href="project.html">Project setup</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="project.html#create-a-repository-and-clone-it">Create a repository and clone it</a></li>
-<li class="toctree-l2"><a class="reference internal" href="project.html#include-your-source-codes">Include your source codes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#motivation">Motivation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#limitations">Limitations</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="sphinx-quickstart.html">Sphinx Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="sphinx-config.html">Sphinx Configuration</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="sphinx-config.html#theme-configuration">Theme configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sphinx-config.html#autodoc-configuration">Autodoc configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simpleble.html">Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="simpleble.html#the-simplebleclient-class">The <code class="docutils literal notranslate"><span class="pre">SimpleBleClient</span></code> class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simpleble.html#the-simplebledevice-class">The <code class="docutils literal notranslate"><span class="pre">SimpleBleDevice</span></code> class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simpleble.html#the-simpleblescandelegate-class">The <code class="docutils literal notranslate"><span class="pre">SimpleBleScanDelegate</span></code> class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simpleble.html#the-simpleblenotificationdelegate-class">The <code class="docutils literal notranslate"><span class="pre">SimpleBleNotificationDelegate</span></code> class</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="docstrings.html">Writing docstrings</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="docstrings.html#the-sphinx-docstring-format">The Sphinx docstring format</a></li>
-<li class="toctree-l2"><a class="reference internal" href="docstrings.html#an-example-class-with-docstrings">An example class with docstrings</a></li>
-<li class="toctree-l2"><a class="reference internal" href="docstrings.html#docstrings-in-vs-code">Docstrings in VS code</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="build-the-docs.html">Populating our documentation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="build-the-docs.html#building-our-documentation">Building our documentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="build-the-docs.html#generating-documentation-from-docstrings">Generating documentation from docstrings</a></li>
-<li class="toctree-l2"><a class="reference internal" href="build-the-docs.html#modifying-the-files-generated-by-sphinx-apidoc">Modifying the files generated by <code class="docutils literal notranslate"><span class="pre">sphinx-apidoc</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="build-the-docs.html#adding-pages-to-our-documentation">Adding pages to our documentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="build-the-docs.html#finalising-the-documentation">Finalising the documentation</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="read-the-docs.html">Publishing the documentation to ReadTheDocs</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="read-the-docs.html#pushing-our-repository">Pushing our repository</a></li>
-<li class="toctree-l2"><a class="reference internal" href="read-the-docs.html#importing-into-readthedocs">Importing into ReadTheDocs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="read-the-docs.html#changing-the-settigns">Changing the settigns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Example Codes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#installation-usage">Installation/Usage:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#search-for-device-connect-and-read-characteristic">Search for device, connect and read characteristic</a></li>
 </ul>
 </li>
 </ul>
@@ -219,7 +197,7 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="install.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="intro.html" class="btn btn-neutral float-right" title="Introduction" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
     </div>
@@ -251,7 +229,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'',
+            VERSION:'0.0.1',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
