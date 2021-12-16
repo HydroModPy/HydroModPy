@@ -6,10 +6,3 @@ simpleble
 
    simpleble
 
-watershed
-=========
-
-.. toctree::
-   :maxdepth: 4
-
-   simpleble
