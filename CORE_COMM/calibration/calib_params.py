@@ -78,7 +78,10 @@ class CalibParams():
         self.num_zone = [int(re.search(r'\d+', name).group()) for name in self.name]
         zones = np.intersect1d(self.num_zone,self.num_zone)
         zones_array = np.intersect1d(watershed.hydrodynamic.calib_zones, watershed.hydrodynamic.calib_zones)
-        if zones != zones_array:
+        if len(zones) == len(zones_array):
+            if sum(zones) == sum(zones_array): 
+                pass
+        else:
             sys.exit("watershed.hydrodynamic.calib_zones must be have the same number zones of calibrated parameters")
         
     def convert_k_lin_to_log(self):
