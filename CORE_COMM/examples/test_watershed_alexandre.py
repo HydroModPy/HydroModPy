@@ -57,9 +57,22 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_y
 BV.hydrodynamic.update_thickness(100)
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=50)
+
+zones = np.ones(np.shape(BV.geology.geology_array))
+
+zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
+zones[BV.geology.geology_array<1000] = int(1) # Sands
+zones[BV.geology.geology_array == 2151] = int(1)
+zones[BV.geology.geology_array == 1871] = int(1)
+BV.hydrodynamic.update_calib_zones(zones)
+
+calib.exploration(resolution=20)
 #indicator = calibration_root.run_calibration(0.864, BV, observation='streams')
 
+
+#%%
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
+BV.run_modflow(ident='modflow')
 #%% Run Modflow Steady state
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
