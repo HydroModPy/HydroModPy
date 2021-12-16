@@ -73,11 +73,14 @@ class VTK():
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
             print('watertable')
             self.watertable(modelname, modelfolder, save_file, watershed.geographic)
-            print('pathlines')
-            self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
-            print('piezometers')
+            try:
+                self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
+                print('pathlines')
+            except:
+                pass
             try:
                 self.piezometers(save_file, watershed.piezometry)
+                print('piezometers')
             except:
                 pass
             print('watershed_boundary')

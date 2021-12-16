@@ -9,7 +9,7 @@ class Vizualisation():
         self.modelname = modelname
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', 
-                 interactive = False, lines=100):
+                 interactive = False, lines=100, z_scale=20):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
@@ -35,12 +35,12 @@ class Vizualisation():
                                           yzGrid=False), bg2='lb', size=(1500,1080))
         # load files
         contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_watershed_contour.vtk'))
-        contour.scale([1,1,20])
+        contour.scale([1,1,z_scale])
         contour.color('k').lw(5)
         contour.renderLinesAsTubes(value=True)
         
         stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_streams.vtk'))
-        stream.scale([1,1,20])
+        stream.scale([1,1,z_scale])
         stream.color('b').lw(5)
         stream.renderLinesAsTubes(value=True)
         
@@ -49,7 +49,7 @@ class Vizualisation():
             grid_mesh = vedo.Mesh(grid) #grid_mesh
             grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
             grid_wireframe.color('white')
-            grid_wireframe.scale([1,1,20])
+            grid_wireframe.scale([1,1,z_scale])
             grid_wireframe.alpha(0.2)
             plt += grid_wireframe.flag()
             
@@ -57,7 +57,7 @@ class Vizualisation():
             grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
             grid_mesh.addScalarBar(pos=(0.1,0.8), title='Topography elevation (m)', horizontal=True, titleFontSize=20)
-            grid_mesh.scale([1,1,20])
+            grid_mesh.scale([1,1,z_scale])
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
         except:
@@ -71,18 +71,18 @@ class Vizualisation():
             zvals = watertable_elev.points()[:, 2]
             watertable_elev.cmap('jet',zvals, vmin=min(zvals))
             watertable_elev.addScalarBar(pos=(0.1,0.8), title='Watertable elevation (m)', horizontal=True, titleFontSize=20)
-            watertable_elev.scale([1,1,20])
+            watertable_elev.scale([1,1,z_scale])
             plt += watertable_elev.flag() 
             
             watertable_depth.mapCellsToPoints()
             watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=2)
             watertable_depth.addScalarBar(pos=(0.1,0.8), title='Watertable depth (m)', horizontal=True, titleFontSize=20)
-            watertable_depth.scale([1,1,20])
+            watertable_depth.scale([1,1,z_scale])
             plt += watertable_depth.flag()
             
             watertable_blue.color('b')
             watertable_blue.alpha(0.2)
-            watertable_blue.scale([1,1,20])
+            watertable_blue.scale([1,1,z_scale])
             watertable_blue.legend('Watertable')
             plt += watertable_blue.flag()  
         except:
@@ -95,7 +95,7 @@ class Vizualisation():
             vmax = max(pathlines_mesh.pointdata['Time'])
             pathlines_mesh.cmap('hot',input_array='Time',vmax=vmax/50).lw(5)
             pathlines_mesh.addScalarBar(pos=(0.1,0.8), title='Time (d)', horizontal=True, titleFontSize=20)
-            pathlines_mesh.scale([1,1,20],)
+            pathlines_mesh.scale([1,1,z_scale])
             pathlines_mesh.renderLinesAsTubes(value=True)
             pathlines_mesh.legend('Pathlines')
             n = lines
