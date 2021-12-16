@@ -1,27 +1,18 @@
-.. SphinxTutorial documentation master file, created by
-   sphinx-quickstart on Sat Mar 10 09:36:07 2018.
+.. simpleble documentation master file, created by
+   sphinx-quickstart on Fri Mar  9 04:07:53 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-A "How to" Guide for Sphinx + ReadTheDocs
-===============================================================================================
-
-This document aims to describe a standard way of creating a Python package, which can be documented using Sphinx and then consequently published to ReadTheDocs, so that it’s made available to whoever needs to read it.
-
+Welcome to ``simpleble``'s documentation!
+=========================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
-
-   install
-   folders
-   project
-   sphinx-quickstart
-   sphinx-config
-   docstrings
-   build-the-docs
-   read-the-docs
-
+   :caption: Contents
+   
+   intro
+   simpleble
+   examples
 
 Indices and tables
 ==================
