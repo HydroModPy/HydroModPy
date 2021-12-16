@@ -8,8 +8,6 @@ Created on Wed Mar 24 20:35:54 2021
 from math import ceil
                                      
 from calibration import global_parameters as gp
-                     # LPM choice
-
 
 def systematic_sampling(pmin,pmax,nmodels):
     """ Systematic sampling in the range of pmin-pmax

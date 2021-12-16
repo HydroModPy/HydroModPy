@@ -96,7 +96,7 @@ class Streams:
         sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
-        indicator = (self.mean_sim_to_obs - self.mean_obs_to_sim)**2
+        indicator = (self.mean_sim_to_obs-self.mean_obs_to_sim)**2
         return indicator
 
 class Piezometry:
