@@ -19,12 +19,12 @@ sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'simpleble'
-copyright = '2018, Lyudmil Vladimirov'
-author = 'Lyudmil Vladimirov'
+project = 'HydroModPy'
+copyright = '2021, Alexandre Gauvain'
+author = 'Alexandre Gauvain'
 
 # The short X.Y version
-version = ''
+version = '1.0'
 # The full version, including alpha/beta/rc tags
 release = '0.0.1'
 
