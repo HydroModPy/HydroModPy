@@ -11,7 +11,9 @@ Welcome to ``HydroModPy``'s documentation!
    :caption: Contents
    
    intro
-   simpleble
+   install
+   watershed
+   display
    examples
 
 Indices and tables

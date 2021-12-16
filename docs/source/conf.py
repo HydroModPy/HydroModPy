@@ -15,8 +15,13 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../simpleble/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
-
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/data/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/tools/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/surface_flow/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/readme/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/groundwater_flow/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/examples/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/calibration/'))
 # -- Project information -----------------------------------------------------
 
 project = 'HydroModPy'
@@ -132,7 +137,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     'Lyudmil Vladimirov', 'manual'),
+     'Alexandre Gauvain', 'manual'),
 ]
 
 

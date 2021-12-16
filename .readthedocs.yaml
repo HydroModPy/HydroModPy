@@ -28,5 +28,5 @@ sphinx:
 #  install:
 #  - requirements: requirement.txt
 
-conda:
-  environment: CORE_COMM/readme/environment.yml
+#conda:
+#   environment: CORE_COMM/readme/environment.yml
