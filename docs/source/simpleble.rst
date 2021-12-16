@@ -1,9 +1,9 @@
 Documentation
 =================
 
-The ``SimpleBleClient`` class
+The ``Watershed`` class
 *****************************
-.. autoclass:: simpleble.SimpleBleClient
+.. autoclass:: watershed_root.Watershed
     :members:
     :undoc-members:
     :show-inheritance:
