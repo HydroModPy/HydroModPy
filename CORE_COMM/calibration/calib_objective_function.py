@@ -19,19 +19,19 @@ from tools import serie_transf
 
 class Streams:
     def __init__(self, 
-                 geographic, 
+                 watershed, 
                  hydrology_stable=None,
                  simulations_folder=None):
         
-        self.geographic = geographic
-        self.hydrology_stable=hydrology_stable
+        self.geographic = watershed.geographic
+        self.hydrology = watershed.hydrology
         self.simulations_folder=simulations_folder
         
         self.results_folder=os.path.join(self.simulations_folder, '_extraction')
         
-        self.watershed_shp = geographic.watershed_shp
-        self.watershed_fill = geographic.watershed_fill
-        self.watershed_direc = geographic.watershed_direc
+        self.watershed_shp = watershed.geographic.watershed_shp
+        self.watershed_fill = watershed.geographic.watershed_fill
+        self.watershed_direc = watershed.geographic.watershed_direc
               
         self.prepare_files()
         self.sim_to_obs()
@@ -42,8 +42,8 @@ class Streams:
         self.dichotomy_folder = os.path.join(self.simulations_folder, '_dichotomy')
         file_adds.create_folder(self.dichotomy_folder)
         # Observed buff data
-        self.buff_tif_obs = os.path.join(self.hydrology_stable,'streams.tif')
-        self.buff_pt_obs = os.path.join(self.hydrology_stable,'streams.shp')
+        self.buff_tif_obs = self.hydrology.tif_streams
+        self.buff_pt_obs = self.hydrology.streams
         # Mask observed
         self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
         tif_masks.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
@@ -96,7 +96,7 @@ class Streams:
         sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
-        indicator = (self.mean_sim_to_obs-self.mean_obs_to_sim)**2
+        indicator = np.abs(np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
         return indicator
 
 class Piezometry:
