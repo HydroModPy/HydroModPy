@@ -14,7 +14,8 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../simpleble/'))
+
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/data/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/tools/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/surface_flow/'))
