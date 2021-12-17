@@ -233,7 +233,7 @@ class CalibrationBasis:
             for i in range(len(p1)):
                 for j in range(len(p2)):
                     temp = [p1[i],p2[j]]
-                    obj_function[i][j] = 0.5 * np.log(self.objective_function(temp))
+                    obj_function[i][j] = np.log(self.objective_function(temp))
             # colormap
             X,Y= np.meshgrid(p1, p2)
             Z=obj_function.reshape((len(p1),len(p2)))
