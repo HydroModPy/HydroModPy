@@ -45,7 +45,7 @@ class Climatic:
 
     def extract_cells_from_shapefile(self, surfex_path, watershed_shp):
         """
-        
+        extract cells
 
         Parameters
         ----------

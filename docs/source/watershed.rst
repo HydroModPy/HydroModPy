@@ -59,12 +59,6 @@ The ``Oceanic`` class
     :undoc-members:
     :show-inheritance:
 
-The ``Oceanic`` class
-*******************************************
-.. autoclass:: oceanic.Oceanic
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 The ``Climatic`` class
 *******************************************
