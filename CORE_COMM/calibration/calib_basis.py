@@ -108,7 +108,7 @@ class CalibrationBasis:
         if succes == True:
             indicator = []
             if 'streams' in self.observations:
-                obj_func = calib_objective_function.Streams(self.watershed.geographic, 
+                obj_func = calib_objective_function.Streams(self.watershed, 
                                    hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'), 
                                    simulations_folder=os.path.join(self.watershed.simulations_folder, self.ident))
                 indicator.append(obj_func.get_indicator())
@@ -120,8 +120,8 @@ class CalibrationBasis:
                 indicator.append(obj_func.get_indicator())
             
         if succes == False:
-            indicator = np.nan
-        print(params, succes, indicator ,self.params.name, self.watershed.hydrodynamic.hyd_cond[0][0])    
+            indicator = np.inf
+        print(params, succes, indicator)    
         return np.sum(indicator)
 
 

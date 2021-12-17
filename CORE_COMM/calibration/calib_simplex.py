@@ -2,18 +2,16 @@
 """
 Created on Wed Mar 24 20:35:54 2021
 
-@author: dreuzy
+@author: Alexandre Gauvain
 """
 
 import copy as copy
-import math
 import numpy as np                                 
-from scipy.optimize import minimize
+from scipy.optimize import minimize, Bounds
 import time
 
-import LPM_dist
-import global_parameters as gp                          
-from calibration import calibration_basis as calbas
+from calibration import global_parameters as gp                          
+from calibration import calib_basis as calbas
 
 
 class CalibrationSimplex(calbas.CalibrationBasis): 
@@ -58,8 +56,8 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         
         self.method = calibration_method
         # Simplex Parameters
-        self.__simplex_xatol = 1e-8
-        self.__simplex_fatol = 1e-8
+        self.__simplex_xatol = 1e-4
+        self.__simplex_fatol = 1e-4
         # Simplex multiple init point Parameters
         self.simplex_init_multiples_n = init_multiples_n
         self.simplex_init_multiples_seed_rng = 12345
@@ -132,34 +130,32 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         # -----------------INITIALIZATION -------------------------
         # Initial value of parameters: Adapation to the type of LPM
         if (param==None):
-            p0 = self.lpm.param_init()
+            p0 = self.params.p_init
         else: 
             p0 = param
             
+        bounds = []
+        for i in range(0, len(self.params.name)):
+            bounds.append((self.params.p_min[i],self.params.p_max[i]))
+        print(bounds)
         # -----------------OPTIMIZATION FUNCTION ------------------
         # Minimization function: Simplex Method
-        res = minimize(self.objective_function, p0, args=(self.concentration_sampled.cv.values[:,gp.CONCENTRATION], 
-                                                     self.concentration_sampled.cv.values[:,gp.ERROR]), 
-                method='nelder-mead', options={'xatol': self.__simplex_xatol, 'fatol': self.__simplex_fatol, 'disp': False}) # 'nelder-mead'
+        res = minimize(self.objective_function, p0, 
+                method='nelder-mead', options={'xatol': self.__simplex_xatol, 'fatol': self.__simplex_fatol, 'disp': False}, bounds=bounds) # 'nelder-mead'
                 # method='BFGS', options={'disp': True})
-                
+        
+        print(p0, res)
         # -----------------POSTPROCESSING -------------------------
         # Stores the solution "res.x" provided by "minimize"  
-        #JR 25/08: dépassé, à supprimer
-        # self.lpm.set_param_from_array(res.x)
-        # self.lpm.dist_append(self.lpm.p,
-        #                      obj_function=np.sqrt(res.fun/len(self.concentration_sampled.cv)),
-        #                      concentrations=self.tracers.convolution_perform(self.lpm),
-        #                      param_in_bounds=self.lpm.param_within_bounds(self.lpm.p))
         
-        lpm_results = LPM_dist.LPMDist(lpm=self.lpm,c_names=self.concentration_sampled.names_dates())
+        '''lpm_results = LPM_dist.LPMDist(lpm=self.lpm,c_names=self.concentration_sampled.names_dates())
         lpm_results.dist_append(self.lpm.p,
                              obj_function=np.sqrt(res.fun/len(self.concentration_sampled.cv)),
                              concentrations=self.tracers.convolution_perform(self.lpm),
-                             param_in_bounds=self.lpm.param_within_bounds(self.lpm.p))
+                             param_in_bounds=self.lpm.param_within_bounds(self.lpm.p))'''
         
         # returns objective function 
-        return lpm_results
+        return res
      
         
     def __Simplex_init_multipes(self):
@@ -176,17 +172,16 @@ class CalibrationSimplex(calbas.CalibrationBasis):
             Optimal models found
         """
         
-        # Initialization of results structure
-        lpm_results = LPM_dist.LPMDist(self.lpm,c_names=self.concentration_sampled.names_dates())
         # Random Number Generator
         rng = np.random.default_rng(self.simplex_init_multiples_seed_rng)
         # Loop over the initial conditions for the parameters
+        store = []
         for i in range(self.simplex_init_multiples_n):
             # Random choice of lpm in self.lpm
             self.lpm.random_uniform(rng=rng)
             # Performs optimization 
-            lpm_results.append(self.__Simplex(param = self.lpm.get_parameters_to_array()))
-        return lpm_results
+            store.append(self.__Simplex(param = self.lpm.get_parameters_to_array()))
+        return store
         
     
     def __forward_uncertainty_quantification(self):
@@ -206,7 +201,7 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         self.lpm.p_dist (modification of attribute)
             All Optimal models found
             
-        """ 
+       
         
         # Initialization of results structure
         lpm_results = LPM_dist.LPMDist(self.lpm,c_names=self.concentration_sampled.names_dates())
@@ -223,7 +218,7 @@ class CalibrationSimplex(calbas.CalibrationBasis):
             # Calibration with this set of concentrations
             lpm_results.append(lpm_simplex.__Simplex())
         return lpm_results
-
+        """ 
 
     def write_parameters(self,file_name):
         """ 

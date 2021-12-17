@@ -46,19 +46,19 @@ class Hydrology:
         self.streams = data_folder + type_obs +'.shp'
         wbt.clip(streams, watershed_shp, self.streams)
         
-        tif_streams = data_folder + type_obs + '.tif'
+        self.tif_streams = data_folder + type_obs + '.tif'
         shp_type = gpd.read_file(self.streams).geometry.type[0] # forma = forma.geom_type[0] 
         if (shp_type != 'MultiPolygon') | (shp_type != 'Polygon'): # if shp_type == 'LineString': 
-            wbt.vector_lines_to_raster(self.streams, tif_streams, field=field_obs, base=watershed_dem)
+            wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         else:
-            wbt.vector_polygons_to_raster(self.streams, tif_streams, field=field_obs, base=watershed_dem)
+            wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         
-        dem_streams = gdal.Open(tif_streams)
+        dem_streams = gdal.Open(self.tif_streams)
         self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
         self.streams_array[self.streams_array<0] = np.nan
         
         pt_streams = data_folder + type_obs + '_pt.shp'
-        wbt.raster_to_vector_points(tif_streams, pt_streams)
+        wbt.raster_to_vector_points(self.tif_streams, pt_streams)
         
     def clip_data(self, hydro_path, data_folder, watershed_shp, watershed_dem):
         hydrometric_data = hydro_path + '/' +  'hydrometric' +'.shp'

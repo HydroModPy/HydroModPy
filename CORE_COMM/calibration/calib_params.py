@@ -19,7 +19,6 @@ class CalibParams():
         --------- 
         """
         # Parameter Values
-        self.p = []
         self.name = []
         # Parameter Units 
         self.u = []
@@ -82,7 +81,7 @@ class CalibParams():
             if sum(zones) == sum(zones_array): 
                 pass
         else:
-            sys.exit("watershed.hydrodynamic.calib_zones must be have the same number zones of calibrated parameters")
+            sys.exit("watershed.hydrodynamic.calib_zones (ex: 1, 2) must be have the same number zones of calibrated parameters (ex: k1 , k2) in calib_params.csv")
         
     def convert_k_lin_to_log(self):
         for i in range(0, len(self.name)):
@@ -90,20 +89,7 @@ class CalibParams():
                 self.p_init[i] = self.linear_to_log(self.p_init[i])
                 self.p_min[i] =  self.linear_to_log(self.p_min[i])
                 self.p_max[i] =  self.linear_to_log(self.p_max[i])
-                self.p[i] = self.linear_to_log(self.p[i])
                 self.u[i] = self.u[i] + str(' (log)')
     
-    def update_param_values(self, values):
-        """
-        Update calibration values
-
-        Parameters
-        ----------
-        values : arrays
-            Arrays with the length of __p_calib_values
-
-        """
-        self.p = values
-        
                    
         

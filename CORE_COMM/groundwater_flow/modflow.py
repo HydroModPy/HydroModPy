@@ -86,8 +86,9 @@ class Modflow():
         self.dem_clip = geographic.dem_clip
         self.exe = exe
 
-    def pre_processing(self):
-        print('Construction d\'un modèle')
+    def pre_processing(self, verbose=False):
+        if verbose == True:
+            print('Build model')
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
                                         model_ws=self.full_path) # external_path=self.full_path
@@ -225,21 +226,23 @@ class Modflow():
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
     def processing(self, verbose=False):
-        print('Simulation d\'un modèle')
+        if verbose == True:
+            print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
         # run model
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True):
+    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, verbose=False):
         self.wt_elev = []
         self.wt_depth = []
         self.seep_area = []
         self.out_drn  = []
         self.flux_top = []
         # post_processing
-        print('Extraction des résultats d\'un modèle')
+        if verbose == True:
+            print('Extraction des résultats d\'un modèle')
         # self.dem_mask = (self.dem_clip==-99999)
         self.dem_mask = (self.dem_clip<0)
         self.save_file = os.path.join(self.full_path, '_extraction')
@@ -280,11 +283,12 @@ class Modflow():
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
-        
-        print('Post-processing en cours')  
+        if verbose == True:
+            print('Post-processing en cours')  
         
         for item, time in enumerate(self.times):
-            print('PP time : ', item)
+            if verbose == True:
+                print('PP time : ', item)
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
