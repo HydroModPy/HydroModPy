@@ -144,7 +144,7 @@ notok = []
 # fields_obs = ['FID', 'Persistanc']
 
 types_obs = ['wetlands']
-fields_obs = ['FID']
+fields_obs = ['FID','Persistanc']
 
 for idx, row in outlets.iloc[:].iterrows():
     
