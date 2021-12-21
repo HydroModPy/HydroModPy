@@ -542,7 +542,7 @@ class Chronics:
         
         ### WATERSHED SCALE
         
-        print('watershed')
+        # print('watershed')
         
         self.df_watershed = pd.DataFrame()
         self.df_watershed['date'] = time
