@@ -45,7 +45,7 @@ import random
                  
 #%% HYDROMODPY MODULES
                     
-from watershed import watershed_root, forcing
+from watershed import watershed_root, forcing, watershed_display
 from tools import tif_adds, serie_transf, tif_features, file_adds, to_plot, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import plots
@@ -78,7 +78,7 @@ surfex_path =  None # add surfex models in .h5 format
 
 # Indicate the name of the regional DEM
 dem_name = "DEM_test_75m_LAMB93.tif"
-# dem_name = "BDALTI_bzh_75m.tif"
+# dem_name = "DEM_bzh_75m_LAMB93.tif"
 dem_path = dems_path + dem_name
 
 dem = gdal.Open(dem_path)
@@ -122,6 +122,9 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               fields_obs=fields_obs)
 # except:
 #     print('There is a problem to generate the watershed object')
+
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
 
 #%% SET PARAMETERS
 
@@ -172,7 +175,7 @@ BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=F
 from groundwater_flow import vizualisation
 vtk.VTK(BV, model_name)
 visu = vizualisation.Vizualisation(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','watertable','pathlines','watertable_depth'], view='south-west')
+visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
 
 #%% PLOT SURFACE OUTPUTS
 
@@ -181,144 +184,18 @@ if sim_state=='transient':
 
 #%% INTERACTIVE CROSS-SECTION
 
-mpl.rcParams.update(mpl.rcParamsDefault)
+# Dem data
+dem_data = BV.geographic.dem_data
+# dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif')
+# dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
 
-# Modules
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'qt')
+# Wt data
+wt_data = imageio.imread(simulations_folder+model_name+'/_extraction/'+'watertable_elevation_(000).tif') # buffer size no masked
 
-# Import data
-Data = BV.geographic.dem_data
-WT = imageio.imread(simulations_folder+model_name+'/_extraction/'+'watertable_elevation_(000).tif')
+# River data
+river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 
-# Figure params
-fig, main_ax = plt.subplots(figsize=(14, 14))
-title = plt.suptitle('Interactive cross section head',y=0.98)
-divider = make_axes_locatable(main_ax)
-top_ax = divider.append_axes("top", 1.05, pad=0.2, sharex=main_ax)
-right_ax = divider.append_axes("right", 1.05, pad=0.2, sharey=main_ax)
-top_ax.xaxis.set_tick_params(labelbottom=False)
-right_ax.yaxis.set_tick_params(labelleft=False)
-
-# Axis names
-main_ax.set_xlabel('X')
-main_ax.set_ylabel('Y')
-top_ax.set_ylabel('Z profile')
-right_ax.set_xlabel('Z profile')
-
-# Dimensions
-xvalues = np.linspace(-1,1,Data.shape[1])
-yvalues = np.linspace(-1,1,Data.shape[0])
-xx, yy = np.meshgrid(xvalues,yvalues)
-
-# Positions
-pos = np.empty(xx.shape + (2,))
-pos[:, :, 0] = xx
-pos[:, :, 1] = yy
-
-# V and H lines
-cur_x = Data.shape[1] - 1
-cur_y = Data.shape[0] - 1
-
-# Data dem
-dem_max = Data.max()
-demprof = Data.astype(float)
-demprof[demprof<0] = np.nan
-
-# Data wt
-wt_max = WT.max()
-wtprof = WT.astype(float)
-wtprof[wtprof<0] = np.nan
-
-### Line cross-section : neighbours
-x0, y0 = 15, 30 # These are in _pixel_ coordinates !
-x1, y1 = 30, 10
-num = int(np.hypot(x1-x0, y1-y0))
-num = x1-x0
-x, y = np.linspace(x0, x1, num), np.linspace(y0, y1, num)
-zi = demprof[y.astype(np.int), x.astype(np.int)] # or: zi = scipy.ndimage.map_coordinates(z, np.vstack((y,x)))
-
-# ### Line cross-section : cubic
-# d_x = [500,200]
-# d_y = [50,400]
-# length = int(np.hypot(d_x[1]-d_x[0], d_y[1]-d_y[0]))
-# xd, yd = np.linspace(d_x[0], d_x[1], length), np.linspace(d_y[0], d_y[1], length)
-# zd = sp.ndimage.map_coordinates(zprof, np.vstack((yd,xd))) # Transpose ?
-# demPlot = np.flip(demPlot,axis=0)
-
-# Plot dem
-demPlot = np.ma.masked_array(Data, mask=(Data<0))
-main_ax.imshow(demPlot, origin='lower', cmap='terrain')
-plt.gca().invert_yaxis()
-
-# Scaling axis
-main_ax.autoscale(enable=False)
-right_ax.autoscale(enable=False)
-top_ax.autoscale(enable=False)
-right_ax.set_xlim(right=dem_max)
-top_ax.set_ylim(top=dem_max)
-
-# Plot lines
-v_line = main_ax.axvline(cur_x, color='k', lw=2)
-h_line = main_ax.axhline(cur_y, color='k', lw=2)
-d_line = main_ax.plot((x0,x1),(y0,y1), 'white', '-')
-
-# Plot dem cross-sections
-dv_plot = demprof[:,int(cur_x)]
-dv_plot[dv_plot == 0] = np.nan
-h_plot = demprof[int(cur_y),:]
-h_plot[h_plot == 0] = np.nan
-dv_prof, = right_ax.plot(dv_plot,np.arange(xx.shape[0]), c='saddlebrown')
-dh_prof, = top_ax.plot(np.arange(xx.shape[1]),h_plot, c='saddlebrown')
-# dh_prof, = top_ax.plot(x, zi, 'b-')
-
-# # Plot wt cross-sections
-wv_plot = wtprof[:,int(cur_x)]
-wv_plot[wv_plot == 0] = np.nan
-wh_plot = wtprof[int(cur_y),:]
-wh_plot[wh_plot == 0] = np.nan
-wv_prof, = right_ax.plot(wv_plot,np.arange(xx.shape[0]), c='dodgerblue')
-wh_prof, = top_ax.plot(np.arange(xx.shape[1]),h_plot, c='dodgerblue')
-# wh_prof, = top_ax.plot(x, zi, 'b-')
-
-plt.tight_layout()
-
-# Animation interactive
-def on_move_dem(event):
-    if event.inaxes is main_ax:
-        
-        cur_x = event.xdata
-        cur_y = event.ydata       
-        
-        dv_plot = demprof[:,int(cur_x)]
-        dv_plot[dv_plot == 0] = np.nan
-        dh_plot = demprof[int(cur_y),:]
-        dh_plot[dh_plot == 0] = np.nan        
-        v_line.set_xdata([cur_x, cur_x])
-        h_line.set_ydata([cur_y, cur_y])
-        dv_prof.set_xdata(dv_plot)
-        dh_prof.set_ydata(dh_plot)
-                
-        fig.canvas.draw_idle()
-        
-def on_move_wt(event):
-    if event.inaxes is main_ax:
-        
-        cur_x = event.xdata
-        cur_y = event.ydata       
-        
-        wv_plot = wtprof[:,int(cur_x)]
-        wv_plot[wv_plot == 0] = np.nan
-        wh_plot = wtprof[int(cur_y),:]
-        wh_plot[wh_plot == 0] = np.nan        
-        v_line.set_xdata([cur_x, cur_x])
-        h_line.set_ydata([cur_y, cur_y])
-        wv_prof.set_xdata(wv_plot)
-        wh_prof.set_ydata(wh_plot)
-                
-        fig.canvas.draw_idle()
-   
-fig.canvas.mpl_connect('motion_notify_event', on_move_dem)
-fig.canvas.mpl_connect('motion_notify_event', on_move_wt)
+# Function
+plots.interactive_cross_section(dem_data, wt_data, river_data, interactive=False)
 
 #%%
