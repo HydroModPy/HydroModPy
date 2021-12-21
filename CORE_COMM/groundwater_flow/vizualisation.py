@@ -39,10 +39,13 @@ class Vizualisation():
         contour.color('k').lw(5)
         contour.renderLinesAsTubes(value=True)
         
-        stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_streams.vtk'))
-        stream.scale([1,1,z_scale])
-        stream.color('b').lw(5)
-        stream.renderLinesAsTubes(value=True)
+        try:
+            stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_streams.vtk'))
+            stream.scale([1,1,z_scale])
+            stream.color('b').lw(5)
+            stream.renderLinesAsTubes(value=True)
+        except:
+            pass
         
         try:
             grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Grid.vtu')
@@ -62,6 +65,7 @@ class Vizualisation():
             plt += grid_mesh.isolines(5).lw(1).c('k')
         except:
             print("VTK grid doesn't exist")
+            
         try: 
             watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Watertable_0.vtu')
             watertable_elev = vedo.Mesh(watertable) # 1 Elevation
@@ -132,7 +136,6 @@ class Vizualisation():
         print(pos)
         cam = dict(pos = pos)
         
-        
         for i in range (0,len(object_list)):
             obj = object_list[i]
             if obj == 'grid':
@@ -147,6 +150,7 @@ class Vizualisation():
             if obj == 'pathlines':
                 print(obj,i)
                 plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i)      
+        
         
         if interactive == True:
             plt.show(interactive=1).close()
