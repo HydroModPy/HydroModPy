@@ -11,7 +11,12 @@ import numpy as np
 import os
 from osgeo import gdal, osr
 import pandas as pd
+from pyproj import Proj
+from osgeo import gdal, osr
 from pyproj import Transformer
+from pyproj import CRS
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import query_utm_crs_info
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
@@ -44,35 +49,37 @@ class Geographic:
         loads files to 
     """
     
-    def __init__(self, dem_path, x, y, snap_dist=150, buff_dist=1000,
+    def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         print('Extraction des données géographiques')
         
-        self.processing(dem_path, x, y, snap_dist, buff_dist, out_path)
+        self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
         self.post_processing_dem(out_path)
 
-    def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
+    def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
         # Generate folder where processing files are stored
         gis_path = os.path.join(out_path, 'results_stable/geographic/')
+        reg_path = os.path.join(out_path, 'results_stable/geographic/regional/')
         file_adds.create_folder(gis_path)
+        file_adds.create_folder(reg_path)
         
         """
         Raw regional DEM
         """
         wbt.modify_no_data_value(dem_path, new_value='-99999.0')
         
-        # Open
+        # Open correct DEM
         dem = gdal.Open(dem_path)
         geodata = dem.GetGeoTransform()
         
         # Correction
-        fill = gis_path + 'region_fill.tif'
+        fill = reg_path + 'region_fill.tif'
         wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
         # Flow direction
-        direc = gis_path + 'region_direc.tif'
+        direc = reg_path + 'region_direc.tif'
         wbt.d8_pointer(fill, direc, esri_pntr=False)
         # Flow accumulation
-        acc = gis_path + 'region_acc.tif'
+        acc = reg_path + 'region_acc.tif'
         wbt.d8_flow_accumulation(fill, acc, log=True)
         
         """
@@ -92,9 +99,17 @@ class Geographic:
         # Generate raster watershed
         watershed = gis_path + 'watershed.tif'
         wbt.watershed(direc, outlet_snap_shp, watershed, esri_pntr=False)
+        # tif = gdal.Open(watershed)
+        # geotransf = tif.GetGeoTransform()
+        # pixel_area = abs(geotransf[1] * geotransf[5])
+        # band_size = (tif.GetRasterBand(1).XSize, tif.GetRasterBand(1).YSize)
+        # area = band_size[0] * band_size[1] * pixel_area
         # Create shapefile polygon of the watershed
         self.watershed_shp = gis_path + 'watershed.shp'
         wbt.raster_to_vector_polygons(watershed, self.watershed_shp)
+        wbt.polygon_area(self.watershed_shp)
+        area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
+        area = np.abs(area)
         # Create shapefile polyline of the watershed
         self.watershed_contour_shp = gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
@@ -102,9 +117,12 @@ class Geographic:
         """
         Buffer distance operations
         """
-        # Normalize initial buffer distance value
-        dist = np.linspace(0,buff_dist,buff_dist+1)*np.abs(geodata[1])
-        buff_dist = dist[np.abs(dist-buff_dist).argmin()]
+        # Normalize initial buffer distance value        
+        buff_raw = (area) * (buff_percent/100) * 1000
+        buff_raw = int(round(buff_raw))
+        dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
+        buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+        # buff_dist = buff_raw
         # Buffer the watershed shapefile polygon
         site_polyg = gpd.read_file(self.watershed_shp)
         site_polyg.to_file(self.watershed_shp)
