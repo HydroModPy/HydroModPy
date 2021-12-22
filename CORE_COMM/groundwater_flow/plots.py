@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal
 import matplotlib.dates as mdates
+from IPython import get_ipython
 
 # Plot
 import matplotlib.pyplot as plt
@@ -384,11 +385,11 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
     
     # Modules
     mpl.rcParams.update(mpl.rcParamsDefault)
-    from IPython import get_ipython
     get_ipython().run_line_magic('matplotlib', 'qt')
     
     # Figure params
     fig, main_ax = plt.subplots(figsize=(5, 5))
+    
     title = plt.suptitle('Interactive cross section head',y=0.98)
     divider = make_axes_locatable(main_ax)
     top_ax = divider.append_axes("top",1.1, pad=0.2, sharex=main_ax)
@@ -499,6 +500,7 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
     plt.tight_layout()
     
     # Animation interactive
+    
     def on_move_dem(event):
         if event.inaxes is main_ax:       
             cur_x = event.xdata
@@ -512,23 +514,28 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
             dem_v_prof.set_xdata(dem_v_plot)
             dem_h_prof.set_ydata(dem_h_plot)
             fig.canvas.draw_idle()
+            
+    def on_move_wt(event):
+        if event.inaxes is main_ax:       
+            cur_x = event.xdata
+            cur_y = event.ydata
+            wt_v_plot = wt_prof[:,int(cur_x)]
+            wt_v_plot[wt_v_plot == 0] = np.nan
+            wt_h_plot = wt_prof[int(cur_y),:]
+            wt_h_plot[wt_h_plot == 0] = np.nan
+            v_line.set_xdata([cur_x, cur_x])
+            h_line.set_ydata([cur_y, cur_y])
+            wt_v_prof.set_xdata(wt_v_plot)
+            wt_h_prof.set_ydata(wt_h_plot)
+            wt_v_fill.set_xdata(wt_v_plot)
+            wt_h_fill.set_xdata(wt_h_plot)   
+            fig.canvas.draw_idle()
+    
+    def on_close(event):
+        get_ipython().run_line_magic('matplotlib', 'inline')
     
     if interactive == True:
-        def on_move_wt(event):
-            if event.inaxes is main_ax:       
-                cur_x = event.xdata
-                cur_y = event.ydata
-                wt_v_plot = wt_prof[:,int(cur_x)]
-                wt_v_plot[wt_v_plot == 0] = np.nan
-                wt_h_plot = wt_prof[int(cur_y),:]
-                wt_h_plot[wt_h_plot == 0] = np.nan
-                v_line.set_xdata([cur_x, cur_x])
-                h_line.set_ydata([cur_y, cur_y])
-                wt_v_prof.set_xdata(wt_v_plot)
-                wt_h_prof.set_ydata(wt_h_plot)
-                wt_v_fill.set_xdata(wt_v_plot)
-                wt_h_fill.set_xdata(wt_h_plot)   
-                fig.canvas.draw_idle()
-                
         fig.canvas.mpl_connect('motion_notify_event', on_move_dem)
         fig.canvas.mpl_connect('motion_notify_event', on_move_wt)
+    
+    fig.canvas.mpl_connect('close_event', on_close)
