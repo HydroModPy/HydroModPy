@@ -10,4 +10,4 @@ Search for device, connect and read characteristic
 **************************************************
 .. code-block:: python
 
-	python script
+	test ronan

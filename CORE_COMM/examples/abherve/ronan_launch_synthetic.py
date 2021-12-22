@@ -128,7 +128,8 @@ oceanic_path = None
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
 library_path = DIR + '/watershed' + '/watershed_library.csv'
-surfex_path =  root_path + 'SURFEX/ebr/'
+# surfex_path =  root_path + 'SURFEX/ebr/'
+surfex_path =  None
 watershed_name = 'Canut'
 outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 outlets = outlets[outlets['name'] == watershed_name]
@@ -139,12 +140,15 @@ outlets = outlets[outlets['name'] == watershed_name]
 
 notok = []
 
-types_obs = ['streams_fr', 'sections_fr']
-fields_obs = ['FID', 'Persistanc']
+# types_obs = ['streams_fr', 'sections_fr']
+# fields_obs = ['FID', 'Persistanc']
+
+types_obs = ['wetlands']
+fields_obs = ['FID','Persistanc']
 
 for idx, row in outlets.iloc[:].iterrows():
     
-    load = True
+    load = False
     watershed_name = row['name']
     
     print('##### '+watershed_name.upper()+' #####')
