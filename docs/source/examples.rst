@@ -222,3 +222,8 @@ Search for device, connect and read characteristic
 	plots.interactive_cross_section(dem_data, wt_data, river_data, interactive=False)
 
 	#%%
+
+.. jupyter-execute::
+        
+   a=1      
+   print(a)
