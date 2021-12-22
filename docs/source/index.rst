@@ -1,6 +1,7 @@
+.. image:: logoHydroModPy_long.png
+
 Welcome to ``HydroModPy``'s documentation!
 ==========================================
-.. image:: logoHydroModPy_long.png
 
 .. toctree::
    :maxdepth: 2
