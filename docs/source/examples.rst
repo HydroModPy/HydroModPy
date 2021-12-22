@@ -224,8 +224,6 @@ Search for device, connect and read characteristic
 	#%%
 
 .. jupyter-execute::
-	import pathlib
-	print(pathlib.Path().resolve())
 	import matplotlib.pyplot as plt
 	import numpy as np
 	a = np.linspace(1,10,50)
