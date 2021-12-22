@@ -1,8 +1,6 @@
 Welcome to ``HydroModPy``'s documentation!
 ==========================================
-.. image:: logoHydroModPy.png
-	:width: 100
-	:align: center
+.. image:: logoHydroModPy_long.png
 
 .. toctree::
    :maxdepth: 2
