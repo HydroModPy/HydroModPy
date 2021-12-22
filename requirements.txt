@@ -1,3 +1,4 @@
 jupyter_sphinx
 matplotlib
 numpy
+myst-nb
