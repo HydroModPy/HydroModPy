@@ -52,10 +52,6 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'jupyter_sphinx.execute',
-    'matplotlib.sphinxext.mathmpl',
-    'matplotlib.sphinxext.only_directives',
-    'matplotlib.sphinxext.plot_directive',
-    'matplotlib.sphinxext.ipython_directive',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
