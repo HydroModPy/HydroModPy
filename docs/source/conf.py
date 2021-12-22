@@ -15,6 +15,9 @@
 import os
 import sys
 
+package_path = os.path.abspath('../..')
+os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
+
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/data/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/tools/'))
@@ -48,6 +51,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'jupyter_sphinx.execute'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
