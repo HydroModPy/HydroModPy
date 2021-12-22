@@ -224,6 +224,7 @@ Search for device, connect and read characteristic
 	#%%
 
 .. jupyter-execute::
+
   import numpy as np
   from matplotlib import pyplot
   %matplotlib inline
