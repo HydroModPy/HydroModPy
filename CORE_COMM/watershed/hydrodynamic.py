@@ -25,7 +25,7 @@ class Hydrodynamic:
     :ivar porosity: shape:(``nrow``, ``ncol``). initial value: ``porosity_init``
     :vartype porosity: :class:`numpy.ndarray`
     :ivar thickness: . initial value: ``thickness_init``
-    :vartype thickness: :class:int
+    :vartype thickness: :class:`int`
     :ivar calib_zones: shape:(``nrow``, ``ncol``). initial value: 1
     :vartype calib_zones: :class:`numpy.ndarray`
     """
