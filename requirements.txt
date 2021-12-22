@@ -1,4 +1,4 @@
 jupyter_sphinx
+sphinx-autodoc-typehints
 matplotlib
 numpy
-myst-nb
