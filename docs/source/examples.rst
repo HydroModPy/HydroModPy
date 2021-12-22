@@ -4,7 +4,7 @@ Examples
 Installation/Usage:
 *******************
 
-Text
+Text1
 
 Search for device, connect and read characteristic
 **************************************************
