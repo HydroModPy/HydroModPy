@@ -52,6 +52,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'jupyter_sphinx.execute',
+    'sphinx-autodoc-typehints',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
