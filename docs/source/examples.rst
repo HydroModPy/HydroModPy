@@ -226,7 +226,7 @@ Search for device, connect and read characteristic
 .. jupyter-execute::
 	
 	import pathlib
-	pathlib.Path().resolve()
+	print(pathlib.Path().resolve())
 	import numpy as np
 	from matplotlib import pyplot
 	%matplotlib inline
