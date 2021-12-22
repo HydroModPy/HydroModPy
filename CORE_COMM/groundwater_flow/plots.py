@@ -94,6 +94,7 @@ class SurfaceOutputs():
             name_fig = 'surface_outputs_' + str(lead_numb) + '.png'
             fig.tight_layout()
             fig.savefig(self.pngdir + name_fig)
+            plt.close()
         
         if save_gif==True:
             self.make_a_gif()
@@ -198,7 +199,7 @@ class SurfaceOutputs():
             # name_fig = 'intermittency_' + str(lead_numb) + '.png'
             plt.tight_layout()
             # plt.savefig(self.pngdir + name_fig)
-            # plt.close()
+            plt.close()
     
     def check_discharge(self):
         self.df = pd.read_csv(self.dir_to_analyse+'_simulated_chronics.csv', sep=';',
@@ -370,7 +371,7 @@ class SurfaceOutputs():
             # name_fig = 'discharge_' + str(lead_numb) + '.png'
             plt.tight_layout()
             # plt.savefig(self.pngdir + name_fig)
-            # plt.close(fig)
+            plt.close(fig)
             
     def make_a_gif(self):
         filenames = glob(self.pngdir+'/'+'surface_outputs_*.png')  

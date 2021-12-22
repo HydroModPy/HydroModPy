@@ -9,10 +9,10 @@ import rasterio as rio
 import geopandas as gpd
 from pyproj import Proj
 from osgeo import gdal, osr
-from pyproj import Transformer
-from pyproj import CRS
-from pyproj.aoi import AreaOfInterest
-from pyproj.database import query_utm_crs_info
+#from pyproj import Transformer
+#from pyproj import CRS
+#from pyproj.aoi import AreaOfInterest
+#from pyproj.database import query_utm_crs_info
 
 def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     # Open base dem
@@ -29,7 +29,7 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     # Create new data raster with base dem size
     with rio.open(data_tif_path, 'w', **ras_meta) as dst:
         dst.write(data_to_tif, 1)
-        
+'''       
 def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     raw_dem = gdal.Open(raw_dem_path)    
     warp = gdal.Warp(wgs_dem_path,raw_dem,dstSRS='EPSG:4326')
@@ -63,7 +63,7 @@ def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     warp = None
     
     return utm_crs
-    
+
 def reproject_coord(x_wgs, y_wgs):
     # x_wgs=-2
     # y_wgs=48
@@ -85,7 +85,7 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
     # shp.to_crs(utm_crs)
     shp.to_file(out_shp_path)
-
+'''
 #%%
 
     # proj = osr.SpatialReference(wkt=dem.GetProjection())
