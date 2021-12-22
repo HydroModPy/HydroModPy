@@ -230,4 +230,3 @@ Search for device, connect and read characteristic
 	plt.figure()
 	plt.imshow(a)
 	plt.colorbar()
-	plt.show()
