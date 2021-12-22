@@ -1,5 +1,0 @@
-params,init_values,lower_bounds,higher_bounds,units
-k1,8.60,86,0.0086,m/j
-k2,0.086,86,0.0086,m/j
-theta,0.1,0.01,0.2,-
-e,30,10,100,m

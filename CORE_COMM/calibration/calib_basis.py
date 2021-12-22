@@ -5,11 +5,12 @@ Created on Wed Mar 24 20:35:54 2021
 @author: dreuzy
 """
 
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pandas as pd                                     
-
+from datetime import datetime
                     
 from calibration import tools_figures_additional as figadd                                     
 from calibration import calib_objective_function, calib_params,calib_exploration          
@@ -60,7 +61,13 @@ class CalibrationBasis:
         if directory_results == None:
             self.directory_results = os.path.join(watershed.simulations_folder, self.ident)
         
-        
+        self.data_ind = {}
+        self.data_sim = {}
+        self.data_obs = {}
+        for i in self.observations:
+            self.data_ind[i] = []
+            self.data_sim[i] = []
+            self.data_obs[i] = []
         # self.__dict__.update(calparam.__dict__)
     
     
@@ -111,13 +118,19 @@ class CalibrationBasis:
                 obj_func = calib_objective_function.Streams(self.watershed, 
                                    hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'), 
                                    simulations_folder=os.path.join(self.watershed.simulations_folder, self.ident))
-                indicator.append(obj_func.get_indicator())
+                ind, obs, sim = obj_func.get_indicator()
+                indicator.append(ind)
+                self.data_ind['streams'].append(ind)
+                self.data_obs['streams'].append(obs)
+                self.data_sim['streams'].append(sim)
             
             if 'piezometry' in self.observations:
-                obj_func = calib_objective_function.Piezometry(self.watershed.piezometry, 
-                                                     simulations_folder=os.path.join(self.watershed.simulations_folder))
-    
-                indicator.append(obj_func.get_indicator())
+                obj_func = calib_objective_function.Piezometry(self.watershed, self.ident)
+                ind, obs, sim = obj_func.get_indicator()
+                indicator.append(ind)
+                self.data_ind['piezometry'].append(ind)
+                self.data_obs['piezometry'].append(obs)
+                self.data_sim['piezometry'].append(sim)
             
         if succes == False:
             indicator = np.inf
@@ -199,6 +212,7 @@ class CalibrationBasis:
         A garder
         Build Objective Function 
         """
+        params_values = []
         pmin = self.params.p_min
         pmax = self.params.p_max
         column_names = list()
@@ -207,7 +221,8 @@ class CalibrationBasis:
         if len(self.params.name) == 1 : 
             # Figure Initialization
             # 1 parameter
-            params = calib_exploration.systematic_sampling(pmin,pmax,resolution)    
+            params = calib_exploration.systematic_sampling(pmin,pmax,resolution)
+            params_values.append(params)
             column_names.append('diff')
             obj_function = pd.DataFrame(columns=column_names)
             # Use of proxy to avoid modification of self.lpm
@@ -228,16 +243,19 @@ class CalibrationBasis:
             n = int(np.ceil(resolution**(1/2)))     
             p1 = pmin[0] + (pmax[0] - pmin[0]) * np.arange(0,n+1) / n
             p2 = pmin[1] + (pmax[1] - pmin[1]) * np.arange(0,n+1) / n
+            p2 = p2[::-1]
+            params_values.append(p1)
+            params_values.append(p2)
             obj_function = np.zeros((len(p1),len(p2)))
             temp=[None]*2
             for i in range(len(p1)):
                 for j in range(len(p2)):
                     temp = [p1[i],p2[j]]
-                    obj_function[i][j] = np.log(self.objective_function(temp))
+                    obj_function[i][j] = self.objective_function(temp)
             # colormap
             X,Y= np.meshgrid(p1, p2)
             Z=obj_function.reshape((len(p1),len(p2)))
-            figadd.figure_init(xlab=column_names[0],ylab=column_names[1],figname='objective function 2D')
+            figadd.figure_init(xlab=column_names[0],ylab=column_names[1],figname='Objective function 2D')
             plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.colorbar()
             # Whatevert the dimension, saves figure
@@ -250,13 +268,17 @@ class CalibrationBasis:
                 n = int(np.ceil(resolution**(1/2))) 
                 p1 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
                 p2 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
-                p3 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
+                p3 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n
+                p2 = p2[::-1]
+                params_values.append(p1)
+                params_values.append(p2)
+                params_values.append(p3)
                 obj_function = np.zeros((len(p1),len(p2)))
                 temp=[None]*len(self.params.name)
                 for i in range(len(p1)):
                     for j in range(len(p2)):
                         temp = [p1[i],p2[j],p3[int(len(p3)/2)]]
-                        obj_function[i][j] = 0.5 * np.log(self.objective_function(temp))
+                        obj_function[i][j] = self.objective_function(temp)
                 X,Y= np.meshgrid(p1, p2)
                 Z=obj_function.reshape((len(p1),len(p2)))
                 # Figure Initialization
@@ -266,6 +288,33 @@ class CalibrationBasis:
                 plt.colorbar()
                 # Whatevert the dimension, saves figure
                 plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(k)),dpi=300)
-
+        #Save file
+        store = {}
+        name = 'exp_' + str(len(self.params.name)) + 'p_'
+        now = datetime.now()
+        name = name + now.strftime("%d_%m_%Y_%Hh%M")
+        store['name'] = name
+        store['observations'] = self.observations
+        # Parameter Values
+        self.name = []
+        # Parameter Units 
+        self.u = []
+        # Bounds of parameters
+        self.p_init = []
+        self.p_min = []
+        self.p_max = []
+        store['params_name'] = self.params.name
+        store['params_min'] = self.params.p_min
+        store['params_max'] = self.params.p_max
+        store['params_values'] = params_values
+        store['data_obs'] = self.data_obs
+        store['data_sim'] = self.data_sim
+        store['data_ind'] = self.data_ind
+        store['objective_function'] = obj_function
+        store['recharge'] = self.watershed.forcing.recharge
+        store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
+        with open(os.path.join(self.directory_results, name + '.calib'), 'xb') as config_dictionary_file:
+            pickle.dump(store, config_dictionary_file)
+        config_dictionary_file.close()
 
 
