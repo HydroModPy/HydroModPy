@@ -56,22 +56,24 @@ fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
 
 # Path to the git repositoty home page
 git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
 # Path to the test folder
 test_path = git_path + "examples/_test/"
 # Path where the results will be stored
 out_path = "D:/Users/abherve/TEST/"
 
 # We suggest to store the data in specific folder
-dems_path = test_path + 'dem/'
-hydrology_path = test_path + 'hydrology/' # add hydrographic shapefiles
-modflow_path = test_path + 'modflow/' # add bin/ folder with necessary .exe
+dems_path = data_path + 'dem/'
+hydrology_path = data_path + 'hydrology/' # add hydrographic shapefiles
+modflow_path = data_path + 'modflow/' # add bin/ folder with necessary .exe
 
 piezometry_path = None # add piezometry data or nothing for automatic download
 geology_path = None # add geologic layers
 oceanic_path = None # add specific sea level files
 
 # Specifically designed to process SURFEX data (France scale)
-surfex_path =  test_path + 'surfex/' # add surfex models in .h5 format
+surfex_path =  data_path + 'surfex/' # add surfex models in .h5 format
 
 # Indicate the name of the regional DEM
 dem_name = "DEM_test_75m_LAMB93.tif"
@@ -83,7 +85,7 @@ proj = osr.SpatialReference(wkt=dem.GetProjection())
 crs = int(proj.GetAttrValue('AUTHORITY',1))
 
 # Import the library of watersheds to generate
-library_path = test_path + 'watershed_library.csv' # each row is a study site
+library_path = data_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
@@ -126,12 +128,12 @@ if crs == 4326:
 
     # Reproject raw DEM in WGS84 to specific UTM
     utm_crs = tif_adds.reproject_tif(dem_path,
-                                     test_path + 'dem/' + "DEM_test_75m_WGS84" + '.tif',
-                                     stable_folder + 'dem/' + "DEM_test_75m_UTM" + '.tif')
+                                     data_path + 'dem/' + "DEM_test_75m_WGS84" + '.tif',
+                                     data_path + 'dem/' + "DEM_test_75m_UTM" + '.tif')
     
     # Reproject shapefile layer to specific UTM
-    tif_adds.reproject_shp(test_path + 'hydrology/' + types_obs[0] + '.shp',
-                           test_path + 'hydrology/' + types_obs[0] + '_utm' + '.shp',
+    tif_adds.reproject_shp(data_path + 'hydrology/' + types_obs[0] + '.shp',
+                           data_path + 'hydrology/' + types_obs[0] + '_utm' + '.shp',
                            utm_crs)
     
     # Convert longitude and latitude WGS84 to specific UTM
