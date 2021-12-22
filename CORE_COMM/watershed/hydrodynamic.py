@@ -20,8 +20,8 @@ class Hydrodynamic:
     :param porosity_init: initial porosity of the aquifer. The default is 0.1.
     :param thickness_init: initial thickness of the aquifer. The default is 50.
     
-    :ivar hyd_cond: initial value: par1
-    :ivar porosity: initial value: par2
+    :ivar hyd_cond: initial value: hyd_cond_init
+    :ivar porosity: initial value: porosity_init
     """
     def __init__(self, nrow: int, ncol: int, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
                  thickness_init: float = 50):
@@ -29,19 +29,16 @@ class Hydrodynamic:
         Constructor
         
         """
-        self.hyd_cond: int = np.ones((nrow, ncol)) * hyd_cond_init
-        self.porosity = np.ones((nrow, ncol)) * porosity_init
-        self.thickness = thickness_init
-        self.calib_zones = np.ones((nrow, ncol))
+        self.hyd_cond: np.ndarray = np.ones((nrow, ncol)) * hyd_cond_init
+        self.porosity: np.ndarray = np.ones((nrow, ncol)) * porosity_init
+        self.thickness: int = thickness_init
+        self.calib_zones: np.ndarray = np.ones((nrow, ncol))
     
-    def update_hyd_cond(self, hyd_cond_value):
+    def update_hyd_cond(self, hyd_cond_value: float):
         """
         Update the hydraulic conductivity with a constant value
 
-        Parameters
-        ----------
-        hyd_cond_value : float
-            hydraulic conductivy of the aquifer.
+        hyd_cond_value : hydraulic conductivy of the aquifer.
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
     
