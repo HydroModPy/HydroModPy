@@ -50,8 +50,36 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 if load == False:
     BV.piezometry.add_data()
     BV.save_object()
+    
 
-#%% Calibration Model
+#%% zones
+zones = np.ones(np.shape(BV.geology.geology_array))
+
+zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
+zones[BV.geology.geology_array<1000] = int(1) # Sands
+zones[BV.geology.geology_array == 2151] = int(1)
+zones[BV.geology.geology_array == 1871] = int(1)
+BV.hydrodynamic.update_calib_zones(zones)
+
+
+#%% Calibration Model piezometry
+from calibration import calib_root
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'M')#, sim_state='steady'
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.2)
+BV.hydrodynamic.update_hyd_cond(4.26)
+params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
+calib.exploration(resolution=100)
+
+#%% Calib Analysis
+from calibration import calib_analysis
+file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/piezometry_calibration/exp_2p_21_12_2021_21h05.calib'
+test = calib_analysis.CalibAnalysis(file)
+#ident='modflow'
+#↓BV.run_modflow(ident=ident)
+
+#%% Calibration Model stream
 from calibration import calib_root
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 BV.hydrodynamic.update_thickness(100)
@@ -59,14 +87,6 @@ params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 
 #%%
-zones = np.ones(np.shape(BV.geology.geology_array))
-
-zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
-zones[BV.geology.geology_array<1000] = int(1) # Sands
-zones[BV.geology.geology_array == 2151] = int(1)
-zones[BV.geology.geology_array == 1871] = int(1)
-#BV.hydrodynamic.update_calib_zones(zones)
-
 #Exploration des paramètres
 calib.exploration(resolution=1000)
 

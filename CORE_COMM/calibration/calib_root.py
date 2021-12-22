@@ -33,7 +33,7 @@ class Calibration():
         self.file_name = params_file
         self.observations = observations
     
-    def exploration(self,resolution=10000):
+    def exploration(self,resolution=100):
         basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
         basis.build_objective_function(resolution = resolution)
     
