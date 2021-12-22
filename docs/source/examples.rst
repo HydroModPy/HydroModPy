@@ -226,6 +226,7 @@ Search for device, connect and read characteristic
 .. jupyter-execute::
 	import matplotlib.pyplot as plt
 	import numpy as np
+	%matplotlib inline
 	a = np.linspace(1,10,50)
 	plt.figure()
 	plt.imshow(a)
