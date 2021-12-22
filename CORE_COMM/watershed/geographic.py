@@ -13,10 +13,6 @@ from osgeo import gdal, osr
 import pandas as pd
 from pyproj import Proj
 from osgeo import gdal, osr
-from pyproj import Transformer
-from pyproj import CRS
-from pyproj.aoi import AreaOfInterest
-from pyproj.database import query_utm_crs_info
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
