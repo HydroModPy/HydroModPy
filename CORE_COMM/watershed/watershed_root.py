@@ -315,7 +315,7 @@ class Watershed:
         thick_exp: float (default is 1)
             changes the thickness of the layers exponentially
         """
-        flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill, time_step='monthly',
+        flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill,
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                     climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
