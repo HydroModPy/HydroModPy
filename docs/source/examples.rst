@@ -224,10 +224,10 @@ Search for device, connect and read characteristic
 	#%%
 
 .. jupyter-execute::
-	import matplotlib.pyplot as plt
 	import numpy as np
+	from matplotlib import pyplot
 	%matplotlib inline
-	a = np.linspace(1,10,50)
-	plt.figure()
-	plt.imshow(a)
-	plt.colorbar()
+	x = np.linspace(1E-3, 2 * np.pi)
+	pyplot.plot(x, np.sin(x) / x)
+	pyplot.plot(x, np.cos(x))
+	pyplot.grid()
