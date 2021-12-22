@@ -51,7 +51,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'jupyter_sphinx.execute'
+    'jupyter_sphinx.execute',
+    'myst_nb'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
