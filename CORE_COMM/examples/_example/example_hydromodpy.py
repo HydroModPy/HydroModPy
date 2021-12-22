@@ -17,6 +17,8 @@ from glob import glob
 import numpy as np
 import pandas as pd
 from osgeo import gdal, osr
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 # Plot
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -35,16 +37,19 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
 # Warnings
+import logging
 import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
-# warnings.warn("You won't see this warning")
-import random
+# warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*`np.typeDict` is a deprecated alias for `np.sctypeDict`.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore") # not working
+# warnings.simplefilter("ignore", category=DeprecationWarning) # not working
+# warnings.warn("You won't see this warning", category=DeprecationWarning) # to modify warnings
+logging.captureWarnings(True)
                  
 #%% HYDROMODPY MODULES
-                    
+         
 from watershed import watershed_root, forcing, watershed_display
 from tools import tif_adds, serie_transf, tif_features, file_adds, to_plot, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
@@ -143,9 +148,10 @@ BV.forcing.update_recharge(values = rec / 1000, sim_state=sim_state)
 # Finally the rehcarge is set as a value or a serie
 R = BV.forcing.recharge # mm/month to m/month
 
-# Plot to control recharge 
-fig, ax = plt.subplots(1,1, figsize=(6,3))
-ax.plot(R*1000, c='k', lw=0.5)
+# Plot to control recharge
+if sim_state == 'transient':
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    ax.plot(R*1000, c='k', lw=0.5)
 
 # Update hydrualic conductivity
 K = 1e-5 * 3600 * 24 * 30 # m/second to m/month
@@ -164,11 +170,16 @@ model_name = sim_state
 
 #%% RUN MODEL
 
+# Launch a model
 BV.run_modflow(ident=model_name, modpath_sim=False, calib=False, sink_fill=False, 
                 lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., 
                 verbose=True)
+print('Modeling process completed')
+
+# Extract result chronics
 BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
                     first=first, last=last, time_step='monthly')
+print('Result chronics extraction completed')
 
 #%% VISUALIZATION 3D
 
