@@ -29,7 +29,7 @@ class Hydrodynamic:
         Constructor
         
         """
-        self.hyd_cond = np.ones((nrow, ncol)) * hyd_cond_init
+        self.hyd_cond: int = np.ones((nrow, ncol)) * hyd_cond_init
         self.porosity = np.ones((nrow, ncol)) * porosity_init
         self.thickness = thickness_init
         self.calib_zones = np.ones((nrow, ncol))
