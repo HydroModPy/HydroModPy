@@ -28,7 +28,7 @@ formats:
 # Optionally declare the Python requirements required to build your docs
 python:
   install:
-  - requirements: requirement.txt
+  - requirements: requirements.txt
 
 #conda:
 #   environment: CORE_COMM/readme/environment.yml
