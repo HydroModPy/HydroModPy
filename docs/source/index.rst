@@ -10,7 +10,10 @@ Welcome to HydroModPy's documentation!
    intro
    install
    watershed
-   display
+   groundwater_flow
+   surface_flow
+   calibration
+   tools
    examples
 
 Indices and tables
