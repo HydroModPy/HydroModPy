@@ -7,27 +7,14 @@ Created on Tue Sep 14 18:07:38 2021
 
 # Librairies
 import os
-import pandas as pd
 import numpy as np
-from glob import glob
-import threading
 import geopandas as gpd
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-import shutil
-import sys
-import imageio
-import re
-import deepdish as dd
-from osgeo import gdal
 import rasterio
 from rasterio.plot import show
 
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.pylab as pl
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
