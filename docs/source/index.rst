@@ -1,7 +1,7 @@
 .. image:: images/logoHydroModPy_long.png
 	:width: 700
 
-Welcome to ``HydroModPy``'s documentation!
+Welcome to HydroModPy's documentation!
 ==========================================
 
 .. toctree::
