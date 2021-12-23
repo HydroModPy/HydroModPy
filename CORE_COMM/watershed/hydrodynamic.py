@@ -60,7 +60,7 @@ class Hydrodynamic:
         """
         Updates the :attr:`thickness` with a constant value :data:`thickness_value`.
 
-        :param thickness_value : thickness of the aquifer.
+        :param thickness_value: thickness of the aquifer.
         """
         self.thickness =  thickness_value
         
