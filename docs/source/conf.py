@@ -90,7 +90,7 @@ pygments_style = 'sphinx'
 #
 html_theme = 'sphinx_rtd_theme'
 html_favicon = 'logoHydroModPy.png'
-html_logo = 'logoHydroModPy.png'
+html_logo = 'logoHydroModPy_long.png'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
