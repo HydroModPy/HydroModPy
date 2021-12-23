@@ -84,7 +84,7 @@ The ``Piezometry`` class
 Watershed Display
 -----------------
 
-.. automodule:: watershed_display
+.. automodule:: watershed
     :members:
     :undoc-members:
     :show-inheritance
