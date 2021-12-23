@@ -37,7 +37,6 @@ The ``Hydrodynamic`` class
     :members:
     :undoc-members:
     :show-inheritance:
-    .. attribute::
 
 The ``Geology`` class
 *********************
