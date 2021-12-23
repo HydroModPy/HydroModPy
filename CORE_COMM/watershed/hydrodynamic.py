@@ -20,11 +20,11 @@ class Hydrodynamic:
     :param thickness_init: initial thickness of the aquifer. The default is 50.
     
     :ivar hyd_cond: (:data:`nrow`, :data:`ncol`) -- initial value: :data:`hyd_cond_init`
-    :vartype hyd_cond: :type:`numpy.ndarray`
+    :vartype hyd_cond: :class:`numpy.ndarray`
     :ivar porosity: (:data:`nrow`, :data:`ncol`) -- initial value: :data:`porosity_init`
-    :vartype porosity: :type:`numpy.ndarray`
+    :vartype porosity: :class:`numpy.ndarray`
     :ivar thickness: initial value: :data:`thickness_init`
-    :vartype thickness: :type:`int`
+    :vartype thickness: :class:`int`
     :ivar calib_zones: (:data:`nrow`, :data:`ncol`) -- initial value: 1
     :vartype calib_zones: :class:`numpy.ndarray`
     
