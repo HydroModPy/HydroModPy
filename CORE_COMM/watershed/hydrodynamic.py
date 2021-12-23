@@ -13,7 +13,6 @@ class Hydrodynamic:
     class Hydrodynamic is used to specify the values of hydraulic conductivity,
     porosity and thickness of the modelised aquifer.
     
-    
     :param nrow: number of rows in the DEM.
     :param ncol: number of columns in the DEM.
     :param hyd_cond_init: initial hydraulic conductivy of the aquifer. The default is 8.64.
@@ -28,12 +27,13 @@ class Hydrodynamic:
     :vartype thickness: :class:`int`
     :ivar calib_zones: (``nrow``, ``ncol``) -- initial value: 1
     :vartype calib_zones: :class:`numpy.ndarray`
+    
+    :meta public:
     """
     def __init__(self, nrow: int, ncol: int, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
                  thickness_init: float = 50.):
         """
         Constructor
-        
         """
         self.hyd_cond = np.ones((nrow, ncol)) * hyd_cond_init
         self.porosity = np.ones((nrow, ncol)) * porosity_init
@@ -42,9 +42,9 @@ class Hydrodynamic:
     
     def update_hyd_cond(self, hyd_cond_value: float):
         """
-        Update the hydraulic conductivity with a constant value
+        Update :class:`hyd_cond` with a constant value
 
-        hyd_cond_value : hydraulic conductivy of the aquifer.
+        :param hyd_cond_value: hydraulic conductivy of the aquifer.
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
     
