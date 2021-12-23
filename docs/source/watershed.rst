@@ -35,6 +35,7 @@ The ``Hydrodynamic`` class
 **************************
 .. autoclass:: hydrodynamic.Hydrodynamic
     :members:
+    :attribute:
     :undoc-members:
     :show-inheritance:
 
