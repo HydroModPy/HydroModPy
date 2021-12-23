@@ -1,8 +1,8 @@
-simpleble
-=========
+watershed_display
+=================
 
 .. toctree::
    :maxdepth: 4
 
-   simpleble
+   watershed_display
 
