@@ -84,7 +84,6 @@ The ``Piezometry`` class
 Watershed Display
 -----------------
 
-.. autosummary::
-   :toctree: generated
-
-   watershed_display
+.. autofunction:: watershed_display.watershed_local
+.. autofunction:: watershed_display.watershed_dem
+.. autofunction:: watershed_display.watershed_geology
