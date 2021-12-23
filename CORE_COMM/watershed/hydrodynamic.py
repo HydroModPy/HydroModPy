@@ -69,7 +69,7 @@ class Hydrodynamic:
         Updates the :attr:`calib_zones` zone number with :data:`zone`. 
         The array values must be :class:`int` and start at 1.
 
-        zones : localisation of the calibration zones in the DEM.
+        :param zones: localisation of the calibration zones in the DEM.
         """
         self.calib_zones = zones
         
