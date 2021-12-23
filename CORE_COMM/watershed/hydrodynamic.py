@@ -100,19 +100,16 @@ class Hydrodynamic:
         """
         self.thickness[self.calib_zones==num_zone] =   thickness_value
         
-    def update_hyd_cond_with_geology(self, geology_code: list(int), geology_array: np.ndarray(int), hyd_cond_values: list(float)):
+    def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
         """
-        AG/JR 11/2021 : Voir comment généraliser avec la porosité
-        Update the hydraulic conductivity for each geology entities
+        Updates :attr:`hyd_cond` with values in :data:`hyd_cond_values` at the location of the :data:`geology_code` in the :data:`geology_array`
 
-        Parameters
-        ----------
-        geology_code : int list or 1D array
-            list of geology entities.
-        geology_array : int 2D array
-            localisation of the geology entities in the DEM.
-        hyd_cond_values : float list (must be the same lenght of geology_code)
-            hydraulic conductivity values for each geology code.
+        :param geology_code: list of geology entities.
+        :type geology_code: :class:`list of int`
+        :param geology_array: localisation of the geology entities in the DEM.
+        :type geology_array: :class:`numpy.ndarray(int)`
+        :param hyd_cond_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
+        :type hyd_cond_values: :class:`list of float`   
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond))
         for i in range(0,len(geology_code)):
@@ -120,16 +117,14 @@ class Hydrodynamic:
     
     def update_porosity_with_geology(self, geology_code, geology_array, porosity_values):
         """
-        Update the porosity for each geology entities
+        Updates :attr:`porosity` with values in :data:`porosity_values` at the location of the :data:`geology_code` in the :data:`geology_array`
 
-        Parameters
-        ----------
-        geology_code : int list or 1D array
-            list of geology entities.
-        geology_array : int 2D array
-            localisation fo the geology entities in the DEM.
-        porosity_values : float list (must be the same lenght of geology_code)
-            porosity values for each geology code.
+        :param geology_code: list of geology entities.
+        :type geology_code: :class:`list of int`
+        :param geology_array: localisation of the geology entities in the DEM.
+        :type geology_array: :class:`numpy.ndarray(int)`
+        :param porosity_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
+        :type porosity_values: :class:`list of float` 
         """
         self.porosity = np.ones(np.shape(self.porosity))
         for i in range(0,len(geology_code)):
