@@ -42,8 +42,8 @@ class Hydrodynamic:
     
     def update_hyd_cond(self, hyd_cond_value: float):
         """
-        Update :attr:`hyd_cond` with a constant value
-
+        Update :attr:`hyd_cond` with a constant value :data:`hyd_cond_value`
+        :meth:`update_hyd_cond`
         :param hyd_cond_value: hydraulic conductivy of the aquifer.
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
