@@ -19,13 +19,13 @@ class Hydrodynamic:
     :param porosity_init: initial porosity of the aquifer. The default is 0.1.
     :param thickness_init: initial thickness of the aquifer. The default is 50.
     
-    :ivar hyd_cond: (``nrow``, ``ncol``) -- initial value: ``hyd_cond_init``
+    :ivar hyd_cond: (:data:`nrow`, :data:`ncol`) -- initial value: :data:`hyd_cond_init`
     :vartype hyd_cond: :class:`numpy.ndarray`
-    :ivar porosity: (``nrow``, ``ncol``) -- initial value: ``porosity_init``
+    :ivar porosity: (:data:`nrow`, :data:`ncol`) -- initial value: :data:`porosity_init`
     :vartype porosity: :class:`numpy.ndarray`
-    :ivar thickness: initial value: ``thickness_init``
+    :ivar thickness: initial value: :data:`thickness_init`
     :vartype thickness: :class:`int`
-    :ivar calib_zones: (``nrow``, ``ncol``) -- initial value: 1
+    :ivar calib_zones: (:data:`nrow`, :data:`ncol`) -- initial value: 1
     :vartype calib_zones: :class:`numpy.ndarray`
     
     :meta public:
@@ -43,7 +43,7 @@ class Hydrodynamic:
     def update_hyd_cond(self, hyd_cond_value: float):
         """
         Update :attr:`hyd_cond` with a constant value :data:`hyd_cond_value`
-        :meth:`update_hyd_cond`
+        
         :param hyd_cond_value: hydraulic conductivy of the aquifer.
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
