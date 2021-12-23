@@ -2,3 +2,5 @@ jupyter_sphinx
 sphinx-autodoc-typehints
 matplotlib
 numpy
+rasterio
+geopandas

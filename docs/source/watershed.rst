@@ -1,16 +1,15 @@
 Watershed Object
 =================
 
-Watershed Structure
--------------------
-
 The ``Watershed`` class
-***********************
+-----------------------
 .. autoclass:: watershed_root.Watershed
     :members:
     :undoc-members:
     :show-inheritance:
 
+Watershed Structure
+-------------------
 
 The ``Geographic`` class
 ************************
@@ -26,6 +25,8 @@ The ``Subbasins`` class
     :undoc-members:
     :show-inheritance:
 
+Watershed Settings
+--------------------
 
 The ``Forcing`` class
 *********************
@@ -40,6 +41,9 @@ The ``Hydrodynamic`` class
     :members:
     :undoc-members:
     :show-inheritance:
+
+Watershed Data
+----------------
 
 The ``Geology`` class
 *********************
@@ -76,3 +80,11 @@ The ``Piezometry`` class
     :members:
     :undoc-members:
     :show-inheritance:
+
+Watershed Display
+-----------------
+
+.. automodule:: watershed_display
+    :members:
+    :undoc-members:
+    :show-inheritance
