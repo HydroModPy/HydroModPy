@@ -42,7 +42,7 @@ class Hydrodynamic:
     
     def update_hyd_cond(self, hyd_cond_value: float):
         """
-        Update :attr:`hyd_cond` with a constant value :data:`hyd_cond_value`
+        Updates :attr:`hyd_cond` with a constant value :data:`hyd_cond_value`.
         
         :param hyd_cond_value: hydraulic conductivy of the aquifer.
         """
@@ -50,75 +50,57 @@ class Hydrodynamic:
     
     def update_porosity(self, porosity_value: float):
         """
-        Update :class:porosity with a constant value
+        Updates :attr:`porosity` with a constant value :data:`hyd_cond_value`.
 
-        porosity_value : porosity of the aquifer.
+        :param porosity_value: porosity of the aquifer.
         """
         self.porosity = np.ones(np.shape(self.porosity)) * porosity_value
         
-    def update_thickness(self, thickness_value):
+    def update_thickness(self, thickness_value: float):
         """
-        Update the thickness with a constant value
+        Updates the :attr:`thickness` with a constant value :data:`thickness_value`.
 
-        Parameters
-        ----------
-        thickness_value : float
-            thickness of the aquifer.
+        :param thickness_value : thickness of the aquifer.
         """
         self.thickness =  thickness_value
         
-    def update_calib_zones(self, zones):
+    def update_calib_zones(self, zones: np.ndarray):
         """
-        Update the calibration zone number. Must start at 1
+        Updates the :attr:`calib_zones` zone number with :data:`zone`. 
+        The array values must be :class:`int` and start at 1.
 
-        Parameters
-        ----------
-        zones : int 2D array
-            localisation of the calibration zones in the DEM.
-
+        zones : localisation of the calibration zones in the DEM.
         """
         self.calib_zones = zones
         
-    def update_hyd_cond_from_calib_zones(self, num_zone, hyd_cond_value):
+    def update_hyd_cond_from_calib_zones(self, num_zone: int, hyd_cond_value: float):
         """
-        Update the hydraulic conductivity with a constant value in zone
+        Updates :attr:`hyd_cond` with a value :data:`hyd_cond_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
 
-        Parameters
-        ----------
-        num_zone : int
-            number of zone
-        hyd_cond_value : float
-            hydraulic conductivy of the aquifer.
+        :param num_zone: the zone number
+        :param hyd_cond_value: hydraulic conductivy of the aquifer.
         """
         self.hyd_cond[self.calib_zones==num_zone] = hyd_cond_value
     
-    def update_porosity_from_calib_zones(self, num_zone, porosity_value):
+    def update_porosity_from_calib_zones(self, num_zone: int, porosity_value: float):
         """
-        Update the porosity with a constant value in zone
+        Updates :attr:`porosity` with a value :data:`porosity_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
 
-        Parameters
-        ----------
-        num_zone : int
-            number of zone
-        porosity_value : float
-            porosity of the aquifer.
+        :param num_zone: the zone number
+        :param porosity_value: porosity of the aquifer.
         """
         self.porosity[self.calib_zones==num_zone] = porosity_value
         
-    def update_thickness_from_calib_zones(self, num_zone,thickness_value):
+    def update_thickness_from_calib_zones(self, num_zone: int,thickness_value: float):
         """
-        Update the thickness with a constant value in zone
+        Updates :attr:`thickness` with a value :data:`thickness_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
 
-        Parameters
-        ----------
-        num_zone : int
-            number of zone
-        thickness_value : float
-            thickness of the aquifer.
+        :param num_zone: the zone number
+        :param thickness_value: thickness of the aquifer.
         """
         self.thickness[self.calib_zones==num_zone] =   thickness_value
         
-    def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
+    def update_hyd_cond_with_geology(self, geology_code: list(int), geology_array: np.ndarray(int), hyd_cond_values: list(float)):
         """
         AG/JR 11/2021 : Voir comment généraliser avec la porosité
         Update the hydraulic conductivity for each geology entities
