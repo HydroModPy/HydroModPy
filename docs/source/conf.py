@@ -51,7 +51,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'sphinx.ext.autosummary'
+    'sphinx.ext.autosummary',
     'jupyter_sphinx.execute',
     'sphinx_autodoc_typehints',
 ]
