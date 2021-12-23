@@ -42,20 +42,17 @@ class Hydrodynamic:
     
     def update_hyd_cond(self, hyd_cond_value: float):
         """
-        Update :class:`hyd_cond` with a constant value
+        Update :attr:`hyd_cond` with a constant value
 
         :param hyd_cond_value: hydraulic conductivy of the aquifer.
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
     
-    def update_porosity(self, porosity_value):
+    def update_porosity(self, porosity_value: float):
         """
-        Update the porosity with a constant value
+        Update :class:porosity with a constant value
 
-        Parameters
-        ----------
-        porosity_value : float
-            porosity of the aquifer.
+        porosity_value : porosity of the aquifer.
         """
         self.porosity = np.ones(np.shape(self.porosity)) * porosity_value
         
