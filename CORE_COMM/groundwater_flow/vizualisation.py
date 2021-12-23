@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 
-class Vizualisation():
+class Visualization():
     def __init__(self, watershed, modelname):
         self.watershed = watershed
         self.modelname = modelname
