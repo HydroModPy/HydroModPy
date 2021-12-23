@@ -1,6 +1,9 @@
 Watershed Object
 =================
 
+Watershed Structure
+-------------------
+
 The ``Watershed`` class
 ***********************
 .. autoclass:: watershed_root.Watershed
