@@ -13,7 +13,7 @@ Groundwater Flow Model
 
 The ``Modflow`` class
 *********************
-.. autoclass:: modflow.Modlflow
+.. autoclass:: modflow.Modflow
     :members:
     :undoc-members:
     :show-inheritance:
