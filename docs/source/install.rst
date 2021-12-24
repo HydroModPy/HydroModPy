@@ -22,7 +22,7 @@ https://docs.conda.io/en/latest/miniconda.html
 Create conda environment
 ***************************
 
-Open conda command window or command prompt (cmd) through anaconda navigator, for example.
+Open conda command window through anaconda navigator or command prompt (cmd) , for example.
 Go to the directory (/cd HydroModPy/CORR_COMM/readme) so that the following command finds the environment.yml file
 
 Execute the command: 
