@@ -4,20 +4,25 @@ Installation Procedure
 HydroModPy install procedure
 
 GitLab Repository
-*****************
+-----------------
 
 Test
 
 Conda Environment
-*****************
+-----------------
 
 Installation procedure
 
 1. Install Anaconda or Miniconda
+********************************
+Download and install at the following link:
 https://docs.conda.io/en/latest/miniconda.html
 
-2-Create conda environment
-Open conda command window through anaconda navigator, for example
+2. Create conda environment
+***************************
+.. class:: center
+justify
+Open conda command window through anaconda navigator, for example.
 Go to this directory so that the following command finds the environment.yml file
 
 Execute the command: 
@@ -25,21 +30,25 @@ Execute the command:
 	conda env create -f environment.yml -n hydromodpy 
 
 The environment.yml file contains the following packahges:
-.. code-block:: .. code-block:: environment.yml
+.. code-block:: environment.yml
 
 Check that environment exists: 
 .. code-block:: 
     conda env list
 
-3-Install ChromeDriver for Selenium library
-Selenium is a library that manages interaction with files in the web
-It requires the following file to be downloaded:
-https://chromedriver.chromium.org/downloads
-The .exe should be stored in a file
-The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> system parameter -> environment variables)
+3. Install ChromeDriver for Selenium library
+********************************************
+| Selenium is a library that manages interaction with files in the web
+| It requires the following file to be downloaded:
+| https://chromedriver.chromium.org/downloads
+| The .exe should be stored in a local folder.
+| The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> system parameter -> environment variables)
 Click on "Path" -> modify -> add path of the .exe
 
-4-Go into conda environment 
+
+
+4. Go into conda environment
+****************************
 Execute in command window: 
 .. code-block::
 
@@ -50,7 +59,8 @@ Check that libraries are installed:
 
 	conda list
 
-5-Go to Ipython Notebook or Spyder
+5. Go to Ipython Notebook or Spyder
+***********************************
 Go to folder of Ipython Notebook or spyder to run 
 Execute: 
 .. code-block::
@@ -61,5 +71,5 @@ or
 .. code-block::
 
 	spyder
-	
+
 Find and open notebook or script
