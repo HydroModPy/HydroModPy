@@ -1,22 +1,23 @@
 Installation Procedure
 ======================
 
-HydroModPy install procedure
+HydroModPy installation procedure
 
-GitLab Repository
+1. GitLab Repository
 -----------------
 
-Test
+Download HydroModPy from GitLab repository at this link
+https://gitlab.com/Alex-Gauvain/HydroModPy/-/archive/master/HydroModPy-master.zip
 
-Conda Environment
+2. Conda Environment
 -----------------
 
-1. Install Anaconda or Miniconda
+2.1. Install Anaconda or Miniconda
 ********************************
 Download and install at the following link:
 https://docs.conda.io/en/latest/miniconda.html
 
-2. Create conda environment
+2.2. Create conda environment
 ***************************
 
 Open conda command window through anaconda navigator, for example.
@@ -38,7 +39,7 @@ Check that environment exists:
 
     conda env list
 
-3. Install ChromeDriver for Selenium library (Optional)
+2.3. Install ChromeDriver for Selenium library (Optional)
 *******************************************************
 | Optional : Only if you want recover automatically the data of watershed. Only for french data for the time being.
 | Selenium is a library that manages interaction with files in the web
@@ -48,7 +49,7 @@ Check that environment exists:
 | The directory name of the file should be added to the user path of the environment variables ("configuration pannel" -> "system" -> "system parameter" -> "environment variables")
 Click on "Path" -> "modify" -> "add path" of the .exe
 
-4. Go into conda environment
+2.4. Go into conda environment
 ****************************
 Execute in command window: 
 
@@ -62,7 +63,7 @@ Check that libraries are installed:
 
 	conda list
 
-5. Go to Ipython Notebook or Spyder
+2.5. Go to Ipython Notebook or Spyder
 ***********************************
 Go to folder of Ipython Notebook or spyder to run 
 Execute: 
@@ -77,4 +78,4 @@ or
 
 	spyder
 
-Find and open notebook or script
+Find, open and run notebook or script
