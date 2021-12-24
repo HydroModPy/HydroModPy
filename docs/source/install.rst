@@ -3,25 +3,27 @@ Installation Procedure
 
 HydroModPy installation procedure
 
-1. GitLab Repository
+GitLab Repository
 -----------------
 
-Download HydroModPy from GitLab repository at this link
+Download HydroModPy from GitLab repository at this link:
 https://gitlab.com/Alex-Gauvain/HydroModPy/-/archive/master/HydroModPy-master.zip
+Or clone it using Git:
+https://gitlab.com/Alex-Gauvain/HydroModPy.git
 
-2. Conda Environment
+Conda Environment
 -----------------
 
-2.1. Install Anaconda or Miniconda
+Install Anaconda or Miniconda
 ********************************
 Download and install at the following link:
 https://docs.conda.io/en/latest/miniconda.html
 
-2.2. Create conda environment
+Create conda environment
 ***************************
 
-Open conda command window through anaconda navigator, for example.
-Go to this directory so that the following command finds the environment.yml file
+Open conda command window or command prompt (cmd) through anaconda navigator, for example.
+Go to the directory (/cd HydroModPy/CORR_COMM/readme) so that the following command finds the environment.yml file
 
 Execute the command: 
 
@@ -39,7 +41,7 @@ Check that environment exists:
 
     conda env list
 
-2.3. Install ChromeDriver for Selenium library (Optional)
+Install ChromeDriver for Selenium library (Optional)
 *******************************************************
 | Optional : Only if you want recover automatically the data of watershed. Only for french data for the time being.
 | Selenium is a library that manages interaction with files in the web
@@ -49,7 +51,7 @@ Check that environment exists:
 | The directory name of the file should be added to the user path of the environment variables ("configuration pannel" -> "system" -> "system parameter" -> "environment variables")
 Click on "Path" -> "modify" -> "add path" of the .exe
 
-2.4. Go into conda environment
+Go into conda environment
 ****************************
 Execute in command window: 
 
@@ -63,7 +65,7 @@ Check that libraries are installed:
 
 	conda list
 
-2.5. Go to Ipython Notebook or Spyder
+Go to Ipython Notebook or Spyder
 ***********************************
 Go to folder of Ipython Notebook or spyder to run 
 Execute: 
