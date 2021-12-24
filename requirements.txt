@@ -1,2 +1,4 @@
 jupyter_sphinx
 sphinx-autodoc-typehints
+numpy
+matplotlib
