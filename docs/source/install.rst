@@ -28,9 +28,9 @@ Execute the command:
 
 	conda env create -f environment.yml -n hydromodpy 
 
-The environment.yml file contains the following packahges:
+The environment.yml file contains the following packages:
 
-.. literalinclude:: CORE_COMM/readme/environment.yml
+.. literalinclude:: ../../CORE_COMM/readme/environment.yml
 
 Check that environment exists:
 
