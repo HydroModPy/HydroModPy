@@ -30,7 +30,7 @@ Execute the command:
 
 The environment.yml file contains the following packahges:
 
-.. literalinclude:: environment.yml
+.. literalinclude:: CORE_COMM/readme/environment.yml
 
 Check that environment exists:
 
