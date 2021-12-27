@@ -19,6 +19,7 @@ from sphinx.builders.html import StandaloneHTMLBuilder
 package_path = os.path.abspath('../..')
 os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
 
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/data/'))
 sys.path.insert(0, os.path.abspath('../../CORE_COMM/tools/'))
