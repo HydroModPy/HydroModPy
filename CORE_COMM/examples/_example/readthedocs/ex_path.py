@@ -1,5 +1,5 @@
 # Path to the git repositoty home page
-git_path ="../../HydroModPy/CORE_COMM/"
+git_path ="../../CORE_COMM/"
 # Path to the test folder
 test_path = os.path.join(git_path,"examples","_example")
 # Path where the results will be stored
