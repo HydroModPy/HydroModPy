@@ -16,8 +16,6 @@ dependencies:
         - hydroeval
         - geopy
         - pyproj
-        - jupyter_sphinx
-        - sphinx-autodoc-typehints
 
     # Main processing libraries
     - numpy=1.21.2
