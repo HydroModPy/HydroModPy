@@ -1,6 +1,10 @@
 # Modules
 # General
+import os
 import sys
+from os.path import dirname, abspath
+DIR = dirname(dirname(dirname(dirname(abspath(__file__)))))
+sys.path.append(DIR)
 import pandas as pd
 from osgeo import gdal, osr
 from IPython import get_ipython
