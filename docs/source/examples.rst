@@ -162,7 +162,7 @@ Cross-Section Visualization
 
 Set up and Run Transient State Groundwater Flow Model
 *****************************************************
-.. coce-block:: python
+.. code-block:: python
 
 	sim_state = 'transient'
 
