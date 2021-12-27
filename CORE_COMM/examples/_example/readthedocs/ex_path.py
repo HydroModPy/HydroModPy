@@ -26,7 +26,7 @@ proj = osr.SpatialReference(wkt=dem.GetProjection())
 crs = int(proj.GetAttrValue('AUTHORITY',1))
 
 # Import the library of watersheds to generate
-library_path = test_path + 'watershed_library.csv' # each row is a study site
+library_path = os.path.join(test_path,'watershed_library.csv') # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
@@ -34,8 +34,8 @@ watershed_name = 'Watershed' # add manually study site information in map units
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+stable_folder = os.path.join(out_path,watershed_name,'results_stable')
+simulations_folder = os.path.join(out_path,watershed_name,'results_simulations')
 
 # Specify the hydrologic layers to clip
 types_obs = ['streams','sections'] # list of shapefile name layers
