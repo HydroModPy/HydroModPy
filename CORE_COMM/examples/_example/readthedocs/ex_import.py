@@ -1,7 +1,8 @@
 # Modules
 # General
 import os
-import sys
+import pathlib
+from os.path import dirname, abspath
 sys.path.append('../../CORE_COMM')
 import pandas as pd
 from osgeo import gdal, osr
