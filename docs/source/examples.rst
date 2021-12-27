@@ -4,21 +4,21 @@ Examples
 Import General
 **************
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_import.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_import.py
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_path.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_path.py
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_watershed.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_watershed.py
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_steady.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_steady.py
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_steady_cross.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_steady_cross.py
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_steady_vtk.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_steady_vtk.py
 
-.. jupyter-execute:: ../../CORE_COMM/examples/_example/ex_transient.py
+.. jupyter-execute:: ../../CORE_COMM/examples/_example/readthedocs/ex_transient.py
 
-.. image:: ../../CORE_COMM/examples/_example/out/transient/_extraction/_fig/_gif/surface_outputs.gif
+.. image:: ../../CORE_COMM/examples/_example/readthedocs/out/transient/_extraction/_fig/_gif/surface_outputs.gif
 
 Search for device, connect and read characteristic
 **************************************************
