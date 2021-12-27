@@ -14,6 +14,7 @@
 #
 import os
 import sys
+from sphinx.builders.html import StandaloneHTMLBuilder
 
 package_path = os.path.abspath('../..')
 os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
@@ -39,7 +40,12 @@ release = '0.0.1'
 
 
 # -- General configuration ---------------------------------------------------
-
+StandaloneHTMLBuilder.supported_image_types = [
+    'image/svg+xml',
+    'image/gif',
+    'image/png',
+    'image/jpeg'
+]
 # If your documentation needs a minimal Sphinx version, state it here.
 #
 # needs_sphinx = '1.0'
