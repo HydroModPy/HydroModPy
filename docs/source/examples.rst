@@ -1,7 +1,7 @@
 Examples
 ========
 
-Import General
+Import Modules
 **************
 .. code-block:: python
 
@@ -19,7 +19,8 @@ Import General
 	from tools import to_plot, vtk
 	from groundwater_flow import plots
 
-
+Configuration Path
+******************
 .. code-block:: python
 
 	# Path to the git repositoty home page
@@ -66,6 +67,8 @@ Import General
 	types_obs = ['streams','sections'] # list of shapefile name layers
 	fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
 
+Build Watershed Object
+**********************
 .. code-block:: python
 
 	BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -92,6 +95,8 @@ Import General
 
 .. image:: images/watershed.PNG
 
+Set up and Run Steady State Groundwater Flow Model
+**************************************************
 .. code-block:: python
 
 	# Choice the state of the simulation
@@ -126,6 +131,8 @@ Import General
 	BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
 	                    first=first, last=last, time_step='monthly')
 
+Cross-Section Visualization
+***************************
 .. code-block:: python
 
 	# Dem data
@@ -142,6 +149,8 @@ Import General
 
 .. image:: images/crosssection.PNG
 
+3D Visualization
+***************************
 .. code-block:: python
 	
 	from groundwater_flow import vizualisation
@@ -149,6 +158,10 @@ Import General
 	visu = vizualisation.Vizualisation(BV, model_name)
 	visu.visual3D(interactive=false, object_list=['grid','watertable','watertable_depth'], view='south-west')
 
+.. image:: images/3Dvisual.PNG
+
+Set up and Run Transient State Groundwater Flow Model
+*****************************************************
 .. coce-block:: python
 
 	sim_state = 'transient'
