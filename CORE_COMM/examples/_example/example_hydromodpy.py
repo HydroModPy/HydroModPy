@@ -77,7 +77,6 @@ climate_path =test_path + 'climate/'
 piezometry_path = None # add piezometry data or nothing for automatic download
 geology_path = None # add geologic layers
 oceanic_path = None # add specific sea level files
-
 # Specifically designed to process SURFEX data (France scale)
 surfex_path =  None # add surfex models in .h5 format
 
