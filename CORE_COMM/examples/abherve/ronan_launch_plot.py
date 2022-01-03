@@ -181,7 +181,7 @@ hydrology_path = root_path + 'HYDROLOGY'
 modflow_path = root_path + 'MODFLOW'
 piezometry_path = None
 oceanic_path = None
-dem_path = root_path + "/DEM/" + "BDALTI_75m_ARA.tif"
+dem_path = root_path + "/DEM/" + "BDALTI_75m_PACA.tif"
 
 # library_path = df + '/watershed' + '/watershed_library.csv'
 # surfex_path =  root_path + 'SURFEX/ebr/'
@@ -198,7 +198,7 @@ outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 notok = []
 types_obs = ['streams_fr']
 
-for idx, row in outlets.iloc[12:].iterrows():
+for idx, row in outlets.iloc[14:].iterrows():
     
     load = True
     watershed_name = row['watershed_name']
@@ -232,9 +232,9 @@ for idx, row in outlets.iloc[12:].iterrows():
     BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                       first_year = 1960, last_year = 2019, time_step = 'D', sim_state='steady')
     rech = BV.forcing.recharge # m/j
-    # BV.calib_dichotomy(ident=None, calib=True, type_river='streams_fr', climatic=rech,
-    #                     lay_number=1, thick=30, bottom=None, thick_exp=1., 
-    #                     first=1, last=15000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
+    BV.calib_dichotomy(ident=None, calib=True, type_river='streams_fr', climatic=rech,
+                        lay_number=1, thick=30, bottom=None, thick_exp=1., 
+                        first=1, last=15000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.)
     
 #%% MAP DICO
 
@@ -249,7 +249,7 @@ geol_l = gpd.read_file(root_path+'GEOLOGY/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.
 
 obs= 'streams_fr'
     
-for idx, row in outlets.iloc[12:].iterrows():
+for idx, row in outlets.iloc[14:].iterrows():
     
     fig, axs = plt.subplots(1, 2, figsize=(4,4), dpi=300)
     axs = axs.ravel()
@@ -368,7 +368,7 @@ cpt1 = 1
 cpt2 = 1
  
 obs = 'streams_fr'
-couleurs = ['blue','red']
+couleurs = ['blue','red','green']
 
 compt=0
 for idx, row in outlets.iloc[12:].iterrows():
@@ -400,7 +400,7 @@ for idx, row in outlets.iloc[12:].iterrows():
     ax.annotate(idx, (x,y), family='sans-serif', fontsize=5, weight="bold", ha='center', va='center', zorder=cpt2)
     ax.axhline(y=75, ls='--', lw=1, c='k', zorder=0)
     ax.legend(loc='best')
-    ax.set_xlim(0,1000)
+    ax.set_xlim(0,10000)
     
     cpt1 += 1
     cpt2 += 1
