@@ -11,7 +11,7 @@ Created on Mon Dec 20 08:05:41 2021
 import sys
 import os
 from os.path import dirname, abspath
-DIR = dirname(dirname(abspath(__file__)))
+DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
 from glob import glob
 import numpy as np
@@ -62,11 +62,11 @@ fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
 #%% NECESSARY PATHS
 
 # Path to the git repositoty home page
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
 # Path to the test folder
 test_path = git_path + "examples/_example/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/TEST/"
+out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
 
 # We suggest to store the data in specific folder
 dems_path = test_path + 'dem/'
@@ -77,7 +77,6 @@ climate_path =test_path + 'climate/'
 piezometry_path = None # add piezometry data or nothing for automatic download
 geology_path = None # add geologic layers
 oceanic_path = None # add specific sea level files
-
 # Specifically designed to process SURFEX data (France scale)
 surfex_path =  None # add surfex models in .h5 format
 
@@ -95,7 +94,7 @@ library_path = test_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
-watershed_name = 'Example' # add manually study site information in map units
+watershed_name = 'Watershed' # add manually study site information in map units
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
@@ -183,9 +182,9 @@ print('Result chronics extraction completed')
 
 #%% VISUALIZATION 3D
 
-from groundwater_flow import vizualisation
+from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
-visu = vizualisation.Vizualisation(BV, model_name)
+visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
 
 #%% PLOT SURFACE OUTPUTS
