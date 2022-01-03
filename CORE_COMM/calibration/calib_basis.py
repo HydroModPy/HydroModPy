@@ -57,7 +57,7 @@ class CalibrationBasis:
         self.watershed = watershed
         self.observations = observations
         # Name of model
-        self.ident= "_".join(self.observations) +  '_calibration'
+        self.ident = "_".join(self.observations) +  '_calibration'
         if directory_results == None:
             self.directory_results = os.path.join(watershed.simulations_folder, self.ident)
         
@@ -134,7 +134,8 @@ class CalibrationBasis:
             
         if succes == False:
             indicator = np.inf
-        print(params, succes, indicator)    
+        print(params, succes, indicator)  
+        #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
 
 
