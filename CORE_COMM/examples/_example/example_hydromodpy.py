@@ -62,11 +62,12 @@ fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
 #%% NECESSARY PATHS
 
 # Path to the git repositoty home page
-git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
+git_path = DIR
 # Path to the test folder
-test_path = git_path + "examples/_example/"
+test_path = git_path + "/examples/_example/"
 # Path where the results will be stored
-out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
+out_path = "D:/Users/abherve/TEST/"
+# out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
 
 # We suggest to store the data in specific folder
 dems_path = test_path + 'dem/'
@@ -206,6 +207,6 @@ wt_data = imageio.imread(simulations_folder+model_name+'/_extraction/'+'watertab
 river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 
 # Function
-plots.interactive_cross_section(dem_data, wt_data, river_data, interactive=False)
+plots.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
 
 #%%
