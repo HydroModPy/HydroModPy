@@ -361,7 +361,7 @@ class Watershed:
             
             ident = str('dic')+'-'+str(type_river)+'-'+str(round(half,3))+'-'+str(round(climatic,3))+'-'+str(round(thick,3))
             
-            model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
+            model = modflow.Modflow(self.geographic, calib=calib,
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
                                     climatic=climatic, sea_level=sea_level, 
