@@ -28,86 +28,71 @@ class Watershed:
     """
     class Watershed is used to extract watershed and its data from regional DEM
 
-    Attributes
-    ----------
-    name: str
-        name of watershed
-    dem_path : str
-        folder of the regional DEM
-    x_outlet : float
-        x coordinate of the outlet of the watershed
-    y_outlet : float
-        y coordiante of the outlet of the watershed
-    snap_dist : float
-        distance of the outlet can be mooved to join the closest river
-    buff_dist : float
-        distance to increase the boundary of the watershed
-    out_path : str
-        root directory of results
-    surfex_path : str
-        root directory of surfex data
-    hydrology_path : str
-        root directory of hydrology data
-    oceanic_path : str
-        root directory of oceanic data
-    geology_path : str
-        root directory of geology data
-    modflow_path : str
-        root directory of modflow executable
-    watershed_folder : str
-        root directory of results of watershed class
-    add_data_folder : str
-        folder if you want add data manually
-    simulations_folder : str
-        root directory of simulation results
-    elt_def : list
-        list of elements in the python object
-
-    Methods
-    -------
-    load_object(self)
-        load python object if is already created
-    create_object(self)
-        create watershed object
-    save_object(self)
-        save watershed object in the watershed folder (python_object)
-    run_modflow(self,name, climatic=8e-4, lay_number=1, thick=100, bottom=None,
-                thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                sea_level = None, cond_decay=0.)
-        run groundwater flow model using Modflow and Flopy
+    :param name: name of watershed.
+    :param dem_path: folder of the regional DEM.
+    :param out_path: root directory of results.
+    :library_path: path of the watershed_library.csv file.
+    :param surfex_path: root directory of surfex data.
+    :param oceanic_path: root directory of oceanic data.
+    :param geology_path: root directory of geology data.
+    :param hydrology_path: root directory of hydrology data.
+    :param piezometry_path: download franch piezometric data.
+    :param modflow_path: root directory of modflow executable.
+    :param save_object: save the watershed object in pickle file.
+    :param load: load the pickle file. Doesn't build the watershed object.
+    :param types_obs: list of observations data. Only if hydrology_path is not None.
+    :param fields_obs: list of observations fields. Only if hydrology_path is not None.
+    
+    :ivar watershed_folder: root directory of results of watershed class
+    :vartype watershed_folder: :class:`str`
+    :ivar add_data_folder: folder if you want add data manually
+    :vartype add_data_folder: :class:`str`
+    :ivar simulations_folder: root directory of simulation results
+    :vartype simulations_folder: :class:`str`
+    :ivar stable_folder: root directory of stable results
+    :vartype stable_folder: :class:`str`
+    :ivar figure_folder: root directory of figures folder
+    :vartype figure_folder: :class:`str`
+    :ivar elt_def: list of elements in the python object
+    :vartype elt_def: :class:`list`
+    :ivar geographic: geographic object
+    :vartype geographic: :class:`object`
+    :ivar hydrodynamic: hydrodynamic object
+    :vartype hydrodynamic: :class:`object`
+    :ivar forcing: forcing object
+    :vartype forcing: :class:`object`
+    :ivar climatic: climatic object
+    :vartype climatic: :class:`object`
+    :ivar hydrology: hydrology object
+    :vartype hydrology: :class:`object`
+    :ivar oceanic: oceanic object
+    :vartype oceanic: :class:`object`
+    :ivar geology: geology object
+    :vartype geology: :class:`object`
+    :ivar piezometry: piezometry object
+    :vartype piezometry: :class:`object`
+    :ivar x_outlet: x coordinate of the watershed outlet.
+    :vartype x_outlet: :class:`float`
+    :ivar y_outlet: y coordinate of the watershed outlet.
+    :vartype y_outlet: :class:`float`
+    :ivar snap_dist: maximum distance snappin of the watershed outlet.
+    :vartype snap_dist: :class:`float`
+    :ivar buff_percent: percentage of the watershed to build the buffer around it.
+    :vartype buff_percent: :class:`float`
+    :ivar crs_proj: coordiante system of projection
+    :vartype crs_proj: :class:`str`
+    
+    :meta public:
     """
-    def __init__(self, watershed_name, dem_path, 
-                 library_path = os.path.join(dirname(abspath(__file__)), 'watershed_library.csv'),
-                 out_path = os.path.dirname(os.path.dirname(__file__))+'\\output\\', 
-                 surfex_path = None, oceanic_path = None, geology_path = None, 
-                 hydrology_path = None, piezometry_path = False, modflow_path = None,
-                 save_object = True, load = False,
-                 types_obs=['streams'], fields_obs=['FID']):
-        """ 
+    def __init__(self, watershed_name: str, dem_path: str, 
+                 out_path: str, library_path: str = 'watershed_library.csv',
+                 surfex_path: str = None, oceanic_path: str = None, 
+                 geology_path: str = None, hydrology_path: str = None, 
+                 piezometry_path: bool = False, modflow_path: str = None,
+                 save_object: bool = True, load: bool = False,
+                 types_obs: list = ['streams'], fields_obs: list = ['FID']):
+        """  
         Constructor
-        
-        Parameters
-        ---------
-        watershed_name: str
-            name of watershed
-        dem_path : str
-            folder of the regional DEM
-        library_path: str
-            path of the library file
-        out_path : str
-            root directory of results
-        surfex_path : str
-            root directory of surfex data
-        hydrology_path : str
-            root directory of hydrology data
-        oceanic_path : str
-            root directory of oceanic data
-        geology_path : str
-            root directory of geology data
-        modflow_path : str
-            root directory of modflow executable
-        load : bool
-            True to load the python object. False to create.
         """
         self.watershed_name = watershed_name
         self.library_path = library_path
@@ -159,6 +144,8 @@ class Watershed:
     def load_watershed_csv(self):
         """
         Load watershed informations from watershed.csv file
+        
+        :meta public:
         """
         watershed_list = pd.read_csv(self.library_path, delimiter=';')
         try:
@@ -177,6 +164,8 @@ class Watershed:
     def load_object(self):
         """
         Loads python object
+        
+        :meta public:
         """
         if os.path.exists(os.path.join(self.watershed_folder, 'python_object')):
             with open(os.path.join(self.watershed_folder, 'python_object'), 'rb') as config_dictionary_file:
@@ -216,6 +205,8 @@ class Watershed:
     def create_object(self):
         """
         Creates python object
+        
+        :meta public:
         """
         #STURCUTRE DATA
         self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet,
@@ -259,6 +250,8 @@ class Watershed:
     def save_object(self):
         """
         Saves python object
+        
+        :meta public:
         """
         if os.path.exists(os.path.join(self.watershed_folder,'python_object')):
             os.remove(os.path.join(self.watershed_folder,'python_object'))
@@ -272,10 +265,14 @@ class Watershed:
                                  x_column=0, y_column=1,
                                  start_column=1990, end_column=2000,
                                  snap_dist=100):
+        """
+        AG: à déplacer dans géographic ? ou hydrology? car on l'utilise pour les débits'
+
+        """
         sub = subbasins.Subbasins(self.geographic)
         df_auto = sub.automatic_coord(self.hydrology_path, os.path.join(self.stable_folder, 'hydrology'))
         try:
-            df_manual = sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
+            sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
                                          file_name,  
                                          fonction_column,
                                          type_data,
@@ -290,31 +287,22 @@ class Watershed:
         sub.extract_subbasins(snap_dist, self.stable_folder)
         return df_auto
     
-    def run_modflow(self, ident='modflow', modpath_sim=False, calib=True, sink_fill = False, climatic=8e-4,
-                    lay_number=1, bottom=None, thick_exp=1., 
-                    sea_level=None, cond_decay=0., verbose=True):
+    def run_modflow(self, ident: str = 'modflow', modpath_sim: bool = False, 
+                    calib: bool = True, sink_fill: bool = False, lay_number: int = 1, 
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., verbose: bool = True):
         """ 
-        build and run modflow model
+        Build and run modflow model
         
-        Arguments
-        ---------
-        ident: str
-            identity name of the model
-        modpath_sim: bool
-            run modapth model
-        climatic: float or list of float
-            recharge chronicle of the model in m/d
-        lay_number: int
-            number of layer of the model
-        bottom : None or float (default is None)
-            if bottom is None, the model has a constant thickness
-            if bottom is float, the model hast à flat bottom at the float elevation
-        sea_level: None or float (default is None)
-            sea level in meters
-        cond_decay: float    
-            changes the hydraulic conductivity exponentially whit the depth
-        thick_exp: float (default is 1)
-            changes the thickness of the layers exponentially
+        :param ident: identity name of the model
+        :param modpath_sim: run modapth model
+        :param lay_number: number of layer of the model
+        :param bottom: if bottom is None, the model has a constant thickness.if bottom is float, the model has a flat bottom at the float elevation
+        :param cond_decay: changes the hydraulic conductivity exponentially with the depth. lay_number must be >1.
+        :param thick_exp: changes the thickness of the layers exponentially. lay_number must be >1.
+        
+        :return succes: True if the simulation is succesfully
+        
+        :meta public:
         """
         flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill,
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
@@ -336,19 +324,30 @@ class Watershed:
                 #transit_model.post_processing()
         return succes
                
-    def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric', calib_only=False, first=1960, last=2020, time_step='monthly'): 
-            self.chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
+    def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric',
+                         calib_only=False, first=1960, last=2020, time_step='monthly'):
+        """
+        AG: je ne pense pas que ce soit sa place.
+        Pour moi c'est une method de la class Modflow.
+        Il faudrait peut être faire un object modflow ou l'on pourrait appeler Chronics
+        style : BV.modflow.chronics
+        """
+        self.chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
                                         mask=mask, outlet_type=outlet_type, calib_only=calib_only,
                                         subbasins_folder=os.path.join(self.stable_folder, 'subbasins'),
                                         first=first, last=last, time_step=time_step,
                                         model_name=ident, model_folder=self.simulations_folder,
                                         hydrology_path=self.hydrology_path)
-            self.chronics.extract_chronic()
+        self.chronics.extract_chronic()
                         
     def calib_dichotomy(self, ident='modflow', type_river='streams', calib=True, climatic=8e-4, 
                         lay_number=1, thick=50, bottom=None, thick_exp=1., 
                         first=1, last=10000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.):
-
+        """
+        AG: Destiné à disparaitre
+        
+        :meta private:
+        """
         self.diff = last - first
         half = (first + last) / 2
         self.gap = gap
@@ -402,12 +401,20 @@ class Watershed:
         self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy_'+type_river+'.csv'), sep=';', index=True)
         
     def run_hs1D(self):
+        """
+        Coming soon
+        """
         return self
     
-    def display(self,type = 'watershed_dem'):
-        if type == 'watershed_dem':
+    def display(self,dtype: str = 'watershed_dem'):
+        """
+        Display watershed figure
+
+        :param dtype: type of figure. Can be 'watershed_dem' or 'watershed_geology'
+        """
+        if dtype == 'watershed_dem':
             watershed_display.watershed_dem(self)
-        if type == 'watershed_geology':
+        if dtype == 'watershed_geology':
             watershed_display.watershed_geology(self)    
 
 
