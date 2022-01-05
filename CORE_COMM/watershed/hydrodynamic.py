@@ -45,13 +45,13 @@ class Hydrodynamic:
         Updates :attr:`hyd_cond` with a constant value :data:`hyd_cond_value`.
         
         :param hyd_cond_value: hydraulic conductivy of the aquifer.
-        :meta private:
+        :meta public:
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
     
     def update_porosity(self, porosity_value: float):
         """
-        Updates :attr:`porosity` with a constant value :data:`hyd_cond_value`.
+        Updates :attr:`porosity` with a constant value :data:`porosity_value`.
 
         :param porosity_value: porosity of the aquifer.
         """
