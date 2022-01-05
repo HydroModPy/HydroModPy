@@ -11,11 +11,14 @@ import numpy as np
 import os
 from osgeo import gdal, osr
 import pandas as pd
+from pyproj import Proj
 from pyproj import Transformer
+from osgeo import gdal, osr
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
-wbt.set_verbose_mode(False)
+wbt.verbose = False
+from geopy.geocoders import Nominatim
 
 # HydroModPy modules
 from tools import file_adds
@@ -43,33 +46,37 @@ class Geographic:
         loads files to 
     """
     
-    def __init__(self, dem_path, x, y, snap_dist=150, buff_dist=1000,
+    def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         print('Extraction des données géographiques')
         
-        self.processing(dem_path, x, y, snap_dist, buff_dist, out_path)
-        self.post_processing_dem()
+        self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
+        self.post_processing_dem(out_path)
 
-    def processing(self, dem_path, x, y, snap_dist, buff_dist, out_path):
-        
+    def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
         # Generate folder where processing files are stored
         gis_path = os.path.join(out_path, 'results_stable/geographic/')
+        reg_path = os.path.join(out_path, 'results_stable/geographic/regional/')
         file_adds.create_folder(gis_path)
+        file_adds.create_folder(reg_path)
         
         """
         Raw regional DEM
         """
-        # Open
+        wbt.modify_no_data_value(dem_path, new_value='-99999.0')
+        
+        # Open correct DEM
         dem = gdal.Open(dem_path)
         geodata = dem.GetGeoTransform()
+        
         # Correction
-        fill = gis_path + 'region_fill.tif'
+        fill = reg_path + 'region_fill.tif'
         wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
         # Flow direction
-        direc = gis_path + 'region_direc.tif'
+        direc = reg_path + 'region_direc.tif'
         wbt.d8_pointer(fill, direc, esri_pntr=False)
         # Flow accumulation
-        acc = gis_path + 'region_acc.tif'
+        acc = reg_path + 'region_acc.tif'
         wbt.d8_flow_accumulation(fill, acc, log=True)
         
         """
@@ -89,19 +96,30 @@ class Geographic:
         # Generate raster watershed
         watershed = gis_path + 'watershed.tif'
         wbt.watershed(direc, outlet_snap_shp, watershed, esri_pntr=False)
+        # tif = gdal.Open(watershed)
+        # geotransf = tif.GetGeoTransform()
+        # pixel_area = abs(geotransf[1] * geotransf[5])
+        # band_size = (tif.GetRasterBand(1).XSize, tif.GetRasterBand(1).YSize)
+        # area = band_size[0] * band_size[1] * pixel_area
         # Create shapefile polygon of the watershed
         self.watershed_shp = gis_path + 'watershed.shp'
         wbt.raster_to_vector_polygons(watershed, self.watershed_shp)
+        wbt.polygon_area(self.watershed_shp)
+        area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
+        area = np.abs(area)
         # Create shapefile polyline of the watershed
-        self.watershed_contour_shp = gis_path + 'watershed_contour.shp'    
+        self.watershed_contour_shp = gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
         
         """
         Buffer distance operations
         """
-        # Normalize initial buffer distance value
-        dist = np.linspace(0,buff_dist,buff_dist+1)*np.abs(geodata[1])
-        buff_dist = dist[np.abs(dist-buff_dist).argmin()]
+        # Normalize initial buffer distance value        
+        buff_raw = (area) * (buff_percent/100) * 1000
+        buff_raw = int(round(buff_raw))
+        dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
+        buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+        # buff_dist = buff_raw
         # Buffer the watershed shapefile polygon
         site_polyg = gpd.read_file(self.watershed_shp)
         site_polyg.to_file(self.watershed_shp)
@@ -132,8 +150,8 @@ class Geographic:
         self.watershed_buff_dem = gis_path + 'watershed_buff_dem.tif'
         wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem)
         # Clip corrected regional DEM from buffer watershed shapefile polygon
-        watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, buffer, watershed_buff_fill)
+        self.watershed_buff_fill = gis_path + 'watershed_buff_fill.tif'
+        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill)
         # Clip flow direction regional DEM from buffer watershed shapefile polygon
         watershed_buff_direc = gis_path + 'watershed_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc)
@@ -164,14 +182,31 @@ class Geographic:
         watershed_box_buff_direc = gis_path + 'watershed_box_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
         
-    def post_processing_dem(self):
+        """
+        Create depressions raster
+        """
+        try:
+            self.depressions = gis_path + 'depressions.tif'
+            wbt.sink(self.watershed_box_buff_dem, self.depressions)
+        except:
+            pass
+        
+    def post_processing_dem(self, out_path):
 
         # Open DEM used for modeling
         dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = dem.GetRasterBand(1).ReadAsArray()
+        self.geodata = dem.GetGeoTransform()
         dem_box = gdal.Open(self.watershed_box_buff_dem)
         self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
-        self.geodata = dem.GetGeoTransform()
+        bv = gdal.Open(self.watershed_dem)
+        self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
+        # Open DEM depressions
+        try:
+            dem_dep = gdal.Open(self.depressions)
+            self.depressions_data = dem_dep.GetRasterBand(1).ReadAsArray()
+        except:
+            pass
         # Extract the coordinate system
         proj = osr.SpatialReference(wkt=dem.GetProjection())
         self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
@@ -193,9 +228,18 @@ class Geographic:
         # Calculate centroids
         self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
         # Transform centroids to World Geodetic System 1984
-        transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
-        self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
-        # Transform to longitude/latitude London Greenwich
-        self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
-        if self.centroid_long_lat_Greenwich[1]<0:
-            self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
+        try:
+            transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
+            self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
+            # Transform to longitude/latitude London Greenwich
+            self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
+            if self.centroid_long_lat_Greenwich[1]<0:
+                self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
+        except:
+            pass
+        try:
+            locator = Nominatim(user_agent='google')
+            location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+            self.dep_code = int(location.address.split(',')[-2][0:3])
+        except:
+            pass
