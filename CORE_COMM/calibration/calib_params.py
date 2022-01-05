@@ -1,109 +1,95 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 12 10:53:03 2021
 
-import os
+@author: Alexandre Gauvain
+"""
+import sys
 import pandas as pd
-from datetime import datetime
+import numpy as np
+import re
+       
 
-class CalibParams:
-    """
-    A class used to identify hydraulic parameters of the watershed to calibrate
-
-    Attributes
-    ----------
-    names : list of str
-        the name of each parameter
-    geo_codes : list of str
-        the geological code of each parameter
-    types : list of str
-        the type of each parameter
-    units : list of str
-        the unit of each parameter
-
-    Methods
-    -------
-    createparams(geology_code, folder)
-        Create and save parameters
-    
-    """
-    
-    def __init__(self, settings_folder, results_folder, geology_code=None):
-        """
+class CalibParams(): 
+    def __init__(self, file_name, watershed):
+        """ 
         Constructor
         
-        Parameters
-        ----------        
-        geology_code : list of int
-            geological codes from geology python object
-        settings_path : str
-            the path of the setting files
-        results_path : str
-            the path of the result files
+        Arguments
+        --------- 
         """
+        # Parameter Values
+        self.name = []
+        # Parameter Units 
+        self.u = []
+        # Bounds of parameters
+        self.p_init = []
+        self.p_min = []
+        self.p_max = []
         
-        self.names = []
-        self.geo_codes = []
-        self.types = []
-        self.units = []
-        self.lbound = []
-        self.ubound = []
-        self.init_value = []
-        self.create_params(settings_folder, results_folder, geology_code)
+        #load param values
+        self.load_param_values(file_name)
+        #check if watershed.hydrodynamic.calib_zones matches with Parameter names
+        self.check_param_values(watershed)
+        #Convert hydraulic conductivity values to log values
+        self.convert_k_lin_to_log()
+
+    def load_param_values(self, file_name):
+        """ 
+        Loads parameter file 
+            From file called calib_params.csv
+        File structure
+            params, init_values, lower_bounds, higher_bounds, units
+        File example
+            k1, 8.60, 86, 0.0086, m/j
+            k2, 0.086, 86, 0.0086, m/j
+            theta1, 0.1, 0.01, 0.2, -
+            e1, 30, 10, 100, m
+        Parameters codes
+            k : hydraulic conuctivity
+            theta : porosity
+            e : thickness
+        Argument
+        --------
+        file_name : str
+            Name of the file
+        """
+        # Loads file in which parameters are stored   
+        temp = pd.read_csv(file_name,header=0)
+        # Affects param_values to the distribution
+        self.name = temp.params.values
+        self.u = temp.units.values
+        self.p_init = temp.init_values.values
+        self.p_min =  temp.lower_bounds.values
+        self.p_max =  temp.higher_bounds.values
+        self.p = temp.init_values.values
+        
+        
+    def linear_to_log(self, lin_values):
+        log_values = np.log10(lin_values)
+        return log_values
     
-    def create_params(self, settings_folder, results_folder, geology_code):
-        """
-        Create hydraulic parameters
-        
-        Parameters
-        ----------
-        geology_code : list of int
-            geological codes from geology python object
-        settings_path : str
-            the path of the setting files
-        results_path : str
-            the path of the result files
-        """
-        # reads parameter types to calibrate amont K,theta,e
-        self.list = list(pd.read_csv(settings_folder + '/params_to_calibrate.csv'))
-        # checks that the list is made up of correct strings
-        for paramtype in self.list:
-            if paramtype == 'e':
-                # Only 1 thickness for the whole model so far to avoid any mesh generation issue with discontinuous thicknesses
-                self.names.append(paramtype)
-                self.geo_codes.append('-')
-                self.types.append('thickness')
-                self.units.append('m')
-                self.lbound.append(10)
-                self.ubound.append(1000)
-                self.init_value.append(500)
-            else: 
-                # Loops on id units of the watershed
-                for idunit in range(0, len(geology_code)):
-                    self.names.append(paramtype+"_"+str(idunit))
-                    self.geo_codes.append(geology_code[idunit])
-                    if paramtype == 'k':
-                        self.types.append('hydraulic conductivity')
-                        self.units.append('m/s')
-                        self.lbound.append(0.01)
-                        self.ubound.append(0.0000001)
-                        self.init_value.append(0.0001)
-                    elif paramtype == 'theta':
-                        self.types.append('porosity')
-                        self.units.append('-')
-                        self.lbound.append(0.01)
-                        self.ubound.append(0.5)
-                        self.init_value.append(0.1)
-                
-        self.store = pd.DataFrame({'names': self.names,'geo_codes': self.geo_codes,'types': self.types, 'units': self.units, 'lbounds': self.lbound, 'ubounds':self.ubound, 'init_values': self.init_value})
+    def log_to_linear(self, log_values):
+        lin_values = 10**(log_values)
+        return lin_values
     
-    def save_params(self,results_folder):
-        now = datetime.now()
-        dt_string = now.strftime("%Y_%m_%d-%H_%M")
-        self.results_path = results_folder +'/'+ dt_string
-        if not os.path.exists(self.results_path):
-            os.makedirs(self.results_path)
+    def check_param_values(self, watershed):
+        self.num_zone = [int(re.search(r'\d+', name).group()) for name in self.name]
+        zones = np.intersect1d(self.num_zone,self.num_zone)
+        zones_array = np.intersect1d(watershed.hydrodynamic.calib_zones, watershed.hydrodynamic.calib_zones)
+        if len(zones) == len(zones_array):
+            if sum(zones) == sum(zones_array): 
+                pass
+        else:
+            sys.exit("watershed.hydrodynamic.calib_zones (ex: 1, 2) must be have the same number zones of calibrated parameters (ex: k1 , k2) in calib_params.csv")
         
-        self.store.to_csv(self.results_path + '/params.csv',header=False, index=False)
-        
-        
-        
+    def convert_k_lin_to_log(self):
+        for i in range(0, len(self.name)):
+            if self.name[i][0] == 'k':
+                self.p_init[i] = self.linear_to_log(self.p_init[i])
+                self.p_min[i] =  self.linear_to_log(self.p_min[i])
+                self.p_max[i] =  self.linear_to_log(self.p_max[i])
+                self.u[i] = self.u[i] + str(' (log)')
+    
+                   
         
