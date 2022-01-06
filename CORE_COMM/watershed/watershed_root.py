@@ -267,7 +267,6 @@ class Watershed:
                                  snap_dist=100):
         """
         AG: à déplacer dans géographic ? ou hydrology? car on l'utilise pour les débits'
-
         """
         sub = subbasins.Subbasins(self.geographic)
         df_auto = sub.automatic_coord(self.hydrology_path, os.path.join(self.stable_folder, 'hydrology'))
@@ -361,7 +360,7 @@ class Watershed:
             
             ident = str('dic')+'-'+str(type_river)+'-'+str(round(half,3))+'-'+str(round(climatic,3))+'-'+str(round(thick,3))
             
-            model = modflow.Modflow(self.geographic, calib=calib,
+            model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
                                     lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
                                     climatic=climatic, sea_level=sea_level, 
@@ -402,7 +401,7 @@ class Watershed:
         
     def run_hs1D(self):
         """
-        Coming soon
+        Coming soon !
         """
         return self
     
