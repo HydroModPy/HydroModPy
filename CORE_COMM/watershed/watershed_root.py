@@ -28,7 +28,7 @@ class Watershed:
     """
     class Watershed is used to extract watershed and its data from regional DEM
 
-    :param name: name of watershed.
+    :param str name: name of watershed.
     :param dem_path: folder of the regional DEM.
     :param out_path: root directory of results.
     :library_path: path of the watershed_library.csv file.
@@ -43,8 +43,7 @@ class Watershed:
     :param types_obs: list of observations data. Only if hydrology_path is not None.
     :param fields_obs: list of observations fields. Only if hydrology_path is not None.
     
-    :ivar watershed_folder: root directory of results of watershed class
-    :vartype watershed_folder: :class:`str`
+    :ivar str watershed_folder: root directory of results of watershed class
     :ivar add_data_folder: folder if you want add data manually
     :vartype add_data_folder: :class:`str`
     :ivar simulations_folder: root directory of simulation results
