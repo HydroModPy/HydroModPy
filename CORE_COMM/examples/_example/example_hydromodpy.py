@@ -171,8 +171,8 @@ model_name = sim_state
 #%% RUN MODEL
 
 # Launch a model
-BV.run_modflow(ident=model_name, modpath_sim=False, calib=False, sink_fill=False, 
-                lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., 
+BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
+                lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
                 verbose=True)
 print('Modeling process completed')
 
@@ -186,7 +186,7 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
+visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth','pathlines'], view='south-west')
 
 #%% PLOT SURFACE OUTPUTS
 
