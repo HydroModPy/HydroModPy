@@ -14,9 +14,20 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../simpleble/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
+from sphinx.builders.html import StandaloneHTMLBuilder
 
+package_path = os.path.abspath('../..')
+os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
+
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/data/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/tools/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/surface_flow/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/readme/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/groundwater_flow/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/examples/'))
+sys.path.insert(0, os.path.abspath('../../CORE_COMM/calibration/'))
 # -- Project information -----------------------------------------------------
 
 project = 'HydroModPy'
@@ -30,7 +41,12 @@ release = '0.0.1'
 
 
 # -- General configuration ---------------------------------------------------
-
+StandaloneHTMLBuilder.supported_image_types = [
+    'image/svg+xml',
+    'image/gif',
+    'image/png',
+    'image/jpeg'
+]
 # If your documentation needs a minimal Sphinx version, state it here.
 #
 # needs_sphinx = '1.0'
@@ -42,6 +58,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'sphinx.ext.autosummary',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -78,12 +95,29 @@ pygments_style = 'sphinx'
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+html_favicon = 'images/logoHydroModPy.png'
+html_logo = 'images/logoHydroModPy_long.png'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'analytics_id': 'G-XXXXXXXXXX',  #  Provided by Google in your dashboard
+    'analytics_anonymize_ip': False,
+    'logo_only': True,
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': False,
+    'vcs_pageview_mode': 'display_gitlab',
+    'style_nav_header_background': '#343131',
+    # Toc options
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -110,6 +144,7 @@ htmlhelp_basename = 'HydroModPydoc'
 # -- Options for LaTeX output ------------------------------------------------
 
 latex_elements = {
+    'extraclassoptions': 'openany,oneside'
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
@@ -132,7 +167,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     'Lyudmil Vladimirov', 'manual'),
+     'Alexandre Gauvain', 'manual'),
 ]
 
 

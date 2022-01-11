@@ -7,7 +7,7 @@ Created on Wed Nov 17 12:42:06 2021
 #Modules
 
 #HydroModPy modules
-from calibration import calib_basis
+from calibration import calib_basis, calib_simplex
 
 
 class Calibration():
@@ -33,9 +33,13 @@ class Calibration():
         self.file_name = params_file
         self.observations = observations
     
-    def exploration(self,resolution=10000):
-        method = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
-        method.build_objective_function(resolution = resolution)
-        
+    def exploration(self,resolution=100):
+        basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
+        basis.build_objective_function(resolution = resolution)
+    
+    def simplex(self):
+        basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
+        simplex = calib_simplex.CalibrationSimplex('Simplex', basis)
+        simplex.perform()
         
         

@@ -12,7 +12,7 @@ import os
 import modflow
 import hs1d
 
-class Groundwaterflow(abc.ABC):
+class GroundwaterFlow(abc.ABC):
     def __init__(self, geographic, program = 'modflow',
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom = None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 

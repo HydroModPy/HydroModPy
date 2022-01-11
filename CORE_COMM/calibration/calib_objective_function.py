@@ -6,8 +6,10 @@ Created on Fri Nov 12 10:57:47 2021
 """
 #Modules
 import geopandas as gpd
+import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
-import os
+import os, sys
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -19,19 +21,19 @@ from tools import serie_transf
 
 class Streams:
     def __init__(self, 
-                 geographic, 
+                 watershed, 
                  hydrology_stable=None,
                  simulations_folder=None):
         
-        self.geographic = geographic
-        self.hydrology_stable=hydrology_stable
+        self.geographic = watershed.geographic
+        self.hydrology = watershed.hydrology
         self.simulations_folder=simulations_folder
         
         self.results_folder=os.path.join(self.simulations_folder, '_extraction')
         
-        self.watershed_shp = geographic.watershed_shp
-        self.watershed_fill = geographic.watershed_fill
-        self.watershed_direc = geographic.watershed_direc
+        self.watershed_shp = watershed.geographic.watershed_shp
+        self.watershed_fill = watershed.geographic.watershed_fill
+        self.watershed_direc = watershed.geographic.watershed_direc
               
         self.prepare_files()
         self.sim_to_obs()
@@ -42,8 +44,8 @@ class Streams:
         self.dichotomy_folder = os.path.join(self.simulations_folder, '_dichotomy')
         file_adds.create_folder(self.dichotomy_folder)
         # Observed buff data
-        self.buff_tif_obs = os.path.join(self.hydrology_stable,'streams.tif')
-        self.buff_pt_obs = os.path.join(self.hydrology_stable,'streams.shp')
+        self.buff_tif_obs = self.hydrology.tif_streams
+        self.buff_pt_obs = self.hydrology.streams
         # Mask observed
         self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
         tif_masks.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
@@ -96,23 +98,71 @@ class Streams:
         sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
-        indicator = (self.mean_sim_to_obs-self.mean_obs_to_sim)**2
-        return indicator
+        indicator = np.abs(np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
+        return indicator, self.mean_sim_to_obs, self.mean_obs_to_sim
 
 class Piezometry:
-    def __init__(self, piezometry, simulations_folder):
-        self.piezometry = piezometry
-        self.simulations_folder = simulations_folder
+    def __init__(self, watershed, model):
+        self.watershed = watershed
+        self.model = model
+        
+        self.load_modeling_data()
+        self.compare_sim_obs_data()
     
-    def load_data(self):
-        first = '2020'
-        last ='2021'
-        watertable_elevation = np.load(os.path.join(self.simulations_folder,'_extraction', 'watertable_elevation.npy'), allow_pickle=True).item()
-        for j in range(1,len(self.piezometry.codes_bss)):
-            sim = [watertable_elevation[a_dict][self.piezometry.y_iloc[j],self.piezometry.x_iloc[j]] for a_dict in watertable_elevation]
-            obs = self.piezometry.elevation[self.piezometry.codes_bss[j]].loc[str(first):str(last)].resample('M').mean().values 
-            list_stats = serie_transf.efficiency_criteria(sim, obs)
-        print(list_stats)
-    
+    def load_modeling_data(self):
+        self.watertable_elevation = np.load(os.path.join(self.watershed.simulations_folder, self.model ,'_extraction', 'watertable_elevation.npy'), allow_pickle=True).item()
+        
+    def compare_sim_obs_data(self):
+        self.store_indicator = []
+        if np.alen(self.watershed.forcing.recharge) > 1:
+            try:
+                df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
+                df.index = df.index.to_period(self.watershed.forcing.freq)
+            except:
+                sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
+                
+            
+            for j in range(0,len(self.watershed.piezometry.codes_bss)):
+                sim=[]
+                for i in range(0,len(self.watertable_elevation)):
+                    sim.append(self.watertable_elevation[i][self.watershed.piezometry.y_iloc[j],self.watershed.piezometry.x_iloc[j]])
+                df_sim = pd.Series(sim, index=self.watershed.forcing.recharge.index, name='sim_' + self.watershed.piezometry.codes_bss[j])
+                df = df.merge(df_sim, left_index=True, right_index=True)
+                    
+                y0 = df[self.watershed.piezometry.codes_bss[j]].values
+                y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
+                dy = np.nansum(y0-y1)  #error 
+                abs_dy = np.nansum(np.abs(y0-y1))  #absolute error 
+                relerr = np.nansum(np.abs(y0-y1)/y0) #relative error 
+                pererr = np.nansum(np.abs(y0-y1)/y0*100) #percentage error 
+                mean_err = np.nanmean(np.abs(y0-y1)) #mean absolute error 
+                MSE = np.nanmean((y0-y1)**2) ;    #Mean square error 
+                RMSE = np.sqrt(np.nanmean((y0-y1)**2))  #Root mean square error 
+                self.store_indicator.append(RMSE)
+            self.y0 = df[[col for col in df if not col.startswith('sim_')]]
+            self.y1 = df[[col for col in df if col.startswith('sim_')]]
+            
+                
+                
+        if np.alen(self.watershed.forcing.recharge) == 1:
+            self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
+            self.y1 = []
+            for j in range(0,len(self.watershed.piezometry.codes_bss)):
+                self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc[j],self.watershed.piezometry.x_iloc[j]])
+            for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
+                self.y0.append(self.watershed.piezometry.elevation_discrete[j])
+                self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
+            self.y0 = np.array(self.y0)
+            self.y1 = np.array(self.y1)
+            dy = np.nansum(self.y0-self.y1)  #error 
+            abs_dy = np.nansum(np.abs(self.y0-self.y1))  #absolute error 
+            relerr = np.nansum(np.abs(self.y0-self.y1)/self.y0) #relative error 
+            pererr = np.nansum(np.abs(self.y0-self.y1)/self.y0*100) #percentage error 
+            mean_err = np.nanmean(np.abs(self.y0-self.y1)) #mean absolute error 
+            MSE = np.nanmean((self.y0-self.y1)**2) ;    #Mean square error 
+            RMSE = np.sqrt(np.nanmean((self.y0-self.y1)**2))  #Root mean square error 
+            self.store_indicator.append(RMSE)
+            
     def get_indicator(self):
-        a=1
+        indicator = sum(self.store_indicator)
+        return indicator, self.y0, self.y1 

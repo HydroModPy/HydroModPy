@@ -1,117 +1,196 @@
 Examples
-=============
+========
 
-Installation/Usage:
-*******************
-As the package has not been published on PyPi yet, it CANNOT be install using pip. 
+Import Modules
+**************
+.. code-block:: python
 
-For now, the suggested method is to put the file `simpleble.py` in the same directory as your source files and call ``from simpleble import SimpleBleClient, SimpleBleDevice``.
+	# Modules
+	import os
+	import pandas as pd
+	from osgeo import gdal, osr
+	from IPython import get_ipython
+	get_ipython().run_line_magic('matplotlib', 'inline')
+	import matplotlib.pyplot as plt
+	import imageio
+	                 
+	# HydroModPy Modules
+	from watershed import watershed_root, watershed_display
+	from tools import to_plot, vtk
+	from groundwater_flow import plots
 
-``bluepy`` must also be installed and imported as shown in the example below.
-For instructions about how to install, as well as the full documentation of, ``bluepy`` please refer `here <https://github.com/IanHarvey/bluepy/>`_
+Configuration Path
+******************
+.. code-block:: python
 
-Search for device, connect and read characteristic
+	# Path to the git repositoty home page
+	DIR = dirname(dirname(str(pathlib.Path().resolve())))
+	git_path =os.path.join(DIR,"CORE_COMM")
+	# Path to the test folder
+	test_path = os.path.join(git_path,"examples","_example")
+	# Path where the results will be stored
+	out_path = os.path.join(test_path,"readthedocs", "out")
+
+	# We suggest to store the data in specific folder
+	dems_path = os.path.join(test_path,'dem')
+	hydrology_path = os.path.join(test_path,'hydrology') # add hydrographic shapefiles
+	modflow_path = os.path.join(test_path,'modflow') # add bin/ folder with necessary .exe
+	climate_path = os.path.join(test_path,'climate')
+	piezometry_path = None # add piezometry data or nothing for automatic download
+	geology_path = None # add geologic layers
+	oceanic_path = None # add specific sea level files
+	# Specifically designed to process SURFEX data (France scale)
+	surfex_path =  None # add surfex models in .h5 format
+
+	# Indicate the name of the regional DEM
+	dem_name = "DEM_test_75m_LAMB93.tif"
+	# dem_name = "DEM_bzh_75m_LAMB93.tif"
+	dem_path = os.path.join(dems_path,dem_name)
+
+	dem = gdal.Open(dem_path)
+	proj = osr.SpatialReference(wkt=dem.GetProjection())
+	crs = int(proj.GetAttrValue('AUTHORITY',1))
+
+	# Import the library of watersheds to generate
+	library_path = os.path.join(test_path,'watershed_library.csv') # each row is a study site
+	library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
+
+	# Select from the library the interest catchment
+	watershed_name = 'Watershed' # add manually study site information in map units
+	mysite = library[library['watershed_name'] == watershed_name] # specific row
+
+	# Paths generated automatically but necessary for plots
+	stable_folder = os.path.join(out_path,watershed_name,'results_stable')
+	simulations_folder = os.path.join(out_path,watershed_name,'results_simulations')
+
+	# Specify the hydrologic layers to clip
+	types_obs = ['streams','sections'] # list of shapefile name layers
+	fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
+
+Build Watershed Object
+**********************
+.. code-block:: python
+
+	BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              surfex_path=surfex_path, 
+                              geology_path = geology_path, 
+                              hydrology_path=hydrology_path,
+                              oceanic_path=oceanic_path, 
+                              piezometry_path=piezometry_path,
+                              modflow_path=modflow_path,
+                              library_path=library_path,
+                              load=False, # True if the watershed object is already created
+                              types_obs=types_obs,
+                              fields_obs=fields_obs)
+
+	watershed_display.watershed_local(dem_path, BV)	
+
+.. image:: images/DEM.PNG
+
+.. code-block:: python
+
+	watershed_display.watershed_dem(BV)
+
+.. image:: images/watershed.PNG
+
+Set up and Run Steady State Groundwater Flow Model
 **************************************************
 .. code-block:: python
 
-    """This example demonstrates a simple BLE client that scans for devices, 
-    connects to a device (GATT server) of choice and continuously reads a characteristic on that device.
+	# Choice the state of the simulation
+	sim_state = 'steady' 
+	first = 2010
+	last = 2019
+	time_step = 'M'
 
-    The GATT Server in this example runs on an ESP32 with Arduino. For the    
-    exact script used for this example see `here <https://github.com/nkolban/ESP32_BLE_Arduino/blob/6bad7b42a96f0aa493323ef4821a8efb0e8815f2/examples/BLE_notify/BLE_notify.ino/>`_ 
-    """
+	# Recharge from a csv
+	rec = pd.read_csv(climate_path+'_REC_'+time_step+'.csv', sep=';', index_col=[0], parse_dates=True)
+	rec = rec[(rec.index.year>=first) & (rec.index.year<=last)]
+	rec = rec.squeeze()
+	BV.forcing.update_recharge(values = rec/1000, sim_state=sim_state)
 
-    from bluepy.btle import *
-    from simpleble import SimpleBleClient, SimpleBleDevice
+	# Update hydrualic conductivity
+	K = 1e-5 * 3600 * 24 * 30 # m/second to m/month
+	BV.hydrodynamic.update_hyd_cond(K)
 
-    # The UUID of the characteristic we want to read and the name of the device # we want to read it from
-    Characteristic_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-    Device_Name = "MyESP32"
+	# Update aquifer thickness
+	E = 30 # m
+	BV.hydrodynamic.update_thickness(E)
 
-    # Define our scan and notification callback methods
-    def myScanCallback(client, device, isNewDevice, isNewData):
-        client._yes = True
-        print("#MAC: " + device.addr + " #isNewDevice: " +
-              str(isNewDevice) + " #isNewData: " + str(isNewData))
-    # TODO: NOTIFICATIONS ARE NOT SUPPORTED YET
-    # def myNotificationCallback(client, characteristic, data):
-    #     print("Notification received!")
-    #     print("  Characteristic UUID: " + characteristic.uuid)
-    #     print("  Data: " + str(data))
+	# Set name of the model
+	model_name = sim_state
 
-    # Instantiate a SimpleBleClient and set it's scan callback
-    bleClient = SimpleBleClient()
-    bleClient.setScanCallback(myScanCallback)
-    # TODO: NOTIFICATIONS ARE NOT SUPPORTED YET
-    # bleClient.setNotificationCallback(myNotificationCollback)
+	# Launch a model
+	BV.run_modflow(ident=model_name, modpath_sim=False, calib=False, sink_fill=False, 
+	                lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., 
+	                verbose=True)
 
-    # Error handling to detect Keyboard interrupt (Ctrl+C)
-    # Loop to ensure we can survive connection drops
-    while(not bleClient.isConnected()):
-        try:
-            # Search for 2 seconds and return a device of interest if found.
-            # Internally this makes a call to bleClient.scan(timeout), thus
-            # triggering the scan callback method when nearby devices are detected
-            device = bleClient.searchDevice(name="MyESP32", timeout=2)
-            if(device is not None):
-                # If the device was found print out it's info
-                print("Found device!!")
-                device.printInfo()
+	# Extract result chronics
+	BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
+	                    first=first, last=last, time_step='monthly')
 
-                # Proceed to connect to the device
-                print("Proceeding to connect....")
-                if(bleClient.connect(device)):
+Cross-Section Visualization
+***************************
+.. code-block:: python
 
-                    # Have a peek at the services provided by the device
-                    services = device.getServices()
-                    for service in services:
-                        print("Service ["+str(service.uuid)+"]")
+	# Dem data
+	dem_data = BV.geographic.dem_data
 
-                    # Check to see if the device provides a characteristic with the
-                    # desired UUID
-                    counter = bleClient.getCharacteristics(
-                        uuids=[Characteristic_UUID])[0]
-                    if(counter):
-                        # If it does, then we proceed to read its value every second
-                        while(True):
-                            # Error handling ensures that we can survive from
-                            # potential connection drops
-                            try:
-                                # Read the data as bytes and convert to string
-                                data_bytes = bleClient.readCharacteristic(
-                                    counter)
-                                data_str = "".join(map(chr, data_bytes))
+	# Wt data
+	wt_data = imageio.imread(simulations_folder+model_name+'/_extraction/'+'watertable_elevation_(000).tif') # buffer size no masked
 
-                                # Now print the data and wait for a second
-                                print("Data: " + data_str)
-                                time.sleep(1.0)
-                            except BTLEException as e:
-                                # If we get disconnected from the device, keep
-                                # looping until we have reconnected
-                                if(e.code == BTLEException.DISCONNECTED):
-                                    bleClient.disconnect()
-                                    print(
-                                        "Connection to BLE device has been lost!")
-                                    break
-                                    # while(not bleClient.isConnected()):
-                                    #     bleClient.connect(device)
+	# River data
+	river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 
-                else:
-                    print("Could not connect to device! Retrying in 3 sec...")
-                    time.sleep(3.0)
-            else:
-                print("Device not found! Retrying in 3 sec...")
-                time.sleep(3.0)
-        except BTLEException as e:
-            # If we get disconnected from the device, keep
-            # looping until we have reconnected
-            if(e.code == BTLEException.DISCONNECTED):
-                bleClient.disconnect()
-                print(
-                    "Connection to BLE device has been lost!")
-                break
-        except KeyboardInterrupt as e:
-            # Detect keyboard interrupt and close down
-            # bleClient gracefully
-            bleClient.disconnect()
-            raise e
+	# Function
+	plots.interactive_cross_section(dem_data, wt_data, river_data, interactive=False)
+
+.. image:: images/crosssection.PNG
+
+3D Visualization
+***************************
+.. code-block:: python
+	
+	from groundwater_flow import vizualisation
+	vtk.VTK(BV, model_name)
+	visu = vizualisation.Vizualisation(BV, model_name)
+	visu.visual3D(interactive=false, object_list=['grid','watertable','watertable_depth'], view='south-west')
+
+.. image:: images/3Dvisual.PNG
+
+Set up and Run Transient State Groundwater Flow Model
+*****************************************************
+.. code-block:: python
+
+	sim_state = 'transient'
+
+	# Update recharge
+	BV.forcing.update_recharge(values = rec/1000, sim_state=sim_state)
+
+	# Update effective porosity
+	P = 0.01 # -
+	BV.hydrodynamic.update_porosity(P)
+
+	# Set name of the model
+	model_name = sim_state
+
+	# RUN MODEL
+
+	# Launch a model
+	BV.run_modflow(ident=model_name, modpath_sim=False, calib=False, sink_fill=False, 
+	                lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., 
+	                verbose=True)
+	print('Modeling process completed')
+
+	# Extract result chronics
+	BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
+	                    first=first, last=last, time_step='monthly')
+	print('Result chronics extraction completed')
+
+	# Display simulation
+	plots.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=True)
+
+.. image:: images/surface_outputs.gif
+
