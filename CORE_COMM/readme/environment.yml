@@ -15,6 +15,7 @@ dependencies:
     - pip:
         - hydroeval
         - geopy
+        - pyproj
 
     # Main processing libraries
     - numpy=1.21.2

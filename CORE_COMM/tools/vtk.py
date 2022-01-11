@@ -971,20 +971,22 @@ class VTK():
                     y = values.geometry[0].xy[1][i]
                     xidx = (np.abs(geographic.x_coord- x)).argmin()
                     yidx = (np.abs(geographic.y_coord- y)).argmin()
-                    x_store.append(x)
-                    y_store.append(y)
-                    z_store.append(geographic.dem_data[yidx,xidx])
-                    nb_points += 1
+                    if geographic.dem_box_data[yidx,xidx] > 0:
+                        x_store.append(x)
+                        y_store.append(y)
+                        z_store.append(geographic.dem_box_data[yidx,xidx])
+                        nb_points += 1
             except:
                 for i in range (len(values.geometry.xy[0])):
                     x = values.geometry.xy[0][i]
                     y = values.geometry.xy[1][i]
                     xidx = (np.abs(geographic.x_coord- x)).argmin()
                     yidx = (np.abs(geographic.y_coord- y)).argmin()
-                    x_store.append(x)
-                    y_store.append(y)
-                    z_store.append(geographic.dem_data[yidx,xidx])
-                    nb_points += 1
+                    if geographic.dem_box_data[yidx,xidx] > 0:
+                        x_store.append(x)
+                        y_store.append(y)
+                        z_store.append(geographic.dem_box_data[yidx,xidx])
+                        nb_points += 1
             
         textoVtk = open(os.path.join(save_file,'VTU_watershed_contour.vtk'), 'w')
         # add header
@@ -1031,10 +1033,11 @@ class VTK():
                 xidx = (np.abs(geographic.x_coord- x)).argmin()
                 yidx = (np.abs(geographic.y_coord- y)).argmin()
                 z = geographic.dem_data[yidx,xidx]
-                xs.append(x)
-                ys.append(y)
-                zs.append(z)
-                nb_points += 1
+                if z > 0:
+                    xs.append(x)
+                    ys.append(y)
+                    zs.append(z)
+                    nb_points += 1
             x_store.append(xs)
             y_store.append(ys)
             z_store.append(zs)

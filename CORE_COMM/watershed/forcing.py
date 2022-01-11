@@ -20,8 +20,10 @@ class Forcing:
 
         '''
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
+        self.freq = None
         self.recharge = None
         self.runoff = None
+        self.unit = None
     
     def update_recharge(self, values, sim_state):
         self.recharge = values # recharge
@@ -29,6 +31,7 @@ class Forcing:
             self.recharge = np.mean(self.recharge)
     
     def update_synthetic_recharge(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
+        self.freq = freq
         days = years*365
         date = pd.date_range(start_date, periods=days)
         t = np.linspace(1,365,365)
@@ -45,7 +48,7 @@ class Forcing:
             pdf[(time >= (mean-(shape/2))) & (time < ((shape/2)+mean))] = rech/shape
         self.recharge = pd.Series(data = pdf, index=date)
         if freq != None:
-            self.recharge = self.recharge.resample(freq).sum()
+            self.recharge = self.recharge.resample(self.freq).sum()
         
     def update_sinusoid_recharge(self, serie, period, amplitude, offset, omega, phase):
         from scipy.optimize import curve_fit
@@ -74,19 +77,25 @@ class Forcing:
         self.recharge = pd.Series(data = sinus, index=date)
         self.recharge[self.recharge < 0] = 0
     
-    def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state):
+    def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+        self.freq = time_step
         climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic/1000 # recharge in meters
+        self.recharge.index = self.recharge.asfreq(self.freq).index
+        self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
-    def update_runoff_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state):
+    def update_runoff_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+        self.freq = time_step
         climatic = pd.read_csv(self.data_folder+'_'+'RUN'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic/1000 # recharge in meters
+        self.runoff.index = self.runoff.asfreq(self.freq).index
+        self.runoff.index = self.runoff.index.to_period(self.freq)
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
         

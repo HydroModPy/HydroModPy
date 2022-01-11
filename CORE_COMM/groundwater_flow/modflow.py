@@ -49,8 +49,7 @@ class Modflow():
     def __init__(self, geographic, calib=True, sink_fill = False,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                 sea_level=None, cond_decay=0.,
-                 time_step='daily', model_name='modflow_model',
+                 sea_level=None, cond_decay=0., model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
@@ -60,7 +59,6 @@ class Modflow():
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
         self.climatic = climatic
         self.sea_level = sea_level 
-        self.time_step = time_step
         self.thick = thick
         self.thick_exp = thick_exp
         self.geographic = geographic
@@ -86,8 +84,9 @@ class Modflow():
         self.dem_clip = geographic.dem_clip
         self.exe = exe
 
-    def pre_processing(self):
-        print('Construction d\'un modèle')
+    def pre_processing(self, verbose=False):
+        if verbose == True:
+            print('Build model')
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
                                         model_ws=self.full_path) # external_path=self.full_path
@@ -112,10 +111,10 @@ class Modflow():
             self.nstp = np.ones(len(self.climatic))
             self.nper = len(self.climatic)
             self.perlen = np.ones(len(self.climatic))
-            if self.time_step=='daily':
-                for i in range(1,len(self.climatic)):
-                    dif = self.climatic.index[i]-self.climatic.index[i-1]
-                    self.perlen[i] = dif.days
+            #if self.time_step=='daily':
+            #    for i in range(1,len(self.climatic)):
+            #        dif = self.climatic.index[i]-self.climatic.index[i-1]
+            #        self.perlen[i] = dif.days
 
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
@@ -225,21 +224,23 @@ class Modflow():
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
     def processing(self, verbose=False):
-        print('Simulation d\'un modèle')
+        if verbose == True:
+            print('Simulation d\'un modèle')
         # write input files
         self.mf.write_input()
         # run model
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True):
+    def post_processing(self, watertable = True, gw_flux = True, outflow_drain = True, save_dict = True, verbose=False):
         self.wt_elev = []
         self.wt_depth = []
         self.seep_area = []
         self.out_drn  = []
         self.flux_top = []
         # post_processing
-        print('Extraction des résultats d\'un modèle')
+        if verbose == True:
+            print('Extraction des résultats d\'un modèle')
         # self.dem_mask = (self.dem_clip==-99999)
         self.dem_mask = (self.dem_clip<0)
         self.save_file = os.path.join(self.full_path, '_extraction')
@@ -280,11 +281,12 @@ class Modflow():
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
         self.dict_specific_discharge = {}
-        
-        print('Post-processing en cours')  
+        if verbose == True:
+            print('Post-processing en cours')  
         
         for item, time in enumerate(self.times):
-            print('PP time : ', item)
+            if verbose == True:
+                print('PP time : ', item)
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
@@ -538,7 +540,7 @@ class Chronics:
         
         ### WATERSHED SCALE
         
-        print('watershed')
+        # print('watershed')
         
         self.df_watershed = pd.DataFrame()
         self.df_watershed['date'] = time
