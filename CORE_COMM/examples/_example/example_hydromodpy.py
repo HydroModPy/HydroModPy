@@ -5,7 +5,7 @@ Created on Mon Dec 20 08:05:41 2021
 @author: Ronan Abhervé
 """
 
-#%% GENERAL LIBRARIES
+# GENERAL LIBRARIES
 
 # General
 import sys
@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal, osr
 from IPython import get_ipython
+
 get_ipython().run_line_magic('matplotlib', 'inline')
 # Plot
 import matplotlib.pyplot as plt
@@ -48,26 +49,26 @@ import warnings
 # warnings.warn("You won't see this warning", category=DeprecationWarning) # to modify warnings
 logging.captureWarnings(True)
                  
-#%% HYDROMODPY MODULES
+# HYDROMODPY MODULES
          
 from watershed import watershed_root, forcing, watershed_display
 from tools import tif_adds, serie_transf, tif_features, file_adds, to_plot, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import plots
 
-#%% LAYOUT PLOT
+# LAYOUT PLOT
 
 fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% NECESSARY PATHS
+# NECESSARY PATHS
 
 # Path to the git repositoty home page
 git_path = DIR
 # Path to the test folder
 test_path = git_path + "/examples/_example/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/TEST/"
-# out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
+# out_path = "D:/Users/abherve/TEST/"
+out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
 
 # We suggest to store the data in specific folder
 dems_path = test_path + 'dem/'
@@ -95,7 +96,7 @@ library_path = test_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
-watershed_name = 'Watershed' # add manually study site information in map units
+watershed_name = 'Example' # add manually study site information in map units
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
@@ -106,7 +107,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 types_obs = ['streams','sections'] # list of shapefile name layers
 fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
 
-#%% GENERATING WATERSHED
+# GENERATING WATERSHED
 
 load = True
 print('##### '+watershed_name.upper()+' #####')
@@ -131,7 +132,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
-#%% SET PARAMETERS
+# SET PARAMETERS
 
 # Choice the state of the simulation
 sim_state = 'steady' # steady
@@ -168,12 +169,13 @@ BV.hydrodynamic.update_porosity(P)
 # Set name of the model
 model_name = sim_state
 
-#%% RUN MODEL
+# RUN MODEL
 
 # Launch a model
-BV.run_modflow(ident=model_name, modpath_sim=False, calib=False, sink_fill=False, 
-                lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., 
+BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
+                lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
                 verbose=True)
+
 print('Modeling process completed')
 
 # Extract result chronics
@@ -186,7 +188,7 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
+visu.visual3D(interactive=True, object_list=['grid','pathlines'], view='north-west', z_scale=20, lines=100)
 
 #%% PLOT SURFACE OUTPUTS
 

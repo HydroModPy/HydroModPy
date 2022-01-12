@@ -96,9 +96,9 @@ class Visualization():
             pathlines_mesh = vedo.Mesh(pathlines) #5
             
             #Pathlines
-            vmax = max(pathlines_mesh.pointdata['Time'])
-            pathlines_mesh.cmap('hot',input_array='Time',vmax=vmax/50).lw(5)
-            pathlines_mesh.addScalarBar(pos=(0.1,0.8), title='Time (d)', horizontal=True, titleFontSize=20)
+            vmax = max(pathlines_mesh.pointdata['Time_log'])
+            pathlines_mesh.cmap('hot_r',input_array='Time_log',vmax=vmax).lw(5)
+            pathlines_mesh.addScalarBar(pos=(0.1,0.6), title='Log Time (d)', horizontal=False, titleFontSize=20)
             pathlines_mesh.scale([1,1,z_scale])
             pathlines_mesh.renderLinesAsTubes(value=True)
             pathlines_mesh.legend('Pathlines')
@@ -117,6 +117,7 @@ class Visualization():
         #View
         xs = max(watertable_elev.points()[:, 0]) - min(watertable_elev.points()[:, 0])
         ys = max(watertable_elev.points()[:, 1]) - min(watertable_elev.points()[:, 1])
+        zs = max(watertable_elev.points()[:, 2]) - min(watertable_elev.points()[:, 2])
         if view == 'north':
             pos = (min(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
         if view == 'north-east':
@@ -133,23 +134,20 @@ class Visualization():
             pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
         if view == 'north-west':
             pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
-        print(pos)
-        cam = dict(pos = pos)
+        focal = (min(watertable_elev.points()[:, 0])+xs, min(watertable_elev.points()[:, 1])+ys, zs)
+        cam = dict(pos = pos,focalPoint = focal)
+        print(cam)
         
         for i in range (0,len(object_list)):
             obj = object_list[i]
             if obj == 'grid':
-                print(obj,i)
-                plt.show(grid_mesh,contour,stream, at=i, axes = 13)
+                a = plt.show(grid_mesh,contour,stream, at=i, camera=cam, viewup='z', axes = 13)
             if obj == 'watertable':
-                print(obj,i)
                 plt.show(grid_wireframe,contour,stream, watertable_elev,camera=cam, viewup ='z', at=i)
             if obj == 'watertable_depth':
-                print(obj,i)
                 plt.show(grid_wireframe,contour,stream, watertable_depth,camera=cam, viewup ='z', at=i)
             if obj == 'pathlines':
-                print(obj,i)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i)      
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, at=i)      
         
         
         if interactive == True:

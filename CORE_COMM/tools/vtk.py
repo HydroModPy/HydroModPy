@@ -911,6 +911,14 @@ class VTK():
         for i in range(0, np.alen(x_store)):
             for j in range(0, np.alen(x_store[i])):
                 textoVtk.write(str(t_store[i][j]) + '\n')
+        textoVtk.write('SCALARS Time_log float\n')
+        textoVtk.write('LOOKUP_TABLE default\n')
+        for i in range(0, np.alen(x_store)):
+            for j in range(0, np.alen(x_store[i])):
+                if t_store[i][j] == 0:
+                    textoVtk.write(str(t_store[i][j]) + '\n')
+                else:
+                    textoVtk.write(str(np.log10(t_store[i][j])) + '\n')
     
         #textoVtk.write('SCALARS Velocity float\n')
         #textoVtk.write('LOOKUP_TABLE default\n')
