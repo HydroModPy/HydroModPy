@@ -9,7 +9,7 @@ class Visualization():
         self.modelname = modelname
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', 
-                 interactive = False, lines=100, z_scale=20):
+                 interactive = False, lines=100, z_scale=20, render=1):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
@@ -31,8 +31,10 @@ class Visualization():
         lines : int, optional
             the number of random pathlines displayed
         """
+        vedo.settings.screeshotScale = render
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
                                           yzGrid=False), bg2='lb', size=(1500,1080))
+
         # load files
         contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_watershed_contour.vtk'))
         contour.scale([1,1,z_scale])
@@ -59,7 +61,7 @@ class Visualization():
             zvals = grid_mesh.points()[:, 2]
             grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
-            grid_mesh.addScalarBar(pos=(0.1,0.8), title='Topography elevation (m)', horizontal=True, titleFontSize=20)
+            grid_mesh.addScalarBar(pos=(0.8,0.1), title='Meters', horizontal=False, titleFontSize=20)
             grid_mesh.scale([1,1,z_scale])
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
@@ -74,13 +76,13 @@ class Visualization():
             
             zvals = watertable_elev.points()[:, 2]
             watertable_elev.cmap('jet',zvals, vmin=min(zvals))
-            watertable_elev.addScalarBar(pos=(0.1,0.8), title='Watertable elevation (m)', horizontal=True, titleFontSize=20)
+            watertable_elev.addScalarBar(pos=(0.8,0.1), title='Meters', horizontal=False, titleFontSize=20)
             watertable_elev.scale([1,1,z_scale])
             plt += watertable_elev.flag() 
             
             watertable_depth.mapCellsToPoints()
             watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=2)
-            watertable_depth.addScalarBar(pos=(0.1,0.8), title='Watertable depth (m)', horizontal=True, titleFontSize=20)
+            watertable_depth.addScalarBar(pos=(0.8,0.1), title='Meters', horizontal=False, titleFontSize=20)
             watertable_depth.scale([1,1,z_scale])
             plt += watertable_depth.flag()
             
@@ -98,7 +100,7 @@ class Visualization():
             #Pathlines
             vmax = max(pathlines_mesh.pointdata['Time_log'])
             pathlines_mesh.cmap('hot_r',input_array='Time_log',vmax=vmax).lw(5)
-            pathlines_mesh.addScalarBar(pos=(0.1,0.6), title='Log Time (d)', horizontal=False, titleFontSize=20)
+            pathlines_mesh.addScalarBar(pos=(0.8,0.1), title='Days (Log)', horizontal=False, titleFontSize=20)
             pathlines_mesh.scale([1,1,z_scale])
             pathlines_mesh.renderLinesAsTubes(value=True)
             pathlines_mesh.legend('Pathlines')
@@ -137,23 +139,23 @@ class Visualization():
         if view == 'custom':
             pos = (max(watertable_elev.points()[:, 0])+ 2*xs ,max(watertable_elev.points()[:,1])+ 2*ys,max(watertable_elev.points()[:, 2])*4)
 
-        focal = (min(watertable_elev.points()[:, 0])+xs, min(watertable_elev.points()[:, 1])+ys, zs)
+        focal = (min(watertable_elev.points()[:, 0])+(xs/2), min(watertable_elev.points()[:, 1])+(ys/2), zs)
         cam = dict(pos = pos,focalPoint = focal)
         
         for i in range (0,len(object_list)):
             obj = object_list[i]
             if obj == 'grid':
-                a = plt.show(grid_mesh,contour,stream, at=i, camera=cam, viewup='z', axes = 13)
+                plt.show(grid_mesh,contour,stream,"Topography elevation", at=i, camera=cam, viewup='z', axes = 13)
             if obj == 'watertable':
-                plt.show(grid_wireframe,contour,stream, watertable_elev,camera=cam, viewup ='z', at=i)
+                plt.show(grid_wireframe,contour,stream, watertable_elev,"Watertable elevation",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'watertable_depth':
-                plt.show(grid_wireframe,contour,stream, watertable_depth,camera=cam, viewup ='z', at=i)
+                plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'pathlines':
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, at=i)      
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater circulation",camera=cam, viewup ='z', at=i, axes = 13)      
         
         
         if interactive == True:
-            plt.show(interactive=1).close()
+            plt.show(interactive=1,interactorStyle=6).close()
         else:
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_figure','3Dvisual')).close()
 

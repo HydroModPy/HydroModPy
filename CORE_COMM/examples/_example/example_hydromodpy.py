@@ -170,7 +170,6 @@ BV.hydrodynamic.update_porosity(P)
 model_name = sim_state
 
 # RUN MODEL
-
 # Launch a model
 BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
                 lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
@@ -188,7 +187,7 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth','pathlines'], view='north-west', z_scale=20, lines=100)
+visu.visual3D(interactive=1, object_list=['grid','watertable', 'watertable_depth','pathlines'], view='north-west', z_scale=10, lines=50, render=1)
 
 #%% PLOT SURFACE OUTPUTS
 
