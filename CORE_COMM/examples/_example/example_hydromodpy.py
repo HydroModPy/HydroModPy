@@ -188,7 +188,7 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','pathlines'], view='north-west', z_scale=20, lines=100)
+visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth','pathlines'], view='north-west', z_scale=20, lines=100)
 
 #%% PLOT SURFACE OUTPUTS
 

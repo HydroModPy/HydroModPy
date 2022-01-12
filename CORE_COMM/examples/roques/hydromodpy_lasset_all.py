@@ -1,32 +1,66 @@
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Jan 11 22:28:15 2022
 
-#%% MODULES
+@author: LocalAdmin
+"""
 
-# Modules
+# -*- coding: utf-8 -*-
+
+#%% GENERAL LIBRARIES
+
+# General
 import sys
 import os
 from os.path import dirname, abspath
-DIR = dirname(dirname(abspath(__file__)))
+DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
-import matplotlib.pyplot as plt
+from glob import glob
 import numpy as np
 import pandas as pd
+from osgeo import gdal, osr
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
+# Plot
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+import matplotlib as mpl
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import LightSource
+from matplotlib.pyplot import cm
+from matplotlib.ticker import MaxNLocator
+# Gis
+from osgeo import gdal
 import imageio
-import warnings
+import rasterio
+import geopandas as gpd
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-
+wbt.verbose = True
+# Warnings
+import logging
+import warnings
 # warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 # warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
 # warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-# warnings.filterwarnings("ignore")
-# warnings.warn("You won't see this warning")
-                                            
-# HydroModPy modules
-from watershed import watershed_root, forcing
-from tools import tif_adds, serie_transf, tif_features, file_adds, vtk
+# warnings.filterwarnings("ignore", message=".*`np.typeDict` is a deprecated alias for `np.sctypeDict`.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore") # not working
+# warnings.simplefilter("ignore", category=DeprecationWarning) # not working
+# warnings.warn("You won't see this warning", category=DeprecationWarning) # to modify warnings
+logging.captureWarnings(True)
+                 
+#%% HYDROMODPY MODULES
+         
+from watershed import watershed_root, forcing, watershed_display
+from tools import tif_adds, serie_transf, tif_features, file_adds, to_plot, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
+from groundwater_flow import plots
+
+#%% LAYOUT PLOT
+
+fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
+
 
 #%% LOAD
 
@@ -41,13 +75,13 @@ dem_path = os.path.join(root_path,"DEM","BDALTI_25M_09_MERGED.tif")
 surfex_path =  os.path.join(root_path,"SURFEX")
 
 # Selected watershed
-library_path = os.path.join(DIR, "watershed", "watershed_library.csv")
+library_path = os.path.join(DIR,"examples", "roques", "watershed_library.csv")
 # watershed_name = 'Guadeloupe'
 watershed_name = "Lasset"
 
 # Import library
 outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
-outlets = outlets[outlets['name'] == watershed_name]
+outlets = outlets[outlets['watershed_name'] == watershed_name]
 
 # Results paths
 out_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
@@ -68,7 +102,7 @@ merge_path = tif_streams+';'+tif_zh
 tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
 wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
-types_obs = ["zhstreams"] # shapefile cours d'eau
+types_obs = ["stream_digit"] # shapefile cours d'eau
 
 #%%  Generate watershed
 load = False
@@ -97,7 +131,9 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 # Define recharge
 #recharge = 0.75 * (1/365) # m/j
 #BV.forcing.update_recharge(recharge, 'steady') # steady or transient
-BV.forcing.update_recharge_surfex('REA','historic',1960,2019,'D','steady')
+first = 2010
+last = 2019
+BV.forcing.update_recharge_surfex('REA','historic',first,last,'D','steady')
 
 # Define hydraulic conductivity
 K_dic = 3.7312*BV.forcing.recharge
@@ -122,13 +158,72 @@ BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV
                     lay_number=nlay, thick=BV.hydrodynamic.thickness, bottom=1000, thick_exp = thick_exp, 
                     first=1, last=100, gap=1, porosity=0.01, sea_level=None, cond_decay = length_K_decay_inv)
 
-#%% MODEL
+#%% MODEL heterogene
+K_R = 27.104
+
+K_dic = K_R*BV.forcing.recharge
+BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+BV.hydrodynamic.update_porosity = 0.01
+
 # Name of model
-#name_model = "test"
+model_name = "test_visu3D_permanent_heterogene"
 # Launch model
-#BV.run_modflow(ident=name_model, sea_level=None, lay_number=2, modpath_sim=False,thick_exp=1.,cond_decay=0.,bottom=1000)
+# BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=True,
+#                thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=1000)
+
+# Launch a model
+BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
+                lay_number=nlay, bottom=1000, thick_exp=thick_exp, cond_decay=length_K_decay_inv, 
+                verbose=True)
+print('Modeling process completed')
+
+# Extract result chronics
+BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
+                    first=first, last=last, time_step='monthly')
+print('Result chronics extraction completed')
+
+#%% MODEL homogene
+K_R = 27.104
+
+K_dic = K_R*BV.forcing.recharge
+BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+BV.hydrodynamic.update_porosity = 0.01
+
+thick = 25
+
+BV.hydrodynamic.update_thickness(thick)
+
+# Name of model
+model_name = "test_visu3D_permanent_homogene"
+# Launch model
+# BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=True,
+#                thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=1000)
+
+# Launch a model
+BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
+                lay_number=nlay, bottom=False, thick_exp=1., cond_decay=0, 
+                verbose=True)
+print('Modeling process completed')
+
+# Extract result chronics
+BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
+                    first=first, last=last, time_step='monthly')
+print('Result chronics extraction completed')
 
 #%% VTK
+
+# from groundwater_flow import vizualisation
+# vtk.VTK(BV, name_model)
+# visu = vizualisation.Vizualisation(BV, name_model)
+# # visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
+# visu.visual3D(interactive=True, object_list=['watertable_depth'], view='north-east',z_scale = 1)
+
+from groundwater_flow import visualization
+vtk.VTK(BV, model_name)
+visu = visualization.Visualization(BV, model_name)
+visu.visual3D(interactive=False, object_list=['grid', 'watertable_depth','pathlines'], view='custom',z_scale = 1)
+
+#%% Transient simulation
 
 name_model = "selected_heterogeneous_historic"
 
@@ -144,12 +239,7 @@ BV.forcing.update_recharge_surfex('REA','historic',1960,2019,'M','transient')
 BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=False,
                thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=1000)
 
-#%%
-from groundwater_flow import vizualisation
-vtk.VTK(BV, name_model)
-visu = vizualisation.Vizualisation(BV, name_model)
-# visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
-visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth'], view='north-east',z_scale = 1)
+
 
 #%%
 

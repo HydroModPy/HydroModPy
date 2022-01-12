@@ -1234,7 +1234,7 @@ for idx, watershed_name in enumerate(library['name'][:]):
             
 #%% HYSTERESIS TOTAL
 
-def hysteresis_total(station, index, xm, ym, out, first, last):
+def hysteresis_total(station, index, xm, ym, run, rec, runrec, out, first, last):
     # Create figure
     fig, ax = plt.subplots(1,1,figsize=(5, 4))
     fig.add_subplot(111, frameon=False)
@@ -1279,6 +1279,27 @@ def hysteresis_total(station, index, xm, ym, out, first, last):
                               xerr=np.vstack([xintm-xerr.q25, xerr.q75-xintm]),
                               ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
                               capthick=0.5, zorder=1)
+    # Surfex line
+    xline = xintm.append(xintm.iloc[[0]])
+    xline.index = np.arange(1,14,1)
+    runintm = run.groupby([lambda x: x.month]).mean()
+    recintm = rec.groupby([lambda x: x.month]).mean()
+    runrecintm = runrec.groupby([lambda x: x.month]).mean()
+    runline = runintm.append(runintm.iloc[[0]])
+    runline.index = np.arange(1,14,1)   
+    recline = recintm.append(recintm.iloc[[0]])
+    recline.index = np.arange(1,14,1)   
+    runrecline = runrecintm.append(runrecintm.iloc[[0]])
+    runrecline.index = np.arange(1,14,1)       
+    ax.plot(xline, runline, linestyle = '-', lw=1.5, color='silver', zorder=10)
+    ax.plot(xintm, runintm, marker="o", markersize=5, markeredgecolor='silver', 
+            markerfacecolor='silver', linestyle='None', zorder=11)
+    ax.plot(xline, recline, linestyle = '-', lw=1.5, color='gray', zorder=12)
+    ax.plot(xintm, recintm, marker="o", markersize=5, markeredgecolor='gray', 
+            markerfacecolor='gray', linestyle='None', zorder=13) 
+    ax.plot(xline, runrecline, linestyle = '-', lw=1.5, color='k', zorder=14)
+    ax.plot(xintm, runrecintm, marker="o", markersize=5, markeredgecolor='black', 
+            markerfacecolor='black', linestyle='None', zorder=15) 
     # Parameter log
     ax.set_yscale('log')
     # Parameter lim       
@@ -1299,28 +1320,30 @@ def hysteresis_total(station, index, xm, ym, out, first, last):
     cb.ax.tick_params(labelsize=10)
     cb.update_ticks()
     # Save
-    fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/hysteres/"+
-                station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
-    plt.close()
+    # fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/hysteres/_surfex_all/"+
+    #             station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
+    # plt.close()
     
 user = "Ronan"
 root_path = "D:/HYDROMODPY/_data/"
-out_path = "D:/HYDROMODPY/_HYSTERESIS/"    
-data_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
+out_path = "D:/HYDROMODPY/HYSTERESIS/"    
+data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/BANQUEHYDRO/bretagne/"
 import chardet
-with open(data_path+'coord/'+'all_stations.csv', 'rb') as f:
+with open(data_path+'coord/'+'all_stations_ronan.csv', 'rb') as f:
     result = chardet.detect(f.read())  # or readline if the file is large
 coord = pd.read_csv(data_path+'coord/'+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
 stations = coord['STATION_NAME'].unique()
 
-for idx, station in enumerate(stations[:]):
+for idx, station in enumerate(stations[0:1]):
     print(str(idx) + ' - ' + station)
     stable_folder = out_path+'/'+station.lower()+'/'+'results_stable/'
     try:
         df = pd.read_csv(data_path+'hydroclimat/'+station+'.csv', sep=';', index_col='date', parse_dates=True)
         first = df.spe.first_valid_index().year
         last = df.spe.last_valid_index().year
-        hysteresis_total(station, df.index, df.eff, df.spe, stable_folder, first, last)
+        df = df[(df.index.year >= first) & (df.index.year <= last)]
+        df['runrec'] = df['run'] + df['rec']
+        hysteresis_total(station, df.index, df.eff, df.spe, df.run, df.rec, df.runrec, stable_folder, first, last)
     except:
         continue
 
@@ -1744,7 +1767,6 @@ plt.tight_layout()
 fig.savefig("D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
             '_recap_figure'+'.png', dpi=300, bbox_inches='tight')
 
-
 #%% DICHOTOMY MAPGEOL
 
 from decimal import Decimal
@@ -2121,12 +2143,83 @@ for idx, row in outlets.iloc[:].iterrows():
     # ax.annotate(outlets.loc[idx,0],(x[idx],y[idx]),
     #               family='sans-serif', fontsize=5, 
     #               color='k', weight="bold", ha='center', va='center', zorder=count)
+    
     count +=1
 
 ax.grid()
 # ax.plot((1e-9, 1e-4),(1e-9, 1e-4), color='k', ls='--')
 
+#%% MAPPING PARAM
+
+import matplotlib.colors as clr
+from matplotlib.colors import Normalize
+from matplotlib import cm
+
+out_path = 'D:/Users/abherve/HYSTERESIS/'
+
+describe = pd.read_csv("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
+             '_recap_describe'+'.csv', sep=';')
+
+bzh = gpd.read_file('D:/Users/abherve/HYDROMODPY/_data/MISCELLANEOUS/bzh.shp')
+
+params = describe.columns[2:-1]
+
+for param in params:
+    
+    fig,ax = plt.subplots(1,1)
+    bzh.plot(ax=ax, facecolor='none', lw=2)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    cmap = 'plasma'
+    toplt = describe[param]
+    vmin = toplt.min()
+    vmax = toplt.max()
+    ax.set_title(param.upper())
+    for index, row in describe.loc[:].iterrows():
+        station = row.stations.lower()
+        shp = gpd.read_file(out_path+station.lower()+'/results_stable/geographic/watershed.shp')
+        shp['VALUE'] = row[param]
+        sm = shp.plot(column='VALUE', ax=ax, cmap=cmap, vmin=vmin, vmax=vmax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='1%', pad=0.1)
+    fig.add_axes(cax)
+    norm = Normalize(vmin=vmin, vmax=vmax)
+    n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
+    n_cmap.set_array([])
+    ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
+    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/mapping/'+
+                param+'.png', dpi=300, bbox_inches='tight', transparent=False)
+
 #%% NOTES
+	
+from matplotlib import pyplot
+import geopandas as gpd
+from shapely.geometry.polygon import LinearRing, LineString, Polygon
+from shapely.ops import linemerge, unary_union, polygonize
+
+loop = Polygon([(100,10),(90,20),(60,30),(49,35),(30,40),
+                   (-5,50),(-20,60),(-10,40),(20,10),
+                   (40,-25),(70,-40),(80,-15)])
+x,y = loop.exterior.xy
+area = loop.area
+print(area)
+line = LineString([(-200, 0), (200, 0)])
+
+def cut_polygon_by_line(polygon, line):
+    merged = linemerge([polygon.boundary, line])
+    borders = unary_union(merged)
+    polygons = polygonize(borders)
+    return list(polygons)
+
+def plot(shapely_objects, figure_path='fig.png'):
+    boundary = gpd.GeoSeries(shapely_objects)
+    boundary.plot(color=['red', 'green'])
+    plt.savefig(figure_path)
+
+areas = cut_polygon_by_line(loop, line)
+plot(areas)
+print(result[0].area) # negative
+print(result[1].area) # positive
 
 # globals()[station] = pd.DataFrame()
 # recap = globals()[station]
@@ -2136,7 +2229,6 @@ ax.grid()
 # yerr=yerr.T.to_numpy()
 # xerr=xerr.T.to_numpy()   
 
-    
 ### Ticks tips
 # from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 # import matplotlib.ticker as ticker
