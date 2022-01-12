@@ -25,8 +25,9 @@ class Modpath:
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), verbose=True):
+    def __init__(self,geographic, model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), verbose=True):
         self.model_name = model_name
+        self.geographic = geographic
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
         if not os.path.isdir(self.full_path):
@@ -96,7 +97,7 @@ class Modpath:
         prow = 1
         pcol = 1
         #stldata = flopy.modpath.mpsim.StartingLocationsFile.get_empty_starting_locations_data(npt=ncol*nrow*prow*pcol)
-        stldata = stl.get_empty_starting_locations_data(npt=ncol*nrow*pcol*prow)
+        stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip != -99999)*pcol*prow)
 
         hds_1c = fpu.HeadFile(head_file)
         # hds_1c = ff.FormattedHeadFile('model1.hds')
@@ -113,20 +114,21 @@ class Modpath:
         compt = 0
         for i in range(0, nrow):
             for j in range(0, ncol):
-                if head_1c[0][0][i][j] != 0.48:
-                    for ii in range (0, prow):
-                        for jj in range (0, pcol):
-                            stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
-                            for k in range(0, nlay):
-                                if head_1c[0][k, i, j] > 0:
-                                    stldata[compt]['k0'] = k
-                                    break
-                            stldata[compt]['j0'] = j
-                            stldata[compt]['i0'] = i
-                            stldata[compt]['zloc0'] = 1
-                            stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
-                            stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
-                            compt = compt + 1
+                if self.geographic.dem_clip[i,j] != -99999.:
+                    if head_1c[0][0][i][j] != 0.48:
+                        for ii in range (0, prow):
+                            for jj in range (0, pcol):
+                                stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
+                                for k in range(0, nlay):
+                                    if head_1c[0][k, i, j] > 0:
+                                        stldata[compt]['k0'] = k
+                                        break
+                                stldata[compt]['j0'] = j
+                                stldata[compt]['i0'] = i
+                                stldata[compt]['zloc0'] = 1
+                                stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
+                                stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
+                                compt = compt + 1
         self.point_data = stldata
         stl.data = stldata
 

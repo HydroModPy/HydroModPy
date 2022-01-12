@@ -12,7 +12,7 @@ import sys
 import numpy as np
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(abspath(__file__)))
+root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
 from watershed import watershed_root
 #from calibration import calib_root

@@ -314,7 +314,7 @@ class Watershed:
             flow_model.post_processing()
         
             if modpath_sim == True:
-                transit_model = modpath.Modpath(model_name=ident,  
+                transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
                                             exe=self.modflow_path + '/bin/mp6.exe')
                 transit_model.pre_processing()
