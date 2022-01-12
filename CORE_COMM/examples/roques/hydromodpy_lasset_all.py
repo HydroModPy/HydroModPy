@@ -102,7 +102,7 @@ merge_path = tif_streams+';'+tif_zh
 tif_zhstreams = stable_folder + 'hydrology/' + 'zhstreams.tif'
 wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
-types_obs = ["streams"] # shapefile cours d'eau
+types_obs = ["stream_digit"] # shapefile cours d'eau
 
 #%%  Generate watershed
 load = False
@@ -158,7 +158,7 @@ BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV
                     lay_number=nlay, thick=BV.hydrodynamic.thickness, bottom=1000, thick_exp = thick_exp, 
                     first=1, last=100, gap=1, porosity=0.01, sea_level=None, cond_decay = length_K_decay_inv)
 
-#%% MODEL
+#%% MODEL heterogene
 K_R = 27.104
 
 K_dic = K_R*BV.forcing.recharge
@@ -166,7 +166,7 @@ BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
 BV.hydrodynamic.update_porosity = 0.01
 
 # Name of model
-model_name = "test_visu3D_permanent"
+model_name = "test_visu3D_permanent_heterogene"
 # Launch model
 # BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=True,
 #                thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=1000)
@@ -174,6 +174,34 @@ model_name = "test_visu3D_permanent"
 # Launch a model
 BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
                 lay_number=nlay, bottom=1000, thick_exp=thick_exp, cond_decay=length_K_decay_inv, 
+                verbose=True)
+print('Modeling process completed')
+
+# Extract result chronics
+BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
+                    first=first, last=last, time_step='monthly')
+print('Result chronics extraction completed')
+
+#%% MODEL homogene
+K_R = 27.104
+
+K_dic = K_R*BV.forcing.recharge
+BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+BV.hydrodynamic.update_porosity = 0.01
+
+thick = 25
+
+BV.hydrodynamic.update_thickness(thick)
+
+# Name of model
+model_name = "test_visu3D_permanent_homogene"
+# Launch model
+# BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=True,
+#                thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=1000)
+
+# Launch a model
+BV.run_modflow(ident=model_name, modpath_sim=True, calib=False, sink_fill=False, 
+                lay_number=nlay, bottom=False, thick_exp=1., cond_decay=0, 
                 verbose=True)
 print('Modeling process completed')
 
@@ -193,7 +221,7 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='north-east',z_scale = 1)
+visu.visual3D(interactive=False, object_list=['grid', 'watertable_depth','pathlines'], view='custom',z_scale = 1)
 
 #%% Transient simulation
 
