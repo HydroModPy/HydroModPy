@@ -31,7 +31,7 @@ from watershed.data import hydrology, climatic, oceanic, piezometry
 #%% LOAD
 
 # General paths
-root_path= os.path.join("D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_data/")
+root_path= os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_data/")
 
 
 # Specific paths
@@ -50,7 +50,7 @@ outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 outlets = outlets[outlets['name'] == watershed_name]
 
 # Results paths
-out_path = os.path.join("D:/Google Drive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
+out_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
 stable_folder = os.path.join(out_path,watershed_name,"results_stable/")
 simulations_folder = os.path.join(out_path, watershed_name, "results_simulations/")
 
@@ -85,9 +85,9 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               types_obs=types_obs)
 
 # Plot dem
-dem_data = imageio.imread(BV.geographic.watershed_dem)
-dem_data[dem_data<0] = np.nan
-x = plt.imshow(dem_data)
+#dem_data = imageio.imread(BV.geographic.watershed_dem)
+#dem_data[dem_data<0] = np.nan
+#x = plt.imshow(dem_data)
 
 #%% Merge streams and ZH
 
@@ -100,7 +100,7 @@ x = plt.imshow(dem_data)
 BV.forcing.update_recharge_surfex('REA','historic',1960,2019,'D','steady')
 
 # Define hydraulic conductivity
-K_dic = 3.7312*BV.forcing.recharge;
+K_dic = 3.7312*BV.forcing.recharge
 #BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
 BV.hydrodynamic.update_hyd_cond(1e-5*3600*24) # m/s en m/j
 
@@ -130,15 +130,21 @@ BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV
 
 #%% VTK
 
-name_model = "dic-zhstreams-35.225-0.001-100"
+name_model = "selected_heterogeneous_historic"
 
-K_dic = 35.225*BV.forcing.recharge;
-BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
+K_R = 27.104
 
-BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=True,
-               thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=None)
+K_dic = K_R*BV.forcing.recharge
 
+BV.hydrodynamic.update_hyd_cond(K_dic*30) # m/j en m/M
+BV.hydrodynamic.update_porosity = 0.01
 
+BV.forcing.update_recharge_surfex('REA','historic',1960,2019,'M','transient')
+
+BV.run_modflow(ident=name_model, sea_level=None, lay_number=nlay, modpath_sim=False,
+               thick_exp = thick_exp, cond_decay = length_K_decay_inv, bottom=1000)
+
+#%%
 from groundwater_flow import vizualisation
 vtk.VTK(BV, name_model)
 visu = vizualisation.Vizualisation(BV, name_model)
@@ -216,13 +222,15 @@ mpl.rcParams.update(par)
 
 from decimal import Decimal
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-from matplotlib_scalebar.scalebar import ScaleBar
+#from matplotlib_scalebar.scalebar import ScaleBar
 import os
 from glob import glob
 import geopandas as gpd
 from osgeo import gdal
 import rasterio
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+name_model = "dic-zhstreams-27.104-0.001-100"
 
 git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
 file_adds.create_folder(out_path+'/_dichotomy/')
@@ -277,10 +285,10 @@ for idx, row in outlets.iloc[:].iterrows():
     ax.get_yaxis().set_visible(False)
     ax.set_title(watershed_name.upper(), fontproperties=fontprop)
     ax.set(aspect='equal')
-    scalebar = AnchoredSizeBar(ax.transData, 2000, '2 km', 'lower right', 
-                               pad=0.2, color='white', frameon=False, size_vertical=1,
-                               fontproperties=fontprop)
-    ax.add_artist(scalebar)
+    #scalebar = AnchoredSizeBar(ax.transData, 2000, '2 km', 'lower right', 
+     #                          pad=0.2, color='white', frameon=False, size_vertical=1,
+      #                         fontproperties=fontprop)
+    #ax.add_artist(scalebar)
 
     image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='terrain')
     mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto")

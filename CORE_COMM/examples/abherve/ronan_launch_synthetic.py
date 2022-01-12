@@ -127,12 +127,12 @@ piezometry_path = None
 oceanic_path = None
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
-library_path = DIR + '/watershed' + '/watershed_library.csv'
+library_path = git_path + '/watershed' + '/watershed_library.csv'
 # surfex_path =  root_path + 'SURFEX/ebr/'
 surfex_path =  None
 watershed_name = 'Canut'
 outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
-outlets = outlets[outlets['name'] == watershed_name]
+outlets = outlets[outlets['watershed_name'] == watershed_name]
 
 # library_path = df + '/watershed' + '/watershed_bretagne_library.csv'
 # surfex_path =  root_path + 'SURFEX/bzh/'
@@ -148,8 +148,8 @@ fields_obs = ['FID','Persistanc']
 
 for idx, row in outlets.iloc[:].iterrows():
     
-    load = False
-    watershed_name = row['name']
+    load = True
+    watershed_name = row['watershed_name']
     
     print('##### '+watershed_name.upper()+' #####')
 
@@ -182,23 +182,31 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
 
 fig = plt.subplots(1,1, figsize=(6,3))
 rech = BV.forcing.recharge
+index=rech.index.astype(str)
+index=pd.to_datetime(index)
+rech.index = index
+# rech = rech.reset_index(drop=True)
 plt.plot(rech*1000, c='k', lw=0.5)
 
-# sce0 = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1) # serie, period, amplitude, offset, omega, phase
-# rech = BV.forcing.recharge
-# plt.plot(BV.forcing.recharge*1000, c='blue')
+sce0 = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1) # serie, period, amplitude, offset, omega, phase
+rech = BV.forcing.recharge
+plt.plot(BV.forcing.recharge*1000, c='blue')
+
 # sce_offm = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1/2, 1, 1)
 # plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
-# sce_offp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1*2, 1, 1)
-# plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
-# sce_omem = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1/2, 1)
-# plt.plot(BV.forcing.recharge*1000, c='red')
+sce_offp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1*4, 1, 1)
+plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
+
+sce_omem = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1/4, 1)
+plt.plot(BV.forcing.recharge*1000, c='red')
 # sce_omepp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1*2, 1)
 # plt.plot(BV.forcing.recharge*1000, c='red')
+
 # sce_pham = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1/2)
 # plt.plot(BV.forcing.recharge*1000, c='forestgreen')
-# sce_phapp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 2) # phase * 2 = come back 6 months
-# plt.plot(BV.forcing.recharge*1000, c='forestgreen')
+sce_phapp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 4) # phase * 2 = come back 6 months
+plt.plot(BV.forcing.recharge*1000, c='forestgreen')
+
 # sce_alex = BV.forcing.update_synthetic_recharge(250/1000, 50, 19, start_date="2000-08", freq=None, dis='normal') # rech, shape, years, start_date= "2020-08", freq, dis='normal')
 # plt.plot(BV.forcing.recharge*30*1000, c='darkorange')
 
@@ -985,6 +993,6 @@ lists = yveldf['p.sampling'].unique()
 for samp in lists:
     fig, ax = plt.subplots(1,1, figsize=(5,3))
     df = yveldf[yveldf['p.sampling']==samp]
-    ax.plot(df.index, df['temperature'])
+    ax.scatter(df.index, df['temperature'])
 
 
