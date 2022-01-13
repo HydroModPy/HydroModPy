@@ -156,7 +156,7 @@ class Visualization():
             if obj == 'watertable_depth':
                 plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'pathlines':
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater circulation",camera=cam, viewup ='z', at=i, axes = 13)      
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)      
         
         
         if interactive == True:
