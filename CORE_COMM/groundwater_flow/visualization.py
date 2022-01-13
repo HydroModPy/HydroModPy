@@ -137,7 +137,7 @@ class Visualization():
         if view == 'north-west':
             pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
         if view == 'custom':
-            pos = (max(watertable_elev.points()[:, 0])+ 2*xs ,max(watertable_elev.points()[:,1])+ 2*ys,max(watertable_elev.points()[:, 2])*4)
+            pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*4)
 
         focal = (min(watertable_elev.points()[:, 0])+(xs/2), min(watertable_elev.points()[:, 1])+(ys/2), zs)
         cam = dict(pos = pos,focalPoint = focal)

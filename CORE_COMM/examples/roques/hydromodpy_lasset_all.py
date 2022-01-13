@@ -154,9 +154,9 @@ nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
 
 #%% CALIBRATION
 
-BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV.forcing.recharge,
-                    lay_number=nlay, thick=BV.hydrodynamic.thickness, bottom=1000, thick_exp = thick_exp, 
-                    first=1, last=100, gap=1, porosity=0.01, sea_level=None, cond_decay = length_K_decay_inv)
+#BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV.forcing.recharge,
+#                    lay_number=nlay, thick=BV.hydrodynamic.thickness, bottom=1000, thick_exp = thick_exp, 
+#                    first=1, last=100, gap=1, porosity=0.01, sea_level=None, cond_decay = length_K_decay_inv)
 
 #%% MODEL heterogene
 K_R = 27.104
@@ -181,6 +181,19 @@ print('Modeling process completed')
 BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
                     first=first, last=last, time_step='monthly')
 print('Result chronics extraction completed')
+
+#%% VTK
+
+# from groundwater_flow import vizualisation
+# vtk.VTK(BV, name_model)
+# visu = vizualisation.Vizualisation(BV, name_model)
+# # visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
+# visu.visual3D(interactive=True, object_list=['watertable_depth'], view='north-east',z_scale = 1)
+
+from groundwater_flow import visualization
+vtk.VTK(BV, model_name)
+visu = visualization.Visualization(BV, model_name)
+visu.visual3D(interactive=True, object_list=['pathlines'], view='custom',z_scale = 1,  lines=200)
 
 #%% MODEL homogene
 K_R = 27.104
@@ -209,19 +222,6 @@ print('Modeling process completed')
 BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
                     first=first, last=last, time_step='monthly')
 print('Result chronics extraction completed')
-
-#%% VTK
-
-# from groundwater_flow import vizualisation
-# vtk.VTK(BV, name_model)
-# visu = vizualisation.Vizualisation(BV, name_model)
-# # visu.visual3D(interactive=True, object_list=['grid','watertable', 'pathlines', 'watertable_depth'], view='south-west')
-# visu.visual3D(interactive=True, object_list=['watertable_depth'], view='north-east',z_scale = 1)
-
-from groundwater_flow import visualization
-vtk.VTK(BV, model_name)
-visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=False, object_list=['grid', 'watertable_depth','pathlines'], view='custom',z_scale = 1)
 
 #%% Transient simulation
 
