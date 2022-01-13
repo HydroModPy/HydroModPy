@@ -9,7 +9,7 @@ class Visualization():
         self.modelname = modelname
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', 
-                 interactive = False, lines=100, z_scale=20, render=1):
+                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
@@ -61,7 +61,7 @@ class Visualization():
             zvals = grid_mesh.points()[:, 2]
             grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
-            grid_mesh.addScalarBar(pos=(0.8,0.1), title='Meters', horizontal=False, titleFontSize=20)
+            grid_mesh.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
             grid_mesh.scale([1,1,z_scale])
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
@@ -76,13 +76,13 @@ class Visualization():
             
             zvals = watertable_elev.points()[:, 2]
             watertable_elev.cmap('jet',zvals, vmin=min(zvals))
-            watertable_elev.addScalarBar(pos=(0.8,0.1), title='Meters', horizontal=False, titleFontSize=20)
+            watertable_elev.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
             watertable_elev.scale([1,1,z_scale])
             plt += watertable_elev.flag() 
             
             watertable_depth.mapCellsToPoints()
-            watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=2)
-            watertable_depth.addScalarBar(pos=(0.8,0.1), title='Meters', horizontal=False, titleFontSize=20)
+            watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
+            watertable_depth.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
             watertable_depth.scale([1,1,z_scale])
             plt += watertable_depth.flag()
             
@@ -98,9 +98,14 @@ class Visualization():
             pathlines_mesh = vedo.Mesh(pathlines) #5
             
             #Pathlines
-            vmax = max(pathlines_mesh.pointdata['Time_log'])
-            pathlines_mesh.cmap('hot_r',input_array='Time_log',vmax=vmax).lw(5)
-            pathlines_mesh.addScalarBar(pos=(0.8,0.1), title='Days (Log)', horizontal=False, titleFontSize=20)
+            if cscale == 'default':
+                cmin = min(pathlines_mesh.pointdata['Time_log'])
+                cmax = max(pathlines_mesh.pointdata['Time_log'])
+            if cscale == 'custom':
+                cmin = cmin
+                cmax = cmax
+            pathlines_mesh.cmap('hot_r',input_array='Time_log',vmin = cmin, vmax=cmax).lw(3)
+            pathlines_mesh.addScalarBar(pos=(0.7,0.7), title='Transit times, log(t) [years]', horizontal=False, titleFontSize=18)
             pathlines_mesh.scale([1,1,z_scale])
             pathlines_mesh.renderLinesAsTubes(value=True)
             pathlines_mesh.legend('Pathlines')

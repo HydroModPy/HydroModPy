@@ -50,19 +50,19 @@ import warnings
 # warnings.warn("You won't see this warning", category=DeprecationWarning) # to modify warnings
 logging.captureWarnings(True)
                  
-#%% HYDROMODPY MODULES
+#% HYDROMODPY MODULES
          
 from watershed import watershed_root, forcing, watershed_display
 from tools import tif_adds, serie_transf, tif_features, file_adds, to_plot, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import plots
 
-#%% LAYOUT PLOT
+#% LAYOUT PLOT
 
 fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
 
 
-#%% LOAD
+#% LOAD
 
 # General paths
 root_path= os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_data/")
@@ -88,7 +88,7 @@ out_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/"
 stable_folder = os.path.join(out_path,watershed_name,"results_stable/")
 simulations_folder = os.path.join(out_path, watershed_name, "results_simulations/")
 
-#%% Merger les points shp
+#% Merger les points shp
 pt_streams = stable_folder + 'hydrology/' + 'stream_digit_pt.shp'
 pt_zh = stable_folder + 'hydrology/' + 'zh_digit_pt.shp'
 merge_path = pt_streams+';'+pt_zh
@@ -104,7 +104,7 @@ wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
 types_obs = ["stream_digit"] # shapefile cours d'eau
 
-#%%  Generate watershed
+#%  Generate watershed
 load = False
 print('##### '+watershed_name.upper()+' #####')
 
@@ -123,22 +123,20 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 #dem_data[dem_data<0] = np.nan
 #x = plt.imshow(dem_data)
 
-#%% Merge streams and ZH
 
-
-#%% PARAMETERS
+#% PARAMETERS
 
 # Define recharge
 #recharge = 0.75 * (1/365) # m/j
 #BV.forcing.update_recharge(recharge, 'steady') # steady or transient
 first = 2010
 last = 2019
-BV.forcing.update_recharge_surfex('REA','historic',first,last,'D','steady')
+BV.forcing.update_recharge_surfex('REA','historic',first,last,'Y','steady')
 
 # Define hydraulic conductivity
-K_dic = 3.7312*BV.forcing.recharge
-#BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
-BV.hydrodynamic.update_hyd_cond(1e-5*3600*24) # m/s en m/j
+# K_dic = 3.7312*BV.forcing.recharge
+# #BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
+# BV.hydrodynamic.update_hyd_cond(K_dic) # m/s en m/j
 
 length_K_decay = 10
 length_K_decay_inv = length_K_decay**-1
@@ -152,13 +150,13 @@ nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
 #nlay = 1
 
 
-#%% CALIBRATION
+#% CALIBRATION
 
 #BV.calib_dichotomy(ident=None, calib=True, type_river = 'zhstreams', climatic=BV.forcing.recharge,
 #                    lay_number=nlay, thick=BV.hydrodynamic.thickness, bottom=1000, thick_exp = thick_exp, 
 #                    first=1, last=100, gap=1, porosity=0.01, sea_level=None, cond_decay = length_K_decay_inv)
 
-#%% MODEL heterogene
+#% MODEL heterogene
 K_R = 27.104
 
 K_dic = K_R*BV.forcing.recharge
@@ -182,7 +180,7 @@ BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=F
                     first=first, last=last, time_step='monthly')
 print('Result chronics extraction completed')
 
-#%% VTK
+#% VTK
 
 # from groundwater_flow import vizualisation
 # vtk.VTK(BV, name_model)
@@ -193,13 +191,14 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['pathlines'], view='custom',z_scale = 1,  lines=200)
+visu.visual3D(interactive=False, object_list=['watertable_depth','pathlines'], view='custom',
+              z_scale = 1,  lines=1000, cscale = 'custom', cmin = -1, cmax = 1)
 
 #%% MODEL homogene
 K_R = 27.104
 
 K_dic = K_R*BV.forcing.recharge
-BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+BV.hydrodynamic.update_hyd_cond(K_dic/365) # m/d
 BV.hydrodynamic.update_porosity = 0.01
 
 thick = 25
