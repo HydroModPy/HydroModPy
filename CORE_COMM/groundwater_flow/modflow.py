@@ -11,6 +11,7 @@ import numpy as np
 import os
 import pandas as pd
 import sys
+import imageio
 from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
@@ -280,6 +281,7 @@ class Modflow():
         self.dict_seepage_areas = {}
         self.dict_outflow_drain = {}
         self.dict_gw_flux = {}
+        self.dict_mass_flux = {}
         self.dict_specific_discharge = {}
         if verbose == True:
             print('Post-processing en cours')  
@@ -400,7 +402,8 @@ class Modflow():
                                              '_abs_outflow_drain_t(xxx).tif',
                                              'mass_outflow_drain_t('+lead_numb+').tif',
                                              extraction_folder=self.save_file)
-                    
+
+                self.dict_mass_flux[item] = imageio.imread(os.path.join(self.save_file,'_surfaceflow','mass_outflow_drain_t('+lead_numb+').tif'))
                 self.dict_outflow_drain[item] = self.out_drn
                 # print('export outflow_drain')
         
@@ -468,6 +471,7 @@ class Modflow():
             np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
             np.save(self.save_file+'/gw_flux', self.dict_gw_flux)
+            np.save(self.save_file+'/acc_flux', self.dict_mass_flux)
             # np.save(self.save_file+'/specific_discharge.h5', self.dict_specific_discharge)
              
 
