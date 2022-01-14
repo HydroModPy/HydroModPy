@@ -9,7 +9,7 @@ class Visualization():
         self.modelname = modelname
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', 
-                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1):
+                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.7,0.7)):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
@@ -18,7 +18,7 @@ class Visualization():
         ----------
         object_list : list of str, optional
             list of visualisation.
-            possible options: grid, watertable, watertable_depth, pathlines
+            possible options: grid, watertable, watertable_depth, pathlines, flux, acc_flux
             The default is ['grid', 'watertable'].
         view : str, optional
             position of view to see the 3D visual.
@@ -61,7 +61,7 @@ class Visualization():
             zvals = grid_mesh.points()[:, 2]
             grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
-            grid_mesh.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
+            grid_mesh.addScalarBar(pos=cloc, title='Meters', horizontal=False, titleFontSize=18)
             grid_mesh.scale([1,1,z_scale])
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
@@ -72,17 +72,19 @@ class Visualization():
             watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Watertable_0.vtu')
             watertable_elev = vedo.Mesh(watertable) # 1 Elevation
             watertable_depth = vedo.Mesh(watertable) # 3 Depth
+            surface_flow = vedo.UGrid(watertable) # 3 Surface Flow
+            drain_flow = vedo.UGrid(watertable) # 3 Drain Flow
             watertable_blue = vedo.Mesh(watertable) # 4 blue
             
             zvals = watertable_elev.points()[:, 2]
             watertable_elev.cmap('jet',zvals, vmin=min(zvals))
-            watertable_elev.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
+            watertable_elev.addScalarBar(pos=cloc, title='Meters', horizontal=False, titleFontSize=18)
             watertable_elev.scale([1,1,z_scale])
             plt += watertable_elev.flag() 
             
             watertable_depth.mapCellsToPoints()
             watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
-            watertable_depth.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
+            watertable_depth.addScalarBar(pos=cloc, title='Meters', horizontal=False, titleFontSize=18)
             watertable_depth.scale([1,1,z_scale])
             plt += watertable_depth.flag()
             
@@ -91,6 +93,20 @@ class Visualization():
             watertable_blue.scale([1,1,z_scale])
             watertable_blue.legend('Watertable')
             plt += watertable_blue.flag()  
+            
+            nan_loc = ~np.isnan(surface_flow.celldata['Surfaceflow_log'])
+            surface_flow = surface_flow.extractCellsByID([i for i, x in enumerate(nan_loc) if x])
+            surface_flow = surface_flow.tomesh()
+            surface_flow.cmap('jet','Surfaceflow_log', on='cells')
+            surface_flow.addScalarBar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=18)
+            surface_flow.scale([1,1,z_scale])
+            
+            nan_loc = ~np.isnan(drain_flow.celldata['Drainflow_log'])
+            drain_flow = drain_flow.extractCellsByID([i for i, x in enumerate(nan_loc) if x])
+            drain_flow = drain_flow.tomesh()
+            drain_flow.cmap('jet','Drainflow_log', on='cells')
+            drain_flow.addScalarBar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=18)
+            drain_flow.scale([1,1,z_scale])
         except:
             print("VTK watertable doesn't exist")
         try:
@@ -105,7 +121,7 @@ class Visualization():
                 cmin = cmin
                 cmax = cmax
             pathlines_mesh.cmap('hot_r',input_array='Time_log',vmin = cmin, vmax=cmax).lw(3)
-            pathlines_mesh.addScalarBar(pos=(0.7,0.7), title='Transit times, log(t) [years]', horizontal=False, titleFontSize=18)
+            pathlines_mesh.addScalarBar(pos=cloc, title='Transit times, log(t) [years]', horizontal=False, titleFontSize=18)
             pathlines_mesh.scale([1,1,z_scale])
             pathlines_mesh.renderLinesAsTubes(value=True)
             pathlines_mesh.legend('Pathlines')
@@ -156,7 +172,11 @@ class Visualization():
             if obj == 'watertable_depth':
                 plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'pathlines':
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)      
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
+            if obj == 'surface_flow':
+                plt.show(grid_wireframe,contour,stream, watertable_blue, surface_flow,"Surface flow",camera=cam, viewup ='z', at=i, axes = 13)
+            if obj == 'drain_flow':
+                plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater outflow",camera=cam, viewup ='z', at=i, axes = 13)
         
         
         if interactive == True:

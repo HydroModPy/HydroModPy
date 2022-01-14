@@ -506,6 +506,15 @@ class VTK():
         disLines = open(os.path.join(modelfolder,modelname+'.dis')).readlines()  # discretization data
         #basLines = open(modelfolder+modelname+'.bas').readlines()  # active / inactive data
         hds = bf.HeadFile(os.path.join(modelfolder,modelname+'.hds'))
+        
+        # open the drain flux files
+        drain_file = os.path.join(modelfolder,'_extraction','outflow_drain.npy')
+        drain_area = np.load(drain_file, allow_pickle=True).item()
+        
+        # open the surface flux files
+        surface_file = os.path.join(modelfolder,'_extraction','acc_flux.npy')
+        surface_area = np.load(surface_file, allow_pickle=True).item()
+        
         kstpkper = hds.get_kstpkper()
         tsn = []
         if len(kstpkper[0]) > 50:
@@ -717,16 +726,22 @@ class VTK():
                         waterTableCellGrid[row, col] = -100
     
             listWaterTableCell = list(waterTableCellGrid.flatten())
+            listDrainFlowCell = drain_area[time_step].flatten()
+            listSurfaceFlowCell = surface_area[time_step].flatten()
     
             listWaterTableQuadSequenceDef = []
             listWaterTableCellDef = []
             listDrawdownCellDef = []
+            listDrainFlowCellDef = []
+            listSurfaceFlowCellDef = []
             for item in range(len(listWaterTableCell)):
                 if listWaterTableCell[item] > -100:
                     listWaterTableQuadSequenceDef.append(listLayerQuadSequence[item])
                     listWaterTableCellDef.append(listWaterTableCell[item])
                     drawdown = modDis['cellCentroidZList']['lay0'][item] - listWaterTableCell[item]
                     listDrawdownCellDef.append(drawdown)
+                    listDrainFlowCellDef.append(listDrainFlowCell[item])
+                    listSurfaceFlowCellDef.append(listSurfaceFlowCell[item])
                     
             textoVtk = open(os.path.join(save_file,'VTU_WaterTable_' + str(time_step) + '.vtu'), 'w')
             # add header
@@ -760,6 +775,68 @@ class VTK():
                     textoVtk.write(textvalue + ' ')
             textoVtk.write('\n')
             textoVtk.write('        </DataArray>\n')
+            
+            textoVtk.write('        <DataArray type="Float64" Name="Drainflow_log" format="ascii">\n')
+            for item in range(len(listDrainFlowCellDef)):
+                if listDrainFlowCellDef[item]>0:
+                    textvalue = str(np.log10(listDrainFlowCellDef[item]))
+                else:
+                    textvalue = 'nan'
+                if item == 0:
+                    textoVtk.write('          ' + textvalue + ' ')
+                elif item % 20 == 0:
+                    textoVtk.write(textvalue + '\n          ')
+                else:
+                    textoVtk.write(textvalue + ' ')
+            textoVtk.write('\n')
+            textoVtk.write('        </DataArray>\n')
+            
+            textoVtk.write('        <DataArray type="Float64" Name="Drainflow" format="ascii">\n')
+            for item in range(len(listDrainFlowCellDef)):
+                if listDrainFlowCellDef[item]>0:
+                    textvalue = str(listDrainFlowCellDef[item])
+                else:
+                    textvalue = 'nan'
+                if item == 0:
+                    textoVtk.write('          ' + textvalue + ' ')
+                elif item % 20 == 0:
+                    textoVtk.write(textvalue + '\n          ')
+                else:
+                    textoVtk.write(textvalue + ' ')
+            textoVtk.write('\n')
+            textoVtk.write('        </DataArray>\n')
+            
+            textoVtk.write('        <DataArray type="Float64" Name="Surfaceflow_log" format="ascii">\n')
+            for item in range(len(listSurfaceFlowCellDef)):
+                if listSurfaceFlowCellDef[item]>0:
+                    textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
+                else:
+                    textvalue = 'nan'
+                if item == 0:
+                    textoVtk.write('          ' + textvalue + ' ')
+                elif item % 20 == 0:
+                    textoVtk.write(textvalue + '\n          ')
+                else:
+                    textoVtk.write(textvalue + ' ')
+            textoVtk.write('\n')
+            textoVtk.write('        </DataArray>\n')
+            
+            textoVtk.write('        <DataArray type="Float64" Name="Surfaceflow" format="ascii">\n')
+            for item in range(len(listSurfaceFlowCellDef)):
+                if listSurfaceFlowCellDef[item]>0:
+                    textvalue = str(listSurfaceFlowCellDef[item])
+                else:
+                    textvalue = 'nan'
+                if item == 0:
+                    textoVtk.write('          ' + textvalue + ' ')
+                elif item % 20 == 0:
+                    textoVtk.write(textvalue + '\n          ')
+                else:
+                    textoVtk.write(textvalue + ' ')
+            textoVtk.write('\n')
+            textoVtk.write('        </DataArray>\n')
+            
+            
             textoVtk.write('      </CellData>\n')
             # points definition
             textoVtk.write('      <Points>\n')

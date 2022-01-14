@@ -182,12 +182,12 @@ BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=F
                     first=first, last=last, time_step='monthly')
 print('Result chronics extraction completed')
 
-#%% VISUALIZATION 3D
+# VISUALIZATION 3D
 
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=1, object_list=['grid','watertable', 'watertable_depth','pathlines'], view='north-west', z_scale=10, lines=50, render=1)
+visu.visual3D(interactive=1, object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'], view='north-west', z_scale=5, lines=150, render=1, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS
 
