@@ -61,7 +61,7 @@ class Visualization():
             zvals = grid_mesh.points()[:, 2]
             grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
-            grid_mesh.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
+            grid_mesh.addScalarBar(pos=(0.7,0.7), title='Topographic elevation, [m]', horizontal=False, titleFontSize=18)
             grid_mesh.scale([1,1,z_scale])
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
@@ -76,20 +76,20 @@ class Visualization():
             
             zvals = watertable_elev.points()[:, 2]
             watertable_elev.cmap('jet',zvals, vmin=min(zvals))
-            watertable_elev.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
+            watertable_elev.addScalarBar(pos=(0.7,0.7), title='Water table elevation, [m]', horizontal=False, titleFontSize=18)
             watertable_elev.scale([1,1,z_scale])
             plt += watertable_elev.flag() 
             
             watertable_depth.mapCellsToPoints()
             watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
-            watertable_depth.addScalarBar(pos=(0.7,0.7), title='Meters', horizontal=False, titleFontSize=18)
+            watertable_depth.addScalarBar(pos=(0.7,0.7), title='Water table depth, [m]', horizontal=False, titleFontSize=18)
             watertable_depth.scale([1,1,z_scale])
             plt += watertable_depth.flag()
             
             watertable_blue.color('b')
             watertable_blue.alpha(0.2)
             watertable_blue.scale([1,1,z_scale])
-            watertable_blue.legend('Watertable')
+            watertable_blue.legend('Water table')
             plt += watertable_blue.flag()  
         except:
             print("VTK watertable doesn't exist")
