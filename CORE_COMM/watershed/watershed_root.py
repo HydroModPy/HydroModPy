@@ -13,7 +13,7 @@ import sys
 from os.path import dirname, abspath
 data_dir = os.path.join(dirname(abspath(__file__)),'data')
 sys.path.append(data_dir)
-root_dir = dirname(dirname(abspath(__file__)))
+root_dir = dirname(abspath(__file__))
 sys.path.append(root_dir)
 
 # HydroModPy modules
@@ -84,7 +84,7 @@ class Watershed:
     :meta public:
     """
     def __init__(self, watershed_name: str, dem_path: str, 
-                 out_path: str, library_path: str = 'watershed_library.csv',
+                 out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'),
                  surfex_path: str = None, oceanic_path: str = None, 
                  geology_path: str = None, hydrology_path: str = None, 
                  piezometry_path: bool = False, modflow_path: str = None,
