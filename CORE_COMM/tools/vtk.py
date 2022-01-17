@@ -728,6 +728,7 @@ class VTK():
             listWaterTableCell = list(waterTableCellGrid.flatten())
             listDrainFlowCell = drain_area[time_step].flatten()
             listSurfaceFlowCell = surface_area[time_step].flatten()
+            listDem = geographic.dem_clip.flatten()
     
             listWaterTableQuadSequenceDef = []
             listWaterTableCellDef = []
@@ -809,7 +810,10 @@ class VTK():
             textoVtk.write('        <DataArray type="Float64" Name="Surfaceflow_log" format="ascii">\n')
             for item in range(len(listSurfaceFlowCellDef)):
                 if listSurfaceFlowCellDef[item]>0:
-                    textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
+                    if listDem[item] != -99999.:
+                        textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
+                    else:
+                       textvalue = 'nan' 
                 else:
                     textvalue = 'nan'
                 if item == 0:
