@@ -49,9 +49,9 @@ from watershed import watershed_root, forcing, watershed_display
 from tools import tif_adds, serie_transf, tif_features, file_adds
 from watershed.data import hydrology, climatic, oceanic, piezometry
 
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+# import whitebox
+# wbt = whitebox.WhiteboxTools()
+# wbt.verbose = False
 
 #%% PARAMETERS HYDROMODPY
 
@@ -1301,7 +1301,7 @@ def hysteresis_total(station, index, xm, ym, run, rec, runrec, out, first, last)
     ax.plot(xintm, runrecintm, marker="o", markersize=5, markeredgecolor='black', 
             markerfacecolor='black', linestyle='None', zorder=15) 
     # Parameter log
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
     # Parameter lim       
     ax.set_xlim(-100,150)
     ax.set_ylim(0.3,200)
@@ -1320,9 +1320,9 @@ def hysteresis_total(station, index, xm, ym, run, rec, runrec, out, first, last)
     cb.ax.tick_params(labelsize=10)
     cb.update_ticks()
     # Save
-    # fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/hysteres/_surfex_all/"+
-    #             station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
-    # plt.close()
+    fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/hysteres/_surfex_nolog/"+
+                station+' '+str(first)+'-'+str(last)+'.png', dpi=300, bbox_inches='tight')
+    plt.close()
     
 user = "Ronan"
 root_path = "D:/HYDROMODPY/_data/"
@@ -1334,7 +1334,7 @@ with open(data_path+'coord/'+'all_stations_ronan.csv', 'rb') as f:
 coord = pd.read_csv(data_path+'coord/'+'all_stations_ronan.csv', sep=';', encoding=result['encoding'])
 stations = coord['STATION_NAME'].unique()
 
-for idx, station in enumerate(stations[0:1]):
+for idx, station in enumerate(stations[:]):
     print(str(idx) + ' - ' + station)
     stable_folder = out_path+'/'+station.lower()+'/'+'results_stable/'
     try:
@@ -2112,7 +2112,7 @@ litho = coord['MAIN_LITHOLOGY'].unique()
 couleurs = ["red", "forestgreen", "hotpink", "grey"]
 diclitho = dict(zip(litho, couleurs))
 
-x = dfs.Porosity_gleeson
+x = dfs.Kgleeson
 y = dfs.Keq
 # y = dfs['K/R']
 z = dfs.Area
@@ -2159,12 +2159,28 @@ out_path = 'D:/Users/abherve/HYSTERESIS/'
 
 describe = pd.read_csv("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/3_analysis/intermhysteresis_bzh/describe/"+
              '_recap_describe'+'.csv', sep=';')
+output = pd.read_csv('D:/Users/abherve/HYSTERESIS/'+
+                     '_output_characteristics.csv', sep=';', header=0)
+for station in describe.stations:
+    print(station)
+    describe.loc[describe['stations']==station, 'keq'] = output.loc[output['STATION_NAME'] == station,'Keq'].values
+    describe.loc[describe['stations']==station, 'drain'] = output.loc[output['STATION_NAME'] == station,'Drainage'].values
+    describe.loc[describe['stations']==station, 'kr'] = output.loc[output['STATION_NAME'] == station,'K/R'].values
+    describe.loc[describe['stations']==station, 'pente'] = output.loc[output['STATION_NAME'] == station,'Slope'].values
+    describe.loc[describe['stations']==station, 'rugo'] = output.loc[output['STATION_NAME'] == station,'Rugness'].values
+    describe.loc[describe['stations']==station, 'area'] = output.loc[output['STATION_NAME'] == station,'Area'].values
+    describe.loc[describe['stations']==station, 'kglee'] = output.loc[output['STATION_NAME'] == station,'Kgleeson'].values
+    describe.loc[describe['stations']==station, 'bedrock'] = output.loc[output['STATION_NAME'] == station,'Bdticm'].values
+    describe.loc[describe['stations']==station, 'ngleeson'] = output.loc[output['STATION_NAME'] == station,'Porosity_gleeson'].values
+
+describe = describe[describe.stations != 'Rosette']
 
 bzh = gpd.read_file('D:/Users/abherve/HYDROMODPY/_data/MISCELLANEOUS/bzh.shp')
 
-params = describe.columns[2:-1]
+params = describe.columns[25:]
 
 for param in params:
+    print(param)
     
     fig,ax = plt.subplots(1,1)
     bzh.plot(ax=ax, facecolor='none', lw=2)

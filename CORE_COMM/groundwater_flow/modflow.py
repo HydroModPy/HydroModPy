@@ -89,9 +89,11 @@ class Modflow():
         if verbose == True:
             print('Build model')
         self.mf = flopy.modflow.Modflow(self.model_name, 
-                                        exe_name=self.exe, version='mfnwt',listunit=2, verbose=False,
+                                        exe_name=self.exe, version='mfnwt', listunit=2, verbose=False,
                                         model_ws=self.full_path) # external_path=self.full_path
-        self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,iprnwt=0,ibotav=0, options='COMPLEX')
+        self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000,
+                                            thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=0, options='COMPLEX',
+                                            Continue=False) 
 
         try:
             if len(self.hyd_cond)!=1:
@@ -183,7 +185,28 @@ class Modflow():
 		'''
         self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, laytyp=self.laytype, laywet=self.laywet, hk=self.hk,
                                        vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
-
+        
+        if (self.climatic < 0).any().any() == True:
+            #evt package
+            self.evt = self.climatic.copy()
+            self.evt[self.evt>=0] = 0
+            self.evt = abs(self.evt)
+            self.evtData = {}
+            for kper in range(0, self.nper):
+                if isinstance(self.evt,(int,float)):
+                    self.evtData[kper] = self.evt
+                else:
+                    if kper == 0:
+                        # self.evtData[kper] = np.nanmean(self.evt)
+                        self.evtData[kper] = 0
+                    else:
+                        self.evtData[kper] = self.evt[kper]
+            print('ETR')
+            print(self.evt)
+            self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3, evtr=self.evtData, surf=0.0, exdp=1.0)
+            self.climatic[self.climatic<0] = 0
+        
+        # rch package
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(int,float)):
@@ -193,8 +216,10 @@ class Modflow():
                     self.rchData[kper] = np.nanmean(self.climatic)
                 else:
                     self.rchData[kper] = self.climatic[kper]
+        print('REC')
+        print(self.climatic)
         self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
-
+        
         # Drain package (DRN)
         self.drnData = np.zeros((self.nrow*self.ncol, 5))
         compt = 0
@@ -671,7 +696,7 @@ class Chronics:
         obs = pd.Series(obs_data['disch']) # create series discharge
         obs = obs*24*60*60 #m3/j
         obs_data = pd.DataFrame({'date':time, 'disch':obs}) # dataframe
-        obs_data['disch_norm'] = obs_data['disch'] / (60 * 1000000) # m/j
+        obs_data['disch_norm'] = obs_data['disch'] / (60 * 1000000) # m/j ==> area to add
         obs_data = obs_data.set_index('date')
         
         if self.time_step=='monthly':

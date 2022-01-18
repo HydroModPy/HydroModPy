@@ -88,8 +88,8 @@ class SurfaceOutputs():
             ax4 = fig.add_subplot(gs[2, 1])
             ax5 = fig.add_subplot(gs[:, 2])
             
-            self.plot_discharge(i,fig, ax1, ax2, ax3, ax4)
             self.plot_intermittency(i, fig, ax5)
+            self.plot_discharge(i,fig, ax1, ax2, ax3, ax4)
             
             name_fig = 'surface_outputs_' + str(lead_numb) + '.png'
             fig.tight_layout()
@@ -107,7 +107,7 @@ class SurfaceOutputs():
         for i in range(step):
             interv = self.list_traces[c1:c2]
             coord = []
-            # print('Interm. freq. : '+str(compt)+'/'+str(step))
+            print('Interm. freq. : '+str(compt)+'/'+str(step))
             for file in interv:
                 outflow = gpd.read_file(file)
                 x_list = outflow.geometry.x
@@ -138,7 +138,7 @@ class SurfaceOutputs():
             lead_numb = "%03d" % (idx,)
             # print(lead_numb)
             outflow = gpd.read_file(file)
-            # fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
+            fig, ax5 = plt.subplots(1, 1, figsize=(8,8), dpi=300)
             ax = ax5
             dem = rasterio.open(self.stable_folder+'/geographic/'+'watershed_dem.tif')
             img = imageio.imread(self.stable_folder+'/geographic/'+'watershed_dem.tif')
@@ -196,9 +196,9 @@ class SurfaceOutputs():
                     sta.plot(ax=ax, lw=1, facecolor='yellow', marker='^', edgecolor='k', alpha=1, zorder=8)
             except:
                 pass
-            # name_fig = 'intermittency_' + str(lead_numb) + '.png'
+            name_fig = 'intermittency_' + str(lead_numb) + '.png'
             plt.tight_layout()
-            # plt.savefig(self.pngdir + name_fig)
+            plt.savefig(self.pngdir + name_fig)
             plt.close()
     
     def check_discharge(self):
@@ -368,9 +368,9 @@ class SurfaceOutputs():
             ax.xaxis.set_major_formatter(years_fmt)
             plt.tight_layout()
             
-            # name_fig = 'discharge_' + str(lead_numb) + '.png'
+            name_fig = 'discharge_' + str(lead_numb) + '.png'
             plt.tight_layout()
-            # plt.savefig(self.pngdir + name_fig)
+            plt.savefig(self.pngdir + name_fig)
             plt.close(fig)
             
     def make_a_gif(self):
