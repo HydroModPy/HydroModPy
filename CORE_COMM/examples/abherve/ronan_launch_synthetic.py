@@ -11,7 +11,7 @@ Created on
 import sys
 import os
 from os.path import dirname, abspath
-DIR = dirname(dirname(abspath(__file__)))
+DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -174,38 +174,49 @@ for idx, row in outlets.iloc[:].iterrows():
         notok.append(watershed_name)
         print('NOT OK')
 
-#%% SLECT RECHARGE
+#%% INIT RECHARGE
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                  first_year = 1990, last_year = 2019, 
+# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+#                                   first_year = 2010, last_year = 2012, 
+#                                   time_step = 'M', sim_state='transient')
+# rechsurfex = BV.forcing.recharge
+
+BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2010, last_year = 2012, 
                                   time_step = 'M', sim_state='transient')
+R = BV.forcing.recharge
 
-fig = plt.subplots(1,1, figsize=(6,3))
+rech = R
+
+r = R.reset_index()
+#%% SCENARIOS RECHARGE
+
+# fig = plt.subplots(1,1, figsize=(7,3))
 rech = BV.forcing.recharge
 index=rech.index.astype(str)
 index=pd.to_datetime(index)
 rech.index = index
 # rech = rech.reset_index(drop=True)
-plt.plot(rech*1000, c='k', lw=0.5)
+# plt.plot(rech*1000, c='k', lw=1)
 
-sce0 = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1) # serie, period, amplitude, offset, omega, phase
-rech = BV.forcing.recharge
-plt.plot(BV.forcing.recharge*1000, c='blue')
+# sce0 = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1) # serie, period, amplitude, offset, omega, phase
+# rech = BV.forcing.recharge
+# plt.plot(BV.forcing.recharge*1000, c='blue')
 
 # sce_offm = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1/2, 1, 1)
 # plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
-sce_offp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1*4, 1, 1)
-plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
+# sce_offp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1*4, 1, 1)
+# plt.plot(BV.forcing.recharge*1000, c='dodgerblue')
 
-sce_omem = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1/4, 1)
-plt.plot(BV.forcing.recharge*1000, c='red')
+# sce_omem = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1/4, 1)
+# plt.plot(BV.forcing.recharge*1000, c='red')
 # sce_omepp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1*2, 1)
 # plt.plot(BV.forcing.recharge*1000, c='red')
 
 # sce_pham = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 1/2)
 # plt.plot(BV.forcing.recharge*1000, c='forestgreen')
-sce_phapp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 4) # phase * 2 = come back 6 months
-plt.plot(BV.forcing.recharge*1000, c='forestgreen')
+# sce_phapp = BV.forcing.update_sinusoid_recharge(rech, 'M', 1, 1, 1, 4) # phase * 2 = come back 6 months
+# plt.plot(BV.forcing.recharge*1000, c='forestgreen')
 
 # sce_alex = BV.forcing.update_synthetic_recharge(250/1000, 50, 19, start_date="2000-08", freq=None, dis='normal') # rech, shape, years, start_date= "2020-08", freq, dis='normal')
 # plt.plot(BV.forcing.recharge*30*1000, c='darkorange')
@@ -219,29 +230,180 @@ plt.plot(BV.forcing.recharge*1000, c='forestgreen')
 df = pd.read_csv(simulations_folder+'_dichotomy_'+'streams'+'.csv', sep=';', header=0)
 koptim = df.iloc[-1]['K'].round(1) # / 30 / 3600 / 24
 
-sce = 'sinus1'
+sce = 'test_recneg'
 
-k = koptim
-BV.hydrodynamic.update_hyd_cond(k)
 ep = 30
 BV.hydrodynamic.update_thickness(ep)
-sys = [0.001, 0.01, 0.1]
 
-for sy in sys:
-    sy = sy
-    BV.hydrodynamic.update_porosity(sy)
-    ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
-    # BV.run_modflow(ident=ident, modpath_sim=False, calib=False, sink_fill=False, 
-    #                 lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., verbose=True)
-    # BV.chronics_modflow(ident=ident, mask=False, outlet_type=True, calib_only=False, 
-    #                     first=1990, last=2019, time_step='monthly')
+# ks = [koptim/10, koptim, koptim*10]
+# sys = [0.001, 0.01, 0.1]
 
+ks = [koptim/100,koptim/10,koptim,koptim*10,koptim*100]
+sys = [0.0005,0.001,0.01,0.1,0.5]
+
+ks = [koptim]
+sys = [0.01]
+
+for k in ks:
+    for sy in sys:
+        k = k.round(2)
+        sy = sy
+        print(k,sy)
+        BV.hydrodynamic.update_hyd_cond(k)
+        BV.hydrodynamic.update_porosity(sy)
+        ident = sce+'_'+str(k)+'_'+str(sy)+'_'+str(ep)+'_'+'2010-2012'
+        try:
+            BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
+                                              first_year = 2010, last_year = 2012, 
+                                              time_step = 'M', sim_state='transient')
+            R = BV.forcing.recharge
+            BV.run_modflow(ident=ident, modpath_sim=False, calib=True, sink_fill=False, 
+                            lay_number=1, bottom=None, thick_exp=1., cond_decay=0., verbose=True)
+            BV.chronics_modflow(ident=ident, mask=False, outlet_type=True, calib_only=False, 
+                                first=2010, last=2012, time_step='monthly')
+        except:
+            pass
+        
 # from groundwater_flow import vizualisation
 # visu = vizualisation.Vizualisation(BV, ident)
 # visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
     
-#%% HYSTERESIS FUNCTIONS
+#%% FAST PLOT
 
+obs_path = "C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric_J7513010_Le Canut [nord] à Maxent - La Botelerais_327818_6777885.csv"
+dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
+
+# ks = [koptim/100,koptim/10,koptim,koptim*10,koptim*100]
+# sys = [0.0005,0.001,0.01,0.1,0.5]
+
+for k in ks:
+    for sy in sys:
+        try:
+            # k=ks[1]
+            # sy=sys[2]
+            k = round(k,2)
+            sy = sy
+            simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+            ident = sce+'_'+str(k)+'_'+str(sy)+'_'+str(ep)+'_'+'2010-2012'
+            df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv',
+                             sep=';', index_col='date', parse_dates=True)
+            first = df.first_valid_index().year
+            last = df.last_valid_index().year
+            R = BV.forcing.recharge.to_frame()
+            
+            from matplotlib.dates import DateFormatter
+            import matplotlib.dates as matdates
+            myFmt = DateFormatter("%Y")
+            myLoc = matdates.YearLocator(1)
+            
+            BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
+                                              first_year = 2010, last_year = 2012, 
+                                              time_step = 'M', sim_state='transient')
+            R = BV.forcing.recharge
+            
+            fig, ax = plt.subplots(1,1,figsize=(8, 3))
+            # ax.plot(df.index, R, label='recharge + evapotranspiration', c='k', lw=2)
+            ax.plot(df.index, R.clip(lower=0), c='dodgerblue', lw=2, label='precipitation ==> our recharge')
+            ax.plot(df.index, R.clip(upper=0), c='forestgreen', lw=2, label='actual evapotranspiration')
+            ax.plot(df.outflow_drain, c='red', lw=2, label='discharge simulated')
+            
+            BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                              first_year = 2010, last_year = 2012, 
+                                              time_step = 'M', sim_state='transient')
+            rechsurfex = BV.forcing.recharge
+            ax.plot(df.index, rechsurfex, c='darkviolet', lw=2, label='surfex recharge')
+            
+            obs_data = pd.read_csv(obs_path, names = ['year','month','day','disch'], 
+                                   sep='\s+', header = None, parse_dates=True) # sep='\s+'
+            time = pd.to_datetime(obs_data[['year','month','day']]) # create datetime
+            time = time.sort_values()
+            obs = pd.Series(obs_data['disch']) # create series discharge
+            obs = obs*24*60*60 #m3/j
+            obs_data = pd.DataFrame({'date':time, 'disch':obs}) # dataframe
+            obs_data = obs_data.set_index('date')
+            obs_data = obs_data.resample('M').sum()
+            obs_data['disch_norm'] = obs_data['disch'] / (area * 1000000) # m/j ==> area to add
+            obs_data = obs_data[(obs_data.index.year>=first) & (obs_data.index.year<=last)]
+            ax.plot(obs_data.disch_norm, c='darkorange', lw=2, label='discharge observed')
+            
+            ax.xaxis.set_major_formatter(myFmt)
+            ax.xaxis.set_major_locator(myLoc)
+            ax.legend(bbox_to_anchor=(1.32,0.75), bbox_transform=ax.transAxes)
+            kms=k/30/24/3600
+            label = 'K='+str("{:.2e}".format(kms))+'m/s'+' - '+'n='+str(sy*100)+'%'+' - '+'D='+str("{:.2e}".format((kms*ep)/sy))+'m²/s'
+            ax.set_title(label)
+            
+            # ax.set_yscale('log')
+        except:
+            kms=k/30/24/3600
+            label = 'K='+str("{:.2e}".format(kms))+'m/s'+' - '+'n='+str(sy*100)+'%'+' - '+'D='+str("{:.2e}".format((kms*ep)/sy))+'m²/s'
+            print('FAIL:'+label)
+            pass
+
+#%% FAST SAT
+
+obs_path = "C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric_J7513010_Le Canut [nord] à Maxent - La Botelerais_327818_6777885.csv"
+dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
+
+# ks = [koptim/100,koptim/10,koptim,koptim*10,koptim*100]
+# sys = [0.0005,0.001,0.01,0.1,0.5]
+
+fig, ax = plt.subplots(1,1,figsize=(8, 3))
+
+colors = ['red','darkorange','gold',
+          'navy','dodgerblue','turquoise',
+          'forestgreen','lime','greenyellow']
+compt = 0
+
+for k in ks:
+    for sy in sys:
+        try:
+            # k=ks[1]
+            # sy=sys[2]
+            k = round(k,2)
+            sy = sy
+            simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+            ident = sce+'_'+str(k)+'_'+str(sy)+'_'+str(ep)+'_'+'2010-2012'
+            df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv',
+                             sep=';', index_col='date', parse_dates=True)
+            first = df.first_valid_index().year
+            last = df.last_valid_index().year
+            R = BV.forcing.recharge.to_frame()
+            
+            from matplotlib.dates import DateFormatter
+            import matplotlib.dates as matdates
+            myFmt = DateFormatter("%Y")
+            myLoc = matdates.YearLocator(1)
+            
+            BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
+                                              first_year = 2010, last_year = 2012, 
+                                              time_step = 'M', sim_state='transient')
+            R = BV.forcing.recharge
+            
+            kms=k/30/24/3600
+            label = 'K='+str("{:.2e}".format(kms))+'m/s'+' - '+'n='+str(sy*100)+'%'+' - '+'D='+str("{:.2e}".format((kms*ep)/sy))+'m²/s'
+            
+            ax.plot(df.seepage_areas, c=colors[compt], lw=2, label=label)
+            ax.xaxis.set_major_formatter(myFmt)
+            ax.xaxis.set_major_locator(myLoc)
+            ax.legend(bbox_to_anchor=(1.45,0.75), bbox_transform=ax.transAxes)
+            
+            compt+=1
+            # ax.axhline(y=1,c='k')
+            # ax.axhline(y=25,c='k')
+            ax.axhspan(1,25, color='silver', alpha=0.1, lw=0)
+            ax.set_yscale('log')
+        except:
+            kms=k/30/24/3600
+            label = 'K='+str("{:.2e}".format(kms))+'m/s'+' - '+'n='+str(sy*100)+'%'+' - '+'D='+str("{:.2e}".format((kms*ep)/sy))+'m²/s'
+            print('FAIL:'+label)
+            compt+=1
+            pass        
+
+#%% HYSTERESIS FUNCTIONS
+"""
 import matplotlib.pylab as pl
 import math
 import scipy.stats as sp
@@ -313,7 +475,7 @@ def hysteresis_total(station, index, xm, ym, out, first, last, xlim, ylim):
     cb.ax.tick_params(labelsize=10)
     cb.update_ticks()
     # Save
-    fig.savefig(simulations_folder+ident+'/_figure/'+'hysteresis_total'+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(simulations_folder+ident+'/_figure/'+'hysteresis_total_'+ident+'.png', dpi=300, bbox_inches='tight')
     # plt.close()
 
 def hysteresis_superpose(ident, df, xlim, ylim):
@@ -326,14 +488,14 @@ def hysteresis_superpose(ident, df, xlim, ylim):
     plt.ylabel("Q / A [mm.m$^-$$^1$]", labelpad=+25)
     df_concat = df
     # Create variables
-    xm = df_concat.eff
+    xm = df_concat.rec
     ym = df_concat.spe
     cms = pd.Series(df_concat.index.month)
     cms = cms.replace([10,11,12,1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9,10,11,12])
     # Create intermensual  
     df_intm = df_concat.groupby([lambda x: x.month]).mean()
     df_intm['m'] = df_intm.index   
-    xintm = df_intm.eff
+    xintm = df_intm.rec
     yintm = df_intm.spe
     cintm = df_intm.m            
     # Create xerror bar                
@@ -369,7 +531,7 @@ def hysteresis_superpose(ident, df, xlim, ylim):
     #                     ecolor = couleur, fmt = 'none', capsize = 1, elinewidth=0.5, 
     #                     capthick=0.5, zorder=1+cp)        
     # Parameter log
-    ax.set_yscale('log')        
+    # ax.set_yscale('log')        
     # Parameter lim   
     # minx = -100
     # maxx = 100
@@ -384,7 +546,7 @@ def hysteresis_superpose(ident, df, xlim, ylim):
     # Tidy
     plt.tight_layout()
     cp += 3
-    fig.savefig(simulations_folder+ident+'/_figure/'+'hysteresis_superpose'+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(simulations_folder+ident+'/_figure/'+'hysteresis_superpose_'+ident+'.png', dpi=300, bbox_inches='tight')
     
 def linregress(inx,iny):
     x=np.array(inx.values, dtype=float)
@@ -633,175 +795,205 @@ def hysteresis_boxplot(recap):
 
 #%% LAUNCH FUNCTIONS
 
-sce = 'rech'
+from groundwater_flow import plots
+
+sce = 'sinus2'
+koptim = 39.9
+ks = [koptim/10, koptim, koptim*10]
 sys = [0.001, 0.01, 0.1]
-    
-for sy in sys:
 
-    sy = sy
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-    ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
-    df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
-    first = df.first_valid_index().year
-    last = df.last_valid_index().year
-    
-    ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
-    etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
-    
-    dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
-    area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
+# ks = [koptim*10]
+# sys = [0.01, 0.1]
 
-    df['spe'] = (df.outflow_drain) * 1000 # mm/m
-    # df['spe'] = (df.seepage_areas) # %
-    df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
-    # df['eff'] = rech * 1000
-    df['rec'] = rech * 1000
+for k in ks:
+    for sy in sys:
+        try:
+            k = round(k,2)
+            sy = sy
+            print(k,sy)
+            simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+            ident = sce+'_'+str(k)+'_'+str(sy)+'_'+str(ep)+'_'+'2010-2019'
+            df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
+            first = df.first_valid_index().year
+            last = df.last_valid_index().year
+            
+            ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+            etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+            
+            dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+            area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
         
-    xlim = (-150,+150)
-    ylim = (0.1,150)
-    hysteresis_total(ident, df.index, df.eff, df.spe, stable_folder, first, last, xlim, ylim)
-    # xlim = (-20,+50)
-    # ylim = (0.5,100)
-    # hysteresis_superpose(ident, df, xlim, ylim)
-    # xlim = (0,+50)
-    # ylim = (-20,20)
-    # recap = hysteresis_describe(ident, df, stable_folder, xlim, ylim)
-    # hysteresis_boxplot(recap)
+            df['spe'] = (df.outflow_drain) * 1000 # mm/m
+            # df['spe'] = (df.seepage_areas) # %
+            df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
+            # df['eff'] = rech * 1000
+            df['rec'] = (rech * 1000).values
+                
+            # xlim = (-50,+50)
+            # ylim = (0.1,150)
+            # hysteresis_total(ident, df.index, df.rec, df.spe, stable_folder, first, last, xlim, ylim)
+            xlim = (-10,+40)
+            ylim = (0,40)
+            hysteresis_superpose(ident, df, xlim, ylim)
+            # xlim = (0,+50)
+            # ylim = (-20,20)
+            # recap = hysteresis_describe(ident, df, stable_folder, xlim, ylim)
+            # hysteresis_boxplot(recap)
+            
+            # plt.plot(df.spe)
+            
+        except:
+            pass
 
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+        dir_to_analyse = simulations_folder + ident + '/_extraction/'
+        list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
+        figdir = dir_to_analyse + '_fig/'
+        pngdir = dir_to_analyse + '_fig/_png/'
+        gifdir = dir_to_analyse + '_fig/_gif/'
+        
+        # plots.SurfaceOutputs(R, simulations_folder, stable_folder, ident,
+        #                      ['streams_fr','sections_fr'], freq_interv=12, save_gif=False)
+        
+        # filenames = glob(pngdir+'/'+'intermittency_*.png')
+        # images = []
+        # for filename in filenames:
+        #     images.append(imageio.imread(filename))
+        # imageio.mimsave(gifdir+'/'+'surface_outputs_'+ident+'.gif', images, duration=0.5, loop=1)
+        
 #%% GIF INTERMITTENCY
 
-    dir_to_analyse = simulations_folder + ident + '/_extraction/'
-    list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
+        dir_to_analyse = simulations_folder + ident + '/_extraction/'
+        list_traces = glob(dir_to_analyse+'_surfaceflow/'+'trace_*.shp')
+        
+        figdir = dir_to_analyse + '_fig/'
+        pngdir = dir_to_analyse + '_fig/_png/'
+        gifdir = dir_to_analyse + '_fig/_gif/'
+        file_adds.create_folder(figdir)
+        file_adds.create_folder(pngdir)
+        file_adds.create_folder(gifdir)
+        
+        ### INTERMITTENCY ###
+        compt = 1
+        c1 = 0
+        c12 = 12
+        one = pd.DataFrame(columns=['x','y'])
+        for i in list_traces:    
+            inter = list_traces[c1:c12]
+            one_x = []
+            one_y = []
+            test = []
+            for j in inter:
+                outflow = gpd.read_file(j)
+                x_list = outflow.geometry.x
+                y_list = outflow.geometry.y
+                mix = list(zip(x_list, y_list))
+                test.extend(mix)
+            dfc = pd.DataFrame(test, columns=['x','y'])
+            dfc['z'] = dfc['x'].astype(str) + dfc['y'].astype(str)
+            values = dfc['z'].value_counts()
+            values = values[values==12]
+            for j in inter:
+                outflow = gpd.read_file(j)
+                outflow['x'] = outflow.geometry.x
+                outflow['y'] = outflow.geometry.y
+                outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
+                outflow['persit'] = 0
+                for h in values.index:
+                    # print('Detect intermittency : '+str(compt))
+                    outflow.loc[outflow['z']==h,'persit'] = 1
+                outflow.to_file(j) 
+            c1+=12
+            c12+=12
+            compt+=1
+        
+        ### PLOT STREAMS ###
+        compt = 0
+        for i in list_traces:
+            lead_numb = "%03d" % (compt,)
+            print(lead_numb)
+            outflow = gpd.read_file(i)
+            fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
+            dem = rasterio.open(BV.geographic.watershed_dem)
+            img = imageio.imread(BV.geographic.watershed_dem)
+            contour = gpd.read_file(stable_folder+'/geographic/'+'watershed_contour.shp')
+            streams = gpd.read_file(stable_folder+'/hydrology/'+'streams_fr.shp')
+            sections = gpd.read_file(stable_folder+'/hydrology/'+'sections_fr.shp')
+            sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='grey', ls='-', zorder=7)
+            sections[sections.Persistanc=='4'].plot(ax=ax, lw=1, color='k', ls='-', zorder=7)
+            bounds = contour.geometry.total_bounds
+            xlim = ([bounds[0], bounds[2]])
+            ylim = ([bounds[1], bounds[3]])
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            ax.set_title(str(df.index[compt])[:10], fontproperties=fontprop)
+            ax.set(aspect='equal') 
+            image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='Greys')
+            mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform,
+                                     cmap='Greys', alpha=0.5, zorder=2)
+            contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="1%", pad=0.05)
+            fig.add_axes(cax)
+            cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+            val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+            minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+            maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+            meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+            cbar.set_ticks([minVal, meanVal, maxVal])
+            cbar.set_ticklabels([minVal, meanVal, maxVal])
+            cbar.mappable.set_clim(minVal, maxVal)
+            cbar.ax.tick_params(labelsize=10)
+            # outflow.plot(ax=ax, alpha=1, column='persit', cmap="winter_r", 
+            #               marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+            #               scheme="User_Defined", 
+            #               classification_kwds=dict(bins=[1, 0]),
+            #               zorder=4)
+               
+            # from matplotlib.colors import ListedColormap
+            # cmap = ListedColormap(['darkorange','blue'])
+            outflow[outflow.persit==0].plot(ax=ax, alpha=1, column='persit', color='darkorange', 
+                                            marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                                            zorder=4)
+            outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='dodgerblue', 
+                                            marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                                            zorder=4)
+            hydro = gpd.read_file(stable_folder + '/hydrology/' + 'hydrometric.shp')
+            hydro.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=7)
+            onde = gpd.read_file(stable_folder + '/hydrology/' + 'onde.shp')
+            allsta = onde['<LbSiteHyd'].unique()
+            for idx, lib in enumerate(allsta):
+                sta = onde[onde['<LbSiteHyd']==lib]
+                sta.plot(ax=ax, lw=1, facecolor='yellow', marker='^', edgecolor='k', alpha=1, zorder=8)
+            name_fig = 'interm_' + str(lead_numb) + '.png'
+            plt.tight_layout()
+            plt.savefig(pngdir + name_fig)
+            plt.close()
+            compt+=1
+        
+        ### MAKE GIF ###
+        filenames = glob(pngdir+'/'+'interm_*.png')  
+        import imageio
+        images = []
+        for filename in filenames:
+            images.append(imageio.imread(filename))
+        imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=0.5, loop=1)
     
-    figdir = dir_to_analyse + '_fig/'
-    pngdir = dir_to_analyse + '_fig/_png/'
-    gifdir = dir_to_analyse + '_fig/_gif/'
-    file_adds.create_folder(figdir)
-    file_adds.create_folder(pngdir)
-    file_adds.create_folder(gifdir)
-    
-    ### INTERMITTENCY ###
-    compt = 1
-    c1 = 0
-    c12 = 12
-    one = pd.DataFrame(columns=['x','y'])
-    for i in list_traces:    
-        inter = list_traces[c1:c12]
-        one_x = []
-        one_y = []
-        test = []
-        for j in inter:
-            outflow = gpd.read_file(j)
-            x_list = outflow.geometry.x
-            y_list = outflow.geometry.y
-            mix = list(zip(x_list, y_list))
-            test.extend(mix)
-        dfc = pd.DataFrame(test, columns=['x','y'])
-        dfc['z'] = dfc['x'].astype(str) + dfc['y'].astype(str)
-        values = dfc['z'].value_counts()
-        values = values[values==12]
-        for j in inter:
-            
-            outflow = gpd.read_file(j)
-            outflow['x'] = outflow.geometry.x
-            outflow['y'] = outflow.geometry.y
-            outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
-            outflow['persit'] = 0
-            for h in values.index:
-                # print('Detect intermittency : '+str(compt))
-                outflow.loc[outflow['z']==h,'persit'] = 1
-            outflow.to_file(j) 
-        c1+=12
-        c12+=12
-        compt+=1
-    
-    ### PLOT STREAMS ###
-    compt = 0
-    for i in list_traces:
-        lead_numb = "%03d" % (compt,)
-        print(lead_numb)
-        outflow = gpd.read_file(i)
-        fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
-        dem = rasterio.open(BV.geographic.watershed_dem)
-        img = imageio.imread(BV.geographic.watershed_dem)
-        contour = gpd.read_file(stable_folder+'/geographic/'+'watershed_contour.shp')
-        streams = gpd.read_file(stable_folder+'/hydrology/'+'streams_fr.shp')
-        sections = gpd.read_file(stable_folder+'/hydrology/'+'sections_fr.shp')
-        sections[sections.Persistanc=='3'].plot(ax=ax, lw=1, color='grey', ls='-', zorder=7)
-        sections[sections.Persistanc=='4'].plot(ax=ax, lw=1, color='k', ls='-', zorder=7)
-        bounds = contour.geometry.total_bounds
-        xlim = ([bounds[0], bounds[2]])
-        ylim = ([bounds[1], bounds[3]])
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        ax.set_title(str(df.index[compt])[:10], fontproperties=fontprop)
-        ax.set(aspect='equal') 
-        image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='Greys')
-        mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform,
-                                 cmap='Greys', alpha=0.5, zorder=2)
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=6)
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="1%", pad=0.05)
-        fig.add_axes(cax)
-        cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
-        val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
-        minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-        maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-        meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-        cbar.set_ticks([minVal, meanVal, maxVal])
-        cbar.set_ticklabels([minVal, meanVal, maxVal])
-        cbar.mappable.set_clim(minVal, maxVal)
-        cbar.ax.tick_params(labelsize=10)
-        # outflow.plot(ax=ax, alpha=1, column='persit', cmap="winter_r", 
-        #               marker='s', markersize=7.5, lw=0.1, edgecolor='none',
-        #               scheme="User_Defined", 
-        #               classification_kwds=dict(bins=[1, 0]),
-        #               zorder=4)
-           
-        # from matplotlib.colors import ListedColormap
-        # cmap = ListedColormap(['darkorange','blue'])
-        outflow[outflow.persit==0].plot(ax=ax, alpha=1, column='persit', color='darkorange', 
-                                        marker='s', markersize=7.5, lw=0.1, edgecolor='none',
-                                        zorder=4)
-        outflow[outflow.persit==1].plot(ax=ax, alpha=1, column='persit', color='dodgerblue', 
-                                        marker='s', markersize=7.5, lw=0.1, edgecolor='none',
-                                        zorder=4)
-        hydro = gpd.read_file(stable_folder + '/hydrology/' + 'hydrometric.shp')
-        hydro.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=7)
-        onde = gpd.read_file(stable_folder + '/hydrology/' + 'onde.shp')
-        allsta = onde['<LbSiteHyd'].unique()
-        for idx, lib in enumerate(allsta):
-            sta = onde[onde['<LbSiteHyd']==lib]
-            sta.plot(ax=ax, lw=1, facecolor='yellow', marker='^', edgecolor='k', alpha=1, zorder=8)
-        name_fig = 'interm_' + str(lead_numb) + '.png'
-        plt.tight_layout()
-        plt.savefig(pngdir + name_fig)
-        plt.close()
-        compt+=1
-    
-    ### MAKE GIF ###
-    filenames = glob(pngdir+'/'+'interm_*.png')  
-    import imageio
-    images = []
-    for filename in filenames:
-        images.append(imageio.imread(filename))
-    imageio.mimsave(gifdir+'/'+'interm_outflow.gif', images, duration=0.5, loop=1)
-
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-    ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
-    df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
-    first = df.first_valid_index().year
-    last = df.last_valid_index().year    
-    ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
-    etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
-    dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
-    area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
-    df['spe'] = (df.outflow_drain) * 1000 # mm/m
-    # df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
-    df['eff'] = rech * 1000
-    df['rec'] = rech * 1000
+        simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+        ident = sce+'_'+str(koptim)+'_'+str(sy)+'_'+str(ep)+'_'+'1990-2019'
+        df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
+        first = df.first_valid_index().year
+        last = df.last_valid_index().year    
+        ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+        etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+        dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+        area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
+        df['spe'] = (df.outflow_drain) * 1000 # mm/m
+        # df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
+        df['eff'] = rech * 1000
+        df['rec'] = rech * 1000
 
 #%% GIF DISCHARGE
     
@@ -980,9 +1172,84 @@ for sy in sys:
     #                save_all=True, duration=200, loop=0)
     # if __name__ == "__main__":
     #     make_gif(frame_folder)
-    
-#%% YVEL
 
+#%% WATERTABLE ELEVATION
+
+sce = 'sinus2'
+koptim = 39.9
+ks = [koptim/10, koptim, koptim*10]
+sys = [0.001, 0.01, 0.1]
+ep = 30
+
+# ks = [koptim*10]
+# sys = [0.01, 0.1]
+
+fig, ax = plt.subplots(1, 1, figsize=(10,4), dpi=300)
+
+# param = 'watertable_elevation'
+# param = 'seepage_areas'
+param = 'outflow_drain'
+# param = 'watertable_depth'
+
+colors = ['red','darkorange','gold',
+          'navy','dodgerblue','turquoise',
+          'forestgreen','lime']
+
+compt = 0
+for k in ks:
+    for sy in sys:
+        try:
+            k = round(k,2)
+            sy = sy
+            # print(k,sy)
+            simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+            ident = sce+'_'+str(k)+'_'+str(sy)+'_'+str(ep)+'_'+'2010-2019'
+            df = pd.read_csv(simulations_folder+ident+'/_extraction/'+'_simulated_chronics.csv', sep=';', index_col='date', parse_dates=True)
+            first = df.first_valid_index().year
+            last = df.last_valid_index().year
+            
+            r = pd.read_csv(simulations_folder+ident+'/'+ident+'.rch', sep='\s+', header=0)
+            r = r.iloc[1:]
+            r = r[r['#'] == 'CONSTANT']
+            r = r.set_index(df.index)
+            
+            ppt = pd.read_csv(stable_folder+'climatic/'+'_PPT_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+            etp = pd.read_csv(stable_folder+'climatic/'+'_ETP_M.csv', sep=';', index_col=[0], parse_dates=True) / 1000
+            
+            dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
+            area = tif_features.basin_area(dem_data, dem_data, '<=', -1000, 75)
+        
+            df['spe'] = (df.outflow_drain) * 1000 # mm/m
+            # df['spe'] = (df.seepage_areas) # %
+            df['eff'] = (ppt['REA_historic']-etp['REA_historic']) * 1000
+            # df['eff'] = rech * 1000
+            df['rec'] = rech * 1000
+            
+            kms = k/30/24/3600
+            label = 'K='+str("{:.2e}".format(kms))+'m/s'+' - '+'n='+str(sy*100)+'%'+' - '+'D='+str("{:.2e}".format((kms*ep)/sy))+'m²/s'
+            ax.plot(df[param], label=label, c=colors[compt], lw=2)
+            ax.legend(bbox_to_anchor=(1.35,0.75), bbox_transform=ax.transAxes)
+            ax.set_ylabel('Watertable elevation [mNGF]')
+            ax.set_xlabel('Date')
+            ax.grid(True)
+            
+            # ax.plot(r.RCH, c='k', lw=3)
+            
+            compt+=1
+            
+        except:
+            pass
+
+#%%
+
+r = pd.read_csv('D:/Users/abherve/SYNTHETIC/Canut/results_simulations/sinus2_3.99_0.001_30_2010-2019/sinus2_3.99_0.001_30_2010-2019.rch',
+                sep='\s+', header=0)
+r = r.iloc[1:]
+r = r[r['#'] == 'CONSTANT']
+plt.plot(r.RCH)
+"""
+#%% YVEL
+"""
 yvelgpd = gpd.read_file('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/YVEL/StreamWaterChemistry.csv')
 yveldf = pd.read_csv('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/YVEL/StreamWaterChemistry.csv',
                      parse_dates=True, index_col='date.sampling', sep=';', error_bad_lines=False)
@@ -994,5 +1261,5 @@ for samp in lists:
     fig, ax = plt.subplots(1,1, figsize=(5,3))
     df = yveldf[yveldf['p.sampling']==samp]
     ax.scatter(df.index, df['temperature'])
-
+"""
 

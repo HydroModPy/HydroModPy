@@ -305,7 +305,7 @@ class Watershed:
         flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill,
                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
-                                    climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
+                                    climatic=self.forcing.recharge, sea_level=None,
                                     model_name=ident, model_folder=self.simulations_folder, 
                                     exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing()
