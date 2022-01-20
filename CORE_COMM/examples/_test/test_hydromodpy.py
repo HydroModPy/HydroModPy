@@ -55,12 +55,19 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
+# # Path to the git repositoty home page
+# git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
+# # Path to the data folder
+# data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
+# # Path where the results will be stored
+# out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
+
 # Path to the git repositoty home page
-git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # Path to the data folder
-data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
+data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
 # Path where the results will be stored
-out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
+out_path = "D:/Users/abherve/TEST/"
 
 #%% CORRECT PATHS
 
@@ -105,7 +112,7 @@ fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 print('##### '+watershed_name.upper()+' #####')
 
 # try:
@@ -215,9 +222,10 @@ visu.visual3D(interactive=True,
               view='south-west', lines=200, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS
-x = np.load('C:/Users/alexa/Dropbox/HydroModPy/Explo/results_simulations/test_1/_watershed/watertable_depth.npy', allow_pickle=True).item()[0]
-x[x<0] = np.nan
-plt.imshow(x[0])
+
+# x = np.load('C:/Users/alexa/Dropbox/HydroModPy/Explo/results_simulations/test_1/_watershed/watertable_depth.npy', allow_pickle=True).item()[0]
+# x[x<0] = np.nan
+# plt.imshow(x[0])
 
 modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=True)
 
