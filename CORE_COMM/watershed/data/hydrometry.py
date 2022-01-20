@@ -101,6 +101,7 @@ class Hydrometry:
         for code in self.code_bh:
             
             print('          '+code)
+            error = False
             
             # if not os.path.exists(data_folder+'/'+code):
             
@@ -120,153 +121,133 @@ class Hydrometry:
             except:
                 pass
             
-            driver.find_element_by_name("code_station").send_keys(code)              
+            driver.find_element_by_name("code_station").send_keys(code)       
             driver.find_element_by_name("station_hors_service").click()
-            driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
-            driver.find_element_by_name("station[]").click()                
-            driver.find_element_by_xpath("//input[@value='Exporter']").click()                
-            driver.find_element_by_xpath("//input[@value='QJM']").click()
             
-            elem = driver.find_element_by_name('debut_an')
-            elem.click()
-            opt = elem.find_elements_by_tag_name('option')
-            opt[len(opt)-1].click()
-            driver.find_element_by_name("btnValider").click()
-            
-            driver.find_element_by_link_text("page d'accueil").click()
-            
-            down = None
-            while down is None:
-                driver.refresh()
+            try:
+                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
+                driver.find_element_by_name("station[]").click()
+            except:
+                driver.find_element_by_name("station_hors_service").click()
+                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                 try:
-                    down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
-                    down.click()
+                    driver.find_element_by_name("station[]").click()
                 except:
-                    time.sleep(5)
-                    pass
-            
-            driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
-            driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
-            driver.find_element_by_link_text("page d'accueil").click()
-            
-            fich = None
-            while fich is None:
-                driver.refresh()
-                try:
-                    fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
-                    fich.click()
-                except:
-                    time.sleep(5)
+                    error = True
+                    print('               No found')
                     pass
                 
-            files = glob.glob(data_folder+'/*.zip')
-            while len(files) != 2:
+            if error == True:
+                continue
+            
+            else:            
+                elem = driver.find_element_by_name('debut_an')
+                elem.click()
+                opt = elem.find_elements_by_tag_name('option')
+                opt[len(opt)-1].click()
+                driver.find_element_by_name("btnValider").click()
+                
+                driver.find_element_by_link_text("page d'accueil").click()
+                
+                down = None
+                while down is None:
+                    driver.refresh()
+                    try:
+                        down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
+                        down.click()
+                    except:
+                        time.sleep(5)
+                        pass
+                
+                driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
+                driver.find_element_by_link_text("page d'accueil").click()
+                
+                fich = None
+                while fich is None:
+                    driver.refresh()
+                    try:
+                        fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
+                        fich.click()
+                    except:
+                        time.sleep(5)
+                        pass
+                    
                 files = glob.glob(data_folder+'/*.zip')
-                time.sleep(1)
-                
-            for file in files:
-                with zipfile.ZipFile(file, 'r') as zip_ref:
-                    zip_ref.extractall(data_folder+'/'+code)
-                os.remove(file)
+                while len(files) != 2:
+                    files = glob.glob(data_folder+'/*.zip')
+                    time.sleep(1)
+                    
+                for file in files:
+                    with zipfile.ZipFile(file, 'r') as zip_ref:
+                        zip_ref.extractall(data_folder+'/'+code)
+                    os.remove(file)
             
         driver.close()
             
     def load_hydrometric_data(self, data_folder):
+        
         self.discharge = pd.DataFrame()
         
         for code in self.code_bh:
-            
-            fiche_path = glob.glob(data_folder+'/'+code+'/'+'*fiche-station.csv')[0]        
-            with open(fiche_path) as f:
-                lines = f.readlines()            
-            name = lines[3].split(';')[1]            
-            nlines=0
-            for line in lines:
-                nlines += 1
-                if (line.find('X') >= 0):
-                    x = lines[nlines].split(';')[0]
-                    y = lines[nlines].split(';')[1]       
-                    first = lines[nlines].split(';')[4][6:-6]
-                    last = lines[nlines].split(';')[5][6:-6]
-            if last == None:
-                last = datetime.datetime.today().strftime('%Y')
-            area = lines[4].split(';')[1]
-            alti = lines[17].split(';')[1]
-            
-            qjm_path = glob.glob(data_folder+'/'+code+'/'+'qjm*')[0]            
-            with open(qjm_path) as f:
-                lines = f.readlines()            
-            compt = 0
-            df = pd.DataFrame()
-            for step in range(int(len(lines)/73)):
-                bloc = lines[compt:73+compt]
-                date = bloc[0][-5:-1]
-                debit = pd.DataFrame([sub.split(";") for sub in bloc[41:]])
-                debit.columns = debit.iloc[0]
-                debit = debit[1:]
-                debit = debit.filter(regex='Débit')
-                debit.columns = ['1','2','3','4','5','6','7','8','9','10','11','12']
-                debit = debit.stack().to_frame()
-                debit['day'] = debit.index.get_level_values(0)
-                debit['month'] = debit.index.get_level_values(1)
-                debit['year'] = date
-                debit['date'] = pd.to_datetime(debit[['year','month','day']], errors='coerce')
-                debit = debit.set_index('date', drop=True)
-                debit = debit.sort_index()
-                debit = debit.loc[debit.index.dropna()]
-                debit = debit.replace(to_replace='', value=np.nan)
-                debit = debit[debit.columns.tolist()[0]]
-                debit = pd.to_numeric(debit)
-                df = pd.concat([df,debit])
-                compt += 73
-            df.columns = ['Q']
-            name_out = 'Hydrometric_'+code+'_'+name+'_'+x+'-'+y+'_'+area+'_'+alti+'_'+first+'-'+last
-            df.to_csv(data_folder+'/'+code+'/'+name_out+'.csv', sep=';')
-            append = df.copy()
-            append.columns = [code]
-            fig, ax = plt.subplots(1,1, figsize=(8,3))
-            ax.plot(append, lw=2)
-            ax.set_yscale('log')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Discharge [m$^3$/day]')
-            ax.set_title(code+'\n'+name)
-            fig.savefig(self.fig_hydromet+'/'+code+'_'+' - '+name+'.png', dpi=300, 
-                        bbox_inches='tight', transparent=False)
-            self.discharge = pd.concat([self.discharge, append], axis=1).sort_index()
-    
-#%%
-"""
-def manual_coord(self, add_data_stable, file_name,  
-                          fonction_column,
-                          type_data,
-                          code_column,
-                          label_column,
-                          x_column,
-                          y_column,
-                          start_column,
-                          end_column):
-    
-    print('Search manual data in watershed')
-
-    coord_path = os.path.join(add_data_stable, file_name)
-    coord_data = pd.read_csv(coord_path, sep=';')
-
-    df_manual = pd.DataFrame(columns=self.columns)
-
-    for i in range(len(coord_data)):
-        raw = coord_data.iloc[i]
-        to_append = [raw[fonction_column],
-                     type_data,
-                     raw[code_column],
-                     raw[label_column],
-                     raw[x_column],
-                     raw[y_column],
-                     raw[start_column],
-                     raw[end_column]]
-        df_manual.loc[i] = to_append
-        
-    self.df = self.df.append(df_manual, ignore_index = True)
-    self.df = self.df.reset_index(drop=True)
-    
-    return self.df        
-"""
+            try:
+                fiche_path = glob.glob(data_folder+'/'+code+'/'+'*fiche-station.csv')[0]        
+                with open(fiche_path) as f:
+                    lines = f.readlines()            
+                name = lines[3].split(';')[1]            
+                nlines=0
+                for line in lines:
+                    nlines += 1
+                    if (line.find('X') >= 0):
+                        x = lines[nlines].split(';')[0]
+                        y = lines[nlines].split(';')[1]       
+                        first = lines[nlines].split(';')[4][6:-6]
+                        last = lines[nlines].split(';')[5][6:-6]
+                if last == None:
+                    last = datetime.datetime.today().strftime('%Y')
+                area = lines[4].split(';')[1]
+                alti = lines[17].split(';')[1]
+                
+                qjm_path = glob.glob(data_folder+'/'+code+'/'+'qjm*')[0]            
+                with open(qjm_path) as f:
+                    lines = f.readlines()            
+                compt = 0
+                df = pd.DataFrame()
+                for step in range(int(len(lines)/73)):
+                    bloc = lines[compt:73+compt]
+                    date = bloc[0][-5:-1]
+                    debit = pd.DataFrame([sub.split(";") for sub in bloc[41:]])
+                    debit.columns = debit.iloc[0]
+                    debit = debit[1:]
+                    debit = debit.filter(regex='Débit')
+                    debit.columns = ['1','2','3','4','5','6','7','8','9','10','11','12']
+                    debit = debit.stack().to_frame()
+                    debit['day'] = debit.index.get_level_values(0)
+                    debit['month'] = debit.index.get_level_values(1)
+                    debit['year'] = date
+                    debit['date'] = pd.to_datetime(debit[['year','month','day']], errors='coerce')
+                    debit = debit.set_index('date', drop=True)
+                    debit = debit.sort_index()
+                    debit = debit.loc[debit.index.dropna()]
+                    debit = debit.replace(to_replace='', value=np.nan)
+                    debit = debit[debit.columns.tolist()[0]]
+                    debit = pd.to_numeric(debit)
+                    df = pd.concat([df,debit])
+                    compt += 73
+                df.columns = ['Q']
+                name_out = 'Hydrometric_'+code+'_'+name+'_'+x+'-'+y+'_'+area+'_'+alti+'_'+first+'-'+last
+                df.to_csv(data_folder+'/'+code+'/'+name_out+'.csv', sep=';')
+                append = df.copy()
+                append.columns = [code]
+                fig, ax = plt.subplots(1,1, figsize=(8,3))
+                ax.plot(append, lw=2)
+                ax.set_yscale('log')
+                ax.set_xlabel('Date')
+                ax.set_ylabel('Discharge [m$^3$/day]')
+                ax.set_title(code+'\n'+name)
+                fig.savefig(self.fig_hydromet+'/'+code+'_'+' - '+name+'.png', dpi=300, 
+                            bbox_inches='tight', transparent=False)
+                self.discharge = pd.concat([self.discharge, append], axis=1).sort_index()
+            except:
+                pass
+                
