@@ -91,5 +91,20 @@ class CalibParams():
                 self.p_max[i] =  self.linear_to_log(self.p_max[i])
                 self.u[i] = self.u[i] + str(' (log)')
     
-                   
-        
+    def random_uniform(self,rng=None):
+        """ 
+        Random uniform generation of lpm 
+            Modifies self with unifom random generation of parameters 
+            Parameters are drawn from get_param_interval()
+        """
+        # Gets parameter range
+        res=(self.p_min, self.p_max); pmin = res[0]; pmax = res[1]
+        # Generation of parameter within the range 
+        if(rng==None):
+            rng = np.random.default_rng()
+        param=[]
+        for i in range(0,len(pmin)):
+            param.append(pmin[i] + (pmax[i] - pmin[i]) * rng.random())
+        # Loads parameters in self
+        self.p_init = param
+    
