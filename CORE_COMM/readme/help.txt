@@ -1,2 +1,0 @@
-Conflit entre matplotlib et geopandas/Gdal/rasterio
-=> Conflit résolu en ajoutant les numéros de version dans le fichier environment.yml

@@ -84,7 +84,7 @@ class Forcing:
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
-        self.recharge.index = self.recharge.index.to_period(self.freq)
+        # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
@@ -95,7 +95,7 @@ class Forcing:
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic/1000 # recharge in meters
         self.runoff.index = self.runoff.asfreq(self.freq).index
-        self.runoff.index = self.runoff.index.to_period(self.freq)
+        # self.runoff.index = self.runoff.index.to_period(self.freq)
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
         
@@ -110,7 +110,7 @@ class Forcing:
         effppt = ppt - aet
         self.recharge = effppt/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
-        self.recharge.index = self.recharge.index.to_period(self.freq)
+        # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
         
