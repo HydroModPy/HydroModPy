@@ -11,13 +11,11 @@ import imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-from tools import file_adds
-from tools import tif_adds
+from tools import toolbox
 
-class SurfaceFlow:
+class RoutingAccflux:
     def __init__(self, geographic,
-                 raw_rast_name, raw_pt_name, out_rast_name, out_pt_name,
-                 load_rast_name, eff_rast_name, abs_rast_name, mass_rast_name,
+                 raw_rast_name, trace_shp_name, mass_rast_name,
                  extraction_folder=None):
 
         self.geographic = geographic
@@ -30,17 +28,20 @@ class SurfaceFlow:
         self.watershed_buff_fill = geographic.watershed_buff_fill
         
         self.shp_folder = os.path.join(self.extraction_folder, '_surfaceflow')
-        file_adds.create_folder(self.shp_folder)
+        toolbox.create_folder(self.shp_folder)
         
-        self.raw_rast_path = os.path.join(self.extraction_folder, raw_rast_name)
-        self.raw_pt_path = os.path.join(self.shp_folder, raw_pt_name)
-        self.out_rast_path = os.path.join(self.shp_folder, out_rast_name)
-        self.out_pt_path = os.path.join(self.shp_folder, out_pt_name)
+        self.tifs_folder = os.path.join(self.extraction_folder, '_tifs')
+        toolbox.create_folder(self.tifs_folder)
         
-        self.load_rast_path = os.path.join(self.shp_folder, load_rast_name)
-        self.eff_rast_path = os.path.join(self.shp_folder, eff_rast_name)
-        self.abs_rast_path = os.path.join(self.shp_folder, abs_rast_name)
-        self.mass_rast_path = os.path.join(self.shp_folder, mass_rast_name)
+        self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
+        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_t(xxx).shp')
+        self.out_rast_path = os.path.join(self.shp_folder, '_trace_t(xxx).tif')
+        self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
+        
+        self.load_rast_path = os.path.join(self.shp_folder, '_load_t(xxx).tif')
+        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_t(xxx).tif')
+        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_t(xxx).tif')
+        self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
         self.trace_downslope()
         self.trace_cumulated()
@@ -60,15 +61,15 @@ class SurfaceFlow:
         ### Loading ###
         im = imageio.imread(self.raw_rast_path)
         im[im<0] = 0
-        tif_adds.export_tif(self.watershed_buff_fill, im, -99999, self.load_rast_path)
+        toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.load_rast_path)
         ### Efficiency ###
         im = imageio.imread(self.watershed_buff_fill)
         im[im>=0] = 1
-        tif_adds.export_tif(self.watershed_buff_fill, im, -99999, self.eff_rast_path)        
+        toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.eff_rast_path)        
         ### Adsorption ###
         im = imageio.imread(self.watershed_buff_fill)
         im[im>=0] = 0
-        tif_adds.export_tif(self.watershed_buff_fill, im, -99999, self.abs_rast_path)
+        toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.abs_rast_path)
         ### d8massflux ###
         wbt.d8_mass_flux(self.watershed_buff_fill, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
         

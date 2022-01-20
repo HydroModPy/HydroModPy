@@ -36,13 +36,13 @@ class Visualization():
                                           yzGrid=False), bg2='lb', size=(1500,1080))
 
         # load files
-        contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_watershed_contour.vtk'))
+        contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_watershed_contour.vtk'))
         contour.scale([1,1,z_scale])
         contour.color('k').lw(5)
         contour.renderLinesAsTubes(value=True)
         
         try:
-            stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_streams.vtk'))
+            stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_streams.vtk'))
             stream.scale([1,1,z_scale])
             stream.color('b').lw(5)
             stream.renderLinesAsTubes(value=True)
@@ -50,7 +50,7 @@ class Visualization():
             pass
         
         try:
-            grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Grid.vtu')
+            grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_Grid.vtu')
             grid_mesh = vedo.Mesh(grid) #grid_mesh
             grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
             grid_wireframe.color('white')
@@ -69,7 +69,7 @@ class Visualization():
             print("VTK grid doesn't exist")
             
         try: 
-            watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Watertable_0.vtu')
+            watertable = os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_Watertable_0.vtu')
             watertable_elev = vedo.Mesh(watertable) # 1 Elevation
             watertable_depth = vedo.Mesh(watertable) # 3 Depth
             surface_flow = vedo.UGrid(watertable) # 3 Surface Flow
@@ -110,7 +110,7 @@ class Visualization():
         except:
             print("VTK watertable doesn't exist")
         try:
-            pathlines = os.path.join(self.watershed.simulations_folder, self.modelname, '_extraction', 'VTK','VTU_Pathlines.vtk')
+            pathlines = os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_Pathlines.vtk')
             pathlines_mesh = vedo.Mesh(pathlines) #5
             
             #Pathlines
