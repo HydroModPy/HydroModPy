@@ -19,7 +19,7 @@ from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # Hydromodpy
-from tools import to_plot
+from tools import toolbox
 
 # Parameters plot : v2.0 to classic customized
 # mpl.style.use('default')
@@ -75,7 +75,7 @@ fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
 def watershed_local(regional_dem_path, BV):
-    fontprop = to_plot.plot_params(8,15,18,20)
+    fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
     shp = gpd.read_file(BV.geographic.watershed_shp)
@@ -92,7 +92,7 @@ def watershed_local(regional_dem_path, BV):
                 bbox_inches='tight', transparent=False)
     
 def watershed_dem(BV):
-    fontprop = to_plot.plot_params(8,15,18,20)
+    fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     
     
@@ -121,9 +121,19 @@ def watershed_dem(BV):
     try:
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='r',zorder=6,legend=True, label='Piezometers: continue')
+            piezos.plot(ax=ax, color='red', marker='^', zorder=6, 
+                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
         if len(BV.piezometry.x_coord_discrete)>0:
-            ax.plot(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, '^b', zorder=5, label='Piezometers: discrete')
+            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
+                       marker='^', zorder=5, label='Piezometers: discrete')
+        if os.path.exists(BV.hydrometry.hydrometric_clip):
+            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
+            hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
+                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+        if os.path.exists(BV.intermittency.onde_clip):
+            intermit = gpd.read_file(BV.intermittency.onde_clip)
+            intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
+                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
     except:
         pass
     ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
@@ -149,7 +159,7 @@ def watershed_dem(BV):
                 bbox_inches='tight', transparent=False)
 
 def watershed_geology(BV):
-    fontprop = to_plot.plot_params(8,15,18,20)
+    fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     streams = gpd.read_file(BV.hydrology.streams)
     

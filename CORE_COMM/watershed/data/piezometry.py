@@ -54,6 +54,7 @@ class Piezometry:
         bss = 'bss_export_' + str(geographic.dep_code) + '.zip'
         bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
         url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
+        print('     '+'Piezometric page loaded')
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
@@ -98,9 +99,8 @@ class Piezometry:
                 idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
                 idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
                 self.x_iloc.append(idx)
-                self.y_iloc.append(idy)
+                self.y_iloc.append(idy) 
         
-    
         #BSS discrete data
         bss_shp = os.path.join(data_folder,'shapefile','BSS.shp')
         bss_fr = gpd.read_file(bss_shp)
@@ -126,12 +126,13 @@ class Piezometry:
     def extract_data_from_code_bss(self,data_folder):
         for code in self.codes_bss:
             code_ = code.replace('_','/')
+            print('          '+code)
             if not os.path.exists(data_folder+'/'+code):
                 url = 'https://ades.eaufrance.fr/Fiche/PtEau?Code=' + code_
                 chrome_options = webdriver.ChromeOptions()
                 prefs = {'download.default_directory' : data_folder.replace('/','\\')}
                 chrome_options.add_experimental_option('prefs', prefs)
-                driver = webdriver.Chrome(chrome_options=chrome_options)
+                driver = webdriver.Chrome(options=chrome_options)
                 driver.get(url)
                 try:
                     elem = driver.find_element_by_link_text('Tout télécharger')
@@ -140,7 +141,7 @@ class Piezometry:
                     while (compt==0):
                         if len(glob.glob(os.path.join(data_folder,'*.zip'))) == 1:
                             compt +=1
-                            time.sleep(1)
+                            time.sleep(1)                            
                         time.sleep(1)
                     driver.close()
                     file = glob.glob(data_folder+'/*.zip')[0]

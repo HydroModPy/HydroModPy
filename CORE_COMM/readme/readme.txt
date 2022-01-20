@@ -23,3 +23,11 @@ Check that libraries are installed: conda list
 Go to folder of Ipython Notebook or spyder to run 
 Execute: jupyter lab or spyder
 Find and open notebook or script
+
+6-Potentiel errors
+Spyder debugging
+- Solution: update spyder version with : conda install --upgrade spyder
+
+7-Package conflicts
+Between matplotlib and geopandas/gdal/rasterio
+=> Resolve by adding specific version in the environment.yml
