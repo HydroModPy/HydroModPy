@@ -160,7 +160,7 @@ nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
 K_R = 27.104
 
 K_dic = K_R*BV.forcing.recharge
-BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+BV.hydrodynamic.update_hyd_cond(K_dic) # m/y
 BV.hydrodynamic.update_porosity = 0.01
 
 # Name of model
@@ -191,8 +191,8 @@ print('Result chronics extraction completed')
 from groundwater_flow import visualization
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=False, object_list=['watertable_depth','pathlines'], view='custom',
-              z_scale = 1,  lines=1000, cscale = 'custom', cmin = -1, cmax = 1)
+visu.visual3D(interactive=False, object_list=['drain_flow','pathlines'], view='custom',
+              z_scale = 1,  lines=1000, cscale = 'custom', cmin = -1, cmax = 0.5)
 
 #%% MODEL homogene
 K_R = 27.104
