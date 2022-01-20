@@ -36,11 +36,6 @@ class Hydrology:
             except:
                 print('Problem to clip hydrology')
                 pass
-        try:
-            self.clip_data(hydro_path, data_folder, watershed_shp, watershed_dem)
-        except:
-            print('Problem to clip hydrometry')
-            pass
         
     def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem):
         
@@ -50,9 +45,9 @@ class Hydrology:
         
         self.tif_streams = data_folder + type_obs + '.tif'
         shp_type = gpd.read_file(self.streams).geometry.type[0] # forma = forma.geom_type[0] 
-        if (shp_type == 'MultiPolygon') & (shp_type == 'Polygon'): # if shp_type == 'LineString': 
+        if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString': 
             wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
-        if shp_type == 'LineString':
+        if (shp_type == 'MultiLineString') | (shp_type == 'LineString') :
             wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         
         dem_streams = gdal.Open(self.tif_streams)
@@ -61,15 +56,6 @@ class Hydrology:
         
         pt_streams = data_folder + type_obs + '_pt.shp'
         wbt.raster_to_vector_points(self.tif_streams, pt_streams)
-        
-    def clip_data(self, hydro_path, data_folder, watershed_shp, watershed_dem):
-        hydrometric_data = hydro_path + '/' +  'hydrometric' +'.shp'
-        hydrometric_clip = data_folder + 'hydrometric' +'.shp'
-        wbt.clip(hydrometric_data, watershed_shp, hydrometric_clip)
-        
-        onde_data = hydro_path + '/' +  'onde' +'.shp'
-        onde_clip = data_folder + 'onde' +'.shp'
-        wbt.clip(onde_data, watershed_shp, onde_clip)
         
 #%% Notes
     

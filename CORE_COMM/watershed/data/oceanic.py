@@ -12,17 +12,16 @@ from data import oceanic_display
 
 class Oceanic:
     def __init__(self):
-        print('Extraction des données océaniques')
         self.MSL = None
         
     def extract_data(self, out_path, geographic, oceanic_path = None):
         self.figure_folder = os.path.join(out_path,'figures/oceanic/')
         if not os.path.exists(self.figure_folder):
             os.makedirs(self.figure_folder)
-        self.mean_sea_level(geographic,oceanic_path)
+        self.mean_sea_level(geographic, oceanic_path)
         self.rise_sea_level(geographic, oceanic_path)
 
-    def mean_sea_level(self,geographic,oceanic_path):
+    def mean_sea_level(self,geographic, oceanic_path):
         ram_path = oceanic_path+"/RAM_2020.shp"
         gdf = gpd.read_file(ram_path)
         ports = gdf.to_crs(epsg=2154)

@@ -8,7 +8,7 @@ from scipy.interpolate import griddata
 import flopy
 import flopy.utils.binaryfile as bf
 
-from tools import file_adds
+from tools import toolbox
 
 class Functions:
     def __init__(self, name):
@@ -67,8 +67,8 @@ class VTK():
     def __init__(self, watershed, modelname = None):
         if modelname != None:
             modelfolder= os.path.join(watershed.simulations_folder, modelname)
-            save_file = os.path.join(modelfolder, '_extraction','VTK')
-            file_adds.create_folder(save_file)
+            save_file = os.path.join(modelfolder, '_watershed','VTK')
+            toolbox.create_folder(save_file)
             print('grid')
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
             print('watertable')
@@ -508,11 +508,11 @@ class VTK():
         hds = bf.HeadFile(os.path.join(modelfolder,modelname+'.hds'))
         
         # open the drain flux files
-        drain_file = os.path.join(modelfolder,'_extraction','outflow_drain.npy')
+        drain_file = os.path.join(modelfolder,'_watershed','outflow_drain.npy')
         drain_area = np.load(drain_file, allow_pickle=True).item()
         
         # open the surface flux files
-        surface_file = os.path.join(modelfolder,'_extraction','acc_flux.npy')
+        surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
         surface_area = np.load(surface_file, allow_pickle=True).item()
         
         kstpkper = hds.get_kstpkper()
@@ -810,7 +810,7 @@ class VTK():
             textoVtk.write('        <DataArray type="Float64" Name="Surfaceflow_log" format="ascii">\n')
             for item in range(len(listSurfaceFlowCellDef)):
                 if listSurfaceFlowCellDef[item]>0:
-                    if listDem[item] != -99999.:
+                    if listDem[item] > -1000:
                         textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
                     else:
                        textvalue = 'nan' 

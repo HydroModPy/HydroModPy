@@ -25,8 +25,7 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-from tools import file_adds
-from tools import tif_masks
+from tools import toolbox
 
 class Dichotomy:
     def __init__(self, 
@@ -61,20 +60,20 @@ class Dichotomy:
         wbt.raster_to_vector_points(tif_streams, pt_streams)
         # New folder results
         self.dichotomy_folder = os.path.join(self.simulations_folder, '_dichotomy')
-        file_adds.create_folder(self.dichotomy_folder)
+        toolbox.create_folder(self.dichotomy_folder)
         # Observed buff data
         self.buff_tif_obs = os.path.join(self.hydrology_stable,self.type_river+'.tif')
         self.buff_pt_obs = os.path.join(self.hydrology_stable,self.type_river+'.shp')
         # Mask observed
         self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
-        tif_masks.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
+        toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
         # Obs to points
         self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
         wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)  
         # Mask seepage simulation
         tif_sim = os.path.join(self.results_folder, 'seepage_areas_t(000).tif')
         self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
-        tif_masks.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, True)
+        toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, True)
         # Trace downslope obs
         self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
         wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)

@@ -18,10 +18,10 @@ sys.path.append(root_dir)
 
 # HydroModPy modules
 #from watershed.data import  climatic, oceanic, piezometry, hydrology
-import climatic, oceanic, piezometry, hydrology
-from groundwater_flow import modflow, modpath
-from tools import file_adds
-from watershed import forcing, geographic, geology, hydrodynamic, subbasins, watershed_display
+import climatic, oceanic, piezometry, hydrology, geology, hydrometry, intermittency
+from groundwater_flow import modflow, modpath, modflow_results
+from tools import toolbox
+from watershed import forcing, geographic, hydrodynamic, watershed_display
 from calibration import calib_dichotomy
 
 class Watershed:
@@ -96,19 +96,24 @@ class Watershed:
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
+        self.hydrometry_path = hydrometry_path
+        self.intermittency_path = intermittency_path
+        self.subbasin_path = subbasin_path
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
-        file_adds.create_folder(self.watershed_folder)
+        toolbox.create_folder(self.watershed_folder)
         
         self.stable_folder = os.path.join(self.watershed_folder, 'results_stable')
-        file_adds.create_folder(self.stable_folder)                
+        toolbox.create_folder(self.stable_folder)
+        
         self.add_data_folder = os.path.join(self.stable_folder, 'add_data/')
-        file_adds.create_folder(self.add_data_folder)
+        toolbox.create_folder(self.add_data_folder)
+        
         self.figure_folder = os.path.join(self.stable_folder, '_figures/watershed/')
-        file_adds.create_folder(self.figure_folder)
+        toolbox.create_folder(self.figure_folder)
         
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
-        file_adds.create_folder(self.simulations_folder)
+        toolbox.create_folder(self.simulations_folder)
         
         self.elt_def = []
         
@@ -183,6 +188,15 @@ class Watershed:
             if ('oceanic' in BV.__dir__()) == True:
                 self.oceanic = BV.oceanic
                 self.elt_def.append('oceanic')
+            if ('hydrometry' in BV.__dir__()) == True:
+                self.hydrometry = BV.hydrometry
+                self.elt_def.append('hydrometry')
+            if ('intermittency' in BV.__dir__()) == True:
+                self.intermittency = BV.intermittency
+                self.elt_def.append('intermittency')
+            if ('subbasin' in BV.__dir__()) == True:
+                self.subbasin = BV.subbasin
+                self.elt_def.append('subbasin')
             return True 
         else:
             print("Warning : file doesn't exist, python_object", self.watershed_folder)
@@ -202,6 +216,7 @@ class Watershed:
         
         self.forcing = forcing.Forcing(out_path=self.watershed_folder)
         self.elt_def.append('forcing')
+        
         self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
         self.oceanic = oceanic.Oceanic()
@@ -238,9 +253,20 @@ class Watershed:
         self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
         self.elt_def.append('piezometry')
         self.save_object()
-    
-    #self.hydrometry = hydrometry() #doesn't exist
-    #self.geochemistry = geochemistry() #doesn't exist
+        
+    def add_hydrometry(self, hydrometry_path):
+        self.hydrometry_path = hydrometry_path
+        self.hydrometry = hydrometry.Hydrometry(out_path=self.watershed_folder, hydrometry_path=self.hydrometry_path, geographic=self.geographic)
+        self.elt_def.append('hydrometry')
+            
+    def add_intermittency(self, intermittency_path):
+        self.intermittency_path = intermittency_path
+        self.intermittency = intermittency.Intermittency(out_path=self.watershed_folder, intermittency_path=self.intermittency_path, geographic=self.geographic)
+        self.elt_def.append('intermittency')
+            
+    def add_subbasin(self):
+        self.subbasin = geographic.Subbasin(geographic=self.geographic, hydrometry=self.hydrometry, intermittency=self.intermittency, out_path=self.watershed_folder)
+        self.elt_def.append('subbasin')
 
     def save_object(self):
         """
@@ -254,35 +280,9 @@ class Watershed:
             pickle.dump(self, config_dictionary_file)
         config_dictionary_file.close()
         # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
-    
-    def generate_subbasins(self, file_name='data.txt', fonction_column='fonction', type_data='hydro',
-                                 code_column='code', label_column='name',
-                                 x_column=0, y_column=1,
-                                 start_column=1990, end_column=2000,
-                                 snap_dist=100):
-        """
-        AG: à déplacer dans géographic ? ou hydrology? car on l'utilise pour les débits'
-        """
-        sub = subbasins.Subbasins(self.geographic)
-        df_auto = sub.automatic_coord(self.hydrology_path, os.path.join(self.stable_folder, 'hydrology'))
-        try:
-            sub.manual_coord(os.path.join(self.stable_folder, 'add_data'), 
-                                         file_name,  
-                                         fonction_column,
-                                         type_data,
-                                         code_column,
-                                         label_column,
-                                         x_column,
-                                         y_column,
-                                         start_column,
-                                         end_column)
-        except:
-            pass
-        sub.extract_subbasins(snap_dist, self.stable_folder)
-        return df_auto
-    
-    def run_modflow(self, ident: str = 'modflow', modpath_sim: bool = False, 
-                    calib: bool = True, sink_fill: bool = False, lay_number: int = 1, 
+        
+    def run_modflow(self, ident: str = 'modflow', modpath_sim: bool = False, box: bool = True,
+                    first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., verbose: bool = True):
         """ 
         Build and run modflow model
@@ -298,12 +298,12 @@ class Watershed:
         
         :meta public:
         """
-        flow_model = modflow.Modflow(self.geographic, calib=calib, sink_fill=sink_fill,
-                                    lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
-                                    hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
-                                    climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
-                                    model_name=ident, model_folder=self.simulations_folder, 
-                                    exe=self.modflow_path +'/bin/mfnwt.exe')
+        flow_model = modflow.Modflow(self.geographic, first_only=first_only, sink_fill=sink_fill, box=box,
+                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
+                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
+                                     climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
+                                     model_name=ident, model_folder=self.simulations_folder, 
+                                     exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing()
         succes = flow_model.processing(verbose = verbose)
         if succes == True:
@@ -317,83 +317,18 @@ class Watershed:
                 transit_model.processing(verbose = verbose)
                 #transit_model.post_processing()
         return succes
-               
-    def chronics_modflow(self, ident='modflow', mask=False, outlet_type='hydrometric',
-                         calib_only=False, first=1960, last=2020, time_step='monthly'):
-        """
-        AG: je ne pense pas que ce soit sa place.
-        Pour moi c'est une method de la class Modflow.
-        Il faudrait peut être faire un object modflow ou l'on pourrait appeler Chronics
-        style : BV.modflow.chronics
-        """
-        self.chronics = modflow.Chronics(self.geographic, watershed_name=self.watershed_name,
-                                        mask=mask, outlet_type=outlet_type, calib_only=calib_only,
-                                        subbasins_folder=os.path.join(self.stable_folder, 'subbasins'),
-                                        first=first, last=last, time_step=time_step,
-                                        model_name=ident, model_folder=self.simulations_folder,
-                                        hydrology_path=self.hydrology_path)
-        self.chronics.extract_chronic()
-                        
-    def calib_dichotomy(self, ident='modflow', type_river='streams', calib=True, climatic=8e-4, 
-                        lay_number=1, thick=50, bottom=None, thick_exp=1., 
-                        first=1, last=10000, gap=1, porosity=0.01, sea_level=None, cond_decay=0.):
-        """
-        AG: Destiné à disparaitre
-        
-        :meta private:
-        """
-        self.diff = last - first
-        half = (first + last) / 2
-        self.gap = gap
-        
-        self.df = pd.DataFrame()
-        
-        compt = 0
-        while (self.diff > ((gap/100) * half)):
-            half = (first + last) / 2
-            hyd_cond = half * climatic
-            
-            ident = str('dic')+'-'+str(type_river)+'-'+str(round(half,3))+'-'+str(round(climatic,3))+'-'+str(round(thick,3))
-            
-            model = modflow.Modflow(self.geographic, calib=calib, time_step='monthly',
-                                    lay_number=lay_number, thick=thick, thick_exp=thick_exp, bottom=bottom,
-                                    hyd_cond=hyd_cond, cond_decay=cond_decay, porosity=porosity,
-                                    climatic=climatic, sea_level=sea_level, 
-                                    model_name=ident, model_folder=self.simulations_folder, 
-                                    exe=self.modflow_path +'/bin/mfnwt.exe')
-            model.pre_processing()
-            model.processing()
-            model.post_processing()
-            
-            dicot = calib_dichotomy.Dichotomy(self.geographic, 
-                                              type_river=type_river,
-                                              hydrology_stable=os.path.join(self.stable_folder, 'hydrology'), 
-                                              simulations_folder=os.path.join(self.simulations_folder, ident))
-            mean_obs_to_sim, mean_sim_to_obs, condition = dicot.mean_distances()
-            
-            if condition > 1:
-                first = half
-            else:
-                last = half
+    
+    def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M'):
+
+        modflow_results.Results(self.geographic,
+                                          recharge=self.forcing.recharge,
+                                          actual_date=actual_date,
+                                          start=start,
+                                          time_step=time_step,
+                                          stable_folder=self.stable_folder,
+                                          model_name=ident,
+                                          model_folder=self.simulations_folder)
                 
-            self.diff = last - first
-            
-            print('==> Simulation : '+str(compt))            
-            print('    Ecart = '+str(round(self.diff,2)))
-            print('    K/R = '+str(round(half, 2)))
-            print('    Condition = '+str(condition))
-            print('    Gap = '+str(round((gap/100) * half, 2)))
-            
-            self.df.loc[compt,'KR'] = round(half, 4)
-            self.df.loc[compt,'K'] = round(hyd_cond, 4)
-            self.df.loc[compt,'Sflow'] = round(mean_sim_to_obs, 4)
-            self.df.loc[compt,'Oflow'] = round(mean_obs_to_sim, 4)
-            self.df.loc[compt,'Cond'] = round(condition, 4)    
-            
-            compt += 1
-        
-        self.df.to_csv(os.path.join(self.simulations_folder, '_dichotomy_'+type_river+'.csv'), sep=';', index=True)
-        
     def run_hs1D(self):
         """
         Coming soon !
