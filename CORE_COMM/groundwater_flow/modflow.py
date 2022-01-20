@@ -387,7 +387,7 @@ class Modflow():
                                                  '_abs_outflow_drain_t(xxx).tif',
                                                  'mass_outflow_drain_t('+lead_numb+').tif',
                                                  extraction_folder=self.save_file)
-                    
+                        self.dict_mass_flux[item] = imageio.imread(os.path.join(self.save_file,'_surfaceflow','mass_outflow_drain_t('+lead_numb+').tif'))
                 else:
                     tif_adds.export_tif(self.dem_path, self.out_drn, -9999,
                                         self.save_file+'/outflow_drain_t('+lead_numb+').tif')
@@ -403,7 +403,7 @@ class Modflow():
                                              'mass_outflow_drain_t('+lead_numb+').tif',
                                              extraction_folder=self.save_file)
 
-                self.dict_mass_flux[item] = imageio.imread(os.path.join(self.save_file,'_surfaceflow','mass_outflow_drain_t('+lead_numb+').tif'))
+                    self.dict_mass_flux[item] = imageio.imread(os.path.join(self.save_file,'_surfaceflow','mass_outflow_drain_t('+lead_numb+').tif'))
                 self.dict_outflow_drain[item] = self.out_drn
                 # print('export outflow_drain')
         

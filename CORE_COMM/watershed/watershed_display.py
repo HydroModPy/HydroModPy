@@ -94,7 +94,7 @@ def watershed_local(regional_dem_path, BV):
 def watershed_dem(BV):
     fontprop = to_plot.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    streams = gpd.read_file(BV.hydrology.streams)
+    
     
     #polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
@@ -112,7 +112,11 @@ def watershed_dem(BV):
                              cmap='terrain')
     show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
          cmap='terrain', alpha=1, zorder=2, aspect="auto")
-    streams.plot(ax=ax, lw=2, color='navy', zorder=3,legend=True, label='Streams')
+    try:
+        streams = gpd.read_file(BV.hydrology.streams)
+        streams.plot(ax=ax, lw=2, color='navy', zorder=3,legend=True, label='Streams')
+    except:
+        pass
     contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
     try:
         if os.path.exists(BV.piezometry.piezos_shp):

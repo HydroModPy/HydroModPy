@@ -37,9 +37,16 @@ class Calibration():
         basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
         basis.build_objective_function(resolution = resolution)
     
-    def simplex(self):
+    def simplex(self, init_multiples_n=1):
         basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
-        simplex = calib_simplex.CalibrationSimplex('Simplex', basis)
-        simplex.perform()
+        if init_multiples_n == 1:
+            simplex = calib_simplex.CalibrationSimplex('Simplex', basis)
+            res = simplex.perform()
+        else:
+            simplex = calib_simplex.CalibrationSimplex('Simplex_init_multipes', basis, init_multiples_n=init_multiples_n)
+            res = simplex.perform()
         
-        
+        return res
+    
+    def metropolis_hastings(self):
+        basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)

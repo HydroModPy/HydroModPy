@@ -84,12 +84,8 @@ class Watershed:
     :meta public:
     """
     def __init__(self, watershed_name: str, dem_path: str, 
-                 out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'),
-                 surfex_path: str = None, oceanic_path: str = None, 
-                 geology_path: str = None, hydrology_path: str = None, 
-                 piezometry_path: bool = False, modflow_path: str = None,
-                 save_object: bool = True, load: bool = False,
-                 types_obs: list = ['streams'], fields_obs: list = ['FID']):
+                 out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
+                 modflow_path: str = None, save_object: bool = True, load: bool = False):
         """  
         Constructor
         """
@@ -99,16 +95,7 @@ class Watershed:
 
         self.dem_path = dem_path
         self.out_path = out_path
-        
-        self.surfex_path = surfex_path
-        self.hydrology_path = hydrology_path
-        self.piezometry_path = piezometry_path
-        self.oceanic_path = oceanic_path
-        self.geology_path = geology_path
         self.modflow_path = modflow_path
-        
-        self.types_obs = types_obs
-        self.fields_obs = fields_obs
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         file_adds.create_folder(self.watershed_folder)
@@ -217,34 +204,43 @@ class Watershed:
         self.elt_def.append('forcing')
         self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
-        
+        self.oceanic = oceanic.Oceanic()
         #self.hillslope = hillslope() #1D Doesn't exist
         
-        if self.hydrology_path != None:
-            self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, types_obs=self.types_obs, fields_obs=self.fields_obs, geographic=self.geographic, hydro_path=self.hydrology_path)
-            self.elt_def.append('hydrology')
+    def add_hydrology(self, hydrology_path, types_obs = ['streams'], fields_obs = ['FID'], reset = False):
+        self.hydrology_path = hydrology_path
+        self.types_obs = types_obs
+        self.fields_obs = fields_obs
+        self.hydrology = hydrology.Hydrology(out_path=self.watershed_folder, types_obs=self.types_obs, fields_obs=self.fields_obs, geographic=self.geographic, hydro_path=self.hydrology_path)
+        self.elt_def.append('hydrology')
+        self.save_object()
             
-        if self.geology_path != None:
-            self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None)
-            self.elt_def.append('geology')
+    def add_geology(self, geology_path):
+        self.geology_path = geology_path
+        self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None)
+        self.elt_def.append('geology')
+        self.save_object()
 
-        #MODELING DATA
-        self.oceanic = oceanic.Oceanic()
-        if self.oceanic_path != None:
-            self.oceanic.extract_data(out_path=self.watershed_folder, oceanic_path=self.oceanic_path,geographic=self.geographic)
-            self.elt_def.append('oceanic')
+    def add_oceanic(self, oceanic_path):
+        self.oceanic_path = oceanic_path
+        self.oceanic.extract_data(out_path=self.watershed_folder, oceanic_path=self.oceanic_path,geographic=self.geographic)
+        self.elt_def.append('oceanic')
+        self.save_object()
 
-        if self.surfex_path != None:
-            self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
-            climatic.Merge(out_path=self.watershed_folder)
-            self.elt_def.append('surfex')
+    def add_surfex(self, surfex_path):
+        self.surfex_path = surfex_path
+        self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
+        climatic.Merge(out_path=self.watershed_folder)
+        self.elt_def.append('surfex')
+        self.save_object()
 
-        #FIELD DATA
-        if self.piezometry_path == True:
-            self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
-            self.elt_def.append('piezometry')
-        #self.hydrometry = hydrometry() #doesn't exist
-        #self.geochemistry = geochemistry() #doesn't exist
+    def add_piezometry(self):
+        self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
+        self.elt_def.append('piezometry')
+        self.save_object()
+    
+    #self.hydrometry = hydrometry() #doesn't exist
+    #self.geochemistry = geochemistry() #doesn't exist
 
     def save_object(self):
         """

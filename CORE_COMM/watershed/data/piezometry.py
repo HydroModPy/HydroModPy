@@ -115,7 +115,7 @@ class Piezometry:
         self.x_iloc_discrete = []
         self.y_iloc_discrete = []
         for i in range(0, len(self.x_coord_discrete)):
-            idx = (np.abs(geographic.x_coord- self.x_coord_discrete[i])).argmin()
+            idx = (np.abs(geographic.x_coord - self.x_coord_discrete[i])).argmin()
             idy = (np.abs(geographic.y_coord- self.y_coord_discrete[i])).argmin()
             self.x_iloc_discrete.append(idx)
             self.y_iloc_discrete.append(idy)
@@ -138,7 +138,7 @@ class Piezometry:
                     elem.click()
                     compt = 0
                     while (compt==0):
-                        if len(glob.glob(data_folder + '*.zip')) == 1:
+                        if len(glob.glob(os.path.join(data_folder,'*.zip'))) == 1:
                             compt +=1
                             time.sleep(1)
                         time.sleep(1)
