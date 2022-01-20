@@ -257,7 +257,7 @@ class Modflow():
         
     def post_processing(self, watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
-                              groundwater_flux = True, specific_discharge = True,
+                              groundwater_flux = True, specific_discharge = False,
                               accumulation_flux = True,
                               verbose = True, export_tif = True):
         # self.wt_elev = []

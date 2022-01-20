@@ -56,11 +56,11 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 # Path to the git repositoty home page
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
 # Path to the data folder
-data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
+data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/TEST/"
+out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
 
 #%% CORRECT PATHS
 
@@ -112,19 +112,19 @@ print('##### '+watershed_name.upper()+' #####')
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
-                              surfex_path=surfex_path, 
-                              geology_path=geology_path, 
-                              hydrology_path=hydrology_path,
-                              oceanic_path=oceanic_path,
-                              hydrometry_path=hydrometry_path,
-                              intermittency_path=intermittency_path,
-                              piezometry_path=piezometry_path,
-                              subbasin_path=subbasin_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
-                              load=load,
-                              types_obs=types_obs,
-                              fields_obs=fields_obs)
+                              load=load)
+
+BV.add_surfex(surfex_path) 
+BV.add_geology(geology_path) 
+BV.add_hydrology(hydrology_path,types_obs=types_obs,fields_obs=fields_obs)
+#BV.add_oceanic(oceanic_path)
+BV.add_hydrometry(hydrometry_path)
+BV.add_intermittency(intermittency_path)
+BV.add_piezometry()
+BV.add_subbasin() 
+
 # except:
 #     print('There is a problem to generate the watershed object')
 
@@ -208,17 +208,16 @@ BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_
 
 #%% VISUALIZATION 3D
 
-vtk.VTK(BV, model_name)
+#vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=True,
-              object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'],
+              object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'], z_scale=10,
               view='south-west', lines=200, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS
-
-# x = np.load('D:/Users/abherve/TEST/Explo/results_simulations/test_1/_watershed/watertable_depth.npy', allow_pickle=True).item()[0]
-# x[x<0] = np.nan
-# plt.imshow(x[0])
+x = np.load('C:/Users/alexa/Dropbox/HydroModPy/Explo/results_simulations/test_1/_watershed/watertable_depth.npy', allow_pickle=True).item()[0]
+x[x<0] = np.nan
+plt.imshow(x[0])
 
 modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=True)
 

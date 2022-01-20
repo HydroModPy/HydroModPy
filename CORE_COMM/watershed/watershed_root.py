@@ -96,10 +96,7 @@ class Watershed:
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
-        self.hydrometry_path = hydrometry_path
-        self.intermittency_path = intermittency_path
-        self.subbasin_path = subbasin_path
-        
+
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
         
