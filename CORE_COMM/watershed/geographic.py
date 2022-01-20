@@ -256,6 +256,10 @@ class Subbasin:
         if not os.path.exists(self.subbasin_path):
             toolbox.create_folder(self.subbasin_path)
         
+        self.adddata_path = os.path.join(out_path, 'results_stable/add_data/')
+        if not os.path.exists(self.adddata_path):
+            toolbox.create_folder(self.adddata_path)
+        
         code_bh = hydrometry.code_bh
         x_coord = hydrometry.x_coord
         y_coord = hydrometry.y_coord
@@ -269,7 +273,12 @@ class Subbasin:
         for i in range(len(code_onde)):
             sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
             self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
-            
+        
+        code_sub, x_coord, y_coord = self.add_coord_manual()
+        for i in range(len(code_sub)):
+            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        
     def extract_interest_zones(self, geographic, X, Y, outpath):
         # Path of subbasin
         if os.path.exists(outpath):
@@ -302,7 +311,14 @@ class Subbasin:
         # Clip buffer watershed DEM from watershed shapefile polygon
         watershed_dem = outpath + 'watershed_dem.tif'
         wbt.clip_raster_to_polygon(geographic.watershed_buff_dem, watershed_shp, watershed_dem, maintain_dimensions=True)        
-
+    
+    def add_coord_manual(self):
+        sub_list = pd.read_csv(os.path.join(self.adddata_path, 'add_coord_manual.txt'), sep=';')
+        code_sub = sub_list['code_sub'].to_list()
+        x_coord = sub_list['x_outlet'].to_list()
+        y_coord = sub_list['y_outlet'].to_list()
+        return code_sub, x_coord, y_coord
+        
 # x = Subbasins(BV.geographic, BV.hydrometry, BV.intermittency, BV.watershed_folder)
 
 #%%

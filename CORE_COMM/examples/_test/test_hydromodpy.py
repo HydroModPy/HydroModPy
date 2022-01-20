@@ -112,7 +112,7 @@ fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 print('##### '+watershed_name.upper()+' #####')
 
 # try:
