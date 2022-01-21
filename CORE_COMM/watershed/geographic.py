@@ -273,10 +273,8 @@ class Geographic:
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
             # Copy tif
-            self.waterhed_dem = self.gis_path + 'watershed_dem.tif'
-            shutil.copyfile(dem_path, self.watesrhed_dem)
-        # No data
-        wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')        
+            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            shutil.copyfile(dem_path, self.watesrhed_dem)    
         # Buff dem
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_buff_dem)
@@ -390,6 +388,12 @@ class Subbasin:
     # Buff box fill dem
 # self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
 # shutil.copyfile(self.watershed_fill, self.watershed_box_buff_fill)
+    # Resampling
+# wbt.resample(self.watershed_dem, self.watershed_dem, 
+#              cell_size=100, base=None, method="nn")
+# self.watershed_dem = self.gis_path + 'watershed_dem_resample.tif'
+    # No data
+# wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')    
 
 """
 for i in range(len(clip_hydrometric_shp)):
