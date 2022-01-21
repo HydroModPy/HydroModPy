@@ -93,7 +93,10 @@ class Hydrometry:
     
         # try:
         driver.find_element_by_name('btnValider').click()
-        driver.find_element_by_link_text("Téléchargement (nécessité de disposer d'un compte)").click()
+        try:
+            driver.find_element_by_link_text("Téléchargement (nécessité de disposer d'un compte)").click()
+        except:
+            driver.find_element_by_link_text("TÃ©lÃ©chargement (nÃ©cessitÃ© de disposer d'un compte)").click()
         driver.find_element_by_name("username").send_keys("AUNIV084")
         driver.find_element_by_name("password").send_keys("DRUNIV2022")
         driver.find_element_by_name("btnCnx").click()
@@ -114,6 +117,10 @@ class Hydrometry:
                 pass
             try:
                 driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
+            except:
+                pass
+            try:
+                driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
             except:
                 pass
             try:
@@ -159,7 +166,12 @@ class Hydrometry:
                         time.sleep(5)
                         pass
                 
-                driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                try:
+                    driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                except:
+                    driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
+                    pass
+                
                 driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
                 driver.find_element_by_link_text("page d'accueil").click()
                 
