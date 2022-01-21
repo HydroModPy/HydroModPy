@@ -106,94 +106,109 @@ class Hydrometry:
             print('          '+code)
             error = False
             
-            # if not os.path.exists(data_folder+'/'+code):
+            if not os.path.exists(data_folder+'/'+code):
             
-            if os.path.exists(data_folder+'/'+code+'/'):                
-                shutil.rmtree(data_folder+'/'+code+'/')
+            # if os.path.exists(data_folder+'/'+code+'/'):                
+            #     shutil.rmtree(data_folder+'/'+code+'/')
                 
-            try:
-                driver.find_element_by_xpath("//a[@title='Tout supprimer']").click()
-            except:
-                pass
-            try:
-                driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
-            except:
-                pass
-            try:
-                driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
-            except:
-                pass
-            try:
-                driver.find_element_by_name("code_station").clear()
-            except:
-                pass
-            
-            driver.find_element_by_name("code_station").send_keys(code)       
-            driver.find_element_by_name("station_hors_service").click()
-            
-            try:
-                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
-                driver.find_element_by_name("station[]").click()
-            except:
-                driver.find_element_by_name("station_hors_service").click()
-                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                 try:
+                    driver.find_element_by_xpath("//a[@title='Tout supprimer']").click()
+                except:
+                    pass
+                try:
+                    driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
+                except:
+                    pass
+                try:
+                    driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
+                except:
+                    pass
+                try:
+                    driver.find_element_by_name("code_station").clear()
+                except:
+                    pass
+                
+                driver.find_element_by_name("code_station").send_keys(code)       
+                driver.find_element_by_name("station_hors_service").click()
+                
+                try:
+                    driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                     driver.find_element_by_name("station[]").click()
                 except:
-                    error = True
-                    print('               No found')
-                    pass
-                
-            if error == True:
-                continue
-            
-            else:            
-                elem = driver.find_element_by_name('debut_an')
-                elem.click()
-                opt = elem.find_elements_by_tag_name('option')
-                opt[len(opt)-1].click()
-                driver.find_element_by_name("btnValider").click()
-                
-                driver.find_element_by_link_text("page d'accueil").click()
-                
-                down = None
-                while down is None:
-                    driver.refresh()
+                    driver.find_element_by_name("station_hors_service").click()
+                    driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                     try:
-                        down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
-                        down.click()
+                        driver.find_element_by_name("station[]").click()
                     except:
-                        time.sleep(5)
-                        pass
-                
-                try:
-                    driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
-                except:
-                    driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
-                    pass
-                
-                driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
-                driver.find_element_by_link_text("page d'accueil").click()
-                
-                fich = None
-                while fich is None:
-                    driver.refresh()
-                    try:
-                        fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
-                        fich.click()
-                    except:
-                        time.sleep(5)
+                        error = True
+                        print('               No found')
                         pass
                     
-                files = glob.glob(data_folder+'/*.zip')
-                while len(files) != 2:
+                if error == True:
+                    continue
+                
+                else:
+                    driver.find_element_by_xpath("//input[@value='Exporter']").click()                
+                    driver.find_element_by_xpath("//input[@value='QJM']").click()
+                    
+                    try:
+                        elem = driver.find_element_by_name('debut_an')
+                        elem.click()
+                    except:
+                        print('               No data')
+                        error = True
+                        element_present = driver.find_element_by_id('header_gauche')
+                        element_present.click()
+                        driver.find_element_by_name('btnValider').click()
+                        pass
+                    
+                    if error == True:
+                        continue
+                    
+                    opt = elem.find_elements_by_tag_name('option')
+                    opt[len(opt)-1].click()
+                    driver.find_element_by_name("btnValider").click()
+                    
+                    driver.find_element_by_link_text("page d'accueil").click()
+                    
+                    down = None
+                    while down is None:
+                        driver.refresh()
+                        try:
+                            down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
+                            down.click()
+                        except:
+                            time.sleep(5)
+                            pass
+                    
+                    try:
+                        driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                    except:
+                        driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
+                        pass
+                    
+                    driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
+                    driver.find_element_by_link_text("page d'accueil").click()
+                    
+                    fich = None
+                    while fich is None:
+                        driver.refresh()
+                        try:
+                            fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
+                            fich.click()
+                        except:
+                            time.sleep(5)
+                            pass
+                        
                     files = glob.glob(data_folder+'/*.zip')
-                    time.sleep(1)
-                    
-                for file in files:
-                    with zipfile.ZipFile(file, 'r') as zip_ref:
-                        zip_ref.extractall(data_folder+'/'+code)
-                    os.remove(file)
+                    while len(files) != 2:
+                        files = glob.glob(data_folder+'/*.zip')
+                        time.sleep(1)
+                        
+                    for file in files:
+                        with zipfile.ZipFile(file, 'r') as zip_ref:
+                            zip_ref.extractall(data_folder+'/'+code)
+                        os.remove(file)
             
         driver.close()
             
