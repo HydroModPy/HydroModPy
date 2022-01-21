@@ -123,7 +123,7 @@ fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate
 
 from watershed import watershed_root, forcing, watershed_display
 
-load = True
+load = False
 print('##### '+watershed_name.upper()+' #####')
 
 # try:
@@ -192,7 +192,7 @@ time_step = 'M'
 
 # Conceptual model
 R = pd.Series([0.02,0.03,0.04,0.01]) / 30
-BV.forcing.update_recharge(R, sim_state='staedy')
+BV.forcing.update_recharge(R, sim_state='steady')
 
 # Plot to control recharge 
 # fig, ax = plt.subplots(1,1, figsize=(6,3))
@@ -216,7 +216,7 @@ model_name = 'test_1'
 
 #%% RUN MODEL
 
-plt.imshow(imageio.imread('D:/Users/abherve/TEST/Dem/results_stable/geographic/watershed_dem.tif'))
+x = plt.imshow(imageio.imread('D:/Users/abherve/TEST/Dem/results_stable/geographic/watershed_dem.tif'))
 
 BV.run_modflow(ident=model_name,
                 modpath_sim=True,
@@ -238,10 +238,16 @@ BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_
 
 #%% VISUALIZATION 3D
 
+# vtk.VTK(BV, model_name)
+# visu = visualization.Visualization(BV, model_name)
+# visu.visual3D(interactive=True,
+#               object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'], z_scale=10,
+#               view='south-west', lines=200, cloc=(0.7,0.1))
+
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=True,
-              object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'], z_scale=10,
+              object_list=['grid','watertable', 'watertable_depth', 'drain_flow'], z_scale=10,
               view='south-west', lines=200, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS

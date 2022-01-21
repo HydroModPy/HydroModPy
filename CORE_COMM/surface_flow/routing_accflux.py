@@ -20,9 +20,7 @@ class RoutingAccflux:
 
         self.geographic = geographic
         self.extraction_folder = extraction_folder
-
-        self.watershed_shp = geographic.watershed_shp
-        self.watershed_fill = geographic.watershed_fill
+        
         self.watershed_direc = geographic.watershed_direc
         
         self.watershed_buff_fill = geographic.watershed_buff_fill
