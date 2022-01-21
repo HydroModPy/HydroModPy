@@ -42,14 +42,19 @@ class Hydrometry:
         hydrometric_data = initlocal_path
         self.hydrometric_clip = outshp_path
         wbt.clip(hydrometric_data, clipshp_path, self.hydrometric_clip)
-        # try:
-        hydromet_bv = gpd.read_file(self.hydrometric_clip)        
+        hydromet_bv = gpd.read_file(self.hydrometric_clip)
+        # p="D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp"
+        # hydromet_bv = gpd.read_file(p)
+        hydromet_bv = hydromet_bv[~hydromet_bv['CdStatio_1'].isnull()]
+        hydromet_bv = hydromet_bv[hydromet_bv['InfluLocal']==1]
         self.label = hydromet_bv['LbStationH'].to_list()
+        self.influ = hydromet_bv['InfluLocal'].to_list()
         self.x_coord = hydromet_bv['CoordXStat'].tolist()
         self.y_coord = hydromet_bv['CoordYStat'].to_list()
         for i in range(len(hydromet_bv)):
             hydromet_bv['CdStationH'].iloc[i] = hydromet_bv.iloc[i]['CdStationH'][0:8]
-            hydromet_bv['timePositi'].iloc[i] = hydromet_bv.iloc[i]['timePositi'][0:10]
+            if hydromet_bv['timePositi'].iloc[i] == None:
+                hydromet_bv['timePositi'].iloc[i] = datetime.datetime.today().strftime('%Y-%m-%d')
             if hydromet_bv['DtFermetur'].iloc[i] == None:
                 hydromet_bv['DtFermetur'].iloc[i] = datetime.datetime.today().strftime('%Y-%m-%d')
             else:
@@ -80,22 +85,26 @@ class Hydrometry:
     
         # try:
         driver.find_element_by_name('btnValider').click()
-        driver.find_element_by_link_text("Téléchargement (nécessité de disposer d'un compte)").click()
+        try:
+            driver.find_element_by_link_text("Téléchargement (nécessité de disposer d'un compte)").click()
+        except:
+            driver.find_element_by_link_text("TÃ©lÃ©chargement (nÃ©cessitÃ© de disposer d'un compte)").click()
         driver.find_element_by_name("username").send_keys("AUNIV084")
         driver.find_element_by_name("password").send_keys("DRUNIV2022")
         driver.find_element_by_name("btnCnx").click()
                             
-        for code in self.code_bh:
-        # code_bh = ['J7373110','J7393010','J7313010']
-        # for code in code_bh:
+        for code, name in zip(self.code_bh, self.label):
+        # label = ['Test']
+        # code_bh = ['J7373110']
+        # for code, name in zip(code_bh, label):
                         
             print('          '+code)
             error = False
             
             # if not os.path.exists(data_folder+'/'+code):
             
-            if os.path.exists(outdata_path+'/'+code+'/'):                
-                shutil.rmtree(outdata_path+'/'+code+'/')
+            if os.path.exists(outdata_path+'/'+code+'_'+name+'/'):                
+                shutil.rmtree(outdata_path+'/'+code+'_'+name+'/')
                 
             try:
                 driver.find_element_by_xpath("//a[@title='Tout supprimer']").click()
@@ -103,6 +112,10 @@ class Hydrometry:
                 pass
             try:
                 driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
+            except:
+                pass
+            try:
+                driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
             except:
                 pass
             try:
@@ -150,8 +163,12 @@ class Hydrometry:
                     except:
                         time.sleep(5)
                         pass
-                
-                driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                    
+                try:
+                    driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                except:
+                    driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
+                    pass
                 driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
                 driver.find_element_by_link_text("page d'accueil").click()
                 
@@ -172,7 +189,7 @@ class Hydrometry:
                     
                 for file in files:
                     with zipfile.ZipFile(file, 'r') as zip_ref:
-                        zip_ref.extractall(outdata_path+'/'+code)
+                        zip_ref.extractall(outdata_path+'/'+code+'_'+name)
                     os.remove(file)
             
         driver.close()
@@ -181,11 +198,11 @@ class Hydrometry:
         
         discharge = pd.DataFrame()
         
-        for code in self.code_bh:
-        # code_bh = ['J7373110','J7393010','J7313010']
+        for code, name in zip(self.code_bh, self.label):
+        # code_bh = ['J7373110']
         # for code in code_bh:
             try:
-                fiche_path = glob.glob(outdata_path+'/'+code+'/'+'*fiche-station.csv')[0]
+                fiche_path = glob.glob(outdata_path+'/'+code+'_'+name+'/'+'*fiche-station.csv')[0]
                 with open(fiche_path) as f:
                     lines = f.readlines()            
                 name = lines[3].split(';')[1]            
@@ -202,7 +219,7 @@ class Hydrometry:
                 area = lines[4].split(';')[1]
                 alti = lines[17].split(';')[1]
                 
-                qjm_path = glob.glob(outdata_path+'/'+code+'/'+'qjm*')[0]            
+                qjm_path = glob.glob(outdata_path+'/'+code+'_'+name+'/'+'qjm*')[0]            
                 with open(qjm_path) as f:
                     lines = f.readlines()            
                 compt = 0
@@ -230,7 +247,7 @@ class Hydrometry:
                     compt += 73
                 df.columns = ['Q']
                 name_out = 'Hydrometric_'+code+'_'+name+'_'+x+'-'+y+'_'+area+'_'+alti+'_'+first+'-'+last
-                df.to_csv(outdata_path+'/'+code+'/'+name_out+'.csv', sep=';')
+                df.to_csv(outdata_path+'/'+code+'_'+name+'/'+name_out+'.csv', sep=';')
                 append = df.copy()
                 append.columns = [code]
                 fig, ax = plt.subplots(1,1, figsize=(8,3))
@@ -239,7 +256,7 @@ class Hydrometry:
                 ax.set_xlabel('Date')
                 ax.set_ylabel('Discharge [m$^3$/day]')
                 ax.set_title(code+'\n'+name)
-                fig.savefig(outfig_path+'/'+code+'_'+' - '+name+'.png', dpi=300, 
+                fig.savefig(outfig_path+'/'+code+'_'+name+'.png', dpi=300, 
                             bbox_inches='tight', transparent=False)
                 discharge = pd.concat([discharge, append], axis=1).sort_index()
             except:
@@ -247,7 +264,7 @@ class Hydrometry:
         discharge.to_csv(outdata_path+'/'+'CONCAT_DATA'+'.csv', sep=';')
         
 x = Hydrometry('C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/shp/meu.shp',
+               'D:/Users/abherve/HYDROMETRY/shp/frame_ebr.shp',
                'D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp',
                'D:/Users/abherve/HYDROMETRY/data',
                'D:/Users/abherve/HYDROMETRY/fig')
