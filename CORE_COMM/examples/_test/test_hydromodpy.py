@@ -75,6 +75,7 @@ out_path = "D:/Users/abherve/TEST/"
 dems_path = data_path + 'dem/'
 hydrology_path = data_path + 'hydrology/' # add hydrographic shapefiles
 modflow_path = data_path + 'modflow/' # add bin/ folder with necessary .exe
+shp_path = data_path + 'shp/'
 
 intermittency_path = data_path + 'intermittency/'
 hydrometry_path = data_path + 'hydrometry/'
@@ -94,12 +95,20 @@ dem = gdal.Open(dem_path)
 proj = osr.SpatialReference(wkt=dem.GetProjection())
 crs = int(proj.GetAttrValue('AUTHORITY',1))
 
+# Model from a dem
+from_dem = True
+dem_path = dems_path + 'topoxyz_Uhigh.txt'
+
+# Shp to build model
+from_shp = None
+from_shp = shp_path + 'lambda.shp'
+
 # Import the library of watersheds to generate
 library_path = data_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
-watershed_name = 'Explo' # add manually study site information in map units / 'Search' 
+watershed_name = 'Dem' # add manually study site information in map units / 'Search' 
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
@@ -112,6 +121,8 @@ fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate
 
 #%% GENERATING WATERSHED
 
+from watershed import watershed_root, forcing, watershed_display
+
 load = True
 print('##### '+watershed_name.upper()+' #####')
 
@@ -121,16 +132,21 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               out_path=out_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
-                              load=load)
+                              load=load,
+                              from_shp=from_shp,
+                              from_dem=from_dem)
 
-BV.add_surfex(surfex_path) 
-BV.add_geology(geology_path) 
-BV.add_hydrology(hydrology_path,types_obs=types_obs,fields_obs=fields_obs)
-#BV.add_oceanic(oceanic_path)
-BV.add_hydrometry(hydrometry_path)
-BV.add_intermittency(intermittency_path)
-BV.add_piezometry()
-BV.add_subbasin() 
+#%%
+
+if load != True:
+    BV.add_surfex(surfex_path) 
+    BV.add_geology(geology_path) 
+    BV.add_hydrology(hydrology_path,types_obs=types_obs,fields_obs=fields_obs)
+    #BV.add_oceanic(oceanic_path)
+    BV.add_hydrometry(hydrometry_path)
+    BV.add_intermittency(intermittency_path)
+    # BV.add_piezometry()
+    BV.add_subbasin() 
 
 # except:
 #     print('There is a problem to generate the watershed object')
@@ -166,24 +182,29 @@ last = 2010
 time_step = 'M'
 
 # If recharge SURFEX is available
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                  first_year = first, last_year = last, 
-                                  time_step = time_step, sim_state=sim_state)
+# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+#                                   first_year = first, last_year = last, 
+#                                   time_step = time_step, sim_state=sim_state)
 
 # Finally the rehcarge is set as a value or a serie
-R = BV.forcing.recharge / 30 # m/month to m/day
-BV.forcing.update_recharge(values = R, sim_state=sim_state)
+# R = BV.forcing.recharge / 30 # m/month to m/day
+# BV.forcing.update_recharge(values = R, sim_state=sim_state)
+
+# Conceptual model
+R = pd.Series([0.02,0.03,0.04,0.01]) / 30
+BV.forcing.update_recharge(R, sim_state='staedy')
 
 # Plot to control recharge 
 # fig, ax = plt.subplots(1,1, figsize=(6,3))
 # ax.plot(R*1000, c='k', lw=0.5)
 
 # Update hydrualic conductivity
-K = 1e-5 * 3600 * 24 # m/second to m/day
+K = 1e-6 * 3600 * 24 # m/second to m/day
 BV.hydrodynamic.update_hyd_cond(K)
+KR = K / np.mean(R)
 
 # Update aquifer thickness
-E = 30 # m
+E = 50 # m
 BV.hydrodynamic.update_thickness(E)
 
 # Update effective porosity
@@ -194,6 +215,8 @@ BV.hydrodynamic.update_porosity(P)
 model_name = 'test_1'
 
 #%% RUN MODEL
+
+plt.imshow(imageio.imread('D:/Users/abherve/TEST/Dem/results_stable/geographic/watershed_dem.tif'))
 
 BV.run_modflow(ident=model_name,
                 modpath_sim=True,
@@ -215,7 +238,7 @@ BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_
 
 #%% VISUALIZATION 3D
 
-#vtk.VTK(BV, model_name)
+vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=True,
               object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'], z_scale=10,
@@ -244,7 +267,8 @@ river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 # river_data = imageio.imread(stable_folder+'/hydrology/'+'streams_fr.tif')
 
 # Function
-modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=False)
+modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
 
 #%% NOTES
+
 

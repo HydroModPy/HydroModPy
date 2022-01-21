@@ -85,18 +85,23 @@ class Watershed:
     """
     def __init__(self, watershed_name: str, dem_path: str, 
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
-                 modflow_path: str = None, save_object: bool = True, load: bool = False):
+                 modflow_path: str = None, save_object: bool = True, load: bool = False,
+                 from_shp: str = None, from_dem: bool = False):
         """  
         Constructor
         """
         self.watershed_name = watershed_name
         self.library_path = library_path
+        
+        self.from_shp = from_shp
+        self.from_dem = from_dem
+        
         self.load_watershed_csv()
 
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
-
+        
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
         
@@ -135,20 +140,27 @@ class Watershed:
         
         :meta public:
         """
-        watershed_list = pd.read_csv(self.library_path, delimiter=';')
-        try:
+        if (self.from_shp == None) | (self.from_dem == False):
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
-            watershed_info = watershed_list.loc[watershed_list['watershed_name'] == self.watershed_name]
-            self.x_outlet = watershed_info.iloc[0]['x_outlet']
-            self.y_outlet = watershed_info.iloc[0]['y_outlet']
-            self.snap_dist = watershed_info.iloc[0]['snap_dist']
-            self.buff_percent = watershed_info.iloc[0]['buff_percent']
-            self.crs_proj = watershed_info.iloc[0]['crs_proj']
-        except:
-            print("Warning : The name of watershed is not in the watershed list")
-            sys.exit()
-            return watershed_list
-        
+            try:
+                watershed_list = pd.read_csv(self.library_path, delimiter=';')
+                watershed_info = watershed_list.loc[watershed_list['watershed_name'] == self.watershed_name]
+                self.x_outlet = watershed_info.iloc[0]['x_outlet']
+                self.y_outlet = watershed_info.iloc[0]['y_outlet']
+                self.snap_dist = watershed_info.iloc[0]['snap_dist']
+                self.buff_percent = watershed_info.iloc[0]['buff_percent']
+                self.crs_proj = watershed_info.iloc[0]['crs_proj']
+            except:
+                print("Warning : The name of watershed is not in the watershed list")
+                sys.exit()
+                return watershed_list
+        else:
+            self.x_outlet = None
+            self.y_outlet = None
+            self.snap_dist = None
+            self.buff_percent = 10
+            self.crs_proj = None
+            
     def load_object(self):
         """
         Loads python object
@@ -208,7 +220,8 @@ class Watershed:
         #STURCUTRE DATA
         self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet,
                                                 snap_dist=self.snap_dist, buff_percent=self.buff_percent,
-                                                out_path=self.watershed_folder) #2D
+                                                out_path=self.watershed_folder,
+                                                from_shp=self.from_shp, from_dem=self.from_dem) #2D
         self.elt_def.append('geographic')
         
         self.forcing = forcing.Forcing(out_path=self.watershed_folder)

@@ -35,7 +35,7 @@ class Hydrometry:
         print('Extraction des données hydrométriques')
 
         self.extract_hydrometry_from_watershed(initlocal_path, clipshp_path, outshp_path)
-        self.download_data_from_code_bh(outdata_path)
+        # self.download_data_from_code_bh(outdata_path)
         self.load_hydrometric_data(outdata_path, outfig_path)
     
     def extract_hydrometry_from_watershed(self, initlocal_path, clipshp_path, outshp_path):
@@ -74,7 +74,7 @@ class Hydrometry:
         driver = webdriver.Chrome(options=chrome_options)
         driver.get(url)
         
-        timeout = 3
+        timeout = 10
         try:
             element_present = EC.presence_of_element_located((By.ID, 'main'))
             WebDriverWait(driver, timeout).until(element_present)
@@ -95,102 +95,114 @@ class Hydrometry:
                             
         for code, name in zip(self.code_bh, self.label):
         # label = ['Test']
-        # code_bh = ['J7373110']
+        # code_bh = ['J0407610']
         # for code, name in zip(code_bh, label):
                         
             print('          '+code)
             error = False
             
-            # if not os.path.exists(data_folder+'/'+code):
+            if not os.path.exists(outdata_path+'/'+code+'_'+name):
             
-            if os.path.exists(outdata_path+'/'+code+'_'+name+'/'):                
-                shutil.rmtree(outdata_path+'/'+code+'_'+name+'/')
+            # if os.path.exists(outdata_path+'/'+code+'_'+name+'/'):                
+            #     shutil.rmtree(outdata_path+'/'+code+'_'+name+'/')
                 
-            try:
-                driver.find_element_by_xpath("//a[@title='Tout supprimer']").click()
-            except:
-                pass
-            try:
-                driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
-            except:
-                pass
-            try:
-                driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
-            except:
-                pass
-            try:
-                driver.find_element_by_name("code_station").clear()
-            except:
-                pass
-            
-            driver.find_element_by_name("code_station").send_keys(code)       
-            driver.find_element_by_name("station_hors_service").click()
-            
-            try:
-                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
-                driver.find_element_by_name("station[]").click()
-            except:
-                driver.find_element_by_name("station_hors_service").click()
-                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                 try:
+                    driver.find_element_by_xpath("//a[@title='Tout supprimer']").click()
+                except:
+                    pass
+                try:
+                    driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
+                except:
+                    pass
+                try:
+                    driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
+                except:
+                    pass
+                try:
+                    driver.find_element_by_name("code_station").clear()
+                except:
+                    pass
+                
+                driver.find_element_by_name("code_station").send_keys(code)       
+                driver.find_element_by_name("station_hors_service").click()
+                
+                try:
+                    driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                     driver.find_element_by_name("station[]").click()
                 except:
-                    error = True
-                    print('               No found')
-                    pass
-                
-            if error == True:
-                continue
-            
-            else:
-                driver.find_element_by_xpath("//input[@value='Exporter']").click()                
-                driver.find_element_by_xpath("//input[@value='QJM']").click()
-                
-                elem = driver.find_element_by_name('debut_an')
-                elem.click()
-                opt = elem.find_elements_by_tag_name('option')
-                opt[len(opt)-1].click()
-                driver.find_element_by_name("btnValider").click()
-                
-                driver.find_element_by_link_text("page d'accueil").click()
-                
-                down = None
-                while down is None:
-                    driver.refresh()
+                    driver.find_element_by_name("station_hors_service").click()
+                    driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
                     try:
-                        down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
-                        down.click()
+                        driver.find_element_by_name("station[]").click()
                     except:
-                        time.sleep(5)
+                        error = True
+                        print('               No found')
                         pass
                     
-                try:
-                    driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
-                except:
-                    driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
-                    pass
-                driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
-                driver.find_element_by_link_text("page d'accueil").click()
+                if error == True:
+                    continue
                 
-                fich = None
-                while fich is None:
-                    driver.refresh()
+                else:
+                    driver.find_element_by_xpath("//input[@value='Exporter']").click()                
+                    driver.find_element_by_xpath("//input[@value='QJM']").click()
+                    
                     try:
-                        fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
-                        fich.click()
+                        elem = driver.find_element_by_name('debut_an')
+                        elem.click()
                     except:
-                        time.sleep(5)
+                        print('               No data')
+                        error = True
+                        element_present = driver.find_element_by_id('header_gauche')
+                        element_present.click()
+                        driver.find_element_by_name('btnValider').click()
                         pass
                     
-                files = glob.glob(outdata_path+'/*.zip')
-                while len(files) != 2:
+                    if error == True:
+                        continue
+                    
+                    opt = elem.find_elements_by_tag_name('option')
+                    opt[len(opt)-1].click()
+                    driver.find_element_by_name("btnValider").click()
+                    
+                    driver.find_element_by_link_text("page d'accueil").click()
+                    
+                    down = None
+                    while down is None:
+                        driver.refresh()
+                        try:
+                            down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
+                            down.click()
+                        except:
+                            time.sleep(5)
+                            pass
+                        
+                    try:
+                        driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
+                    except:
+                        driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
+                        pass
+                    driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
+                    driver.find_element_by_link_text("page d'accueil").click()
+                    
+                    fich = None
+                    while fich is None:
+                        driver.refresh()
+                        try:
+                            fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
+                            fich.click()
+                        except:
+                            time.sleep(5)
+                            pass
+                        
                     files = glob.glob(outdata_path+'/*.zip')
-                    time.sleep(1)
-                    
-                for file in files:
-                    with zipfile.ZipFile(file, 'r') as zip_ref:
-                        zip_ref.extractall(outdata_path+'/'+code+'_'+name)
-                    os.remove(file)
+                    while len(files) != 2:
+                        files = glob.glob(outdata_path+'/*.zip')
+                        time.sleep(1)
+                        
+                    for file in files:
+                        with zipfile.ZipFile(file, 'r') as zip_ref:
+                            zip_ref.extractall(outdata_path+'/'+code+'_'+name)
+                        os.remove(file)
             
         driver.close()
            
@@ -199,27 +211,28 @@ class Hydrometry:
         discharge = pd.DataFrame()
         
         for code, name in zip(self.code_bh, self.label):
-        # code_bh = ['J7373110']
-        # for code in code_bh:
-            try:
-                fiche_path = glob.glob(outdata_path+'/'+code+'_'+name+'/'+'*fiche-station.csv')[0]
+        # label = ['L\'Airon ï¿½ Louvignï¿½-du-Dï¿½sert - Moulin du Pont']
+        # code_bh = ['I9122010']
+        # for code, name in zip(code_bh, label):
+            try:                
+                fiche_path = glob.glob(outdata_path+'/'+code+'*'+'/'+'*fiche-station.csv')[0]
                 with open(fiche_path) as f:
-                    lines = f.readlines()            
+                    lines = f.readlines()        
                 name = lines[3].split(';')[1]            
                 nlines=0
                 for line in lines:
                     nlines += 1
-                    if (line.find('X') >= 0):
+                    if (line.find('X (m)') >= 0):
                         x = lines[nlines].split(';')[0]
                         y = lines[nlines].split(';')[1]       
                         first = lines[nlines].split(';')[4][6:-6]
                         last = lines[nlines].split(';')[5][6:-6]
-                if last == None:
+                if (last == None) | (last==''):
                     last = datetime.datetime.today().strftime('%Y')
                 area = lines[4].split(';')[1]
                 alti = lines[17].split(';')[1]
                 
-                qjm_path = glob.glob(outdata_path+'/'+code+'_'+name+'/'+'qjm*')[0]            
+                qjm_path = glob.glob(outdata_path+'/'+code+'*'+'/'+'qjm*')[0]            
                 with open(qjm_path) as f:
                     lines = f.readlines()            
                 compt = 0
@@ -247,7 +260,8 @@ class Hydrometry:
                     compt += 73
                 df.columns = ['Q']
                 name_out = 'Hydrometric_'+code+'_'+name+'_'+x+'-'+y+'_'+area+'_'+alti+'_'+first+'-'+last
-                df.to_csv(outdata_path+'/'+code+'_'+name+'/'+name_out+'.csv', sep=';')
+                sortie = glob.glob(outdata_path+'/'+code+'*'+'/')[0]
+                df.to_csv(sortie+name_out+'.csv', sep=';')
                 append = df.copy()
                 append.columns = [code]
                 fig, ax = plt.subplots(1,1, figsize=(8,3))
@@ -259,7 +273,10 @@ class Hydrometry:
                 fig.savefig(outfig_path+'/'+code+'_'+name+'.png', dpi=300, 
                             bbox_inches='tight', transparent=False)
                 discharge = pd.concat([discharge, append], axis=1).sort_index()
+                plt.close()
+                print('Success : '+code)
             except:
+                print('Error : '+code)
                 pass
         discharge.to_csv(outdata_path+'/'+'CONCAT_DATA'+'.csv', sep=';')
         

@@ -213,8 +213,6 @@ class Modflow():
                     self.rchData[kper] = np.nanmean(self.climatic)
                 else:
                     self.rchData[kper] = self.climatic[kper]
-        print('REC')
-        print(self.climatic)
         self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
                 
         # Drain package (DRN)
