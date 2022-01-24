@@ -116,14 +116,20 @@ class SurfaceOutputs():
         dem = rasterio.open(self.stable_folder+'/geographic/'+'watershed_dem.tif')
         imageio.imread(self.stable_folder+'/geographic/'+'watershed_dem.tif')
         contour = gpd.read_file(self.stable_folder+'/geographic/'+'watershed_contour.shp')
-        gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[0]+'.shp')
-        sections = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[1]+'.shp')
+        try:
+            gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[0]+'.shp')
+            sections = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[1]+'.shp')
+        except:
+            pass
         # Plot observed
         fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
-        sections[sections.Persistanc=='3'].plot(ax=ax, lw=2, color='k', ls='--', zorder=7,
-                        label='Temporary - Obs.')
-        sections[sections.Persistanc=='4'].plot(ax=ax, lw=2, color='k', ls='-', zorder=7,
-                        label='Perennial - Obs.')
+        try:
+            sections[sections.Persistanc=='3'].plot(ax=ax, lw=2, color='k', ls='--', zorder=7,
+                            label='Temporary - Obs.')
+            sections[sections.Persistanc=='4'].plot(ax=ax, lw=2, color='k', ls='-', zorder=7,
+                            label='Perennial - Obs.')
+        except:
+            pass
         bounds = contour.geometry.total_bounds
         xlim = ([bounds[0], bounds[2]])
         ylim = ([bounds[1], bounds[3]])
@@ -326,7 +332,10 @@ class SurfaceOutputs():
         ax.axvline(x=t_temp, color='k', lw=2)
         plt.setp(ax.get_xticklabels(), visible=False)
         ax.set_xlim(xlim)
-        ax.set_ylim(self.df.rec.min(), self.df.rec.max())
+        try:
+            ax.set_ylim(self.df.rec.min(), self.df.rec.max())
+        except:
+            pass
         ax.xaxis.set_major_locator(yearsmaj)
         ax.xaxis.set_minor_locator(yearsmin)
         ax.xaxis.set_major_formatter(years_fmt)

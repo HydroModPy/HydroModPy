@@ -85,8 +85,11 @@ class VTK():
                 pass
             print('watershed_boundary')
             self.watershed_boundary(save_file, watershed.geographic)
-            print('streams')
-            self.streams(save_file, watershed.hydrology, watershed.geographic)
+            try:
+                print('streams')
+                self.streams(save_file, watershed.hydrology, watershed.geographic)
+            except:
+                pass
         else:
             print('Need name of groundwater model: modelname (str)')
 
