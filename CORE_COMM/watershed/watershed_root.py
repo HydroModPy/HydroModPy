@@ -280,7 +280,7 @@ class Watershed:
         
     def run_modflow(self, ident: str = 'modflow', modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
-                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., verbose: bool = True):
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., verbose: bool = False):
         """ 
         Build and run modflow model
         
@@ -301,16 +301,16 @@ class Watershed:
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
                                      model_name=ident, model_folder=self.simulations_folder, 
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
-        flow_model.pre_processing()
+        flow_model.pre_processing(verbose = verbose)
         succes = flow_model.processing(verbose = verbose)
         if succes == True:
-            flow_model.post_processing()
+            flow_model.post_processing(verbose = verbose)
         
             if modpath_sim == True:
                 transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
                                             exe=self.modflow_path + '/bin/mp6.exe')
-                transit_model.pre_processing()
+                transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
                 #transit_model.post_processing()
         return succes

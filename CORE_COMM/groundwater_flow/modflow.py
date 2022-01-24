@@ -198,8 +198,9 @@ class Modflow():
                         self.evtData[kper] = 0
                     else:
                         self.evtData[kper] = self.evt[kper]
-            print('ETR')
-            print(self.evt)
+            if verbose == True:
+                print('ETR')
+                print(self.evt)
             self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3, evtr=self.evtData, surf=0.0, exdp=1.0)
             self.climatic[self.climatic<0] = 0
         
@@ -213,8 +214,9 @@ class Modflow():
                     self.rchData[kper] = np.nanmean(self.climatic)
                 else:
                     self.rchData[kper] = self.climatic[kper]
-        print('REC')
-        print(self.climatic)
+        if verbose == True:
+            print('REC')
+            print(self.climatic)
         self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
                 
         # Drain package (DRN)
@@ -256,9 +258,9 @@ class Modflow():
         return succes
         
     def post_processing(self, watertable_elevation = True, watertable_depth=True, 
-                              seepage_areas = True, outflow_drain = True,
+                              seepage_areas = True, outflow_drain = False,
                               groundwater_flux = True, specific_discharge = False,
-                              accumulation_flux = True,
+                              accumulation_flux = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
         # self.wt_depth = []

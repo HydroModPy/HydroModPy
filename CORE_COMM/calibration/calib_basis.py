@@ -214,6 +214,7 @@ class CalibrationBasis:
         Build Objective Function 
         """
         params_values = []
+        compt=1
         pmin = self.params.p_min
         pmax = self.params.p_max
         column_names = list()
@@ -228,9 +229,11 @@ class CalibrationBasis:
             obj_function = pd.DataFrame(columns=column_names)
             # Use of proxy to avoid modification of self.lpm
             for i in range(len(params)):
+                print(str(compt)+'/'+str(resolution))
                 temp = params[i]
                 temp.append(self.objective_function(params[i]))
                 obj_function.loc[i] = temp
+                compt += 1
             # Graphical Representation 
             figadd.figure_init(xlab=column_names[0],ylab="",figname='objective function 1D of ' + self.params.name[0])
             plt.plot(obj_function.values[:,0],obj_function.values[:,1])
@@ -251,8 +254,10 @@ class CalibrationBasis:
             temp=[None]*2
             for i in range(len(p1)):
                 for j in range(len(p2)):
+                    print(str(compt)+'/'+str(len(p1)*len(p2)))
                     temp = [p1[i],p2[j]]
-                    obj_function[i][j] = self.objective_function(temp)
+                    obj_function[j][i] = np.log(self.objective_function(temp))
+                    compt += 1
             # colormap
             X,Y= np.meshgrid(p1, p2)
             Z=obj_function.reshape((len(p1),len(p2)))

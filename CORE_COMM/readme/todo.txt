@@ -33,7 +33,7 @@ Alex:
 	groundwaterflow
 	calibration
 		ok - "subbassins" sera une class du fichier python geographic avec des method différents: (Alexandre)
-		- Mettre objet (climatic, piezometry, geology, oceanic, hydrographic, hydrometry) sous forme de method plutot que de répondre au path en entrée de class watershed_root (Alexandre)
+		ok - Mettre objet (climatic, piezometry, geology, oceanic, hydrographic, hydrometry) sous forme de method plutot que de répondre au path en entrée de class watershed_root (Alexandre)
 		- Comment gérer add_data (stations par ex.) ? ==> subbassin.add_data_from_csv(file.csv) or subbassin.add_data_from_csv(name, x , y) 
 
 

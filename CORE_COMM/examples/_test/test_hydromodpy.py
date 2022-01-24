@@ -215,10 +215,10 @@ visu.visual3D(interactive=True,
               view='south-west', lines=200, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS
-x = np.load('C:/Users/alexa/Dropbox/HydroModPy/Explo/results_simulations/test_1/_watershed/watertable_depth.npy', allow_pickle=True).item()[0]
-x[x<0] = np.nan
-plt.imshow(x[0])
-
+x = np.load('C:/Users/alexa/Dropbox/HydroModPy/Explo/results_simulations/test_1/_watershed/accumulation_flux.npy', allow_pickle=True).item()[0]
+x[x<=0] = np.nan
+plt.imshow(x)
+#%%
 modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=True)
 
 #%% INTERACTIVE CROSS-SECTION
@@ -236,7 +236,7 @@ river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 # river_data = imageio.imread(stable_folder+'/hydrology/'+'streams_fr.tif')
 
 # Function
-modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=False)
+modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
 
 #%% NOTES
 
