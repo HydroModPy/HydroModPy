@@ -153,6 +153,7 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     # Create new data raster with base dem size
     with rio.open(data_tif_path, 'w', **ras_meta) as dst:
         dst.write(data_to_tif, 1)
+    
       
 def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     raw_dem = gdal.Open(raw_dem_path)    
