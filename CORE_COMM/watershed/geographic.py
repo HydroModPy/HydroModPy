@@ -48,13 +48,20 @@ class Geographic:
     """
     
     def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
-                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
+                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
+                 from_shp = None, from_dem = False, cell_size=100):
         print('Extraction des données géographiques')
         
-        self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
-        self.post_processing_dem(out_path)
         self.snap_dist = snap_dist
-    
+        self.from_shp = from_shp
+        
+        if from_dem == False:
+            self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
+        else:    
+            self.model_from_dem(dem_path, out_path, cell_size)
+        
+        self.post_processing_dem()
+            
     def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
         # Generate folder where processing files are stored
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
@@ -84,28 +91,31 @@ class Geographic:
         """
         Extract watershed from an outlet
         """
-        # Extract the coordinate system
-        proj = osr.SpatialReference(wkt=dem.GetProjection())
-        self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
-        # Create outlet shapefile from x and y coordinates
-        df = pd.DataFrame({'x': [x], 'y': [y]})
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
-        outlet_shp = self.gis_path + 'outlet.shp'
-        gdf.to_file(outlet_shp)
-        # Snap the outlet shapefile from the flow accumulation
-        outlet_snap_shp = self.gis_path + 'outlet_snap.shp'
-        wbt.snap_pour_points(outlet_shp, acc, outlet_snap_shp, snap_dist)
-        # Generate raster watershed
-        self.watershed = self.gis_path + 'watershed.tif'
-        wbt.watershed(direc, outlet_snap_shp, self.watershed, esri_pntr=False)
-        # tif = gdal.Open(watershed)
-        # geotransf = tif.GetGeoTransform()
-        # pixel_area = abs(geotransf[1] * geotransf[5])
-        # band_size = (tif.GetRasterBand(1).XSize, tif.GetRasterBand(1).YSize)
-        # area = band_size[0] * band_size[1] * pixel_area
-        # Create shapefile polygon of the watershed
-        self.watershed_shp = self.gis_path + 'watershed.shp'
-        wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
+        if self.from_shp == None :
+            # Extract the coordinate system
+            proj = osr.SpatialReference(wkt=dem.GetProjection())
+            self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            # Create outlet shapefile from x and y coordinates
+            df = pd.DataFrame({'x': [x], 'y': [y]})
+            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
+            outlet_shp = self.gis_path + 'outlet.shp'
+            gdf.to_file(outlet_shp)
+            # Snap the outlet shapefile from the flow accumulation
+            outlet_snap_shp = self.gis_path + 'outlet_snap.shp'
+            wbt.snap_pour_points(outlet_shp, acc, outlet_snap_shp, snap_dist)
+            # Generate raster watershed
+            self.watershed = self.gis_path + 'watershed.tif'
+            wbt.watershed(direc, outlet_snap_shp, self.watershed, esri_pntr=False)
+            # tif = gdal.Open(watershed)
+            # geotransf = tif.GetGeoTransform()
+            # pixel_area = abs(geotransf[1] * geotransf[5])
+            # band_size = (tif.GetRasterBand(1).XSize, tif.GetRasterBand(1).YSize)
+            # area = band_size[0] * band_size[1] * pixel_area
+            # Create shapefile polygon of the watershed
+            self.watershed_shp = self.gis_path + 'watershed.shp'
+            wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
+        else:
+            self.watershed_shp = self.from_shp     
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
         area = np.abs(area)
@@ -193,7 +203,7 @@ class Geographic:
         except:
             pass
         
-    def post_processing_dem(self, out_path):
+    def post_processing_dem(self):
 
         # Open DEM used for modeling
         dem = gdal.Open(self.watershed_buff_dem)
@@ -246,6 +256,65 @@ class Geographic:
         except:
             pass
 
+    def model_from_dem(self, dem_path, out_path, cell_size):
+        # Paths
+        self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
+        toolbox.create_folder(self.gis_path)
+        # Generate tif from xyz file
+        if (dem_path[-3:]=='txt') | (dem_path[-3:]=='csv') | (dem_path[-3:]=='xyz'):
+            # Translate
+            ds = gdal.Open(dem_path)
+            self.watershed_raw = self.gis_path + 'watershed_raw.tif'
+            ds = gdal.Translate(self.watershed_raw, ds)
+            ds = None
+        else:
+            # Find crs
+            dem = gdal.Open(dem_path)
+            proj = osr.SpatialReference(wkt=dem.GetProjection())
+            self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            # Copy tif
+            self.watershed_raw = self.gis_path + 'watershed_raw.tif'
+            shutil.copyfile(dem_path, self.watershed_raw)
+        # Reproj layer
+        self.watershed_reproj = self.gis_path + 'watershed_reproj.tif'
+        gdal.Warp(self.watershed_reproj, self.watershed_raw,dstSRS='EPSG:2154')
+        # Resampling
+        self.watershed_dem = self.gis_path + 'watershed_dem.tif'        
+        wbt.resample(self.watershed_reproj, self.watershed_dem, cell_size=cell_size, base=None, method="nn")
+        # No data
+        wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
+        # Buff dem
+        self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
+        shutil.copyfile(self.watershed_dem, self.watershed_buff_dem)
+        # Buff box dem
+        self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
+        shutil.copyfile(self.watershed_dem, self.watershed_box_buff_dem)
+        # Correction
+        self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+        wbt.fill_depressions(self.watershed_dem, self.watershed_fill)
+        # Flow direction
+        self.watershed_direc = self.gis_path + 'watershed_direc.tif'
+        wbt.d8_pointer(self.watershed_fill, self.watershed_direc, esri_pntr=False)
+        # Flow accumulation
+        self.watershed_acc = self.gis_path + 'watershed_acc.tif'
+        wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
+        # Create shapefile
+        self.watershed_shp = self.gis_path + 'watershed.shp'
+        wbt.raster_to_vector_polygons(self.watershed_dem, self.watershed_shp)
+        # Area of shape
+        wbt.polygon_area(self.watershed_shp)
+        area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
+        area = np.abs(area)
+        # Create shapefile polyline of the watershed
+        self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
+        wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
+        # Buff fill dem
+        self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+        shutil.copyfile(self.watershed_fill, self.watershed_buff_fill)        
+        # Buff box fill dem
+        self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
+        shutil.copyfile(self.watershed_fill, self.watershed_box_buff_fill)
+
 class Subbasin:
     
     def __init__(self, geographic, hydrometry, intermittency,
@@ -255,6 +324,10 @@ class Subbasin:
         self.subbasin_path = os.path.join(out_path, 'results_stable/subbasin/')
         if not os.path.exists(self.subbasin_path):
             toolbox.create_folder(self.subbasin_path)
+        
+        self.adddata_path = os.path.join(out_path, 'results_stable/add_data/')
+        if not os.path.exists(self.adddata_path):
+            toolbox.create_folder(self.adddata_path)
         
         code_bh = hydrometry.code_bh
         x_coord = hydrometry.x_coord
@@ -269,7 +342,15 @@ class Subbasin:
         for i in range(len(code_onde)):
             sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
             self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
-            
+        
+        try:
+            code_sub, x_coord, y_coord = self.add_coord_manual()
+            for i in range(len(code_sub)):
+                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        except:
+            pass
+        
     def extract_interest_zones(self, geographic, X, Y, outpath):
         # Path of subbasin
         if os.path.exists(outpath):
@@ -302,22 +383,62 @@ class Subbasin:
         # Clip buffer watershed DEM from watershed shapefile polygon
         watershed_dem = outpath + 'watershed_dem.tif'
         wbt.clip_raster_to_polygon(geographic.watershed_buff_dem, watershed_shp, watershed_dem, maintain_dimensions=True)        
-
+    
+    def add_coord_manual(self):
+        sub_list = pd.read_csv(os.path.join(self.adddata_path, 'add_coord_manual.txt'), sep=';')
+        code_sub = sub_list['code_sub'].to_list()
+        x_coord = sub_list['x_outlet'].to_list()
+        y_coord = sub_list['y_outlet'].to_list()
+        return code_sub, x_coord, y_coord
+        
 # x = Subbasins(BV.geographic, BV.hydrometry, BV.intermittency, BV.watershed_folder)
 
-#%%
+#%% Notes
+
+#### ADD IF NECESSARY FOR MODEL FROM A CONCEPTUAL DEM ####
+    # Correction
+# self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+# wbt.fill_depressions(self.watershed_dem, self.watershed_fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
+    # Flow direction
+# self.watershed_direc = self.gis_path + 'watershed_direc.tif'
+# wbt.d8_pointer(self.watershed_fill, self.watershed_direc, esri_pntr=False)
+    # Flow accumulation
+# self.watershed_acc = self.gis_path + 'watershed_acc.tif'
+# wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
+    # Create shapefile
+# self.watershed_shp = self.gis_path + 'watershed.shp'
+# wbt.raster_to_vector_polygons(self.watershed_dem, self.watershed_shp)
+    # Area of shape
+# wbt.polygon_area(self.watershed_shp)
+# area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
+# area = np.abs(area)
+    # Create shapefile polyline of the watershed
+# self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
+# wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
+    # Buff fill dem
+# self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+# shutil.copyfile(self.watershed_fill, self.watershed_buff_fill)        
+    # Buff box fill dem
+# self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
+# shutil.copyfile(self.watershed_fill, self.watershed_box_buff_fill)
+    # Resampling
+# wbt.resample(self.watershed_dem, self.watershed_dem, 
+#              cell_size=100, base=None, method="nn")
+# self.watershed_dem = self.gis_path + 'watershed_dem_resample.tif'
+    # No data
+# wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')    
+
 """
-        for i in range(len(clip_hydrometric_shp)):
-            df.loc[i,'type'] = 'hydrometric'
-            df.loc[i,'code'] = clip_hydrometric_shp['CdStatio_1'].values[0]
-            df.loc[i,'label'] = clip_hydrometric_shp['LbStationH'].values[0]
-            df.loc[i,'x'] = clip_hydrometric_shp['CoordXStat'].values[0]
-            df.loc[i,'y'] = clip_hydrometric_shp['CoordYStat'].values[0]
-            df.loc[i,'start'] = pd.to_datetime(clip_hydrometric_shp['timePositi'].values[0][0:10], format='%Y-%m-%d')
-            df.loc[i,'end'] = pd.to_datetime(clip_hydrometric_shp['DtFermetur'].values[0][0:10],format='%Y-%m-%d')
+for i in range(len(clip_hydrometric_shp)):
+    df.loc[i,'type'] = 'hydrometric'
+    df.loc[i,'code'] = clip_hydrometric_shp['CdStatio_1'].values[0]
+    df.loc[i,'label'] = clip_hydrometric_shp['LbStationH'].values[0]
+    df.loc[i,'x'] = clip_hydrometric_shp['CoordXStat'].values[0]
+    df.loc[i,'y'] = clip_hydrometric_shp['CoordYStat'].values[0]
+    df.loc[i,'start'] = pd.to_datetime(clip_hydrometric_shp['timePositi'].values[0][0:10], format='%Y-%m-%d')
+    df.loc[i,'end'] = pd.to_datetime(clip_hydrometric_shp['DtFermetur'].values[0][0:10],format='%Y-%m-%d')
 """
-        
-        
+
         
         
         
