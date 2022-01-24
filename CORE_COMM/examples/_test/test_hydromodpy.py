@@ -98,10 +98,11 @@ crs = int(proj.GetAttrValue('AUTHORITY',1))
 # Model from a dem
 from_dem = True
 dem_path = dems_path + 'topoxyz_Uhigh.txt'
+cell_size = 200
 
 # Shp to build model
 from_shp = None
-from_shp = shp_path + 'lambda.shp'
+# from_shp = shp_path + 'lambda.shp'
 
 # Import the library of watersheds to generate
 library_path = data_path + 'watershed_library.csv' # each row is a study site
@@ -121,9 +122,7 @@ fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate
 
 #%% GENERATING WATERSHED
 
-from watershed import watershed_root, forcing, watershed_display
-
-load = False
+load = True
 print('##### '+watershed_name.upper()+' #####')
 
 # try:
@@ -134,7 +133,8 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               library_path=library_path,
                               load=load,
                               from_shp=from_shp,
-                              from_dem=from_dem)
+                              from_dem=from_dem,
+                              cell_size=cell_size)
 
 #%%
 
@@ -191,15 +191,16 @@ time_step = 'M'
 # BV.forcing.update_recharge(values = R, sim_state=sim_state)
 
 # Conceptual model
-R = pd.Series([0.02,0.03,0.04,0.01]) / 30
-BV.forcing.update_recharge(R, sim_state='steady')
+R = pd.Series([0.02,0.03,0.04,0.01,0.02,0.03,0.02,0.03,0.04,0.01,0.02,0.03,
+               0.02,0.03,0.04,0.01,0.02,0.03,0.02,0.03,0.04,0.01,0.02,0.03,]) / 30
+BV.forcing.update_recharge(R, sim_state='transient')
 
 # Plot to control recharge 
 # fig, ax = plt.subplots(1,1, figsize=(6,3))
 # ax.plot(R*1000, c='k', lw=0.5)
 
 # Update hydrualic conductivity
-K = 1e-6 * 3600 * 24 # m/second to m/day
+K = 1e-7 * 3600 * 24 # m/second to m/day
 BV.hydrodynamic.update_hyd_cond(K)
 KR = K / np.mean(R)
 
@@ -208,7 +209,7 @@ E = 50 # m
 BV.hydrodynamic.update_thickness(E)
 
 # Update effective porosity
-P = 0.1 # -
+P = 0.01 # -
 BV.hydrodynamic.update_porosity(P)
 
 # Set name of the model
@@ -216,7 +217,7 @@ model_name = 'test_1'
 
 #%% RUN MODEL
 
-x = plt.imshow(imageio.imread('D:/Users/abherve/TEST/Dem/results_stable/geographic/watershed_dem.tif'))
+# x = plt.imshow(imageio.imread('D:/Users/abherve/TEST/Dem/results_stable/geographic/watershed_dem.tif'))
 
 BV.run_modflow(ident=model_name,
                 modpath_sim=True,
@@ -247,7 +248,7 @@ BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=True,
-              object_list=['grid','watertable', 'watertable_depth', 'drain_flow'], z_scale=10,
+              object_list=['grid','watertable', 'watertable_depth', 'pathlines', 'surface_flow', 'drain_flow'], z_scale=1,
               view='south-west', lines=200, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS
@@ -256,7 +257,8 @@ visu.visual3D(interactive=True,
 # x[x<0] = np.nan
 # plt.imshow(x[0])
 
-modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=True)
+modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name,
+                               types_obs, freq_interv=12, save_gif=True)
 
 #%% INTERACTIVE CROSS-SECTION
 
@@ -269,8 +271,9 @@ dem_data = BV.geographic.dem_data
 wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # buffer size no masked
 
 # River data
-river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
+# river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 # river_data = imageio.imread(stable_folder+'/hydrology/'+'streams_fr.tif')
+river_data = None
 
 # Function
 modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)

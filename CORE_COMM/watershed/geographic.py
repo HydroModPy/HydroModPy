@@ -49,7 +49,7 @@ class Geographic:
     
     def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
-                 from_shp = None, from_dem = False):
+                 from_shp = None, from_dem = False, cell_size=100):
         print('Extraction des données géographiques')
         
         self.snap_dist = snap_dist
@@ -58,7 +58,7 @@ class Geographic:
         if from_dem == False:
             self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
         else:    
-            self.model_from_dem(dem_path, out_path)
+            self.model_from_dem(dem_path, out_path, cell_size)
         
         self.post_processing_dem()
             
@@ -256,7 +256,7 @@ class Geographic:
         except:
             pass
 
-    def model_from_dem(self, dem_path, out_path):
+    def model_from_dem(self, dem_path, out_path, cell_size):
         # Paths
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
@@ -264,8 +264,8 @@ class Geographic:
         if (dem_path[-3:]=='txt') | (dem_path[-3:]=='csv') | (dem_path[-3:]=='xyz'):
             # Translate
             ds = gdal.Open(dem_path)
-            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-            ds = gdal.Translate(self.watershed_dem, ds)
+            self.watershed_raw = self.gis_path + 'watershed_raw.tif'
+            ds = gdal.Translate(self.watershed_raw, ds)
             ds = None
         else:
             # Find crs
@@ -273,14 +273,47 @@ class Geographic:
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
             # Copy tif
-            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-            shutil.copyfile(dem_path, self.watesrhed_dem)    
+            self.watershed_raw = self.gis_path + 'watershed_raw.tif'
+            shutil.copyfile(dem_path, self.watershed_raw)
+        # Reproj layer
+        self.watershed_reproj = self.gis_path + 'watershed_reproj.tif'
+        gdal.Warp(self.watershed_reproj, self.watershed_raw,dstSRS='EPSG:2154')
+        # Resampling
+        self.watershed_dem = self.gis_path + 'watershed_dem.tif'        
+        wbt.resample(self.watershed_reproj, self.watershed_dem, cell_size=cell_size, base=None, method="nn")
+        # No data
+        wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_buff_dem)
         # Buff box dem
         self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_box_buff_dem)
+        # Correction
+        self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+        wbt.fill_depressions(self.watershed_dem, self.watershed_fill)
+        # Flow direction
+        self.watershed_direc = self.gis_path + 'watershed_direc.tif'
+        wbt.d8_pointer(self.watershed_fill, self.watershed_direc, esri_pntr=False)
+        # Flow accumulation
+        self.watershed_acc = self.gis_path + 'watershed_acc.tif'
+        wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
+        # Create shapefile
+        self.watershed_shp = self.gis_path + 'watershed.shp'
+        wbt.raster_to_vector_polygons(self.watershed_dem, self.watershed_shp)
+        # Area of shape
+        wbt.polygon_area(self.watershed_shp)
+        area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
+        area = np.abs(area)
+        # Create shapefile polyline of the watershed
+        self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
+        wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
+        # Buff fill dem
+        self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+        shutil.copyfile(self.watershed_fill, self.watershed_buff_fill)        
+        # Buff box fill dem
+        self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
+        shutil.copyfile(self.watershed_fill, self.watershed_box_buff_fill)
 
 class Subbasin:
     

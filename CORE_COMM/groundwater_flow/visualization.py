@@ -47,6 +47,7 @@ class Visualization():
             stream.color('b').lw(5)
             stream.renderLinesAsTubes(value=True)
         except:
+            stream=None
             pass
         
         try:

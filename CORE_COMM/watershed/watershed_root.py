@@ -86,7 +86,7 @@ class Watershed:
     def __init__(self, watershed_name: str, dem_path: str, 
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
-                 from_shp: str = None, from_dem: bool = False):
+                 from_shp: str = None, from_dem: bool = False, cell_size: int = 100):
         """  
         Constructor
         """
@@ -95,6 +95,7 @@ class Watershed:
         
         self.from_shp = from_shp
         self.from_dem = from_dem
+        self.cell_size = cell_size
         
         self.load_watershed_csv()
 
@@ -140,7 +141,7 @@ class Watershed:
         
         :meta public:
         """
-        if (self.from_shp == None) | (self.from_dem == False):
+        if (self.from_shp == None) & (self.from_dem == False):
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
             try:
                 watershed_list = pd.read_csv(self.library_path, delimiter=';')
@@ -221,7 +222,8 @@ class Watershed:
         self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet,
                                                 snap_dist=self.snap_dist, buff_percent=self.buff_percent,
                                                 out_path=self.watershed_folder,
-                                                from_shp=self.from_shp, from_dem=self.from_dem) #2D
+                                                from_shp=self.from_shp, from_dem=self.from_dem,
+                                                cell_size=self.cell_size) #2D
         self.elt_def.append('geographic')
         
         self.forcing = forcing.Forcing(out_path=self.watershed_folder)
