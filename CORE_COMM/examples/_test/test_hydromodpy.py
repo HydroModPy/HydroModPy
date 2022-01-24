@@ -96,8 +96,9 @@ proj = osr.SpatialReference(wkt=dem.GetProjection())
 crs = int(proj.GetAttrValue('AUTHORITY',1))
 
 # Model from a dem
-from_dem = True
-dem_path = dems_path + 'topoxyz_Uhigh.txt'
+from_dem = False
+# from_dem = True
+# dem_path = dems_path + 'topoxyz_Uhigh.txt'
 cell_size = 200
 
 # Shp to build model
@@ -109,7 +110,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
-watershed_name = 'Dem' # add manually study site information in map units / 'Search' 
+watershed_name = 'Test' # add manually study site information in map units / 'Search' 
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
@@ -122,7 +123,7 @@ fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 print('##### '+watershed_name.upper()+' #####')
 
 # try:
@@ -135,8 +136,6 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_shp=from_shp,
                               from_dem=from_dem,
                               cell_size=cell_size)
-
-#%%
 
 if load != True:
     BV.add_surfex(surfex_path) 
@@ -176,36 +175,36 @@ if crs == 4326:
 
 # Choice the state of the simulation
 sim_state = 'steady' # steady
-sim_state = 'transient'
+# sim_state = 'transient'
 first = 2010
 last = 2010
 time_step = 'M'
 
 # If recharge SURFEX is available
-# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-#                                   first_year = first, last_year = last, 
-#                                   time_step = time_step, sim_state=sim_state)
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = first, last_year = last, 
+                                  time_step = time_step, sim_state=sim_state)
 
 # Finally the rehcarge is set as a value or a serie
-# R = BV.forcing.recharge / 30 # m/month to m/day
-# BV.forcing.update_recharge(values = R, sim_state=sim_state)
+R = BV.forcing.recharge / 30 # m/month to m/day
+BV.forcing.update_recharge(values = R, sim_state=sim_state)
 
 # Conceptual model
-R = pd.Series([0.02,0.03,0.04,0.01,0.02,0.03,0.02,0.03,0.04,0.01,0.02,0.03,
-               0.02,0.03,0.04,0.01,0.02,0.03,0.02,0.03,0.04,0.01,0.02,0.03,]) / 30
-BV.forcing.update_recharge(R, sim_state='transient')
+# R = pd.Series([0.02,0.03,0.04,0.01,0.02,0.03,0.02,0.03,0.04,0.01,0.02,0.03,
+#                0.02,0.03,0.04,0.01,0.02,0.03,0.02,0.03,0.04,0.01,0.02,0.03,]) / 30
+# BV.forcing.update_recharge(R, sim_state='transient')
 
 # Plot to control recharge 
 # fig, ax = plt.subplots(1,1, figsize=(6,3))
 # ax.plot(R*1000, c='k', lw=0.5)
 
 # Update hydrualic conductivity
-K = 1e-7 * 3600 * 24 # m/second to m/day
+K = 1e-5 * 3600 * 24 # m/second to m/day
 BV.hydrodynamic.update_hyd_cond(K)
 KR = K / np.mean(R)
 
 # Update aquifer thickness
-E = 50 # m
+E = 30 # m
 BV.hydrodynamic.update_thickness(E)
 
 # Update effective porosity
@@ -277,6 +276,17 @@ river_data = None
 
 # Function
 modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
+
+#%% CALIBRATION
+
+from calibration import calib_root
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
+BV.hydrodynamic.update_hyd_cond(4.26*10)
+params_file = git_path + 'calibration/calib_params.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.exploration(resolution=100)
 
 #%% NOTES
 
