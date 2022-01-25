@@ -43,7 +43,6 @@ from calibration import calib_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
-
 user = 'Ronan'
 
 if user == 'Alexandre':
