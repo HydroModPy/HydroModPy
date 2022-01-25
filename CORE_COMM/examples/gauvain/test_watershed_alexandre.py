@@ -33,10 +33,10 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = True#False to build and save python object
+load = False#False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 
-dem_path = root_path + "MNT_75m.tif"#'BDALTI_bzh_75m.tif' 
+dem_path = root_path + "MNT_25m_cor.tif"#'BDALTI_bzh_75m.tif' 
 surfex_path =  root_path + 'SURFEX/Normandie_h5'
 geology_path = root_path + 'GEOLOGY'
 oceanic_path = root_path + 'OCEAN'
@@ -63,11 +63,10 @@ BV.display()
 
 #%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
-zones[0,0] = int(2)
-'''zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
+zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
 zones[BV.geology.geology_array<1000] = int(1) # Sands
 zones[BV.geology.geology_array == 2151] = int(1)
-zones[BV.geology.geology_array == 1871] = int(1)'''
+zones[BV.geology.geology_array == 1871] = int(1)
 BV.hydrodynamic.update_calib_zones(zones)
 
 
@@ -79,13 +78,13 @@ BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(4.26)
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=100)
+calib.exploration(resolution=1000)
 #calib.simplex(init_multiples_n=15)
 
 #%% Calib Analysis
 from calibration import calib_analysis
 file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/piezometry_calibration/exp_2p_21_12_2021_21h05.calib'
-file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/piezometry_calibration/exp_1p_18_01_2022_09h50.calib'
+file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/streams_calibration/exp_2p_24_01_2022_10h22.calib'
 test = calib_analysis.CalibAnalysis(file)
 #ident='modflow'
 #↓BV.run_modflow(ident=ident)
