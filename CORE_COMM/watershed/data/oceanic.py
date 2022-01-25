@@ -15,14 +15,18 @@ class Oceanic:
         self.MSL = None
         
     def extract_data(self, out_path, geographic, oceanic_path = None):
-        self.figure_folder = os.path.join(out_path,'figures/oceanic/')
+        self.figure_folder = os.path.join(out_path,'results_stable/_figures/oceanic/')
         if not os.path.exists(self.figure_folder):
             os.makedirs(self.figure_folder)
-        self.mean_sea_level(geographic, oceanic_path)
-        self.rise_sea_level(geographic, oceanic_path)
+        ram_path = self.mean_sea_level(geographic, oceanic_path)
+        if ram_path != None:
+            self.rise_sea_level(geographic, oceanic_path)
 
     def mean_sea_level(self,geographic, oceanic_path):
         ram_path = oceanic_path+"/RAM_2020.shp"
+        if not os.path.exists(ram_path):
+            ram_path = None
+            return
         gdf = gpd.read_file(ram_path)
         ports = gdf.to_crs(epsg=2154)
         ports = ports.dropna(subset=['NM', 'ZH_Ref'])

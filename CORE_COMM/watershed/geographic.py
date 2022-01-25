@@ -279,8 +279,12 @@ class Geographic:
         self.watershed_reproj = self.gis_path + 'watershed_reproj.tif'
         gdal.Warp(self.watershed_reproj, self.watershed_raw,dstSRS='EPSG:2154')
         # Resampling
-        self.watershed_dem = self.gis_path + 'watershed_dem.tif'        
-        wbt.resample(self.watershed_reproj, self.watershed_dem, cell_size=cell_size, base=None, method="nn")
+        if (dem_path[-3:]=='txt') | (dem_path[-3:]=='csv') | (dem_path[-3:]=='xyz'):
+            self.watershed_dem = self.gis_path + 'watershed_dem.tif'        
+            wbt.resample(self.watershed_reproj, self.watershed_dem, cell_size=cell_size, base=None, method="nn")
+        else:
+            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            shutil.copyfile(self.watershed_reproj, self.watershed_dem)
         # No data
         wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
@@ -314,6 +318,9 @@ class Geographic:
         # Buff box fill dem
         self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
         shutil.copyfile(self.watershed_fill, self.watershed_box_buff_fill)
+        # Create box extent of the watershed
+        self.watershed_box_shp = self.gis_path + 'watershed_box.shp'
+        wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
 
 class Subbasin:
     
@@ -329,19 +336,25 @@ class Subbasin:
         if not os.path.exists(self.adddata_path):
             toolbox.create_folder(self.adddata_path)
         
-        code_bh = hydrometry.code_bh
-        x_coord = hydrometry.x_coord
-        y_coord = hydrometry.y_coord
-        for i in range(len(code_bh)):
-            sub_path = os.path.join(self.subbasin_path, 'hydrometry_'+code_bh[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        try:
+            code_bh = hydrometry.code_bh
+            x_coord = hydrometry.x_coord
+            y_coord = hydrometry.y_coord
+            for i in range(len(code_bh)):
+                sub_path = os.path.join(self.subbasin_path, 'hydrometry_'+code_bh[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        except:
+            pass
         
-        code_onde = intermittency.code_onde
-        x_coord = intermittency.x_coord
-        y_coord = intermittency.y_coord
-        for i in range(len(code_onde)):
-            sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        try:
+            code_onde = intermittency.code_onde
+            x_coord = intermittency.x_coord
+            y_coord = intermittency.y_coord
+            for i in range(len(code_onde)):
+                sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        except:
+            pass
         
         try:
             code_sub, x_coord, y_coord = self.add_coord_manual()
