@@ -258,9 +258,9 @@ class Modflow():
         return succes
         
     def post_processing(self, watertable_elevation = True, watertable_depth=True, 
-                              seepage_areas = True, outflow_drain = False,
+                              seepage_areas = True, outflow_drain = True,
                               groundwater_flux = True, specific_discharge = False,
-                              accumulation_flux = False,
+                              accumulation_flux = True,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
         # self.wt_depth = []
@@ -353,10 +353,11 @@ class Modflow():
                 self.head_data = self.head_all[item][0]
             else:
                 self.head_data = self.head_fpu.get_data(totim=time)
-            
+                self.head_data = self.head_data[0]
+                
             if watertable_elevation == True:   
                 ### Watertable elevation
-                self.wt_elev = self.head_data[0]
+                self.wt_elev = self.head_data.copy()
                 self.wt_elev[self.dem_mask] = -9999
                 # self.wt_elev.to_hdf(self.dict_watertable_elevation, lead_numb)
                 output_path = self.tifs_file+'/watertable_elevation_t('+lead_numb+').tif'

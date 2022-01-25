@@ -209,7 +209,6 @@ class Hydrometry:
     def load_hydrometric_data(self, outdata_path, outfig_path):
         
         discharge = pd.DataFrame()
-        
         for code, name in zip(self.code_bh, self.label):
         # label = ['L\'Airon ï¿½ Louvignï¿½-du-Dï¿½sert - Moulin du Pont']
         # code_bh = ['I9122010']
@@ -281,10 +280,10 @@ class Hydrometry:
         discharge.to_csv(outdata_path+'/'+'CONCAT_DATA'+'.csv', sep=';')
         
 x = Hydrometry('C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/shp/frame_ebr.shp',
+               'D:/Users/abherve/HYDROMETRY/shp/bzh.shp',
                'D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/data',
-               'D:/Users/abherve/HYDROMETRY/fig')
+               'D:/Users/abherve/HYDROMETRY/data/BZH',
+               'D:/Users/abherve/HYDROMETRY/fig/BZH')
 
 #%% Notes
 
@@ -297,3 +296,17 @@ x.extract_hydrometry_from_watershed('C:/Users/ronan/OneDrive/_HydroDataPy/HYDROL
 x.download_data_from_code_bh('D:/Users/abherve/HYDROMETRY/data')
 x.load_hydrometric_data('D:/Users/abherve/HYDROMETRY/data',
                         'D:/Users/abherve/HYDROMETRY/fig')
+
+#%%
+
+wbt.split_with_lines(
+    'C:/Users/ronan/Downloads/LimiteMassifArmoricain/RegionOuest.shp', 
+    'C:/Users/ronan/Downloads/LimiteMassifArmoricain/MA_manuel.shp', 
+    'C:/Users/ronan/Downloads/LimiteMassifArmoricain/LimiteMassifArmoricainPolyg.shp')
+
+#%%
+
+import geopandas as gpd
+x = gpd.read_file('D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp')
+x = x[x['InfluLocal']==1]
+
