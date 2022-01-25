@@ -137,7 +137,10 @@ class SurfaceOutputs():
         ax.set_ylim(ylim)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-        ax.set_title(str(self.recharge.index[iter_time])[:10])
+        try:
+            ax.set_title(str(self.recharge.index[iter_time])[:10])
+        except:
+            pass
         ax.set(aspect='equal') 
         image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='Greys')
         rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform,
@@ -189,8 +192,11 @@ class SurfaceOutputs():
         # Open data
         self.df = pd.read_csv(self.dir_to_analyse+'_simulated_results.csv', sep=';',
                          index_col='date', parse_dates=True)
-        self.first = self.df.first_valid_index().year
-        self.last = self.df.last_valid_index().year    
+        try:
+            self.first = self.df.first_valid_index().year
+            self.last = self.df.last_valid_index().year    
+        except:
+            pass
         self.df['spe'] = (self.df.outflow_drain) * 1000 # mm/m
         self.df['rec'] = self.recharge * 1000
         # Dem to watershed scale
@@ -323,22 +329,22 @@ class SurfaceOutputs():
         fig, axs = plt.subplots(3, 1, figsize=(8,8), dpi=300)
         axs = axs.ravel()
         # Recharge
-        ax = axs[0]
-        xlim = [pd.to_datetime(str(self.first)), pd.to_datetime(str(self.last+1))]
+        ax = axs[0]        
         rechs = self.df.iloc[iter_times]
         self.rch_for_gif.append(rechs)
         ax.set_title("Recharge, [mm/M]")
         ax.plot(self.time_tot, self.df.rec, color='k', lw=2)
         ax.axvline(x=t_temp, color='k', lw=2)
         plt.setp(ax.get_xticklabels(), visible=False)
-        ax.set_xlim(xlim)
+        ax.set_ylim(self.df.rec.min(), self.df.rec.max())
         try:
-            ax.set_ylim(self.df.rec.min(), self.df.rec.max())
+            xlim = [pd.to_datetime(str(self.first)), pd.to_datetime(str(self.last+1))]
+            ax.set_xlim(xlim)
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(yearsmin)
+            ax.xaxis.set_major_formatter(years_fmt)
         except:
             pass
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(yearsmin)
-        ax.xaxis.set_major_formatter(years_fmt)
         plt.tight_layout()
         # Saturation
         ax = axs[1]
@@ -347,11 +353,14 @@ class SurfaceOutputs():
         ax.plot(self.time_tot, self.surface_sat,'k', lw=2)
         plt.setp(ax.get_xticklabels(), visible=False)
         ax.axvline(x=t_temp, color='k', lw=2)
-        ax.set_xlim(xlim)
+        try:
+            ax.set_xlim(xlim)
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(yearsmin)
+            ax.xaxis.set_major_formatter(years_fmt)
+        except:
+            pass
         ax.set_ylim(np.array(self.surface_sat).min(), np.array(self.surface_sat).max())
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(yearsmin)
-        ax.xaxis.set_major_formatter(years_fmt)
         plt.tight_layout()
         # Discharge
         ax = axs[2]
@@ -361,11 +370,14 @@ class SurfaceOutputs():
         ax.axvline(x=t_temp, color='k', lw=2)
         # ax.set_yscale("log")
         ax.invert_yaxis()
-        ax.set_xlim(xlim)
+        try:
+            ax.set_xlim(xlim)
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(yearsmin)
+            ax.xaxis.set_major_formatter(years_fmt)
+        except:
+            pass
         ax.set_ylim(np.array(self.flow_rate).min()*1000, np.array(self.flow_rate).max()*1000)
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(yearsmin)
-        ax.xaxis.set_major_formatter(years_fmt)
         plt.tight_layout()
         # Save figure
         name_fig = 'results_' + str(lead_numb) + '.png'

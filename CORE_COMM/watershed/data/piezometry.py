@@ -47,38 +47,39 @@ class Piezometry:
             with zipfile.ZipFile(filename, 'r') as zip_ref:
                 zip_ref.extractall(folder)
             os.remove(filename)
-        
+            
         #BSS discrete data
         filename = data_folder + 'BSS.zip'
         folder = os.path.join(data_folder, 'shapefile')
-        bss = 'bss_export_' + str(geographic.dep_code) + '.zip'
-        bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
-        url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
-        print('     '+'Piezometric page loaded')
-        try:
-            ssl._create_default_https_context = ssl._create_unverified_context
-            urllib.request.urlretrieve(url, filename)
-            with zipfile.ZipFile(filename, 'r') as zip_ref:
-                zip_ref.extractall(folder)
-            os.remove(filename)
-        except:
-            pass
-        combined_csv = pd.read_csv(os.path.join(folder, bss_csv),sep=";")
-        combined_csv = combined_csv[combined_csv['date_eau_sol'].notna()]
-        combined_csv = combined_csv[combined_csv['prof_eau_sol'].notna()]
-        combined_csv = combined_csv[combined_csv['x_ref06'].notna()]
-        combined_csv = combined_csv[combined_csv['y_ref06'].notna()]
-        combined_csv = combined_csv[combined_csv['z_bdalti'].notna()]
-        df = combined_csv[['ID_BSS','indice','date_eau_sol','z_bdalti','prof_eau_sol','x_ref06','y_ref06']]
-        df = df[pd.to_numeric(df['prof_eau_sol'], errors='coerce').notnull()]
-        for i in ['z_bdalti','prof_eau_sol','x_ref06','y_ref06']:
-            df[i] = df[i].astype('float64')
-        df['cote_eau'] = df['z_bdalti'] - df['prof_eau_sol']
-        df.to_csv(os.path.join(folder,"BSS.csv"), index=False, encoding='utf-8-sig')
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x_ref06, df.y_ref06))
-        gdf = gdf.set_crs(epsg=2154)
-        gdf.to_file(os.path.join(folder,"BSS.shp"))
-        os.remove(os.path.join(folder, bss_csv))
+        if not os.path.exists(os.path.join(folder,"BSS.shp")):
+            bss = 'bss_export_' + str(geographic.dep_code) + '.zip'
+            bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
+            url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
+            print('     '+'Piezometric page loaded')
+            try:
+                ssl._create_default_https_context = ssl._create_unverified_context
+                urllib.request.urlretrieve(url, filename)
+                with zipfile.ZipFile(filename, 'r') as zip_ref:
+                    zip_ref.extractall(folder)
+                os.remove(filename)
+            except:
+                pass
+            combined_csv = pd.read_csv(os.path.join(folder, bss_csv),sep=";")
+            combined_csv = combined_csv[combined_csv['date_eau_sol'].notna()]
+            combined_csv = combined_csv[combined_csv['prof_eau_sol'].notna()]
+            combined_csv = combined_csv[combined_csv['x_ref06'].notna()]
+            combined_csv = combined_csv[combined_csv['y_ref06'].notna()]
+            combined_csv = combined_csv[combined_csv['z_bdalti'].notna()]
+            df = combined_csv[['ID_BSS','indice','date_eau_sol','z_bdalti','prof_eau_sol','x_ref06','y_ref06']]
+            df = df[pd.to_numeric(df['prof_eau_sol'], errors='coerce').notnull()]
+            for i in ['z_bdalti','prof_eau_sol','x_ref06','y_ref06']:
+                df[i] = df[i].astype('float64')
+            df['cote_eau'] = df['z_bdalti'] - df['prof_eau_sol']
+            df.to_csv(os.path.join(folder,"BSS.csv"), index=False, encoding='utf-8-sig')
+            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x_ref06, df.y_ref06))
+            gdf = gdf.set_crs(epsg=2154)
+            gdf.to_file(os.path.join(folder,"BSS.shp"))
+            os.remove(os.path.join(folder, bss_csv))
             
             
     def exctract_piezos_from_watershed(self,data_folder, geographic):
