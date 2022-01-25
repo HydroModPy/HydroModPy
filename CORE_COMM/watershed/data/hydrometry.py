@@ -46,6 +46,9 @@ class Hydrometry:
         self.date_ferm = []
         try:
             self.extract_hydrometry_from_watershed(data_folder, hydrometry_path, geographic)
+        except:
+            pass
+        try:
             self.download_data_from_code_bh(data_folder)
             self.load_hydrometric_data(data_folder)
         except:
@@ -81,6 +84,8 @@ class Hydrometry:
         chrome_options.add_experimental_option('prefs', prefs)
         driver = webdriver.Chrome(options=chrome_options)
         driver.get(url)
+        
+        driver.close() # Cause the new site
         
         timeout = 3
         try:

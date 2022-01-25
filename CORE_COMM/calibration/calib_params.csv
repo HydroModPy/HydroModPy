@@ -1,3 +1,2 @@
 params,init_values,lower_bounds,higher_bounds,units,scale
 k1,10,0.00086,860,m/j,log
-k2,10,0.00086,860,m/j,log
