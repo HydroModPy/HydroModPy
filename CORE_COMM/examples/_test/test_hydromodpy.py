@@ -131,7 +131,7 @@ if watershed_name == 'Conceptual':
     dem_name = 'topoxyz_Uhigh.txt'
     from_shp = None
     from_dem = True
-    cell_size = 200
+    cell_size = 100
 
 types_obs = ['streams','sections'] # list of shapefile name layers for clip hydrology
 fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
@@ -202,7 +202,7 @@ if crs == 4326:
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
-sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 period = [2017, 2019] # rehcarge period
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
@@ -213,13 +213,13 @@ model_name = sim_state # just a string
 # Strcture of the model
 lay_number = 1 # vertical discrtization
 bottom = None # aquifer flat or not
-thick_exp = 1. # exponential decay of K with nlay
-cond_decay = 0. # exponential decay of K with depth
+thick_exp = 1 # exponential decay of K with nlay
+cond_decay = 0 # exponential decay of K with depth
 
 # Hydraulic properties
 K = 1e-5 * 3600 * 24 # m/second to m/day
-E = 30 # m
-P = 0.001 # -
+E = 100 # m
+P = 0.01 # -
 
 # Active of not modules
 first_only = False # if True generate results only for the first tim_step
@@ -242,11 +242,14 @@ if watershed_name != 'Conceptual':
         R = BV.forcing.recharge / 30 # m/month to m/day
         BV.forcing.update_recharge(values = R, sim_state = sim_state)
 
+KR=100
+
 # Upadate conceptual recharge
 conceptual_serie = np.random.sample(24)/10
 if watershed_name == 'Conceptual':
-    R = pd.Series(conceptual_serie) / 30 # m/month to m/day
+    R = (pd.Series(0.015) / 30).mean() # m/month to m/day
     BV.forcing.update_recharge(R, sim_state=sim_state)
+    BV.hydrodynamic.update_hyd_cond(KR*R)
     actual_date = False
 
 # Check recharge
@@ -274,12 +277,18 @@ BV.results_modflow(ident=model_name,
                    start=start,
                    time_step=time_step)
 
+# x = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_stable/geographic/watershed_dem.tif')
+# plt.imshow(x)
+
 #%% 3D VISUALIZATION
 
+from tools import toolbox, vtk
+from groundwater_flow import visualization, modflow_display
+
 # 3D parameters
-list_view = ['grid', 'watertable', 'watertable_depth', 'pathlines', 'surface_flow', 'drain_flow'] # object to represent in 3D
+list_view = ['pathlines','drain_flow'] # object to represent in 3D
 interactive = True
-z_scale = 10
+z_scale = 2
 view = 'south-west'
 lines = 200
 
@@ -297,7 +306,7 @@ if sim_state=='transient':
 
 #%% 2D CROSS-SECTION
 
-interactive = False
+interactive = True
 
 dem_data = BV.geographic.dem_data # dem data
 wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
@@ -326,4 +335,63 @@ if test_calib==True:
 
 # library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 # mysite = library[library['watershed_name'] == watershed_name] # specific row
+
+#%% PLOT 2D
+
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import LightSource
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib.colors import LogNorm
+
+lead_numb = '000'
+outflow = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_simulations/steady/_watershed/_tifs/outflow_drain_t(000).tif')
+demData = BV.geographic.dem_data
+res = 100
+
+msk_outflow = (outflow<0)
+outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
+outflow = outflow *1000 *365 # mm/year
+outflow = np.log10(outflow)
+
+ls = LightSource(azdeg=45, altdeg=45)
+cmap = plt.cm.Greys
+rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
+
+fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+cf=ax.imshow(outflow, cmap='jet_r', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+# cf=ax.imshow(outflow, cmap='jet_r', alpha=1, norm = LogNorm(vmin=outflow.min(), vmax=outflow.max()))
+
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1%", pad=0.05)
+fig.add_axes(cax)
+cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+val = np.ma.masked_where(demData < 0, demData)
+minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+cbar.set_ticks([minVal, meanVal, maxVal])
+cbar.set_ticklabels([minVal, meanVal, maxVal])
+cbar.mappable.set_clim(minVal, maxVal)
+cbar.ax.tick_params(labelsize=10)
+
+cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+fig.add_axes(cax)
+cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
+# ticks = np.linspace(0, outflow.max(), 5)
+# cbar.set_ticks(ticks)
+# cbar.set_ticklabels(ticks.round(1))
+cbar.set_label('Seepage rates [Log(Q) mm/year]')
+
+plt.tight_layout()
+name_fig = 'map_discharge_' + str(lead_numb) + '.png'
+plt.tight_layout()
+
+# plt.savefig(self.pngdir + name_fig)
 
