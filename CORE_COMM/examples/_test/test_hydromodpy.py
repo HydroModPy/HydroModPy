@@ -55,19 +55,19 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-# # Path to the git repositoty home page
-# git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
-# # Path to the data folder
-# data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
-# # Path where the results will be stored
-# out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
+# Path to the git repositoty home page
+git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
+# Path where the results will be stored
+out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
 
 # Path to the git repositoty home page
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+#git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # Path to the data folder
-data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
+#data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/TEST/"
+#out_path = "D:/Users/abherve/TEST/"
 
 #%% CORRECT PATHS
 
