@@ -261,7 +261,7 @@ class Geographic:
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
-        if (dem_path[-3:]=='txt') | (dem_path[-3:]=='csv') | (dem_path[-3:]=='xyz'):
+        if (dem_path[-3:]=='txt'):
             x = pd.read_csv(dem_path, sep='\s+', header=None)
             x.to_csv(self.gis_path+'transform_xyz'+'.csv', sep=';', index=False)
             wbt.csv_points_to_vector(self.gis_path+'transform_xyz'+'.csv', 

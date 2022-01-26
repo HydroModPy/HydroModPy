@@ -338,11 +338,8 @@ if test_calib==True:
 #%% PLOT 2D
 
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LightSource
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from matplotlib.colors import LogNorm
 
 lead_numb = '000'
@@ -383,9 +380,9 @@ cbar.ax.tick_params(labelsize=10)
 cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
 fig.add_axes(cax)
 cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-# ticks = np.linspace(0, outflow.max(), 5)
-# cbar.set_ticks(ticks)
-# cbar.set_ticklabels(ticks.round(1))
+ticks = np.linspace(0, outflow.max(), 5)
+cbar.set_ticks(ticks)
+cbar.set_ticklabels(ticks.round(1))
 cbar.set_label('Seepage rates [Log(Q) mm/year]')
 
 plt.tight_layout()
