@@ -305,6 +305,7 @@ class SurfaceOutputs():
             cbar.set_ticklabels([minVal, meanVal, maxVal])
             cbar.mappable.set_clim(minVal, maxVal)
             cbar.ax.tick_params(labelsize=10)
+            # cbar.set_label('Elevation [m]', rotation=270, fontsize=10, labelpad=10)    
             # Color bar discharge
             cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
             fig.add_axes(cax)
@@ -312,7 +313,10 @@ class SurfaceOutputs():
             ticks = np.linspace(outflow.min(), outflow.max(), 5)
             cbar.set_ticks(ticks)
             cbar.set_ticklabels(ticks.round(1).astype(int))
-            cbar.set_label('Seepage rates [mm/M]')
+            if i =='accumulation_flux':
+                cbar.set_label('Cumulated seepage rates [mm/months]')
+            if i =='outflow_drain':
+                cbar.set_label('Outflow seepage rates [mm/months]')    
             # Save figure
             plt.tight_layout()
             name_fig = 'map_'+i+'_' + str(lead_numb) + '.png'
