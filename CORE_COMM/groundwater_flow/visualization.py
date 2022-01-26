@@ -38,7 +38,7 @@ class Visualization():
         # load files
         contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_watershed_contour.vtk'))
         contour.scale([1,1,z_scale])
-        contour.color('k').lw(5)
+        contour.color('k').lw(1)
         contour.renderLinesAsTubes(value=True)
         
         try:

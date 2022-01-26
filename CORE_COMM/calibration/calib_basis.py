@@ -134,7 +134,7 @@ class CalibrationBasis:
             
         if succes == False:
             indicator = np.inf
-        print(params, succes, indicator)  
+        print(params, succes, np.log10(indicator))  
         #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
 
@@ -256,7 +256,7 @@ class CalibrationBasis:
                 for j in range(len(p2)):
                     print(str(compt)+'/'+str(len(p1)*len(p2)))
                     temp = [p1[i],p2[j]]
-                    obj_function[j][i] = np.log(self.objective_function(temp))
+                    obj_function[j][i] = np.log10(self.objective_function(temp))
                     compt += 1
             # colormap
             X,Y= np.meshgrid(p1, p2)
