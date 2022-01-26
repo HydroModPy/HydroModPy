@@ -33,9 +33,9 @@ class CalibAnalysis:
         loc = np.where(self.obj_function == np.min(self.obj_function))
         self.p1 = self.params_values[0][loc[0][0]]
         self.p2 = self.params_values[1][loc[1][0]]
-        loc_data = np.where(self.data_ind['piezometry'] == np.min(self.data_ind['piezometry']))
-        self.best_data_obs = self.data_obs['piezometry'][loc_data[0][0]]
-        self.best_data_sim = self.data_sim['piezometry'][loc_data[0][0]]
+        loc_data = np.where(self.obj_function == np.min(self.obj_function))
+        self.best_data_obs = self.obj_function[loc_data[0][0]]
+        self.best_data_sim = self.obj_function[loc_data[0][0]]
     
     def display_best_data(self):
         fig, (ax1, ax2) = plt.subplots(1, 2)

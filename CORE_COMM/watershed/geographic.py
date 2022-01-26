@@ -261,12 +261,23 @@ class Geographic:
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
-        if (dem_path[-3:]=='txt') | (dem_path[-3:]=='csv') | (dem_path[-3:]=='xyz'):
-            # Translate
-            ds = gdal.Open(dem_path)
+        if (dem_path[-3:]=='txt'):
+            x = pd.read_csv(dem_path, sep='\s+', header=None)
+            x.to_csv(self.gis_path+'transform_xyz'+'.csv', sep=';', index=False)
+            wbt.csv_points_to_vector(self.gis_path+'transform_xyz'+'.csv', 
+                                     self.gis_path+'transform_xyz'+'.shp', 
+                                     xfield=0, yfield=1, epsg=2154)
             self.watershed_raw = self.gis_path + 'watershed_raw.tif'
-            ds = gdal.Translate(self.watershed_raw, ds)
-            ds = None
+            wbt.vector_points_to_raster(self.gis_path+'transform_xyz'+'.shp', 
+                                        self.watershed_raw, 
+                                        field=2, 
+                                        assign="last", 
+                                        nodata=True, 
+                                        cell_size=cell_size, 
+                                        base=None)        
+            # Create the watershed dem
+            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            shutil.copyfile(self.watershed_raw, self.watershed_dem)
         else:
             # Find crs
             dem = gdal.Open(dem_path)
@@ -275,16 +286,9 @@ class Geographic:
             # Copy tif
             self.watershed_raw = self.gis_path + 'watershed_raw.tif'
             shutil.copyfile(dem_path, self.watershed_raw)
-        # Reproj layer
-        self.watershed_reproj = self.gis_path + 'watershed_reproj.tif'
-        gdal.Warp(self.watershed_reproj, self.watershed_raw,dstSRS='EPSG:2154')
-        # Resampling
-        if (dem_path[-3:]=='txt') | (dem_path[-3:]=='csv') | (dem_path[-3:]=='xyz'):
-            self.watershed_dem = self.gis_path + 'watershed_dem.tif'        
-            wbt.resample(self.watershed_reproj, self.watershed_dem, cell_size=cell_size, base=None, method="nn")
-        else:
+            # Proj layer
             self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-            shutil.copyfile(self.watershed_reproj, self.watershed_dem)
+            gdal.Warp(self.watershed_dem, self.watershed_raw , dstSRS='EPSG:2154')
         # No data
         wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
@@ -434,10 +438,14 @@ class Subbasin:
     # Buff box fill dem
 # self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
 # shutil.copyfile(self.watershed_fill, self.watershed_box_buff_fill)
+    # Translate
+# ds = gdal.Open(dem_path)
+# self.watershed_raw = self.gis_path + 'watershed_raw.tif'
+# ds = gdal.Translate(self.watershed_raw, ds)
+# ds = None
     # Resampling
-# wbt.resample(self.watershed_dem, self.watershed_dem, 
-#              cell_size=100, base=None, method="nn")
-# self.watershed_dem = self.gis_path + 'watershed_dem_resample.tif'
+# self.watershed_dem = self.gis_path + 'watershed_dem.tif'        
+# wbt.resample(self.watershed_reproj, self.watershed_dem, cell_size=cell_size, base=None, method="nn")
     # No data
 # wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')    
 
