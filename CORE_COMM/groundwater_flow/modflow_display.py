@@ -37,7 +37,9 @@ wbt.verbose = True
 from tools import toolbox
 
 class SurfaceOutputs():
-    def __init__(self, recharge, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=False):
+    def __init__(self, recharge, simulations_folder, stable_folder, model_name, 
+                 types_obs, freq_interv=12, save_gif=False,
+                 outflow=True, intermittency=False, sim_state='steady'):
 
         self.fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
         
@@ -58,22 +60,31 @@ class SurfaceOutputs():
         toolbox.create_folder(self.pngdir)
         toolbox.create_folder(self.gifdir)
         
-        self.check_intermittence()
-        self.check_discharge()
+        if intermittency == True:
+            self.check_intermittence()
+        if outflow == True:
+            self.check_discharge()
         
         for iter_time in range(len(self.list_traces)):            
             print('Plot step : '+str(iter_time)+' / '+str(len(self.list_traces)))
                         
-            self.plot_map_intermittency(iter_time)
+            if intermittency == True:            
+                self.plot_map_intermittency(iter_time)
             
-            self.plot_map_discharge(iter_time)
-            
-            self.plot_chronic_results(iter_time)
+            if outflow == True:                
+                self.plot_map_discharge(iter_time)
+                
+                if sim_state == 'transient':
+                    self.plot_chronic_results(iter_time)
             
         if save_gif==True:
-            self.make_a_gif('map_intermittency_')
-            self.make_a_gif('map_discharge_')
-            self.make_a_gif('results_')
+            try:
+                self.make_a_gif('map_intermittency_')
+                self.make_a_gif('map_outflow_drain_')
+                self.make_a_gif('map_accumulation_flux_')
+                self.make_a_gif('results_')
+            except:
+                pass
         
     def check_intermittence(self):
         compt = 1
@@ -246,72 +257,68 @@ class SurfaceOutputs():
             self.surface_sat.append(surface_sats)
                     
     def plot_map_discharge(self, iter_times):
-        # Open data
-        lead_numb = "%03d" % (iter_times,)
-        outflow = imageio.imread(self.mass_to_analyse+'accumulation_flux_t('+lead_numb+')'+'.tif')
-        # Mask data
-        msk_outflow = (outflow<0)
-        outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-        outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
-        wt = self.wt_all[iter_times]
-        wt = np.ma.masked_array(wt, mask=self.msk)
-        # Params for plot
-        ls = LightSource(azdeg=45, altdeg=45)
-        cmap = plt.cm.Greys
-        rgb = ls.shade(self.demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=self.dx, dy=self.dy)
-        # Plot
-        fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
-        ax.set_title(str(self.recharge.index[iter_times])[:10])
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-        # levels = np.arange(1000, 3000, 100)
-        hc=ax.contour(self.xx, self.yy, wt, alpha=0.25, cmap=mpl.colors.ListedColormap('k'), linewidths=1)
-        ax.clabel(hc, inline=True, fontsize=8, fmt='%1.0f')
-        # levels_outflow = np.arange(-1, 3.5, 0.5)
-        # cf=ax.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap='jet_r', alpha=1, antialiased = True)
-        # norm = mpl.colors.Normalize(vmin=-1, vmax=4)
-        # cf=ax.imshow(np.log10(outflow), cmap='jet_r', alpha=1, vmin=-1, vmax=4)
-        cf=ax.imshow(outflow / self.dx**2, cmap='jet_r', alpha=1, vmin=0, vmax=int(round(self.df.spe.max())))
-        plt.xlim(self.xx_mi-0.1*self.ext_x,self.xx_ma+0.1*self.ext_x)
-        plt.ylim(self.yy_ma+0.1*self.ext_y,self.yy_mi-0.1*self.ext_y)
-        # Color bar elevation
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="1%", pad=0.05)
-        fig.add_axes(cax)
-        cbar = fig.colorbar(im, cax=cax, orientation="vertical")
-        val = np.ma.masked_where(self.demData < 0, self.demData)
-        minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-        maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-        meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-        cbar.set_ticks([minVal, meanVal, maxVal])
-        cbar.set_ticklabels([minVal, meanVal, maxVal])
-        cbar.mappable.set_clim(minVal, maxVal)
-        cbar.ax.tick_params(labelsize=10)
-        # Color bar discharge
-        cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
-        fig.add_axes(cax)
-        cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-        ticks = np.linspace(0, int(round(self.df.spe.max())), 5)
-        cbar.set_ticks(ticks)
-        cbar.set_ticklabels(ticks.round(1))
-        cbar.set_label('Cumulated discharge [mm/M]')
-        # Dates for plot
-        yearsmaj = mdates.YearLocator(5)   # every year
-        yearsmin = mdates.YearLocator(1)
-        # monthsmaj = mdates.MonthLocator(6)  # every month
-        # monthsmin = mdates.MonthLocator(3)
-        years_fmt = mdates.DateFormatter('%Y')
-        # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(yearsmin)
-        ax.xaxis.set_major_formatter(years_fmt)
-        # Save figure
-        plt.tight_layout()
-        name_fig = 'map_discharge_' + str(lead_numb) + '.png'
-        plt.tight_layout()
-        plt.savefig(self.pngdir + name_fig)
-        plt.close(fig)
+        
+        for i in ['accumulation_flux','outflow_drain']:
+        
+            # Open data
+            lead_numb = "%03d" % (iter_times,)
+            outflow = imageio.imread(self.mass_to_analyse+i+'_t('+lead_numb+')'+'.tif')
+            # Mask data
+            msk_outflow = (outflow<0)
+            outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+            outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
+            wt = self.wt_all[iter_times]
+            wt = np.ma.masked_array(wt, mask=self.msk)
+            # Params for plot
+            ls = LightSource(azdeg=45, altdeg=45)
+            cmap = plt.cm.Greys
+            rgb = ls.shade(self.demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=self.dx, dy=self.dy)
+            # Plot
+            fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+            try:
+                ax.set_title(str(self.recharge.index[iter_times])[:10])
+            except:
+                ax.set_title(str(iter_times))
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+            # levels = np.arange(1000, 3000, 100)
+            hc=ax.contour(self.xx, self.yy, wt, alpha=0.25, cmap=mpl.colors.ListedColormap('k'), linewidths=1)
+            ax.clabel(hc, inline=True, fontsize=8, fmt='%1.0f')
+            # levels_outflow = np.arange(-1, 3.5, 0.5)
+            # cf=ax.contourf(xx, yy, np.log10(outflow), levels=levels_outflow, cmap='jet_r', alpha=1, antialiased = True)
+            # norm = mpl.colors.Normalize(vmin=-1, vmax=4)
+            # cf=ax.imshow(np.log10(outflow), cmap='jet_r', alpha=1, vmin=-1, vmax=4)
+            cf=ax.imshow(outflow, cmap='jet_r', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+            # plt.xlim(self.xx_mi-0.1*self.ext_x,self.xx_ma+0.1*self.ext_x)
+            # plt.ylim(self.yy_ma+0.1*self.ext_y,self.yy_mi-0.1*self.ext_y)
+            # Color bar elevation
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="1%", pad=0.05)
+            fig.add_axes(cax)
+            cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+            val = np.ma.masked_where(self.demData < 0, self.demData)
+            minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+            maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+            meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+            cbar.set_ticks([minVal, meanVal, maxVal])
+            cbar.set_ticklabels([minVal, meanVal, maxVal])
+            cbar.mappable.set_clim(minVal, maxVal)
+            cbar.ax.tick_params(labelsize=10)
+            # Color bar discharge
+            cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+            fig.add_axes(cax)
+            cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
+            ticks = np.linspace(outflow.min(), outflow.max(), 5)
+            cbar.set_ticks(ticks)
+            cbar.set_ticklabels(ticks.round(1).astype(int))
+            cbar.set_label('Seepage rates [mm/M]')
+            # Save figure
+            plt.tight_layout()
+            name_fig = 'map_'+i+'_' + str(lead_numb) + '.png'
+            plt.tight_layout()
+            plt.savefig(self.pngdir + name_fig)
+            plt.close(fig)
             
     def plot_chronic_results(self, iter_times):
         # Times to plot
