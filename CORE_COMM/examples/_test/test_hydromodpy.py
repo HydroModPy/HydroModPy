@@ -43,6 +43,7 @@ from calibration import calib_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
+
 user = 'Ronan'
 
 if user == 'Alexandre':
@@ -143,7 +144,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -297,11 +298,15 @@ visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, v
 
 #%% 2D MAP VIEW
 
+from groundwater_flow import visualization, modflow_display
+
 freq_interv = 12 # number of tim_step to take account in intermittency check
 save_gif = True # save a gif after plots
 
-if sim_state=='transient':
-    modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=freq_interv, save_gif=save_gif)
+# if sim_state=='transient':
+modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
+                               types_obs, freq_interv=freq_interv, save_gif=save_gif,
+                               outflow=True, intermittency=False, sim_state=sim_state)
 
 #%% 2D CROSS-SECTION
 
@@ -338,11 +343,8 @@ if test_calib==True:
 #%% PLOT 2D
 
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LightSource
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from matplotlib.colors import LogNorm
 
 lead_numb = '000'
@@ -383,9 +385,9 @@ cbar.ax.tick_params(labelsize=10)
 cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
 fig.add_axes(cax)
 cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-# ticks = np.linspace(0, outflow.max(), 5)
-# cbar.set_ticks(ticks)
-# cbar.set_ticklabels(ticks.round(1))
+ticks = np.linspace(0, outflow.max(), 5)
+cbar.set_ticks(ticks)
+cbar.set_ticklabels(ticks.round(1))
 cbar.set_label('Seepage rates [Log(Q) mm/year]')
 
 plt.tight_layout()
@@ -393,4 +395,5 @@ name_fig = 'map_discharge_' + str(lead_numb) + '.png'
 plt.tight_layout()
 
 # plt.savefig(self.pngdir + name_fig)
+
 
