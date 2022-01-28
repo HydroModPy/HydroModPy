@@ -257,9 +257,10 @@ class Modflow():
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, watertable_elevation = True, watertable_depth=False, 
+    def post_processing(self, 
+                              watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
-                              groundwater_flux = False, specific_discharge = False,
+                              groundwater_flux = True, specific_discharge = True,
                               accumulation_flux = True,
                               verbose = True, export_tif = True):
         # self.wt_elev = []

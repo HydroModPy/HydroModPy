@@ -527,11 +527,11 @@ watershed_display.watershed_local(dem_path, BV)
 var = 'REC'
 mod = 'REA'
 sce = 'historic'
-typ = 'sinu' # sinu / hist / proj
+typ = 'test' # sinu / hist / proj
 
 # Choice temporal of the simulation
 sim_state = 'transient' # 'steady' or 'transient'
-period = [2015,2019] # rehcarge period
+period = [2015,2015] # rehcarge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -544,6 +544,7 @@ box = False # if True generate a rectangular model
 sink_fill = False # permit to fill sinks
 modpath_sim = False # run modpath particle tracking if True
 verbose = True # add print of MODFLOW in console
+post_process = False
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
@@ -557,10 +558,13 @@ Koptim = 1e-5
 Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 * 30 # m/second to m/month
 Sys = [0.001,0.01,0.1]
 
-# Ks = np.array([Koptim/10]) * 3600 * 24 * 30 # m/second to m/month
-# Sys = [0.001]
+Ks = np.array([Koptim]) * 3600 * 24 * 30 # m/second to m/month
+Sys = [0.01]
 
 #%% RUN SIMULATIONS
+
+list_success = []
+list_flow_model = []
 
 # Update properties
 for K in Ks:
@@ -588,25 +592,44 @@ for K in Ks:
         model_name = typ+'_'+var+'-'+mod+'-'+sce+'_'+str(round(K,2))+'-'+str(Sy)+'-'+str(thick)+'_'+str(first)+'-'+str(last)
         
         # Run model
-        BV.run_modflow(ident=model_name,
-                        modpath_sim=modpath_sim,
-                        first_only=first_only,
-                        sink_fill=sink_fill,
-                        box=box,
-                        lay_number=lay_number,
-                        bottom=bottom,
-                        thick_exp=thick_exp,
-                        cond_decay=cond_decay,
-                        verbose=verbose)
+        success, flow_model = BV.run_modflow(ident=model_name,
+                                            modpath_sim=modpath_sim,
+                                            first_only=first_only,
+                                            sink_fill=sink_fill,
+                                            box=box,
+                                            lay_number=lay_number,
+                                            bottom=bottom,
+                                            thick_exp=thick_exp,
+                                            cond_decay=cond_decay,
+                                            verbose=verbose,
+                                            post_process=post_process)
+        
+        list_success.append(success)
+        list_flow_model.append(flow_model)
+        
+#%% POST-PROCESS 
 
-        # Extract results
+for success, flow_model in zip(list_success, list_flow_model):
+
+        BV.matrix_modflow(success,
+                          flow_model,
+                          watertable_elevation = True,
+                          watertable_depth=False, 
+                          seepage_areas = True,
+                          outflow_drain = True,
+                          groundwater_flux = False,
+                          specific_discharge = False,
+                          accumulation_flux = True,
+                          verbose = True,
+                          export_tif = True)
+        
+        # # Extract results
         BV.results_modflow(ident=model_name,
                             actual_date=actual_date,
                             start=start,
                             time_step=time_step)
         
-        # Plot maps
-        from groundwater_flow import modflow_display
+        # # Plot maps
         freq_interv = 12 # number of tim_step to take account in intermittency check
         save_gif = True # save a gif after plots
         surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
