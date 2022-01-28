@@ -295,7 +295,8 @@ class Watershed:
         
     def run_modflow(self, ident: str = 'modflow', modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
-                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., verbose: bool = False):
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., 
+                    verbose: bool = False, post_process: bool = False):
         """ 
         Build and run modflow model
         
@@ -318,28 +319,54 @@ class Watershed:
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         succes = flow_model.processing(verbose = verbose)
+    
         if succes == True:
-            flow_model.post_processing(verbose = verbose)
-        
+            if post_process == True:
+                flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
                 transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
-                                            exe=self.modflow_path + '/bin/mp6.exe')
+                                            exe=self.modflow_path + '/bin/mp6.exe')                
                 transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
-                #transit_model.post_processing()
-        return succes
+                # transit_model.post_processing()
+        return succes, flow_model
     
+    def matrix_modflow(self, 
+                       success,
+                       flow_model,
+                       watertable_elevation = True,
+                       watertable_depth=False, 
+                       seepage_areas = True,
+                       outflow_drain = True,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = True,
+                       perenn_intermit=True,
+                       verbose = True,
+                       export_tif = True):
+        
+        if success == True:
+            flow_model.post_processing(watertable_elevation = watertable_elevation,
+                                       watertable_depth = watertable_depth, 
+                                       seepage_areas = seepage_areas,
+                                       outflow_drain = outflow_drain,
+                                       groundwater_flux = groundwater_flux,
+                                       specific_discharge = specific_discharge,
+                                       accumulation_flux = accumulation_flux,
+                                       verbose = verbose,
+                                       export_tif = export_tif)
+
     def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M'):
 
         modflow_results.Results(self.geographic,
-                                          recharge=self.forcing.recharge,
-                                          actual_date=actual_date,
-                                          start=start,
-                                          time_step=time_step,
-                                          stable_folder=self.stable_folder,
-                                          model_name=ident,
-                                          model_folder=self.simulations_folder)
+                                recharge=self.forcing.recharge,
+                                actual_date=actual_date,
+                                start=start,
+                                time_step=time_step,
+                                stable_folder=self.stable_folder,
+                                model_name=ident,
+                                model_folder=self.simulations_folder)
                 
     def run_hs1D(self):
         """

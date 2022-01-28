@@ -118,7 +118,7 @@ class Geographic:
             self.watershed_shp = self.from_shp     
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
-        area = np.abs(area)
+        self.area = np.abs(area)
         # Create shapefile polyline of the watershed
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
@@ -127,7 +127,7 @@ class Geographic:
         Buffer distance operations
         """
         # Normalize initial buffer distance value        
-        buff_raw = (np.sqrt(area)) * (buff_percent/100) * 1000
+        buff_raw = (np.sqrt(self.area)) * (buff_percent/100) * 1000
         buff_raw = int(round(buff_raw))
         dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
         buff_dist = dist[np.abs(dist-buff_raw).argmin()]
@@ -312,7 +312,7 @@ class Geographic:
         # Area of shape
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
-        area = np.abs(area)
+        self.area = np.abs(area)
         # Create shapefile polyline of the watershed
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
