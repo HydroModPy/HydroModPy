@@ -333,13 +333,13 @@ class Watershed:
     def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M'):
 
         modflow_results.Results(self.geographic,
-                                          recharge=self.forcing.recharge,
-                                          actual_date=actual_date,
-                                          start=start,
-                                          time_step=time_step,
-                                          stable_folder=self.stable_folder,
-                                          model_name=ident,
-                                          model_folder=self.simulations_folder)
+                                recharge=self.forcing.recharge,
+                                actual_date=actual_date,
+                                start=start,
+                                time_step=time_step,
+                                stable_folder=self.stable_folder,
+                                model_name=ident,
+                                model_folder=self.simulations_folder)
                 
     def run_hs1D(self):
         """

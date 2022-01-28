@@ -187,3 +187,19 @@ class Merge:
             df.to_csv(self.data_folder+'_'+var+'_'+'D'+'.csv', sep=';')
             dfm.to_csv(self.data_folder+'_'+var+'_'+'M'+'.csv', sep=';')
             dfy.to_csv(self.data_folder+'_'+var+'_'+'Y'+'.csv', sep=';')
+            
+        # Mix all data in a dataframe
+        ppt = pd.read_csv(self.data_folder+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+        etp = pd.read_csv(self.data_folder+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+        eff = ppt - etp
+        eff = eff.add_prefix('EFF'+'_')
+        raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
+        liste = []
+        for raw in raws :
+            dfd = pd.read_csv(self.data_folder+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+            dfd = dfd.add_prefix(raw+'_')
+            liste.append(dfd)
+        dfd = pd.concat(liste, join='inner', axis=1)
+        dfd = pd.concat([dfd, eff], join='inner', axis=1)
+        dfd = dfd.apply(pd.to_numeric)
+        dfd.to_csv(self.data_folder+'_ALL_D.csv', sep=';')
