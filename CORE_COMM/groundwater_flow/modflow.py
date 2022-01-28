@@ -257,9 +257,9 @@ class Modflow():
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, watertable_elevation = True, watertable_depth=True, 
+    def post_processing(self, watertable_elevation = True, watertable_depth=False, 
                               seepage_areas = True, outflow_drain = True,
-                              groundwater_flux = True, specific_discharge = False,
+                              groundwater_flux = False, specific_discharge = False,
                               accumulation_flux = True,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
@@ -277,8 +277,8 @@ class Modflow():
         self.save_file = os.path.join(self.full_path, '_watershed')
         toolbox.create_folder(self.save_file)        
         
-        self.figure_file = os.path.join(self.full_path, '_figures')
-        toolbox.create_folder(self.figure_file)
+        # self.figure_file = os.path.join(self.full_path, '_figures')
+        # toolbox.create_folder(self.figure_file)
         
         self.surfaceflow_file = os.path.join(self.full_path, '_watershed','_surfaceflow')
         toolbox.create_folder(self.surfaceflow_file)
