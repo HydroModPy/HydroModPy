@@ -38,7 +38,7 @@ from tools import toolbox
 
 class SurfaceOutputs():
     def __init__(self, recharge, simulations_folder, stable_folder, model_name, 
-                 types_obs, freq_interv=12, save_gif=False,
+                 types_obs, save_gif=False,
                  outflow=False, accflux=False, intermittency=False,
                  chronics=True,
                  sim_state='steady'):
@@ -53,7 +53,6 @@ class SurfaceOutputs():
         self.recharge = recharge
         
         self.types_obs = types_obs
-        self.freq_interv = freq_interv
         
         self.figdir = self.dir_to_analyse + '_fig/'
         self.pngdir = self.dir_to_analyse + '_fig/_png/'
@@ -64,26 +63,25 @@ class SurfaceOutputs():
         toolbox.create_folder(self.gifdir)
                 
         if intermittency == True:
-            self.check_intermittence()
             for iter_time in range(len(self.list_traces)):
                 print('Plot intermittency : '+str(iter_time)+' / '+str(len(self.list_traces)))                        
                 self.plot_map_intermittency(iter_time)
 
         if outflow == True:
-            self.check_discharge()
+            self.scanning_discharge()
             for iter_time in range(len(self.list_outflow)):
                 print('Plot discharge : '+str(iter_time)+' / '+str(len(self.list_outflow)))
                 self.plot_map_discharge(iter_time, 'outflow_drain')
 
         if accflux == True:
-            self.check_discharge()
+            self.scanning_discharge()
             for iter_time in range(len(self.list_accflux)):
                 print('Plot accummulation : '+str(iter_time)+' / '+str(len(self.list_accflux)))
                 self.plot_map_discharge(iter_time, 'accumulation_flux')
         
         if sim_state == 'transient':
             if chronics == True:
-                self.check_discharge()
+                self.scanning_discharge()
                 for iter_time in range(len(self.list_outflow)):
                     print('Plot chronics : '+str(iter_time)+' / '+str(len(self.list_outflow)))
                     self.plot_chronic_results(iter_time)
@@ -98,38 +96,6 @@ class SurfaceOutputs():
             if accflux == True:
                 self.make_a_gif('map_accumulation_flux_')
         
-    def check_intermittence(self):
-        compt = 1
-        c1 = 0
-        c2 = self.freq_interv
-        step = int(round(len(self.list_traces)/self.freq_interv))
-        for i in range(step):
-            interv = self.list_traces[c1:c2]
-            coord = []
-            print('Check intermittency : '+str(compt)+'/'+str(step))
-            for file in interv:
-                outflow = gpd.read_file(file)
-                x_list = outflow.geometry.x
-                y_list = outflow.geometry.y
-                mix = list(zip(x_list, y_list))
-                coord.extend(mix)
-            dfc = pd.DataFrame(coord, columns=['x','y'])
-            dfc['z'] = dfc['x'].astype(str) + dfc['y'].astype(str)
-            values = dfc['z'].value_counts()
-            values = values[values>=12]
-            for bis in interv:
-                outflow = gpd.read_file(bis)
-                outflow['x'] = outflow.geometry.x
-                outflow['y'] = outflow.geometry.y
-                outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
-                outflow['Persistanc'] = 0
-                for xy in values.index:
-                    outflow.loc[outflow['z']==xy,'Persistanc'] = 1
-                outflow.to_file(bis) 
-            c1+=self.freq_interv
-            c2+=self.freq_interv
-            compt+=1
-    
     def plot_map_intermittency(self, iter_time):
         # Select file
         file = self.list_traces[iter_time]
@@ -211,7 +177,7 @@ class SurfaceOutputs():
         fig.savefig(self.pngdir + name_fig)
         plt.close()
     
-    def check_discharge(self):
+    def scanning_discharge(self):
         # Open data
         self.df = pd.read_csv(self.dir_to_analyse+'_simulated_results.csv', sep=';',
                          index_col='date', parse_dates=True)
@@ -257,7 +223,6 @@ class SurfaceOutputs():
         self.maxflow = []
         # Loop to store each times
         for key in self.wt_all:
-            # print('Check discharge : '+str(key)+'/'+str(len(self.wt_all)))
             outflow = self.outflow_all[key]
             msk_outflow = (self.demData<0)
             outflow = np.ma.masked_array(outflow, mask=msk_outflow)
