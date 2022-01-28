@@ -35,8 +35,8 @@ else:
 
 load = True#False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
-
-dem_path = root_path + "MNT_25m_cor.tif"#'BDALTI_bzh_75m.tif' 
+watershed_shp = os.path.join(out_path, watershed_name, 'watershed.shp')
+dem_path = root_path + "MNT_75m.tif"#'BDALTI_bzh_75m.tif' 
 surfex_path =  root_path + 'SURFEX/Normandie_h5'
 geology_path = root_path + 'GEOLOGY'
 oceanic_path = root_path + 'OCEAN'
@@ -44,7 +44,7 @@ modflow_path = root_path + 'MODFLOW'
 hydrology_path = root_path + 'HYDROLOGY'
 types_obs = ['streams_fr']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path, modflow_path=modflow_path, load=load)
+                              out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp )
 
 if load == False:
     BV.add_hydrology(hydrology_path, types_obs)
@@ -107,7 +107,7 @@ calib.exploration(resolution=1000)
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 BV.hydrodynamic.update_hyd_cond(0.864)
 BV.hydrodynamic.update_porosity(0.1)
-BV.run_modflow(ident='modflow', modpath_sim=False)
+BV.run_modflow(ident='modflow', modpath_sim=True, lay_number=1)
 #%% Run Modflow Steady state
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
@@ -173,6 +173,38 @@ plt.plot(BV.forcing.recharge)
 
 from tools import vtk
 from groundwater_flow import visualization
-vtk.VTK(BV, 'modflow')
+#☻vtk.VTK(BV, 'modflow')
 visu = visualization.Visualization(BV, 'modflow')
-visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'], view='south-west', lines=200, cloc=(0.7,0.1))
+visu.visual2D(interactive=True,
+              size=(1920,1080),
+              view='north-west', lines=300, cloc=(0.7,0.7))
+
+#%%BV
+
+from owslib.wms import WebMapService
+from rasterio import MemoryFile
+from rasterio.plot import show
+
+url = 'https://services.terrascope.be/wms/v2?'
+wms = WebMapService(url)
+
+x_min = BV.geographic.xmin
+y_min = BV.geographic.ymin
+x_max = BV.geographic.xmax
+y_max = BV.geographic.ymax
+
+layer = 'CGS_S2_RADIOMETRY'
+
+img = wms.getmap(
+    layers = [layer],
+    srs = 'EPSG:3857',
+    bbox = (x_min, y_min, x_max, y_max),
+    size = (1920, 592),
+    format = 'image/png',
+    time = '2020-06-01'
+)
+
+with MemoryFile(img) as memfile:
+     with memfile.open() as dataset:
+            show(dataset)
+            print(dataset.profile)
