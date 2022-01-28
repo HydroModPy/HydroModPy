@@ -17,6 +17,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib_scalebar.scalebar import ScaleBar
 
 # Hydromodpy
 from tools import toolbox
@@ -95,22 +96,24 @@ def watershed_dem(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     
-    
     #polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
-    bounds = contour.geometry.total_bounds
+    #bounds = contour.geometry.total_bounds
+    bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+    ax.add_artist(scalebar)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
-    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain')
-    show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
+    show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
          cmap='terrain', alpha=1, zorder=2, aspect="auto")
     try:
         streams = gpd.read_file(BV.hydrology.streams)
