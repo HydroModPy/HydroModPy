@@ -33,7 +33,7 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = False#False to build and save python object
+load = True#False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 
 dem_path = root_path + "MNT_25m_cor.tif"#'BDALTI_bzh_75m.tif' 
