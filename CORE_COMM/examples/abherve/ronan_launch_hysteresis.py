@@ -16,11 +16,12 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal, osr
 import matplotlib.pyplot as plt
-
+import glob
 import geopandas as gpd
 from shapely.geometry.polygon import LineString, Polygon
 from shapely.ops import linemerge, unary_union, polygonize
 from datetime import datetime
+import os
 
 import scipy.stats as sp
 import shapely.geometry as SG
@@ -157,7 +158,7 @@ class Hysteresis:
         self.yrecap['yi'] = self.yi
         self.yrecap = self.yrecap.dropna(axis=1, how='all')
                     
-    def plot_xy_data(self, x_label, y_label, x_lim, y_lim, cmap):
+    def plot_xy_obs(self, x_label, y_label, x_lim, y_lim, cmap):
         
         logs = ['linear', 'log']
         
@@ -250,9 +251,9 @@ class Hysteresis:
                 columns_x = self.xrecapl.columns
                 columns_y = self.yrecapl.columns
         
-        fig, ax = plt.subplots(1,1, figsize=(4,3))
-        n = len(columns_x)
-        colors = pl.cm.jet(np.linspace(0,1,n))        
+        # fig, ax = plt.subplots(1,1, figsize=(4,3))
+        # n = len(columns_x)
+        # colors = pl.cm.jet(np.linspace(0,1,n))        
         
         self.dfmet = pd.DataFrame(columns=[])
         
@@ -267,17 +268,18 @@ class Hysteresis:
             self.data['inx'] = self.xlist.values
             self.data['iny'] = self.ylist.values
             
-            ax.scatter(self.data.inx, self.data.iny, s=0, color=colors[i], cmap='jet')
-            ax.plot(self.data.inx,self.data.iny, linestyle = '-', lw=1, color=colors[i], zorder=-1)
-            ax.set_yscale('log') 
-            if colx == 'xi':
-                if temporal==True:
-                    ax.set_title(str(columns_x[0]) + ' - ' + str(columns_x[-2]))
-                    if space!=0:
-                        ax.set_title(str(columns_x[0]) + ' - ' + str(columns_x[-2]) + ' / ' + str(abs(space)))
-                else:
-                    ax.set_title(str(self.xrecapl.columns[0]) + ' - ' + str(self.xrecapl.columns[-2]))
-                ax.plot(self.data.inx,self.data.iny, linestyle = '-', lw=3, color='k', zorder=-1)
+            # ax.scatter(self.data.inx, self.data.iny, s=0, color=colors[i], cmap='jet')
+            # ax.plot(self.data.inx,self.data.iny, linestyle = '-', lw=1, color=colors[i], zorder=-1)
+            # ax.set_yscale('log') 
+            # if colx == 'xi':
+            #     if temporal==True:
+            #         ax.set_title(str(columns_x[0]) + ' - ' + str(columns_x[-2]))
+            #         if space!=0:
+            #             ax.set_title(str(columns_x[0]) + ' - ' + str(columns_x[-2]) + ' / ' + str(abs(space)))
+            #     else:
+            #         ax.set_title(str(self.xrecapl.columns[0]) + ' - ' + str(self.xrecapl.columns[-2]))
+            #     ax.plot(self.data.inx,self.data.iny, linestyle = '-', lw=3, color='k', zorder=-1)
+            
             # ax.set_xscale('log')
             # plt.close()
               
@@ -394,7 +396,55 @@ class Hysteresis:
             self.dfmet.loc[colx, 'area_n'] = self.area_minus
             self.dfmet.loc[colx, 'slope'] = self.slope
             
-        self.dfmet.to_csv('Metrics_'+'Obs_'+self.name+'_'+str(space)+'.csv', sep=';')
+        # self.dfmet.to_csv('Metrics_'+'Obs_'+self.name+'_'+str(space)+'.csv', sep=';')
+
+    def plot_xy_mod(self, ax, x_label, y_label, x_lim, y_lim, cmap, scale):
+        
+        ax = ax
+        scat = ax.scatter(self.x, self.y, c=self.wy, cmap=cmap, marker="o", 
+                          s=10, vmin=1, vmax=12, alpha=0.75, ec='none')
+        ax.plot(self.xi, self.yi, marker="o", markersize=9, markeredgecolor='black', 
+                markerfacecolor='white', linestyle = 'None') 
+        for k in self.wyi:
+            ax.annotate(k,(self.xi[k],self.yi[k]), family='sans-serif', fontsize=5, 
+                        color='black', weight="bold", ha='center', va='center')
+        if scale != 'log':
+            maxi = max(max(x_lim),max(y_lim))
+            mini = min(min(x_lim),min(y_lim))
+            ax.plot((mini,maxi), (mini,maxi), 
+                        linestyle='-', color='grey', linewidth=1.5, zorder=0)
+        else:
+            # ax.plot(np.linspace(*ax.get_xlim()), np.linspace(*ax.get_xlim()), 
+            #         linestyle='-', color='grey', linewidth=1.5, zorder=0)
+            ax.plot(np.linspace(0.1,max(x_lim),50), np.linspace(0.1,max(x_lim),50), 
+                    linestyle='-', color='grey', linewidth=1.5, zorder=0)
+        ax.errorbar(self.xi, self.yi,
+                    yerr=np.vstack([self.yi-self.ye.q25, self.ye.q75-self.yi]),
+                    xerr=np.vstack([self.xi-self.xe.q25, self.xe.q75-self.xi]),
+                    ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
+                    capthick=0.5, zorder=1)
+        ax.plot(self.xiline, self.yiline, linestyle = '-', lw=1.5, color='k', zorder=-1)
+        
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(self.name)
+        ax.set_title(str(self.first)+'-'+str(self.last))
+        ax.set_xlim(x_lim[0], x_lim[1])
+        ax.set_ylim(y_lim[0]+0.1, y_lim[1])
+        ax.set_xticks(np.linspace(x_lim[0], x_lim[1], 5))
+        ax.set_yticks(np.linspace(y_lim[0]+0.1, y_lim[1], 5))
+        
+        ax.set_yscale(scale)
+            
+        # plt.tight_layout()
+        # position = fig.add_axes([0.95,0.32,0.02,0.5])
+        # cb = plt.colorbar(scat,cax=position)
+        # x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
+        # squad = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
+        # cb.set_ticks(x1)
+        # cb.set_ticklabels(squad)
+        # cb.ax.tick_params(labelsize=10)
+        # cb.update_ticks()
 
 #%% OBS. LAUNCH
 
@@ -439,7 +489,7 @@ DFobs = DFobs.resample('M').apply(very_resamp)[mask]
             
 hyst = Hysteresis(DFobs, 'Cheze')
 hyst.prepare_xy_raw()
-hyst.plot_xy_data(var + ' [mm]', 'Q [mm]', [-150,150], [0,150], 'gist_rainbow_r')
+hyst.plot_xy_obs(var + ' [mm]', 'Q [mm]', [-150,150], [0,150], 'gist_rainbow_r')
 hyst.compute_xy_metrics(temporal=True, space=-10)
 
 d = hyst.dfmet[:-1]
@@ -531,7 +581,7 @@ typ = 'test' # sinu / hist / proj
 
 # Choice temporal of the simulation
 sim_state = 'transient' # 'steady' or 'transient'
-period = [2015,2015] # rehcarge period
+period = [2015,2019] # rehcarge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -554,7 +604,7 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = 1e-5
+Koptim = 2e-5
 Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 * 30 # m/second to m/month
 Sys = [0.001,0.01,0.1]
 
@@ -606,6 +656,10 @@ for K in Ks:
         
         list_success.append(success)
         list_flow_model.append(flow_model)
+
+BV.list_flow_model = list_flow_model
+BV.list_success = list_success
+BV.save_object()
         
 #%% POST-PROCESS 
 
@@ -614,26 +668,26 @@ for success, flow_model in zip(list_success, list_flow_model):
         BV.matrix_modflow(success,
                           flow_model,
                           watertable_elevation = True,
-                          watertable_depth=False, 
+                          watertable_depth = False, 
                           seepage_areas = True,
                           outflow_drain = True,
                           groundwater_flux = False,
                           specific_discharge = False,
-                          accumulation_flux = True,
+                          accumulation_flux = False,
+                          perenn_intermit = True,
                           verbose = True,
                           export_tif = True)
         
         # # Extract results
         BV.results_modflow(ident=model_name,
-                            actual_date=actual_date,
-                            start=start,
-                            time_step=time_step)
+                           actual_date=actual_date,
+                           start=start,
+                           time_step=time_step)
         
-        # # Plot maps
-        freq_interv = 12 # number of tim_step to take account in intermittency check
+        # Plot maps
         save_gif = True # save a gif after plots
         surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
-                                              types_obs, freq_interv=freq_interv, save_gif=save_gif,
+                                              types_obs, save_gif=save_gif,
                                               outflow=True, accflux=True, intermittency=True, 
                                               chronics=True, sim_state=sim_state)
             
@@ -648,8 +702,7 @@ sce = 'historic'
 simuls = os.listdir(simulations_folder)
 
 for simul in simuls:
-    try:
-
+    
         Qmod_path = simulations_folder+simul+'/_watershed/_simulated_results.csv'
         Qmod = pd.read_csv(Qmod_path, sep=';', index_col=0, parse_dates=True)
         Qmod = Qmod['outflow_drain'] * 1000 # m/month to mm/month
@@ -680,12 +733,90 @@ for simul in simuls:
         
         hyst = Hysteresis(DFmod, 'Test')
         hyst.prepare_xy_raw()
-        hyst.plot_xy_data(var + ' [mm]', 'Q [mm]', [-10,50], [0.1,100], 'gist_rainbow_r')
-        # hyst.compute_xy_metrics(temporal=False, space=0)
+        hyst.compute_xy_metrics(temporal=False, space=0)
+        # hyst.plot_xy_data(var + ' [mm]', 'Q [mm]', [-10,50], [0.1,100], 'gist_rainbow_r')
 
-    except:
-        pass
+#%% CLASS PLANCHA
+
+var = 'REC'
+
+typ = 'test'
+simul_typ = glob.glob(simulations_folder+typ+'*')
+
+scan_res = ['surflow_areas','perenn_areas', 'intermit_areas']
+
+
+# fig, axs = plt.subplots(3,3,figsize=(7, 3.5))
+# fig.add_subplot(111, frameon=False)
+# plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False) # hide tick and tick label of the big axis
+# axs = axs.ravel()
+
+compt = 0
+
+for simul in simul_typ:
     
+    for res in scan_res:
+        
+        fig, axs = plt.subplots(3,3, figsize=(8,8))
+        axs = axs.ravel()
+
+        Smod_path = simul+'/_watershed/_simulated_results.csv'
+        if not os.path.exists(Smod_path):
+            continue
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        Qmod = Smod[res] 
+        if res == 'outflow_drain':
+            Qmod = Qmod * 1000 # mm/months
+        Qmod = Qmod.squeeze()    
+        Cmod = Smod['recharge'] * 1000 # mm/months
+        
+        DFmod = pd.DataFrame(columns=['x','y'])
+        DFmod['x'] = Cmod
+        DFmod['y'] = Qmod
+        first_valid_loc = DFmod[DFmod.index.month==10].apply(lambda col: col.first_valid_index()).max().year
+        last_valid_loc = DFmod[DFmod.index.month==9].apply(lambda col: col.last_valid_index()).min().year
+        DFmod = select_period(DFmod, first_valid_loc, last_valid_loc)
+        
+        for idx in range(len(DFmod)):
+            if DFmod.index[idx].month == 10:
+                DFmod = DFmod[idx:]   
+                break
+        DFmod = DFmod.sort_index(ascending=False)
+        for idx in range(len(DFmod)):
+            if DFmod.index[idx].month == 9:
+                DFmod = DFmod[idx:]
+                break
+        DFmod = DFmod.sort_index(ascending=True)
+        
+        ax = axs[compt]
+        
+        def plancha (DFmod, name, ax):
+            hyst = Hysteresis(DFmod, 'Test')
+            hyst.prepare_xy_raw()
+            
+            if res == 'outflow_drain':
+                hyst.compute_xy_metrics(temporal=False, space=0)
+                hyst.plot_xy_mod(ax, var + ' [mm]', 'Q [mm]', [-10,50], [0,50], 
+                                 'gist_rainbow_r', 'linear')
+            
+            else:
+                ax.scatter(hyst.x, hyst.y, c=hyst.wy, cmap='gist_rainbow_r', marker="o", 
+                                  s=10, vmin=1, vmax=12, alpha=0.75, ec='none')
+                ax.plot(hyst.xi, hyst.yi, marker="o", markersize=9, markeredgecolor='black', 
+                        markerfacecolor='white', linestyle = 'None') 
+                for k in hyst.wyi:
+                    ax.annotate(k,(hyst.xi[k],hyst.yi[k]), family='sans-serif', fontsize=5, 
+                                color='black', weight="bold", ha='center', va='center')
+                ax.set_ylim(0,20)
+                ax.set_xlim(-10,50)
+                
+        name = simul
+        plancha(DFmod, name, ax)
+        
+        compt += 1
+        
+plt.tight_layout()
+
 #%% ORTHO ARCHIVE
 """
 def line(x, line_point1, line_point2, get_eq=False):
@@ -753,4 +884,7 @@ ecart_center = ((random_point[0] - intersection[0])**2 + (random_point[1] - inte
 # ax.plot(random_point[0], random_point[1], 'ro', label='given point')
 # ax.plot(domain, perp_line, '--', color='orange', label='perpendicular line')
 # ax.set_aspect('equal')
-
+"""
+dem_clip = imageio.imread(BV.geographic.watershed_dem)
+cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
+"""

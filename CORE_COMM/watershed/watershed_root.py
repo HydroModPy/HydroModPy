@@ -342,6 +342,7 @@ class Watershed:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = True,
+                       perenn_intermit=True,
                        verbose = True,
                        export_tif = True):
         

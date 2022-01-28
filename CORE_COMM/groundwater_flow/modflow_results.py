@@ -17,6 +17,7 @@ from osgeo import gdal
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from glob import glob
+import geopandas as gpd
 
 import flopy.utils.binaryfile as fpu
 
@@ -76,8 +77,10 @@ class Results:
         self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
         self.specific_discharge = np.load(os.path.join(self.save_file, 'specific_discharge'+'.npy'), allow_pickle=True).item()
         self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
-      
+        self.perenn_intermit = glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp'))
+        
         dem_clip = imageio.imread(self.geographic.watershed_dem)
+        self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         bv = gdal.Open(self.geographic.watershed_dem)
         geodata = bv.GetGeoTransform()
         self.resolution = geodata[1]
@@ -112,12 +115,12 @@ class Results:
             calc = (np.nansum(masked) / (cell * resolution**2))
             return calc
         
-        def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):
+        def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):            
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             count = (masked > 0).sum()
             calc = (count/cell) * 100
-            return calc   
+            return calc
         
         self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, index=range(len(time)))
         
@@ -151,7 +154,16 @@ class Results:
         for key in self.accumulation_flux:
             calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
             self.mfdata.loc[key,'accumulation_flux'] = calc
-
+            
+        for idx, key in enumerate(self.perenn_intermit):
+            file = gpd.read_file(key)
+            surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
+            perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
+            intermit = ((file['Persistanc'] == 0).sum() / self.cell) * 100
+            self.mfdata.loc[idx,'perenn_areas'] = perenn
+            self.mfdata.loc[idx,'intermit_areas'] = intermit
+            self.mfdata.loc[idx,'surflow_areas'] = surflow
+            
         self.mfdata = self.mfdata.set_index(['date'])
         # self.mfdata = self.mfdata.round(2)
         self.mfdata = self.mfdata.applymap(lambda x: "%.5e" % (x))
