@@ -16,6 +16,8 @@ from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
+import geopandas as gpd
+import glob
 
 import flopy.utils.binaryfile as fpu
 import flopy.utils.postprocessing as pp
@@ -257,10 +259,11 @@ class Modflow():
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, watertable_elevation = True, watertable_depth=True, 
+    def post_processing(self, 
+                              watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
-                              groundwater_flux = True, specific_discharge = False,
-                              accumulation_flux = True,
+                              groundwater_flux = True, specific_discharge = True,
+                              accumulation_flux = True, perenn_intermit = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
         # self.wt_depth = []
@@ -277,8 +280,8 @@ class Modflow():
         self.save_file = os.path.join(self.full_path, '_watershed')
         toolbox.create_folder(self.save_file)        
         
-        self.figure_file = os.path.join(self.full_path, '_figures')
-        toolbox.create_folder(self.figure_file)
+        # self.figure_file = os.path.join(self.full_path, '_figures')
+        # toolbox.create_folder(self.figure_file)
         
         self.surfaceflow_file = os.path.join(self.full_path, '_watershed','_surfaceflow')
         toolbox.create_folder(self.surfaceflow_file)
@@ -321,6 +324,7 @@ class Modflow():
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.list_traces = []
         
         # self.dict_watertable_elevation = (self.save_file+'/watertable_elevation'+'.h5')
         # self.dict_watertable_depth = (self.save_file+'/watertable_depth'+'.h5')
@@ -463,6 +467,42 @@ class Modflow():
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
         except:
             pass
+        
+        if perenn_intermit == True:
+            self.list_traces = glob.glob(self.surfaceflow_file+'/'+'tracept_t*.shp')
+            cpt = 1
+            inf = 0
+            sup = 12
+            step = int(round(len(self.list_traces)/12))
+            for i in range(step):
+                interv = self.list_traces[inf:sup]
+                coord = []
+                print('Check intermittency : '+str(cpt)+'/'+str(step))
+                for file in interv:
+                    outflow = gpd.read_file(file)
+                    x_list = outflow.geometry.x
+                    y_list = outflow.geometry.y
+                    mix = list(zip(x_list, y_list))
+                    coord.extend(mix)
+                dfc = pd.DataFrame(coord, columns=['x','y'])
+                dfc['z'] = dfc['x'].astype(str) + dfc['y'].astype(str)
+                values = dfc['z'].value_counts()
+                values = values[values>=12]
+                for bis in interv:
+                    outflow = gpd.read_file(bis)
+                    outflow['x'] = outflow.geometry.x
+                    outflow['y'] = outflow.geometry.y
+                    outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
+                    val = 0
+                    outflow['Persistanc'] = val
+                    for xy in values.index:
+                        val = 1
+                        outflow.loc[outflow['z']==xy,'Persistanc'] = val
+                    outflow.to_file(bis)
+                inf+=12
+                sup+=12
+                cpt+=1
+            print(inf, sup)
 
 #%% notes
 

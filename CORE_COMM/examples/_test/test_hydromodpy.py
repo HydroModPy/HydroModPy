@@ -31,14 +31,14 @@ warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", ca
 warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                  
-#%% HYDROMODPY MODULES
+# HYDROMODPY MODULES
                     
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 from calibration import calib_root
 
-#%% LAYOUT PLOT
+# LAYOUT PLOT
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -106,7 +106,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-watershed_name = 'Conceptual' # search the name in watershed_library or just label your result folder
+watershed_name = 'Outlet' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
 if watershed_name == 'Outlet':
@@ -144,7 +144,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -159,15 +159,15 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 if watershed_name != 'Conceptual':
     if load != True :
         BV.add_surfex(surfex_path) 
-        BV.add_geology(geology_path) 
-        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        BV.add_oceanic(oceanic_path)
-        BV.add_hydrometry(hydrometry_path)
-        BV.add_intermittency(intermittency_path)
-        if piezometry_path == True:
-            BV.add_piezometry()
-        if subbasin_path == True:
-            BV.add_subbasin()
+        # BV.add_geology(geology_path) 
+        # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+        # BV.add_oceanic(oceanic_path)
+        # BV.add_hydrometry(hydrometry_path)
+        # BV.add_intermittency(intermittency_path)
+        # if piezometry_path == True:
+        #     BV.add_piezometry()
+        # if subbasin_path == True:
+        #     BV.add_subbasin()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
