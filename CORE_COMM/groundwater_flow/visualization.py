@@ -10,6 +10,7 @@ import geopandas as gpd
 
 import flopy
 import os
+import contextily as cx
 
 from tools import toolbox
 
@@ -205,7 +206,7 @@ class Visualization():
         else:
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_figures','3Dvisual.png')).close()
 
-    def visual2D(self, object_list = ['grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'] , view = 'south-west', 
+    def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'] , view = 'south-west', 
                  interactive = False, time_step = 0, lines=100, z_scale=20, render=1, 
                  cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080)):
        
@@ -220,7 +221,12 @@ class Visualization():
         fontprop = toolbox.plot_params(8,15,18,20)
         
         contour = gpd.read_file(self.watershed.geographic.watershed_contour_shp)
+        crs = contour.crs
         dem = rasterio.open(self.watershed.geographic.watershed_box_buff_dem)
+        try:
+            streams = gpd.read_file(self.watershed.hydrology.streams)
+        except:
+            pass
         
         # open the watertable elevation files
         watertable_file = os.path.join(modelfolder,'_watershed','watertable_elevation.npy')
@@ -243,6 +249,7 @@ class Visualization():
         fig, axs = plt.subplots(nrows=R, ncols=C ,figsize=(5*C,R*(5*dem.height/dem.width)), dpi=300)
         axs = trim_axs(axs,N)
         image = []
+        basemap = []
         for i in range (0,len(object_list)):
             obj = object_list[i]
             if obj == 'grid':
@@ -250,13 +257,19 @@ class Visualization():
                 image_hidden = axs[i].imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain')
                 image.append(image_hidden)
+                basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto")
+                try:
+                    streams.plot(ax=axs[i], lw=2, color='b', zorder=4,legend=True, label='Streams')
+                except:
+                    pass
             if obj == 'watertable':
                 axs[i].set_title('Water table elevation, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), 
                              cmap='jet')
                 image.append(image_hidden)
+                basemap.append(0)
                 show(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'watertable_depth':
@@ -264,6 +277,7 @@ class Visualization():
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), 
                              cmap='coolwarm_r')
                 image.append(image_hidden)
+                basemap.append(0)
                 show(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto")
             if obj == 'drain_flow':
@@ -272,6 +286,7 @@ class Visualization():
                 image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
                              cmap='jet')
                 image.append(image_hidden)
+                basemap.append(1)
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'surface_flow':
@@ -280,6 +295,7 @@ class Visualization():
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                              cmap='jet')
                 image.append(image_hidden)
+                basemap.append(1)
                 show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'pathlines':
@@ -316,6 +332,7 @@ class Visualization():
                     lc.set_clim(1,np.max(max_time))
                     line = axs[i].add_collection(lc)
                 image.append(line)
+                basemap.append(1)
                    
                 
             if obj == 'residence_times':
@@ -325,11 +342,16 @@ class Visualization():
                 e = endobj.get_alldata()
                 for j in range(len(e)):
                      res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
-                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), 
-                             cmap='hot_r')
+                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='hot_r')
                 image.append(image_hidden)
+                basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
                      transform=dem.transform, cmap='hot_r', alpha=1, zorder=2, aspect="auto")
+                
+            if obj == 'map':
+                axs[i].set_title('Watershed boundary')
+                basemap.append(1)
+                image.append(None)
         compt = 0
         for ax in axs:
             contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
@@ -342,15 +364,18 @@ class Visualization():
             ax.add_artist(scalebar)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes(size="4%",position='right', pad=0.05)
-            fig.add_axes(cax)
-            cbar = fig.colorbar(image[compt], cax=cax, orientation="vertical")
-            cbar.ax.get_ymajorticklabels()
-            list(cbar.get_ticks())
-            cbar.ax.tick_params(labelsize=10)
-            cbar.ax.yaxis.set_ticks_position('right')
-            cbar.ax.tick_params(size=2)
+            if image[compt] != None:
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes(size="4%",position='right', pad=0.05)
+                fig.add_axes(cax)
+                cbar = fig.colorbar(image[compt], cax=cax, orientation="vertical")
+                cbar.ax.get_ymajorticklabels()
+                list(cbar.get_ticks())
+                cbar.ax.tick_params(labelsize=10)
+                cbar.ax.yaxis.set_ticks_position('right')
+                cbar.ax.tick_params(size=2)
+            if basemap[compt] == 1:
+                cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
             compt +=1
         
         fig.tight_layout ()

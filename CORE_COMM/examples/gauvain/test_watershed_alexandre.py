@@ -107,7 +107,7 @@ calib.exploration(resolution=1000)
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
 BV.hydrodynamic.update_hyd_cond(0.864)
 BV.hydrodynamic.update_porosity(0.1)
-BV.run_modflow(ident='modflow', modpath_sim=True, lay_number=1)
+BV.run_modflow(ident='modflow', modpath_sim=True, lay_number=10)
 #%% Run Modflow Steady state
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
@@ -179,46 +179,4 @@ visu.visual2D(interactive=True,
               size=(1920,1080),
               view='north-west', lines=300, cloc=(0.7,0.7))
 
-#%%BV
 
-EPSG = 3857#2154
-x_min = BV.geographic.xmin
-y_min = BV.geographic.ymin
-x_max = BV.geographic.xmax
-y_max = BV.geographic.ymax
-
-from rasterio import MemoryFile
-from rasterio.plot import show
-from urllib.request import urlopen
-
-url ='https://services.terrascope.be/wms/v2?service=WMS&version=1.3.0&request=GetMap&layers=CGS_S2_RADIOMETRY&format=image/png&time=2020-06-01&width=1920&height=592&bbox='+str(x_min)+','+str(y_min)+','+str(x_max)+','+str(y_max)+'&styles=&srs=EPSG:'+str(EPSG)
-
-tif_bytes = urlopen(url).read()
-
-with MemoryFile(tif_bytes) as memfile:
-     with memfile.open() as dataset:
-            print(dataset.profile)
-            show(dataset)
-
-#%%
-import requests
-service_url = "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-service_uri = "type=xyz&zmin=0&zmax=21&url="+requests.utils.quote(service_url)
-tms_layer = core.QgsRasterLayer(service_uri, "Google Hybrid", "wms")
-
-plugin = qgis.utils.plugins.get("TileLayerPlugin")
-if plugin:
-  from TileLayerPlugin.tiles import BoundingBox, TileLayerDefinition
-  bbox = None    # BoundingBox(-180, -85.05, 180, 85.05)
-  layerdef = TileLayerDefinition(u"title",
-                                 u"attribution",
-                                 "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-                                 zmin=1,
-                                 zmax=18,
-                                 bbox=bbox)
-  plugin.addTileLayer(layerdef)
-else:
-  from PyQt4.QtGui import QMessageBox
-  QMessageBox.warning(None,
-                      u"TileLayerPlugin not installed",
-                      u"Please install it and try again.")
