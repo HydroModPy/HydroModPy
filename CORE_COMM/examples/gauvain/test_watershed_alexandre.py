@@ -181,30 +181,44 @@ visu.visual2D(interactive=True,
 
 #%%BV
 
-from owslib.wms import WebMapService
-from rasterio import MemoryFile
-from rasterio.plot import show
-
-url = 'https://services.terrascope.be/wms/v2?'
-wms = WebMapService(url)
-
+EPSG = 3857#2154
 x_min = BV.geographic.xmin
 y_min = BV.geographic.ymin
 x_max = BV.geographic.xmax
 y_max = BV.geographic.ymax
 
-layer = 'CGS_S2_RADIOMETRY'
+from rasterio import MemoryFile
+from rasterio.plot import show
+from urllib.request import urlopen
 
-img = wms.getmap(
-    layers = [layer],
-    srs = 'EPSG:3857',
-    bbox = (x_min, y_min, x_max, y_max),
-    size = (1920, 592),
-    format = 'image/png',
-    time = '2020-06-01'
-)
+url ='https://services.terrascope.be/wms/v2?service=WMS&version=1.3.0&request=GetMap&layers=CGS_S2_RADIOMETRY&format=image/png&time=2020-06-01&width=1920&height=592&bbox='+str(x_min)+','+str(y_min)+','+str(x_max)+','+str(y_max)+'&styles=&srs=EPSG:'+str(EPSG)
 
-with MemoryFile(img) as memfile:
+tif_bytes = urlopen(url).read()
+
+with MemoryFile(tif_bytes) as memfile:
      with memfile.open() as dataset:
-            show(dataset)
             print(dataset.profile)
+            show(dataset)
+
+#%%
+import requests
+service_url = "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+service_uri = "type=xyz&zmin=0&zmax=21&url="+requests.utils.quote(service_url)
+tms_layer = core.QgsRasterLayer(service_uri, "Google Hybrid", "wms")
+
+plugin = qgis.utils.plugins.get("TileLayerPlugin")
+if plugin:
+  from TileLayerPlugin.tiles import BoundingBox, TileLayerDefinition
+  bbox = None    # BoundingBox(-180, -85.05, 180, 85.05)
+  layerdef = TileLayerDefinition(u"title",
+                                 u"attribution",
+                                 "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                                 zmin=1,
+                                 zmax=18,
+                                 bbox=bbox)
+  plugin.addTileLayer(layerdef)
+else:
+  from PyQt4.QtGui import QMessageBox
+  QMessageBox.warning(None,
+                      u"TileLayerPlugin not installed",
+                      u"Please install it and try again.")

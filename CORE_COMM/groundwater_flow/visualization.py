@@ -246,24 +246,28 @@ class Visualization():
         for i in range (0,len(object_list)):
             obj = object_list[i]
             if obj == 'grid':
+                axs[i].set_title('Topographic elevation, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain')
                 image.append(image_hidden)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto")
             if obj == 'watertable':
+                axs[i].set_title('Water table elevation, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), 
                              cmap='jet')
                 image.append(image_hidden)
                 show(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'watertable_depth':
+                axs[i].set_title('Water table depth, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), 
                              cmap='coolwarm_r')
                 image.append(image_hidden)
                 show(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto")
             if obj == 'drain_flow':
+                axs[i].set_title('Seepage rates, log(Q) [mm/y]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
                 image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
                              cmap='jet')
@@ -271,6 +275,7 @@ class Visualization():
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'surface_flow':
+                axs[i].set_title('Cumulate seepage rates, log(Q) [mm/y]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                              cmap='jet')
@@ -278,7 +283,7 @@ class Visualization():
                 show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'pathlines':
-                
+                axs[i].set_title('Residence times, log(t) [d]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
                 random_indices = np.random.choice(len(pth_data), size=lines)
@@ -314,6 +319,7 @@ class Visualization():
                    
                 
             if obj == 'residence_times':
+                axs[i].set_title('Residence times, log(t) [d]')
                 res_time = np.zeros(np.shape(dem))
                 endobj = flopy.utils.EndpointFile(os.path.join(modelfolder,self.modelname+'.mpend'))
                 e = endobj.get_alldata()
