@@ -458,13 +458,20 @@ class Modflow():
         
         # Save dictionaries to npy
         try:
-            np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
-            np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
-            np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
-            np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
-            np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
-            np.save(self.save_file+'/specific_discharge', self.dict_specific_discharge)
-            np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+            if watertable_elevation == True:
+                np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
+            if watertable_depth == True:
+                np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
+            if seepage_areas == True:
+                np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+            if outflow_drain == True:
+                np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+            if groundwater_flux == True:
+                np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
+            if specific_discharge == True:   
+                np.save(self.save_file+'/specific_discharge', self.dict_specific_discharge)
+            if accumulation_flux == True:
+                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
         except:
             pass
         
