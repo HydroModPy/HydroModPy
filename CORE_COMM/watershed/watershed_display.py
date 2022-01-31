@@ -126,13 +126,22 @@ def watershed_dem(BV):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
             piezos.plot(ax=ax, color='red', marker='^', zorder=6, 
                         edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
+    except:
+        pass
+    try:
         if len(BV.piezometry.x_coord_discrete)>0:
             ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
                        marker='^', zorder=5, label='Piezometers: discrete')
+    except:
+        pass   
+    try:
         if os.path.exists(BV.hydrometry.hydrometric_clip):
             hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
             hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
                           edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+    except:
+        pass 
+    try:
         if os.path.exists(BV.intermittency.onde_clip):
             intermit = gpd.read_file(BV.intermittency.onde_clip)
             intermit.plot(ax=ax, color='grey', zorder=8, marker='s',

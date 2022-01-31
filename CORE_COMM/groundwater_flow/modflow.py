@@ -501,7 +501,6 @@ class Modflow():
                 inf+=12
                 sup+=12
                 cpt+=1
-            print(inf, sup)
 
 #%% notes
 
