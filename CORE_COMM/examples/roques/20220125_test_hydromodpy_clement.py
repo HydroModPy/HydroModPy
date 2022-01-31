@@ -220,6 +220,8 @@ cond_decay = 0. # exponential decay of K with depth
 K = 1e-5 * 3600 * 24 # m/second to m/day
 E = 100 # m
 P = 0.01 # -
+
+#defKR = np.logspace(-1,1,1)
 KR = 100
 
 # Active of not modules
