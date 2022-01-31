@@ -64,8 +64,12 @@ class Visualization():
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
             grid_mesh.addScalarBar(pos=cloc, title='Topographic elevation, [m]', horizontal=False, titleFontSize=20)
             grid_mesh.scale([1,1,z_scale])
+            
+
+            grid_mesh.alpha(1)
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
+
         except:
             print("VTK grid doesn't exist")
             
@@ -167,6 +171,8 @@ class Visualization():
             pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
         if view == 'custom':
             pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*4)
+        if view == 'vertical':
+            pos = (np.mean(watertable_elev.points()[:, 0]) ,np.mean(watertable_elev.points()[:,1]), np.mean(watertable_elev.points()[:, 2])*400)
 
         focal = (min(watertable_elev.points()[:, 0])+(xs/2), min(watertable_elev.points()[:, 1])+(ys/2), zs)
         cam = dict(pos = pos,focalPoint = focal)
@@ -182,11 +188,13 @@ class Visualization():
             if obj == 'pathlines':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
                 plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'surface_flow':
                 plt.show(grid_wireframe,contour,stream, watertable_blue, surface_flow,"Surface flow",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'drain_flow':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
                 plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         
         
         if interactive == True:
