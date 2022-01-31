@@ -124,7 +124,7 @@ def watershed_dem(BV):
     try:
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='red', marker='^', zorder=6, 
+            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
                         edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
         if len(BV.piezometry.x_coord_discrete)>0:
             ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',

@@ -45,7 +45,6 @@ class Calibration():
         else:
             simplex = calib_simplex.CalibrationSimplex('Simplex_init_multipes', basis, init_multiples_n=init_multiples_n)
             res = simplex.perform()
-        
         return res
     
     def metropolis_hastings(self):

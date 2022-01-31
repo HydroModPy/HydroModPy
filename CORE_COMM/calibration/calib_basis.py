@@ -109,12 +109,24 @@ class CalibrationBasis:
                 self.watershed.hydrodynamic.update_thickness(params[i])
                 
         # Run model
-        succes = self.watershed.run_modflow(self.ident, verbose=False)
+        succes, mf = self.watershed.run_modflow(self.ident, verbose=False)
         
         # Use objective function from the type of observation
         if succes == True:
             indicator = []
             if 'streams' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       watertable_elevation = True,
+                       watertable_depth=False, 
+                       seepage_areas = True,
+                       outflow_drain = False,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit=False,
+                       verbose = False,
+                       export_tif = True)
                 obj_func = calib_objective_function.Streams(self.watershed, 
                                    hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'), 
                                    simulations_folder=os.path.join(self.watershed.simulations_folder, self.ident))
@@ -125,6 +137,18 @@ class CalibrationBasis:
                 self.data_sim['streams'].append(sim)
             
             if 'piezometry' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       watertable_elevation = True,
+                       watertable_depth=False, 
+                       seepage_areas = False,
+                       outflow_drain = False,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit=False,
+                       verbose = False,
+                       export_tif = True)
                 obj_func = calib_objective_function.Piezometry(self.watershed, self.ident)
                 ind, obs, sim = obj_func.get_indicator()
                 indicator.append(ind)
@@ -213,6 +237,9 @@ class CalibrationBasis:
         A garder
         Build Objective Function 
         """
+        name = 'exp_' + str(len(self.params.name)) + 'p_res_' + str(resolution)
+        now = datetime.now()
+        name = name + now.strftime("%d_%m_%Y_%Hh%M") 
         params_values = []
         compt=1
         pmin = self.params.p_min
@@ -240,7 +267,7 @@ class CalibrationBasis:
             plt.yscale("log")
             if self.params.name[0] == 'k':
                 plt.xscale("log")
-            plt.savefig(os.path.join(self.directory_results,"objfunction"),dpi=300)
+            plt.savefig(os.path.join(self.directory_results,name),dpi=300)
         elif len(self.params.name) == 2 : 
             # 2 parameters
             # Figure Initialization
@@ -265,7 +292,7 @@ class CalibrationBasis:
             plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.colorbar()
             # Whatevert the dimension, saves figure
-            plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(i)),dpi=300)
+            plt.savefig(os.path.join(self.directory_results,name),dpi=300)
         elif len(self.params.name) == 3 : 
             # 3 parameters
             for k in range(len(self.params.name)):
@@ -293,12 +320,9 @@ class CalibrationBasis:
                 plt.pcolor(X,Y,Z,cmap=figadd.cmap_white_jet())
                 plt.colorbar()
                 # Whatevert the dimension, saves figure
-                plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(k)),dpi=300)
+                plt.savefig(os.path.join(self.directory_results,name),dpi=300)
         #Save file
         store = {}
-        name = 'exp_' + str(len(self.params.name)) + 'p_'
-        now = datetime.now()
-        name = name + now.strftime("%d_%m_%Y_%Hh%M")
         store['name'] = name
         store['observations'] = self.observations
         # Parameter Values

@@ -73,12 +73,12 @@ BV.hydrodynamic.update_calib_zones(zones)
 #%% Calibration Model piezometry
 from calibration import calib_root
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
-BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_thickness(100)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(4.26)
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=1000)
+calib.exploration(resolution=100)
 #calib.simplex(init_multiples_n=15)
 
 #%% Calib Analysis
@@ -175,8 +175,7 @@ from tools import vtk
 from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
 visu = visualization.Visualization(BV, 'modflow')
-visu.visual2D(interactive=True,
-              size=(1920,1080),
-              view='north-west', lines=300, cloc=(0.7,0.7))
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth'],
+              color_scale = [(None,None),(0,140),(0,2),(0,2)], lines=300)
 
 
