@@ -296,6 +296,8 @@ class Visualization():
                              cmap='jet')
                 image.append(image_hidden)
                 basemap.append(1)
+                show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                     transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'surface_flow':
@@ -305,6 +307,8 @@ class Visualization():
                              cmap='jet')
                 image.append(image_hidden)
                 basemap.append(1)
+                show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                     transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
                 show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
             if obj == 'pathlines':
@@ -388,7 +392,7 @@ class Visualization():
             compt +=1
         
         fig.tight_layout ()
-        fig.savefig(os.path.join(modelfolder,'_figures','test.png'), dpi=300, bbox_inches='tight', transparent=False)
+        fig.savefig(os.path.join(modelfolder,'test.png'), dpi=300, bbox_inches='tight', transparent=False)
         
         
         
