@@ -102,7 +102,7 @@ class Watershed:
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
-        
+                
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
         
@@ -311,16 +311,16 @@ class Watershed:
         
         :meta public:
         """
-        flow_model = modflow.Modflow(self.geographic, first_only=first_only, sink_fill=sink_fill, box=box,
+        flow_model = modflow.Modflow(self.geographic, sink_fill=sink_fill, box=box,
                                      lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
                                      model_name=ident, model_folder=self.simulations_folder, 
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
-        succes = flow_model.processing(verbose = verbose)
+        success = flow_model.processing(verbose = verbose)
     
-        if succes == True:
+        if success == True:
             if post_process == True:
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
@@ -330,11 +330,23 @@ class Watershed:
                 transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
                 # transit_model.post_processing()
-        return succes, flow_model
+        
+        if hasattr(self, 'list_model_name') == False:
+            self.list_model_name = []
+            self.list_of_success = []
+            self.list_flow_model = []  
+        
+        self.list_model_name.append(ident)
+        self.list_of_success.append(success)
+        self.list_flow_model.append(flow_model)
+        # self.save_object()
+        
+        return success, flow_model
     
-    def matrix_modflow(self, 
+    def matrix_modflow(self,                       
                        success,
                        flow_model,
+                       first_only = True,
                        watertable_elevation = True,
                        watertable_depth=False, 
                        seepage_areas = True,
@@ -347,13 +359,15 @@ class Watershed:
                        export_tif = True):
         
         if success == True:
-            flow_model.post_processing(watertable_elevation = watertable_elevation,
+            flow_model.post_processing(first_only=first_only,
+                                       watertable_elevation = watertable_elevation,
                                        watertable_depth = watertable_depth, 
                                        seepage_areas = seepage_areas,
                                        outflow_drain = outflow_drain,
                                        groundwater_flux = groundwater_flux,
                                        specific_discharge = specific_discharge,
                                        accumulation_flux = accumulation_flux,
+                                       perenn_intermit=perenn_intermit,
                                        verbose = verbose,
                                        export_tif = export_tif)
 

@@ -10,7 +10,8 @@ import sys
 from os.path import dirname, abspath
 DIR = dirname(dirname(abspath(__file__)))
 sys.path.append(DIR)
-from glob import glob
+import glob
+import os
 import numpy as np
 import pandas as pd
 from osgeo import gdal
@@ -38,7 +39,7 @@ from tools import toolbox
 
 class SurfaceOutputs():
     def __init__(self, recharge, simulations_folder, stable_folder, model_name, 
-                 types_obs, save_gif=False,
+                 types_obs, save_gif=False, first_only = True,
                  outflow=False, accflux=False, intermittency=False,
                  chronics=True,
                  sim_state='steady'):
@@ -47,9 +48,12 @@ class SurfaceOutputs():
         
         self.stable_folder = stable_folder
         self.dir_to_analyse = simulations_folder + model_name + '/_watershed/'
-        self.list_traces = glob(self.dir_to_analyse+'_surfaceflow/'+'tracept_*.shp')
-        self.list_outflow = glob(self.dir_to_analyse+'_tifs/'+'outflow_*.tif')
-        self.list_accflux = glob(self.dir_to_analyse+'_tifs/'+'accumulation_*.tif')
+        self.list_traces = sorted(glob.glob(self.dir_to_analyse+'_surfaceflow/'+'tracept_*.shp'), 
+                                  key=os.path.getmtime)
+        self.list_outflow = sorted(glob.glob(self.dir_to_analyse+'_tifs/'+'outflow_*.tif'),
+                                   key=os.path.getmtime)
+        self.list_accflux = sorted(glob.glob(self.dir_to_analyse+'_tifs/'+'accumulation_*.tif'),
+                                   key=os.path.getmtime)
         self.recharge = recharge
         
         self.types_obs = types_obs
@@ -64,19 +68,28 @@ class SurfaceOutputs():
                 
         if intermittency == True:
             for iter_time in range(len(self.list_traces)):
-                print('Plot intermittency : '+str(iter_time)+' / '+str(len(self.list_traces)))                        
+                print('Plot intermittency : '+str(iter_time)+' / '+str(len(self.list_traces)))
+                if first_only==True:
+                    if iter_time>=12:
+                        break                        
                 self.plot_map_intermittency(iter_time)
 
         if outflow == True:
             self.scanning_discharge()
             for iter_time in range(len(self.list_outflow)):
                 print('Plot discharge : '+str(iter_time)+' / '+str(len(self.list_outflow)))
+                if first_only==True:
+                    if iter_time>0:
+                        break
                 self.plot_map_discharge(iter_time, 'outflow_drain')
 
         if accflux == True:
             self.scanning_discharge()
             for iter_time in range(len(self.list_accflux)):
                 print('Plot accummulation : '+str(iter_time)+' / '+str(len(self.list_accflux)))
+                if first_only==True:
+                    if iter_time>0:
+                        break
                 self.plot_map_discharge(iter_time, 'accumulation_flux')
         
         if sim_state == 'transient':
@@ -84,6 +97,9 @@ class SurfaceOutputs():
                 self.scanning_discharge()
                 for iter_time in range(len(self.list_outflow)):
                     print('Plot chronics : '+str(iter_time)+' / '+str(len(self.list_outflow)))
+                    if first_only==True:
+                        if iter_time>0:
+                            break
                     self.plot_chronic_results(iter_time)
         
         if save_gif==True:
@@ -99,7 +115,8 @@ class SurfaceOutputs():
     def plot_map_intermittency(self, iter_time):
         # Select file
         file = self.list_traces[iter_time]
-        lead_numb = "%03d" % (iter_time,)
+        # lead_numb = "%03d" % (iter_time,)
+        lead_numb = str(iter_time)
         # Open files
         outflow = gpd.read_file(file)
         dem = rasterio.open(self.stable_folder+'/geographic/'+'watershed_dem.tif')
@@ -241,7 +258,8 @@ class SurfaceOutputs():
                     
     def plot_map_discharge(self, iter_times, typ_file):
         # Open data
-        lead_numb = "%03d" % (iter_times,)
+        # lead_numb = "%03d" % (iter_times,)
+        lead_numb = str(iter_times)
         outflow = imageio.imread(self.mass_to_analyse+typ_file+'_t('+lead_numb+')'+'.tif')
         # Mask data
         msk_outflow = (outflow<0)
@@ -310,7 +328,8 @@ class SurfaceOutputs():
             
     def plot_chronic_results(self, iter_times):
         # Times to plot
-        lead_numb = "%03d" % (iter_times,)
+        # lead_numb = "%03d" % (iter_times,)
+        lead_numb = str(iter_times)
         t_temp = self.df.index[iter_times]
         self.time_for_gif.append(t_temp)
         # Dates for plot
@@ -372,7 +391,7 @@ class SurfaceOutputs():
         plt.close(fig)
             
     def make_a_gif(self, begin_by):
-        filenames = glob(self.pngdir+'/'+begin_by+'*.png')
+        filenames = sorted(glob.glob(self.pngdir+'/'+begin_by+'*.png'), key=os.path.getmtime)
         images = []
         for filename in filenames:
             images.append(imageio.imread(filename))
