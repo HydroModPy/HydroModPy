@@ -46,14 +46,13 @@ class Modflow():
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self, geographic, first_only=True, sink_fill = False, box=True,
+    def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0., model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
-        self.first_only = first_only
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
@@ -91,8 +90,8 @@ class Modflow():
                                         exe_name=self.exe, version='mfnwt', listunit=2, verbose=False,
                                         model_ws=self.full_path) # external_path=self.full_path
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000,
-                                            thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=0, options='COMPLEX',
-                                            Continue=False) 
+                                            thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1, options='COMPLEX',
+                                            Continue=False) # ibotav=0
 
         try:
             if len(self.hyd_cond)!=1:
@@ -216,9 +215,6 @@ class Modflow():
                     self.rchData[kper] = np.nanmean(self.climatic)
                 else:
                     self.rchData[kper] = self.climatic[kper]
-        if verbose == True:
-            print('REC')
-            print(self.climatic)
         self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
                 
         # Drain package (DRN)
@@ -259,7 +255,7 @@ class Modflow():
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, 
+    def post_processing(self, first_only = True,
                               watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
                               groundwater_flux = True, specific_discharge = True,
@@ -335,7 +331,7 @@ class Modflow():
         # self.dict_accumulation_flux = (self.save_file+'/accumulation_flux'+'.h5')
         
         if verbose == True:
-            print('Post-processing in progress')  
+            print('Post-processing in progress')
         
         # Loop from time
         for item, time in enumerate(self.times):
@@ -345,11 +341,12 @@ class Modflow():
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
             
-            lead_numb = "%03d" % (item,)
+            # lead_numb = "%03d" % (item,)
+            lead_numb = str(item)
             
-            if self.first_only==True:
+            if first_only==True:
                 if item>0:
-                    break
+                    export_tif=False
             
             # Watertable data
             if self.nlay > 1:
@@ -407,7 +404,8 @@ class Modflow():
                 self.out_drn[self.dem_mask] = -9999
                 # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
                 output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif'
-                toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                if export_tif==True:
+                    toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
                 self.dict_outflow_drain[item] = self.out_drn
             
             if groundwater_flux == True:
@@ -469,7 +467,8 @@ class Modflow():
             pass
         
         if perenn_intermit == True:
-            self.list_traces = glob.glob(self.surfaceflow_file+'/'+'tracept_t*.shp')
+            self.list_traces = sorted(glob.glob(self.surfaceflow_file+'/'+'tracept_t*.shp'), key=os.path.getmtime)
+            # print(self.list_traces)
             cpt = 1
             inf = 0
             sup = 12
