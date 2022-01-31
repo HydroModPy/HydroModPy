@@ -189,6 +189,7 @@ R = BV.forcing.recharge
 rech = R
 
 r = R.reset_index()
+
 #%% SCENARIOS RECHARGE
 
 # fig = plt.subplots(1,1, figsize=(7,3))
@@ -268,7 +269,7 @@ for k in ks:
 # visu = vizualisation.Vizualisation(BV, ident)
 # visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
     
-#%% FAST PLOT
+#%% FAST PLOT FOR ETR
 
 obs_path = "C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric_J7513010_Le Canut [nord] à Maxent - La Botelerais_327818_6777885.csv"
 dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
@@ -341,7 +342,7 @@ for k in ks:
             print('FAIL:'+label)
             pass
 
-#%% FAST SAT
+#%% FAST SAT FOR ETR
 
 obs_path = "C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric_J7513010_Le Canut [nord] à Maxent - La Botelerais_327818_6777885.csv"
 dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')

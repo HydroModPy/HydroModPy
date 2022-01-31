@@ -40,6 +40,7 @@ dependencies:
     
     # Post-processing
     - matplotlib=3.4.2
+    - matplotlib-scalebar
     - vedo=2021.0.6
 
     # Viewing notebooks
