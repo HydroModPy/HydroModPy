@@ -106,7 +106,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-watershed_name = 'Dem' # search the name in watershed_library or just label your result folder
+watershed_name = 'Conceptual' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
 if watershed_name == 'Outlet':
@@ -131,7 +131,7 @@ if watershed_name == 'Conceptual':
     dem_name = 'topoxyz_Uhigh.txt'
     from_shp = None
     from_dem = True
-    cell_size = 200
+    cell_size = 25
 
 types_obs = ['streams','sections'] # list of shapefile name layers for clip hydrology
 fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
@@ -156,7 +156,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
-if watershed_name != 'Dem':
+if watershed_name != 'Conceptual':
     if load != True :
         BV.add_surfex(surfex_path) 
         BV.add_geology(geology_path) 
@@ -169,8 +169,8 @@ if watershed_name != 'Dem':
         if subbasin_path == True:
             BV.add_subbasin()
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+# watershed_display.watershed_dem(BV)
+# watershed_display.watershed_local(dem_path, BV)
 
 #%% REPROJECT LAYER
 
@@ -211,15 +211,17 @@ start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 model_name = sim_state # just a string
 
 # Strcture of the model
-lay_number = 1 # vertical discrtization
+lay_number = 5 # vertical discrtization
 bottom = None # aquifer flat or not
-thick_exp = 1. # exponential decay of K with nlay
+thick_exp = 1.25 # exponential decay of K with nlay
 cond_decay = 0. # exponential decay of K with depth
 
 # Hydraulic properties
 K = 1e-5 * 3600 * 24 # m/second to m/day
-E = 30 # m
+E = 100 # m
 P = 0.01 # -
+
+#defKR = np.logspace(-1,1,1)
 KR = 100
 
 # Active of not modules
@@ -247,7 +249,7 @@ if watershed_name != 'Conceptual':
 conceptual_serie = np.random.sample(24)/10
 
 if watershed_name == 'Conceptual':
-    R = pd.Series(conceptual_serie) / 30 # m/month to m/day
+    R = K/KR    
     BV.forcing.update_recharge(R, sim_state=sim_state)
     actual_date = False
 
@@ -285,23 +287,71 @@ BV.results_modflow(ident=model_name,
 
 # 3D parameters
 #list_view = ['grid', 'watertable', 'watertable_depth', 'pathlines', 'surface_flow', 'drain_flow'] # object to represent in 3D
-list_view = ['grid','pathlines', 'drain_flow']
+list_view = ['pathlines', 'drain_flow']
 interactive = True
-z_scale = 10
-view = 'south-west'
-lines = 1000
+z_scale = 1
+view = 'vertical'
+lines = 10000
 
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
 
+#%% my 2D vizu
+# from matplotlib.colors import LightSource
+# import numpy.ma as ma
+# from matplotlib.pyplot import cm
+
+# dempath = stable_folder + "geographic/watershed_dem.tif"
+# demDs = gdal.Open(dempath)
+# demData = demDs.GetRasterBand(1).ReadAsArray()
+# geot = demDs.GetGeoTransform()
+# dx = geot[1] #delta x
+# dy = abs(geot[5]) #delta y
+
+# fig = plt.figure(figsize=(8,6))
+# ls = LightSource(azdeg=310, altdeg=40)
+# cmap = plt.cm.gist_earth
+# plt.imshow(ls.hillshade(demData, vert_exag=1, dx=dx, dy=dy), cmap='gray')
+# rgb = ls.shade(demData, cmap=cmap, blend_mode='soft',
+#                         vert_exag=1, dx=dx, dy=dy)
+# plt.imshow(rgb,alpha=0.60)
+
+# seepage_path = simulations_folder + "steady/_watershed/outflow_drain.npy"
+# seepage = np.load("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/Conceptual/results_simulations/steady/_watershed/outflow_drain.npy")
+# seepage =  np.ma.array(seepage)
+# seepage = ma.masked_where(seepage==0,seepage)
+
+
+# lx,ly = demData.shape
+
+# x = np.linspace(0,lx,lx)
+# y = np.linspace(0,ly,ly)
+
+# xx, yy = np.meshgrid(y,x)
+
+# xx_mi = np.min(np.ma.array(xx))
+# xx_ma = np.max(np.ma.array(xx))
+# ext_x = xx_ma-xx_mi
+
+# yy_mi = np.min(np.ma.array(yy))
+# yy_ma = np.max(np.ma.array(yy))
+# ext_y = yy_ma-yy_mi
+
+# #plot seepage
+# plt.contourf(xx, yy, seepage, cmap=cm.afmhot,alpha=0.9,antialiased = True)
+
 #%% 2D MAP VIEW
+
+from groundwater_flow import visualization, modflow_display
 
 freq_interv = 12 # number of tim_step to take account in intermittency check
 save_gif = True # save a gif after plots
 
-if sim_state=='transient':
-    modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=freq_interv, save_gif=save_gif)
+# if sim_state=='transient':
+modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
+                               types_obs, freq_interv=freq_interv, save_gif=save_gif,
+                               outflow=True, intermittency=False, sim_state=sim_state)
 
 #%% 2D CROSS-SECTION
 
