@@ -86,7 +86,8 @@ class Watershed:
     def __init__(self, watershed_name: str, dem_path: str, 
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
-                 from_shp: str = None, from_dem: bool = False, cell_size: int = 100):
+                 from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
+                 from_xy: list = [], regio_out: bool = False):
         """  
         Constructor
         """
@@ -95,6 +96,7 @@ class Watershed:
         
         self.from_shp = from_shp
         self.from_dem = from_dem
+        self.from_xy = from_xy
         self.cell_size = cell_size
         
         self.load_watershed_csv()
@@ -117,6 +119,12 @@ class Watershed:
         
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         toolbox.create_folder(self.simulations_folder)
+        
+        if regio_out == True:
+            self.regio_path = os.path.join(out_path, '_regional')
+            toolbox.create_folder(self.regio_path)
+        else:
+            self.regio_path = None
         
         self.elt_def = []
         
@@ -141,7 +149,7 @@ class Watershed:
         
         :meta public:
         """
-        if (self.from_shp == None) & (self.from_dem == False):
+        if (self.from_shp == None) & (self.from_dem == False) & (self.from_xy == []) :
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
             try:
                 watershed_list = pd.read_csv(self.library_path, delimiter=';')
@@ -223,6 +231,7 @@ class Watershed:
                                                 snap_dist=self.snap_dist, buff_percent=self.buff_percent,
                                                 out_path=self.watershed_folder,
                                                 from_shp=self.from_shp, from_dem=self.from_dem,
+                                                from_xy=self.from_xy, regio_path=self.regio_path,
                                                 cell_size=self.cell_size) #2D
         self.elt_def.append('geographic')
         
@@ -277,6 +286,8 @@ class Watershed:
         self.elt_def.append('intermittency')
             
     def add_subbasin(self):
+        if hasattr(self, 'hydrometry') == False:
+            self.hydrometry=None
         self.subbasin = geographic.Subbasin(geographic=self.geographic, hydrometry=self.hydrometry, intermittency=self.intermittency, out_path=self.watershed_folder)
         self.elt_def.append('subbasin')
 

@@ -106,7 +106,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-watershed_name = 'Outlet' # search the name in watershed_library or just label your result folder
+watershed_name = 'Conceptual' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
 if watershed_name == 'Outlet':
@@ -144,7 +144,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -396,4 +396,13 @@ plt.tight_layout()
 
 # plt.savefig(self.pngdir + name_fig)
 
+#%% 2D VISUAL
+
+from tools import vtk
+from groundwater_flow import visualization
+#☻vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, 'steady')
+visu.visual2D(interactive=True,
+              size=(1920,1080),
+              view='north-west', lines=300, cloc=(0.7,0.7), contour_plot=False)
 

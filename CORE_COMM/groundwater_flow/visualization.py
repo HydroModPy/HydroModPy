@@ -208,7 +208,8 @@ class Visualization():
 
     def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'] , view = 'south-west', 
                  interactive = False, time_step = 0, lines=100, z_scale=20, render=1, 
-                 cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080)):
+                 cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080), 
+                 contour_plot=True):
        
         def trim_axs(axs, N):
             """little helper to massage the axs list to have correct length..."""
@@ -354,7 +355,8 @@ class Visualization():
                 image.append(None)
         compt = 0
         for ax in axs:
-            contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+            if contour_plot==True:
+                contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
             bounds = dem.bounds
             xlim = ([bounds[0], bounds[2]])
             ylim = ([bounds[1], bounds[3]])
