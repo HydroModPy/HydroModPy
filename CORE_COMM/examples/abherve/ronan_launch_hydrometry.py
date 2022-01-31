@@ -280,10 +280,10 @@ class Hydrometry:
         discharge.to_csv(outdata_path+'/'+'CONCAT_DATA'+'.csv', sep=';')
         
 x = Hydrometry('C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/shp/bzh.shp',
+               'D:/Users/abherve/HYDROMETRY/shp/MassifArmoricain_manuel.shp',
                'D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/data/BZH',
-               'D:/Users/abherve/HYDROMETRY/fig/BZH')
+               'D:/Users/abherve/HYDROMETRY/data/MASSIF',
+               'D:/Users/abherve/HYDROMETRY/fig/MASSIF')
 
 #%% Notes
 

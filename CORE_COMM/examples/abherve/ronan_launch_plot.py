@@ -1746,7 +1746,7 @@ for idx, to_look in enumerate(cols):
 
     bplot=sns.boxplot(ax=ax, y=to_look, x='geol', 
                       data=recap, 
-                      width=0.5)                  
+                      width=0.5)           
     
     for i in range(0,3):
         mybox = bplot.artists[i]

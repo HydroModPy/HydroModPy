@@ -16,7 +16,7 @@ from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from glob import glob
+import glob
 import geopandas as gpd
 
 import flopy.utils.binaryfile as fpu
@@ -77,7 +77,7 @@ class Results:
         self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
         self.specific_discharge = np.load(os.path.join(self.save_file, 'specific_discharge'+'.npy'), allow_pickle=True).item()
         self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
-        self.perenn_intermit = glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp'))
+        self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
         
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
