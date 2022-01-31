@@ -9,7 +9,7 @@ from rasterio.plot import show
 import geopandas as gpd
 
 import flopy
-import os
+import os, sys
 import contextily as cx
 
 from tools import toolbox
@@ -76,8 +76,12 @@ class Visualization():
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
             grid_mesh.addScalarBar(pos=cloc, title='Topographic elevation, [m]', horizontal=False, titleFontSize=20)
             grid_mesh.scale([1,1,z_scale])
+            
+
+            grid_mesh.alpha(1)
             plt += grid_mesh.flag()     
             plt += grid_mesh.isolines(5).lw(1).c('k')
+
         except:
             print("VTK grid doesn't exist")
             
@@ -179,6 +183,8 @@ class Visualization():
             pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
         if view == 'custom':
             pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*4)
+        if view == 'vertical':
+            pos = (np.mean(watertable_elev.points()[:, 0]) ,np.mean(watertable_elev.points()[:,1]), np.mean(watertable_elev.points()[:, 2])*400)
 
         focal = (min(watertable_elev.points()[:, 0])+(xs/2), min(watertable_elev.points()[:, 1])+(ys/2), zs)
         cam = dict(pos = pos,focalPoint = focal)
@@ -193,12 +199,15 @@ class Visualization():
                 plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'pathlines':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
                 plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'surface_flow':
                 plt.show(grid_wireframe,contour,stream, watertable_blue, surface_flow,"Surface flow",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'drain_flow':
-                #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
+                plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         
         
         if interactive == True:
@@ -211,6 +220,14 @@ class Visualization():
                  cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080), 
                  contour_plot=True):
        
+        if len(object_list) == len(color_scale):
+            pass
+        elif color_scale == None:
+            color_scale = [(None,None),(None,None),(None,None),(None,None),(None,None),(None,None),(None,None),(None,None)]
+        else:
+            print('object_list and color_scale must have the same lenght.')
+            sys.exit()
+        
         def trim_axs(axs, N):
             """little helper to massage the axs list to have correct length..."""
             axs = axs.flat
@@ -256,11 +273,11 @@ class Visualization():
             if obj == 'grid':
                 axs[i].set_title('Topographic elevation, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
-                             cmap='terrain')
+                             cmap='terrain', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
-                     transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
                     streams.plot(ax=axs[i], lw=2, color='b', zorder=4,legend=True, label='Streams')
                 except:
@@ -268,37 +285,41 @@ class Visualization():
             if obj == 'watertable':
                 axs[i].set_title('Water table elevation, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), 
-                             cmap='jet')
+                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
             if obj == 'watertable_depth':
                 axs[i].set_title('Water table depth, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), 
-                             cmap='coolwarm_r')
+                             cmap='coolwarm_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), ax=axs[i], 
-                     transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
             if obj == 'drain_flow':
                 axs[i].set_title('Seepage rates, log(Q) [mm/y]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
                 image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
-                             cmap='jet')
+                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
+                show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                     transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
             if obj == 'surface_flow':
                 axs[i].set_title('Cumulate seepage rates, log(Q) [mm/y]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
-                             cmap='jet')
+                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
+                show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                     transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
                 show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
             if obj == 'pathlines':
                 axs[i].set_title('Residence times, log(t) [d]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
@@ -330,7 +351,10 @@ class Visualization():
                     lc = LineCollection(segments, cmap='hot_r')
                     lc.set_array(np.log10(pth_data[j].time))
                     lc.set_linewidth(2)
-                    lc.set_clim(1,np.max(max_time))
+                    if color_scale[i][0] == None:
+                        lc.set_clim(1,np.max(max_time))
+                    else:
+                        lc.set_clim(color_scale[i][0],color_scale[i][1])
                     line = axs[i].add_collection(lc)
                 image.append(line)
                 basemap.append(1)
@@ -343,11 +367,11 @@ class Visualization():
                 e = endobj.get_alldata()
                 for j in range(len(e)):
                      res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
-                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='hot_r')
+                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='hot_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
-                     transform=dem.transform, cmap='hot_r', alpha=1, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='hot_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 
             if obj == 'map':
                 axs[i].set_title('Watershed boundary')
@@ -381,7 +405,7 @@ class Visualization():
             compt +=1
         
         fig.tight_layout ()
-        fig.savefig(os.path.join(modelfolder,'_figures','test.png'), dpi=300, bbox_inches='tight', transparent=False)
+        fig.savefig(os.path.join(modelfolder,'test.png'), dpi=300, bbox_inches='tight', transparent=False)
         
         
         

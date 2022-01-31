@@ -131,7 +131,7 @@ if watershed_name == 'Conceptual':
     dem_name = 'topoxyz_Uhigh.txt'
     from_shp = None
     from_dem = True
-    cell_size = 25
+    cell_size = 100
 
 types_obs = ['streams','sections'] # list of shapefile name layers for clip hydrology
 fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
@@ -144,7 +144,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -220,9 +220,7 @@ cond_decay = 0. # exponential decay of K with depth
 K = 1e-5 * 3600 * 24 # m/second to m/day
 E = 100 # m
 P = 0.01 # -
-
-#defKR = np.logspace(-1,1,1)
-KR = 100
+KR = 1000
 
 # Active of not modules
 first_only = False # if True generate results only for the first tim_step
@@ -266,7 +264,7 @@ if sim_state=='transient':
 #%% LAUNCH MODELING
 
 # Run model
-BV.run_modflow(ident=model_name,
+success,flow_model = BV.run_modflow(ident=model_name,
                 modpath_sim=modpath_sim,
                 first_only=first_only,
                 sink_fill=sink_fill,
@@ -277,25 +275,105 @@ BV.run_modflow(ident=model_name,
                 cond_decay=cond_decay,
                 verbose=verbose)
 
+BV.matrix_modflow(success,
+                  flow_model,
+                  first_only = True,
+                  watertable_elevation = True,
+                  watertable_depth = True, 
+                  seepage_areas = True,
+                  outflow_drain = True,
+                  groundwater_flux = True,
+                  specific_discharge = False,
+                  accumulation_flux = True,
+                  perenn_intermit = False,
+                  verbose = True,
+                  export_tif = True)
+
 # Extract results
 BV.results_modflow(ident=model_name,
                    actual_date=actual_date,
                    start=start,
                    time_step=time_step)
 
+#%% PLOT 2D
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import LightSource
+from matplotlib.colors import LogNorm
+
+lead_numb = '0'
+outflow = imageio.imread('D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/Conceptual/results_simulations/steady/_watershed/_tifs/accumulation_flux_t(0).tif')
+demData = BV.geographic.dem_data
+res = 100
+
+msk_outflow = (outflow<0)
+outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
+outflow = outflow *1000 *365 # mm/year
+outflow = np.log10(outflow)
+
+ls = LightSource(azdeg=45, altdeg=45)
+cmap = plt.cm.Greys
+rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
+
+fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=3, vmax=7)
+# cf=ax.imshow(outflow, cmap='jet_r', alpha=1, norm = LogNorm(vmin=outflow.min(), vmax=outflow.max()))
+
+divider = make_axes_locatable(ax)
+#cax = divider.append_axes("right", size="1%", pad=0.05)
+#fig.add_axes(cax)
+# cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+# val = np.ma.masked_where(demData < 0, demData)
+# minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+# maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+# meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+# cbar.set_ticks([minVal, meanVal, maxVal])
+# cbar.set_ticklabels([minVal, meanVal, maxVal])
+# cbar.mappable.set_clim(minVal, maxVal)
+# cbar.ax.tick_params(labelsize=10)
+
+cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+fig.add_axes(cax)
+cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
+ticks = np.linspace(0, outflow.max(), 5)
+cbar.set_ticks(ticks)
+cbar.set_ticklabels(ticks.round(1))
+cbar.set_label('Seepage rates [Log(Q) mm/year]')
+
+plt.tight_layout()
+name_fig = 'map_discharge_' + str(lead_numb) + '.png'
+plt.tight_layout()
+
+import os
+plt.savefig(os.path.join(simulations_folder,'steady','seepage_KR1000.png'), dpi=300, bbox_inches='tight', transparent=False)
+
+#%% 2D VISUALIZATION
+from tools import vtk
+from groundwater_flow import visualization
+#☻vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, model_name)
+visu.visual2D(interactive=True,
+              size=(1920,1080),
+              view='north-west', lines=10000, cloc=(0.7,0.7))
+
 #%% 3D VISUALIZATION
 
 # 3D parameters
 #list_view = ['grid', 'watertable', 'watertable_depth', 'pathlines', 'surface_flow', 'drain_flow'] # object to represent in 3D
-list_view = ['pathlines', 'drain_flow']
-interactive = True
-z_scale = 1
-view = 'vertical'
-lines = 10000
+# list_view = ['pathlines', 'drain_flow']
+# interactive = True
+# z_scale = 1
+# view = 'vertical'
+# lines = 10000
 
-vtk.VTK(BV, model_name)
-visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
+# vtk.VTK(BV, model_name)
+# visu = visualization.Visualization(BV, model_name)
+# visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
 
 #%% my 2D vizu
 # from matplotlib.colors import LightSource
@@ -343,42 +421,42 @@ visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, v
 
 #%% 2D MAP VIEW
 
-from groundwater_flow import visualization, modflow_display
+# from groundwater_flow import visualization, modflow_display
 
-freq_interv = 12 # number of tim_step to take account in intermittency check
-save_gif = True # save a gif after plots
+# freq_interv = 12 # number of tim_step to take account in intermittency check
+# save_gif = True # save a gif after plots
 
-# if sim_state=='transient':
-modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
-                               types_obs, freq_interv=freq_interv, save_gif=save_gif,
-                               outflow=True, intermittency=False, sim_state=sim_state)
+# # if sim_state=='transient':
+# modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
+#                                types_obs, freq_interv=freq_interv, save_gif=save_gif,
+#                                outflow=True, intermittency=False, sim_state=sim_state)
 
 #%% 2D CROSS-SECTION
 
-interactive = False
+# interactive = False
 
-dem_data = BV.geographic.dem_data # dem data
-wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
-if watershed_name == 'Dem':
-    river_data = None
-else:
-    river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif') # river data
+# dem_data = BV.geographic.dem_data # dem data
+# wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
+# if watershed_name == 'Dem':
+#     river_data = None
+# else:
+#     river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif') # river data
 
-modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
+# modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
 #%% CALIBRATION
 
-test_calib = True
+# test_calib = True
 
-# Example of calibration from stream network
-if test_calib==True:
-    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
-    BV.hydrodynamic.update_thickness(30)
-    BV.hydrodynamic.update_porosity(0.1)
-    BV.hydrodynamic.update_hyd_cond(4.26)
-    params_file = data_path + 'calib/calib_params.csv'
-    calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-    calib.exploration(resolution=50)
+# # Example of calibration from stream network
+# if test_calib==True:
+#     BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
+#     BV.hydrodynamic.update_thickness(30)
+#     BV.hydrodynamic.update_porosity(0.1)
+#     BV.hydrodynamic.update_hyd_cond(4.26)
+#     params_file = data_path + 'calib/calib_params.csv'
+#     calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+#     calib.exploration(resolution=50)
 
 #%% NOTES
 
