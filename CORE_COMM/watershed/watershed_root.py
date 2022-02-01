@@ -91,6 +91,9 @@ class Watershed:
         """  
         Constructor
         """
+        
+        # self.load_watershed_csv()
+        
         self.watershed_name = watershed_name
         self.library_path = library_path
         
@@ -99,8 +102,6 @@ class Watershed:
         self.from_xy = from_xy
         self.cell_size = cell_size
         
-        self.load_watershed_csv()
-
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
@@ -134,14 +135,16 @@ class Watershed:
                 print("Object was loaded successfully")
              if succes == False:
                 print("Object was not loaded as demanded but created from scratch")
+                self.load_watershed_csv()
                 self.create_object()
                 if save_object == True:
                     self.save_object()
         else:
             print("Create new object")
+            self.load_watershed_csv()
             self.create_object()
             if save_object == True:
-                self.save_object()
+                self.save_object()        
         
     def load_watershed_csv(self):
         """

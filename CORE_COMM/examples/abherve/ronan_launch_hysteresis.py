@@ -29,6 +29,11 @@ import shapely.geometry as SG
 import matplotlib.pylab as pl
 import math
 import seaborn as sns
+from pyproj import Transformer
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import Normalize
+from matplotlib import cm
+import rasterio
 
 # Gis
 import imageio
@@ -1211,6 +1216,7 @@ dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
+surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/All/'
 geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
 oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
 hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
@@ -1230,10 +1236,11 @@ dem_path = dems_path + dem_name
 out_folder = out_path + '_data/'
 # Qobs_path = 'D:/Users/abherve/HYDROMETRY/data/EBR/J7364220_La Chï¿½ze ï¿½ Plï¿½lan-le-Grand - L\'Enlevrier/Hydrometric_J7364220_La Chèze à Plélan-le-Grand [L\'Enlevrier]_273631-2343510_9.3_88_1989-2022.csv'
 obs_list = glob.glob(out_folder+'*')
-obs_list = [obs_list[0]]
+# obs_list = [obs_list[0]]
 
-from pyproj import Transformer
 shp_folder = out_path + '_shapefiles/'
+
+list_watershed = []
 
 for Qobs_path in obs_list:
     shp = gpd.read_file(shp_folder + 'clipped_hydrometric.shp')
@@ -1252,7 +1259,6 @@ for Qobs_path in obs_list:
     label = Qobs_path.split('\\')[-1].split('_')[2]
     label = label.replace('\'',' ').split(' ')[0:2]
     label = ' '.join(label)
-    print(label)
     snap = 200
     buff = 10
     
@@ -1264,8 +1270,7 @@ for Qobs_path in obs_list:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
-    load = False
-
+    load = True
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
                                   out_path=out_path,
@@ -1276,16 +1281,146 @@ for Qobs_path in obs_list:
                                   from_xy=from_xy,
                                   cell_size=cell_size,
                                   regio_out=regio_out)
+    if load == False:
+        BV.add_surfex(surfex_path) 
+        BV.add_geology(geology_path) 
+        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+        BV.add_intermittency(intermittency_path)
+        BV.add_subbasin()
 
-    BV.add_surfex(surfex_path) 
-    BV.add_geology(geology_path) 
-    BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-    BV.add_intermittency(intermittency_path)
-    BV.add_subbasin()
-
-    watershed_display.watershed_dem(BV)
-    watershed_display.watershed_local(dem_path, BV)
+    # watershed_display.watershed_dem(BV)
+    # watershed_display.watershed_local(dem_path, BV)
     
+    list_watershed.append(watershed_name)
+
+# with open(out_path+"_watershed_library.txt", "w") as output:
+#     for s in list_watershed:
+#         output.write(str(s)+"\n")
+        
+textfile = open(out_path+"_watershed_library.txt", "w")
+for element in list_watershed:
+    textfile.write(element + "\n")
+textfile.close()
+    
+#%% CARACT WATSHD
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
+out_path = "D:/Users/abherve/HYSTERESIS/"
+
+dems_path = data_path + 'DEM/France/'
+dem_name = "BDALTI_bzhext_75m.tif"
+dem_path = dems_path + dem_name
+types_obs = ['streams_fr','sections_bzh']
+fields_obs = ['FID', 'Persistanc']
+
+gleeson_path = data_path + 'GEOLOGY/France/Permeability/'
+glee_shp = gleeson_path+'GLHYMPS_bzh-norm.shp'
+glee_tif = gleeson_path+'GLHYMPS_bzh-norm_75m.tif'
+bdticm_path = data_path + 'GEOLOGY/France/Depth/' + "bdticm_250m_fr_lamb93.tif"
+
+my_file = open(out_path+'_watershed_library.txt', "r")
+list_watershed = my_file.readlines()
+
+for i, watershed_name in enumerate(list_watershed):
+    watershed_name = watershed_name.replace('\n','')
+    print('##### '+watershed_name.upper()+' #####')
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+    analysis_folder = os.path.join(out_path,'_analysis')
+    toolbox.create_folder(analysis_folder)
+    
+    load = True
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=load)
+    
+    watershed = gpd.read_file(stable_folder+'/geographic/'+'watershed.shp')
+    watershed['watershed_'] = watershed_name
+    outlet = gpd.read_file(stable_folder+'/geographic/'+'outlet_snap.shp')
+    outlet['watershed_'] = watershed_name
+    if i == 0:
+        watershed.to_file(os.path.join(analysis_folder, 'polygs.shp'))
+        outlet.to_file(os.path.join(analysis_folder, 'points.shp'))
+        points = gpd.read_file(os.path.join(analysis_folder, 'points.shp'))
+        polygs = gpd.read_file(os.path.join(analysis_folder, 'polygs.shp'))
+    if i > 0:
+        points.loc[len(points)] = outlet.loc[0]
+        polygs.loc[len(polygs)] = watershed.loc[0]
+    # print(len(points))
+        
+    dem = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
+    
+    area_polygon = watershed.geometry.area.round(1) / 1e6
+    
+    streams = gpd.read_file(stable_folder+'/hydrology/'+types_obs[0]+'.shp')
+    sections = gpd.read_file(stable_folder+'/hydrology/'+types_obs[1]+'.shp')
+    perenn = sections[sections['Persistanc']=='4']
+    intermit = sections[sections['Persistanc']=='3']
+    streams['length'] = streams.geometry.length
+    sections['length'] = sections.geometry.length
+    perenn['length'] = perenn.geometry.length
+    intermit['length'] = intermit.geometry.length
+    dd_streams = streams['length'].sum().round(1) / 1000
+    dd_sections = sections['length'].sum().round(1) / 1000
+    dd_perenn = perenn['length'].sum().round(1) / 1000
+    dd_intermit = intermit['length'].sum().round(1) / 1000
+
+    dempath = stable_folder+'geographic/'+'watershed_dem.tif'
+    
+    outslope = stable_folder+'geographic/'+'watershed_slope.tif'
+    wbt.slope(dempath, outslope, zfactor=None, units="percent")
+    slope = imageio.imread(outslope)
+    slope[slope<0] = np.nan
+    slope_mean = np.nanmedian(slope).round(1).astype(float).round(1)
+    
+    outrugness = stable_folder+'/geographic/'+'watershed_rugness.tif'
+    wbt.ruggedness_index(dempath, outrugness)
+    rug = imageio.imread(outrugness)
+    rug[rug<0] = np.nan
+    rugness_mean = np.nanmedian(rug).round(1).astype(float).round(1)
+    
+    glee_clip_shp = stable_folder+'geology/'+'gleeson_k'
+    wbt.clip(glee_shp, stable_folder+'geographic/'+'watershed.shp', glee_clip_shp)
+    gleepor_clip_tif = stable_folder+'geology/'+'gleeson_n.tif'
+    wbt.vector_polygons_to_raster(glee_shp, gleepor_clip_tif, field="Porosity_x", 
+                                  nodata=True, cell_size=None, base=dempath)
+    gleecondh_clip_tif = stable_folder+'geology/'+'gleeson_k.tif'
+    wbt.clip_raster_to_polygon(glee_tif, stable_folder+'geographic/'+'watershed.shp', 
+                               gleecondh_clip_tif, maintain_dimensions=False)
+    por = imageio.imread(gleepor_clip_tif)
+    por[por<0] = np.nan
+    por = np.nanmean(por)
+    condh = imageio.imread(gleecondh_clip_tif)
+    condh[condh<-2000] = np.nan
+    condh = np.nanmean(condh).round(1).astype(float).round(1)
+        
+    wbt.clip_raster_to_polygon(bdticm_path, stable_folder+'/geographic/'+'watershed.shp', 
+                               stable_folder+'/geology/'+'bdticm_e.tif', maintain_dimensions=False)
+    bdticm = imageio.imread(stable_folder+'/geology/'+'bdticm_e.tif')
+    bdticm = bdticm.astype(float)
+    bdticm[bdticm<0] = np.nan
+    bdticm = (np.nanmean(bdticm)).astype(int)
+    
+    for f, form in enumerate([polygs, points]):
+        df = form
+        df.loc[df['watershed_']==watershed_name,'area_topo'] = area_polygon.values.round(2)[0]
+        df.loc[df['watershed_']==watershed_name,'slope_topo'] = round(slope_mean,2)
+        df.loc[df['watershed_']==watershed_name,'rugness_topo'] = round(rugness_mean, 2)
+        df.loc[df['watershed_']==watershed_name,'dd_streams'] = (dd_streams / area_polygon.values).round(2)
+        df.loc[df['watershed_']==watershed_name,'dd_sections'] = (dd_sections / area_polygon.values).round(2)
+        df.loc[df['watershed_']==watershed_name,'dd_perenn'] = (dd_perenn / area_polygon.values).round(2)
+        df.loc[df['watershed_']==watershed_name,'dd_intermit'] = (dd_intermit / area_polygon.values).round(2)
+        df.loc[df['watershed_']==watershed_name,'K_gleeon'] = '{:0.1e}'.format((10**(condh/100))*1e7)
+        df.loc[df['watershed_']==watershed_name,'Sy_gleeson'] = por
+        df.loc[df['watershed_']==watershed_name,'d_bedrock'] = round(int(bdticm) / 100, 2)
+        if f == 0:
+            df.to_file(os.path.join(analysis_folder, 'polygs.shp'))
+        if f == 1:
+            df.to_file(os.path.join(analysis_folder, 'points.shp'))
+
 #%% LAUNCH OBS
 
 var = 'EFF'
@@ -1301,9 +1436,15 @@ color_dict = dict(zip(sce_list, sce_color))
 out_folder = out_path + '_data/'
 # Qobs_path = 'D:/Users/abherve/HYDROMETRY/data/EBR/J7364220_La Chï¿½ze ï¿½ Plï¿½lan-le-Grand - L\'Enlevrier/Hydrometric_J7364220_La Chèze à Plélan-le-Grand [L\'Enlevrier]_273631-2343510_9.3_88_1989-2022.csv'
 obs_list = glob.glob(out_folder+'*')
-obs_list = [obs_list[0]]
+# obs_list = [obs_list[0]]
 
-Fig1 = True
+analysis_folder = os.path.join(out_path,'_analysis')
+points = gpd.read_file(os.path.join(analysis_folder, 'points.shp'))
+points_col = points.columns
+polygs = gpd.read_file(os.path.join(analysis_folder, 'polygs.shp'))
+polygs_col = polygs.columns
+
+Fig1 = False
 if Fig1 == True:
     fig1, axs1 = plt.subplots(1,3, figsize=(10,4))
     fig1.add_subplot(111, frameon=False)
@@ -1316,7 +1457,7 @@ if Fig1 == True:
     temporal = True
     space = -10
     
-for Qobs_path in obs_list:
+for Qobs_path in obs_list[:]:
     code = Qobs_path.split('\\')[-1].split('_')[1]
     label = Qobs_path.split('\\')[-1].split('_')[2]
     label = label.replace('\'',' ').split(' ')[0:2]
@@ -1373,82 +1514,165 @@ for Qobs_path in obs_list:
     dfevol = hyst.dfmet.iloc[:-1]
     dfevol = dfevol.set_index(pd.to_datetime(dfevol.index, format='%Y'))
     dfmean = hyst.dfmet.iloc[-1]
+    transp = pd.DataFrame(dfmean).transpose()
     
+    all_polygs_col = polygs_col.append(dfmean.index)
+    all_points_col = points_col.append(dfmean.index)
+    
+    polygs = polygs.reindex(columns = all_polygs_col)
+    polygs.loc[polygs['watershed_']==watershed_name,dfmean.index] = transp.values
+    points = points.reindex(columns = all_points_col)
+    points.loc[polygs['watershed_']==watershed_name,dfmean.index] = transp.values
+    
+    if Fig1 == True:
+        
     ######################### AX 1 AX 2 #########################
     
-    for i, log in enumerate(['linear', 'log']):
-        
-        ax = axs1[i]
-        scat = ax.scatter(hyst.x, hyst.y, c=hyst.wy, cmap='hsv_r', marker="o", 
-                          s=10, vmin=1, vmax=12, alpha=0.75, ec='none')
-        ax.plot(hyst.xi, hyst.yi, marker="o", markersize=9, markeredgecolor='black', 
-                markerfacecolor='white', linestyle = 'None') 
-        for k in hyst.wyi:
-            ax.annotate(k,(hyst.xi[k],hyst.yi[k]), family='sans-serif', fontsize=5, 
-                        color='black', weight="bold", ha='center', va='center')
-        if log != 'log':
-            maxi = max(max(x_lim),max(y_lim))
-            mini = min(min(x_lim),min(y_lim))
-            ax.plot((mini,maxi), (mini,maxi), 
+        for i, log in enumerate(['linear', 'log']):
+            
+            ax = axs1[i]
+            scat = ax.scatter(hyst.x, hyst.y, c=hyst.wy, cmap='hsv_r', marker="o", 
+                              s=10, vmin=1, vmax=12, alpha=0.75, ec='none')
+            ax.plot(hyst.xi, hyst.yi, marker="o", markersize=9, markeredgecolor='black', 
+                    markerfacecolor='white', linestyle = 'None') 
+            for k in hyst.wyi:
+                ax.annotate(k,(hyst.xi[k],hyst.yi[k]), family='sans-serif', fontsize=5, 
+                            color='black', weight="bold", ha='center', va='center')
+            if log != 'log':
+                maxi = max(max(x_lim),max(y_lim))
+                mini = min(min(x_lim),min(y_lim))
+                ax.plot((mini,maxi), (mini,maxi), 
+                            linestyle='-', color='grey', linewidth=1.5, zorder=0)
+            else:
+                # ax.plot(np.linspace(*ax.get_xlim()), np.linspace(*ax.get_xlim()), 
+                #         linestyle='-', color='grey', linewidth=1.5, zorder=0)
+                ax.plot(np.linspace(0.1,max(x_lim),50), np.linspace(0.1,max(x_lim),50), 
                         linestyle='-', color='grey', linewidth=1.5, zorder=0)
-        else:
-            # ax.plot(np.linspace(*ax.get_xlim()), np.linspace(*ax.get_xlim()), 
-            #         linestyle='-', color='grey', linewidth=1.5, zorder=0)
-            ax.plot(np.linspace(0.1,max(x_lim),50), np.linspace(0.1,max(x_lim),50), 
-                    linestyle='-', color='grey', linewidth=1.5, zorder=0)
-        ax.errorbar(hyst.xi, hyst.yi,
-                    yerr=np.vstack([hyst.yi-hyst.ye.q25, hyst.ye.q75-hyst.yi]),
-                    xerr=np.vstack([hyst.xi-hyst.xe.q25, hyst.xe.q75-hyst.xi]),
-                    ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
-                    capthick=0.5, zorder=1)
-        ax.plot(hyst.xiline, hyst.yiline, linestyle = '-', lw=1.5, color='k', zorder=-1)
+            ax.errorbar(hyst.xi, hyst.yi,
+                        yerr=np.vstack([hyst.yi-hyst.ye.q25, hyst.ye.q75-hyst.yi]),
+                        xerr=np.vstack([hyst.xi-hyst.xe.q25, hyst.xe.q75-hyst.xi]),
+                        ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
+                        capthick=0.5, zorder=1)
+            ax.plot(hyst.xiline, hyst.yiline, linestyle = '-', lw=1.5, color='k', zorder=-1)
+            
+            if i == 0:
+                ax.set_ylabel(y_label)
+                ax.set_title(hyst.name)
+            else:
+                ax.set_title(str(hyst.first)+'-'+str(hyst.last))
+                ax.set_xlabel(x_label)
+            ax.set_xlim(x_lim[0], x_lim[1])
+            ax.set_ylim(y_lim[0]+0.1, y_lim[1])
+            ax.set_xticks(np.linspace(x_lim[0], x_lim[1], 5))
+            ax.set_yticks(np.linspace(y_lim[0]+0.1, y_lim[1], 5))
+            
+            ax.set_yscale(log)
+            
+        plt.tight_layout()
+        # position = fig1.add_axes([0.95,0.32,0.02,0.5])
+        # cb = plt.colorbar(scat,cax=position)
+        # x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
+        # squad = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
+        # cb.set_ticks(x1)
+        # cb.set_ticklabels(squad)
+        # cb.ax.tick_params(labelsize=10)
+        # cb.update_ticks()
         
-        if i == 0:
-            ax.set_ylabel(y_label)
-            ax.set_title(hyst.name)
-        else:
-            ax.set_title(str(hyst.first)+'-'+str(hyst.last))
-            ax.set_xlabel(x_label)
-        ax.set_xlim(x_lim[0], x_lim[1])
-        ax.set_ylim(y_lim[0]+0.1, y_lim[1])
-        ax.set_xticks(np.linspace(x_lim[0], x_lim[1], 5))
-        ax.set_yticks(np.linspace(y_lim[0]+0.1, y_lim[1], 5))
+       ######################### AX 3 #########################    
         
-        ax.set_yscale(log)
-        
-    plt.tight_layout()
-    # position = fig1.add_axes([0.95,0.32,0.02,0.5])
-    # cb = plt.colorbar(scat,cax=position)
-    # x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
-    # squad = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
-    # cb.set_ticks(x1)
-    # cb.set_ticklabels(squad)
-    # cb.ax.tick_params(labelsize=10)
-    # cb.update_ticks()
-    
-   ######################### AX 3 #########################    
-    
-    ax = axs1[2]
-    for i, (colx, coly) in enumerate(zip(columns_x, columns_y)):
-        # print(colx)
-        data = pd.DataFrame()
-        data['inx'] = hyst.xrecapl[colx]
-        data['iny'] = hyst.yrecapl[coly]
-        ax.plot(data.inx, data.iny, linestyle = '-', lw=1, color=cmap_color[i],
-                alpha=0.75, zorder=0)
-    ax.plot(data.inx, data.iny, linestyle = '-', lw=2, color=color, zorder=2)
-    maxi = max(max(ax.get_xlim()),max(ax.get_ylim()))
-    mini = min(min(ax.get_xlim()),min(ax.get_ylim()))
-    ax.plot(np.linspace(mini,maxi,50), np.linspace(mini,maxi,50), 
-            linestyle='-', color='grey', linewidth=1.5, zorder=0)
-    ax.set_yscale('log')
-    if temporal==True:
-        ax.set_title(str(abs(space))+' - years moving')
-    # ax.set_xlabel(x_label)
-    
+        ax = axs1[2]
+        for i, (colx, coly) in enumerate(zip(columns_x, columns_y)):
+            # print(colx)
+            data = pd.DataFrame()
+            data['inx'] = hyst.xrecapl[colx]
+            data['iny'] = hyst.yrecapl[coly]
+            ax.plot(data.inx, data.iny, linestyle = '-', lw=1, color=cmap_color[i],
+                    alpha=0.75, zorder=0)
+        ax.plot(data.inx, data.iny, linestyle = '-', lw=2, color=color, zorder=2)
+        maxi = max(max(ax.get_xlim()),max(ax.get_ylim()))
+        mini = min(min(ax.get_xlim()),min(ax.get_ylim()))
+        ax.plot(np.linspace(mini,maxi,50), np.linspace(mini,maxi,50), 
+                linestyle='-', color='grey', linewidth=1.5, zorder=0)
+        ax.set_yscale('log')
+        if temporal==True:
+            ax.set_title(str(abs(space))+' - years moving')
+        # ax.set_xlabel(x_label)
+
+polygs.to_file(os.path.join(analysis_folder, 'polygs_metrics.shp'))
+points.to_file(os.path.join(analysis_folder, 'points_metrics.shp'))
+
 #%% MAPPING OBS
 
+shp_folder = out_path + '_shapefiles/'
+bzh = gpd.read_file(shp_folder+'/'+'bzh.shp')
 
+geol_f = gpd.read_file(data_path+'GEOLOGY/France/Layer/'+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
+# geol_s = gpd.read_file(data_path+'GEOLOGY/France/Layer/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
+
+analysis_folder = os.path.join(out_path,'_analysis')
+points = gpd.read_file(os.path.join(analysis_folder, 'points_metrics.shp'))
+polygs = gpd.read_file(os.path.join(analysis_folder, 'polygs_metrics.shp'))
+polygs = polygs.rename(columns={'area_1': 'area'})
+
+pot = True
+pol = False
+dem = True
+geol = False
+
+metric = 'area'
+caract = 'slope_topo'
+colora = None
+cmap = 'RdBu_r'
+
+fig = plt.figure(figsize=(11,4))
+gs = fig.add_gridspec(1, 2, width_ratios=[2,1])
+ax1 = fig.add_subplot(gs[:, :-1])
+ax2 = fig.add_subplot(gs[:, -1])
+
+ax = ax1
+bzh.plot(ax=ax, facecolor='none', lw=2)
+bounds = bzh.geometry.total_bounds
+xlim = ([bounds[0], bounds[2]+10000])
+ylim = ([bounds[1], bounds[3]])
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+vmin = polygs[metric].min()
+vmax = polygs[metric].max()
+ax.set_title(metric.upper())
+if pol == True:
+    pol_sm = polygs.plot(column=metric, ax=ax, cmap=cmap, vmin=vmin, vmax=vmax)
+if pot == True:
+    poi_sm = points.plot(column=metric, ax=ax, cmap=cmap, vmin=vmin, vmax=vmax,
+                         markersize=100)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes('right', size='1.25%', pad=0.1)
+fig.add_axes(cax)
+norm = Normalize(vmin=vmin, vmax=vmax)
+n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
+n_cmap.set_array([])
+ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
+if dem == True:
+    dem = rasterio.open(dem_path)
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, 
+                                          dem.read(1)), 
+                       ax=ax, transform=dem.transform, cmap='Greys', 
+                       alpha=0.75, zorder=-1) # aspect="auto"
+if geol==True:
+    geol_f.plot(ax=ax, color=list(geol_f['hex']), alpha=0.5, edgecolor='none',zorder=-1)
+    # geol_s.plot(ax=ax, color=list(geol_s['hex']), alpha=1, zorder=-1)
+ax.set_xlim(xlim)
+ax.set_ylim(ylim)
+
+ax = ax2
+if colora != None:
+    ax.scatter(points[metric], points[caract], s=50, c=points[colora],
+               cmap='viridis')
+ax.scatter(points[caract], points[metric], s=50, color='k')
+ax.set_xlabel(caract.upper())
+ax.set_ylabel(metric.upper())
+
+plt.tight_layout()
+# fig.savefig('path'+param+'.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% ORTHO ARCHIVE
 """
