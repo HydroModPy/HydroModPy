@@ -34,6 +34,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
 from matplotlib import cm
 import rasterio
+import fnmatch
 
 # Gis
 import imageio
@@ -522,10 +523,10 @@ if load != True :
     if subbasin_path == True:
         BV.add_subbasin()
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+# watershed_display.watershed_dem(BV)
+# watershed_display.watershed_local(dem_path, BV)
 
-#%% SET PARAMETERS
+#%% PARAMETERS MODEL
 
 # Input recharge
 var = 'REC'
@@ -564,7 +565,7 @@ Sys = [0.1,0.01,0.001]
 # Ks = np.array([Koptim/10]) * 3600 * 24 * 30 # m/second to m/month
 # Sys = [0.1]
 
-# RUN SIMULATIONS
+#%% RUN MODEL
 
 list_model_name = []
 list_of_success = []
@@ -629,7 +630,7 @@ print(list_of_success)
 # BV.list_of_success = list_success
 # BV.save_object()
         
-#%% POST-PROCESS
+#%% POSTPROCESS MODEL
 
 for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
         
@@ -662,7 +663,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                                   outflow=True, accflux=True, intermittency=True, 
                                                   chronics=True, sim_state=sim_state)
                 
-#%% MOD. SYNTHETIC
+#%% TEST MODEL
 
 var = 'REC'
 mod = 'REA'
@@ -705,12 +706,13 @@ for simul in simuls:
         hyst.compute_xy_metrics(temporal=False, space=0)
         # hyst.plot_xy_data(var + ' [mm]', 'Q [mm]', [-10,50], [0.1,100], 'gist_rainbow_r')
 
-#%% CLASS PLANCHA
+#%% PLOT MODEL
 
 var = 'REC'
 
-typ = 'proj'
+typ = 'proj1'
 simul_typ = glob.glob(simulations_folder+typ+'*')
+simul_typ = fnmatch.filter(simul_typ, '*historic*')
 
 scan_res = ['outflow_drain']
 
@@ -785,11 +787,11 @@ for simul in simul_typ:
         
 plt.tight_layout()
 
-#%% FIGS OUTFLOW
+#%% OUTFLOW MODEL
 
-fig_folder = simulations_folder+'_figures/'
-if not os.path.exists(fig_folder):
-    toolbox.create_folder(fig_folder)
+figsim_folder = simulations_folder+'_figures/'
+if not os.path.exists(figsim_folder):
+    toolbox.create_folder(figsim_folder)
 
 typ = 'proj1'
 var = 'REC'
@@ -809,9 +811,9 @@ color_dict = dict(zip(sce_list, sce_color))
 pos_dict = dict(zip(sce_list, sce_pos))
 
 temporal = True
-space = -20
+space = -10
 
-metric = 'area'
+metric = 'qmid'
 
 Fig1 = True
 if Fig1 == True:
@@ -941,7 +943,7 @@ for sce in sce_list:
         if Fig3 == True:
             ax = axs3[compt]
             ax.set_title(params, fontsize=8)
-            fig2.suptitle(metric.upper(), y=0.98)
+            fig3.suptitle(metric.upper(), y=0.98)
             boxprops = dict(linestyle='-', linewidth=1, color='black',
                             facecolor=color)
             medianprops = dict(linestyle='-', linewidth=1, color='black')
@@ -976,24 +978,25 @@ fig1.tight_layout()
 fig2.tight_layout()
 fig3.tight_layout()
 
-fig1.savefig(fig_folder+'fig1_'+metric+'.png', dpi=300, bbox_inches='tight')
-fig2.savefig(fig_folder+'fig2_'+metric+'.png', dpi=300, bbox_inches='tight')
-fig3.savefig(fig_folder+'fig3_'+metric+'.png', dpi=300, bbox_inches='tight')
+fig1.savefig(figsim_folder+'loop_outflow_rcps_'+metric+'.png', dpi=300, bbox_inches='tight')
+fig2.savefig(figsim_folder+'evol_'+metric+'_rcps'+'.png', dpi=300, bbox_inches='tight')
+fig3.savefig(figsim_folder+'box_'+metric+'rcps'+'.png', dpi=300, bbox_inches='tight')
          
-#%% FIGS SATURATION
+#%% SATURATION MODEL
 
-fig_folder = simulations_folder+'_figures/'
-if not os.path.exists(fig_folder):
-    toolbox.create_folder(fig_folder)
+figsim_folder = simulations_folder+'_figures/'
+if not os.path.exists(figsim_folder):
+    toolbox.create_folder(figsim_folder)
 
-typ = 'REA1'
+sce = 'historic'
+typ = 'rea1'
 var = 'REC'
-scan_list = ['seepage_areas', 'surflow_areas','perenn_areas','intermit_areas']
-sce_list = ['REA']
-scan_cmap = ["Greys","Purples","Blues","Oranges"]
-scan_color = ["black","darkviolet","dodgerblue","darkorange"]
-scan_pos = ["1","2","3","4"]
-bxlim = (0.5,4.5)
+scan_list = ['surflow_areas','perenn_areas','intermit_areas']
+
+scan_cmap = ["Greys","Blues","Oranges"]
+scan_color = ["black","dodgerblue","darkorange"]
+scan_pos = ["1","2","3"]
+bxlim = (0.5,3.5)
 cmap_dict = dict(zip(scan_list, scan_cmap))
 color_dict = dict(zip(scan_list, scan_color))
 pos_dict = dict(zip(scan_list, scan_pos))
@@ -1082,7 +1085,6 @@ for simul in simul_list:
         if Fig1 == True:
             ax = axs1[compt]
             ax.set_title(params, fontsize=8)
-            fig2.suptitle(metric.upper(), y=0.98)
             for i, (colx, coly) in enumerate(zip(columns_x, columns_y)):
                 # print(colx)
                 data = pd.DataFrame()
@@ -1127,7 +1129,6 @@ for simul in simul_list:
         if Fig3 == True:
             ax = axs3[compt]
             ax.set_title(params, fontsize=8)
-            fig2.suptitle(metric.upper(), y=0.98)
             boxprops = dict(linestyle='-', linewidth=1, color='black',
                             facecolor=color)
             medianprops = dict(linestyle='-', linewidth=1, color='black')
@@ -1161,12 +1162,34 @@ fig1.tight_layout()
 fig2.tight_layout()
 fig3.tight_layout()
 
-# fig1.savefig(fig_folder+'fig1_'+metric+'.png', dpi=300, bbox_inches='tight')
-# fig2.savefig(fig_folder+'fig2_'+metric+'.png', dpi=300, bbox_inches='tight')
-# fig3.savefig(fig_folder+'fig3_'+metric+'.png', dpi=300, bbox_inches='tight')
+fig1.savefig(figsim_folder+'loop_saturation.png', dpi=300, bbox_inches='tight')
+fig2.savefig(figsim_folder+'eveol_saturation.png', dpi=300, bbox_inches='tight')
+fig3.savefig(figsim_folder+'box_saturation.png', dpi=300, bbox_inches='tight')
 
-#%% SORT OBSERVED
+#%% MAKE GIF INTERMIT
 
+figsim_folder = simulations_folder+'_figures/'
+if not os.path.exists(figsim_folder):
+    toolbox.create_folder(figsim_folder)
+
+sce = 'historic'
+typ = 'rea1'
+simul_list = glob.glob(simulations_folder+'*'+typ+'*'+sce+'*')
+begin_by = 'map_intermittency_'
+
+def make_a_gif(fold_in, begin_by, fold_out, name_fig):
+    filenames = sorted(glob.glob(fold_in+begin_by+'*.png'), key=os.path.getmtime)
+    images = []
+    for filename in filenames:
+        images.append(imageio.imread(filename))
+    imageio.mimsave(fold_out+name_fig+'.gif', images, duration=0.5, loop=1)
+
+for simul in simul_list:
+    name_fig = simul.split('\\')[-1]
+    make_a_gif(simul+'/_watershed/_fig/_png/', 'map_intermittency_', figsim_folder, name_fig)
+
+#%% MANAGE HYDRO
+"""
 out_folder = out_path + '_data/'
 
 import shutil
@@ -1185,7 +1208,6 @@ raw_paths = glob.glob(r+'*/')
 for raw_path in raw_paths:
     try:
         raw = fnmatch.filter(os.listdir(raw_path), 'Hydrometric*')
-        # print(raw[0])
         first = raw[0].split('_')[-1][0:4]
         last = raw[0].split('_')[-1][5:9]
         
@@ -1193,21 +1215,16 @@ for raw_path in raw_paths:
             if (int(last)>=cond2-ec):
                 if y1 <= (int(last) - int(first)) <= y2:
                     x = pd.read_csv(raw_path+raw[0], sep=';', index_col=0, parse_dates=True)
-                    # x = x[x.index.year>=cond1-ec]
                     if cond1-ec <= x.index[0].year <= cond1+ec:
                         if x.index[-1].year >= cond2:
-                            if x.isna().sum()[0] <= 365*ec:
-                                # fig = plt.figure()
-                                # plt.title(raw[0])
-                                # plt.plot(x)                        
+                            if x.isna().sum()[0] <= 365*ec:               
                                 keep.append(raw_path+raw[0])
                                 x.to_csv(out_folder+raw[0], sep=';')
-                                # shutil.copy(raw_path+raw[0])
     except:
         pass
-
-#%% EXTRACT WATSHD
-
+"""
+#%% WATERSHED HYDRO
+"""
 git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 out_path = "D:/Users/abherve/HYSTERESIS/"
@@ -1292,18 +1309,14 @@ for Qobs_path in obs_list:
     # watershed_display.watershed_local(dem_path, BV)
     
     list_watershed.append(watershed_name)
-
-# with open(out_path+"_watershed_library.txt", "w") as output:
-#     for s in list_watershed:
-#         output.write(str(s)+"\n")
         
 textfile = open(out_path+"_watershed_library.txt", "w")
 for element in list_watershed:
     textfile.write(element + "\n")
 textfile.close()
-    
-#%% CARACT WATSHD
-
+"""
+#%% CARACT HYDRO
+"""
 git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 out_path = "D:/Users/abherve/HYSTERESIS/"
@@ -1420,8 +1433,12 @@ for i, watershed_name in enumerate(list_watershed):
             df.to_file(os.path.join(analysis_folder, 'polygs.shp'))
         if f == 1:
             df.to_file(os.path.join(analysis_folder, 'points.shp'))
+"""
+#%% LAUNCH HYDRO
 
-#%% LAUNCH OBS
+figobs_folder = out_path+'_figures/'
+if not os.path.exists(figobs_folder):
+    toolbox.create_folder(figobs_folder)
 
 var = 'EFF'
 mod = 'REA'
@@ -1444,20 +1461,10 @@ points_col = points.columns
 polygs = gpd.read_file(os.path.join(analysis_folder, 'polygs.shp'))
 polygs_col = polygs.columns
 
-Fig1 = False
-if Fig1 == True:
-    fig1, axs1 = plt.subplots(1,3, figsize=(10,4))
-    fig1.add_subplot(111, frameon=False)
-    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    axs1 = axs1.ravel()
-    x_label = var + ' [mm]'
-    y_label='Q [mm]'
-    x_lim=[-150,150]
-    y_lim=[0,150]
-    temporal = True
-    space = -10
-    
+Fig1 = True
+
 for Qobs_path in obs_list[:]:
+            
     code = Qobs_path.split('\\')[-1].split('_')[1]
     label = Qobs_path.split('\\')[-1].split('_')[2]
     label = label.replace('\'',' ').split(' ')[0:2]
@@ -1524,90 +1531,112 @@ for Qobs_path in obs_list[:]:
     points = points.reindex(columns = all_points_col)
     points.loc[polygs['watershed_']==watershed_name,dfmean.index] = transp.values
     
-    if Fig1 == True:
-        
     ######################### AX 1 AX 2 #########################
-    
-        for i, log in enumerate(['linear', 'log']):
-            
-            ax = axs1[i]
-            scat = ax.scatter(hyst.x, hyst.y, c=hyst.wy, cmap='hsv_r', marker="o", 
-                              s=10, vmin=1, vmax=12, alpha=0.75, ec='none')
-            ax.plot(hyst.xi, hyst.yi, marker="o", markersize=9, markeredgecolor='black', 
-                    markerfacecolor='white', linestyle = 'None') 
-            for k in hyst.wyi:
-                ax.annotate(k,(hyst.xi[k],hyst.yi[k]), family='sans-serif', fontsize=5, 
-                            color='black', weight="bold", ha='center', va='center')
-            if log != 'log':
-                maxi = max(max(x_lim),max(y_lim))
-                mini = min(min(x_lim),min(y_lim))
-                ax.plot((mini,maxi), (mini,maxi), 
-                            linestyle='-', color='grey', linewidth=1.5, zorder=0)
-            else:
-                # ax.plot(np.linspace(*ax.get_xlim()), np.linspace(*ax.get_xlim()), 
-                #         linestyle='-', color='grey', linewidth=1.5, zorder=0)
-                ax.plot(np.linspace(0.1,max(x_lim),50), np.linspace(0.1,max(x_lim),50), 
-                        linestyle='-', color='grey', linewidth=1.5, zorder=0)
-            ax.errorbar(hyst.xi, hyst.yi,
-                        yerr=np.vstack([hyst.yi-hyst.ye.q25, hyst.ye.q75-hyst.yi]),
-                        xerr=np.vstack([hyst.xi-hyst.xe.q25, hyst.xe.q75-hyst.xi]),
-                        ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
-                        capthick=0.5, zorder=1)
-            ax.plot(hyst.xiline, hyst.yiline, linestyle = '-', lw=1.5, color='k', zorder=-1)
-            
-            if i == 0:
-                ax.set_ylabel(y_label)
-                ax.set_title(hyst.name)
-            else:
-                ax.set_title(str(hyst.first)+'-'+str(hyst.last))
-                ax.set_xlabel(x_label)
-            ax.set_xlim(x_lim[0], x_lim[1])
-            ax.set_ylim(y_lim[0]+0.1, y_lim[1])
-            ax.set_xticks(np.linspace(x_lim[0], x_lim[1], 5))
-            ax.set_yticks(np.linspace(y_lim[0]+0.1, y_lim[1], 5))
-            
-            ax.set_yscale(log)
-            
-        plt.tight_layout()
-        # position = fig1.add_axes([0.95,0.32,0.02,0.5])
-        # cb = plt.colorbar(scat,cax=position)
-        # x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
-        # squad = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
-        # cb.set_ticks(x1)
-        # cb.set_ticklabels(squad)
-        # cb.ax.tick_params(labelsize=10)
-        # cb.update_ticks()
-        
-       ######################### AX 3 #########################    
-        
-        ax = axs1[2]
-        for i, (colx, coly) in enumerate(zip(columns_x, columns_y)):
-            # print(colx)
-            data = pd.DataFrame()
-            data['inx'] = hyst.xrecapl[colx]
-            data['iny'] = hyst.yrecapl[coly]
-            ax.plot(data.inx, data.iny, linestyle = '-', lw=1, color=cmap_color[i],
-                    alpha=0.75, zorder=0)
-        ax.plot(data.inx, data.iny, linestyle = '-', lw=2, color=color, zorder=2)
-        maxi = max(max(ax.get_xlim()),max(ax.get_ylim()))
-        mini = min(min(ax.get_xlim()),min(ax.get_ylim()))
-        ax.plot(np.linspace(mini,maxi,50), np.linspace(mini,maxi,50), 
-                linestyle='-', color='grey', linewidth=1.5, zorder=0)
-        ax.set_yscale('log')
-        if temporal==True:
-            ax.set_title(str(abs(space))+' - years moving')
-        # ax.set_xlabel(x_label)
 
+    if Fig1 == True:
+        fig1, axs1 = plt.subplots(1,3, figsize=(10,4))
+        fig1.add_subplot(111, frameon=False)
+        plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+        axs1 = axs1.ravel()
+        x_label = var + ' [mm]'
+        y_label='Q [mm]'
+        x_lim=[-150,150]
+        y_lim=[0,150]
+        temporal = True
+        space = -10
+
+    for i, log in enumerate(['linear', 'log']):
+         
+         ax = axs1[i]
+         scat = ax.scatter(hyst.x, hyst.y, c=hyst.wy, cmap='hsv_r', marker="o", 
+                           s=10, vmin=1, vmax=12, alpha=0.75, ec='none', zorder=-2)
+         ax.plot(hyst.xi, hyst.yi, marker="o", markersize=9, markeredgecolor='black', 
+                 markerfacecolor='white', linestyle = 'None') 
+         for k in hyst.wyi:
+             ax.annotate(k,(hyst.xi[k],hyst.yi[k]), family='sans-serif', fontsize=5, 
+                         color='black', weight="bold", ha='center', va='center')
+         if log != 'log':
+             maxi = max(max(x_lim),max(y_lim))
+             mini = min(min(x_lim),min(y_lim))
+             ax.plot((mini,maxi), (mini,maxi), 
+                         linestyle='-', color='grey', linewidth=1.5, zorder=-1)
+         else:
+             # ax.plot(np.linspace(*ax.get_xlim()), np.linspace(*ax.get_xlim()), 
+             #         linestyle='-', color='grey', linewidth=1.5, zorder=0)
+             ax.plot(np.linspace(0.1,max(x_lim),50), np.linspace(0.1,max(x_lim),50), 
+                     linestyle='-', color='grey', linewidth=1.5, zorder=-1)
+         ax.errorbar(hyst.xi, hyst.yi,
+                     yerr=np.vstack([hyst.yi-hyst.ye.q25, hyst.ye.q75-hyst.yi]),
+                     xerr=np.vstack([hyst.xi-hyst.xe.q25, hyst.xe.q75-hyst.xi]),
+                     ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
+                     capthick=0.5, zorder=1)
+         ax.plot(hyst.xiline, hyst.yiline, linestyle = '-', lw=1.5, color='k', zorder=-1)
+         
+         if i == 0:
+             ax.set_ylabel(y_label)
+             ax.set_title(hyst.name)
+         else:
+             ax.set_title(str(hyst.first)+'-'+str(hyst.last))
+             ax.set_xlabel(x_label)
+         ax.set_xlim(x_lim[0], x_lim[1])
+         ax.set_ylim(y_lim[0]+0.1, y_lim[1])
+         ax.set_xticks(np.linspace(x_lim[0], x_lim[1], 5))
+         ax.set_yticks(np.linspace(y_lim[0]+0.1, y_lim[1], 5))
+         
+         ax.set_yscale(log)
+         
+    plt.tight_layout()
+    # position = fig1.add_axes([0.95,0.32,0.02,0.5])
+    # cb = plt.colorbar(scat,cax=position)
+    # x1 = [1,2,3,4,5,6,7,8,9,10,11,12]
+    # squad = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
+    # cb.set_ticks(x1)
+    # cb.set_ticklabels(squad)
+    # cb.ax.tick_params(labelsize=10)
+    # cb.update_ticks()
+     
+    ######################### AX 3 #########################
+     
+    ax = axs1[2]
+    for i, (colx, coly) in enumerate(zip(columns_x, columns_y)):
+        # print(colx)
+        data = pd.DataFrame()
+        data['inx'] = hyst.xrecapl[colx]
+        data['iny'] = hyst.yrecapl[coly]
+        ax.plot(data.inx, data.iny, linestyle = '-', lw=1, color=cmap_color[i],
+                alpha=0.75, zorder=0)
+    ax.plot(data.inx, data.iny, linestyle = '-', lw=2, color=color, zorder=2)
+    maxi = max(max(ax.get_xlim()),max(ax.get_ylim()))
+    mini = min(min(ax.get_xlim()),min(ax.get_ylim()))
+    ax.plot(np.linspace(mini,maxi,50), np.linspace(mini,maxi,50), 
+            linestyle='-', color='grey', linewidth=1.5, zorder=0)
+    ax.set_yscale('log')
+    if temporal==True:
+        ax.set_title(str(abs(space))+' - years moving')
+    # ax.set_xlabel(x_label)
+    
+    fig1.savefig(figobs_folder+'loop_'+watershed_name+'.png', dpi=300, bbox_inches='tight')
+    
+    plt.close()
+    
 polygs.to_file(os.path.join(analysis_folder, 'polygs_metrics.shp'))
 points.to_file(os.path.join(analysis_folder, 'points_metrics.shp'))
 
-#%% MAPPING OBS
+#%% MAPPING HYDRO
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
+out_path = "D:/Users/abherve/HYSTERESIS/"
+
+figobs_folder = out_path+'_figures/'
+if not os.path.exists(figobs_folder):
+    toolbox.create_folder(figobs_folder)
 
 shp_folder = out_path + '_shapefiles/'
 bzh = gpd.read_file(shp_folder+'/'+'bzh.shp')
 
 geol_f = gpd.read_file(data_path+'GEOLOGY/France/Layer/'+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
-# geol_s = gpd.read_file(data_path+'GEOLOGY/France/Layer/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
+geol_s = gpd.read_file(data_path+'GEOLOGY/France/Layer/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
 
 analysis_folder = os.path.join(out_path,'_analysis')
 points = gpd.read_file(os.path.join(analysis_folder, 'points_metrics.shp'))
@@ -1616,8 +1645,8 @@ polygs = polygs.rename(columns={'area_1': 'area'})
 
 pot = True
 pol = False
-dem = True
-geol = False
+dem = False
+geol = True
 
 metric = 'area'
 caract = 'slope_topo'
@@ -1639,6 +1668,7 @@ ax.get_yaxis().set_visible(False)
 vmin = polygs[metric].min()
 vmax = polygs[metric].max()
 ax.set_title(metric.upper())
+
 if pol == True:
     pol_sm = polygs.plot(column=metric, ax=ax, cmap=cmap, vmin=vmin, vmax=vmax)
 if pot == True:
@@ -1659,7 +1689,7 @@ if dem == True:
                        alpha=0.75, zorder=-1) # aspect="auto"
 if geol==True:
     geol_f.plot(ax=ax, color=list(geol_f['hex']), alpha=0.5, edgecolor='none',zorder=-1)
-    # geol_s.plot(ax=ax, color=list(geol_s['hex']), alpha=1, zorder=-1)
+    geol_s.plot(ax=ax, color=list(geol_s['hex']), alpha=1, zorder=-1)
 ax.set_xlim(xlim)
 ax.set_ylim(ylim)
 
@@ -1672,9 +1702,43 @@ ax.set_xlabel(caract.upper())
 ax.set_ylabel(metric.upper())
 
 plt.tight_layout()
-# fig.savefig('path'+param+'.png', dpi=300, bbox_inches='tight', transparent=False)
 
-#%% ORTHO ARCHIVE
+if pol == True:
+    fig.savefig(figobs_folder+'_mapping_'+metric+'_'+caract+'_'+'polygs'+'.png', dpi=300, bbox_inches='tight', transparent=False)
+if pot == True:
+    fig.savefig(figobs_folder+'_mapping_'+metric+'_'+caract+'_'+'points'+'.png', dpi=300, bbox_inches='tight', transparent=False)
+
+#%% DRAINAGE DENSITY MAP
+
+# import numpy as np
+import matplotlib as mpl
+
+fill_path = 'D:/Users/abherve/HYSTERESIS/_regional/region_fill.tif'
+shp_path = 'C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Hydrographic/streams_fr.shp'
+
+tif_streams = 'D:/Users/abherve/HYSTERESIS/_regional/tif_streams.tif'
+wbt.vector_lines_to_raster(shp_path, tif_streams, field="FID", base=fill_path)
+
+dist_path = 'D:/Users/abherve/HYSTERESIS/_regional/dist_sim_obs.tif'
+wbt.downslope_distance_to_stream(fill_path, tif_streams, dist_path)
+
+slope_path = 'D:/Users/abherve/HYSTERESIS/_regional/slope.tif'
+wbt.slope(fill_path, slope_path, zfactor=None, units="percent")
+
+path = dist_path
+dist = imageio.imread(path)
+dist[dist<0] = np.nan
+dist = np.ma.masked_invalid(dist)
+dist = np.log10(dist) # 1/(2*dist)
+plt.imshow(dist, cmap='jet', norm=mpl.colors.LogNorm())
+
+dist = imageio.imread(slope_path)
+dist[dist<0] = np.nan
+dist = np.ma.masked_invalid(dist)
+# dist = np.log10(dist)
+plt.imshow(dist, cmap='jet', vmin=0, vmax=10) # norm=mpl.colors.LogNorm()
+
+#%% ORTHOG ARCHIVE
 """
 def line(x, line_point1, line_point2, get_eq=False):
     m = (line_point1[1] - line_point2[1])/(line_point1[0] - line_point2[0])
