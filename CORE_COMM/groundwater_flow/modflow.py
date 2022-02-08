@@ -50,9 +50,11 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0., model_name='modflow_model',
+                 time_step='M',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
+        self.time_step = time_step
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
@@ -89,9 +91,9 @@ class Modflow():
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt', listunit=2, verbose=False,
                                         model_ws=self.full_path) # external_path=self.full_path
-        self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=1000,
+        self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1, options='COMPLEX',
-                                            Continue=False) # ibotav=0
+                                            Continue=False, backflag=0) # ibotav=0
 
         try:
             if len(self.hyd_cond)!=1:
@@ -112,10 +114,10 @@ class Modflow():
             self.nstp = np.ones(len(self.climatic))
             self.nper = len(self.climatic)
             self.perlen = np.ones(len(self.climatic))
-            #if self.time_step=='daily':
-            #    for i in range(1,len(self.climatic)):
-            #        dif = self.climatic.index[i]-self.climatic.index[i-1]
-            #        self.perlen[i] = dif.days
+            if self.time_step!='D':
+                for i in range(1,len(self.climatic)):
+                    dif = self.climatic.index[i]-self.climatic.index[i-1]
+                    self.perlen[i] = dif.days
 
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
@@ -138,8 +140,9 @@ class Modflow():
 
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
             delr=self.resolution, delc=self.resolution, top=self.dem.data, 
-            botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
-            nstp=self.nstp, steady=self.steady, xul=self.xul, yul=self.yul, start_datetime=self.start_datetime)
+            botm=self.zbot, itmuni=0, lenuni=2, nper=self.nper, perlen=self.perlen, 
+            nstp=self.nstp, steady=self.steady, xul=self.xul, yul=self.yul,
+            start_datetime=self.start_datetime) # itmuni = 4 ==> days
 		#proj4_str=self.dem.crs)
     
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
@@ -202,9 +205,14 @@ class Modflow():
             if verbose == True:
                 print('ETR')
                 print(self.evt)
-            self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3, evtr=self.evtData, surf=0.0, exdp=1.0)
-            self.climatic[self.climatic<0] = 0
+            self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
+                                                evtr=self.evtData, 
+                                                surf=0, exdp=self.thick)
+            if not isinstance(self.climatic,(int,float)):
+                self.climatic[self.climatic<0] = 0
         
+        if not isinstance(self.climatic,(int,float)):
+            self.climatic[self.climatic<0] = 0
         # rch package
         self.rchData = {}
         for kper in range(0, self.nper):
@@ -215,6 +223,9 @@ class Modflow():
                     self.rchData[kper] = np.nanmean(self.climatic)
                 else:
                     self.rchData[kper] = self.climatic[kper]
+        if verbose == True:
+            print('REC')
+            print(self.climatic)
         self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
                 
         # Drain package (DRN)

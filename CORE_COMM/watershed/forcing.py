@@ -48,7 +48,7 @@ class Forcing:
             pdf[(time >= (mean-(shape/2))) & (time < ((shape/2)+mean))] = rech/shape
         self.recharge = pd.Series(data = pdf, index=date)
         if freq != None:
-            self.recharge = self.recharge.resample(self.freq).sum()
+            self.recharge = self.recharge.resample(self.freq).mean()
         
     def update_sinusoid_recharge(self, serie, period, amplitude, offset, omega, phase):
         from scipy.optimize import curve_fit
@@ -110,6 +110,7 @@ class Forcing:
         effppt = ppt - aet
         self.recharge = effppt/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
+        self.effppt = self.recharge.copy()
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
