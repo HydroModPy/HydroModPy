@@ -16,6 +16,7 @@ import contextily as cx
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from colormap.colors import rgb2hex
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -174,7 +175,6 @@ def watershed_dem(BV):
 def watershed_geology(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    streams = gpd.read_file(BV.hydrology.streams)
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
     #polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
@@ -189,23 +189,14 @@ def watershed_geology(BV):
     #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
     geol = gpd.read_file(BV.geology.geol_file)
-    '''geol['R_col'] = (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
-    geol['G_col'] = (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
-    geol['B_col'] = (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
-
-    geol['couleur'] = list(zip(round(geol['R_col']).astype(int), 
-                             round(geol['G_col']).astype(int), 
-                             round(geol['B_col']).astype(int)))
-
-
-    for i in range(len(geol)):
-        geol.loc[i,'hex'] = mpl.colors.to_hex([geol.loc[i,'couleur'][0],
-                                geol.loc[i,'couleur'][1],
-                                 geol.loc[i,'couleur'][2]])'''
 
     geol.plot(ax=ax, color=list(geol['hex']),alpha=0.25, edgecolor='dimgrey', zorder=2,legend=True, label='Geology')
     cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-    streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
+    try:
+        streams = gpd.read_file(BV.hydrology.streams)
+        streams.plot(ax=ax, lw=2, color='navy', zorder=3,legend=True, label='Streams')
+    except:
+        pass
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     if len(BV.piezometry.x_coord_discrete)>0:
         ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
@@ -218,5 +209,21 @@ def watershed_geology(BV):
     #ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     fig.tight_layout ()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
+
+def generate_geology_color(file):
+    geol = gpd.read_file(file)
+    geol['R_col'] = 255 * (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
+    geol['G_col'] = 255 * (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
+    geol['B_col'] = 255 * (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
+    geol['couleur'] = list(zip(round(geol['R_col']).astype(int),
+                               round(geol['G_col']).astype(int),
+                               round(geol['B_col']).astype(int)))
+    for i in range(len(geol)):
+        geol.loc[i,'hex'] = rgb2hex(geol.loc[i,'couleur'][0],
+                                    geol.loc[i,'couleur'][1],
+                                    geol.loc[i,'couleur'][2])
+        geol = geol.drop(columns=['couleur'])
+        geol.to_file(file)
+
 
 
