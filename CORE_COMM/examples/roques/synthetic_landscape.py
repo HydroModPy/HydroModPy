@@ -31,20 +31,20 @@ warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", ca
 warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                  
-# HYDROMODPY MODULES
+#%% HYDROMODPY MODULES
                     
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 from calibration import calib_root
 
-# LAYOUT PLOT
+#%% LAYOUT PLOT
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-user = 'Ronan'
+user = 'Clement'
 
 if user == 'Alexandre':
     # # Path to the git repositoty home page
@@ -62,13 +62,13 @@ if user == 'Ronan':
     # Path where the results will be stored
     out_path = "D:/Users/abherve/TEST/"
     
-if user == 'Clément':
+if user == 'Clement':
     # Path to the git repositoty home page
-    git_path = ""
+    git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
     # Path to the data folder
-    data_path = ""
+    data_path = "D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_data/TEST/"
     # Path where the results will be stored
-    out_path = ""
+    out_path = "D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/"
 
 #%% DATABASE ACCESS FOR THIS TESTS
 
@@ -122,7 +122,7 @@ if watershed_name == 'Shapefile':
     cell_size = None
 
 if watershed_name == 'Dem':
-    dem_name = "DEM_circle_75m_LAMB93.tif"
+    dem_name = "watershed_reproj.tif"
     from_shp = None
     from_dem = True
     cell_size = None
@@ -144,7 +144,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -159,18 +159,18 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 if watershed_name != 'Conceptual':
     if load != True :
         BV.add_surfex(surfex_path) 
-        # BV.add_geology(geology_path) 
-        # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        # BV.add_oceanic(oceanic_path)
-        # BV.add_hydrometry(hydrometry_path)
-        # BV.add_intermittency(intermittency_path)
-        # if piezometry_path == True:
-        #     BV.add_piezometry()
-        # if subbasin_path == True:
-        #     BV.add_subbasin()
+        BV.add_geology(geology_path) 
+        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+        BV.add_oceanic(oceanic_path)
+        BV.add_hydrometry(hydrometry_path)
+        BV.add_intermittency(intermittency_path)
+        if piezometry_path == True:
+            BV.add_piezometry()
+        if subbasin_path == True:
+            BV.add_subbasin()
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+# watershed_display.watershed_dem(BV)
+# watershed_display.watershed_local(dem_path, BV)
 
 #%% REPROJECT LAYER
 
@@ -211,15 +211,16 @@ start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 model_name = sim_state # just a string
 
 # Strcture of the model
-lay_number = 1 # vertical discrtization
+lay_number = 5 # vertical discrtization
 bottom = None # aquifer flat or not
-thick_exp = 1 # exponential decay of K with nlay
-cond_decay = 0 # exponential decay of K with depth
+thick_exp = 1.25 # exponential decay of K with nlay
+cond_decay = 0. # exponential decay of K with depth
 
 # Hydraulic properties
 K = 1e-5 * 3600 * 24 # m/second to m/day
 E = 100 # m
 P = 0.01 # -
+KR = 1000
 
 # Active of not modules
 first_only = False # if True generate results only for the first tim_step
@@ -242,16 +243,19 @@ if watershed_name != 'Conceptual':
         R = BV.forcing.recharge / 30 # m/month to m/day
         BV.forcing.update_recharge(values = R, sim_state = sim_state)
 
-KR=100
-
 # Upadate conceptual recharge
 conceptual_serie = np.random.sample(24)/10
+
 if watershed_name == 'Conceptual':
-    R = (pd.Series(0.015) / 30).mean() # m/month to m/day
+    R = K/KR    
     BV.forcing.update_recharge(R, sim_state=sim_state)
-    BV.hydrodynamic.update_hyd_cond(KR*R)
     actual_date = False
 
+if watershed_name == 'Dem':
+    R = K/KR    
+    BV.forcing.update_recharge(R, sim_state=sim_state)
+    actual_date = False
+    
 # Check recharge
 if sim_state=='transient':
     fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
@@ -260,7 +264,7 @@ if sim_state=='transient':
 #%% LAUNCH MODELING
 
 # Run model
-BV.run_modflow(ident=model_name,
+success,flow_model = BV.run_modflow(ident=model_name,
                 modpath_sim=modpath_sim,
                 first_only=first_only,
                 sink_fill=sink_fill,
@@ -271,74 +275,25 @@ BV.run_modflow(ident=model_name,
                 cond_decay=cond_decay,
                 verbose=verbose)
 
+BV.matrix_modflow(success,
+                  flow_model,
+                  first_only = True,
+                  watertable_elevation = True,
+                  watertable_depth = True, 
+                  seepage_areas = True,
+                  outflow_drain = True,
+                  groundwater_flux = True,
+                  specific_discharge = False,
+                  accumulation_flux = True,
+                  perenn_intermit = False,
+                  verbose = True,
+                  export_tif = True)
+
 # Extract results
 BV.results_modflow(ident=model_name,
                    actual_date=actual_date,
                    start=start,
                    time_step=time_step)
-
-# x = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_stable/geographic/watershed_dem.tif')
-# plt.imshow(x)
-
-#%% 3D VISUALIZATION
-
-from tools import toolbox, vtk
-from groundwater_flow import visualization, modflow_display
-
-# 3D parameters
-list_view = ['pathlines','drain_flow'] # object to represent in 3D
-interactive = True
-z_scale = 2
-view = 'south-west'
-lines = 200
-
-vtk.VTK(BV, model_name)
-visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
-
-#%% 2D MAP VIEW
-
-from groundwater_flow import visualization, modflow_display
-
-freq_interv = 12 # number of tim_step to take account in intermittency check
-save_gif = True # save a gif after plots
-
-# if sim_state=='transient':
-modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
-                               types_obs, freq_interv=freq_interv, save_gif=save_gif,
-                               outflow=True, intermittency=False, sim_state=sim_state)
-
-#%% 2D CROSS-SECTION
-
-interactive = True
-
-dem_data = BV.geographic.dem_data # dem data
-wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
-if watershed_name == 'Conceptual':
-    river_data = None
-else:
-    river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif') # river data
-
-modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
-
-#%% CALIBRATION
-
-test_calib = True
-
-# Example of calibration from stream network
-if test_calib==True:
-    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
-    BV.hydrodynamic.update_thickness(30)
-    BV.hydrodynamic.update_porosity(0.1)
-    BV.hydrodynamic.update_hyd_cond(4.26)
-    params_file = data_path + 'calib/calib_params.csv'
-    calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-    calib.exploration(resolution=50)
-
-#%% NOTES
-
-# library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
-# mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 #%% PLOT 2D
 
@@ -347,8 +302,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LightSource
 from matplotlib.colors import LogNorm
 
-lead_numb = '000'
-outflow = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_simulations/steady/_watershed/_tifs/outflow_drain_t(000).tif')
+lead_numb = '0'
+outflow = imageio.imread('D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/Conceptual/results_simulations/steady/_watershed/_tifs/accumulation_flux_t(0).tif')
 demData = BV.geographic.dem_data
 res = 100
 
@@ -366,21 +321,21 @@ fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
 ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)
 im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='jet_r', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=3, vmax=7)
 # cf=ax.imshow(outflow, cmap='jet_r', alpha=1, norm = LogNorm(vmin=outflow.min(), vmax=outflow.max()))
 
 divider = make_axes_locatable(ax)
-cax = divider.append_axes("right", size="1%", pad=0.05)
-fig.add_axes(cax)
-cbar = fig.colorbar(im, cax=cax, orientation="vertical")
-val = np.ma.masked_where(demData < 0, demData)
-minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-cbar.set_ticks([minVal, meanVal, maxVal])
-cbar.set_ticklabels([minVal, meanVal, maxVal])
-cbar.mappable.set_clim(minVal, maxVal)
-cbar.ax.tick_params(labelsize=10)
+#cax = divider.append_axes("right", size="1%", pad=0.05)
+#fig.add_axes(cax)
+# cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+# val = np.ma.masked_where(demData < 0, demData)
+# minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+# maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+# meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+# cbar.set_ticks([minVal, meanVal, maxVal])
+# cbar.set_ticklabels([minVal, meanVal, maxVal])
+# cbar.mappable.set_clim(minVal, maxVal)
+# cbar.ax.tick_params(labelsize=10)
 
 cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
 fig.add_axes(cax)
@@ -394,15 +349,117 @@ plt.tight_layout()
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'
 plt.tight_layout()
 
-# plt.savefig(self.pngdir + name_fig)
+import os
+plt.savefig(os.path.join(simulations_folder,'steady','seepage_KR1000.png'), dpi=300, bbox_inches='tight', transparent=False)
 
-#%% 2D VISUAL
-
+#%% 2D VISUALIZATION
 from tools import vtk
 from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
-visu = visualization.Visualization(BV, 'steady')
+visu = visualization.Visualization(BV, model_name)
 visu.visual2D(interactive=True,
               size=(1920,1080),
-              view='north-west', lines=300, cloc=(0.7,0.7), contour_plot=False)
+              view='north-west', lines=10000, cloc=(0.7,0.7))
+
+#%% 3D VISUALIZATION
+
+# 3D parameters
+#list_view = ['grid', 'watertable', 'watertable_depth', 'pathlines', 'surface_flow', 'drain_flow'] # object to represent in 3D
+# list_view = ['pathlines', 'drain_flow']
+# interactive = True
+# z_scale = 1
+# view = 'vertical'
+# lines = 10000
+
+# vtk.VTK(BV, model_name)
+# visu = visualization.Visualization(BV, model_name)
+# visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
+
+#%% my 2D vizu
+# from matplotlib.colors import LightSource
+# import numpy.ma as ma
+# from matplotlib.pyplot import cm
+
+# dempath = stable_folder + "geographic/watershed_dem.tif"
+# demDs = gdal.Open(dempath)
+# demData = demDs.GetRasterBand(1).ReadAsArray()
+# geot = demDs.GetGeoTransform()
+# dx = geot[1] #delta x
+# dy = abs(geot[5]) #delta y
+
+# fig = plt.figure(figsize=(8,6))
+# ls = LightSource(azdeg=310, altdeg=40)
+# cmap = plt.cm.gist_earth
+# plt.imshow(ls.hillshade(demData, vert_exag=1, dx=dx, dy=dy), cmap='gray')
+# rgb = ls.shade(demData, cmap=cmap, blend_mode='soft',
+#                         vert_exag=1, dx=dx, dy=dy)
+# plt.imshow(rgb,alpha=0.60)
+
+# seepage_path = simulations_folder + "steady/_watershed/outflow_drain.npy"
+# seepage = np.load("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/Conceptual/results_simulations/steady/_watershed/outflow_drain.npy")
+# seepage =  np.ma.array(seepage)
+# seepage = ma.masked_where(seepage==0,seepage)
+
+
+# lx,ly = demData.shape
+
+# x = np.linspace(0,lx,lx)
+# y = np.linspace(0,ly,ly)
+
+# xx, yy = np.meshgrid(y,x)
+
+# xx_mi = np.min(np.ma.array(xx))
+# xx_ma = np.max(np.ma.array(xx))
+# ext_x = xx_ma-xx_mi
+
+# yy_mi = np.min(np.ma.array(yy))
+# yy_ma = np.max(np.ma.array(yy))
+# ext_y = yy_ma-yy_mi
+
+# #plot seepage
+# plt.contourf(xx, yy, seepage, cmap=cm.afmhot,alpha=0.9,antialiased = True)
+
+#%% 2D MAP VIEW
+
+# from groundwater_flow import visualization, modflow_display
+
+# freq_interv = 12 # number of tim_step to take account in intermittency check
+# save_gif = True # save a gif after plots
+
+# # if sim_state=='transient':
+# modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
+#                                types_obs, freq_interv=freq_interv, save_gif=save_gif,
+#                                outflow=True, intermittency=False, sim_state=sim_state)
+
+#%% 2D CROSS-SECTION
+
+# interactive = False
+
+# dem_data = BV.geographic.dem_data # dem data
+# wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
+# if watershed_name == 'Dem':
+#     river_data = None
+# else:
+#     river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif') # river data
+
+# modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
+
+#%% CALIBRATION
+
+# test_calib = True
+
+# # Example of calibration from stream network
+# if test_calib==True:
+#     BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
+#     BV.hydrodynamic.update_thickness(30)
+#     BV.hydrodynamic.update_porosity(0.1)
+#     BV.hydrodynamic.update_hyd_cond(4.26)
+#     params_file = data_path + 'calib/calib_params.csv'
+#     calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+#     calib.exploration(resolution=50)
+
+#%% NOTES
+
+# library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
+# mysite = library[library['watershed_name'] == watershed_name] # specific row
 

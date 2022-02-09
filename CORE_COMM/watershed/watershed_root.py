@@ -86,19 +86,22 @@ class Watershed:
     def __init__(self, watershed_name: str, dem_path: str, 
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
-                 from_shp: str = None, from_dem: bool = False, cell_size: int = 100):
+                 from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
+                 from_xy: list = [], regio_out: bool = False):
         """  
         Constructor
         """
+        
+        # self.load_watershed_csv()
+        
         self.watershed_name = watershed_name
         self.library_path = library_path
         
         self.from_shp = from_shp
         self.from_dem = from_dem
+        self.from_xy = from_xy
         self.cell_size = cell_size
         
-        self.load_watershed_csv()
-
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
@@ -118,6 +121,12 @@ class Watershed:
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         toolbox.create_folder(self.simulations_folder)
         
+        if regio_out == True:
+            self.regio_path = os.path.join(out_path, '_regional')
+            toolbox.create_folder(self.regio_path)
+        else:
+            self.regio_path = None
+        
         self.elt_def = []
         
         if load==True:
@@ -126,14 +135,16 @@ class Watershed:
                 print("Object was loaded successfully")
              if succes == False:
                 print("Object was not loaded as demanded but created from scratch")
+                self.load_watershed_csv()
                 self.create_object()
                 if save_object == True:
                     self.save_object()
         else:
             print("Create new object")
+            self.load_watershed_csv()
             self.create_object()
             if save_object == True:
-                self.save_object()
+                self.save_object()        
         
     def load_watershed_csv(self):
         """
@@ -141,7 +152,7 @@ class Watershed:
         
         :meta public:
         """
-        if (self.from_shp == None) & (self.from_dem == False):
+        if (self.from_shp == None) & (self.from_dem == False) & (self.from_xy == []) :
             watershed_list = pd.read_csv(self.library_path, delimiter=';')
             try:
                 watershed_list = pd.read_csv(self.library_path, delimiter=';')
@@ -223,6 +234,7 @@ class Watershed:
                                                 snap_dist=self.snap_dist, buff_percent=self.buff_percent,
                                                 out_path=self.watershed_folder,
                                                 from_shp=self.from_shp, from_dem=self.from_dem,
+                                                from_xy=self.from_xy, regio_path=self.regio_path,
                                                 cell_size=self.cell_size) #2D
         self.elt_def.append('geographic')
         
@@ -277,6 +289,8 @@ class Watershed:
         self.elt_def.append('intermittency')
             
     def add_subbasin(self):
+        if hasattr(self, 'hydrometry') == False:
+            self.hydrometry=None
         self.subbasin = geographic.Subbasin(geographic=self.geographic, hydrometry=self.hydrometry, intermittency=self.intermittency, out_path=self.watershed_folder)
         self.elt_def.append('subbasin')
 
@@ -296,7 +310,8 @@ class Watershed:
     def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., 
-                    verbose: bool = False, post_process: bool = False):
+                    verbose: bool = False, post_process: bool = False,
+                    time_step: str = 'M'):
         """ 
         Build and run modflow model
         
@@ -315,7 +330,8 @@ class Watershed:
                                      lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
-                                     model_name=ident, model_folder=self.simulations_folder, 
+                                     model_name=ident, model_folder=self.simulations_folder,
+                                     time_step=time_step,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         if run == True:

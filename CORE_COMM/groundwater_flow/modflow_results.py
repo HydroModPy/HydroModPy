@@ -43,6 +43,7 @@ class Results:
        
         self.full_path = os.path.join(self.model_folder, self.model_name)
         self.save_file = os.path.join(self.full_path, '_watershed')
+        toolbox.create_folder(self.save_file)
     
         if self.actual_date==True:            
             if self.time_step=='Y':
@@ -69,15 +70,39 @@ class Results:
              name, ext = os.path.splitext(f)
              if ext == '.npy':
                  npy_list.append(name)
-                
-        self.watertable_elevation = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
-        self.watertable_depth = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
-        self.seepage_areas = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
-        self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
-        self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
-        #self.specific_discharge = np.load(os.path.join(self.save_file, 'specific_discharge'+'.npy'), allow_pickle=True).item()
-        self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
-        self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
+        
+        try:
+            self.watertable_elevation = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
+        except:
+            pass
+        try:
+            self.watertable_depth = np.load(os.path.join(self.save_file, 'watertable_depth'+'.npy'), allow_pickle=True).item()
+        except:
+            pass
+        try:
+            self.seepage_areas = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
+        except:
+            pass
+        try:
+            self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
+        except:
+            pass
+        try:
+            self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
+        except:
+            pass
+        try:
+            self.specific_discharge = np.load(os.path.join(self.save_file, 'specific_discharge'+'.npy'), allow_pickle=True).item() 
+        except:
+            pass
+        try:
+            self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
+        except:
+            pass  
+        try:
+            self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
+        except:
+            pass 
         
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
@@ -126,43 +151,67 @@ class Results:
         
         if self.actual_date==True:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
-
-        for key in self.watertable_elevation:
-            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', -99999)
-            self.mfdata.loc[key,'watertable_elevation'] = calc
+        
+        try:
+            for key in self.watertable_elevation:
+                calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', -99999)
+                self.mfdata.loc[key,'watertable_elevation'] = calc
+        except:
+            pass
+        
+        try:
+            for key in self.watertable_depth:
+                calc = calc_mean(key, 'watertable_depth', self.watertable_depth, dem_clip, '==', -99999)
+                self.mfdata.loc[key,'watertable_depth'] = calc
+        except:
+            pass
+        
+        try:
+            for key in self.seepage_areas:
+                calc = calc_percent(key, 'seepage_areas', self.seepage_areas, dem_clip, '==', -99999)
+                self.mfdata.loc[key,'seepage_areas'] = calc
+        except:
+            pass    
+        
+        try:
+            for key in self.outflow_drain:
+                calc = calc_sum(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', -99999, self.resolution)
+                self.mfdata.loc[key,'outflow_drain'] = calc
+        except:
+            pass
+        
+        try:
+            for key in self.groundwater_flux:
+                calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', -99999)  
+                self.mfdata.loc[key,'groundwater_flux'] = calc
+        except:
+            pass
+        
+        try:
+            for key in self.specific_discharge:
+                calc = calc_mean(key, 'specific_discharge', self.specific_discharge, dem_clip, '==', -99999)  
+                self.mfdata.loc[key,'specific_discharge'] = calc
+        except:
+            pass
             
-        for key in self.watertable_depth:
-            calc = calc_mean(key, 'watertable_depth', self.watertable_depth, dem_clip, '==', -99999)
-            self.mfdata.loc[key,'watertable_depth'] = calc
-
-        for key in self.seepage_areas:
-            calc = calc_percent(key, 'seepage_areas', self.seepage_areas, dem_clip, '==', -99999)
-            self.mfdata.loc[key,'seepage_areas'] = calc
-
-        for key in self.outflow_drain:
-            calc = calc_sum(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', -99999, self.resolution)
-            self.mfdata.loc[key,'outflow_drain'] = calc
-
-        for key in self.groundwater_flux:
-            calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', -99999)  
-            self.mfdata.loc[key,'groundwater_flux'] = calc
+        try:
+            for key in self.accumulation_flux:
+                calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
+                self.mfdata.loc[key,'accumulation_flux'] = calc
+        except:
+            pass
             
-        #for key in self.specific_discharge:
-        #    calc = calc_mean(key, 'specific_discharge', self.specific_discharge, dem_clip, '==', -99999)  
-        #    self.mfdata.loc[key,'specific_discharge'] = calc
-            
-        for key in self.accumulation_flux:
-            calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
-            self.mfdata.loc[key,'accumulation_flux'] = calc
-            
-        #for idx, key in enumerate(self.perenn_intermit):
-        #    file = gpd.read_file(key)
-        #    surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
-        #    perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
-        #    intermit = ((file['Persistanc'] == 0).sum() / self.cell) * 100
-        #    self.mfdata.loc[idx,'perenn_areas'] = perenn
-        #    self.mfdata.loc[idx,'intermit_areas'] = intermit
-        #    self.mfdata.loc[idx,'surflow_areas'] = surflow
+        try:
+            for idx, key in enumerate(self.perenn_intermit):
+                file = gpd.read_file(key)
+                surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
+                perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
+                intermit = ((file['Persistanc'] == 0).sum() / self.cell) * 100
+                self.mfdata.loc[idx,'perenn_areas'] = perenn
+                self.mfdata.loc[idx,'intermit_areas'] = intermit
+                self.mfdata.loc[idx,'surflow_areas'] = surflow
+        except:
+            pass
             
         self.mfdata = self.mfdata.set_index(['date'])
         # self.mfdata = self.mfdata.round(2)

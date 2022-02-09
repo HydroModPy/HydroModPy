@@ -49,11 +49,20 @@ class Geographic:
     
     def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
-                 from_shp = None, from_dem = False, cell_size=100):
+                 from_shp = None, from_dem = False, from_xy = [], cell_size=100,
+                 regio_path = None):
         print('Extraction des données géographiques')
         
         self.snap_dist = snap_dist
         self.from_shp = from_shp
+        self.from_xy = from_xy
+        self.regio_path = regio_path
+        
+        if self.from_xy != []:
+            x = self.from_xy[0]
+            y = self.from_xy[1]
+            snap_dist = self.from_xy[2]
+            buff_percent = self.from_xy[3]
         
         if from_dem == False:
             self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
@@ -65,29 +74,37 @@ class Geographic:
     def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
         # Generate folder where processing files are stored
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
-        self.reg_path = os.path.join(out_path, 'results_stable/geographic/regional/')
         toolbox.create_folder(self.gis_path)
+        
+        if self.regio_path == None:
+            self.reg_path = os.path.join(out_path, 'results_stable/geographic/regional/')
+        else:
+            self.reg_path = self.regio_path
         toolbox.create_folder(self.reg_path)
         
         """
         Raw regional DEM
         """
+        # Correction
+        fill =  os.path.join(self.reg_path, 'region_fill.tif')
+        if not os.path.exists(fill):
+            wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
+        # Flow direction
+        direc =  os.path.join(self.reg_path, 'region_direc.tif')
+        if not os.path.exists(direc):
+            wbt.d8_pointer(fill, direc, esri_pntr=False)
+        # Flow accumulation
+        acc =  os.path.join(self.reg_path, 'region_acc.tif')
+        if not os.path.exists(acc):
+            wbt.d8_flow_accumulation(fill, acc, log=True)
+        
+        # Correct no data
         wbt.modify_no_data_value(dem_path, new_value='-99999.0')
         
         # Open correct DEM
         dem = gdal.Open(dem_path)
         geodata = dem.GetGeoTransform()
-        
-        # Correction
-        fill = self.reg_path + 'region_fill.tif'
-        wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
-        # Flow direction
-        direc = self.reg_path + 'region_direc.tif'
-        wbt.d8_pointer(fill, direc, esri_pntr=False)
-        # Flow accumulation
-        acc = self.reg_path + 'region_acc.tif'
-        wbt.d8_flow_accumulation(fill, acc, log=True)
-        
+    
         """
         Extract watershed from an outlet
         """

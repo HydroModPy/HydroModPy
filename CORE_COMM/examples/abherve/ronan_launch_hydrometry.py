@@ -36,7 +36,7 @@ class Hydrometry:
 
         self.extract_hydrometry_from_watershed(initlocal_path, clipshp_path, outshp_path)
         # self.download_data_from_code_bh(outdata_path)
-        self.load_hydrometric_data(outdata_path, outfig_path)
+        # self.load_hydrometric_data(outdata_path, outfig_path)
     
     def extract_hydrometry_from_watershed(self, initlocal_path, clipshp_path, outshp_path):
         hydrometric_data = initlocal_path
@@ -209,29 +209,49 @@ class Hydrometry:
     def load_hydrometric_data(self, outdata_path, outfig_path):
         
         discharge = pd.DataFrame()
-        for code, name in zip(self.code_bh, self.label):
-        # label = ['L\'Airon ï¿½ Louvignï¿½-du-Dï¿½sert - Moulin du Pont']
-        # code_bh = ['I9122010']
-        # for code, name in zip(code_bh, label):
-            try:                
-                fiche_path = glob.glob(outdata_path+'/'+code+'*'+'/'+'*fiche-station.csv')[0]
+        # for code, label in zip(self.code_bh, self.label):
+        # labels = ['L\'Auray [Le Loch] ï¿½ Brech - Er Loch']
+        # code_bh = ['J6213010']
+        # for code, label in zip(code_bh, labels):
+        labels = os.listdir(outdata_path)
+        # label = '102_J6213010'
+        # labels = labels[102:103]
+        # print(raw_path)
+        for label in labels:
+            # print(path)
+            # path = "D:/Users/abherve/HYDROMETRY/data/BZH\J6213010_L'Auray [Le Loch] ï¿½ Brech - Er Loch"
+            code = label.split('_')[1]
+            try:
+                file_path = glob.glob(outdata_path+'/'+label+'/'+'Hydrometric*.csv')
+                if file_path != []:
+                    if os.path.exists(file_path[0]):
+                        os.remove(file_path[0])
+                # print(path)
+                fiche_path = glob.glob(outdata_path+'/'+label+'/'+"*fiche-station.csv")[0]
+                # print(fiche_path)
                 with open(fiche_path) as f:
                     lines = f.readlines()        
-                name = lines[3].split(';')[1]            
+                name = lines[3].split(';')[1]
                 nlines=0
                 for line in lines:
                     nlines += 1
                     if (line.find('X (m)') >= 0):
                         x = lines[nlines].split(';')[0]
-                        y = lines[nlines].split(';')[1]       
-                        first = lines[nlines].split(';')[4][6:-6]
-                        last = lines[nlines].split(';')[5][6:-6]
+                        y = lines[nlines].split(';')[1]
+                nlines=0
+                for line in lines:
+                    nlines += 1
+                    if (line.find('Données disponibles') >= 0):
+                        # print(lines[nlines-1])
+                        first = lines[nlines-1].split(';')[1][0:4]
+                        last = lines[nlines-1].split(';')[1][7:12]
+                        # print(first, last)
                 if (last == None) | (last==''):
                     last = datetime.datetime.today().strftime('%Y')
                 area = lines[4].split(';')[1]
                 alti = lines[17].split(';')[1]
                 
-                qjm_path = glob.glob(outdata_path+'/'+code+'*'+'/'+'qjm*')[0]            
+                qjm_path = glob.glob(outdata_path+'/'+label+'/'+'qjm*')[0]  
                 with open(qjm_path) as f:
                     lines = f.readlines()            
                 compt = 0
@@ -259,8 +279,9 @@ class Hydrometry:
                     compt += 73
                 df.columns = ['Q']
                 name_out = 'Hydrometric_'+code+'_'+name+'_'+x+'-'+y+'_'+area+'_'+alti+'_'+first+'-'+last
-                sortie = glob.glob(outdata_path+'/'+code+'*'+'/')[0]
+                sortie = outdata_path+'/'+label+'/'
                 df.to_csv(sortie+name_out+'.csv', sep=';')
+                print('Success : '+code)
                 append = df.copy()
                 append.columns = [code]
                 fig, ax = plt.subplots(1,1, figsize=(8,3))
@@ -271,27 +292,26 @@ class Hydrometry:
                 ax.set_title(code+'\n'+name)
                 fig.savefig(outfig_path+'/'+code+'_'+name+'.png', dpi=300, 
                             bbox_inches='tight', transparent=False)
-                discharge = pd.concat([discharge, append], axis=1).sort_index()
+                # discharge = pd.concat([discharge, append], axis=1).sort_index()
                 plt.close()
-                print('Success : '+code)
             except:
                 print('Error : '+code)
                 pass
-        discharge.to_csv(outdata_path+'/'+'CONCAT_DATA'+'.csv', sep=';')
+        # discharge.to_csv(outdata_path+'/'+'CONCAT_DATA'+'.csv', sep=';')
         
 x = Hydrometry('C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/shp/MassifArmoricain_manuel.shp',
+               'D:/Users/abherve/HYDROMETRY/shp/bzh.shp',
                'D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp',
-               'D:/Users/abherve/HYDROMETRY/data/MASSIF',
-               'D:/Users/abherve/HYDROMETRY/fig/MASSIF')
+               'D:/Users/abherve/HYDROMETRY/data/BZH',
+               'D:/Users/abherve/HYDROMETRY/fig/BZH')
 
 #%% Notes
 
 code_bh = ['J7373110','J7393010','J7313010']
-outdata_path = 'D:/Users/abherve/HYDROMETRY/data'
+outdata_path = 'D:/Users/abherve/HYDROMETRY/data/BZH'
 
 x.extract_hydrometry_from_watershed('C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric.shp',
-                                    'D:/Users/abherve/HYDROMETRY/shp/meu.shp',
+                                    'D:/Users/abherve/HYDROMETRY/shp/bzh.shp',
                                     'D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp')
 x.download_data_from_code_bh('D:/Users/abherve/HYDROMETRY/data')
 x.load_hydrometric_data('D:/Users/abherve/HYDROMETRY/data',
@@ -309,4 +329,16 @@ wbt.split_with_lines(
 import geopandas as gpd
 x = gpd.read_file('D:/Users/abherve/HYDROMETRY/shp/clipped_hydrometric.shp')
 x = x[x['InfluLocal']==1]
+
+#%%
+
+import os
+outdata_path = 'D:/Users/abherve/HYDROMETRY/data/EBR/'
+labels = os.listdir(outdata_path)
+compt=0
+for label in labels:
+    lab = label.split('_')[0]
+    print(lab)
+    os.rename(outdata_path+label, outdata_path+str(compt)+'_'+lab)
+    compt+=1
 
