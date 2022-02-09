@@ -114,8 +114,8 @@ class Modflow():
             self.nstp = np.ones(len(self.climatic))
             self.nper = len(self.climatic)
             self.perlen = np.ones(len(self.climatic))
-            if self.time_step!='D':
-                for i in range(1,len(self.climatic)):
+            if pd.infer_freq(self.climatic.index) != 'D':
+                for i in range(1,len(self.climatic)):      
                     dif = self.climatic.index[i]-self.climatic.index[i-1]
                     self.perlen[i] = dif.days
 
@@ -266,10 +266,10 @@ class Modflow():
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
-    def post_processing(self, first_only = True,
+    def post_processing(self, first_only = False,
                               watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
-                              groundwater_flux = True, specific_discharge = True,
+                              groundwater_flux = True, specific_discharge = False,
                               accumulation_flux = True, perenn_intermit = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []

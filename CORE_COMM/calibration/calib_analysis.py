@@ -30,9 +30,10 @@ class CalibAnalysis:
         self.find_best_values()
     
     def find_best_values(self):
+        self.p = []
         loc = np.where(self.obj_function == np.min(self.obj_function))
-        self.p1 = self.params_values[0][loc[0][0]]
-        self.p2 = self.params_values[1][loc[1][0]]
+        for i in range(len(loc)):
+            self.p.append(self.params_values[i][loc[1][0]])
         loc_data = np.where(self.obj_function == np.min(self.obj_function))
         self.best_data_obs = self.obj_function[loc_data[0][0]]
         self.best_data_sim = self.obj_function[loc_data[0][0]]

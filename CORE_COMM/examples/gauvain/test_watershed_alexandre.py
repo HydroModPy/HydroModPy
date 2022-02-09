@@ -63,28 +63,101 @@ BV.display()
 
 #%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
-zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
-zones[BV.geology.geology_array<1000] = int(1) # Sands
-zones[BV.geology.geology_array == 2151] = int(1)
-zones[BV.geology.geology_array == 1871] = int(1)
+if watershed_name == 'Agon-Coutainville':
+    zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
+    zones[BV.geology.geology_array<1000] = int(1) # Sands
+    zones[BV.geology.geology_array == 2151] = int(1)
+    zones[BV.geology.geology_array == 1871] = int(1)
+if watershed_name == 'Caen':
+    zones[BV.geology.geology_array>1000] = int(2) # Calcaire
+    zones[BV.geology.geology_array<800] = int(1) # Sands
+
 BV.hydrodynamic.update_calib_zones(zones)
 
-
-#%% Calibration Model piezometry
-from calibration import calib_root
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
 BV.hydrodynamic.update_thickness(100)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(4.26)
+#%% Calibration Model piezometry
+from calibration import calib_root
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=100)
+calib = calib_root.Calibration(params_file, BV, observations = ['streams','piezometry'])
+calib.exploration(resolution=250)
 #calib.simplex(init_multiples_n=15)
+
+
+#%% Calib Analysis : Steady
+from calibration import calib_analysis
+modelname = 'streams_piezometry_calibration'
+file = 'exp_2p_res_100031_01_2022_19h41'
+calib_file = os.path.join(BV.simulations_folder,modelname,file+'.calib')
+test = calib_analysis.CalibAnalysis(calib_file)
+first = 2010
+last = 2019
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = first, last_year=last, time_step = 'D', sim_state='steady')#
+BV.hydrodynamic.update_thickness(100)
+BV.hydrodynamic.update_porosity(0.025)
+K = 10**(1)
+BV.hydrodynamic.update_hyd_cond(K)
+"""for i in range(0,len(test.names)):
+            if test.names[i][0] == 'k':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_hyd_cond_from_calib_zones(int(test.names[i][1]), 10**(test.p[i]))
+            if test.names[i][0] == 't':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_porosity_from_calib_zones(int(test.names[i][1]), test.p[i])
+            if test.names[i][0] == 'e':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_thickness(test.p[i])"""
+model = modelname + '_steady_' + str(K)
+#%% Calib Analysis : Transient
+from calibration import calib_analysis
+modelname = 'streams_piezometry_calibration'
+file = 'exp_2p_res_100031_01_2022_19h41'
+calib_file = os.path.join(BV.simulations_folder,modelname,file+'.calib')
+test = calib_analysis.CalibAnalysis(calib_file)
+first = 2010
+last = 2019
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = first, last_year=last, time_step = 'M', sim_state='transient')#
+BV.hydrodynamic.update_thickness(100)
+BV.hydrodynamic.update_porosity(0.025)
+for i in range(0,len(test.names)):
+            if test.names[i][0] == 'k':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_hyd_cond_from_calib_zones(int(test.names[i][1]), 10**(test.p[i])*30.4375)
+            if test.names[i][0] == 't':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_porosity_from_calib_zones(int(test.names[i][1]), test.p[i])
+            if test.names[i][0] == 'e':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_thickness(test.p[i])
+model = modelname + 'transient_rebuild'
+#%% Rebuild model wit good parameter
+BV.run_modflow(ident=model,run=True, modpath_sim=True, lay_number=1 , post_process = True, verbose=True)
+#%% Display
+from tools import vtk
+from groundwater_flow import visualization
+#vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, model)
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(0,35),(0,10),(None,None),(None,None),(None,None),(None,None)], lines=300)
+
+#%%
+# Extract result chronics
+model = modelname + 'transient_rebuild'
+from groundwater_flow import modflow_results, modflow_display
+modflow_results.Results(BV.geographic, recharge=BV.forcing.recharge, actual_date=True, model_name=model, start=first, time_step='M',
+                 stable_folder=BV.stable_folder,
+                 model_folder=BV.simulations_folder)
+# Display simulation
+modflow_display.SurfaceOutputs(BV.forcing.recharge, BV.simulations_folder, BV.stable_folder, model, types_obs, save_gif=True, 
+                               first_only = False, outflow=True, accflux=True, intermittency=False, chronics=True, sim_state='steady')
 
 #%% Calib Analysis
 from calibration import calib_analysis
 file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/piezometry_calibration/exp_2p_21_12_2021_21h05.calib'
 file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/streams_calibration/exp_2p_24_01_2022_10h22.calib'
+file = 'exp_2p_res_100030_01_2022_15h39.calib'
 test = calib_analysis.CalibAnalysis(file)
 #ident='modflow'
 #↓BV.run_modflow(ident=ident)
@@ -175,7 +248,15 @@ from tools import vtk
 from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
 visu = visualization.Visualization(BV, 'modflow')
-visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth'],
-              color_scale = [(None,None),(0,140),(0,2),(0,2)], lines=300)
+#object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times']
+visu.visual2D(object_list = ['grid', 'pathlines'],
+              color_scale = [(None,None),(None,None)], lines=300, structure='h')
 
-
+#%% Visual 3D
+from tools import vtk
+from groundwater_flow import visualization
+model = modelname + '_rebuild'
+vtk.VTK(BV, model)
+visu = visualization.Visualization(BV, model)
+visu.visual3D(object_list = ['grid','watertable' ,'watertable_depth','pathlines'], lines=300,view = 'south-west', 
+                 interactive = True, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.70) , size=(1920,1080))

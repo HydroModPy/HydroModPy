@@ -13,7 +13,6 @@ import os, sys
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-
 #HydroModPy tools
 from tools import toolbox
 
