@@ -109,7 +109,7 @@ class CalibrationBasis:
                 self.watershed.hydrodynamic.update_thickness(params[i])
                 
         # Run model
-        succes, mf = self.watershed.run_modflow(self.ident, verbose=False)
+        succes, mf = self.watershed.run_modflow(self.ident, verbose=True)
         
         # Use objective function from the type of observation
         if succes == True:
@@ -237,7 +237,7 @@ class CalibrationBasis:
         A garder
         Build Objective Function 
         """
-        name = 'exp_' + str(len(self.params.name)) + 'p_res_' + str(resolution)
+        name = 'exp_' + str(len(self.params.name)) + 'p_res_' + str(resolution) + '_'
         now = datetime.now()
         name = name + now.strftime("%d_%m_%Y_%Hh%M") 
         params_values = []

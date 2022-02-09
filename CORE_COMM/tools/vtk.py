@@ -813,10 +813,7 @@ class VTK():
             textoVtk.write('        <DataArray type="Float64" Name="Surfaceflow_log" format="ascii">\n')
             for item in range(len(listSurfaceFlowCellDef)):
                 if listSurfaceFlowCellDef[item]>0:
-                    if listDem[item] > -1000:
-                        textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
-                    else:
-                       textvalue = 'nan' 
+                    textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
                 else:
                     textvalue = 'nan'
                 if item == 0:
