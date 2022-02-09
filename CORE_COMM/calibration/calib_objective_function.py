@@ -96,7 +96,7 @@ class Streams:
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
         indicator = np.abs(np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
-        return indicator, self.mean_sim_to_obs, self.mean_obs_to_sim
+        return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
 class Piezometry:
     def __init__(self, watershed, model):
@@ -117,8 +117,7 @@ class Piezometry:
                 df.index = df.index.to_period(self.watershed.forcing.freq)
             except:
                 sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
-                
-            
+                            
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
                 sim=[]
                 for i in range(0,len(self.watertable_elevation)):
@@ -139,8 +138,6 @@ class Piezometry:
             self.y0 = df[[col for col in df if not col.startswith('sim_')]]
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
             
-                
-                
         if np.alen(self.watershed.forcing.recharge) == 1:
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
             self.y1 = []

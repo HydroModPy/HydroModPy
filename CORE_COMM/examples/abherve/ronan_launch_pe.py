@@ -37,11 +37,11 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # Warnings
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
+# import warnings
+# warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                  
 #%HYDROMODPY MODULES
@@ -336,7 +336,7 @@ BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
-params_file = data_path + 'CALIB/calib_params.csv'
+params_file = data_path + 'CALIB/calib_params_exploration.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 calib.exploration(resolution=10)
 
@@ -354,7 +354,17 @@ BV.hydrodynamic.update_hyd_cond(2)
 
 params_file = data_path + 'CALIB/calib_params_dichotomy.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.dichotomy(gap=10)
+calib.dichotomy(gap=1)
+
+#%% CALIB ANALYSIS
+
+from calibration import calib_analysis
+typ_calib = 'streams_calibration'
+file = 'exp_1p_res_10_09_02_2022_14h05'
+calib_file = os.path.join(BV.simulations_folder,typ_calib,file+'.calib')
+test = calib_analysis.CalibAnalysis(calib_file)
+# test.display_objective_function()
+plt.plot(test.obj_function.iloc[:,0], test.obj_function.iloc[:,1])
 
 #%% NOTES
 """

@@ -107,9 +107,12 @@ class CalibrationBasis:
             if self.params.name[i][0] == 'e':
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
-                
+            if self.params.name[i][0] == 'r':
+                # Update hydrodynamic parameters
+                self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], params[i])
+            
         # Run model
-        succes, mf = self.watershed.run_modflow(self.ident, verbose=True)
+        succes, mf = self.watershed.run_modflow(self.ident, verbose=False)
         
         # Use objective function from the type of observation
         if succes == True:
