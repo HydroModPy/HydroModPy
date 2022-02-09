@@ -327,7 +327,7 @@ for simul in simul_list:
     
     # ax.set_yscale('log')
 
-#%% CALIBRATION STREAMS
+#%% STREAMS EXPLORATION
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                   first_year = 2015, last_year=2019, time_step = 'D',
@@ -336,17 +336,25 @@ BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
-# params_file = data_path + 'CALIB/calib_params.csv'
-# calib = calib_root.Calibration(params_file, BV, observations = ['streams_fr'])
-# calib.exploration(resolution=10)
+params_file = data_path + 'CALIB/calib_params.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.exploration(resolution=10)
+
+#%% STREAMS DICHOTOMY
 
 from calibration import calib_root, calib_dichotomy
 
-calib = calib_dichotomy.Dichotomy(BV.geographic, 
-                                  type_river='streams',
-                                  hydrology_stable=stable_folder+'hydrology/',                 
-                                  simulations_folder=simulations_folder)
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2015, last_year=2019, time_step = 'D',
+                                  sim_state='steady') #
 
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
+BV.hydrodynamic.update_hyd_cond(2)
+
+params_file = data_path + 'CALIB/calib_params_dichotomy.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.dichotomy(gap=10)
 
 #%% NOTES
 """

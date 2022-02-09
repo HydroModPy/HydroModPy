@@ -7,7 +7,7 @@ Created on Wed Nov 17 12:42:06 2021
 #Modules
 
 #HydroModPy modules
-from calibration import calib_basis, calib_simplex
+from calibration import calib_basis, calib_simplex, calib_dichotomy
 
 
 class Calibration():
@@ -49,4 +49,10 @@ class Calibration():
     
     def metropolis_hastings(self):
         basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
+    
+    def dichotomy(self, gap=10):
+        basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
+        dichotomy = calib_dichotomy.CalibrationDichotmy(gap=gap)
+        
+
     
