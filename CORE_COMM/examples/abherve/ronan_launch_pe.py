@@ -28,6 +28,7 @@ from matplotlib.colors import Normalize
 from matplotlib import cm
 import rasterio
 import fnmatch
+import matplotlib.dates as matdates
 
 # Gis
 import imageio
@@ -185,8 +186,8 @@ for Sy in Sys:
         # plt.plot(BV.forcing.recharge)
         
         BV.forcing.update_effppt_surfex(clim_mod = mod, clim_sce = sce,
-                                          first_year = first, last_year = last, 
-                                          time_step = time_step, sim_state=sim_state)
+                                        first_year = first, last_year = last, 
+                                        time_step = time_step, sim_state=sim_state)
         BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
         # plt.plot(BV.forcing.recharge)
                     
@@ -266,8 +267,8 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
 
 #%% FAST PLOT FOR ETR
 
-obs_path = "C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Discharge/hydrometric_J7513010_Le Canut [nord] à Maxent - La Botelerais_327818_6777885.csv"
 obs_path = "D:/Users/abherve/HYSTERESIS/_data/Hydrometric_J7364220_La Chèze à Plélan-le-Grand [L'Enlevrier]_273631-2343510_9.3_88_1989-2021.csv"
+
 dem_data = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
 area = toolbox.basin_area(dem_data, dem_data, '<=', -1000, 75)
 
@@ -279,7 +280,6 @@ scan = 'outflow_drain'
 BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
                                   first_year = first, last_year = last, 
                                   time_step = time_step, sim_state=sim_state)
-BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
 
 compt=0
 
@@ -296,36 +296,21 @@ for simul in simul_list:
     if not os.path.exists(Smod_path):
         compt += 1
         continue
+    
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-    Qmod = Smod[scan] 
-    Qmod = Qmod * 1000 # mm/months
-    Qmod = Qmod.squeeze()    
-    Cmod = Smod['recharge'] * 1000 # mm/months
-    DFmod = pd.DataFrame(columns=['x','y'])
-    DFmod['x'] = Cmod
-    DFmod['y'] = Qmod
-    
-    out = Smod.outflow_drain * 30 * 1000 
-    R = BV.forcing.effppt
-    
-    rrr = BV.forcing.recharge * 30 * 1000
-    
-    from matplotlib.dates import DateFormatter
-    import matplotlib.dates as matdates
+    outflow = Smod.outflow_drain * 30 * 1000 
+    rec_pe_pos = BV.forcing.pe_pos * 30 * 1000
+    rec_pe_neg = BV.forcing.pe_neg * 30 * 1000
+    rec_surfex = BV.forcing.recharge * 30 * 1000
+
+    fig, ax = plt.subplots(1,1,figsize=(8, 5))
     myFmt = DateFormatter("%Y")
     myLoc = matdates.YearLocator(1)
     
-    rec = R.copy() * 30 * 1000
-    rec[rec<0] = 0 
-    etr = R.copy() * 30 * 1000
-    etr[etr>0] = 0 
-    
-    fig, ax = plt.subplots(1,1,figsize=(8, 5))
-    # ax.plot(df.index, R, label='recharge + evapotranspiration', c='k', lw=2)
-    ax.plot(rrr, c='k', lw=2, label='REC SURFEX')
-    ax.plot(rec, c='dodgerblue', lw=2, label='P-E > 0')
-    ax.plot(etr, c='forestgreen', lw=2, label='P-E < 0')
-    plt.plot(out, c='red', lw=2, label='discharge simulated')
+    ax.plot(rec_surfex, c='k', lw=2, label='REC SURFEX')
+    ax.plot(rec_pe_pos, c='dodgerblue', lw=2, label='P-E > 0')
+    ax.plot(rec_pe_neg, c='forestgreen', lw=2, label='P-E < 0')
+    plt.plot(outflow, c='red', lw=2, label='discharge simulated')
     
     obs_data = pd.read_csv(obs_path, sep=';', parse_dates=True, index_col=0) # sep='\s+'
     obs_data = obs_data.resample('M').mean()
@@ -340,7 +325,7 @@ for simul in simul_list:
     label = 'K='+str("{:.2e}".format(K))+'m/s'+' - '+'n='+str(Sy)+'%'+' - '+'D='+str("{:.2e}".format((K*E)/Sy))+'m²/s'
     ax.set_title(label)
     
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
     
 #%%
 """

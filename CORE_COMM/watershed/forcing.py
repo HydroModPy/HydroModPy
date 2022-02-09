@@ -111,10 +111,15 @@ class Forcing:
         self.recharge = effppt/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
         self.effppt = self.recharge.copy()
+        self.pe_pos = self.effppt.clip(lower=0)
+        self.pe_neg = self.effppt.clip(upper=0)
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
-        
+            self.effppt = self.effppt.mean()
+            self.pe_pos = self.pe_pos.clip(lower=0)
+            self.pe_neg = self.pe_neg.clip(upper=0)
+            
         
         
         

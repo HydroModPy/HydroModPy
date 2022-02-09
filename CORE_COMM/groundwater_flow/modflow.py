@@ -58,7 +58,7 @@ class Modflow():
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
-        self.climatic = climatic
+        self.climatic = climatic.copy()
         self.sea_level = sea_level 
         self.thick = thick
         self.thick_exp = thick_exp
@@ -210,10 +210,10 @@ class Modflow():
                                                 surf=0, exdp=self.thick)
             if not isinstance(self.climatic,(int,float)):
                 self.climatic[self.climatic<0] = 0
-        
+                
+        # rch package
         if not isinstance(self.climatic,(int,float)):
             self.climatic[self.climatic<0] = 0
-        # rch package
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(int,float)):
