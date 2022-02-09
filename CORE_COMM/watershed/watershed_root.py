@@ -254,9 +254,9 @@ class Watershed:
         self.elt_def.append('hydrology')
         self.save_object()
             
-    def add_geology(self, geology_path):
+    def add_geology(self, geology_path, types_obs = 'GEO1M.shp', fields_obs = 'CODE_LEG'):
         self.geology_path = geology_path
-        self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None)
+        self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None, types_obs=types_obs, fields_obs= fields_obs)
         self.elt_def.append('geology')
         self.save_object()
 

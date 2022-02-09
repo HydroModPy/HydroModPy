@@ -4,7 +4,7 @@ Created on Fri Nov 12 10:21:56 2021
 
 @author: Alexandre Gauvain
 """
-# <codecell>
+#%% BV
 
 # Download data on my Dropbox at this link: https://www.dropbox.com/sh/eidukc992nvi6jc/AAC0cwuwCnY7bDjiN57qwODva?dl=0
 import os
@@ -33,7 +33,7 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = True#False to build and save python object
+load = False#False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 watershed_shp = os.path.join(out_path, watershed_name, 'watershed.shp')
 dem_path = root_path + "MNT_75m.tif"#'BDALTI_bzh_75m.tif' 
@@ -44,8 +44,12 @@ modflow_path = root_path + 'MODFLOW'
 hydrology_path = root_path + 'HYDROLOGY'
 types_obs = ['streams_fr']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp )
+                              out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
+BV.add_geology(geology_path,'GEO50K.shp','CODE_LEG')
+BV.display(dtype = 'watershed_dem')
+BV.display(dtype = 'watershed_geology')
 
+#%% Add Data
 if load == False:
     BV.add_hydrology(hydrology_path, types_obs)
     BV.add_surfex(surfex_path) 
