@@ -38,7 +38,7 @@ class CalibrationBasis:
     
     """
 
-    def __init__(self, file_name, watershed, observations ,directory_results = None):
+    def __init__(self, file_name, watershed, observations, directory_results = None):
         """ 
         Constructor
         
@@ -158,10 +158,36 @@ class CalibrationBasis:
                 self.data_ind['piezometry'].append(ind)
                 self.data_obs['piezometry'].append(obs)
                 self.data_sim['piezometry'].append(sim)
+                
+            if 'hydrometry' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       first_only = True,
+                       watertable_elevation = False,
+                       watertable_depth=False, 
+                       seepage_areas = False,
+                       outflow_drain = True,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit=False,
+                       verbose = False,
+                       export_tif = True)
+                self.watershed.results_modflow(ident=self.ident,
+                                               actual_date=True)
+                obj_func = calib_objective_function.Hydrometry(self.watershed, self.ident)
+                ind, obs, sim = obj_func.get_indicator()
+                indicator.append(ind)
+                self.data_ind['hydrometry'].append(ind)
+                self.data_obs['hydrometry'].append(obs)
+                self.data_sim['hydrometry'].append(sim)
+                plt.plot(obs, color='b')
+                plt.plot(sim, color='r')
             
         if succes == False:
             indicator = np.inf
-        print(params, succes, np.log10(indicator))  
+        print(params, succes, np.log10(indicator))
+        print(params, succes, indicator)
         #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
 
@@ -234,7 +260,7 @@ class CalibrationBasis:
             file.write(key+'\t'+str(val)+'\n')
         file.close()
         
-        
+
     def build_objective_function(self,resolution=10000): 
         """ 
         A garder

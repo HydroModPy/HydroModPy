@@ -18,7 +18,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
     
     def __init__(self, calib_basis=None, gap=10):
         
-        self.gap = 10
+        self.gap = gap
         
         # Affectation of parent class 
         if(calib_basis!=None): 
@@ -45,42 +45,48 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
     
     def __Dichotomy(self):
         
-        p_min =  self.params.p_min
-        p_max =  self.params.p_max
+        p_min =  self.params.p_min[0]
+        p_max =  self.params.p_max[0]
         
         diff = p_max - p_min
         half = (p_min + p_max) / 2
+        
         df = pd.DataFrame()
                 
         compt = 0
+        
         while (diff > ((self.gap/100) * half)):
             half = (p_min + p_max) / 2
             
-            hyd_cond = half * self.recharge
+            # hyd_cond = half * self.recharge # if K/R in calib_params.csv
+            hyd_cond = half.copy() # if K in calib_params.csv
             
             indicator = self.objective_function([hyd_cond])
-            ind = self.data_ind['streams'][-1]
+            
             obs = self.data_obs['streams'][-1]
             sim = self.data_sim['streams'][-1]
             
             if sim > obs:
                 p_min = half
-            else:
+            if sim < obs:
                 p_max = half
                 
             diff = p_max - p_min
             
             print('==> Simulation : '+str(compt))
-            print('    Ecart = '+str(round(diff,2)))
-            print('    K/R = '+str(round(half, 2)))
-            print('    Condition = '+str(indicator))
-            print('    Gap = '+str(round((self.gap/100) * half, 2)))
-            
+            print('    K/R = '+str(round(half, 4)))
+            print('    Gap = '+str(round((self.gap/100) * half, 4)))
+            print('    Indicator = '+str(round(indicator, 4)))
+
             df.loc[compt,'KR'] = round(half, 4)
             df.loc[compt,'K'] = round(hyd_cond, 4)
-            df.loc[compt,'Indicator'] = round(indicator, 4)    
+            df.loc[compt,'Obs'] = round(obs, 4)
+            df.loc[compt,'Sim'] = round(sim, 4)
+            df.loc[compt,'Indicator'] = round(indicator, 4)
             
             compt += 1
-            
+        
+        df.to_csv(self.directory_results+'/'+'_dicothomy'+'.csv', sep=';')
+    
         return indicator
         
