@@ -173,7 +173,7 @@ class Merge:
                 dfm = dfm.resample("M").mean()[mask]
             else:
                 # df = df.resample('M').sum(min_count=27) # mm/month
-                dfm = dfm.resample("M").sum()[mask]
+                dfm = dfm.resample("M").mean()[mask]
                     
             # if (self.time_step == 'Y'):
             dfy = df.copy()
@@ -182,7 +182,7 @@ class Merge:
                 dfy = dfy.resample("Y").mean()[mask]
             else:
                 # df = df.resample('Y').sum(min_count=364) # mm/year
-                dfy = dfy.resample("Y").sum()[mask]
+                dfy = dfy.resample("Y").mean()[mask]
             
             df.to_csv(self.data_folder+'_'+var+'_'+'D'+'.csv', sep=';')
             dfm.to_csv(self.data_folder+'_'+var+'_'+'M'+'.csv', sep=';')
