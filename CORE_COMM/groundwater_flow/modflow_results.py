@@ -75,7 +75,7 @@ class Results:
         self.seepage_areas = np.load(os.path.join(self.save_file, 'seepage_areas'+'.npy'), allow_pickle=True).item() 
         self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
         self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
-        self.specific_discharge = np.load(os.path.join(self.save_file, 'specific_discharge'+'.npy'), allow_pickle=True).item()
+        #self.specific_discharge = np.load(os.path.join(self.save_file, 'specific_discharge'+'.npy'), allow_pickle=True).item()
         self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
         self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
         
@@ -147,22 +147,22 @@ class Results:
             calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', -99999)  
             self.mfdata.loc[key,'groundwater_flux'] = calc
             
-        for key in self.specific_discharge:
-            calc = calc_mean(key, 'specific_discharge', self.specific_discharge, dem_clip, '==', -99999)  
-            self.mfdata.loc[key,'specific_discharge'] = calc
+        #for key in self.specific_discharge:
+        #    calc = calc_mean(key, 'specific_discharge', self.specific_discharge, dem_clip, '==', -99999)  
+        #    self.mfdata.loc[key,'specific_discharge'] = calc
             
         for key in self.accumulation_flux:
             calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
             self.mfdata.loc[key,'accumulation_flux'] = calc
             
-        for idx, key in enumerate(self.perenn_intermit):
-            file = gpd.read_file(key)
-            surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
-            perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
-            intermit = ((file['Persistanc'] == 0).sum() / self.cell) * 100
-            self.mfdata.loc[idx,'perenn_areas'] = perenn
-            self.mfdata.loc[idx,'intermit_areas'] = intermit
-            self.mfdata.loc[idx,'surflow_areas'] = surflow
+        #for idx, key in enumerate(self.perenn_intermit):
+        #    file = gpd.read_file(key)
+        #    surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
+        #    perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
+        #    intermit = ((file['Persistanc'] == 0).sum() / self.cell) * 100
+        #    self.mfdata.loc[idx,'perenn_areas'] = perenn
+        #    self.mfdata.loc[idx,'intermit_areas'] = intermit
+        #    self.mfdata.loc[idx,'surflow_areas'] = surflow
             
         self.mfdata = self.mfdata.set_index(['date'])
         # self.mfdata = self.mfdata.round(2)
