@@ -293,7 +293,7 @@ class Watershed:
         config_dictionary_file.close()
         # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
         
-    def run_modflow(self, ident: str = 'modflow', modpath_sim: bool = False, box: bool = True,
+    def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., 
                     verbose: bool = False, post_process: bool = False):
@@ -318,7 +318,10 @@ class Watershed:
                                      model_name=ident, model_folder=self.simulations_folder, 
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
-        success = flow_model.processing(verbose = verbose)
+        if run == True:
+            success = flow_model.processing(verbose = verbose)
+        else:
+            success = True
     
         if success == True:
             if post_process == True:

@@ -47,12 +47,12 @@ class SurfaceOutputs():
         self.fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
         
         self.stable_folder = stable_folder
-        self.dir_to_analyse = simulations_folder + model_name + '/_watershed/'
-        self.list_traces = sorted(glob.glob(self.dir_to_analyse+'_surfaceflow/'+'tracept_*.shp'), 
+        self.dir_to_analyse = os.path.join(simulations_folder, model_name,'_watershed')
+        self.list_traces = sorted(glob.glob(os.path.join(self.dir_to_analyse,'_surfaceflow','tracept_*.shp')), 
                                   key=os.path.getmtime)
-        self.list_outflow = sorted(glob.glob(self.dir_to_analyse+'_tifs/'+'outflow_*.tif'),
+        self.list_outflow = sorted(glob.glob(os.path.join(self.dir_to_analyse,'_tifs','outflow_*.tif')),
                                    key=os.path.getmtime)
-        self.list_accflux = sorted(glob.glob(self.dir_to_analyse+'_tifs/'+'accumulation_*.tif'),
+        self.list_accflux = sorted(glob.glob(os.path.join(self.dir_to_analyse,'_tifs','accumulation_*.tif')),
                                    key=os.path.getmtime)
         self.recharge = recharge
         
@@ -196,7 +196,7 @@ class SurfaceOutputs():
     
     def scanning_discharge(self):
         # Open data
-        self.df = pd.read_csv(self.dir_to_analyse+'_simulated_results.csv', sep=';',
+        self.df = pd.read_csv(os.path.join(self.dir_to_analyse,'_simulated_results.csv'), sep=';',
                          index_col='date', parse_dates=True)
         try:
             self.first = self.df.first_valid_index().year
@@ -207,7 +207,7 @@ class SurfaceOutputs():
         self.df['rec'] = self.recharge * 1000
         self.maxrec = self.df['rec'].max()
         # Dem to watershed scale
-        dem_cut = self.stable_folder + 'geographic/watershed_dem.tif'
+        dem_cut = os.path.join(self.stable_folder,'geographic','watershed_dem.tif')
         demDs = gdal.Open(dem_cut)
         self.demData = demDs.GetRasterBand(1).ReadAsArray()
         geot = demDs.GetGeoTransform()
@@ -226,9 +226,9 @@ class SurfaceOutputs():
         self.yy_ma = np.max(np.ma.array(self.yy, mask=self.msk))
         self.ext_y = self.yy_ma-self.yy_mi
         # Open files to plot
-        self.mass_to_analyse = self.dir_to_analyse + '_tifs/'
-        water_table_path = self.dir_to_analyse + 'watertable_elevation.npy'
-        outflow_path = self.dir_to_analyse + 'outflow_drain.npy'
+        self.mass_to_analyse = os.path.join(self.dir_to_analyse, '_tifs')
+        water_table_path = os.path.join(self.dir_to_analyse, 'watertable_elevation.npy')
+        outflow_path = os.path.join(self.dir_to_analyse,'outflow_drain.npy')
         self.wt_all = np.load(water_table_path, allow_pickle=True).item() 
         self.outflow_all = np.load(outflow_path, allow_pickle=True).item() 
         self.surface_sat = []
@@ -260,7 +260,7 @@ class SurfaceOutputs():
         # Open data
         # lead_numb = "%03d" % (iter_times,)
         lead_numb = str(iter_times)
-        outflow = imageio.imread(self.mass_to_analyse+typ_file+'_t('+lead_numb+')'+'.tif')
+        outflow = imageio.imread(os.path.join(self.mass_to_analyse,typ_file+'_t('+lead_numb+')'+'.tif'))
         # Mask data
         msk_outflow = (outflow<0)
         outflow = np.ma.masked_array(outflow, mask=msk_outflow)

@@ -11,6 +11,7 @@ import numpy as np
 import geopandas as gpd
 import rasterio
 from rasterio.plot import show
+import contextily as cx
 
 # Plots
 import matplotlib as mpl
@@ -165,10 +166,11 @@ def watershed_geology(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     streams = gpd.read_file(BV.hydrology.streams)
-    
+    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
     #polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
-    bounds = contour.geometry.total_bounds
+    crs = contour.crs
+    bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
     ax.set_xlim(xlim)
@@ -178,7 +180,7 @@ def watershed_geology(BV):
     #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
     geol = gpd.read_file(BV.geology.geol_file)
-    geol['R_col'] = (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
+    '''geol['R_col'] = (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
     geol['G_col'] = (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
     geol['B_col'] = (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
 
@@ -186,21 +188,25 @@ def watershed_geology(BV):
                              round(geol['G_col']).astype(int), 
                              round(geol['B_col']).astype(int)))
 
+
     for i in range(len(geol)):
         geol.loc[i,'hex'] = mpl.colors.to_hex([geol.loc[i,'couleur'][0],
                                 geol.loc[i,'couleur'][1],
-                                 geol.loc[i,'couleur'][2]])
+                                 geol.loc[i,'couleur'][2]])'''
 
-    geol.plot(ax=ax, color=list(geol['hex']),alpha=1, edgecolor='dimgrey', zorder=0,legend=True, label='Geology')
-    
+    geol.plot(ax=ax, color=list(geol['hex']),alpha=0.25, edgecolor='dimgrey', zorder=2,legend=True, label='Geology')
+    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    if len(BV.piezometry.x_coord_discrete)>0:
+        ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
+                       marker='^', zorder=5, label='Piezometers: discrete')
     if os.path.exists(BV.piezometry.piezos_shp):
         piezos = gpd.read_file(BV.piezometry.piezos_shp)
-        piezos.plot(ax=ax, color='r',zorder=5,legend=True, label='Piezometers')
-    if len(BV.piezometry.x_coord_discrete)>0:
-        ax.plot(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, '^b', zorder=5, label='Piezometers: discrete')
-    ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
+        piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
+                        edgecolor='k',legend=True, label='Piezometers')
+    
+    #ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     fig.tight_layout ()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
 
