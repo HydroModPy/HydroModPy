@@ -39,7 +39,7 @@ class Dichotomy:
         self.hydrology_stable=hydrology_stable
         self.simulations_folder=simulations_folder
         
-        self.results_folder=os.path.join(self.simulations_folder, '_extraction')
+        self.results_folder=os.path.join(self.simulations_folder, '_watershed/_tifs/')
         
         self.watershed_dem = geographic.watershed_dem
         self.watershed_shp = geographic.watershed_shp
@@ -71,7 +71,7 @@ class Dichotomy:
         self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
         wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)  
         # Mask seepage simulation
-        tif_sim = os.path.join(self.results_folder, 'seepage_areas_t(000).tif')
+        tif_sim = os.path.join(self.results_folder, 'seepage_areas_t(0).tif')
         self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
         toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, True)
         # Trace downslope obs
