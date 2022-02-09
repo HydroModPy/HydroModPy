@@ -49,7 +49,7 @@ warnings.filterwarnings("ignore")
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
-from calibration import calib_root
+from calibration import calib_root, calib_dichotomy
 
 # LAYOUT PLOT
 
@@ -326,18 +326,41 @@ for simul in simul_list:
     ax.set_title(label)
     
     # ax.set_yscale('log')
-    
-#%%
-"""
-# plt.plot(df.recharge)
-# plt.plot(df.outflow_drain)
 
+#%% STREAMS EXPLORATION
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2015, last_year=2019, time_step = 'D',
+                                  sim_state='steady') #
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
+BV.hydrodynamic.update_hyd_cond(2)
+
+params_file = data_path + 'CALIB/calib_params.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.exploration(resolution=10)
+
+#%% STREAMS DICHOTOMY
+
+from calibration import calib_root, calib_dichotomy
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2015, last_year=2019, time_step = 'D',
+                                  sim_state='steady') #
+
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
+BV.hydrodynamic.update_hyd_cond(2)
+
+params_file = data_path + 'CALIB/calib_params_dichotomy.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.dichotomy(gap=10)
+
+#%% NOTES
+"""
 x = pd.read_csv('D:/Users/abherve/HYSTERESIS/Cheze/results_stable/climatic/_ALL_D.csv',
                 sep=';', parse_dates=True, index_col=0)
 x = x[(x.index.year>=1990) & (x.index.year<2000)]
 x = x.resample('M').sum()
-# plt.plot(x['PPT_REA_historic'])
-plt.plot(x['EFF_REA_historic'])
 plt.plot(x['REC_REA_historic'])
-# plt.plot(x['ETP_REA_historic'])
 """
