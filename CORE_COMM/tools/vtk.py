@@ -73,6 +73,8 @@ class VTK():
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
             print('watertable')
             self.watertable(modelname, modelfolder, save_file, watershed.geographic)
+            print('watershed_boundary')
+            self.watershed_boundary(save_file, watershed.geographic)
             try:
                 self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
                 print('pathlines')
@@ -83,8 +85,7 @@ class VTK():
                 print('piezometers')
             except:
                 pass
-            print('watershed_boundary')
-            self.watershed_boundary(save_file, watershed.geographic)
+
             try:
                 print('streams')
                 self.streams(save_file, watershed.hydrology, watershed.geographic)
@@ -515,8 +516,11 @@ class VTK():
         drain_area = np.load(drain_file, allow_pickle=True).item()
         
         # open the surface flux files
-        surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
-        surface_area = np.load(surface_file, allow_pickle=True).item()
+        try:
+            surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
+            surface_area = np.load(surface_file, allow_pickle=True).item()
+        except:
+            pass
         
         kstpkper = hds.get_kstpkper()
         tsn = []
@@ -730,14 +734,20 @@ class VTK():
     
             listWaterTableCell = list(waterTableCellGrid.flatten())
             listDrainFlowCell = drain_area[time_step].flatten()
-            listSurfaceFlowCell = surface_area[time_step].flatten()
+            try:
+                listSurfaceFlowCell = surface_area[time_step].flatten()
+            except:
+                pass
             listDem = geographic.dem_clip.flatten()
     
             listWaterTableQuadSequenceDef = []
             listWaterTableCellDef = []
             listDrawdownCellDef = []
             listDrainFlowCellDef = []
-            listSurfaceFlowCellDef = []
+            try:
+                listSurfaceFlowCellDef = []
+            except:
+                pass
             for item in range(len(listWaterTableCell)):
                 if listWaterTableCell[item] > -100:
                     listWaterTableQuadSequenceDef.append(listLayerQuadSequence[item])
@@ -745,7 +755,10 @@ class VTK():
                     drawdown = modDis['cellCentroidZList']['lay0'][item] - listWaterTableCell[item]
                     listDrawdownCellDef.append(drawdown)
                     listDrainFlowCellDef.append(listDrainFlowCell[item])
-                    listSurfaceFlowCellDef.append(listSurfaceFlowCell[item])
+                    try:
+                        listSurfaceFlowCellDef.append(listSurfaceFlowCell[item])
+                    except:
+                        pass
                     
             textoVtk = open(os.path.join(save_file,'VTU_WaterTable_' + str(time_step) + '.vtu'), 'w')
             # add header

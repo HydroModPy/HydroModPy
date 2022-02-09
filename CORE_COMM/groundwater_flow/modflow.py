@@ -50,11 +50,9 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0., model_name='modflow_model',
-                 time_step='M',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
-        self.time_step = time_step
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
@@ -140,9 +138,9 @@ class Modflow():
 
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
             delr=self.resolution, delc=self.resolution, top=self.dem.data, 
-            botm=self.zbot, itmuni=0, lenuni=2, nper=self.nper, perlen=self.perlen, 
+            botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
             nstp=self.nstp, steady=self.steady, xul=self.xul, yul=self.yul,
-            start_datetime=self.start_datetime) # itmuni = 4 ==> days
+            start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
 		#proj4_str=self.dem.crs)
     
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))

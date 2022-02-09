@@ -10,6 +10,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os, sys
+import glob
+import hydroeval as he
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -159,4 +161,66 @@ class Piezometry:
             
     def get_indicator(self):
         indicator = sum(self.store_indicator)
-        return indicator, self.y0, self.y1 
+        return indicator, self.y0, self.y1
+    
+class Hydrometry:
+    def __init__(self, watershed, model):
+        self.watershed = watershed
+        self.model = model
+        
+        self.load_modeling_data()
+        self.compare_sim_obs_data()
+    
+    def load_modeling_data(self):
+        sim_path = os.path.join(self.watershed.simulations_folder, self.model, '_watershed', '_simulated_results.csv')
+        sim = pd.read_csv(sim_path, sep=';', parse_dates=True, index_col=0)
+        self.outflow_drain = sim.outflow_drain
+        # add successive subbasins
+        
+    def compare_sim_obs_data(self):
+        self.store_indicator = []
+        if np.alen(self.watershed.forcing.recharge) > 1:
+            codes_path = glob.glob(os.path.join(self.watershed.stable_folder, 'hydrometry', 'Hydrometric*'))
+            codes = os.listdir(os.path.join(self.watershed.stable_folder, 'hydrometry'))
+                        
+            for j in range(0,len(codes)):
+                code = codes[j].split('_')[1]
+                area = float(codes[j].split('_')[4])
+                
+                df = pd.read_csv(codes_path[j], sep=';', parse_dates=True, index_col=0)
+                df = df.resample('M').mean()
+                df = df * 24 * 3600 # m3/j
+                df = df / (area * 1000000) # m/j
+                df.columns = [code]
+                
+                df_sim = self.outflow_drain.copy()
+                df_sim = df_sim.rename('sim_' + code)
+        
+                df = df.merge(df_sim, left_index=True, right_index=True)
+
+                y0 = df[code].values
+                y1 = df['sim_' + code].values
+                
+                ER = np.nansum(y0-y1)  # error 
+                ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
+                RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
+                PERER = np.nansum(np.abs(y0-y1)/y0*100) # percentage error 
+                MAE = np.nanmean(np.abs(y0-y1)) # mean absolute error 
+                BAL = (np.sum(y1)/np.sum(y0))*100 # balance
+                MSE = np.nanmean((y0-y1)**2) # mean square error 
+                RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
+                NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
+                MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
+                KGE = he.evaluator(he.kge, y1, y0)[0] # kling-gupta efficiency (r, α, β)
+                PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
+                NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+
+                self.store_indicator.append(NSElog)
+                
+            self.y0 = df[[col for col in df if not col.startswith('sim_')]]
+            self.y1 = df[[col for col in df if col.startswith('sim_')]]
+            
+    def get_indicator(self):
+        indicator = self.store_indicator
+        return indicator, self.y0, self.y1
+    
