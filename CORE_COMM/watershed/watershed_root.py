@@ -331,7 +331,6 @@ class Watershed:
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
                                      model_name=ident, model_folder=self.simulations_folder,
-                                     time_step=time_step,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         if run == True:
@@ -396,7 +395,6 @@ class Watershed:
                                 recharge=self.forcing.recharge,
                                 actual_date=actual_date,
                                 start=start,
-                                time_step=time_step,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,
                                 model_folder=self.simulations_folder)

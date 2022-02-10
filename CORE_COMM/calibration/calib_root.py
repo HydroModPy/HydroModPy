@@ -52,7 +52,8 @@ class Calibration():
     
     def dichotomy(self, gap=10):
         basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations)
-        dichotomy = calib_dichotomy.CalibrationDichotmy(gap=gap)
+        dichotomy = calib_dichotomy.CalibrationDichotomy(basis, gap=gap)
+        res = dichotomy.perform()
         
 
     

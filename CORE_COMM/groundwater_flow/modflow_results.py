@@ -29,7 +29,8 @@ from tools import toolbox
 #%% Extract results
 
 class Results:
-    def __init__(self, geographic, recharge=250, actual_date=True, model_name='modflow_model', start='1960-01-01', time_step='M',
+    def __init__(self, geographic, recharge=250, actual_date=True, model_name='modflow_model',
+                 start='1960-01-01',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
         self.geographic = geographic
@@ -37,25 +38,20 @@ class Results:
         self.stable_folder = stable_folder
         self.model_folder = model_folder
         self.start = start
-        self.time_step = time_step
         self.actual_date = actual_date
         self.recharge = recharge
        
         self.full_path = os.path.join(self.model_folder, self.model_name)
         self.save_file = os.path.join(self.full_path, '_watershed')
         toolbox.create_folder(self.save_file)
+        
+        freq = pd.infer_freq(self.recharge.index)
     
         if self.actual_date==True:            
-            if self.time_step=='Y':
-                freq = 'Y'
-            if self.time_step=='M':
-                freq = 'M'
-            if self.time_step=='D':
-                freq = 'D'
             if isinstance(self.recharge,(int,float)) == True:
-                time = toolbox.date_range(self.start, 1, freq)
+                time=[0]
             else:
-                time = toolbox.date_range(self.start, len(self.recharge), freq)
+                time = self.recharge.index
                 recharge = self.recharge.values
         else:
             if isinstance(self.recharge,(int,float)) == True:
@@ -231,3 +227,8 @@ class Results:
 #                 calc = np.nanmean(masked)
 #                 return key, calc
 
+# if isinstance(self.recharge,(int,float)) == True:
+#     time = toolbox.date_range(self.start, 1, freq)
+# else:
+#     time = toolbox.date_range(self.start, len(self.recharge), freq)
+#     recharge = self.recharge.values

@@ -106,7 +106,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-watershed_name = 'Conceptual' # search the name in watershed_library or just label your result folder
+watershed_name = 'Outlet' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
 if watershed_name == 'Outlet':
@@ -402,7 +402,9 @@ from tools import vtk
 from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
 visu = visualization.Visualization(BV, 'steady')
-visu.visual2D(interactive=True,
-              size=(1920,1080),
-              view='north-west', lines=300, cloc=(0.7,0.7), contour_plot=False)
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
+                             'surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(0,35),(0,10),
+                             (None,None),(None,None),(None,None),(None,None)], 
+              lines=300)
 
