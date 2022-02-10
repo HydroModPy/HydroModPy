@@ -10,6 +10,7 @@ Created on Fri Nov 12 10:21:56 2021
 import os
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
@@ -33,7 +34,7 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = False#False to build and save python object
+load = True#False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 watershed_shp = os.path.join(out_path, watershed_name, 'watershed.shp')
 dem_path = root_path + "MNT_75m.tif"#'BDALTI_bzh_75m.tif' 
@@ -45,15 +46,12 @@ hydrology_path = root_path + 'HYDROLOGY'
 types_obs = ['streams_fr']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
-BV.add_geology(geology_path,'GEO50K.shp','CODE_LEG')
-BV.display(dtype = 'watershed_dem')
-BV.display(dtype = 'watershed_geology')
 
 #%% Add Data
 if load == False:
     BV.add_hydrology(hydrology_path, types_obs)
     BV.add_surfex(surfex_path) 
-    BV.add_geology(geology_path) 
+    BV.add_geology(geology_path,'GEO50K.shp','CODE_LEG') 
     BV.add_hydrology(hydrology_path,types_obs=types_obs)
     BV.add_oceanic(oceanic_path)
     #BV.add_hydrometry(hydrometry_path)
@@ -63,30 +61,33 @@ if load == False:
     BV.piezometry.add_data()
     BV.save_object()
 
-BV.display()
+BV.display(dtype = 'watershed_dem')
+BV.display(dtype = 'watershed_geology')
 
 #%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
 if watershed_name == 'Agon-Coutainville':
-    zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
-    zones[BV.geology.geology_array<1000] = int(1) # Sands
-    zones[BV.geology.geology_array == 2151] = int(1)
-    zones[BV.geology.geology_array == 1871] = int(1)
+    zones[BV.geology.geology_array>40] = int(2) # Crystalline rocks
+    zones[BV.geology.geology_array<40] = int(1) # Sands
+    zones[BV.geology.geology_array == 175] = int(1)
+    zones[BV.geology.geology_array == 178] = int(1)
+    zones[BV.geology.geology_array == 4] = int(2)
+plt.imshow(zones)
 if watershed_name == 'Caen':
     zones[BV.geology.geology_array>1000] = int(2) # Calcaire
     zones[BV.geology.geology_array<800] = int(1) # Sands
 
 BV.hydrodynamic.update_calib_zones(zones)
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
-BV.hydrodynamic.update_thickness(100)
+#%%
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'M', sim_state='transient')#
+BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
-BV.hydrodynamic.update_hyd_cond(4.26)
 #%% Calibration Model piezometry
 from calibration import calib_root
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
-calib = calib_root.Calibration(params_file, BV, observations = ['streams','piezometry'])
-calib.exploration(resolution=250)
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
+calib.exploration(resolution=25)
 #calib.simplex(init_multiples_n=15)
 
 

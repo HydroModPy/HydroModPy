@@ -59,8 +59,8 @@ class Geology:
         dem_data_clip[dem_data_clip<0]= np.nan
         self.geology_array_clip = dem_data_clip.astype(int)
 
-        self.geology_array[self.geology_array<=100] = int(1)
-        self.geology_array_clip[self.geology_array_clip<=100] = int(1)
+        #self.geology_array[self.geology_array<=100] = int(1)
+        #self.geology_array_clip[self.geology_array_clip<=100] = int(1)
 
         self.geology_code_clip = np.intersect1d(self.geology_array_clip, self.geology_array_clip)
         self.geology_code = self.geology_code_clip[self.geology_code_clip>=0]

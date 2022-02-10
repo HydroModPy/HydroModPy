@@ -114,11 +114,12 @@ class Piezometry:
         if np.alen(self.watershed.forcing.recharge) > 1:
             try:
                 df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
-                df.index = df.index.to_period(self.watershed.forcing.freq)
+                #df.index = df.index.to_period(self.watershed.forcing.freq)
             except:
                 sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
-                
-            
+            plt.figure()
+            plt.plot([0,100],[0,0])
+            # Continue Data
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
                 sim=[]
                 for i in range(0,len(self.watertable_elevation)):
@@ -128,6 +129,8 @@ class Piezometry:
                     
                 y0 = df[self.watershed.piezometry.codes_bss[j]].values
                 y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
+                
+                plt.plot(y0,y0-y1)
                 dy = np.nansum(y0-y1)  #error 
                 abs_dy = np.nansum(np.abs(y0-y1))  #absolute error 
                 relerr = np.nansum(np.abs(y0-y1)/y0) #relative error 
@@ -139,6 +142,22 @@ class Piezometry:
             self.y0 = df[[col for col in df if not col.startswith('sim_')]]
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
             
+            #Discrete Data
+            y0 = []
+            y1 = []
+            for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
+                y0.append(self.watershed.piezometry.elevation_discrete[j])
+                date = self.watershed.piezometry.date_discrete[j]
+                dt = pd.to_datetime(date)
+                sim = []
+                for i in range(0,len(self.watertable_elevation)):
+                    sim.append(self.watertable_elevation[i][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
+                df_sim = pd.Series(sim, index=self.watershed.forcing.recharge.index, name='sim' )
+                y1.append(df_sim[df_sim.index.month == dt.month].mean())
+            plt.plot(y0,np.asarray(y0)-np.asarray(y1),'o')
+            RMSE = np.sqrt(np.nanmean((np.asarray(y0)-np.asarray(y1))**2))
+            plt.show()
+            self.store_indicator.append(RMSE)
                 
                 
         if np.alen(self.watershed.forcing.recharge) == 1:
