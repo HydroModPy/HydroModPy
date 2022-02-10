@@ -189,7 +189,11 @@ def watershed_geology(BV):
     #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
     geol = gpd.read_file(BV.geology.geol_file)
-
+    try:
+        geol['hex']
+    except:
+       generate_geology_color(BV.geology.geol_file)
+       geol = gpd.read_file(BV.geology.geol_file)
     geol.plot(ax=ax, color=list(geol['hex']),alpha=0.25, edgecolor='dimgrey', zorder=2,legend=True, label='Geology')
     cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     try:
@@ -198,14 +202,16 @@ def watershed_geology(BV):
     except:
         pass
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
-    if len(BV.piezometry.x_coord_discrete)>0:
-        ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
+    try:
+        if len(BV.piezometry.x_coord_discrete)>0:
+            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
                        marker='^', zorder=5, label='Piezometers: discrete')
-    if os.path.exists(BV.piezometry.piezos_shp):
-        piezos = gpd.read_file(BV.piezometry.piezos_shp)
-        piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
+        if os.path.exists(BV.piezometry.piezos_shp):
+            piezos = gpd.read_file(BV.piezometry.piezos_shp)
+            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
                         edgecolor='k',legend=True, label='Piezometers')
-    
+    except:
+        pass
     #ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
     fig.tight_layout ()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
@@ -215,6 +221,9 @@ def generate_geology_color(file):
     geol['R_col'] = 255 * (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
     geol['G_col'] = 255 * (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
     geol['B_col'] = 255 * (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
+    geol['R_col'][geol['R_col']>255] = 255
+    geol['G_col'][geol['G_col']>255] = 255
+    geol['B_col'][geol['B_col']>255] = 255
     geol['couleur'] = list(zip(round(geol['R_col']).astype(int),
                                round(geol['G_col']).astype(int),
                                round(geol['B_col']).astype(int)))
@@ -222,8 +231,8 @@ def generate_geology_color(file):
         geol.loc[i,'hex'] = rgb2hex(geol.loc[i,'couleur'][0],
                                     geol.loc[i,'couleur'][1],
                                     geol.loc[i,'couleur'][2])
-        geol = geol.drop(columns=['couleur'])
-        geol.to_file(file)
+    geol = geol.drop(columns=['couleur'])
+    geol.to_file(file)
 
 
 

@@ -107,12 +107,12 @@ class Piezometry:
         bss_fr = gpd.read_file(bss_shp)
         bss_fr.to_crs(epsg=2154, inplace=True)
         bss = gpd.clip(bss_fr, watershed)
-        self.codes_bss_discrete = bss['indice'].tolist()
-        self.date_discrete = bss['date_eau_s'].tolist()
-        self.elevation_discrete = bss['cote_eau'].tolist()
-        self.depth_discrete = bss['prof_eau_s'].tolist()
-        self.x_coord_discrete = bss['x_ref06'].tolist()
-        self.y_coord_discrete = bss['y_ref06'].tolist()
+        self.codes_bss_discrete = bss['indice'][bss['cote_eau'] != 0].tolist()
+        self.date_discrete = bss['date_eau_s'][bss['cote_eau'] != 0].tolist()
+        self.elevation_discrete = bss['cote_eau'][bss['cote_eau'] != 0].tolist()
+        self.depth_discrete = bss['prof_eau_s'][bss['cote_eau'] != 0].tolist()
+        self.x_coord_discrete = bss['x_ref06'][bss['cote_eau'] != 0].tolist()
+        self.y_coord_discrete = bss['y_ref06'][bss['cote_eau'] != 0].tolist()
         self.x_iloc_discrete = []
         self.y_iloc_discrete = []
         for i in range(0, len(self.x_coord_discrete)):
