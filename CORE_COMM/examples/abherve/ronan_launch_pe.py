@@ -37,11 +37,11 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # Warnings
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
+# import warnings
+# warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
+# warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                  
 #%HYDROMODPY MODULES
@@ -49,7 +49,7 @@ warnings.filterwarnings("ignore")
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
-from calibration import calib_root, calib_dichotomy
+from calibration import calib_root, calib_dichotomy, calib_analysis
 
 # LAYOUT PLOT
 
@@ -68,6 +68,7 @@ shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
 surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/Rennes/' # add surfex models in .h5 format (France scale, else, specify None)
+# surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/Leon/'
 geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
 oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
 hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
@@ -86,7 +87,7 @@ from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
 
-types_obs = ['streams_fr','sections_bzh'] # list of shapefile name layers for clip hydrology
+types_obs = ['streams','sections_bzh'] # list of shapefile name layers for clip hydrology
 fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
 
 # Depending on the choices
@@ -213,8 +214,7 @@ for Sy in Sys:
                                                 thick_exp=thick_exp,
                                                 cond_decay=cond_decay,
                                                 verbose=True,
-                                                post_process=post_process,
-                                                time_step=time_step)
+                                                post_process=post_process)
             if success == True:
                 print(     'Success')
             else:
@@ -255,8 +255,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
             # # Extract results
             BV.results_modflow(ident=model_name,
                                actual_date=actual_date,
-                               start=start,
-                               time_step=time_step)
+                               start=start)
             
             # Plot maps
             # save_gif = False # save a gif after plots
@@ -327,22 +326,23 @@ for simul in simul_list:
     
     # ax.set_yscale('log')
 
-#%% STREAMS EXPLORATION
+#%% EXPLORATION STREAMS
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                   first_year = 2015, last_year=2019, time_step = 'D',
-                                  sim_state='steady') #
+                                  sim_state='steady')
+
 BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
-params_file = data_path + 'CALIB/calib_params.csv'
+params_file = data_path + 'CALIB/calib_params_exploration.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 calib.exploration(resolution=10)
 
-#%% STREAMS DICHOTOMY
+#%% DICHOTOMY STREAMS
 
-from calibration import calib_root, calib_dichotomy
+from calibration import calib_root, calib_dichotomy, calib_analysis
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                   first_year = 2015, last_year=2019, time_step = 'D',
@@ -354,7 +354,40 @@ BV.hydrodynamic.update_hyd_cond(2)
 
 params_file = data_path + 'CALIB/calib_params_dichotomy.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.dichotomy(gap=10)
+dicot = calib.dichotomy(gap=1)
+
+# path = "D:/Users/abherve/HYSTERESIS/Cheze/results_simulations/streams_calibration/_dicothomy.csv"
+# x = pd.read_csv(path, sep=';')
+# x = x.sort_values(by=['KR'])
+# plt.plot(x.KR, x.Obs)
+# plt.plot(x.KR, x.Sim)
+# plt.yscale('log')
+# plt.xscale('log')
+
+#%% EXPLORATION HYDROMETRY
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2015, last_year=2019, time_step = 'M',
+                                  sim_state='transient')
+
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.001)
+BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
+
+params_file = data_path + 'CALIB/calib_params_exploration.csv'
+calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+calib.exploration(resolution=3)
+
+#%% CALIB ANALYSIS
+
+from calibration import calib_analysis
+
+typ_calib = 'streams_calibration'
+file = 'exp_1p_res_10_09_02_2022_14h05'
+calib_file = os.path.join(BV.simulations_folder,typ_calib,file+'.calib')
+test = calib_analysis.CalibAnalysis(calib_file)
+# test.display_objective_function()
+plt.plot(test.obj_function.iloc[:,0], test.obj_function.iloc[:,1])
 
 #%% NOTES
 """
@@ -364,3 +397,6 @@ x = x[(x.index.year>=1990) & (x.index.year<2000)]
 x = x.resample('M').sum()
 plt.plot(x['REC_REA_historic'])
 """
+
+x = pd.read_csv("D:/Users/abherve/HYSTERESIS/Cheze/results_stable/hydrometry/Hydrometric_J7364220_La Chèze à Plélan-le-Grand [L'Enlevrier]_273631-2343510_9.3_88_1989-2021.csv",
+                sep=';', parse_dates=True, index_col=0)

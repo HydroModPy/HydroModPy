@@ -20,14 +20,14 @@ class CalibAnalysis:
         self.names = self.calib['params_name'] 
         self.params_min = self.calib['params_min']
         self.params_max = self.calib['params_max']
-        self.params_values = self.calib['params_values'] 
+        self.params_values = self.calib['params_values']
         self.obj_function = self.calib['objective_function']
         self.recharge = self.calib['recharge']
         self.calib_zones = self.calib['calib_zone']
         self.data_sim = self.calib['data_sim']
         self.data_obs = self.calib['data_obs']
         self.data_ind = self.calib['data_ind']
-        self.find_best_values()
+        # self.find_best_values()
     
     def find_best_values(self):
         self.p = []
@@ -48,8 +48,9 @@ class CalibAnalysis:
     def display_objective_function(self, save = None):
         if len(self.names) == 1 : 
             # 1 parameter
-            figadd.figure_init(xlab=self.names[0],ylab="",figname='Objective function 1D of ' + self.names++++[0])
-            plt.plot(self.params_values,self.obj_function)
+            figadd.figure_init(xlab=self.names[0],ylab="",figname='Objective function 1D of ' +
+                               self.names[0])
+            plt.plot(self.params_values,self.obj_function) # problem with list params_values ?
             plt.yscale("log")
             if self.names[0] == 'k':
                 plt.xscale("log")

@@ -390,8 +390,7 @@ class Visualization():
                     pass
         compt = 0
         for ax in axs:
-            if contour_plot==True:
-                contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+            contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
             bounds = dem.bounds
             xlim = ([bounds[0], bounds[2]])
             ylim = ([bounds[1], bounds[3]])
