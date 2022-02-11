@@ -172,12 +172,13 @@ class Piezometry:
                 self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
             self.y0 = np.array(self.y0)
             self.y1 = np.array(self.y1)
+            '''
             dy = np.nansum(self.y0-self.y1)  #error 
             abs_dy = np.nansum(np.abs(self.y0-self.y1))  #absolute error 
             relerr = np.nansum(np.abs(self.y0-self.y1)/self.y0) #relative error 
             pererr = np.nansum(np.abs(self.y0-self.y1)/self.y0*100) #percentage error 
             mean_err = np.nanmean(np.abs(self.y0-self.y1)) #mean absolute error 
-            MSE = np.nanmean((self.y0-self.y1)**2) ;    #Mean square error 
+            MSE = np.nanmean((self.y0-self.y1)**2) ;    #Mean square error '''
             RMSE = np.sqrt(np.nanmean((self.y0-self.y1)**2))  #Root mean square error 
             self.store_indicator.append(RMSE)
             
