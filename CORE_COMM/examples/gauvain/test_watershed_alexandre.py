@@ -80,16 +80,15 @@ if watershed_name == 'Caen':
 BV.hydrodynamic.update_calib_zones(zones)
 
 #%%
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'M', sim_state='transient')#
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
 BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 #%% Calibration Model piezometry
 from calibration import calib_root
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
-calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
-calib.exploration(resolution=25)
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib.exploration(resolution=1000)
 #calib.simplex(init_multiples_n=15)
-
 
 #%% Calib Analysis : Steady
 from calibration import calib_analysis

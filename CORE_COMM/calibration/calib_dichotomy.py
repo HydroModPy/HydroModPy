@@ -44,6 +44,9 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         return dichotomy_results
     
     def __Dichotomy(self):
+        name= 'name'
+        obj_function = []
+        params = []
         
         p_min =  self.params.p_min[0]
         p_max =  self.params.p_max[0]
@@ -87,6 +90,9 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
             compt += 1
         
         df.to_csv(self.directory_results+'/'+'_dicothomy'+'.csv', sep=';')
-    
+        
+        self.write_results(name, obj_function, params_values)
+        
+        
         return indicator
         

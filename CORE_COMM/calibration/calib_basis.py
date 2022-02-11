@@ -72,29 +72,19 @@ class CalibrationBasis:
     
     
     def objective_function(self, params):
-        """ 
-        Objective Function: Squared difference of concentrations normalized by data errors
-            Inverse Problem Theory and Methods for Model Parameter Estimation, Albert Tarantola, SIAM, 2005
-            http://www.ipgp.fr/~tarantola/Files/Professional/Books/InverseProblemTheory.pdf
-            sum((di-mi)^2/sigma_errori^2)
+        """
         
-        Arguments
-        --------
-        param: array
-            array of parameter values (order should correspond to that of the lpm)
-        concentrations_sampled_c: array
-            target concentrations
-        concentrations_sampled_error: array
-            target concentrations errors
-        lpm: LPM
-            template LPM (parameters are updated with param)
-        tracers: ConvolutionTracers
-            convolution class 
-            
+
+        Parameters
+        ----------
+        params : TYPE
+            DESCRIPTION.
+
         Returns
         -------
-        float
-            value of objective function
+        TYPE
+            DESCRIPTION.
+
         """
 
         for i in range(0,len(self.params.name)):
@@ -191,76 +181,38 @@ class CalibrationBasis:
         #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
 
-
-    def display_concentrations(self):
-        """ 
-        Dislays concentration results 
-        """
-        self.lpm.display()
-        self.concentration_sampled.display()
-        concentration_computed = self.tracers.convolution(self.lpm,return_type="concentrations_set")
-        concentration_computed.display()
-        print("J=",self.concentration_sampled.sqrt_quadratic_mean_diff(concentration_computed))
-  
-        
-    def display_lpms(self,display_options,lpm_results,lpm_reference=None):
-        """
-        #A garder
-        Display lpm results
-        
-        Arguments
-        ---------
-        display_options: 
-            Options for the display
-        lpm_results: LPMDist
-            All results of the calibration
-        lpm_reference: LPM
-            Target LPM (if existing, eg )
-        """
-        if self.method == "Simplex" or self.method == "Simplex_init_multipes": 
-            # Comparison of parameters
-            if display_options.text and lpm_reference != None : 
-                lpm_results.get_best_lpm().display_parameters(lpm_reference)
-        if self.method == "forward_uncertainty_quantification" or self.method == "Metropolis_Hastings" :
-            # Distribution of parameters
-            if display_options.figure : 
-                lpm_results.display_parameters_dist(self_method=self.method,lpm_reference=lpm_reference,bins=100,directory=self.directory_results)
-                self.build_objective_function(display_options)
-
-
-    def write_calibrated_lpm(self,lpm_results): 
-        """ 
-        A Garder
-        Writes the calibrated lpms
-        """ 
-        # Writes calibration parameters and efficiencty results
-        self.write_parameters(os.path.join(self.directory_results,"parameters_calibration.txt"))
-        self.write_results(os.path.join(self.directory_results,"results_calibration.txt"))
-        # Writes "best" lpm
-        lpm_results.get_best_lpm().write(os.path.join(self.directory_results,"lpm_calibrated.txt"),open_file=True)
-        # Writes distribution of "best" lpm
-        if self.method != "Simplex" : 
-            lpm_results.write_dist(os.path.join(self.directory_results,"lpm_dist_calibrated.txt"))
-            lpm_results.write_stats(os.path.join(self.directory_results,"lpm_stats_calibrated.txt"))
-
-
-    def write_results(self,file_name):
+    def write_results(self,name, obj_function, params_values):
         """ 
         A garder
         Writes parameters of calibration
         """
-        data={}
-        # Generic results for all calibration methods
-        data['time_perform'] = self.time_perform
-        # Specific results to this calibration method
-        self.write_results_spec(data)
-        # Writing in file
-        file = open(file_name,"w")
-        for key, val in data.items():
-            file.write(key+'\t'+str(val)+'\n')
-        file.close()
-        
+        #Save file
+        store = {}
+        store['name'] = name
+        store['observations'] = self.observations
+        # Parameter Values
+        self.name = []
+        # Parameter Units 
+        self.u = []
+        # Bounds of parameters
+        self.p_init = []
+        self.p_min = []
+        self.p_max = []
+        store['params_name'] = self.params.name
+        store['params_min'] = self.params.p_min
+        store['params_max'] = self.params.p_max
+        store['params_values'] = params_values
+        store['data_obs'] = self.data_obs
+        store['data_sim'] = self.data_sim
+        store['data_ind'] = self.data_ind
+        store['objective_function'] = obj_function
+        store['recharge'] = self.watershed.forcing.recharge
+        store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
+        with open(os.path.join(self.directory_results, name + '.calib'), 'xb') as config_dictionary_file:
+            pickle.dump(store, config_dictionary_file)
+        config_dictionary_file.close()
 
+        
     def build_objective_function(self,resolution=10000): 
         """ 
         A garder
@@ -350,30 +302,7 @@ class CalibrationBasis:
                 plt.colorbar()
                 # Whatevert the dimension, saves figure
                 plt.savefig(os.path.join(self.directory_results,name),dpi=300)
-        #Save file
-        store = {}
-        store['name'] = name
-        store['observations'] = self.observations
-        # Parameter Values
-        self.name = []
-        # Parameter Units 
-        self.u = []
-        # Bounds of parameters
-        self.p_init = []
-        self.p_min = []
-        self.p_max = []
-        store['params_name'] = self.params.name
-        store['params_min'] = self.params.p_min
-        store['params_max'] = self.params.p_max
-        store['params_values'] = params_values
-        store['data_obs'] = self.data_obs
-        store['data_sim'] = self.data_sim
-        store['data_ind'] = self.data_ind
-        store['objective_function'] = obj_function
-        store['recharge'] = self.watershed.forcing.recharge
-        store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
-        with open(os.path.join(self.directory_results, name + '.calib'), 'xb') as config_dictionary_file:
-            pickle.dump(store, config_dictionary_file)
-        config_dictionary_file.close()
+        
+        self.write_results(name, obj_function, params_values)
 
 
