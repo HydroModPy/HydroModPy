@@ -85,10 +85,23 @@ BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 #%% Calibration Model piezometry
 from calibration import calib_root
-params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
+params_file = 'calib_explo_hom_1v_k1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=1000)
+#calib.exploration(resolution=100)
+calib.dichotomy(gap=10)
 #calib.simplex(init_multiples_n=15)
+#%% 
+from calibration import calib_analysis
+import glob
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+key=os.path.getmtime, reverse=True)
+name_file = list_path[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+# test.find_best_values()
+# test.display_best_data()
 
 #%% Calib Analysis : Steady
 from calibration import calib_analysis
