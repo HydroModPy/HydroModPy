@@ -22,13 +22,13 @@ class Streams:
     def __init__(self, 
                  watershed, 
                  hydrology_stable=None,
-                 simulations_folder=None):
+                 calibration_folder=None):
         
         self.geographic = watershed.geographic
         self.hydrology = watershed.hydrology
-        self.simulations_folder=simulations_folder
+        self.calibration_folder = calibration_folder
         
-        self.results_folder=os.path.join(self.simulations_folder, '_watershed')
+        self.results_folder=os.path.join(self.calibration_folder, '_watershed')
         
         self.watershed_shp = watershed.geographic.watershed_shp
         self.watershed_fill = watershed.geographic.watershed_fill
@@ -40,7 +40,7 @@ class Streams:
         
     def prepare_files(self):
         # New folder results
-        self.dichotomy_folder = os.path.join(self.simulations_folder, '_dichotomy')
+        self.dichotomy_folder = os.path.join(self.calibration_folder, '_streams')
         toolbox.create_folder(self.dichotomy_folder)
         # Observed buff data
         self.buff_tif_obs = self.hydrology.tif_streams
@@ -101,21 +101,23 @@ class Streams:
         return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
 class Piezometry:
-    def __init__(self, watershed, model):
+    def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
+        self.param_folder = param_folder
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
     
     def load_modeling_data(self):
-        self.watertable_elevation = np.load(os.path.join(self.watershed.simulations_folder, self.model ,'_watershed', 'watertable_elevation.npy'), allow_pickle=True).item()
+        self.watertable_elevation = np.load(os.path.join(self.param_folder, self.model ,'_watershed', 'watertable_elevation.npy'), allow_pickle=True).item()
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        if np.alen(self.watershed.forcing.recharge) > 1:
+        if len(self.watershed.forcing.recharge) > 1:
             try:
-                df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
+                # df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
+                df = self.watershed.piezometry.elevation.resample(pd.infer_freq(self.watershed.forcing.recharge.index)).mean()
                 #df.index = df.index.to_period(self.watershed.forcing.freq)
             except:
                 sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
@@ -133,14 +135,23 @@ class Piezometry:
                 y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
                 
                 plt.plot(y0,y0-y1)
-                dy = np.nansum(y0-y1)  #error 
-                abs_dy = np.nansum(np.abs(y0-y1))  #absolute error 
-                relerr = np.nansum(np.abs(y0-y1)/y0) #relative error 
-                pererr = np.nansum(np.abs(y0-y1)/y0*100) #percentage error 
-                mean_err = np.nanmean(np.abs(y0-y1)) #mean absolute error 
-                MSE = np.nanmean((y0-y1)**2) ;    #Mean square error 
-                RMSE = np.sqrt(np.nanmean((y0-y1)**2))  #Root mean square error 
+
+                ER = np.nansum(y0-y1)  # error 
+                ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
+                RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
+                PERER = np.nansum(np.abs(y0-y1)/y0*100) # percentage error 
+                MAE = np.nanmean(np.abs(y0-y1)) # mean absolute error 
+                BAL = (np.sum(y1)/np.sum(y0))*100 # balance
+                MSE = np.nanmean((y0-y1)**2) # mean square error 
+                RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
+                NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
+                MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
+                KGE = he.evaluator(he.kge, y1, y0)[0] # kling-gupta efficiency (r, α, β)
+                PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
+                NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+
                 self.store_indicator.append(RMSE)
+                
             self.y0 = df[[col for col in df if not col.startswith('sim_')]]
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
             
@@ -162,7 +173,7 @@ class Piezometry:
             self.store_indicator.append(RMSE)
                 
                 
-        if np.alen(self.watershed.forcing.recharge) == 1:
+        if len(self.watershed.forcing.recharge) == 1:
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
             self.y1 = []
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
@@ -187,62 +198,68 @@ class Piezometry:
         return indicator, self.y0, self.y1
     
 class Hydrometry:
-    def __init__(self, watershed, model):
+    def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
+        self.param_folder = param_folder
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
     
     def load_modeling_data(self):
-        sim_path = os.path.join(self.watershed.simulations_folder, self.model, '_watershed', '_simulated_results.csv')
+        sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
         sim = pd.read_csv(sim_path, sep=';', parse_dates=True, index_col=0)
         self.outflow_drain = sim.outflow_drain
         # add successive subbasins
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        if np.alen(self.watershed.forcing.recharge) > 1:
-            codes_path = glob.glob(os.path.join(self.watershed.stable_folder, 'hydrometry', 'Hydrometric*'))
-            codes = os.listdir(os.path.join(self.watershed.stable_folder, 'hydrometry'))
-                        
-            for j in range(0,len(codes)):
-                code = codes[j].split('_')[1]
-                area = float(codes[j].split('_')[4])
-                
-                df = pd.read_csv(codes_path[j], sep=';', parse_dates=True, index_col=0)
-                df = df.resample('M').mean()
-                df = df * 24 * 3600 # m3/j
-                df = df / (area * 1000000) # m/j
-                df.columns = [code]
-                
-                df_sim = self.outflow_drain.copy()
-                df_sim = df_sim.rename('sim_' + code)
-        
-                df = df.merge(df_sim, left_index=True, right_index=True)
-
-                y0 = df[code].values
-                y1 = df['sim_' + code].values
-                
-                ER = np.nansum(y0-y1)  # error 
-                ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
-                RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
-                PERER = np.nansum(np.abs(y0-y1)/y0*100) # percentage error 
-                MAE = np.nanmean(np.abs(y0-y1)) # mean absolute error 
-                BAL = (np.sum(y1)/np.sum(y0))*100 # balance
-                MSE = np.nanmean((y0-y1)**2) # mean square error 
-                RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
-                NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
-                MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
-                KGE = he.evaluator(he.kge, y1, y0)[0] # kling-gupta efficiency (r, α, β)
-                PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
-                NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
-
-                self.store_indicator.append(NSElog)
-                
-            self.y0 = df[[col for col in df if not col.startswith('sim_')]]
-            self.y1 = df[[col for col in df if col.startswith('sim_')]]
+        if len(self.watershed.forcing.recharge) > 1:
+            c_path = os.path.join(self.watershed.stable_folder, 'hydrometry')
+            codes_path = glob.glob(os.path.join(c_path, 'Hydrometric_*'))
+            # codes = os.listdir(c_path)
+            codes = []
+            for i in os.listdir(c_path):
+                if os.path.isfile(os.path.join(c_path,i)) and 'Hydrometric_' in i:
+                    codes.append(i)
+            if codes != []:
+                for j in range(0,len(codes)):
+                    code = codes[j].split('_')[1]
+                    area = float(codes[j].split('_')[4])
+                    
+                    df = pd.read_csv(codes_path[j], sep=';', parse_dates=True, index_col=0)
+                    df = df.resample('M').mean()
+                    df = df * 24 * 3600 # m3/j
+                    df = df / (area * 1000000) # m/j
+                    df.columns = [code]
+                    
+                    df_sim = self.outflow_drain.copy()
+                    df_sim = df_sim.rename('sim_' + code)
             
+                    df = df.merge(df_sim, left_index=True, right_index=True)
+    
+                    y0 = df[code].values
+                    y1 = df['sim_' + code].values
+                    
+                    ER = np.nansum(y0-y1) # error 
+                    ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
+                    RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
+                    PERER = np.nansum(np.abs(y0-y1)/y0*100) # percentage error 
+                    MAE = np.nanmean(np.abs(y0-y1)) # mean absolute error
+                    BAL = (np.sum(y1)/np.sum(y0))*100 # balance
+                    MSE = np.nanmean((y0-y1)**2) # mean square error 
+                    RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
+                    MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
+                    KGE = he.evaluator(he.kge, y1, y0)[0] # kling-gupta efficiency (r, α, β)
+                    PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
+                    
+                    NSE = ( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency (add '1-' ==> actual NSE)
+                    NSElog = 1 - he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+                    self.store_indicator.append(NSElog)
+                    
+                self.y0 = df[[col for col in df if not col.startswith('sim_')]]
+                self.y1 = df[[col for col in df if col.startswith('sim_')]]
+                
     def get_indicator(self):
         indicator = self.store_indicator
         return indicator, self.y0, self.y1

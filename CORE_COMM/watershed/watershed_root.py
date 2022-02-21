@@ -121,6 +121,9 @@ class Watershed:
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         toolbox.create_folder(self.simulations_folder)
         
+        self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
+        toolbox.create_folder(self.calibration_folder)
+        
         if regio_out == True:
             self.regio_path = os.path.join(out_path, '_regional')
             toolbox.create_folder(self.regio_path)
@@ -311,7 +314,7 @@ class Watershed:
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., 
                     verbose: bool = False, post_process: bool = False,
-                    time_step: str = 'M'):
+                    time_step: str = 'M', calib: str = None):
         """ 
         Build and run modflow model
         
@@ -326,11 +329,15 @@ class Watershed:
         
         :meta public:
         """
+        if calib == None:
+            model_folder = self.simulations_folder
+        else:
+            model_folder = calib
         flow_model = modflow.Modflow(self.geographic, sink_fill=sink_fill, box=box,
                                      lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
-                                     model_name=ident, model_folder=self.simulations_folder,
+                                     model_name=ident, model_folder=model_folder,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         if run == True:
@@ -373,8 +380,10 @@ class Watershed:
                        specific_discharge = False,
                        accumulation_flux = True,
                        perenn_intermit=True,
+                       groundwater_storage = False,
                        verbose = True,
-                       export_tif = True):
+                       export_tif = True,
+                       calib=None):
         
         if success == True:
             flow_model.post_processing(first_only=first_only,
@@ -386,18 +395,24 @@ class Watershed:
                                        specific_discharge = specific_discharge,
                                        accumulation_flux = accumulation_flux,
                                        perenn_intermit=perenn_intermit,
+                                       groundwater_storage = groundwater_storage,
                                        verbose = verbose,
                                        export_tif = export_tif)
 
-    def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M'):
-
+    def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M', calib=None):
+        
+        if calib == None:
+            model_folder = self.simulations_folder
+        else:
+            model_folder = calib
+            
         modflow_results.Results(self.geographic,
                                 recharge=self.forcing.recharge,
                                 actual_date=actual_date,
                                 start=start,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,
-                                model_folder=self.simulations_folder)
+                                model_folder=model_folder)
                 
     def run_hs1D(self):
         """
