@@ -113,17 +113,24 @@ class CalibrationExploration(calbas.CalibrationBasis):
         if len(self.params.name) == 1 : 
                         
             # 1 parameter
-            params = systematic_sampling(pmin, pmax, self.resolution)
+            # params = systematic_sampling(pmin, pmax, self.resolution)
+            if self.params.name[0][0]=='k':
+                params = np.geomspace(pmin[0], pmax[0], self.resolution)
+            else:
+                params = np.linspace(pmin[0], pmax[0], self.resolution)
+            params = [[i] for i in params]
             params_values.append(params)
             column_names.append('diff')
             obj_function = pd.DataFrame(columns=column_names)
             
+            params_xyz = []
             # Use of proxy to avoid modification of self.lpm
             for i in range(len(params)):
                 print(str(compt)+'/'+str(self.resolution))
                 temp = params[i]
                 temp.append(self.objective_function(params[i]))
                 obj_function.loc[i] = temp
+                params_xyz.append(temp)
                 compt += 1
                 
             # Graphical Representation 
@@ -139,18 +146,28 @@ class CalibrationExploration(calbas.CalibrationBasis):
             # 2 parameters            
             
             n = int(np.ceil(self.resolution**(1/2)))     
-            p1 = pmin[0] + (pmax[0] - pmin[0]) * np.arange(0,n+1) / n
-            p2 = pmin[1] + (pmax[1] - pmin[1]) * np.arange(0,n+1) / n
+            # p1 = pmin[0] + (pmax[0] - pmin[0]) * np.arange(0,n+1) / n
+            # p2 = pmin[1] + (pmax[1] - pmin[1]) * np.arange(0,n+1) / n
+            if self.params.name[0][0]=='k':
+                p1 = np.geomspace(pmin[0], pmax[0], n)
+            else:
+                p1 = np.linspace(pmin[0], pmax[0], n)
+            if self.params.name[1][0]=='k':
+                p2 = np.geomspace(pmin[1], pmax[1], n)
+            else:
+                p2 = np.linspace(pmin[1], pmax[1], n)
             p2 = p2[::-1]
             params_values.append(p1)
             params_values.append(p2)
             obj_function = np.zeros((len(p1),len(p2)))
             temp=[None]*2
+            params_xyz = []
             for i in range(len(p1)):
                 for j in range(len(p2)):
                     print(str(compt)+'/'+str(len(p1)*len(p2)))
                     temp = [p1[i],p2[j]]
-                    obj_function[i][j] = self.objective_function(temp)
+                    params_xyz.append(temp)
+                    obj_function[j][i] = self.objective_function(temp)
                     compt += 1
                     
             # colormap
@@ -182,7 +199,7 @@ class CalibrationExploration(calbas.CalibrationBasis):
                 for i in range(len(p1)):
                     for j in range(len(p2)):
                         temp = [p1[i],p2[j],p3[int(len(p3)/2)]]
-                        obj_function[i][j] = self.objective_function(temp)
+                        obj_function[j][i] = self.objective_function(temp)
                 X,Y= np.meshgrid(p1, p2)
                 Z=obj_function.reshape((len(p1),len(p2)))
                 
@@ -193,6 +210,6 @@ class CalibrationExploration(calbas.CalibrationBasis):
                 # # Whatevert the dimension, saves figure
                 # plt.savefig(os.path.join(self.directory_results,name),dpi=300)
         
-        self.write_results(name, obj_function, params_values)
+        self.write_results(name, obj_function, params_values, params_xyz)
 
 

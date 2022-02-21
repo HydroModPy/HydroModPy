@@ -77,6 +77,7 @@ class CalibrationBasis:
             self.data_sim[i] = []
             self.data_obs[i] = []
         # self.__dict__.update(calparam.__dict__)
+        # self.parameters = []
         
     def objective_function(self, params):
         """
@@ -93,7 +94,9 @@ class CalibrationBasis:
             DESCRIPTION.
 
         """
-
+        
+        # self.parameters.append(params)
+        
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
@@ -107,7 +110,7 @@ class CalibrationBasis:
             if self.params.name[i][0] == 't':
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
-                
+        
         # Run model
         succes, mf = self.watershed.run_modflow(self.ident, verbose=False, calib=self.param_folder)
         
@@ -211,7 +214,7 @@ class CalibrationBasis:
         #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
 
-    def write_results(self, name, obj_function, params_values):
+    def write_results(self, name, obj_function, params_values, params_xyz):
         """ 
         A garder
         Writes parameters of calibration
@@ -239,7 +242,7 @@ class CalibrationBasis:
         store['objective_function'] = obj_function
         store['recharge'] = self.watershed.forcing.recharge
         store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
-        # store['params_xyz'] = 
+        store['params_xyz'] = params_xyz
         with open(os.path.join(self.directory_results, name + '.calib'), 'xb') as config_dictionary_file:
             pickle.dump(store, config_dictionary_file)
         config_dictionary_file.close()
