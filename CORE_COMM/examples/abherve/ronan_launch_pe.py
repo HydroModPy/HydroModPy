@@ -388,18 +388,14 @@ BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
 params_file = 'calib_explo_hom_1v_k1'
-params_file = 'calib_dicot_het_2v_k1-k2'
+# params_file = 'calib_dicot_het_2v_k1-k2'
 
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=1)
+calib.exploration(resolution=10)
 
 typ_calib = 'streams_calibration'
-params_file = 'calib_dicot_hom_1v_k1'
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-dicot = calib.dichotomy(gap=10)
-
 name_file = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                   key=os.path.getmtime)[0].split('\\')[-1]
+                   key=os.path.getmtime, reverse=True)[0].split('\\')[-1]
 calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
 test = calib_analysis.CalibAnalysis(calib_file)
 test.display_objective_function(save=None)
@@ -409,7 +405,7 @@ test.display_objective_function(save=None)
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                  first_year = 2010, last_year=2011, time_step = 'M',
+                                  first_year = 2010, last_year=2019, time_step = 'M',
                                   sim_state='transient')
 
 # BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
@@ -425,7 +421,7 @@ params_file = 'calib_explo_hom_2v_k1-n1'
 # params_file = 'calib_dicot_het_2v_k1-k2'
 
 calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-calib.exploration(resolution=3)
+calib.exploration(resolution=9)
 
 #%% PLOT ANALYSIS
 
@@ -445,9 +441,12 @@ X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
 Z=test.obj_function
 Z[Z<0] = np.nan
 # np.ma.masked_where(test.obj_function<0, test.obj_function)
-plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+# plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+plt.contourf(X, Y, Z)
+# plt.imshow(Z)
 # plt.xlim(1)
 plt.colorbar()
+plt.xscale('log')
 
 #%% PLOT CHRONIC
 
@@ -466,12 +465,13 @@ obs = test.data_obs
 sim = test.data_sim
 ind = test.data_ind
 obj = test.calib['objective_function']
+xyz = test.params_xyz
 
 c = []
 for h in range(len(ind[typ_name])):
     d = ind[typ_name][h][0]
     c.append(d)
-cmap = mpl.cm.get_cmap('jet')
+cmap = mpl.cm.get_cmap('jet_r')
 color_gradients = cmap(c)
 vmin = min(c)
 vmax = max(c)
@@ -480,19 +480,19 @@ for i in range(len(obs[typ_name])):
     o = obs[typ_name][i]
     s = sim[typ_name][i]
     nd = ind[typ_name][i]
-    ax.plot(o, color='k', lw=2)
-    # ax.plot(s, color=color_gradients[i], lw=2)
+    ax.plot(o, color='k', lw=2)   
     # ax.set_yscale('log')
-    if nd == min(c):
+    # if nd == min(c):
     # if nd == abs(test.obj_function).min():
-        p = test.p
-        k = '{:.1e}'.format(p[0]/24/3600)
-        sy = p[1] * 100
-        title = 'K = '+k+' - '+'ɸ = '+str(round(sy,1))
-        label = 'NSElog = '+str(round((1-min(c))*100,2))
-        ax.plot(s, color='red', lw=2, label=label)
-        ax.legend()
-        ax.set_title(title)
+    k = '{:.1e}'.format(xyz[i][0]/24/3600)
+    sy = xyz[i][1] * 100
+    title = 'Discharge'
+    label = 'K = '+k+' - '+'ɸ = '+str(round(sy,1))+' _ '+\
+            'NSElog = '+str(round((1-(nd[0]))*100,1))
+    ax.plot(s, color=color_gradients[i], lw=2)
+    # ax.plot(s, color='red', lw=2, label=label)
+    ax.legend()
+    ax.set_title(title)
         
 # divider = make_axes_locatable(ax)
 # cax = divider.append_axes('right', size='1.25%', pad=0.1)
@@ -546,8 +546,8 @@ BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
 params_file = 'calib_dicot_hom_1v_k1'
-params_file = 'calib_dicot_het_2v_k1-k2'
-params_file = 'calib_dicot_hom_2v_k1-n1'
+# params_file = 'calib_dicot_het_2v_k1-k2'
+# params_file = 'calib_dicot_hom_2v_k1-n1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 dicot = calib.dichotomy(gap=10)
 
