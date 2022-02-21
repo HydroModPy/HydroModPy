@@ -45,7 +45,7 @@ class Results:
         self.save_file = os.path.join(self.full_path, '_watershed')
         toolbox.create_folder(self.save_file)
         
-        freq = pd.infer_freq(self.recharge.index)
+        # freq = pd.infer_freq(self.recharge.index)
     
         if self.actual_date==True:            
             if isinstance(self.recharge,(int,float)) == True:
@@ -97,6 +97,10 @@ class Results:
             pass  
         try:
             self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
+        except:
+            pass
+        try:
+            self.groundwater_storage = np.load(os.path.join(self.save_file, 'groundwater_storage'+'.npy'), allow_pickle=True).item()
         except:
             pass 
         
@@ -194,6 +198,13 @@ class Results:
             for key in self.accumulation_flux:
                 calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
                 self.mfdata.loc[key,'accumulation_flux'] = calc
+        except:
+            pass
+        
+        try:
+            for key in self.groundwater_storage:
+                calc = np.nansum(self.groundwater_storage[key])
+                self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
             
