@@ -10,7 +10,11 @@ from calibration import tools_figures_additional as figadd
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tools import toolbox
+fontprop = toolbox.plot_params(8,15,18,20)
+
 class CalibAnalysis:
+    
     def __init__(self, calib_file):
         self.load_file(calib_file)
         
@@ -31,10 +35,10 @@ class CalibAnalysis:
     
     def find_best_values(self):
         self.p = []
-        loc = np.where(self.obj_function == np.min(self.obj_function))
+        loc = np.where(self.obj_function == np.min(self.obj_function[self.obj_function>0]))
         for i in range(len(loc)):
             self.p.append(self.params_values[i][loc[1][0]])
-        loc_data = np.where(self.obj_function == np.min(self.obj_function))
+        loc_data = np.where(self.obj_function == np.min(self.obj_function[self.obj_function>0]))
         self.best_data_obs = self.obj_function[loc_data[0][0]]
         self.best_data_sim = self.obj_function[loc_data[0][0]]
     
@@ -47,35 +51,57 @@ class CalibAnalysis:
             
     def display_objective_function(self, save = None):
         if len(self.names) == 1 : 
+            
             # 1 parameter
-            figadd.figure_init(xlab=self.names[0],ylab="",figname='Objective function 1D of ' +
+            
+            figadd.figure_init(xlab=self.names[0],
+                               ylab="",
+                               figname='Objective function 1D of ' +
                                self.names[0])
-            plt.plot(self.params_values,self.obj_function) # problem with list params_values ?
+            if type(self.obj_function) == list:
+                plt.plot(self.params_values,
+                         self.obj_function)
+            else:
+                plt.plot(self.obj_function.iloc[:, 0].values,
+                         self.obj_function.iloc[:, 1].values) # problem with list params_values ?
             plt.yscale("log")
             if self.names[0] == 'k':
                 plt.xscale("log")
             if save != None:
                 plt.savefig(os.path.join(self.directory_results,"objfunction"),dpi=300)
+                
         elif len(self.names) == 2 : 
+            
             X,Y = np.meshgrid(self.params_values[0], self.params_values[1])
             Z=self.obj_function
-            figadd.figure_init(xlab=self.names[0],ylab=self.names[1],figname='Objective function 2D')
-            plt.pcolor(Y,X,Z,cmap='jet')#figadd.cmap_white_jet()
+            figadd.figure_init(xlab=self.names[0],
+                               ylab=self.names[1],
+                               figname='Objective function 2D')
+            plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.colorbar()
+            
             # Whatevert the dimension, saves figure
             if save != None:
                 plt.savefig(save,dpi=300)
+                
         elif len(self.names) >= 3 : 
+            
             # 3 parameters
+            
             for k in range(len(self.names)):
                 k1=(k+1)%len(self.names)
                 #k2=(k+2)%len(self.names)
                 X,Y= np.meshgrid(self.params_values[k], self.params_values[k1])
                 Z=self.obj_function
+                
                 # Figure Initialization
-                figadd.figure_init(xlab=self.names[k],ylab=self.names[k1],figname='objective function 3D')
+                figadd.figure_init(xlab=self.names[k],
+                                   ylab=self.names[k1],
+                                   figname='objective function 3D')
+                
                 # colorbar
                 plt.pcolor(X,Y,Z,cmap=figadd.cmap_white_jet())
                 plt.colorbar()
+                
                 # Whatevert the dimension, saves figure
                 plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(k)),dpi=300)

@@ -9,18 +9,20 @@ import matplotlib        as mpl
 import os
 from pylab import *
 
+from tools import toolbox
+fontprop = toolbox.plot_params(8,15,18,20)
 
 def figure_init(xlab=None,ylab=None,figname=None):
     """ defines figure style to be applied to all callign figures"""
-    plt.figure()#(figsize=(4,4))
-    plt.xlabel(xlab,fontsize=16,fontweight='bold')
-    plt.ylabel(ylab,fontsize=14,fontweight='bold')
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.grid(True)
-    plt.title(figname,fontsize=22,fontweight='bold')
+    # plt.figure()#(figsize=(4,4))
+    # plt.xlabel(xlab,fontsize=16,fontweight='bold')
+    # plt.ylabel(ylab,fontsize=14,fontweight='bold')
+    # plt.xticks(fontsize=14)
+    # plt.yticks(fontsize=14)
+    # plt.grid(True)
+    # plt.title(figname,fontsize=22,fontweight='bold')
     
-    ax = gca()
+    # ax = gca()
     # ax.axhline(linewidth=4, color="k") 
     # ax.axvline(linewidth=4, color="k")   
             
@@ -33,6 +35,15 @@ def figure_init(xlab=None,ylab=None,figname=None):
     # for tick in ax.yaxis.get_major_ticks():
     #     tick.label1.set_fontsize(fontsize)
     #     # tick.label1.set_fontweight('bold')
+    
+    fig, ax = plt.subplots(1,1, figsize=(6,5), dpi=300)
+    plt.xlabel(xlab,fontweight='bold')
+    plt.ylabel(ylab,fontweight='bold')
+    # plt.xticks()
+    # plt.yticks()
+    plt.grid(True)
+    plt.title(figname,fontweight='bold')
+    
     
 def figure_close(filename=None):
     """ defines figure style to be applied to all callign figures"""
