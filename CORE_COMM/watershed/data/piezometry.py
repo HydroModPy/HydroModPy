@@ -30,7 +30,10 @@ class Piezometry:
         self.codes_bss = []
         self.depth_well = []
         self.elevation_well = []
-        self.exctract_piezos_from_watershed(data_folder, geographic)
+        try:
+            self.exctract_piezos_from_watershed(data_folder, geographic)
+        except:
+            pass
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
         if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
             self.extract_data_from_code_bss(data_folder)

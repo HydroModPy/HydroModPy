@@ -28,7 +28,8 @@ from matplotlib.colors import Normalize
 from matplotlib import cm
 import rasterio
 import fnmatch
-import matplotlib.dates as matdates
+import matplotlib.dates as mdates
+import matplotlib as mpl
 
 # Gis
 import imageio
@@ -49,7 +50,7 @@ wbt.verbose = False
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
-from calibration import calib_root, calib_dichotomy, calib_analysis
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration
 
 # LAYOUT PLOT
 
@@ -61,7 +62,7 @@ git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # Path to the data folder
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/HYSTERESIS/"
+out_path = "D:/Users/abherve/HYDROMODPY/"
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
@@ -74,8 +75,8 @@ oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
 hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
 hydrometry_path = data_path + 'HYDROLOGY/France/Hydrometry/' # add hydrometry data for automatic download
 intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
-piezometry_path = False # add piezometry data for automatic download
-subbasin_path = False # generate subbasins from stations or manual points
+piezometry_path = True # add piezometry data for automatic download
+subbasin_path = True # generate subbasins from stations or manual points
 
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
@@ -95,6 +96,7 @@ dem_path = dems_path + dem_name
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'  # necessary for plots
     
 load = True
 
@@ -126,14 +128,14 @@ if load != True :
 #%% PARAMETERS MODEL
 
 # Input recharge
-var = 'REC'
+var = 'EFF'
 mod = 'REA'
 sce = 'historic'
-typ = 'test1' # sinu / hist / proj
+typ = 'steady' # sinu / hist / proj
 
 # Choice temporal of the simulation
-sim_state = 'transient' # 'steady' or 'transient'
-period = [1990,1995] # rehcarge period
+sim_state = 'trasnient' # 'steady' or 'transient'
+period = [1990,2019] # rehcarge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -143,7 +145,7 @@ start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 # Active of not modules
 box = False # if True generate a rectangular model
 sink_fill = False # permit to fill sinks
-modpath_sim = False # run modpath particle tracking if True
+modpath_sim = True # run modpath particle tracking if True
 verbose = False # add print of MODFLOW in console
 post_process = False # print time_step
 
@@ -161,7 +163,7 @@ Koptim = 2e-5
 # Sys = [0.1,0.01,0.001]
 
 Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
-Sys = [0.06]
+Sys = [0.01]
 
 #%% RUN MODEL
 
@@ -180,17 +182,19 @@ for Sy in Sys:
         BV.hydrodynamic.update_hyd_cond(K) 
         BV.hydrodynamic.update_porosity(Sy)
         
-        # BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
-        #                                   first_year = first, last_year = last, 
-        #                                   time_step = time_step, sim_state=sim_state)
-        # BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
-        # plt.plot(BV.forcing.recharge)
+        if var == 'REC':
+            BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                                              first_year = first, last_year = last, 
+                                              time_step = time_step, sim_state=sim_state)
+            BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
+            plt.plot(BV.forcing.recharge)
         
-        BV.forcing.update_effppt_surfex(clim_mod = mod, clim_sce = sce,
-                                        first_year = first, last_year = last, 
-                                        time_step = time_step, sim_state=sim_state)
-        BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
-        # plt.plot(BV.forcing.recharge)
+        if var == 'EFF':
+            BV.forcing.update_effppt_surfex(clim_mod = mod, clim_sce = sce,
+                                            first_year = first, last_year = last, 
+                                            time_step = time_step, sim_state=sim_state)
+            BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
+            plt.plot(BV.forcing.recharge)
                     
         date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
         date_today = date_today.replace('/','-')
@@ -249,6 +253,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                               specific_discharge = False,
                               accumulation_flux = False,
                               perenn_intermit = False,
+                              groundwater_storage = True,
                               verbose = True,
                               export_tif = True)
             
@@ -263,6 +268,50 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
             #                                       types_obs, save_gif=save_gif, first_only=True,
             #                                       outflow=True, accflux=True, intermittency=True, 
             #                                       chronics=True, sim_state=sim_state)
+
+#%% 3D VISUALIZATION
+
+from tools import toolbox, vtk
+from groundwater_flow import visualization, modflow_display
+
+# 3D parameters
+list_view = ['pathlines','drain_flow'] # object to represent in 3D
+interactive = True
+z_scale = 2
+view = 'south-west'
+lines = 200
+
+vtk.VTK(BV, model_name)
+visu = visualization.Visualization(BV, model_name)
+visu.visual3D(object_list = ['grid','watertable' ,'watertable_depth','pathlines'],
+              lines=300,view = 'south-west', 
+              interactive = True, z_scale=20, render=1, cscale = 'default',
+              cmin = -1, cmax = 1, cloc=(0.65,0.70) , size=(1920,1080))
+
+#%% 2D MAP VIEW
+
+from tools import vtk
+from groundwater_flow import visualization
+#vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
+                             'surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(None,None),(None,None),
+                             (None,None),(None,None),(None,None),(None,None)], lines=300)
+
+#%% 2D CROSS-SECTION
+
+interactive = True
+
+dem_data = BV.geographic.dem_data # dem data
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
+if watershed_name == 'Conceptual':
+    river_data = None
+else:
+    river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif') # river data
+
+modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
+
 
 #%% FAST PLOT FOR ETR
 
@@ -304,7 +353,7 @@ for simul in simul_list:
 
     fig, ax = plt.subplots(1,1,figsize=(8, 5))
     myFmt = DateFormatter("%Y")
-    myLoc = matdates.YearLocator(1)
+    myLoc = mdates.YearLocator(1)
     
     ax.plot(rec_surfex, c='k', lw=2, label='REC SURFEX')
     ax.plot(rec_pe_pos, c='dodgerblue', lw=2, label='P-E > 0')
@@ -328,6 +377,8 @@ for simul in simul_list:
 
 #%% EXPLORATION STREAMS
 
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
+
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                   first_year = 2015, last_year=2019, time_step = 'D',
                                   sim_state='steady')
@@ -336,13 +387,155 @@ BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
-params_file = data_path + 'CALIB/calib_params_exploration.csv'
+params_file = 'calib_explo_hom_1v_k1'
+params_file = 'calib_dicot_het_2v_k1-k2'
+
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=10)
+calib.exploration(resolution=1)
+
+typ_calib = 'streams_calibration'
+params_file = 'calib_dicot_hom_1v_k1'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+dicot = calib.dichotomy(gap=10)
+
+name_file = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+
+#%% EXPLORATION HYDROMETRY
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2010, last_year=2011, time_step = 'M',
+                                  sim_state='transient')
+
+# BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
+#                                   first_year = 2010, last_year=2019, time_step = 'M',
+#                                   sim_state='transient')
+
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.001)
+BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
+
+params_file = 'calib_explo_hom_2v_k1-n1'
+# params_file = 'calib_explo_hom_1v_k1'
+# params_file = 'calib_dicot_het_2v_k1-k2'
+
+calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+calib.exploration(resolution=3)
+
+#%% PLOT ANALYSIS
+
+typ_calib = 'hydrometry_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                    key=os.path.getmtime, reverse=True)
+name_file = list_path[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+test.find_best_values()
+# test.display_best_data()
+
+#%% PLOT MESH
+
+X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+Z=test.obj_function
+Z[Z<0] = np.nan
+# np.ma.masked_where(test.obj_function<0, test.obj_function)
+plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+# plt.xlim(1)
+plt.colorbar()
+
+#%% PLOT CHRONIC
+
+typ_name = typ_calib.split('_')[0]
+fig, ax = plt.subplots(1,1, figsize=(8,4))
+yearsmaj = mdates.YearLocator(5)   # every year
+yearsmin = mdates.YearLocator(1)
+# monthsmaj = mdates.MonthLocator(6)  # every month
+# monthsmin = mdates.MonthLocator(3)
+# months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+years_fmt = mdates.DateFormatter('%Y')
+ax.xaxis.set_major_locator(yearsmaj)
+ax.xaxis.set_minor_locator(yearsmin)
+ax.xaxis.set_major_formatter(years_fmt)
+obs = test.data_obs
+sim = test.data_sim
+ind = test.data_ind
+obj = test.calib['objective_function']
+
+c = []
+for h in range(len(ind[typ_name])):
+    d = ind[typ_name][h][0]
+    c.append(d)
+cmap = mpl.cm.get_cmap('jet')
+color_gradients = cmap(c)
+vmin = min(c)
+vmax = max(c)
+norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+for i in range(len(obs[typ_name])):
+    o = obs[typ_name][i]
+    s = sim[typ_name][i]
+    nd = ind[typ_name][i]
+    ax.plot(o, color='k', lw=2)
+    # ax.plot(s, color=color_gradients[i], lw=2)
+    # ax.set_yscale('log')
+    if nd == min(c):
+    # if nd == abs(test.obj_function).min():
+        p = test.p
+        k = '{:.1e}'.format(p[0]/24/3600)
+        sy = p[1] * 100
+        title = 'K = '+k+' - '+'ɸ = '+str(round(sy,1))
+        label = 'NSElog = '+str(round((1-min(c))*100,2))
+        ax.plot(s, color='red', lw=2, label=label)
+        ax.legend()
+        ax.set_title(title)
+        
+# divider = make_axes_locatable(ax)
+# cax = divider.append_axes('right', size='1.25%', pad=0.1)
+# fig.add_axes(cax)
+# norm = Normalize(vmin=vmin, vmax=vmax)
+# n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
+# n_cmap.set_array([])
+# ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
+
+# X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+# Z=test.obj_function
+# plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+
+#%% EXPLORATION PIEZOMETRY
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 2015, last_year=2017, time_step = 'M',
+                                  sim_state='transient')
+
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.001)
+BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
+
+params_file = 'calib_explo_hom_1v_k1'
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
+calib.exploration(resolution=1)
+
+typ_calib = 'piezometry_calibration'
+params_file = 'calib_dicot_hom_1v_k1'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+dicot = calib.dichotomy(gap=10)
+
+name_file = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
 
 #%% DICHOTOMY STREAMS
 
-from calibration import calib_root, calib_dichotomy, calib_analysis
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                   first_year = 2015, last_year=2019, time_step = 'D',
@@ -352,9 +545,19 @@ BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
-params_file = data_path + 'CALIB/calib_params_dichotomy.csv'
+params_file = 'calib_dicot_hom_1v_k1'
+params_file = 'calib_dicot_het_2v_k1-k2'
+params_file = 'calib_dicot_hom_2v_k1-n1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-dicot = calib.dichotomy(gap=1)
+dicot = calib.dichotomy(gap=10)
+
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
 
 # path = "D:/Users/abherve/HYSTERESIS/Cheze/results_simulations/streams_calibration/_dicothomy.csv"
 # x = pd.read_csv(path, sep=';')
@@ -364,30 +567,12 @@ dicot = calib.dichotomy(gap=1)
 # plt.yscale('log')
 # plt.xscale('log')
 
-#%% EXPLORATION HYDROMETRY
+#%% TEST OPEN
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                  first_year = 2015, last_year=2019, time_step = 'M',
-                                  sim_state='transient')
-
-BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.001)
-BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
-
-params_file = data_path + 'CALIB/calib_params_exploration.csv'
-calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-calib.exploration(resolution=3)
-
-#%% CALIB ANALYSIS
-
-from calibration import calib_analysis
-
-typ_calib = 'streams_calibration'
-file = 'exp_1p_res_10_09_02_2022_14h05'
-calib_file = os.path.join(BV.simulations_folder,typ_calib,file+'.calib')
-test = calib_analysis.CalibAnalysis(calib_file)
-# test.display_objective_function()
-plt.plot(test.obj_function.iloc[:,0], test.obj_function.iloc[:,1])
+import pickle
+path = "D:/Users/abherve/HYSTERESIS/Cheze/results_simulations/streams_calibration/exp_1p_res_10_09_02_2022_14h05.calib"
+with open(path, 'rb') as file:
+    c = pickle.load(file)
 
 #%% NOTES
 """

@@ -269,6 +269,7 @@ class Modflow():
                               seepage_areas = True, outflow_drain = True,
                               groundwater_flux = True, specific_discharge = False,
                               accumulation_flux = True, perenn_intermit = False,
+                              groundwater_storage = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
         # self.wt_depth = []
@@ -285,8 +286,8 @@ class Modflow():
         self.save_file = os.path.join(self.full_path, '_watershed')
         toolbox.create_folder(self.save_file)        
         
-        # self.figure_file = os.path.join(self.full_path, '_figures')
-        # toolbox.create_folder(self.figure_file)
+        self.figure_file = os.path.join(self.full_path, '_figures')
+        toolbox.create_folder(self.figure_file)
         
         self.surfaceflow_file = os.path.join(self.full_path, '_watershed','_surfaceflow')
         toolbox.create_folder(self.surfaceflow_file)
@@ -329,6 +330,7 @@ class Modflow():
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.dict_groundwater_storage = {}
         self.list_traces = []
         
         # self.dict_watertable_elevation = (self.save_file+'/watertable_elevation'+'.h5')
@@ -437,6 +439,21 @@ class Modflow():
                     toolbox.export_tif(self.dem_path, self.flux_top, -9999, output_path)
                 self.dict_groundwater_flux[item] = self.flux_top
             
+            if groundwater_storage == True:
+                # Groundwater data
+                # print(self.kstpkper)
+                # if time == 0:
+                #     self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
+                # else:
+                #     self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper, totim=time)[0]
+                # self.gw_storage = self.sto.copy()
+                self.wt_sto = self.wt_elev.copy()
+                self.wt_sto[self.dem<0] = np.nan
+                self.wt_sto = ( self.wt_sto - (self.dem-30) ) * (self.resolution**2) * self.porosity
+                self.dict_groundwater_storage[item] = self.wt_sto
+                # np.count_nonzero(~np.isnan(dem))
+                # self.gw_sto = np.nansum(self.wt_sto)
+            
             if specific_discharge == True:                
                 ### Specific discharge
                 # Import data
@@ -479,6 +496,8 @@ class Modflow():
                 np.save(self.save_file+'/specific_discharge', self.dict_specific_discharge)
             if accumulation_flux == True:
                 np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+            if groundwater_storage == True:
+                np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         except:
             pass
         
