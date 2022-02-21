@@ -103,11 +103,11 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
             params_values.append(hyd_cond)
             obj_function.append(indicator)
             
-        figadd.figure_init(xlab=self.params.name[0],ylab="",figname='objective function 1D of ' + self.params.name[0])
-        plt.plot(params_values, obj_function)
-        plt.yscale("log")
-        if self.params.name[0] == 'k':
-            plt.xscale("log")
+        # figadd.figure_init(xlab=self.params.name[0],ylab="",figname='objective function 1D of ' + self.params.name[0])
+        # plt.plot(params_values, obj_function)
+        # plt.yscale("log")
+        # if self.params.name[0] == 'k':
+        #     plt.xscale("log")
         
         df.to_csv(self.directory_results+'/'+'_dicothomy'+'.csv', sep=';')
         

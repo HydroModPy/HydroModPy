@@ -546,8 +546,8 @@ BV.hydrodynamic.update_porosity(0.1)
 BV.hydrodynamic.update_hyd_cond(2)
 
 params_file = 'calib_dicot_hom_1v_k1'
-params_file = 'calib_dicot_het_2v_k1-k2'
-params_file = 'calib_dicot_hom_2v_k1-n1'
+# params_file = 'calib_dicot_het_2v_k1-k2'
+# params_file = 'calib_dicot_hom_2v_k1-n1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 dicot = calib.dichotomy(gap=10)
 
