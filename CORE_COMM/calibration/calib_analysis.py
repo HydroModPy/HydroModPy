@@ -31,13 +31,14 @@ class CalibAnalysis:
         self.data_sim = self.calib['data_sim']
         self.data_obs = self.calib['data_obs']
         self.data_ind = self.calib['data_ind']
+        self.params_xyz = self.calib['params_xyz']
     
     def find_best_values(self):
         self.p = []
-        loc = np.where(self.obj_function == np.min(self.obj_function[self.obj_function>0]))
+        loc = np.where(self.obj_function == np.min(self.obj_function))
         for i in range(len(loc)):
             self.p.append(self.params_values[i][loc[1][0]])
-        loc_data = np.where(self.obj_function == np.min(self.obj_function[self.obj_function>0]))
+        loc_data = np.where(self.obj_function == np.min(self.obj_function))
         self.best_data_obs = self.obj_function[loc_data[0][0]]
         self.best_data_sim = self.obj_function[loc_data[0][0]]
     
@@ -80,6 +81,7 @@ class CalibAnalysis:
                                figname='Objective function 2D')
             plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.colorbar()
+            plt.xscale('log')
             
             # Whatevert the dimension, saves figure
             if save != None:
