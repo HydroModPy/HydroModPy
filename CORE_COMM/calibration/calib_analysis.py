@@ -31,7 +31,6 @@ class CalibAnalysis:
         self.data_sim = self.calib['data_sim']
         self.data_obs = self.calib['data_obs']
         self.data_ind = self.calib['data_ind']
-        # self.find_best_values()
     
     def find_best_values(self):
         self.p = []
@@ -60,10 +59,12 @@ class CalibAnalysis:
                                self.names[0])
             if type(self.obj_function) == list:
                 plt.plot(self.params_values,
-                         self.obj_function)
+                         self.obj_function,
+                         lw=2, color='darkmagenta')
             else:
                 plt.plot(self.obj_function.iloc[:, 0].values,
-                         self.obj_function.iloc[:, 1].values) # problem with list params_values ?
+                         self.obj_function.iloc[:, 1].values,
+                         lw=2, color='darkmagenta') # problem with list params_values ?
             plt.yscale("log")
             if self.names[0] == 'k':
                 plt.xscale("log")
