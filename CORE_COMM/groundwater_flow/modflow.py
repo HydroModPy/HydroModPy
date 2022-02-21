@@ -285,8 +285,8 @@ class Modflow():
         self.save_file = os.path.join(self.full_path, '_watershed')
         toolbox.create_folder(self.save_file)        
         
-        # self.figure_file = os.path.join(self.full_path, '_figures')
-        # toolbox.create_folder(self.figure_file)
+        self.figure_file = os.path.join(self.full_path, '_figures')
+        toolbox.create_folder(self.figure_file)
         
         self.surfaceflow_file = os.path.join(self.full_path, '_watershed','_surfaceflow')
         toolbox.create_folder(self.surfaceflow_file)
