@@ -288,7 +288,7 @@ from groundwater_flow import visualization, modflow_display
 # 3D parameters
 list_view = ['pathlines','drain_flow'] # object to represent in 3D
 interactive = True
-z_scale = 2
+z_scale = 10
 view = 'south-west'
 lines = 200
 

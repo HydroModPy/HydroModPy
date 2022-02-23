@@ -57,38 +57,53 @@ class Intermittency:
     def load_intermittency_data(self, data_folder):
         self.flowing = pd.DataFrame()
         shp = gpd.read_file(self.onde_clip)
+        # shp =gpd.read_file("D:/Users/abherve/HYDROMODPY/Rejet/results_stable/intermittency/onde.shp")
         # shp = gpd.read_file(BV.intermittency.onde_clip)
         shp['date'] =  pd.to_datetime(shp['<DtRealObs'], format = '%Y-%m-%d')
         shp['code_flow'] = np.nan
-        dicecoul = {'Assec':-1,
-                    'Ecoulement non visible':0,
-                    'Ecoulement visible faible':1,
-                    'Ecoulement visible acceptable':2,
-                    'Ecoulement visible':3}
+        dicecoul = {'Assec':1,
+                    'Ecoulement non visible':2,
+                    'Ecoulement visible faible':3,
+                    'Ecoulement visible acceptable':4,
+                    'Ecoulement visible':5}
         for i in range(len(shp)):
             shp.loc[i,'code_flow'] = dicecoul[shp.loc[i,'<LbRsObser']]
         for code in self.code_onde:
+            # code = "J7380001"
             mask = (shp['<CdSiteHyd'] == code)
-            raw = shp[mask]
+            raw = shp.copy()
+            raw = raw[mask]
             append = raw[['date','code_flow']]
             append = append.set_index('date')
             append.columns = [code]
             self.flowing = pd.concat([self.flowing, append], axis=1).sort_index()
             fig, ax = plt.subplots(1,1, figsize=(5,2))
             ax.scatter(append.index, append[code], c=append[code], cmap='jet_r',
-                       vmin=-1, vmax=3,
-                       marker='|', s=50, lw=1.5, edgecolor='k')
-            lab = raw['<LbSiteHyd'][0]
+                       vmin=1, vmax=5,
+                       marker='|', s=50, lw=1.5)
+            # try:
+            #     lab = raw['<LbSiteHyd'][0]
+            # except:
+            lab = raw.iloc[0]['<LbSiteHyd']
+                # pass
             ax.set_title(code+' - '+lab)
+            # ax.set_yticks([-1, 0, 1, 2, 3])
+            # try:
             ax.set_yticklabels(['-','Assec','Invisible','Faible','Acceptable','Visible'])
-            ax.set_ylim(-1.5,3.5)
+            # except:
+            #     ax.set_yticks([1, 2, 3, 4, 5])
+            #     pass
+            # ax.set_xticks(zip([-1, 0, 1, 2, 3],
+            #                   ['-','Assec','Invisible','Faible','Acceptable','Visible']))
+            # ax.yaxis.set_ticks(['-','Assec','Invisible','Faible','Acceptable','Visible'])
+            ax.set_ylim(0.5,5.5)
             ax.set_xlim(([pd.to_datetime('2012'), pd.to_datetime('2022')]))                  
             years = mdates.YearLocator(2)   # every year
             ax.xaxis.set_major_locator(years)
             years_fmt = mdates.DateFormatter('%Y')
             ax.xaxis.set_major_formatter(years_fmt)
             yearsmin = mdates.YearLocator(1)
-            ax.xaxis.set_minor_locator(yearsmin)                
+            ax.xaxis.set_minor_locator(yearsmin)
             # months = mdates.MonthLocator(6)  # every month
             # months_fmt = mdates.DateFormatter('%m') #b = name of month ? 
             # ax.xaxis.set_minor_locator(months)
@@ -96,6 +111,7 @@ class Intermittency:
             plt.tight_layout()
             fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
                         bbox_inches='tight', transparent=False)
-            plt.close()
+            print(code)
+            # plt.close()
             
         
