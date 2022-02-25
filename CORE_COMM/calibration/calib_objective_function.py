@@ -146,15 +146,15 @@ class Piezometry:
                 RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
                 NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
                 MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
-                KGE = he.evaluator(he.kge, y1, y0)[0] # kling-gupta efficiency (r, α, β)
+                KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
                 PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
                 NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
 
                 self.store_indicator.append(RMSE)
-                
+                            
             self.y0 = df[[col for col in df if not col.startswith('sim_')]]
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
-            
+
             #Discrete Data
             y0 = []
             y1 = []
@@ -171,7 +171,6 @@ class Piezometry:
             RMSE = np.sqrt(np.nanmean((np.asarray(y0)-np.asarray(y1))**2))
             plt.show()
             self.store_indicator.append(RMSE)
-                
                 
         if len(self.watershed.forcing.recharge) == 1:
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
@@ -257,7 +256,7 @@ class Hydrometry:
                     KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
                     PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
                     NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency (add '1-' ==> actual NSE)
-                    NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+                    NSElog = 1-he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
                     
                     self.store_indicator.append(NSElog)
                     
@@ -268,10 +267,33 @@ class Hydrometry:
                 self.y1 = df[[col for col in df if col.startswith('sim_')]]
                 
                 self.listing_indicator.to_csv(os.path.join(self.param_folder, self.model, 
-                                                            '_watershed', '_listing_indicator.csv'),
-                                               sep=';')
-                
+                                                            '_watershed', '_listing_indicator.csv'), sep=';')
     def get_indicator(self):
         indicator = self.store_indicator
-        return indicator, self.y0, self.y1
+        criteria = self.listing_indicator
+        return indicator, self.y0, self.y1, criteria
     
+class Intermittency:
+    def __init__(self, watershed, model, param_folder):
+        self.watershed = watershed
+        self.model = model
+        self.param_folder = param_folder
+        
+        self.load_modeling_data()
+        self.compare_sim_obs_data()
+    
+    def load_modeling_data(self):
+        sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
+        sim = pd.read_csv(sim_path, sep=';', parse_dates=True, index_col=0)
+        self.seepage_areas = sim.seepage_areas
+        # add successive subbasins
+        
+    def compare_sim_obs_data(self):
+        code = 'CODE'
+        df = self.seepage_areas.copy()
+        df = df.rename('sim_' + code)
+        y1 = df['sim_' + code].values
+        self.y1 = df[[col for col in df if col.startswith('sim_')]]
+
+    def get_indicator(self):
+        return self.y1

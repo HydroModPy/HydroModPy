@@ -70,7 +70,7 @@ class SurfaceOutputs():
             for iter_time in range(len(self.list_traces)):
                 print('Plot intermittency : '+str(iter_time)+' / '+str(len(self.list_traces)))
                 if first_only==True:
-                    if iter_time>=12:
+                    if iter_time>=12*7:
                         break                        
                 self.plot_map_intermittency(iter_time)
 
@@ -172,7 +172,7 @@ class SurfaceOutputs():
         outflow[outflow.Persistanc==1].plot(ax=ax, alpha=1, column='Persistanc', color='dodgerblue', 
                             marker='s', markersize=30, lw=0.1, edgecolor='none',
                             zorder=4, label='Perennial - Sim.')
-        scalebar = AnchoredSizeBar(ax.transData, 1000, '1 km', 'lower right', 
+        scalebar = AnchoredSizeBar(ax.transData, 1000, '1 km', 'lower left', 
                                    pad=0.5, color='k', frameon=False, size_vertical=1,
                                    fontproperties=self.fontprop)
         ax.add_artist(scalebar)

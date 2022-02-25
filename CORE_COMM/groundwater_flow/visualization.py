@@ -374,11 +374,11 @@ class Visualization():
                 e = endobj.get_alldata()
                 for j in range(len(e)):
                      res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
-                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='hot_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='jet_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
-                     transform=dem.transform, cmap='hot_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                     transform=dem.transform, cmap='jet_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 
             if obj == 'map':
                 axs[i].set_title('Watershed boundary')
