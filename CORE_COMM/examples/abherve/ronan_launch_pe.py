@@ -271,6 +271,8 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
 
 #%% 3D VISUALIZATION
 
+model_name = 'steady_1_REC-REA-historic_1.0;1.73;30_1990-1992'
+
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 
@@ -283,9 +285,9 @@ lines = 200
 
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(object_list = ['grid','watertable' ,'watertable_depth','pathlines'],
+visu.visual3D(object_list = ['grid','watertable','watertable_depth','pathlines'],
               lines=300,view = 'south-west', 
-              interactive = True, z_scale=20, render=1, cscale = 'default',
+              interactive = True, z_scale=z_scale, render=1, cscale = 'default',
               cmin = -1, cmax = 1, cloc=(0.65,0.70) , size=(1920,1080))
 
 #%% 2D MAP VIEW
@@ -304,12 +306,13 @@ visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','dra
 interactive = True
 
 dem_data = BV.geographic.dem_data # dem data
-wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
 if watershed_name == 'Conceptual':
     river_data = None
 else:
-    river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif') # river data
-
+    river_data = imageio.imread(stable_folder+'/hydrology/'+'sections_bzh.tif') # river data
+    # river_data = imageio.imread(stable_folder+'/hydrology/'+'streams.tif')
+    
 modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
 

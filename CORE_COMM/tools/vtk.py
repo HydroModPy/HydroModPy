@@ -961,11 +961,11 @@ class VTK():
             z_store.append(z)
     
         nb_points = 0
-        for i in range(0, np.alen(x_store)):
-            nb_points = nb_points + np.alen(x_store[i])
+        for i in range(0, len(x_store)):
+            nb_points = nb_points + len(x_store[i])
     
-        for i in range(0, np.alen(x_store)):
-            for j in range(0, np.alen(x_store[i])):
+        for i in range(0, len(x_store)):
+            for j in range(0, len(x_store[i])):
                 if j == 0:
                     v_store.append(0)
                 else:
@@ -984,17 +984,17 @@ class VTK():
         textoVtk.write('ASCII\n')
         textoVtk.write('DATASET POLYDATA\n')
         textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
-        for line in range(0, np.alen(x_store)):
-            for particles in range(0, np.alen(x_store[line])):
+        for line in range(0, len(x_store)):
+            for particles in range(0, len(x_store[line])):
                 textoVtk.write(
                     str(x_store[line][particles] + ext[1][0]) + ' ' + str(y_store[line][particles] + ext[1][1]) + ' ' + str(z_store[line][particles]
                         ) + '\n')
         textoVtk.write('\n')
-        textoVtk.write('LINES ' + str(np.alen(x_store)) + ' ' + str(nb_points + np.alen(x_store)) + '\n')
+        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(nb_points + len(x_store)) + '\n')
         nb = 0
-        for i in range(0, np.alen(x_store)):
-            textoVtk.write(str(np.alen(x_store[i])) + ' ')
-            for j in range(0, np.alen(x_store[i])):
+        for i in range(0, len(x_store)):
+            textoVtk.write(str(len(x_store[i])) + ' ')
+            for j in range(0, len(x_store[i])):
                 textoVtk.write(str(nb) + ' ')
                 nb = nb + 1
             textoVtk.write('\n')
@@ -1002,13 +1002,13 @@ class VTK():
         textoVtk.write('POINT_DATA ' + str(nb_points) + '\n')
         textoVtk.write('SCALARS Time float\n')
         textoVtk.write('LOOKUP_TABLE default\n')
-        for i in range(0, np.alen(x_store)):
-            for j in range(0, np.alen(x_store[i])):
+        for i in range(0, len(x_store)):
+            for j in range(0, len(x_store[i])):
                 textoVtk.write(str(t_store[i][j]) + '\n')
         textoVtk.write('SCALARS Time_log float\n')
         textoVtk.write('LOOKUP_TABLE default\n')
-        for i in range(0, np.alen(x_store)):
-            for j in range(0, np.alen(x_store[i])):
+        for i in range(0, len(x_store)):
+            for j in range(0, len(x_store[i])):
                 if t_store[i][j] == 0:
                     textoVtk.write(str(t_store[i][j]) + '\n')
                 else:
@@ -1016,7 +1016,7 @@ class VTK():
     
         #textoVtk.write('SCALARS Velocity float\n')
         #textoVtk.write('LOOKUP_TABLE default\n')
-        #for i in range(0, np.alen(v_store)):
+        #for i in range(0, len(v_store)):
         #   textoVtk.write(str(v_store[i]) + '\n')
         textoVtk.close()
     
@@ -1029,7 +1029,7 @@ class VTK():
         textoVtk.write('ASCII\n')
         textoVtk.write('DATASET POLYDATA\n')
         textoVtk.write('POINTS ' + '18' + ' float\n')
-        for i in range(0, np.alen(piezos)):
+        for i in range(0, len(piezos)):
             x=piezometry.x_coord[i]
             y=piezometry.y_coord[i]
             z=piezometry.elevation_well[i]
@@ -1039,7 +1039,7 @@ class VTK():
         textoVtk.write('\n')
         textoVtk.write('LINES ' + '9' + ' ' + '27' + '\n')
         nb = 0
-        for i in range(0, np.alen(piezos)):
+        for i in range(0, len(piezos)):
             textoVtk.write('2' + ' ')
             textoVtk.write(str(nb) + ' ')
             nb = nb + 1
@@ -1097,14 +1097,14 @@ class VTK():
         textoVtk.write('ASCII\n')
         textoVtk.write('DATASET POLYDATA\n')
         textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
-        for pt in range(0, np.alen(x_store)):
+        for pt in range(0, len(x_store)):
                 textoVtk.write(
                     str(x_store[pt]) + ' ' + str(y_store[pt]) + ' ' + str(z_store[pt]
                         ) + '\n')
         textoVtk.write('\n')
-        textoVtk.write('LINES ' + str(np.alen(x_store)) + ' ' + str(1 + np.alen(x_store)) + '\n')
-        textoVtk.write(str(np.alen(x_store)) + ' ')
-        for j in range(0, np.alen(x_store)):
+        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(1 + len(x_store)) + '\n')
+        textoVtk.write(str(len(x_store)) + ' ')
+        for j in range(0, len(x_store)):
             textoVtk.write(str(j) + ' ' )
         textoVtk.write('\n')
         textoVtk.close()
@@ -1152,18 +1152,18 @@ class VTK():
         textoVtk.write('ASCII\n')
         textoVtk.write('DATASET POLYDATA\n')
         textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
-        for line in range(np.alen(x_store)): 
-            for pt in range(np.alen(x_store[line])):
+        for line in range(len(x_store)): 
+            for pt in range(len(x_store[line])):
                 textoVtk.write(
                     str(x_store[line][pt]) + ' ' + str(y_store[line][pt]) + ' ' + str(z_store[line][pt]
                         ) + '\n')
         textoVtk.write('\n')
-        textoVtk.write('LINES ' + str(np.alen(x_store)) + ' ' + str(nb_points + np.alen(x_store)) + '\n')
+        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(nb_points + len(x_store)) + '\n')
         
         nb = 0
-        for line in range(np.alen(x_store)):
-            textoVtk.write(str(np.alen(x_store[line])) + ' ')
-            for j in range(0, np.alen(x_store[line])):
+        for line in range(len(x_store)):
+            textoVtk.write(str(len(x_store[line])) + ' ')
+            for j in range(0, len(x_store[line])):
                 textoVtk.write(str(nb) + ' ' )
                 nb += 1
             textoVtk.write('\n')

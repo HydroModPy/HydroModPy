@@ -1,0 +1,3 @@
+name;x_outlet;y_outlet;snap_dist;buff_dist;user
+Out;338424.213;6787293.791;200;1000;R.Abherve
+Forecast;338424.213;6787293.791;200;1000;R.Abherve
