@@ -49,7 +49,6 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 
 #%% Add Data
 if load == False:
-    BV.add_hydrology(hydrology_path, types_obs)
     BV.add_surfex(surfex_path) 
     BV.add_geology(geology_path,'GEO50K.shp','CODE_LEG') 
     BV.add_hydrology(hydrology_path,types_obs=types_obs)
@@ -87,8 +86,8 @@ BV.hydrodynamic.update_porosity(0.1)
 from calibration import calib_root
 params_file = 'calib_explo_hom_1v_k1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-#calib.exploration(resolution=100)
-calib.dichotomy(gap=10)
+calib.exploration(resolution=100)
+#calib.dichotomy(gap=10)
 #calib.simplex(init_multiples_n=15)
 #%% 
 from calibration import calib_analysis
@@ -185,13 +184,56 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_y
 BV.hydrodynamic.update_thickness(100)
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-
 #%%
-#Exploration des paramètres
-calib.exploration(resolution=1000)
 
-#Simplex Method
-#calib.simplex()
+y1 = BV.piezometry.elevation['01423X0044_F4']['08/2015':'10/2015'].resample('D').mean().values
+y2 = BV.piezometry.elevation['AC5']['08/2017':'10/2017'].resample('D').mean().values
+y3 = BV.piezometry.elevation['AC3']['09/2017':'11/2017'].resample('D').mean().values
+y4 = BV.piezometry.elevation['AC1']['08/2017':'10/2017'].resample('D').mean().values
+
+fig , ax = plt.subplots(2,2,figsize=(10,10))
+
+ax[0,0].plot(y1,'r',label='01423X0044_F4',lw=2)
+ax[0,1].plot(y2,'b',label='AC5',lw=2)
+ax[1,0].plot(y3,'g',label='AC3',lw=2)
+ax[1,1].plot(y4,'m',label='AC1',lw=2)
+
+h1 = np.nanmean(y1)
+h2 = np.nanmean(y2)
+h3 = np.nanmean(y3)
+h4 = np.nanmean(y4)
+
+t = np.linspace(0,len(y1),len(y1))
+A=8.3
+T=15
+
+K=9
+E = 30
+P=0.1
+
+D = K*E/P
+lc = np.sqrt(D*T/np.pi)
+t1 = t+4
+h = h1 + (A/2*np.cos((2*np.pi*t1/T)-(x1/lc)))* np.exp(-x1/lc)
+ax[0,0].plot(t,h,'-k')
+
+t2 = t+11
+h = h2 + (A/2*np.cos((2*np.pi*t2/T)-(x2/lc)))* np.exp(-x2/lc)
+ax[0,1].plot(t,h,'-k')
+
+t3 = t+11
+h = h3 + (A/2*np.cos((2*np.pi*t3/T)-(x3/lc)))* np.exp(-x3/lc)
+ax[1,0].plot(t,h,'-k')
+
+t4 = t+11
+h = h4 + (A/2*np.cos((2*np.pi*t4/T)-(x4/lc)))* np.exp(-x4/lc)
+ax[1,1].plot(t,h,'-k')
+
+
+ax[0,0].legend()
+ax[0,1].legend()
+ax[1,0].legend()
+ax[1,1].legend()
 
 #%%
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')

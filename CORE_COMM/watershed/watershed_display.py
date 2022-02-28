@@ -16,14 +16,14 @@ import contextily as cx
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from colormap.colors import rgb2hex
+from colormap.colors import rgb2hex, hex2rgb
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
+import matplotlib.patches as mpatches
 
 # Hydromodpy
 from tools import toolbox
-
 # Parameters plot : v2.0 to classic customized
 # mpl.style.use('default')
 # mpl.rcParams.update(mpl.rcParamsDefault)
@@ -119,10 +119,10 @@ def watershed_dem(BV):
          cmap='terrain', alpha=1, zorder=2, aspect="auto")
     try:
         streams = gpd.read_file(BV.hydrology.streams)
-        streams.plot(ax=ax, lw=2, color='navy', zorder=3,legend=True, label='Streams')
+        streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
-    contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     try:
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
@@ -150,7 +150,7 @@ def watershed_dem(BV):
                           edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
     except:
         pass
-    ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
+    ax.legend(loc='lower right', title = BV.watershed_name,framealpha=0.8)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
     fig.add_axes(cax)
@@ -167,7 +167,7 @@ def watershed_dem(BV):
     cbar.ax.tick_params(labelsize=10)
     cbar.ax.yaxis.set_ticks_position('right')
     cbar.ax.tick_params(size=2)
-    # cbar.set_label('Elevation (m)', labelsize=8)
+    #cbar.set_label('Elevation (m)', size=12)
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_dem.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
@@ -175,8 +175,9 @@ def watershed_dem(BV):
 def watershed_geology(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
+    ax = plt.gca()
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
-    #polyg = gpd.read_file(BV.geographic.watershed_shp)
+    polyg = gpd.read_file(BV.geographic.watershed_shp)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
     crs = contour.crs
     bounds = dem.bounds
@@ -188,32 +189,54 @@ def watershed_geology(BV):
     ax.get_yaxis().set_visible(False)
     #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
+    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     geol = gpd.read_file(BV.geology.geol_file)
     try:
         geol['hex']
     except:
        generate_geology_color(BV.geology.geol_file)
        geol = gpd.read_file(BV.geology.geol_file)
-    geol.plot(ax=ax, color=list(geol['hex']),alpha=0.25, edgecolor='dimgrey', zorder=2,legend=True, label='Geology')
-    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+    color = []
+    for i in list(geol['hex']):
+        color.append(mpl.colors.to_rgb(i))
+    geol = geol.cx[bounds[0]:bounds[2], bounds[1]:bounds[3]]
+    geol1 = gpd.clip(geol,polyg)
+    handles = []
+    for ctype, data in geol.groupby('DESCR'):
+        color = data['hex'].iloc[0]
+        data.plot(color=color,
+              ax=ax,alpha=0.5, edgecolor='dimgrey', zorder=2,
+              label=ctype)
+    for ctype, data in geol.groupby('DESCR'):
+        color = data['hex'].iloc[0]
+        if ctype.find('Partie marine')!=0:
+            ctype = ctype.split(':')[0]
+            patch = mpatches.Patch(facecolor=color, alpha=0.5, label=ctype, edgecolor='k')
+            handles.append(patch)
+    l1 = ax.legend(handles=handles, loc='best', ncol=1, fancybox=False,prop={'size':6.5})
+    leg = ax.get_legend()
+    leg.set_bbox_to_anchor((1,1, 0, 0))
     try:
         streams = gpd.read_file(BV.hydrology.streams)
-        streams.plot(ax=ax, lw=2, color='navy', zorder=3,legend=True, label='Streams')
+        streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
-            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
+            piezod = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
                        marker='^', zorder=5, label='Piezometers: discrete')
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
             piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
-                        edgecolor='k',legend=True, label='Piezometers')
+                        edgecolor='k',legend=True, label='Piezometers: continue')
     except:
         pass
-    #ax.legend(loc='best', title = BV.watershed_name,framealpha=0.8)
-    fig.tight_layout ()
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+    ax.add_artist(scalebar)
+    l2 = plt.legend( loc='lower right', title = BV.watershed_name,framealpha=0.8)
+    plt.gca().add_artist(l1)
+    fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
 
 def generate_geology_color(file):
