@@ -219,6 +219,8 @@ class Modflow():
             else:
                 if kper == 0:
                     self.rchData[kper] = np.nanmean(self.climatic)
+                    # self.rchData[kper] = self.climatic.iloc[0]
+                    
                 else:
                     self.rchData[kper] = self.climatic[kper]
         if verbose == True:

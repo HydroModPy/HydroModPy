@@ -32,6 +32,10 @@ class CalibAnalysis:
         self.data_obs = self.calib['data_obs']
         self.data_ind = self.calib['data_ind']
         self.params_xyz = self.calib['params_xyz']
+        try:
+            self.list_criteria = self.calib['list_criteria']
+        except:
+            pass
     
     def find_best_values(self):
         self.p = []
@@ -79,6 +83,7 @@ class CalibAnalysis:
             figadd.figure_init(xlab=self.names[0],
                                ylab=self.names[1],
                                figname='Objective function 2D')
+            plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             plt.colorbar()
             plt.xscale('log')

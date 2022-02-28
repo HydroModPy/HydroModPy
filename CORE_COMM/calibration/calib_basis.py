@@ -62,7 +62,7 @@ class CalibrationBasis:
         self.param_folder = os.path.join(calibration_folder, self.param_ident)
         if not os.path.exists(self.param_folder):
             toolbox.create_folder(self.param_folder)
-            
+        
         self.ident = "_".join(self.observations) +  '_calibration'
         
         self.directory_results = os.path.join(self.param_folder, self.ident)
@@ -72,10 +72,12 @@ class CalibrationBasis:
         self.data_ind = {}
         self.data_sim = {}
         self.data_obs = {}
+        self.data_cri = {}
         for i in self.observations:
             self.data_ind[i] = []
             self.data_sim[i] = []
             self.data_obs[i] = []
+            self.data_cri[i] = []
         # self.__dict__.update(calparam.__dict__)
         # self.parameters = []
         
@@ -112,7 +114,9 @@ class CalibrationBasis:
                 self.watershed.hydrodynamic.update_thickness(params[i])
         
         # Run model
-        succes, mf = self.watershed.run_modflow(self.ident, verbose=False, calib=self.param_folder)
+        succes, mf = self.watershed.run_modflow(self.ident, 
+                                                verbose=True, 
+                                                calib=self.param_folder)
         
         # Use objective function from the type of observation
         if succes == True:
@@ -135,7 +139,7 @@ class CalibrationBasis:
                 obj_func = calib_objective_function.Streams(self.watershed, 
                                    hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'),
                                    calibration_folder=self.directory_results)
-                ind, obs, sim = obj_func.get_indicator()
+                ind, obs, sim = obj_func.get_indicator_steady()
                 indicator.append(ind)
                 self.data_ind['streams'].append(ind)
                 self.data_obs['streams'].append(obs)
@@ -160,7 +164,7 @@ class CalibrationBasis:
                 obj_func = calib_objective_function.Piezometry(self.watershed,
                                                                self.ident,
                                                                self.param_folder)
-                ind, obs, sim = obj_func.get_indicator()
+                ind, obs, sim, = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['piezometry'].append(ind)
                 self.data_obs['piezometry'].append(obs)
@@ -170,15 +174,15 @@ class CalibrationBasis:
                 self.watershed.matrix_modflow(succes,
                        mf,
                        first_only = True,
-                       watertable_elevation = False,
-                       watertable_depth=False, 
-                       seepage_areas = False,
+                       watertable_elevation = True,
+                       watertable_depth= True, 
+                       seepage_areas = True,
                        outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit=False,
-                       verbose = False,
+                       perenn_intermit = False,
+                       verbose = True,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
                                                actual_date=True,
@@ -186,11 +190,39 @@ class CalibrationBasis:
                 obj_func = calib_objective_function.Hydrometry(self.watershed,
                                                                self.ident,
                                                                self.param_folder)
-                ind, obs, sim = obj_func.get_indicator()
+                ind, obs, sim, cri = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['hydrometry'].append(ind)
                 self.data_obs['hydrometry'].append(obs)
                 self.data_sim['hydrometry'].append(sim)
+                self.data_cri['hydrometry'].append(cri)
+                # plt.plot(obs, color='b')
+                # plt.plot(sim, color='r')
+                
+            if 'intermittency' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       first_only = True,
+                       watertable_elevation = False,
+                       watertable_depth= False, 
+                       seepage_areas = True,
+                       outflow_drain = False,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit = False,
+                       verbose = True,
+                       export_tif = True)
+                self.watershed.results_modflow(ident=self.ident,
+                                               actual_date=True,
+                                               calib=self.param_folder)
+                obj_func = calib_objective_function.Hydrometry(self.watershed,
+                                                               self.ident,
+                                                               self.param_folder)
+                sim = obj_func.get_indicator()
+                self.data_ind['intermittency'].append(np.nan)
+                self.data_obs['intermittency'].append(np.nan)
+                self.data_sim['intermittency'].append(sim)
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
             
@@ -243,6 +275,10 @@ class CalibrationBasis:
         store['recharge'] = self.watershed.forcing.recharge
         store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
         store['params_xyz'] = params_xyz
+        try : 
+            store['list_criteria'] = self.data_cri
+        except:
+            pass
         with open(os.path.join(self.directory_results, name + '.calib'), 'xb') as config_dictionary_file:
             pickle.dump(store, config_dictionary_file)
         config_dictionary_file.close()

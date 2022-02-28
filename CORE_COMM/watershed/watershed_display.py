@@ -107,7 +107,7 @@ def watershed_dem(BV):
     ylim = ([bounds[1], bounds[3]])
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
     ax.add_artist(scalebar)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
@@ -116,7 +116,7 @@ def watershed_dem(BV):
     image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain')
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
-         cmap='terrain', alpha=1, zorder=2, aspect="auto")
+         cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     try:
         streams = gpd.read_file(BV.hydrology.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
