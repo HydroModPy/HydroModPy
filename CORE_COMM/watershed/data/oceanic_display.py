@@ -3,13 +3,14 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
-
+# Hydromodpy
+from tools import toolbox
 
 # Parameters
 # Parameters plot : v2.0 to classic customized
 # mpl.style.use('default')
 # mpl.rcParams.update(mpl.rcParamsDefault)
-
+'''
 # # # Classic
 mpl.style.use('classic')
 mpl.rcParams["figure.facecolor"] = 'white'
@@ -45,34 +46,41 @@ smal = 8
 medium = 16
 large = 20
 
-plt.rc('font', size=medium)						 # controls default text sizes **font
-plt.rc('figure', titlesize=medium)				   # fontsize of the figure title
-plt.rc('legend', fontsize=smal)					 # legend fontsize
-plt.rc('axes', titlesize=medium, labelpad=8)		# fontsize of the axes title
-plt.rc('axes', labelsize=medium, labelpad=12)		# fontsize of the x and y labels
-plt.rc('xtick', labelsize=medium)				   # fontsize of the tick labels
-plt.rc('ytick', labelsize=medium)				   # fontsize of the tick labels
+plt.rc('font', size=medium)                         # controls default text sizes **font
+plt.rc('figure', titlesize=medium)                   # fontsize of the figure title
+plt.rc('legend', fontsize=smal)                     # legend fontsize
+plt.rc('axes', titlesize=medium, labelpad=8)        # fontsize of the axes title
+plt.rc('axes', labelsize=medium, labelpad=12)        # fontsize of the x and y labels
+plt.rc('xtick', labelsize=medium)                   # fontsize of the tick labels
+plt.rc('ytick', labelsize=medium)                   # fontsize of the tick labels
 plt.rcParams["font.family"] = "serif"
 
 # Font label and legend properties
 fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
-
+'''
 color_dict = {'RCP2.6':'dodgerblue',
-			  'RCP8.5':'red',
-			  'RCP4.5':'salmon'}
+              'RCP8.5':'red',
+              'RCP4.5':'salmon'}
 
-def display_data(data, figure_folder):
-	fig = plt.figure()
-	for sce in data:
-		d = data[sce].index.values
-		data[sce]['median'].plot(c=color_dict[sce], label=sce)
-		plt.fill_between(d , data[sce]['std high'], data[sce]['std low'],facecolor=color_dict[sce], alpha=0.2)
-		#data[sce]['5th per'].plot(c=color_dict[sce],ls='--', label=sce)
-		#data[sce]['95th per'].plot(c=color_dict[sce],ls='--', label=sce)
+def display_data(data, figure_folder, value):
+    fontprop = toolbox.plot_params(15,15,18,20)
+    fig = plt.figure()
+    for sce in data:
+        d = data[sce].index.values
+        data[sce]['median'].plot(c=color_dict[sce], label=sce+': median values')
+        plt.fill_between(d , data[sce]['std high'], data[sce]['std low'],facecolor=color_dict[sce], alpha=0.2, label=sce +': 5th and 95th perc')
+        #data[sce]['5th per'].plot(c=color_dict[sce],ls='--', label=sce)
+        #data[sce]['95th per'].plot(c=color_dict[sce],ls='--', label=sce)
 
-	plt.legend()
-	plt.tight_layout()
-	name_out = figure_folder + 'plot'
-	fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
+    plt.legend(loc='best')
+    plt.xlabel('Date')
+    if value =='RMSL':
+        plt.ylabel('Mean Sea Level [m]')
+    if value =='RSL':
+        plt.ylabel('Rise Sea Level [m]')
+    
+    plt.tight_layout()
+    name_out = figure_folder + 'plot'
+    fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
