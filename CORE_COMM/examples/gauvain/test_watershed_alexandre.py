@@ -4,12 +4,13 @@ Created on Fri Nov 12 10:21:56 2021
 
 @author: Alexandre Gauvain
 """
-# <codecell>
+#%% BV
 
 # Download data on my Dropbox at this link: https://www.dropbox.com/sh/eidukc992nvi6jc/AAC0cwuwCnY7bDjiN57qwODva?dl=0
 import os
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
@@ -44,12 +45,12 @@ modflow_path = root_path + 'MODFLOW'
 hydrology_path = root_path + 'HYDROLOGY'
 types_obs = ['streams_fr']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
-                              out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp )
+                              out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
 
+#%% Add Data
 if load == False:
-    BV.add_hydrology(hydrology_path, types_obs)
     BV.add_surfex(surfex_path) 
-    BV.add_geology(geology_path) 
+    BV.add_geology(geology_path,'GEO50K.shp','CODE_LEG') 
     BV.add_hydrology(hydrology_path,types_obs=types_obs)
     BV.add_oceanic(oceanic_path)
     #BV.add_hydrometry(hydrometry_path)
@@ -59,32 +60,120 @@ if load == False:
     BV.piezometry.add_data()
     BV.save_object()
 
-BV.display()
+BV.display(dtype = 'watershed_dem')
+BV.display(dtype = 'watershed_geology')
 
 #%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
-zones[BV.geology.geology_array>1000] = int(2) # Crystalline rocks
-zones[BV.geology.geology_array<1000] = int(1) # Sands
-zones[BV.geology.geology_array == 2151] = int(1)
-zones[BV.geology.geology_array == 1871] = int(1)
+if watershed_name == 'Agon-Coutainville':
+    zones[BV.geology.geology_array>40] = int(2) # Crystalline rocks
+    zones[BV.geology.geology_array<40] = int(1) # Sands
+    zones[BV.geology.geology_array == 175] = int(1)
+    zones[BV.geology.geology_array == 178] = int(1)
+    zones[BV.geology.geology_array == 4] = int(2)
+plt.imshow(zones)
+if watershed_name == 'Caen':
+    zones[BV.geology.geology_array>1000] = int(2) # Calcaire
+    zones[BV.geology.geology_array<800] = int(1) # Sands
+
 BV.hydrodynamic.update_calib_zones(zones)
 
-
+#%%
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
 #%% Calibration Model piezometry
 from calibration import calib_root
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
-BV.hydrodynamic.update_thickness(100)
-BV.hydrodynamic.update_porosity(0.1)
-BV.hydrodynamic.update_hyd_cond(4.26)
-params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
+params_file = 'calib_explo_hom_1v_k1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 calib.exploration(resolution=100)
+#calib.dichotomy(gap=10)
 #calib.simplex(init_multiples_n=15)
+#%% 
+from calibration import calib_analysis
+import glob
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+key=os.path.getmtime, reverse=True)
+name_file = list_path[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+# test.find_best_values()
+# test.display_best_data()
+
+#%% Calib Analysis : Steady
+from calibration import calib_analysis
+modelname = 'streams_piezometry_calibration'
+file = 'exp_2p_res_100031_01_2022_19h41'
+calib_file = os.path.join(BV.simulations_folder,modelname,file+'.calib')
+test = calib_analysis.CalibAnalysis(calib_file)
+first = 2010
+last = 2019
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = first, last_year=last, time_step = 'D', sim_state='steady')#
+BV.hydrodynamic.update_thickness(100)
+BV.hydrodynamic.update_porosity(0.025)
+K = 10**(1)
+BV.hydrodynamic.update_hyd_cond(K)
+"""for i in range(0,len(test.names)):
+            if test.names[i][0] == 'k':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_hyd_cond_from_calib_zones(int(test.names[i][1]), 10**(test.p[i]))
+            if test.names[i][0] == 't':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_porosity_from_calib_zones(int(test.names[i][1]), test.p[i])
+            if test.names[i][0] == 'e':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_thickness(test.p[i])"""
+model = modelname + '_steady_' + str(K)
+#%% Calib Analysis : Transient
+from calibration import calib_analysis
+modelname = 'streams_piezometry_calibration'
+file = 'exp_2p_res_100031_01_2022_19h41'
+calib_file = os.path.join(BV.simulations_folder,modelname,file+'.calib')
+test = calib_analysis.CalibAnalysis(calib_file)
+first = 2010
+last = 2019
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = first, last_year=last, time_step = 'M', sim_state='transient')#
+BV.hydrodynamic.update_thickness(100)
+BV.hydrodynamic.update_porosity(0.025)
+for i in range(0,len(test.names)):
+            if test.names[i][0] == 'k':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_hyd_cond_from_calib_zones(int(test.names[i][1]), 10**(test.p[i])*30.4375)
+            if test.names[i][0] == 't':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_porosity_from_calib_zones(int(test.names[i][1]), test.p[i])
+            if test.names[i][0] == 'e':
+                # Update hydrodynamic parameters
+                BV.hydrodynamic.update_thickness(test.p[i])
+model = modelname + 'transient_rebuild'
+#%% Rebuild model wit good parameter
+BV.run_modflow(ident=model,run=True, modpath_sim=True, lay_number=1 , post_process = True, verbose=True)
+#%% Display
+from tools import vtk
+from groundwater_flow import visualization
+#vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, model)
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(0,35),(0,10),(None,None),(None,None),(None,None),(None,None)], lines=300)
+
+#%%
+# Extract result chronics
+model = modelname + 'transient_rebuild'
+from groundwater_flow import modflow_results, modflow_display
+modflow_results.Results(BV.geographic, recharge=BV.forcing.recharge, actual_date=True, model_name=model, start=first, time_step='M',
+                 stable_folder=BV.stable_folder,
+                 model_folder=BV.simulations_folder)
+# Display simulation
+modflow_display.SurfaceOutputs(BV.forcing.recharge, BV.simulations_folder, BV.stable_folder, model, types_obs, save_gif=True, 
+                               first_only = False, outflow=True, accflux=True, intermittency=False, chronics=True, sim_state='steady')
 
 #%% Calib Analysis
 from calibration import calib_analysis
 file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/piezometry_calibration/exp_2p_21_12_2021_21h05.calib'
 file = 'C:/Users/alexa/Dropbox/HydroModPy/Agon-Coutainville/results_simulations/streams_calibration/exp_2p_24_01_2022_10h22.calib'
+file = 'exp_2p_res_100030_01_2022_15h39.calib'
 test = calib_analysis.CalibAnalysis(file)
 #ident='modflow'
 #↓BV.run_modflow(ident=ident)
@@ -95,13 +184,56 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_y
 BV.hydrodynamic.update_thickness(100)
 params_file = 'C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/calibration/calib_params.csv'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-
 #%%
-#Exploration des paramètres
-calib.exploration(resolution=1000)
 
-#Simplex Method
-#calib.simplex()
+y1 = BV.piezometry.elevation['01423X0044_F4']['08/2015':'10/2015'].resample('D').mean().values
+y2 = BV.piezometry.elevation['AC5']['08/2017':'10/2017'].resample('D').mean().values
+y3 = BV.piezometry.elevation['AC3']['09/2017':'11/2017'].resample('D').mean().values
+y4 = BV.piezometry.elevation['AC1']['08/2017':'10/2017'].resample('D').mean().values
+
+fig , ax = plt.subplots(2,2,figsize=(10,10))
+
+ax[0,0].plot(y1,'r',label='01423X0044_F4',lw=2)
+ax[0,1].plot(y2,'b',label='AC5',lw=2)
+ax[1,0].plot(y3,'g',label='AC3',lw=2)
+ax[1,1].plot(y4,'m',label='AC1',lw=2)
+
+h1 = np.nanmean(y1)
+h2 = np.nanmean(y2)
+h3 = np.nanmean(y3)
+h4 = np.nanmean(y4)
+
+t = np.linspace(0,len(y1),len(y1))
+A=8.3
+T=15
+
+K=9
+E = 30
+P=0.1
+
+D = K*E/P
+lc = np.sqrt(D*T/np.pi)
+t1 = t+4
+h = h1 + (A/2*np.cos((2*np.pi*t1/T)-(x1/lc)))* np.exp(-x1/lc)
+ax[0,0].plot(t,h,'-k')
+
+t2 = t+11
+h = h2 + (A/2*np.cos((2*np.pi*t2/T)-(x2/lc)))* np.exp(-x2/lc)
+ax[0,1].plot(t,h,'-k')
+
+t3 = t+11
+h = h3 + (A/2*np.cos((2*np.pi*t3/T)-(x3/lc)))* np.exp(-x3/lc)
+ax[1,0].plot(t,h,'-k')
+
+t4 = t+11
+h = h4 + (A/2*np.cos((2*np.pi*t4/T)-(x4/lc)))* np.exp(-x4/lc)
+ax[1,1].plot(t,h,'-k')
+
+
+ax[0,0].legend()
+ax[0,1].legend()
+ax[1,0].legend()
+ax[1,1].legend()
 
 #%%
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')
@@ -175,7 +307,15 @@ from tools import vtk
 from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
 visu = visualization.Visualization(BV, 'modflow')
-visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth'],
-              color_scale = [(None,None),(0,140),(0,2),(0,2)], lines=300)
+#object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times']
+visu.visual2D(object_list = ['grid', 'pathlines'],
+              color_scale = [(None,None),(None,None)], lines=300, structure='h')
 
-
+#%% Visual 3D
+from tools import vtk
+from groundwater_flow import visualization
+model = modelname + '_rebuild'
+vtk.VTK(BV, model)
+visu = visualization.Visualization(BV, model)
+visu.visual3D(object_list = ['grid','watertable' ,'watertable_depth','pathlines'], lines=300,view = 'south-west', 
+                 interactive = True, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.70) , size=(1920,1080))

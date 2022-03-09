@@ -68,7 +68,8 @@ class Climatic:
     def extract_values_from_h5file(self,data_folder, surfex_path):
         variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
         scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-        simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+        simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+                       'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
         self.values = {}
         for sim in simulations:
             try:
@@ -82,13 +83,16 @@ class Climatic:
                 for sce in scenarios:
                     try:
                         values = pd.read_hdf(surfex_path+'/'+sim+'.h5',var+'/'+sce)
+                        # print('Find: '+sim)
                         if sim == 'REA':
                             values.index.freq = values.index.inferred_freq
-                        values = values.loc[:,self.cells_list]
+                        # values = values.loc[:,self.cells_list]
+                        values = values[values.columns.intersection(self.cells_list)]
                         values['MEAN'] = values.mean(numeric_only=True, axis=1)
                         values.to_hdf(h5file, var+'/'+sce)
                         self.values[sim][var][sce] = values
                     except:
+                        # print('None: '+sim)
                         pass
 
     def display_all_variables(self, model=None, start='1960', end='2010'):
@@ -173,7 +177,7 @@ class Merge:
                 dfm = dfm.resample("M").mean()[mask]
             else:
                 # df = df.resample('M').sum(min_count=27) # mm/month
-                dfm = dfm.resample("M").sum()[mask]
+                dfm = dfm.resample("M").mean()[mask]
                     
             # if (self.time_step == 'Y'):
             dfy = df.copy()
@@ -182,7 +186,7 @@ class Merge:
                 dfy = dfy.resample("Y").mean()[mask]
             else:
                 # df = df.resample('Y').sum(min_count=364) # mm/year
-                dfy = dfy.resample("Y").sum()[mask]
+                dfy = dfy.resample("Y").mean()[mask]
             
             df.to_csv(self.data_folder+'_'+var+'_'+'D'+'.csv', sep=';')
             dfm.to_csv(self.data_folder+'_'+var+'_'+'M'+'.csv', sep=';')

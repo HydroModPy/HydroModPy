@@ -144,7 +144,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -288,7 +288,7 @@ from groundwater_flow import visualization, modflow_display
 # 3D parameters
 list_view = ['pathlines','drain_flow'] # object to represent in 3D
 interactive = True
-z_scale = 2
+z_scale = 10
 view = 'south-west'
 lines = 200
 
@@ -396,4 +396,15 @@ plt.tight_layout()
 
 # plt.savefig(self.pngdir + name_fig)
 
+#%% 2D VISUAL
+
+from tools import vtk
+from groundwater_flow import visualization
+#☻vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, 'steady')
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
+                             'surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(0,35),(0,10),
+                             (None,None),(None,None),(None,None),(None,None)], 
+              lines=300)
 

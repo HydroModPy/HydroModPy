@@ -46,7 +46,7 @@ warnings.filterwarnings("ignore")
                                             
 # HydroModPy modules
 from watershed import watershed_root, forcing
-from tools import tif_adds, serie_transf, tif_features, file_adds
+from tools import toolbox
 from watershed.data import hydrology, climatic, oceanic, piezometry
 
 import whitebox
@@ -128,8 +128,8 @@ oceanic_path = None
 dem_path = root_path + "/DEM/" + "BDALTI_bzh_75m.tif"
 
 library_path = git_path + '/watershed' + '/watershed_library.csv'
-# surfex_path =  root_path + 'SURFEX/ebr/'
-surfex_path =  None
+surfex_path =  root_path + 'SURFEX/ebr/'
+# surfex_path =  None
 watershed_name = 'Canut'
 outlets = pd.read_csv(library_path, sep=';', header=0, engine='python')
 outlets = outlets[outlets['watershed_name'] == watershed_name]
@@ -140,11 +140,11 @@ outlets = outlets[outlets['watershed_name'] == watershed_name]
 
 notok = []
 
-# types_obs = ['streams_fr', 'sections_fr']
-# fields_obs = ['FID', 'Persistanc']
+types_obs = ['streams_fr']
+fields_obs = ['FID']
 
-types_obs = ['wetlands']
-fields_obs = ['FID','Persistanc']
+# types_obs = ['wetlands']
+# fields_obs = ['FID','Persistanc']
 
 for idx, row in outlets.iloc[:].iterrows():
     
@@ -404,7 +404,7 @@ for k in ks:
             pass        
 
 #%% HYSTERESIS FUNCTIONS
-"""
+
 import matplotlib.pylab as pl
 import math
 import scipy.stats as sp
@@ -1241,16 +1241,16 @@ for k in ks:
         except:
             pass
 
-#%%
+#%% OPEN RCH
 
 r = pd.read_csv('D:/Users/abherve/SYNTHETIC/Canut/results_simulations/sinus2_3.99_0.001_30_2010-2019/sinus2_3.99_0.001_30_2010-2019.rch',
                 sep='\s+', header=0)
 r = r.iloc[1:]
 r = r[r['#'] == 'CONSTANT']
 plt.plot(r.RCH)
-"""
+
 #%% YVEL
-"""
+
 yvelgpd = gpd.read_file('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/YVEL/StreamWaterChemistry.csv')
 yveldf = pd.read_csv('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/YVEL/StreamWaterChemistry.csv',
                      parse_dates=True, index_col='date.sampling', sep=';', error_bad_lines=False)
@@ -1262,5 +1262,5 @@ for samp in lists:
     fig, ax = plt.subplots(1,1, figsize=(5,3))
     df = yveldf[yveldf['p.sampling']==samp]
     ax.scatter(df.index, df['temperature'])
-"""
+
 
