@@ -37,6 +37,8 @@ from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 from calibration import calib_root
+from tools import vtk
+from groundwater_flow import visualization
 
 #%% LAYOUT PLOT
 
@@ -128,7 +130,7 @@ if watershed_name == 'Dem':
     cell_size = None
     
 if watershed_name == 'Conceptual':
-    dem_name = 'topoxyz_Uhigh.txt'
+    dem_name = 'topoxyz_Usmall.txt'
     from_shp = None
     from_dem = True
     cell_size = 100
@@ -220,146 +222,149 @@ cond_decay = 0. # exponential decay of K with depth
 K = 1e-5 * 3600 * 24 # m/second to m/day
 E = 100 # m
 P = 0.01 # -
-KR = 1000
+defKR = np.logspace(1,3,3)
 
-# Active of not modules
-first_only = False # if True generate results only for the first tim_step
-box = False # if True generate a rectangular model
-sink_fill = False # permit to fill sinks
-modpath_sim = True # run modpath particle tracking if True
-verbose = True # add print of MODFLOW in console
-
-# Update properties
-BV.hydrodynamic.update_hyd_cond(K)
-BV.hydrodynamic.update_thickness(E)
-BV.hydrodynamic.update_porosity(P)
-
-# Update actural recharge
-if watershed_name != 'Conceptual':
-    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                      first_year = period[0], last_year = period[1], 
-                                      time_step = time_step, sim_state=sim_state)
-    if time_step == 'M':
-        R = BV.forcing.recharge / 30 # m/month to m/day
-        BV.forcing.update_recharge(values = R, sim_state = sim_state)
-
-# Upadate conceptual recharge
-conceptual_serie = np.random.sample(24)/10
-
-if watershed_name == 'Conceptual':
-    R = K/KR    
-    BV.forcing.update_recharge(R, sim_state=sim_state)
-    actual_date = False
-
-if watershed_name == 'Dem':
-    R = K/KR    
-    BV.forcing.update_recharge(R, sim_state=sim_state)
-    actual_date = False
+for it in range(0,len(defKR)):
+    KR = defKR[it]
+    # Active of not modules
+    first_only = False # if True generate results only for the first tim_step
+    box = False # if True generate a rectangular model
+    sink_fill = False # permit to fill sinks
+    modpath_sim = True # run modpath particle tracking if True
+    verbose = True # add print of MODFLOW in console
     
-# Check recharge
-if sim_state=='transient':
-    fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
-    ax.plot(R*1000, c='k', lw=2) # m/months to mm/months
+    # Update properties
+    BV.hydrodynamic.update_hyd_cond(K)
+    BV.hydrodynamic.update_thickness(E)
+    BV.hydrodynamic.update_porosity(P)
+    
+    # # Update actural recharge
+    # if watershed_name != 'Conceptual':
+    #     BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+    #                                       first_year = period[0], last_year = period[1], 
+    #                                       time_step = time_step, sim_state=sim_state)
+    #     if time_step == 'M':
+    #         R = BV.forcing.recharge / 30 # m/month to m/day
+    #         BV.forcing.update_recharge(values = R, sim_state = sim_state)
+    
+    # Upadate conceptual recharge
+    conceptual_serie = np.random.sample(24)/10
+    
+    if watershed_name == 'Conceptual':
+        R = K/KR    
+        BV.forcing.update_recharge(R, sim_state=sim_state)
+        actual_date = False
+    
+    if watershed_name == 'Dem':
+        R = K/KR    
+        BV.forcing.update_recharge(R, sim_state=sim_state)
+        actual_date = False
+        
+    # Check recharge
+    if sim_state=='transient':
+        fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
+        ax.plot(R*1000, c='k', lw=2) # m/months to mm/months
+    
+   
+    # Run model
+    success,flow_model = BV.run_modflow(ident=model_name,
+                    modpath_sim=modpath_sim,
+                    first_only=first_only,
+                    sink_fill=sink_fill,
+                    box=box,
+                    lay_number=lay_number,
+                    bottom=bottom,
+                    thick_exp=thick_exp,
+                    cond_decay=cond_decay,
+                    verbose=verbose)
+    
+    BV.matrix_modflow(success,
+                      flow_model,
+                      first_only = True,
+                      watertable_elevation = True,
+                      watertable_depth = True, 
+                      seepage_areas = True,
+                      outflow_drain = True,
+                      groundwater_flux = True,
+                      specific_discharge = False,
+                      accumulation_flux = True,
+                      perenn_intermit = False,
+                      verbose = True,
+                      export_tif = True)
+    
+    # Extract results
+    BV.results_modflow(ident=model_name,
+                       actual_date=actual_date,
+                       start=start,
+                       time_step=time_step)
+    
+    # 2D VISUALIZATION
+    save_name = 'synthetic_Uhigh_KR_'+ str(KR)  
+    visu = visualization.Visualization(BV, model_name)
+    # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+    #               color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+    R_visu = np.log10(R*1000*365)
+    visu.visual2D(object_list = ['surface_flow','pathlines'],
+                  color_scale = [(R_visu-1,R_visu+2),(0,3)], lines=10000, figure_name = save_name)
 
-#%% LAUNCH MODELING
+# #%% PLOT 2D
 
-# Run model
-success,flow_model = BV.run_modflow(ident=model_name,
-                modpath_sim=modpath_sim,
-                first_only=first_only,
-                sink_fill=sink_fill,
-                box=box,
-                lay_number=lay_number,
-                bottom=bottom,
-                thick_exp=thick_exp,
-                cond_decay=cond_decay,
-                verbose=verbose)
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from matplotlib.colors import LightSource
+# from matplotlib.colors import LogNorm
 
-BV.matrix_modflow(success,
-                  flow_model,
-                  first_only = True,
-                  watertable_elevation = True,
-                  watertable_depth = True, 
-                  seepage_areas = True,
-                  outflow_drain = True,
-                  groundwater_flux = True,
-                  specific_discharge = False,
-                  accumulation_flux = True,
-                  perenn_intermit = False,
-                  verbose = True,
-                  export_tif = True)
+# lead_numb = '0'
+# outflow = imageio.imread('D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/Conceptual/results_simulations/steady/_watershed/_tifs/accumulation_flux_t(0).tif')
+# demData = BV.geographic.dem_data
+# res = 100
 
-# Extract results
-BV.results_modflow(ident=model_name,
-                   actual_date=actual_date,
-                   start=start,
-                   time_step=time_step)
+# msk_outflow = (outflow<0)
+# outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+# outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
+# outflow = outflow *1000 *365 # mm/year
+# outflow = np.log10(outflow)
 
-#%% PLOT 2D
+# ls = LightSource(azdeg=45, altdeg=45)
+# cmap = plt.cm.Greys
+# rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.colors import LightSource
-from matplotlib.colors import LogNorm
+# fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+# ax.get_xaxis().set_visible(False)
+# ax.get_yaxis().set_visible(False)
+# im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+# cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=3, vmax=7)
+# # cf=ax.imshow(outflow, cmap='jet_r', alpha=1, norm = LogNorm(vmin=outflow.min(), vmax=outflow.max()))
 
-lead_numb = '0'
-outflow = imageio.imread('D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/Conceptual/results_simulations/steady/_watershed/_tifs/accumulation_flux_t(0).tif')
-demData = BV.geographic.dem_data
-res = 100
+# divider = make_axes_locatable(ax)
+# #cax = divider.append_axes("right", size="1%", pad=0.05)
+# #fig.add_axes(cax)
+# # cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+# # val = np.ma.masked_where(demData < 0, demData)
+# # minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+# # maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+# # meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+# # cbar.set_ticks([minVal, meanVal, maxVal])
+# # cbar.set_ticklabels([minVal, meanVal, maxVal])
+# # cbar.mappable.set_clim(minVal, maxVal)
+# # cbar.ax.tick_params(labelsize=10)
 
-msk_outflow = (outflow<0)
-outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
-outflow = outflow *1000 *365 # mm/year
-outflow = np.log10(outflow)
+# cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+# fig.add_axes(cax)
+# cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
+# ticks = np.linspace(0, outflow.max(), 5)
+# cbar.set_ticks(ticks)
+# cbar.set_ticklabels(ticks.round(1))
+# cbar.set_label('Seepage rates [Log(Q) mm/year]')
 
-ls = LightSource(azdeg=45, altdeg=45)
-cmap = plt.cm.Greys
-rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
+# plt.tight_layout()
+# name_fig = 'map_discharge_' + str(lead_numb) + '.png'
+# plt.tight_layout()
 
-fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=3, vmax=7)
-# cf=ax.imshow(outflow, cmap='jet_r', alpha=1, norm = LogNorm(vmin=outflow.min(), vmax=outflow.max()))
+# import os
+# plt.savefig(os.path.join(simulations_folder,'steady','seepage_KR1000.png'), dpi=300, bbox_inches='tight', transparent=False)
 
-divider = make_axes_locatable(ax)
-#cax = divider.append_axes("right", size="1%", pad=0.05)
-#fig.add_axes(cax)
-# cbar = fig.colorbar(im, cax=cax, orientation="vertical")
-# val = np.ma.masked_where(demData < 0, demData)
-# minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-# maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-# meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-# cbar.set_ticks([minVal, meanVal, maxVal])
-# cbar.set_ticklabels([minVal, meanVal, maxVal])
-# cbar.mappable.set_clim(minVal, maxVal)
-# cbar.ax.tick_params(labelsize=10)
 
-cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
-fig.add_axes(cax)
-cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-ticks = np.linspace(0, outflow.max(), 5)
-cbar.set_ticks(ticks)
-cbar.set_ticklabels(ticks.round(1))
-cbar.set_label('Seepage rates [Log(Q) mm/year]')
-
-plt.tight_layout()
-name_fig = 'map_discharge_' + str(lead_numb) + '.png'
-plt.tight_layout()
-
-import os
-plt.savefig(os.path.join(simulations_folder,'steady','seepage_KR1000.png'), dpi=300, bbox_inches='tight', transparent=False)
-
-#%% 2D VISUALIZATION
-from tools import vtk
-from groundwater_flow import visualization
-#☻vtk.VTK(BV, 'modflow')
-visu = visualization.Visualization(BV, model_name)
-visu.visual2D(interactive=True,
-              size=(1920,1080),
-              view='north-west', lines=10000, cloc=(0.7,0.7))
 
 #%% 3D VISUALIZATION
 
