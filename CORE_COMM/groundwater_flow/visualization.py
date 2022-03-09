@@ -1,5 +1,6 @@
 import vedo
 import numpy as np
+from datetime import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -20,7 +21,7 @@ class Visualization():
         self.watershed = watershed
         self.modelname = modelname
     
-    def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', 
+    def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', bg = 'lb',
                  interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080)):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
@@ -45,7 +46,7 @@ class Visualization():
         """
         vedo.settings.screeshotScale = render
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
-                                          yzGrid=False), bg2='lb', size=size)
+                                          yzGrid=False), size=size)
 
         # load files
         contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_watershed_contour.vtk'))
@@ -66,9 +67,12 @@ class Visualization():
             grid = os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_Grid.vtu')
             grid_mesh = vedo.Mesh(grid) #grid_mesh
             grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
-            grid_wireframe.color('white')
+            if bg == 'white':
+                grid_wireframe.color('black')
+            else:
+                grid_wireframe.color('white')
             grid_wireframe.scale([1,1,z_scale])
-            grid_wireframe.alpha(0.2)
+            grid_wireframe.alpha(0.1)
             plt += grid_wireframe.flag()
             
             zvals = grid_mesh.points()[:, 2]
@@ -192,20 +196,21 @@ class Visualization():
         for i in range (0,len(object_list)):
             obj = object_list[i]
             if obj == 'grid':
-                plt.show(grid_mesh,contour,stream,"Topography elevation", at=i, camera=cam, viewup='z', axes = 13)
+                plt.show(grid_mesh,contour,stream,"Topography elevation", at=i, camera=cam, viewup='z', axes = 13, bg=bg)
             if obj == 'watertable':
-                plt.show(grid_wireframe,contour,stream, watertable_elev,"Watertable elevation",camera=cam, viewup ='z', at=i, axes = 13)
+                plt.show(grid_wireframe,contour,stream, watertable_elev,"Watertable elevation",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'watertable_depth':
-                plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13)
+                plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'pathlines':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'surface_flow':
-                plt.show(grid_wireframe,contour,stream, watertable_blue, surface_flow,"Surface flow",camera=cam, viewup ='z', at=i, axes = 13)
+                plt.show(grid_wireframe,contour, watertable_blue, surface_flow,"Surface flow",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'drain_flow':
-                plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
+                #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
+                plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         
@@ -213,10 +218,10 @@ class Visualization():
         if interactive == True:
             plt.show(interactive=1,interactorStyle=6).close()
         else:
-            plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_figures','3Dvisual.png')).close()
+            plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed_fig','3Dvisual.png')).close()
 
     def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'], 
-                 color_scale = None, time_step = 0, lines=100, figure_name = 'test'):
+                 color_scale = None, time_step = 0, lines=100, structure = 'v'):
        
         if len(object_list) == len(color_scale):
             pass
@@ -260,8 +265,12 @@ class Visualization():
         surface_area = np.load(surface_file, allow_pickle=True).item()
         
         N = len(object_list)
-        C = int(np.sqrt(N))
-        R = int(N/C)+1
+        if structure == 'v':
+            C = int(np.sqrt(N))
+            R = int(N/C)+1
+        if structure == 'h':
+            R = int(np.sqrt(N))
+            C = int(N/R)+1
         fig, axs = plt.subplots(nrows=R, ncols=C ,figsize=(5*C,R*(5*dem.height/dem.width)), dpi=300)
         axs = trim_axs(axs,N)
         image = []
@@ -369,16 +378,20 @@ class Visualization():
                 e = endobj.get_alldata()
                 for j in range(len(e)):
                      res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
-                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='hot_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='jet_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
-                     transform=dem.transform, cmap='hot_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                     transform=dem.transform, cmap='jet_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 
             if obj == 'map':
                 axs[i].set_title('Watershed boundary')
                 basemap.append(1)
                 image.append(None)
+                try:
+                    streams.plot(ax=axs[i], lw=2, color='b', zorder=4,legend=True, label='Streams')
+                except:
+                    pass
         compt = 0
         for ax in axs:
             ## Rajouter ici if 'conceptal'then do not display watershed boundary
@@ -404,11 +417,14 @@ class Visualization():
                 cbar.ax.tick_params(size=2)
             if basemap[compt] == 1:
                 cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+            ax.legend(loc='best', title = self.watershed.watershed_name,framealpha=0.8)
             compt +=1
         
         fig.tight_layout ()
-        fig.savefig(os.path.join(modelfolder,figure_name + '.png'), dpi=300, bbox_inches='tight', transparent=False)
-        
+        now = datetime.now()
+        name = now.strftime("%d_%m_%Y_%Hh%M") 
+        fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'.png'), dpi=300, bbox_inches='tight', transparent=False)
+
         
         
         
