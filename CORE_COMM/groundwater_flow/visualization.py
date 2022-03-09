@@ -216,7 +216,7 @@ class Visualization():
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_figures','3Dvisual.png')).close()
 
     def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'], 
-                 color_scale = None, time_step = 0, lines=100):
+                 color_scale = None, time_step = 0, lines=100, figure_name = 'test'):
        
         if len(object_list) == len(color_scale):
             pass
@@ -308,18 +308,20 @@ class Visualization():
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
             if obj == 'surface_flow':
-                axs[i].set_title('Cumulate seepage rates, log(Q) [mm/y]')
+                # axs[i].set_title('Cumulate seepage rates, log(Q) [mm/y]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
-                basemap.append(1)
+                basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
-                     transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
                 show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
             if obj == 'pathlines':
-                axs[i].set_title('Residence times, log(t) [d]')
+                show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                         transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
+                # axs[i].set_title('Residence times, log(t) [d]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
                 random_indices = np.random.choice(len(pth_data), size=lines)
@@ -346,7 +348,7 @@ class Visualization():
                     y = pth_data[j].y + ext[1][1]
                     points = np.array([x, y]).T.reshape(-1, 1, 2)
                     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, cmap='hot_r')
+                    lc = LineCollection(segments, cmap='jet')
                     lc.set_array(np.log10(pth_data[j].time))
                     lc.set_linewidth(2)
                     if color_scale[i][0] == None:
@@ -354,8 +356,10 @@ class Visualization():
                     else:
                         lc.set_clim(color_scale[i][0],color_scale[i][1])
                     line = axs[i].add_collection(lc)
+
                 image.append(line)
-                basemap.append(1)
+                basemap.append(0)
+
                    
                 
             if obj == 'residence_times':
@@ -377,7 +381,8 @@ class Visualization():
                 image.append(None)
         compt = 0
         for ax in axs:
-            contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+            ## Rajouter ici if 'conceptal'then do not display watershed boundary
+            # contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
             bounds = dem.bounds
             xlim = ([bounds[0], bounds[2]])
             ylim = ([bounds[1], bounds[3]])
@@ -402,7 +407,7 @@ class Visualization():
             compt +=1
         
         fig.tight_layout ()
-        fig.savefig(os.path.join(modelfolder,'test.png'), dpi=300, bbox_inches='tight', transparent=False)
+        fig.savefig(os.path.join(modelfolder,figure_name + '.png'), dpi=300, bbox_inches='tight', transparent=False)
         
         
         
