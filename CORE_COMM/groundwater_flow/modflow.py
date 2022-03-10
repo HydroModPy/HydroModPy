@@ -49,7 +49,7 @@ class Modflow():
     def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                 sea_level=None, cond_decay=0., model_name='modflow_model',
+                 sea_level=None, cond_decay=0.,multip_cond=None, model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
@@ -63,6 +63,7 @@ class Modflow():
         self.geographic = geographic
         self.resolution = geographic.resolution
         self.sink_fill = sink_fill
+        self.multip_cond = multip_cond
         try : 
             self.sink = geographic.depressions_data
         except:
@@ -238,12 +239,18 @@ class Modflow():
                 self.drnData[compt, 2] = j #col
                 self.drnData[compt, 3]= self.dem[i, j]#elev
                 if self.sink_fill == False:
-                    self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  #cond()
+                    if self.multip_cond != None:
+                        self.drnData[compt, 4] = self.multip_cond 
+                    else:
+                        self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2
                 else:
                     if self.sink[i,j]>0:
                         self.drnData[compt, 4] = 0
                     else:
-                        self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  
+                        if self.multip_cond != None:
+                            self.drnData[compt, 4] = self.multip_cond 
+                        else:
+                            self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
                 compt += 1
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)

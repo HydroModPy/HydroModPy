@@ -8,6 +8,8 @@ import os
 import pickle
 from calibration import tools_figures_additional as figadd
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+from matplotlib import ticker
 import numpy as np
 
 from tools import toolbox
@@ -21,7 +23,8 @@ class CalibAnalysis:
     def load_file(self, calib_file):
         with open(calib_file, 'rb') as file:
             self.calib = pickle.load(file)
-        self.names = self.calib['params_name'] 
+        self.names = self.calib['params_name']
+        self.observations = self.calib['observations']
         self.params_min = self.calib['params_min']
         self.params_max = self.calib['params_max']
         self.params_values = self.calib['params_values']
@@ -32,19 +35,33 @@ class CalibAnalysis:
         self.data_obs = self.calib['data_obs']
         self.data_ind = self.calib['data_ind']
         self.params_xyz = self.calib['params_xyz']
+        if len(self.names) == 2:
+            self.find_best_2Dvalues()
+        if len(self.names) == 1:
+            self.find_best_1Dvalues()
         try:
             self.list_criteria = self.calib['list_criteria']
         except:
             pass
     
-    def find_best_values(self):
+    def find_best_1Dvalues(self):
+        self.p = []
+        loc = np.where(self.obj_function == np.min(self.obj_function['diff']))
+        self.p.append(self.params_values[0][loc[0][0]][0])
+        loc_data = np.where(self.obj_function['diff'] == np.min(self.obj_function['diff']))
+        self.best_data_obs = self.obj_function['diff'][loc_data[0][0]]
+        self.best_data_sim = self.obj_function['diff'][loc_data[0][0]]
+    
+    def find_best_2Dvalues(self):
         self.p = []
         loc = np.where(self.obj_function == np.min(self.obj_function))
+        loc = loc[::-1]
         for i in range(len(loc)):
-            self.p.append(self.params_values[i][loc[1][0]])
+            self.p.append(self.params_values[i][loc[i][0]])
         loc_data = np.where(self.obj_function == np.min(self.obj_function))
         self.best_data_obs = self.obj_function[loc_data[0][0]]
         self.best_data_sim = self.obj_function[loc_data[0][0]]
+        return(self.best_data_obs,self.best_data_sim)
     
     def display_best_data(self):
         fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -53,28 +70,38 @@ class CalibAnalysis:
         ax2.plot(self.best_data_obs, self.best_data_obs - self.best_data_sim,'ok')
         ax2.plot([min(self.best_data_obs),max(self.best_data_obs)],[0,0],'-k')
             
-    def display_objective_function(self, save = None):
+    def display_objective_function(self, save = None,vmin= None, vmax=None, log=False):
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "Helvetica"
+            })
+
         if len(self.names) == 1 : 
             
             # 1 parameter
             
             figadd.figure_init(xlab=self.names[0],
-                               ylab="",
-                               figname='Objective function 1D of ' +
-                               self.names[0])
+                               ylab="",)
             if type(self.obj_function) == list:
                 plt.plot(self.params_values,
                          self.obj_function,
-                         lw=2, color='darkmagenta')
+                         lw=2, color='b')
             else:
                 plt.plot(self.obj_function.iloc[:, 0].values,
                          self.obj_function.iloc[:, 1].values,
-                         lw=2, color='darkmagenta') # problem with list params_values ?
+                         lw=2, color='b') # problem with list params_values ?
+                
             plt.yscale("log")
-            if self.names[0] == 'k':
+            if self.observations == ['piezometry']:
+                plt.ylabel(r'$RMSE$')
+            if self.observations == ['streams']:
+                plt.ylabel(r'$log(D_{SO}/D_{OS})^{2}$')
+            
+            if self.names[0][0] == 'k':
                 plt.xscale("log")
+                plt.xlabel(r'$K$ $[m.j^{-1}]$')
             if save != None:
-                plt.savefig(os.path.join(self.directory_results,"objfunction"),dpi=300)
+                plt.savefig(save,dpi=300, bbox_inches = "tight")
                 
         elif len(self.names) == 2 : 
             
@@ -82,15 +109,46 @@ class CalibAnalysis:
             Z=self.obj_function
             figadd.figure_init(xlab=self.names[0],
                                ylab=self.names[1],
-                               figname='Objective function 2D')
-            plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-            plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-            plt.colorbar()
-            plt.xscale('log')
+                               figname=None)
+            #plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+            #plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+            self.find_best_2Dvalues()
+            plt.plot(self.p[0],self.p[1],'ow',markersize=10)
+            levels = 1000
+            #plt.contourf(X, Y, Z,levels,cmap='jet', shading='auto',vmax=vmax, vmin=vmin)
+            if log == True:
+                plt.pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax, vmin=vmin, norm=colors.LogNorm())
+            else:
+                plt.pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax, vmin=vmin)
+            
+            for i in range(0,len(self.names)):
+                if self.names[i][0] == 'k':
+                    if i == 0:
+                        plt.xscale("log")
+                        plt.xlabel(r'$K$'+str(self.names[i][1])+' $[m.j^{-1}]$')
+                    if i == 1:
+                        plt.yscale("log")
+                        plt.ylabel(r'$K$'+str(self.names[i][1])+' $[m.j^{-1}]$')
+                if self.names[i][0] == 'n':
+                    if i == 0:
+                        if self.names[i][1]=='0':
+                            plt.xlabel(r'$n$ $[-]$')
+                        else:
+                            plt.xlabel(r'$n$'+str(self.names[i][1])+' $[-]$')
+                    if i == 1:
+                        if self.names[i][1] == '0':
+                            plt.ylabel(r'$n$ $[-]$')
+                        else:
+                            plt.ylabel(r'$n$'+str(self.names[i][1])+' $[-]$')
+            
+            if self.observations == ['piezometry']:
+                plt.colorbar(label=r'$RMSE$')
+            if self.observations == ['streams']:
+                plt.colorbar(label=r'$log(D_{SO}/D_{OS})^{2}$')
             
             # Whatevert the dimension, saves figure
             if save != None:
-                plt.savefig(save,dpi=300)
+                plt.savefig(save,dpi=300, bbox_inches = "tight")
                 
         elif len(self.names) >= 3 : 
             
@@ -112,4 +170,4 @@ class CalibAnalysis:
                 plt.colorbar()
                 
                 # Whatevert the dimension, saves figure
-                plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(k)),dpi=300)
+                plt.savefig(save,dpi=300, bbox_inches = "tight")

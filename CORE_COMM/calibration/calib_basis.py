@@ -98,24 +98,27 @@ class CalibrationBasis:
         """
         
         # self.parameters.append(params)
-        
+        print(params)
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
-                self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], 
-                                                                             params[i])
-                
+                if self.params.num_zone[i] > 0 :
+                    self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], params[i])
+                if self.params.num_zone[i] == 0 :
+                    self.watershed.hydrodynamic.update_hyd_cond(params[i])
+                    
             if self.params.name[i][0] == 'n':
                 # Update hydrodynamic parameters
-                self.watershed.hydrodynamic.update_porosity_from_calib_zones(self.params.num_zone[i], 
-                                                                             params[i])
+                self.watershed.hydrodynamic.update_porosity_from_calib_zones(self.params.num_zone[i], params[i])
+                if self.params.num_zone[i] == 0 :
+                    self.watershed.hydrodynamic.update_porosity(params[i])
             if self.params.name[i][0] == 't':
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
         
         # Run model
         succes, mf = self.watershed.run_modflow(self.ident, 
-                                                verbose=True, 
+                                                verbose=False, 
                                                 calib=self.param_folder)
         
         # Use objective function from the type of observation
@@ -139,7 +142,7 @@ class CalibrationBasis:
                 obj_func = calib_objective_function.Streams(self.watershed, 
                                    hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'),
                                    calibration_folder=self.directory_results)
-                ind, obs, sim = obj_func.get_indicator_steady()
+                ind, obs, sim = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['streams'].append(ind)
                 self.data_obs['streams'].append(obs)

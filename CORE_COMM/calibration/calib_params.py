@@ -31,7 +31,7 @@ class CalibParams():
         #load param values
         self.load_param_values(file_name, watershed)
         #check if watershed.hydrodynamic.calib_zones matches with Parameter names
-        self.check_param_values(watershed)
+        #self.check_param_values(watershed) # desactivate to clibrate global porosity with n zones of K
         #Convert hydraulic conductivity values to log values
         self.convert_k_lin_to_log()
 
@@ -66,6 +66,7 @@ class CalibParams():
         self.p_min =  temp.lower_bounds.values
         self.p_max =  temp.higher_bounds.values
         self.p_scale = temp.scale.values
+        self.num_zone = [int(re.search(r'\d+', name).group()) for name in self.name]
         
     def linear_to_log(self, lin_values):
         log_values = np.log10(lin_values)
@@ -76,7 +77,6 @@ class CalibParams():
         return lin_values
     
     def check_param_values(self, watershed):
-        self.num_zone = [int(re.search(r'\d+', name).group()) for name in self.name]
         zones = np.intersect1d(self.num_zone,self.num_zone)
         zones_array = np.intersect1d(watershed.hydrodynamic.calib_zones, watershed.hydrodynamic.calib_zones)
         if len(zones) == len(zones_array):
