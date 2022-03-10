@@ -65,9 +65,9 @@ colors = ['r','b','g','m','k','y']
 x_mer = [465, 115, 480, 640,430,635]
 Ltot = [1350,1050,1050,1050,1050,1050]
 Lriv = [1300,300,730,600,600,650]
-h_riv = ['-',4.32,4.23,4.42,4.3,4.25]
+h_riv = ['-','-',4.23,4.42,4.3,4.25]
 x_riv = [465,345,150,235,20,230] #345
-Lres = [1030,430,'-','-','-','-'] #160
+Lres = ['-',430,'-','-','-','-'] #160
 hriv = [6.51,4.3,'-','-','-','-'] #4.55
 
 hmer = 0.48
@@ -85,6 +85,7 @@ R = BV.forcing.recharge
 L = 1000
 x = np.linspace(0,L,L+1)
 Kexp = np.linspace(-3,2,1000)
+Kcalib = []
 for i in range(0,len(name)):
     ind = []
     for k in Kexp:
@@ -96,13 +97,14 @@ for i in range(0,len(name)):
         ind.append(RMSE)
     min_value = min(ind)
     idx = ind.index(min_value)
-    print(name[i]+':'+str(Kexp[idx]))
+    Kcalib.append(np.around(10**(Kexp[idx]),2))
+    print(name[i]+':'+str(10**(Kexp[idx])))
     ax1.plot(Kexp,ind,c=colors[i], label=name[i], lw=2)
 ax1.set_yscale('log')
 ax1.set_xlabel(r'$K$ $(10^{X})$ $[m.j^{-1}]$')
 ax1.set_ylabel('$RMSE$ $[-]$')
 ax1.set_xlim(-2,2)
-ax1.legend(loc='upper right',ncol=2,handletextpad=0.5)
+ax1.legend(loc='upper right',ncol=2,handletextpad=0.5,prop={'size': 12})
 
 
 
@@ -132,19 +134,30 @@ ax2.set_xlabel(r'$Distance$ $[m]$')
 ax2.set_ylabel(r'$h$ $[m]$')
 ax2.set_ylim(0,6)
 
-
-hplot6 = np.sqrt((-R*x**2/6.01)+(2*R*1350*x/6.01)+(E)**2)-(E-0.48)
-ax2.plot(x,hplot6,'-k',lw= 2, label=r'$h(K=6.01$ $m.j^{-1})$')
-K1= 2.51
+K = Kcalib[0]
+hplot6 = np.sqrt((-R*x**2/K)+(2*R*1350*x/K)+(E)**2)-(E-0.48)
+ax2.plot(x,hplot6,'-k',lw= 2, label=r'$h(K=$'+str(Kcalib[0])+r' $m.d^{-1})$')
+K1= np.mean(Kcalib[2::])
 hplotn = np.sqrt((-R*x**2/K1)+(2*R*1050*x/K1)+(E)**2)-(E-0.48)
-ax2.plot(x,hplotn,'--k',lw= 2, label=r'$h(K=2.51$ $m.j^{-1})$')
-K1= 1.14
+ax2.plot(x,hplotn,'--k',lw= 2, label=r'$h(K=$'+str(K1)+r' $m.d^{-1})$')
+K1= Kcalib[1]
 hplotn = np.sqrt((-R*x**2/K1)+(2*R*1050*x/K1)+(E)**2)-(E-0.48)
-ax2.plot(x,hplotn,'-.k',lw= 2, label=r'$h(K=1.14$ $m.j^{-1})$')
-ax2.legend(loc='best')
+ax2.plot(x,hplotn,'-.k',lw= 2, label=r'$h(K=$'+str(K1)+r' $m.d^{-1})$')
 
+hplotn = np.sqrt((-R*x**2/K)+(2*R*645*x/K)+(E)**2)-(E-4.304)
+ax2.plot(x+387,hplotn,'-b',lw= 2, label=r'$h(K=$'+str(Kcalib[0])+r' $m.d^{-1})$')
+Lre=387
+K = np.around(Kcalib[0]/20,2)
+xres = np.linspace(0,int(Lre),int(Lre+1))
+hres = np.sqrt((E)**2-(((E)**2-(E+(4.304-0.48))**2)*xres/Lre)+((R/K)*(Lre-xres)*xres))-(E-0.48)
+ax2.plot(xres,hres,'--b',lw= 2, label=r'$h(K= $'+str(K)+r' $m.d^{-1})$')
+ax2.plot(387,4.304,'^b',lw= 2, markersize=15)
+ax2.plot(0,0.48,'ow',lw= 2, markersize=15)
+ax2.plot(-1,-1,'ow', label='$Sea level$')
+ax2.plot(-1,-1,'^b', label='$River level$')
+ax2.legend(loc='best',handletextpad=0.5,prop={'size': 12})
 
-K = 6 #4.1
+K = Kcalib[0]
 for i, color in enumerate(colors, start=0):
     h = np.sqrt((-R*x**2/K)+(2*R*Ltot[i]*x/K)+(E)**2)-(E-0.48)
     hsim = h[x_mer[i]]
@@ -152,21 +165,23 @@ for i, color in enumerate(colors, start=0):
     if h_riv[i] != '-':
         h2 = np.sqrt((-R*x**2/K)+(2*R*Lriv[i]*x/K)+(E)**2)-(E-h_riv[i])
         ax.plot(hobs[i],h2[x_riv[i]],'^',color=color,markersize=15)
-    '''
-    if Lres[i] != '-':
-        xres = np.linspace(0,int(Lres[i]),int(Lres[i]+1))
-        hres = np.sqrt((E)**2-(((E)**2-(E+(hriv[i]-hmer))**2)*xres/Lres[i])+((R/K)*(Lres[i]-xres)*xres))-(E-0.48)
-        h_piezo = hres[x_mer[i]]
-        ax.plot(hobs[i],h_piezo,'s',color=color)
-    '''
-ax.plot(0,0,'ow', label='Sea boundary condition')
-ax.plot(0,0,'^w', label='River boundary condition')
+        
+K=Kcalib[0]/20
+i=1
+xres = np.linspace(0,int(Lres[i]),int(Lres[i]+1))
+hres = np.sqrt((E)**2-(((E)**2-(E+(hriv[i]-hmer))**2)*xres/Lres[i])+((R/K)*(Lres[i]-xres)*xres))-(E-0.48)
+h_piezo = hres[x_mer[i]]
+ax.plot(hobs[i],h_piezo,'s',color=colors[i],markersize=15)
+        
+ax.plot(0,0,'ow', label=r'Sea')
+ax.plot(0,0,'^w', label=r'River')
+ax.plot(0,0,'sw', label=r'Sea and River')
 ax.plot([min(hobs)-1,max(hobs)+1],[min(hobs)-1,max(hobs)+1],'--k',lw=2, label='Line 1:1')
 ax.set_xlabel(r'$\overline{h}_{obs}$ $[m]$')
 ax.set_ylabel(r'$\overline{h}_{sim}$ $[m]$')
 ax.set_xlim(2,6)
 ax.set_ylim(0,6)
-ax.legend(loc='best',handletextpad=0.5)
+ax.legend(loc='best',handletextpad=0.5,prop={'size': 12})
 plt.tight_layout()
 
-plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/calib_analytique.png',dpi=300, bbox_inches = "tight")
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/calib_analytique_K.png',dpi=300, bbox_inches = "tight")

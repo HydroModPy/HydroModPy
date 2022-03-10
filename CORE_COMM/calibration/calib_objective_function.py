@@ -97,7 +97,7 @@ class Streams:
         sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
-        indicator = np.abs(np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
+        indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
         return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
 class Piezometry:
@@ -114,15 +114,14 @@ class Piezometry:
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        if len(self.watershed.forcing.recharge) > 1:
+        if isinstance(self.watershed.forcing.recharge, float) == False:
             try:
                 # df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
                 df = self.watershed.piezometry.elevation.resample(pd.infer_freq(self.watershed.forcing.recharge.index)).mean()
                 #df.index = df.index.to_period(self.watershed.forcing.freq)
             except:
                 sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
-            plt.figure()
-            plt.plot([0,100],[0,0])
+            
             # Continue Data
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
                 sim=[]
@@ -134,7 +133,11 @@ class Piezometry:
                 y0 = df[self.watershed.piezometry.codes_bss[j]].values
                 y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
                 
-                plt.plot(y0,y0-y1)
+                #if j == 0:
+                    #fig, ax = plt.subplots()
+                    #df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                    #df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                #plt.plot(y0,y0-y1)
 
                 ER = np.nansum(y0-y1)  # error 
                 ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
@@ -154,7 +157,7 @@ class Piezometry:
                             
             self.y0 = df[[col for col in df if not col.startswith('sim_')]]
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
-
+            
             #Discrete Data
             y0 = []
             y1 = []
@@ -167,12 +170,10 @@ class Piezometry:
                     sim.append(self.watertable_elevation[i][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
                 df_sim = pd.Series(sim, index=self.watershed.forcing.recharge.index, name='sim' )
                 y1.append(df_sim[df_sim.index.month == dt.month].mean())
-            plt.plot(y0,np.asarray(y0)-np.asarray(y1),'o')
             RMSE = np.sqrt(np.nanmean((np.asarray(y0)-np.asarray(y1))**2))
-            plt.show()
             self.store_indicator.append(RMSE)
                 
-        if len(self.watershed.forcing.recharge) == 1:
+        if isinstance(self.watershed.forcing.recharge, float) == True:
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
             self.y1 = []
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
@@ -193,7 +194,7 @@ class Piezometry:
             self.store_indicator.append(RMSE)
             
     def get_indicator(self):
-        indicator = sum(self.store_indicator)
+        indicator = np.nanmean(self.store_indicator)
         return indicator, self.y0, self.y1
     
 class Hydrometry:

@@ -57,70 +57,56 @@ plt.rcParams.update({
   "font.family": "Helvetica"
 })
 
-name = ['01423X0044-F4','PzAC5','PzAC3','PzAC1','PzAC4','PzAC2']
+name = [r'$01423X0044-F4$',r'$PzAC5$',r'$PzAC3$',r'$PzAC1$',r'$PzAC4$',r'$PzAC2$']
+code = ['01423X0044_F4','AC5','AC3','AC1','AC4','AC2']
 colors = ['r','b','g','m','k','y']
+start = ['08/2015','08/2017','09/2017','08/2017','-','07/1/2017'] 
+end = ['09/2015','10/2017','10/2017','09/2017','-','8/15/2017'] 
 x_mer = [465, 115, 480, 640,430,635]
-x_mer = [400, 200, 300, 640,430,635]
-
-y1 = BV.piezometry.elevation['01423X0044_F4']['08/2015':'10/2015'].resample('D').mean().values
-y2 = BV.piezometry.elevation['AC5']['08/2017':'10/2017'].resample('D').mean().values
-y3 = BV.piezometry.elevation['AC3']['09/2017':'11/2017'].resample('D').mean().values
-y4 = BV.piezometry.elevation['AC1']['07/2017':'9/2017'].resample('D').mean().values
-
-fig , ax = plt.subplots(2,2,figsize=(10,10))
-
-ax[0,0].plot(y1,'r',label='01423X0044-F4',lw=2)
-ax[0,1].plot(y2,'b',label='AC5',lw=2)
-ax[1,0].plot(y3,'g',label='AC3',lw=2)
-ax[1,1].plot(y4,'m',label='AC1',lw=2)
-
-h1 = np.nanmean(y1)
-h2 = np.nanmean(y2)
-h3 = np.nanmean(y3)
-h4 = np.nanmean(y4)
-
-t = np.linspace(0,len(y1),len(y1))
-A=3.05
+axis = [(0,0),(0,1),(0,2),(1,0),(1,2),(1,1)]
+K= [6.01, 1.14, 10, 6.01, 6.01, 6.01]
+phi = [1,8,10,10,0,3]
+Awell = [0.25,1,0.4,0.15,0,0.10]
+E = 30
+n=0.025
+A=3.05#3.05
 T=14.76
 
-K=6
-E = 30
-
-P=0.03
-D = K*E/P
-lc = np.sqrt(D*T/np.pi)
-t1 = t+1
-h = h1 + (A/2*np.cos((2*np.pi*t1/T)-(x_mer[0]/lc)))* np.exp(-x_mer[0]/lc)
-ax[0,0].plot(t,h,'-k')
-
-#P=0.01
-D = K*E/P
-lc = np.sqrt(D*T/np.pi)
-t2 = t+7
-h = h2 + (A/2*np.cos((2*np.pi*t2/T)-(x_mer[1]/lc)))* np.exp(-x_mer[1]/lc)
-ax[0,1].plot(t,h,'-k')
-
-#P=0.05
-D = K*E/P
-lc = np.sqrt(D*T/np.pi)
-t3 = t+11
-h = h3 + (A/2*np.cos((2*np.pi*t3/T)-(x_mer[2]/lc)))* np.exp(-x_mer[2]/lc)
-ax[1,0].plot(t,h,'-k')
-
-#P=0.05
-D =K*E/P
-lc = np.sqrt(D*T/np.pi)
-t4 = t+11
-h = h4 + (A/2*np.cos((2*np.pi*t4/T)-(x_mer[3]/lc)))* np.exp(-x_mer[3]/lc)
-ax[1,1].plot(t,h,'-k')
-
-
-ax[0,0].legend()
-ax[0,1].legend()
-ax[1,0].legend()
-ax[1,1].legend()
-
-
+fig , ax = plt.subplots(2,3,figsize=(12,8))
+ns = []
+for i in range (0, len(name)):
+    if start[i] != '-':
+        y = BV.piezometry.elevation[code[i]][start[i]:end[i]].resample('D').mean().values
+        ax[axis[i]].plot(y,colors[i],label=name[i],lw=2)
+        D = K[i]*E/n
+        lc = np.sqrt(D*T/np.pi)
+        t = np.linspace(0,len(y),len(y))
+        t1 = t + phi[i]
+        hmean = np.nanmean(y)
+        h = hmean + (A/2*np.cos((2*np.pi*t1/T)-(x_mer[i]/lc)))* np.exp(-x_mer[i]/lc)
+        
+        w = 2*np.pi/T
+        k = ((n*w)/(2*K[i]*(E+hmean)))**0.5
+        h2 = hmean + (A/2*np.cos((w*t1)-(k*x_mer[i]))*np.exp(-k*x_mer[i]))
+        htide = hmean + (A*np.cos(w*t1))
+    
+        
+        ax[axis[i]].plot(t,h,'-k',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
+        ax[axis[i]].plot(t,h2,'-r',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
+        #ax[axis[i]].plot(t,htide,'-b',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
+        amp = (np.nanmax(y) - np.nanmin(y))/4
+        ax[axis[i]].set_ylim(np.nanmin(y)-amp/10,np.nanmax(y)+amp)
+        ax[axis[i]].legend(loc='best',prop={'size': 12})
+        if axis[i][0] ==1 or axis[i][1] ==2:
+           ax[axis[i]].set_xlabel('$Time$ $[d]$')
+        if axis[i][1] ==0:
+           ax[axis[i]].set_ylabel('$h(x,t)$ $[m]$')
+    else:
+        fig.delaxes(ax[axis[i]])
+    n1 = (K[i]*E*(np.log(Awell[i]/A))**2*T)/(x_mer[i]**2*np.pi)*100
+    ns.append(n1)
+    print(name[i],n1)
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/calib_analytique_n.png',dpi=300, bbox_inches = "tight")
 
 
 

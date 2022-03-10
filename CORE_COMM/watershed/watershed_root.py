@@ -312,7 +312,7 @@ class Watershed:
         
     def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
-                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., 
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
                     verbose: bool = False, post_process: bool = False,
                     time_step: str = 'M', calib: str = None):
         """ 
@@ -337,7 +337,7 @@ class Watershed:
                                      lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
-                                     model_name=ident, model_folder=model_folder,
+                                     model_name=ident, model_folder=model_folder, multip_cond=multip_cond,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         if run == True:
@@ -429,7 +429,9 @@ class Watershed:
         if dtype == 'watershed_dem':
             watershed_display.watershed_dem(self)
         if dtype == 'watershed_geology':
-            watershed_display.watershed_geology(self)    
+            watershed_display.watershed_geology(self)
+        if dtype == 'watershed_zones':
+            watershed_display.watershed_zones(self) 
 
 
             
