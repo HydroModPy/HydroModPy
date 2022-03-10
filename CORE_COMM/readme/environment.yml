@@ -16,8 +16,8 @@ dependencies:
         - hydroeval
         - geopy
         - pyproj
-        - contextily
-        - colormap #pip install easydev may be necessary
+        - #contextily
+        - #colormap #pip install easydev may be necessary
 
     # Main processing libraries
     - numpy=1.21.2
