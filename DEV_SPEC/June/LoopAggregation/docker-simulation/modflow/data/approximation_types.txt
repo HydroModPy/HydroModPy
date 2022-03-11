@@ -1,0 +1,3 @@
+number,approximation_type,
+0,PeriodDuration,
+1,RechargeThreshold,
