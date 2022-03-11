@@ -41,6 +41,23 @@ geology = [0]
 time = [0]
 
 def setting(permeability, time, geology, theta, input_file, step, ref, chronicle, approx, rate, rep, steady, site=2):
+    """_summary_
+
+    Args:
+        permeability (float): value of the permeability of the model
+        time (int): time discretisation type (use 0 => chronicle, cf Alexandre Gauvain)
+        geology (int): use 0 (cf Alexandre Gauvain)
+        theta (_type_): Porosity value (use 0.1, cf Alexandre Gauvain)
+        input_file (_type_): _description_
+        step (_type_): _description_
+        ref (_type_): _description_
+        chronicle (_type_): _description_
+        approx (_type_): _description_
+        rate (_type_): _description_
+        rep (_type_): _description_
+        steady (_type_): _description_
+        site (int, optional): _description_. Defaults to 2.
+    """
     site_number = site
     row_site = sites.loc[sites['number']==site_number]
     coordinates = [row_site.iloc[0]["xmin"], row_site.iloc[0]["xmax"],row_site.iloc[0]["ymin"], row_site.iloc[0]["ymax"]]
