@@ -6,9 +6,9 @@ from osgeo import gdal
 import flopy
 from flopy.export import vtk as fv
 #import vtk
-from workingFunctions import Functions  # functions from the workingFunctions.py file
+from . import workingFunctions  # functions from the workingFunctions.py file
 import flopy.utils.binaryfile as fpu
-from get_geological_structure import get_geological_structure as ggs
+from . import get_geological_structure as ggs
 
 def vtk_export_watertable(modelname, modelfolder, coord):
     def GetExtent(gt, geotx, geoty, cols, rows):
@@ -99,15 +99,15 @@ def vtk_export_watertable(modelname, modelfolder, coord):
                     else:
                         modDis['disBreakers']['vertexLay' + str(vertexLay)] = disLines.index(line)
                         vertexLay += 1
-        modDis['DELR'] = Functions.getListFromDEL(modDis['disBreakers']['DELR'], disLines, modDis['cellCols'])
-        modDis['DELC'] = Functions.getListFromDEL(modDis['disBreakers']['DELC'], disLines, modDis['cellRows'])
+        modDis['DELR'] = workingFunctions.Functions.getListFromDEL(modDis['disBreakers']['DELR'], disLines, modDis['cellCols'])
+        modDis['DELC'] = workingFunctions.Functions.getListFromDEL(modDis['disBreakers']['DELC'], disLines, modDis['cellRows'])
         modDis['cellCentroidZList'] = {}
         for lay in range(modDis['vertexLays']):
             # add auxiliar variables to identify breakers
             lineaBreaker = modDis['disBreakers']['vertexLay' + str(lay)]
             # two cases in breaker line
             if 'INTERNAL' in disLines[lineaBreaker]:
-                lista = Functions.getListFromBreaker(lineaBreaker, modDis, disLines)
+                lista = workingFunctions.Functions.getListFromBreaker(lineaBreaker, modDis, disLines)
                 modDis['cellCentroidZList']['lay' + str(lay)] = lista
             elif 'CONSTANT' in disLines[lineaBreaker]:
                 constElevation = float(disLines[lineaBreaker].split()[1])

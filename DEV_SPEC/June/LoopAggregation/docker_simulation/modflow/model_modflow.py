@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from osgeo import gdal
 import flopy.utils.binaryfile as bf
 # Custom imports
-from get_geological_structure import get_geological_structure as ggs
+from . import get_geological_structure as ggs
 
 
 
@@ -20,7 +20,7 @@ def model_modflow(input_file, file_name, model_name, model_folder, coord, tdis, 
     flopy.modflow.ModflowNwt(mf1, headtol=0.001, fluxtol=500, maxiterout=1000, thickfact=1e-05, linmeth=1,
                                    iprnwt=0,ibotav=0, options='COMPLEX')
 
-    geot, geotx, geoty, demData, lay_wt, lay_ft, lay_kb, lay_kf, lay_kw, sea_earth, river = ggs(coord)
+    geot, geotx, geoty, demData, lay_wt, lay_ft, lay_kb, lay_kf, lay_kw, sea_earth, river = ggs.get_geological_structure(coord)
     demData[demData == -99999.0] = 0
 
     # number_cells = np.arange(start=0, stop=demData.shape[0] * demData.shape[1])

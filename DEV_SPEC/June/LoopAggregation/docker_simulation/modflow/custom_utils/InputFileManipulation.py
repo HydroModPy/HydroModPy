@@ -8,8 +8,12 @@ import pandas as pd
 import argparse
 import numpy as np
 
+
+# lib_path = os.path.abspath(os.path.join(__file__))
+# sys.path.append(lib_path)
+
 # Custom imports
-import helpers as hlp
+from . import helpers as hlp
 
 
 
@@ -217,7 +221,7 @@ def manipulate_ref_input_file_no_agg(template_name,  approx, rate, steady, time_
 
     return df
 
-def generate_custom_input_file(model_name, input_name, approx, rate, chronicle, steady, time_step=None):
+def generate_custom_input_file(model_name, approx, rate, chronicle, steady, time_step=None):
     # TO DO : change name model_name for all case (steady, approx =1, etc)
     folder_path = '/'.join((os.path.dirname((os.path.abspath(__file__)))).split('/')[:-1])
     chronicle_file = pd.read_table(folder_path + "/data/chronicles.txt", sep=',', header=0, index_col=0)
@@ -250,7 +254,7 @@ if __name__ == '__main__':
     parser.add_argument("-sd", "--steady", action='store_true')
     args = parser.parse_args()
 
-    input_name = args.template
+    #input_name = args.template
     time_step = args.timestep
     model_name = args.modelname
     rate = args.rate
@@ -259,9 +263,9 @@ if __name__ == '__main__':
     steady = args.steady
 
     if time_step is None:
-        out = generate_custom_input_file(model_name, input_name, approx, rate, chronicle, steady)
+        out = generate_custom_input_file(model_name, approx, rate, chronicle, steady)
     else:
-        out = generate_custom_input_file(model_name, input_name, approx, rate, chronicle, steady, time_step=time_step)
+        out = generate_custom_input_file(model_name, approx, rate, chronicle, steady, time_step=time_step)
     print("custom input file name : ", out)
 
 # By default time_step = None

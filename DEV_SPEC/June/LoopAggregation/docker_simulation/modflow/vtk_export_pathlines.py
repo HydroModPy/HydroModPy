@@ -6,8 +6,8 @@ from osgeo import gdal
 import flopy
 from flopy.export import vtk as fv
 #import vtk
-from workingFunctions import Functions
-from get_geological_structure import get_geological_structure as ggs
+#from workingFunctions import Functions
+from . import get_geological_structure as ggs
 
 def vtk_export_pathlines(modelname, modelfolder, coord):
     geot_p, geotx_p, geoty_p, demData_p, lay_wt_p, lay_ft_p, lay_kb_p, lay_kf_p, lay_kw_p, sea_earth_p, river_p = ggs(coord)

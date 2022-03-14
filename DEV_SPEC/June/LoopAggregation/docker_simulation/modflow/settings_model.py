@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # coding:utf-8
 import os,sys
 import pandas as pd
@@ -13,13 +14,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'vtk_export_grid')
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'vtk_export_watertable'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'vtk_export_pathlines'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'custom_utils'))
-from model_modflow import model_modflow as modflow
-from model_modpath import model_modpath as modpath
-from model_seawat import model_seawat as seawat
-from vtk_export_grid import vtk_export_grid as vtk_grid
-from vtk_export_watertable import vtk_export_watertable as vtk_watertable
-from vtk_export_pathlines import vtk_export_pathlines as vtk_pathlines
-from custom_utils import helpers as utils
+from . import model_modflow as modflow
+from . import model_modpath as modpath
+from . import model_seawat as seawat
+from . import vtk_export_grid as vtk_grid
+from . import vtk_export_watertable as vtk_watertable
+from . import vtk_export_pathlines as vtk_pathlines
+from .custom_utils import helpers as utils
 
 ########################################################################################################################
 #                                                      MODEL SETTINGS                                                  #
@@ -115,8 +116,8 @@ def setting(permeability, time, geology, theta, input_file, step, ref, chronicle
         print("site_name : ", site_name)
         print("folder_path : ", folder_path)
         print("model_folder : ", model_folder)
-        modflow(input_file, file_name=folder_path, model_name=model_name, model_folder=folder_path + "outputs/" + site_name + model_folder,
-                coord=coordinates, tdis=time_param, geo=geology_param, permea=permeability_param, thick=thickness_param, port=int(row_site["port_number"]), porosity=theta_param, ref=ref)
+        #modflow.model_modflow(input_file, file_name, model_name, model_folder, coord, tdis, geo, permea, thick, port, porosity, ref)
+        modflow.model_modflow(input_file, file_name=folder_path, model_name=model_name, model_folder=folder_path + "outputs/" + site_name + model_folder, coord=coordinates, tdis=time_param, geo=geology_param, permea=permeability_param, thick=thickness_param, port=int(row_site["port_number"]), porosity=theta_param, ref=ref)
     if seawat_param == 1:
         seawat(filename=folder_path,modelfolder=folder_path + site_name + model_folder, modelname=model_name)
     if modpath_param == 1:
