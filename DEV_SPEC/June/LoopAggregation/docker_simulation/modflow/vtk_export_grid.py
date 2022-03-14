@@ -6,8 +6,8 @@ from osgeo import gdal
 import flopy
 from flopy.export import vtk as fv
 import flopy.utils.binaryfile as bf
-from get_geological_structure import get_geological_structure as ggs
-from workingFunctions import Functions # functions from the workingFunctions.py file
+from . import get_geological_structure as ggs
+from . import workingFunctions # functions from the workingFunctions.py file
 
 def vtk_export_grid(modelname, modelfolder, coord):
     print('Import Georeferences')
@@ -127,8 +127,8 @@ def vtk_export_grid(modelname, modelfolder, coord):
 
     # In[5]:
 
-    modDis['DELR'] = Functions.getListFromDEL(modDis['disBreakers']['DELR'], disLines, modDis['cellCols'])
-    modDis['DELC'] = Functions.getListFromDEL(modDis['disBreakers']['DELC'], disLines, modDis['cellRows'])
+    modDis['DELR'] = workingFunctions.Functions.getListFromDEL(modDis['disBreakers']['DELR'], disLines, modDis['cellCols'])
+    modDis['DELC'] = workingFunctions.Functions.getListFromDEL(modDis['disBreakers']['DELC'], disLines, modDis['cellRows'])
 
     # ### Get the Cell Centroid Z
 
@@ -142,7 +142,7 @@ def vtk_export_grid(modelname, modelfolder, coord):
         lineaBreaker = modDis['disBreakers']['vertexLay' + str(lay)]
         # two cases in breaker line
         if 'INTERNAL' in disLines[lineaBreaker]:
-            lista = Functions.getListFromBreaker(lineaBreaker, modDis, disLines)
+            lista = workingFunctions.Functions.getListFromBreaker(lineaBreaker, modDis, disLines)
             modDis['cellCentroidZList']['lay' + str(lay)] = lista
         elif 'CONSTANT' in disLines[lineaBreaker]:
             constElevation = float(disLines[lineaBreaker].split()[1])
@@ -205,7 +205,7 @@ def vtk_export_grid(modelname, modelfolder, coord):
 
         # two cases in breaker line
         if 'INTERNAL' in basLines[lineaBreaker]:
-            lista = Functions.getListFromBreaker(lineaBreaker, modDis, basLines)
+            lista = workingFunctions.Functions.getListFromBreaker(lineaBreaker, modDis, basLines)
             modBas['cellIboundList']['lay' + str(lay)] = lista
         elif 'CONSTANT' in basLines[lineaBreaker]:
             constElevation = float(disLines[lineaBreaker].split()[1])  # todavia no he probado esto
@@ -231,7 +231,7 @@ def vtk_export_grid(modelname, modelfolder, coord):
                                       axis=1).T
     modDis['vertexYgrid'] = np.repeat(modDis['vertexNorthing'], modDis['vertexCols']).reshape(modDis['vertexRows'],
                                                                                               modDis['vertexCols'])
-    modDis['vertexZGrid'] = Functions.interpolateCelltoVertex(modDis, 'cellCentroidZList')
+    modDis['vertexZGrid'] = workingFunctions.Functions.interpolateCelltoVertex(modDis, 'cellCentroidZList')
 
     # # Lists for the VTK file
 

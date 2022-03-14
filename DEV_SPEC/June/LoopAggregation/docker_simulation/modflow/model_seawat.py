@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from osgeo import gdal
 import flopy.mt3d as mt3
 import flopy.seawat as swt
-from get_geological_structure import get_geological_structure as ggs
+from . import get_geological_structure as ggs
 
 def model_seawat(filename,modelfolder, modelname):
     model_name = modelname+'_swt'
