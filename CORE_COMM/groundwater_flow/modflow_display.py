@@ -123,8 +123,8 @@ class SurfaceOutputs():
         imageio.imread(self.stable_folder+'/geographic/'+'watershed_dem.tif')
         contour = gpd.read_file(self.stable_folder+'/geographic/'+'watershed_contour.shp')
         try:
-            gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[0]+'.shp')
-            sections = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[1]+'.shp')
+            streams = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[1]+'.shp')
+            sections = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[0]+'.shp')
         except:
             pass
         # Plot observed

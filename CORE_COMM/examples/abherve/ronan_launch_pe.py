@@ -62,13 +62,13 @@ git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # Path to the data folder
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/HYDROMODPY/"
+out_path = "D:/Users/abherve/HYDROMODPY/" # HYSTERSIS
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
-surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/Rennes/' # add surfex models in .h5 format (France scale, else, specify None)
+surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
 # surfex_path =  data_path + 'CLIMATE/FRANCE/SURFEX/Leon/'
 geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
 oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
@@ -80,7 +80,7 @@ subbasin_path = True # generate subbasins from stations or manual points
 
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
-watershed_name = 'Cheze' # search the name in watershed_library or just label your result folder
+watershed_name = 'Canut' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
 dem_name = "BDALTI_bzh_75m.tif" # name of dem
@@ -540,8 +540,8 @@ test.display_objective_function(save=None)
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                  first_year = 2015, last_year=2019, time_step = 'D',
+BV.forcing.update_recharge_surfex(clim_mod = 'OLD', clim_sce='historic',
+                                  first_year = 1971, last_year=2011, time_step = 'D',
                                   sim_state='steady') #
 
 BV.hydrodynamic.update_thickness(30)

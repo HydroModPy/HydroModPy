@@ -479,15 +479,21 @@ class Modflow():
                     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
             
+            # Surface flow activation
+            surface_flow = routing_accflux.RoutingAccflux(self.geographic,
+                                                          'outflow_drain_t('+lead_numb+').tif',
+                                                          'tracept_t('+lead_numb+').shp',
+                                                          'accumulation_flux_t('+lead_numb+').tif',
+                                                          extraction_folder=self.save_file)
+            
             if accumulation_flux == True:
                 ### Accumulation flux
-                routing_accflux.RoutingAccflux(self.geographic,
-                                           'outflow_drain_t('+lead_numb+').tif',
-                                           'tracept_t('+lead_numb+').shp',
-                                           'accumulation_flux_t('+lead_numb+').tif',
-                                           extraction_folder=self.save_file)
+                surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
                 self.dict_accumulation_flux[item] = imageio.imread(output_path)
+        
+            if perenn_intermit == True:
+                surface_flow.trace_downslope()
         
         # Save dictionaries to npy
         try:
@@ -503,10 +509,14 @@ class Modflow():
                 np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
             if specific_discharge == True:   
                 np.save(self.save_file+'/specific_discharge', self.dict_specific_discharge)
-            if accumulation_flux == True:
-                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
             if groundwater_storage == True:
                 np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
+        except:
+            pass
+        
+        try:
+            if accumulation_flux == True:
+                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
         except:
             pass
         
@@ -545,6 +555,7 @@ class Modflow():
                 inf+=12
                 sup+=12
                 cpt+=1
+                
 
 #%% notes
 
