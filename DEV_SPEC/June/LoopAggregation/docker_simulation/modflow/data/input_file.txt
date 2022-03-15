@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 stress_period	sp_length	time_step	study (0 : TS or 1 : SS)	rech
 0	1	1	1	0.00000
 1	1	1	0	0.00000
@@ -15341,6 +15342,8 @@ stress_period	sp_length	time_step	study (0 : TS or 1 : SS)	rech
 15338	1	1	0	0.00002
 15339	1	1	0	0.00000
 =======
+=======
+>>>>>>> Stashed changes
 stress_period	sp_length	time_step	study (0 : TS or 1 : SS)	rech
 0	1	1	1	0.00000
 1	1	1	0	0.00000
@@ -30682,5 +30685,8 @@ stress_period	sp_length	time_step	study (0 : TS or 1 : SS)	rech
 15337	1	1	0	0.00000
 15338	1	1	0	0.00002
 15339	1	1	0	0.00000
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 15340	1	1	0	0.00000

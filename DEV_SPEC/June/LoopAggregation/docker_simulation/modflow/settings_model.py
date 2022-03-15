@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 #!/usr/bin/env python
 # coding:utf-8
 import os,sys
@@ -176,6 +177,8 @@ if __name__ == '__main__':
         else:
             setting(permeability[0], time[0], geology[0], theta[0], input_file, step, reference, chronicle, approx, rate, rep, steady)
 =======
+=======
+>>>>>>> Stashed changes
 #!/usr/bin/env python
 # coding:utf-8
 import os,sys
@@ -352,4 +355,7 @@ if __name__ == '__main__':
             setting(perm, time[0], geology[0], theta[0], input_file, step, reference, chronicle, approx, rate, rep, steady)
         else:
             setting(permeability[0], time[0], geology[0], theta[0], input_file, step, reference, chronicle, approx, rate, rep, steady)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # coding:utf-8
 import math
 import flopy
@@ -170,6 +171,8 @@ def model_modflow(input_file, file_name, model_name, model_folder, coord, tdis, 
     mf1.run_model()
 
 =======
+=======
+>>>>>>> Stashed changes
 # coding:utf-8
 import math
 import flopy
@@ -340,4 +343,7 @@ def model_modflow(input_file, file_name, model_name, model_folder, coord, tdis, 
     # run model
     mf1.run_model()
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

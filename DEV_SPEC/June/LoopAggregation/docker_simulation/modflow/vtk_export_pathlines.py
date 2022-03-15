@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # coding: utf-8
 
 import os, re
@@ -99,6 +100,8 @@ def vtk_export_pathlines(modelname, modelfolder, coord):
     for i in range(0, np.alen(v_store)):
         textoVtk.write(str(v_store[i]) + '\n')
 =======
+=======
+>>>>>>> Stashed changes
 # coding: utf-8
 
 import os, re
@@ -198,5 +201,8 @@ def vtk_export_pathlines(modelname, modelfolder, coord):
     textoVtk.write('LOOKUP_TABLE default\n')
     for i in range(0, np.alen(v_store)):
         textoVtk.write(str(v_store[i]) + '\n')
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     textoVtk.close()

@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # coding:utf-8
 
 import flopy
@@ -97,6 +98,8 @@ def model_modpath(filename, modelname, modelfolder):
      #   print('MODPATH did not execute properly')
     #else:
 =======
+=======
+>>>>>>> Stashed changes
 # coding:utf-8
 
 import flopy
@@ -194,5 +197,8 @@ def model_modpath(filename, modelname, modelfolder):
     #if exstat != 0:
      #   print('MODPATH did not execute properly')
     #else:
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
      #   print('MODPATH executed properly')

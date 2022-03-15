@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # coding: utf-8
 
 import os, re
@@ -475,6 +476,8 @@ def vtk_export_grid(modelname, modelfolder, coord):
 
 
 =======
+=======
+>>>>>>> Stashed changes
 # coding: utf-8
 
 import os, re
@@ -950,4 +953,7 @@ def vtk_export_grid(modelname, modelfolder, coord):
     textoVtk.close()
 
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

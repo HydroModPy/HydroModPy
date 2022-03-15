@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import math
 import flopy
 import os
@@ -81,6 +82,8 @@ def model_seawat(filename,modelfolder, modelname):
 
 
 =======
+=======
+>>>>>>> Stashed changes
 import math
 import flopy
 import os
@@ -162,4 +165,7 @@ def model_seawat(filename,modelfolder, modelname):
 
 
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
