@@ -89,7 +89,7 @@ plt.rcParams.update({
 
 fig, ax1 = plt.subplots(figsize=(5,5))
 ax2 = ax1.twinx()
-ax2.spines['right'].set_color('b')0
+ax2.spines['right'].set_color('b')
 ax2.spines['left'].set_color('r')
 for i in typ_calib:
     
