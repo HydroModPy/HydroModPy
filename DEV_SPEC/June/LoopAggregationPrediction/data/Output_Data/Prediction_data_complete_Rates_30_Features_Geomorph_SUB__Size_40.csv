@@ -1,2 +1,7 @@
+<<<<<<< Updated upstream
 Site;SubCatch;Number Data Training;Number Global Data;MSE Test;R2 Test;Quality Metric;Quality Sum;P Real;P pred;H Real Preal;H Real Ppred
 35;11;39;40;0.004350530555464045;-4.185083454617376;0;0.0;3652;125;0.0023827622074321;0.0434175107546881
+=======
+Site;SubCatch;Number Data Training;Number Global Data;MSE Test;R2 Test;Quality Metric;Quality Sum;P Real;P pred;H Real Preal;H Real Ppred
+35;11;39;40;0.004350530555464045;-4.185083454617376;0;0.0;3652;125;0.0023827622074321;0.0434175107546881
+>>>>>>> Stashed changes
