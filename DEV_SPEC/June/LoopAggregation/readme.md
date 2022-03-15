@@ -1,5 +1,35 @@
 # Loop Aggregation
 
+## Setup 
+
+Before running anything, it is advised to create a conda environment. That way, the script will be executed with a valid set of libraries.
+
+In the `loopAggregation` folder:
+
+```
+conda env create -f environment.yml
+conda activate loopagg
+```
+
+When one wants to exit the conda env, do `conda deactivate`.
+
+## Example
+
+An example has been provided to help understand the process of applying the loop aggregation 
+technique on the modflow simulation model.
+
+To run the example, execute the following command in the `loopAggregation` folder:
+
+```
+python example.py
+
+```
+
+
+
+
+
+---------------------------------------------------
 ## Description
 
 
