@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # coding:utf-8
 
 import flopy
@@ -312,6 +313,8 @@ def get_geological_structure(coord):
 
 
 =======
+=======
+>>>>>>> Stashed changes
 # coding:utf-8
 
 import flopy
@@ -624,4 +627,7 @@ def get_geological_structure(coord):
 
 
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

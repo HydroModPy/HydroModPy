@@ -135,10 +135,16 @@ ax2.set_ylabel(r'$h$ $[m]$')
 ax2.set_ylim(0,6)
 
 K = Kcalib[0]
+<<<<<<< Updated upstream
 E=30
 hplot6 = np.sqrt((-R*x**2/K)+(2*R*1350*x/K)+(E)**2)-(E-0.48)
 ax2.plot(x,hplot6,'-k',lw= 2, label=r'$h(K=$'+str(Kcalib[0])+r' $m.d^{-1})$')
 K1= np.around(np.mean(Kcalib[2::]),2)
+=======
+hplot6 = np.sqrt((-R*x**2/K)+(2*R*1350*x/K)+(E)**2)-(E-0.48)
+ax2.plot(x,hplot6,'-k',lw= 2, label=r'$h(K=$'+str(Kcalib[0])+r' $m.d^{-1})$')
+K1= np.mean(Kcalib[2::])
+>>>>>>> Stashed changes
 hplotn = np.sqrt((-R*x**2/K1)+(2*R*1050*x/K1)+(E)**2)-(E-0.48)
 ax2.plot(x,hplotn,'--k',lw= 2, label=r'$h(K=$'+str(K1)+r' $m.d^{-1})$')
 K1= Kcalib[1]
@@ -148,6 +154,7 @@ ax2.plot(x,hplotn,'-.k',lw= 2, label=r'$h(K=$'+str(K1)+r' $m.d^{-1})$')
 hplotn = np.sqrt((-R*x**2/K)+(2*R*645*x/K)+(E)**2)-(E-4.304)
 ax2.plot(x+387,hplotn,'-b',lw= 2, label=r'$h(K=$'+str(Kcalib[0])+r' $m.d^{-1})$')
 Lre=387
+<<<<<<< Updated upstream
 K = 6.01#np.around(Kcalib[0]/20,2)
 xres = np.linspace(0,int(Lre),int(Lre+1))
 hres = np.sqrt((E)**2-(((E)**2-(E+(4.304-0.48))**2)*xres/Lre)+((R/K)*(Lre-xres)*xres))-(E-0.48)
@@ -161,6 +168,17 @@ ax2.plot(0,0.48,'ow',lw= 2, markersize=15)
 ax2.plot(-1,-1,'ow', label='$Sea$ $level$')
 ax2.plot(-1,-1,'^b', label='$River$ $level$')
 ax2.legend(loc='best',handletextpad=0.5,prop={'size': 12},ncol=2)
+=======
+K = np.around(Kcalib[0]/20,2)
+xres = np.linspace(0,int(Lre),int(Lre+1))
+hres = np.sqrt((E)**2-(((E)**2-(E+(4.304-0.48))**2)*xres/Lre)+((R/K)*(Lre-xres)*xres))-(E-0.48)
+ax2.plot(xres,hres,'--b',lw= 2, label=r'$h(K= $'+str(K)+r' $m.d^{-1})$')
+ax2.plot(387,4.304,'^b',lw= 2, markersize=15)
+ax2.plot(0,0.48,'ow',lw= 2, markersize=15)
+ax2.plot(-1,-1,'ow', label='$Sea level$')
+ax2.plot(-1,-1,'^b', label='$River level$')
+ax2.legend(loc='best',handletextpad=0.5,prop={'size': 12})
+>>>>>>> Stashed changes
 
 K = Kcalib[0]
 for i, color in enumerate(colors, start=0):
@@ -171,7 +189,11 @@ for i, color in enumerate(colors, start=0):
         h2 = np.sqrt((-R*x**2/K)+(2*R*Lriv[i]*x/K)+(E)**2)-(E-h_riv[i])
         ax.plot(hobs[i],h2[x_riv[i]],'^',color=color,markersize=15)
         
+<<<<<<< Updated upstream
 K=6.01#Kcalib[0]/20
+=======
+K=Kcalib[0]/20
+>>>>>>> Stashed changes
 i=1
 xres = np.linspace(0,int(Lres[i]),int(Lres[i]+1))
 hres = np.sqrt((E)**2-(((E)**2-(E+(hriv[i]-hmer))**2)*xres/Lres[i])+((R/K)*(Lres[i]-xres)*xres))-(E-0.48)

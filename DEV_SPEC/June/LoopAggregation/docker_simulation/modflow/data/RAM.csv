@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 ﻿Numéro;SITE;ZONE;TYPE_PORT;ORGANISME;REFERENCE;LATITUDE;LONGITUDE;ET;DATE_CH;PHMA;PMVE;PMME;NM;BMME;BMVE;PBMA;DATE_RF;RF_ZH;RF_ref;ZH_Ref;ZH_Elli;NM_IGN
 1;Lézardrieux;Abords_de_Saint-Malo;S;IGN;IGN69;48.78333333;-3.1;5.72;2007;1159;1055;815;590;380;130;4;21;18.22;12.751;-5.469;;0.431
 2;Les_Héaux-de-Bréhat;Abords_de_Saint-Malo;S;;;48.9;-3.083333333;5.55;0;1101;995;775;570;370;130;9;;;;;;
@@ -47,6 +48,8 @@
 45;ɐtretat;Abords_de_Cherbourg_et_du_Havre;S;IGN;IGN69;49.7;0.2;10.11;0;876;825;675;480;285;125;36;28;11.565;7.198;-4.367;;0.433
 46;PK_355.850_:_Honfleur;Abords_de_Cherbourg_et_du_Havre;S;;;49.41666667;0.233333333;;0;856;805;675;503;300;165;57;;;;;;
 =======
+=======
+>>>>>>> Stashed changes
 ﻿Numéro;SITE;ZONE;TYPE_PORT;ORGANISME;REFERENCE;LATITUDE;LONGITUDE;ET;DATE_CH;PHMA;PMVE;PMME;NM;BMME;BMVE;PBMA;DATE_RF;RF_ZH;RF_ref;ZH_Ref;ZH_Elli;NM_IGN
 1;Lézardrieux;Abords_de_Saint-Malo;S;IGN;IGN69;48.78333333;-3.1;5.72;2007;1159;1055;815;590;380;130;4;21;18.22;12.751;-5.469;;0.431
 2;Les_Héaux-de-Bréhat;Abords_de_Saint-Malo;S;;;48.9;-3.083333333;5.55;0;1101;995;775;570;370;130;9;;;;;;
@@ -94,5 +97,8 @@
 44;Le_Havre-Antifer_(Terminal_pétrolier);Abords_de_Cherbourg_et_du_Havre;S;P.A.H;IGN69;49.65;0.15;;0;856;810;675;487;295;130;44;199;13.377;8.967;-4.41;;0.46
 45;ɐtretat;Abords_de_Cherbourg_et_du_Havre;S;IGN;IGN69;49.7;0.2;10.11;0;876;825;675;480;285;125;36;28;11.565;7.198;-4.367;;0.433
 46;PK_355.850_:_Honfleur;Abords_de_Cherbourg_et_du_Havre;S;;;49.41666667;0.233333333;;0;856;805;675;503;300;165;57;;;;;;
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 47;Fecamp;Abords_de_Cherbourg_et_du_Havre;P;IGN;IGN69;49.76666667;0.366666667;10.22;2012;927;855;695;496;285;125;40;1998;12.274;7.839;-4.435;;0.525

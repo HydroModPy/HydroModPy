@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # coding: utf-8
 
 import os, re
@@ -365,6 +366,8 @@ def vtk_export_watertable(modelname, modelfolder, coord):
 
 
 =======
+=======
+>>>>>>> Stashed changes
 # coding: utf-8
 
 import os, re
@@ -730,4 +733,7 @@ def vtk_export_watertable(modelname, modelfolder, coord):
 
 
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
