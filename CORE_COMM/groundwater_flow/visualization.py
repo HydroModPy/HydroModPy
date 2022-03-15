@@ -420,7 +420,7 @@ class Visualization():
             ax.legend(loc='best',framealpha=0.8)
             compt +=1
         
-        fig.tight_layout ()
+        fig.tight_layout()
         now = datetime.now()
         #name = now.strftime("%d_%m_%Y_%Hh%M")
         name = self.modelname 

@@ -171,10 +171,12 @@ n = np.ones((1,L))
 n[0][0:dsea] = 0.025#np.logspace(np.log10(n0),np.log10(nL),dsea)
 n[0][dsea:L] = 0.40
 porosity.append(n)
-
+bot = np.linspace(-1,-1,L)#-29.52
+bot = bot[::-1]
+hyd_cond = 60.01
 for i in range (0,len(model_name)):
-    run_model(model_name[i],exe,full_path,porosity=porosity[i], L=L, dsea=dsea)
-#%%
+    run_model(model_name[i],exe,full_path,porosity=porosity[i], L=L, dsea=dsea,bot = bot,hyd_cond =hyd_cond)
+
 import flopy.utils.binaryfile as fpu
 import matplotlib.pyplot as plt
 import matplotlib
@@ -184,24 +186,39 @@ plt.rcParams.update({
   "font.family": "Helvetica"
 })
 
-fig, ax = plt.subplots(figsize=(5,5))
+fig, ax = plt.subplots(1,2,figsize=(10,5))
+ax1 = ax[0]
+ax2 = ax[1]
 colors=['r','k','g']
+line = ['-','--','-.']
 name = ['$n=2.5\%$','$n=28\%$','$n=2.5\%-n=28\%$']
+
 for i in range (0,len(model_name)):
     head_file = os.path.join(full_path,model_name[i]+'.hds')
     head_fpu = fpu.HeadFile(head_file)
     head = head_fpu.get_alldata()
     time = np.linspace(0,len(head)-1,len(head))
-
+    sm = plt.cm.ScalarMappable(cmap='jet', norm=matplotlib.colors.Normalize(vmin=365, vmax=len(head)))
     hpiezo = []
+    compt = 0
     for t in time:
         hpiezo.append(head[int(t)][0][0][dsea])
-
+        if compt==15:
+            if i == 2:
+                if t>365:
+                    ax2.plot(head[int(t)][0][0],c=sm.to_rgba(t))
+            compt = 0
+        compt += 1
+    ax2.plot(bot,c='k',lw=2)
     h = pd.DataFrame(data=hpiezo, index=climatic.index, columns=[name[i]])
-    h.plot(ax=ax, c=colors[i],lw = 1)
+    h.plot(ax=ax1, c=colors[i],lw = 1)
 h = pd.DataFrame(data=BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].values, index=climatic.index, columns=['$01423X0044\_F4$'])
-h.plot(ax=ax, c='b',lw=1)
+h.plot(ax=ax1, c='b',lw=1)
 plt.ylabel('$h$ $[m]$')
 #BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].plot(c='b',ax=ax,label=BV.piezometry.codes_bss[0])
 #hobs.plot(c='b',ax=ax,label=BV.piezometry.codes_bss[0])
 plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/analysis_n.png',dpi=300, bbox_inches = "tight")
+
+
+
+
