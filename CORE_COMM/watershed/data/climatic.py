@@ -175,7 +175,7 @@ class Merge:
             # if (self.time_step == 'M'):
             dfm = df.copy() 
             dfm = dfm[~dfm.index.duplicated()]
-            print(dfm)
+            # print(dfm)
             mask = dfm.resample("M").count() >= 27
             if (var == 'TAS'):
                 dfm = dfm.resample("M").mean()[mask]

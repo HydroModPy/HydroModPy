@@ -37,8 +37,11 @@ class CalibAnalysis:
         self.params_xyz = self.calib['params_xyz']
         if len(self.names) == 2:
             self.find_best_2Dvalues()
-        if len(self.names) == 1:
-            self.find_best_1Dvalues()
+        try:
+            if len(self.names) == 1:
+                self.find_best_1Dvalues()
+        except:
+            pass
         try:
             self.list_criteria = self.calib['list_criteria']
         except:
@@ -71,10 +74,10 @@ class CalibAnalysis:
         ax2.plot([min(self.best_data_obs),max(self.best_data_obs)],[0,0],'-k')
             
     def display_objective_function(self, save = None,vmin= None, vmax=None, log=False):
-        plt.rcParams.update({
-            "text.usetex": True,
-            "font.family": "Helvetica"
-            })
+        # plt.rcParams.update({
+        #     "text.usetex": True,
+        #     "font.family": "Helvetica"
+        #     })
 
         if len(self.names) == 1 : 
             

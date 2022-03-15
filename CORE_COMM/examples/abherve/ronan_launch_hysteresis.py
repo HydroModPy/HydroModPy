@@ -36,6 +36,7 @@ from matplotlib import cm
 import matplotlib as mpl
 import rasterio
 import fnmatch
+import deepdish as dd
 
 # Gis
 import imageio
@@ -602,8 +603,8 @@ for m in codes_names:
             coords_list.append([points.loc[i,'x'],points.loc[i,'y'],200,10])
             watershed_names.append(j.split('_')[1])
             
-types_obs = ['streams_fr','sections_bzh'] # list of shapefile name layers for clip hydrology
-fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
+types_obs = ['sections_bzh','streams_fr'] # list of shapefile name layers for clip hydrology
+fields_obs = ['Persistanc', 'FID'] # list of shapefile name columns to translate as a tif
 
 load = True
 
@@ -642,7 +643,7 @@ for watershed_name in watershed_name:
     # watershed_display.watershed_local(dem_path, BV)
 
 #%% SELECT WATERSHED
-
+"""
 watershed_names = ['Le Canut', 'Le Leff', 'L Élorn']
 
 load = True
@@ -660,7 +661,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               cell_size=cell_size)
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-    
+"""
 #%% BRITTANY RECHARGE
 
 # surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
@@ -670,18 +671,54 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% ---
 
+#%% DICHOTOMY STREAMS
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
+
+# BV.add_hydrology(hydrology_path, types_obs=['streams_fr'], fields_obs=['FID'])
+
+BV.forcing.update_recharge_surfex(clim_mod = 'OLD', clim_sce='historic',
+                                  first_year = 1971, last_year=2011, time_step = 'D',
+                                  sim_state='steady') #
+print(BV.forcing.recharge)
+
+# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+#                                   first_year = 1971, last_year=2011, time_step = 'D',
+#                                   sim_state='steady') #
+# print(BV.forcing.recharge)
+
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
+BV.hydrodynamic.update_hyd_cond(2)
+
+params_file = 'calib_dicot_hom_1v_k1'
+# params_file = 'calib_dicot_het_2v_k1-k2'
+# params_file = 'calib_dicot_hom_2v_k1-n1'
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+dicot = calib.dichotomy(gap=10)
+
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+
+koptim = test.calib['params_values'][-1]
+
 #%% PARAMETERS MODEL
 
 # Input recharge
-bzh_rech = True
+bzh_rech = False
 var = 'REC'
 mod = 'OLD'
 sce = 'historic'
-typ = 'test' # sinu / hist / proj
+typ = 'explo' # sinu / hist / proj
 
 # Choice temporal of the simulation
-sim_state = 'steady' # 'steady' or 'transient'
-period = [1990,1991] # recharge period
+sim_state = 'transient' # 'steady' or 'transient'
+period = [1971,1972] # recharge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -703,7 +740,7 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = 2e-5
+Koptim = 8.4e-6
 Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
 Sys = [0.1,0.01,0.001]
 
@@ -792,12 +829,26 @@ for Sy in Sys:
         compt+=1
         
 print(list_of_success)
-                 
+
+dictio = {}
+dictio['list_model_name'] = list_model_name
+dictio['list_of_success'] = list_of_success
+dictio['list_flow_model'] = list_flow_model
+h5file = simulations_folder+'/'+typ+'_'+var+'-'+mod+'-'+sce
+# dictio.to_hdf(h5file)
+dd.io.save(h5file, dictio)
+
 # BV.list_flow_model = list_flow_model
 # BV.list_of_success = list_success
 # BV.save_object()
         
 #%% POSTPROCESS MODEL
+
+h5file = simulations_folder+'/'+typ+'_'+var+'-'+mod+'-'+sce
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name']
+list_of_success = d['list_of_success']
+list_flow_model = d['list_flow_model']
 
 for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
         
@@ -813,7 +864,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                               groundwater_flux = False,
                               specific_discharge = False,
                               accumulation_flux = False,
-                              perenn_intermit = False,
+                              perenn_intermit = True,
                               groundwater_storage = True,
                               verbose = True,
                               export_tif = True)
@@ -825,11 +876,11 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                time_step=time_step)
             
             # # Plot maps
-            # save_gif = False # save a gif after plots
-            # surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
-            #                                       types_obs, save_gif=save_gif, first_only=True,
-            #                                       outflow=True, accflux=True, intermittency=True, 
-            #                                       chronics=True, sim_state=sim_state)
+            save_gif = False # save a gif after plots
+            surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
+                                                  types_obs, save_gif=save_gif, first_only=True,
+                                                  outflow=True, accflux=True, intermittency=True, 
+                                                  chronics=True, sim_state=sim_state)
                 
 #%% TEST MODEL
 
