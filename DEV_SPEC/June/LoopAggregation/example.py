@@ -33,7 +33,7 @@ steady=False
 InputFileManipulation.generate_custom_input_file(model_name=None, approx=0, rate=5000, chronicle=12, steady=False)
 
 ### Launching the modflow simulation with the corresponding input file
-
+## Execution time: ~2minutes
 settings_model.setting(permeability=perm, time=0, geology=0, theta=0.1, input_file=None, step=1, ref=ref, chronicle=chronicle, approx=approx, rate=rate, rep=False, steady=False, site=site)
 
 ### Computation of the H indicator (acceptability metrics)

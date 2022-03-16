@@ -228,7 +228,7 @@ def generate_custom_input_file(model_name, approx, rate, chronicle, steady, time
     template_file = chronicle_file.template[chronicle]
     df = manipulate_ref_input_file(template_file,  approx, rate, steady, time_step=time_step)
     if model_name is None:
-        model_name = "Step1_Chronicle" + str(chronicle) + "_Approx" + str(approx) + "_Period" + str(rate)
+        model_name = "Step1_Chronicle" + str(chronicle) + "_Approx" + str(approx) + "_Period" + str(float(rate))
     output_name = write_custom_input_file(model_name, df)
     return output_name
 
