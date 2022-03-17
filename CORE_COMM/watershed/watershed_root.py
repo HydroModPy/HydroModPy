@@ -379,7 +379,7 @@ class Watershed:
                        groundwater_flux = True,
                        specific_discharge = False,
                        accumulation_flux = True,
-                       perenn_intermit=True,
+                       perenn_intermit_shp=True,
                        groundwater_storage = False,
                        verbose = True,
                        export_tif = True,
@@ -394,7 +394,7 @@ class Watershed:
                                        groundwater_flux = groundwater_flux,
                                        specific_discharge = specific_discharge,
                                        accumulation_flux = accumulation_flux,
-                                       perenn_intermit=perenn_intermit,
+                                       perenn_intermit_shp=perenn_intermit_shp,
                                        groundwater_storage = groundwater_storage,
                                        verbose = verbose,
                                        export_tif = export_tif)
