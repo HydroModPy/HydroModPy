@@ -37,6 +37,7 @@ import matplotlib as mpl
 import rasterio
 import fnmatch
 import deepdish as dd
+import matplotlib.dates as mdates
 
 # Gis
 import imageio
@@ -63,6 +64,127 @@ from calibration import calib_root
 # LAYOUT PLOT
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+#%% PATH WATERSHED
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
+# Path where the results will be stored
+out_path = "D:/Users/abherve/INTERMITTENCY/"
+
+dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
+shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
+modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
+
+# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/'
+surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
+geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
+oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
+hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
+hydrometry_path = data_path + 'HYDROLOGY/France/Hydrometry/' # add hydrometry data for automatic download
+intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
+piezometry_path = False # add piezometry data for automatic download
+subbasin_path = False # generate subbasins from stations or manual points
+
+dem_name = "BDALTI_bzh_75m.tif" # name of dem
+from_shp = None # specify a path if process start from a given shapefile
+from_dem = False # True or False if the process start from a given DEM of xyz file
+cell_size = None # specify new resolution from a given DEM or None
+
+from_xy = []
+# Depending on the choices
+dem_path = dems_path + dem_name
+
+library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+watershed_names = ['Canut'] # search the name in watershed_library or just label your result folder
+
+#%% GENERATE WATERSHED
+
+# coords_list = []
+# watershed_names = []
+# codes_names = ['J7513010','J1803010','J3403020']
+# points = gpd.read_file(os.path.join(out_path, '_analysis', 'points.shp'))
+# for m in codes_names:
+#     for i, j in enumerate(points['watershed_']):
+#         if j.split('_')[0] == m:
+#             coords_list.append([points.loc[i,'x'],points.loc[i,'y'],200,10])
+#             watershed_names.append(j.split('_')[1])
+            
+types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
+fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
+
+# x = gpd.read_file("C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Hydrographic/D035/complete.shp")
+# c = gpd.read_file(BV.geographic.watershed_shp)
+# z = gpd.clip(x, c)
+# w = 'D:/Users/abherve/INTERMITTENCY/Canut/results_stable/hydrology/test.shp'
+# z.to_file(w)
+# y = gpd.read_file(w)
+
+load = True
+
+# for watershed_name, from_xy in zip(watershed_names, coords_list):
+for watershed_name in watershed_names:
+
+    print('##### '+watershed_name.upper()+' #####')
+
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  modflow_path=modflow_path,
+                                  library_path=library_path,
+                                  load=load,
+                                  from_shp=from_shp,
+                                  from_dem=from_dem,
+                                  from_xy=from_xy,
+                                  cell_size=cell_size)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+        
+    if load != True :
+        BV.add_surfex(surfex_path) 
+        BV.add_geology(geology_path) 
+        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+        BV.add_oceanic(oceanic_path)
+        BV.add_hydrometry(hydrometry_path)
+        BV.add_intermittency(intermittency_path)
+        if piezometry_path == True:
+            BV.add_piezometry()
+        if subbasin_path == True:
+            BV.add_subbasin()
+
+    # watershed_display.watershed_dem(BV)
+    # watershed_display.watershed_local(dem_path, BV)
+
+#%% SELECT WATERSHED
+"""
+watershed_names = ['Le Canut', 'Le Leff', 'L Élorn']
+
+load = True
+watershed_name = 'Cheze'
+print('##### '+watershed_name.upper()+' #####')
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              modflow_path=modflow_path,
+                              library_path=library_path,
+                              load=load,
+                              from_shp=from_shp,
+                              from_dem=from_dem,
+                              from_xy=from_xy,
+                              cell_size=cell_size)
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+"""
+#%% BRITTANY RECHARGE
+
+# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
+# path_bzh = out_path + '_shapefiles/' + 'bzh.shp'
+# climatic.Climatic(out_path+'Bzh/', surfex_path, path_bzh)
+# climatic.Merge(out_path+'Bzh/')
+
+#%% ---
 
 #%% CLASS FUNCTIONS
 
@@ -557,62 +679,21 @@ class Hysteresis:
         # cb.ax.tick_params(labelsize=10)
         # cb.update_ticks()
 
-#%% PATH WATERSHED
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
-# Path where the results will be stored
-out_path = "D:/Users/abherve/HYSTERESIS/"
+#%% ---
 
-dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
-shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
-modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
+#%% DICHOTOMY STREAMS
 
-# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/'
-surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
-geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
-oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
-hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
-hydrometry_path = data_path + 'HYDROLOGY/France/Hydrometry/' # add hydrometry data for automatic download
-intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
-piezometry_path = False # add piezometry data for automatic download
-subbasin_path = False # generate subbasins from stations or manual points
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-dem_name = "BDALTI_bzh_75m.tif" # name of dem
-from_shp = None # specify a path if process start from a given shapefile
-from_dem = False # True or False if the process start from a given DEM of xyz file
-cell_size = None # specify new resolution from a given DEM or None
+types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
+fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
 
-from_xy = []
-# Depending on the choices
-dem_path = dems_path + dem_name
+df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
 
-library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
-watershed_name = ['Canut'] # search the name in watershed_library or just label your result folder
+for type_obs, field_obs in zip(types_obs, fields_obs):
 
-#%% GENERATE WATERSHED
-
-coords_list = []
-watershed_names = []
-codes_names = ['J7513010','J1803010','J3403020']
-points = gpd.read_file(os.path.join(out_path, '_analysis', 'points.shp'))
-for m in codes_names:
-    for i, j in enumerate(points['watershed_']):
-        if j.split('_')[0] == m:
-            coords_list.append([points.loc[i,'x'],points.loc[i,'y'],200,10])
-            watershed_names.append(j.split('_')[1])
-            
-types_obs = ['sections_bzh','streams_fr'] # list of shapefile name layers for clip hydrology
-fields_obs = ['Persistanc', 'FID'] # list of shapefile name columns to translate as a tif
-
-load = True
-
-# for watershed_name, from_xy in zip(watershed_names, coords_list):
-for watershed_name in watershed_name:
-
-    print('##### '+watershed_name.upper()+' #####')
-
+    load = True
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
                                   out_path=out_path,
@@ -623,89 +704,200 @@ for watershed_name in watershed_name:
                                   from_dem=from_dem,
                                   from_xy=from_xy,
                                   cell_size=cell_size)
+    BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
     
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-        
-    if load != True :
-        BV.add_surfex(surfex_path) 
-        BV.add_geology(geology_path) 
-        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        BV.add_oceanic(oceanic_path)
-        BV.add_hydrometry(hydrometry_path)
-        BV.add_intermittency(intermittency_path)
-        if piezometry_path == True:
-            BV.add_piezometry()
-        if subbasin_path == True:
-            BV.add_subbasin()
+    BV.forcing.update_recharge_surfex(clim_mod = 'OLD', clim_sce='historic',
+                                      first_year = 1971, last_year=2011, time_step = 'D',
+                                      sim_state='steady') #
+    
+    # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+    #                                   first_year = 1971, last_year=2011, time_step = 'D',
+    #                                   sim_state='steady') #
+    # print(BV.forcing.recharge)
+    
+    BV.hydrodynamic.update_thickness(30)
+    BV.hydrodynamic.update_porosity(0.1)
+    BV.hydrodynamic.update_hyd_cond(2)
+    
+    params_file = 'calib_dicot_hom_1v_k1'
+    # params_file = 'calib_dicot_het_2v_k1-k2'
+    # params_file = 'calib_dicot_hom_2v_k1-n1'
+    calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+    dicot = calib.dichotomy(gap=1)
+    
+    
+for i, type_obs in enumerate(types_obs):
+    
+    typ_calib = 'streams_calibration'
+    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                       key=os.path.getmtime)
+    name_file = list_path[i].split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+    test = calib_analysis.CalibAnalysis(calib_file)
+    test.display_objective_function(save=None)
+    
+    koptim = test.calib['params_values'][-1]
+    kr = koptim / test.calib['recharge']
+    obj_func = test.calib['objective_function'][-1]
+    
+    df.loc[0,type_obs] = koptim / 24 / 3600
+    df.loc[1,type_obs] = kr
+    df.loc[2,type_obs] = obj_func
+    
+df.to_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';')
 
-    # watershed_display.watershed_dem(BV)
-    # watershed_display.watershed_local(dem_path, BV)
+koptim = df.loc[0,'river']
 
-#%% SELECT WATERSHED
-"""
-watershed_names = ['Le Canut', 'Le Leff', 'L Élorn']
+#%% EXPLORATION HYDROMETRY
 
-load = True
-watershed_name = 'Cheze'
-print('##### '+watershed_name.upper()+' #####')
-BV = watershed_root.Watershed(watershed_name=watershed_name,
-                              dem_path=dem_path, 
-                              out_path=out_path,
-                              modflow_path=modflow_path,
-                              library_path=library_path,
-                              load=load,
-                              from_shp=from_shp,
-                              from_dem=from_dem,
-                              from_xy=from_xy,
-                              cell_size=cell_size)
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-"""
-#%% BRITTANY RECHARGE
-
-# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/' # add surfex models in .h5 format (France scale, else, specify None)
-# path_bzh = out_path + '_shapefiles/' + 'bzh.shp'
-# climatic.Climatic(out_path+'Bzh/', surfex_path, path_bzh)
-# climatic.Merge(out_path+'Bzh/')
-
-#%% ---
-
-#%% DICHOTOMY STREAMS
-
-from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
-
-# BV.add_hydrology(hydrology_path, types_obs=['streams_fr'], fields_obs=['FID'])
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
 
 BV.forcing.update_recharge_surfex(clim_mod = 'OLD', clim_sce='historic',
-                                  first_year = 1971, last_year=2011, time_step = 'D',
-                                  sim_state='steady') #
-print(BV.forcing.recharge)
+                                  first_year = 1990, last_year=2011, time_step = 'M',
+                                  sim_state='transient')
 
-# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-#                                   first_year = 1971, last_year=2011, time_step = 'D',
-#                                   sim_state='steady') #
-# print(BV.forcing.recharge)
+BV.forcing.update_runoff_surfex(clim_mod = 'OLD', clim_sce='historic',
+                                  first_year = 1990, last_year=2011, time_step = 'M',
+                                  sim_state='transient')
+
+plt.plot(BV.forcing.recharge)
+plt.plot(BV.forcing.runoff)
+
+# BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
+#                                   first_year = 2010, last_year=2019, time_step = 'M',
+#                                   sim_state='transient')
 
 BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.1)
-BV.hydrodynamic.update_hyd_cond(2)
+BV.hydrodynamic.update_porosity(0.001)
+BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
 
-params_file = 'calib_dicot_hom_1v_k1'
+# params_file = 'calib_explo_hom_2v_k1-n1'
+params_file = 'calib_explo_hom_1v_n1'
+# params_file = 'calib_explo_hom_1v_k1'
 # params_file = 'calib_dicot_het_2v_k1-k2'
-# params_file = 'calib_dicot_hom_2v_k1-n1'
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-dicot = calib.dichotomy(gap=1)
 
-typ_calib = 'streams_calibration'
+calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+calib.exploration(resolution=50)
+
+#%%
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
+
+typ_calib = 'hydrometry_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                   key=os.path.getmtime)
+                    key=os.path.getmtime, reverse=True)
 name_file = list_path[0].split('\\')[-1]
 calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
 test = calib_analysis.CalibAnalysis(calib_file)
 test.display_objective_function(save=None)
+# test.find_best_values()
+# test.display_best_data()
 
-koptim = test.calib['params_values'][-1] / 24 /3600
+#%%
+
+# t=test.sim_results
+# x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
+# plt.plot(x)
+
+#%%
+
+fig, axs = plt.subplots(2,1, figsize=(7,6))
+axs = axs.ravel()
+
+typ_name = typ_calib.split('_')[0]
+
+yearsmaj = mdates.YearLocator(5)   # every year
+yearsmin = mdates.YearLocator(1)
+# monthsmaj = mdates.MonthLocator(6)  # every month
+# monthsmin = mdates.MonthLocator(3)
+# months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+years_fmt = mdates.DateFormatter('%Y')
+
+obs = test.data_obs
+sim = test.data_sim
+ind = test.data_ind
+obj = test.calib['objective_function']
+xyz = test.params_xyz
+
+synt = test.params_synt
+
+c = []
+for h in range(len(ind[typ_name])):
+    d = ind[typ_name][h][0]
+    c.append(d)
+c = np.linspace(0,1,len(obs[typ_name]))
+cmap = mpl.cm.get_cmap('jet_r')
+color_gradients = cmap(c)
+vmin = min(c)
+vmax = max(c)
+norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+for i in range(len(obs[typ_name])):
+    
+    ax = axs[0]
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(years_fmt)
+    o = obs[typ_name][i]
+    s = sim[typ_name][i]
+    nd = ind[typ_name][i]
+    ax.plot(o, color='k', lw=2)
+    ax.set_yscale('log')
+    k = '{:.1e}'.format(xyz[i][0]/24/3600)
+    sy = xyz[i][1] * 100
+    title = 'Discharge'
+    label = 'K = '+k+' - '+'ɸ = '+str(round(sy,1))+' _ '+\
+            'NSElog = '+str(round((1-(nd[0]))*100,1))
+    ax.plot(s, color=color_gradients[i], lw=2, label=label)    
+    ax.set_title(title)
+    
+    ax = axs[1]
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(years_fmt)
+    sat = test.sim_results[synt[i]]['seepage_areas']
+    sat = pd.to_numeric(sat)
+    ax.plot(sat, color=color_gradients[i], lw=2, label=label)
+    ax.set_ylim(-5,100)
+    title = 'Saturation'
+    ax.set_title(title)
+    
+plt.tight_layout()
+ax.legend(bbox_to_anchor=(1.4, 1))
+
+# ax.plot(BV.forcing.recharge, color='grey', lw= 5)
+        
+# divider = make_axes_locatable(ax)
+# cax = divider.append_axes('right', size='1.25%', pad=0.1)
+# fig.add_axes(cax)
+# norm = Normalize(vmin=vmin, vmax=vmax)
+# n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
+# n_cmap.set_array([])
+# ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
+
+
+#%%
+
+X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+Z=test.obj_function
+plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+plt.xscale('log')
+plt.colorbar()
+
+#%%
+
+X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+Z=test.obj_function
+Z[Z<0] = np.nan
+# np.ma.masked_where(test.obj_function<0, test.obj_function)
+# plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+plt.contourf(X, Y, Z)
+# plt.imshow(Z)
+# plt.xlim(1)
+plt.colorbar()
+plt.xscale('log')
+
+#%% ---
 
 #%% PARAMETERS MODEL
 
@@ -714,11 +906,11 @@ bzh_rech = False
 var = 'REC'
 mod = 'OLD'
 sce = 'historic'
-typ = 'explo' # sinu / hist / proj
+typ = 'conceptexplo' # sinu / hist / proj
 
 # Choice temporal of the simulation
 sim_state = 'transient' # 'steady' or 'transient'
-period = [1971,1972] # recharge period
+period = [1971,1980] # recharge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -740,12 +932,12 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = 8.4e-6
+Koptim = koptim
 Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
 Sys = [0.1,0.01,0.001]
 
-Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
-Sys = [0.01]
+# Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
+# Sys = [0.01]
 
 #%% RUN MODEL
 
@@ -789,11 +981,14 @@ for Sy in Sys:
             Rech = BV.forcing.recharge # m/month
             plt.plot(Rech)
         
-        if typ[0:4] == 'sinu':
-            BV.forcing.update_sinusoid_recharge(Rech, 'M', 1, 1, 1, 1) # serie, period, amplitude, offset, omega, phase
+        if typ == 'conceptexplo':
+            BV.forcing.update_sinusoid_recharge(Rech, 'M', 1, 1, 1, 1) # serie, period / amplitude, offset, omega, phase
+            plt.plot(Rech)
+            print(Rech.sum())
             Rech = BV.forcing.recharge
             plt.plot(Rech)
-            
+            print(Rech.sum())
+  
         date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
         date_today = date_today.replace('/','-')
         date_today = date_today.replace(':','-')

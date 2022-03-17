@@ -73,6 +73,7 @@ class CalibrationBasis:
         self.data_sim = {}
         self.data_obs = {}
         self.data_cri = {}
+        
         for i in self.observations:
             self.data_ind[i] = []
             self.data_sim[i] = []
@@ -80,6 +81,9 @@ class CalibrationBasis:
             self.data_cri[i] = []
         # self.__dict__.update(calparam.__dict__)
         # self.parameters = []
+        
+        self.dic_simulated_results = {}
+        self.params_synt = []
         
     def objective_function(self, params):
         """
@@ -98,7 +102,7 @@ class CalibrationBasis:
         """
         
         # self.parameters.append(params)
-        print(params)
+        # print(params)
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
@@ -187,9 +191,14 @@ class CalibrationBasis:
                        perenn_intermit = False,
                        verbose = True,
                        export_tif = True)
-                self.watershed.results_modflow(ident=self.ident,
-                                               actual_date=True,
-                                               calib=self.param_folder)
+                simulated_results = self.watershed.results_modflow(ident=self.ident,
+                                                                   actual_date=True,
+                                                                   calib=self.param_folder)
+                # print(simulated_results)
+                # print(params)
+                params_synt = ";".join(str(x) for x in params)
+                self.dic_simulated_results[params_synt] = simulated_results
+                
                 obj_func = calib_objective_function.Hydrometry(self.watershed,
                                                                self.ident,
                                                                self.param_folder)
@@ -199,6 +208,8 @@ class CalibrationBasis:
                 self.data_obs['hydrometry'].append(obs)
                 self.data_sim['hydrometry'].append(sim)
                 self.data_cri['hydrometry'].append(cri)
+                self.params_synt.append(params_synt)
+                
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
                 
@@ -278,6 +289,11 @@ class CalibrationBasis:
         store['recharge'] = self.watershed.forcing.recharge
         store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
         store['params_xyz'] = params_xyz
+        try : 
+            store['sim_results'] = self.dic_simulated_results
+            store['params_synt'] = self.params_synt
+        except:
+            pass
         try : 
             store['list_criteria'] = self.data_cri
         except:
