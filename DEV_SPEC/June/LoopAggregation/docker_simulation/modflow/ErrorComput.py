@@ -17,7 +17,7 @@ import pickle
 import statistics
 from osgeo import gdal
 from osgeo import osr, ogr
-from custom_utils import helpers as utils
+from .custom_utils import helpers as utils
 import pickle
 
 __author__ = "June Sallou"
@@ -110,8 +110,8 @@ def get_mask_data_for_a_site(site_number):
     cols = ds.RasterXSize
     rows = ds.RasterYSize
     mask_array = np.array(ds.GetRasterBand(1).ReadAsArray())
-    print("cols mask:", cols)
-    print("rows mask:", rows)
+    # print("cols mask:", cols)
+    # print("rows mask:", rows)
     return mask_array, cols, rows
 
 
@@ -268,7 +268,7 @@ def compute_h_error_by_interpolation(site_number, chronicle, approx, rate, ref, 
 
     # For every day, we have to compare the reference and alternate simulations
     for day in range(START_TIME, END_TIME[chronicle] + 1): 
-        print((day/END_TIME[chronicle])*100, "%")
+        print("Progress:", round((day/END_TIME[chronicle])*100, 2), "%")
         print("day :", day)
         dict_WsRef[day] = {}
         dict_WsSimu[day] = {}
@@ -304,14 +304,14 @@ def compute_h_error_by_interpolation(site_number, chronicle, approx, rate, ref, 
         nbcoltot = altHeadInf.shape[2]
 
         # mask to only get the data of the "equivalent watershed"
-        if mask_nrow == nbrowtot:
-            print("same number of rows")
-        else:
-            print("Not same number of rows!")
-        if mask_ncol == nbcoltot:
-            print("Same number of cols")
-        else:
-            print("Not same number of columns!")
+        # if mask_nrow == nbrowtot:
+        #     print("same number of rows")
+        # else:
+        #     print("Not same number of rows!")
+        # if mask_ncol == nbcoltot:
+        #     print("Same number of cols")
+        # else:
+        #     print("Not same number of columns!")
 
         # We want to store the presence of cells part of a flood episode
         # We go through all the cells of the matrix representing the study site
@@ -412,39 +412,47 @@ def compute_h_error_by_interpolation(site_number, chronicle, approx, rate, ref, 
         writer = csv.writer(f, delimiter=';')
         writer.writerow(['H Error'])
         writer.writerow([hErrorGlobal])
-    print(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv')
+    print("Results saved here:", repo_simu) # + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv')
 
-    # variables = [dict_s, dict_d, dict_r, dict_WsRef, dict_WsSimu]
-    # var_names = ['s', 'd', 'r', 'WsRef', 'WsSimu']
+    # print("Saving files...")
+    # outfile_s = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_s' +'.pickle','wb')
+    # pickle.dump(dict_simuWatertableAltitude,outfile_s)
+    # outfile_s.close()
+    # print("Saved files:", "1/6")
 
-    outfile_s = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_s' +'.pickle','wb')
-    pickle.dump(dict_simuWatertableAltitude,outfile_s)
-    outfile_s.close()
+    # print("Saving files...")
+    # outfile_r = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_r' +'.pickle','wb')
+    # pickle.dump(dict_r,outfile_r)
+    # outfile_r.close()
+    # print("Saved files:", "2/6")
 
-    outfile_r = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_r' +'.pickle','wb')
-    pickle.dump(dict_r,outfile_r)
-    outfile_r.close()
+    # print("Saving files...")
+    # outfile_d = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_d' +'.pickle','wb')
+    # pickle.dump(dict_depth,outfile_d)
+    # outfile_d.close()
+    # print("Saved files:", "3/6")
 
+    # print("Saving files...")
+    # outfile_WsRef = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsRef' +'.pickle','wb')
+    # pickle.dump(dict_WsRef,outfile_WsRef)
+    # outfile_WsRef.close()
+    # print("Saved files:", "4/6")
 
-    outfile_d = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_d' +'.pickle','wb')
-    pickle.dump(dict_depth,outfile_d)
-    outfile_d.close()
+    # print("Saving files...")
+    # outfile_WsSimu = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsSimu' +'.pickle','wb')
+    # pickle.dump(dict_WsSimu,outfile_WsSimu)
+    # outfile_WsSimu.close()
+    # print("Saved files:", "5/6")
 
-    outfile_WsRef = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsRef' +'.pickle','wb')
-    pickle.dump(dict_WsRef,outfile_WsRef)
-    outfile_WsRef.close()
+    # print("Saving files...")
+    # outfile_generic_error = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_generic_error' +'.pickle','wb')
+    # pickle.dump(generic_error,outfile_generic_error)
+    # outfile_generic_error.close()
+    # print("Saved files:", "6/6")
 
-    outfile_WsSimu = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsSimu' +'.pickle','wb')
-    pickle.dump(dict_WsSimu,outfile_WsSimu)
-    outfile_WsSimu.close()
-
-    outfile_generic_error = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_generic_error' +'.pickle','wb')
-    pickle.dump(generic_error,outfile_generic_error)
-    outfile_generic_error.close()
-
-    np.save(repo_simu + "/SaturationZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy", saturated_zones)
-    np.save(repo_simu + "/VulnerabilityZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy", vulnerable_zones)
-
+    # np.save(repo_simu + "/SaturationZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy", saturated_zones)
+    # np.save(repo_simu + "/VulnerabilityZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy", vulnerable_zones)
+    
     return nbrowtot, nbcoltot
 
 
@@ -756,7 +764,7 @@ def dev_get_computed_bassin_Mask(site_number):
         for row in range(rows):
             if (mask_array[row][col] > 0) and (mask_array[row][col] not in subs_to_exclude):
                 subs_to_exclude.append(mask_array[row][col])
-    print(subs_to_exclude)
+    #print(subs_to_exclude)
 
     with open(MAIN_APP_REPO + "data/Pickle/ExcludedSubB_Site" + str(site_number) + '.csv', 'w') as f:
         writer = csv.writer(f, delimiter=';')

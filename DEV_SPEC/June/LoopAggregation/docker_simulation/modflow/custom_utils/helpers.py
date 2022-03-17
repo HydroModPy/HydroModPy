@@ -91,9 +91,9 @@ def generate_model_name(
     if (not ref) and approx is not None and (not steady):
         model_name += "_Approx" + str(approx)
         if approx == 0 or approx == 2:
-            model_name += "_Period" + str(rate)
+            model_name += "_Period" + str(float(rate))
         elif approx == 1:
-            model_name += "_RechThreshold" + str(rate)
+            model_name += "_RechThreshold" + str(float(rate))
     if steady:
         model_name += "_SteadyState"
     return model_name
@@ -114,9 +114,9 @@ def get_input_file_name(chronicle, approx, rate, ref, steady, site=None, step=No
     if (not ref) and approx is not None and (not steady):
         input_name_suffixe += "_Approx" + str(approx)
         if approx == 0 or approx == 2:
-            input_name_suffixe += "_Period" + str(rate)
+            input_name_suffixe += "_Period" + str(float(rate))
         elif approx == 1:
-            input_name_suffixe += "_RechThreshold" + str(rate)
+            input_name_suffixe += "_RechThreshold" + str(float(rate))
     if steady:
         input_name_suffixe += "_SteadyState"
 
