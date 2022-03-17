@@ -224,7 +224,9 @@ class Results:
         # self.mfdata = self.mfdata.round(2)
         self.mfdata = self.mfdata.applymap(lambda x: "%.5e" % (x))
         self.mfdata.to_csv(save_file + '/_simulated_results.csv', sep=';')
-
+        
+        return self.mfdata
+        
 #%% Notes
 
 # def bla (self, npy_list, zones_list):

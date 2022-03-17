@@ -695,7 +695,7 @@ params_file = 'calib_dicot_hom_1v_k1'
 # params_file = 'calib_dicot_het_2v_k1-k2'
 # params_file = 'calib_dicot_hom_2v_k1-n1'
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-dicot = calib.dichotomy(gap=10)
+dicot = calib.dichotomy(gap=1)
 
 typ_calib = 'streams_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
@@ -705,7 +705,7 @@ calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_fi
 test = calib_analysis.CalibAnalysis(calib_file)
 test.display_objective_function(save=None)
 
-koptim = test.calib['params_values'][-1]
+koptim = test.calib['params_values'][-1] / 24 /3600
 
 #%% PARAMETERS MODEL
 

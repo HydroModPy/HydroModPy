@@ -406,13 +406,15 @@ class Watershed:
         else:
             model_folder = calib
             
-        modflow_results.Results(self.geographic,
+        results = modflow_results.Results(self.geographic,
                                 recharge=self.forcing.recharge,
                                 actual_date=actual_date,
                                 start=start,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,
                                 model_folder=model_folder)
+        simulated_results = results.mfdata
+        return simulated_results
                 
     def run_hs1D(self):
         """
