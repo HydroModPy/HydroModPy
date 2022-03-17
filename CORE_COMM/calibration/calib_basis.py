@@ -138,7 +138,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit=False,
+                       perenn_intermit_shp=False,
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -162,7 +162,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit=False,
+                       perenn_intermit_shp=False,
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -188,7 +188,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit = False,
+                       perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
                 simulated_results = self.watershed.results_modflow(ident=self.ident,
@@ -224,7 +224,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit = False,
+                       perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,

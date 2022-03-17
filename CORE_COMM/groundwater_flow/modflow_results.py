@@ -96,7 +96,7 @@ class Results:
         except:
             pass  
         try:
-            self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
+            self.perenn_intermit_shp = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
         except:
             pass
         try:
@@ -207,9 +207,9 @@ class Results:
                 self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
-            
+        
         try:
-            for idx, key in enumerate(self.perenn_intermit):
+            for idx, key in enumerate(self.perenn_intermit_shp):
                 file = gpd.read_file(key)
                 surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
                 perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
@@ -219,6 +219,8 @@ class Results:
                 self.mfdata.loc[idx,'surflow_areas'] = surflow
         except:
             pass
+        
+
             
         self.mfdata = self.mfdata.set_index(['date'])
         # self.mfdata = self.mfdata.round(2)

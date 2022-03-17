@@ -686,8 +686,11 @@ class Hysteresis:
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
-fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
+types_obs = ['complete','intermittent','perennial','river','drain_complete_chezecanut'] # list of shapefile name layers for clip hydrology
+fields_obs = ['persistanc','fid','fid','fid','fid'] # list of shapefile name columns to translate as a tif
+
+# types_obs = ['drain_complete_chezecanut'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['fid']
 
 df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
 
@@ -704,6 +707,7 @@ for type_obs, field_obs in zip(types_obs, fields_obs):
                                   from_dem=from_dem,
                                   from_xy=from_xy,
                                   cell_size=cell_size)
+    
     BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
     
     BV.forcing.update_recharge_surfex(clim_mod = 'OLD', clim_sce='historic',
@@ -725,7 +729,6 @@ for type_obs, field_obs in zip(types_obs, fields_obs):
     calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
     dicot = calib.dichotomy(gap=1)
     
-    
 for i, type_obs in enumerate(types_obs):
     
     typ_calib = 'streams_calibration'
@@ -746,7 +749,7 @@ for i, type_obs in enumerate(types_obs):
     
 df.to_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';')
 
-koptim = df.loc[0,'river']
+koptim = df.loc[0,'drain_complete_chezecanut']
 
 #%% EXPLORATION HYDROMETRY
 
@@ -769,15 +772,15 @@ plt.plot(BV.forcing.runoff)
 
 BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.001)
-BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
+# BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
 
-# params_file = 'calib_explo_hom_2v_k1-n1'
-params_file = 'calib_explo_hom_1v_n1'
+params_file = 'calib_explo_hom_2v_k1-n1'
+# params_file = 'calib_explo_hom_1v_n1'
 # params_file = 'calib_explo_hom_1v_k1'
 # params_file = 'calib_dicot_het_2v_k1-k2'
 
 calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-calib.exploration(resolution=50)
+calib.exploration(resolution=100)
 
 #%%
 
@@ -910,7 +913,7 @@ typ = 'conceptexplo' # sinu / hist / proj
 
 # Choice temporal of the simulation
 sim_state = 'transient' # 'steady' or 'transient'
-period = [1971,1980] # recharge period
+period = [1971,1973] # recharge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -932,12 +935,12 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = koptim
+Koptim = 1e-5 # koptim
 Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
 Sys = [0.1,0.01,0.001]
 
-# Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
-# Sys = [0.01]
+Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
+Sys = [0.01]
 
 #%% RUN MODEL
 
@@ -984,10 +987,10 @@ for Sy in Sys:
         if typ == 'conceptexplo':
             BV.forcing.update_sinusoid_recharge(Rech, 'M', 1, 1, 1, 1) # serie, period / amplitude, offset, omega, phase
             plt.plot(Rech)
-            print(Rech.sum())
+            # print(Rech.sum())
             Rech = BV.forcing.recharge
             plt.plot(Rech)
-            print(Rech.sum())
+            # print(Rech.sum())
   
         date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
         date_today = date_today.replace('/','-')
@@ -1029,7 +1032,7 @@ dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_of_success'] = list_of_success
 dictio['list_flow_model'] = list_flow_model
-h5file = simulations_folder+'/'+typ+'_'+var+'-'+mod+'-'+sce
+h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
 # dictio.to_hdf(h5file)
 dd.io.save(h5file, dictio)
 
@@ -1039,7 +1042,7 @@ dd.io.save(h5file, dictio)
         
 #%% POSTPROCESS MODEL
 
-h5file = simulations_folder+'/'+typ+'_'+var+'-'+mod+'-'+sce
+h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
 d = dd.io.load(h5file)
 list_model_name = d['list_model_name']
 list_of_success = d['list_of_success']
@@ -1058,8 +1061,8 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                               outflow_drain = True,
                               groundwater_flux = False,
                               specific_discharge = False,
-                              accumulation_flux = False,
-                              perenn_intermit = True,
+                              accumulation_flux = True,
+                              perenn_intermit_shp = False,
                               groundwater_storage = True,
                               verbose = True,
                               export_tif = True)
@@ -1074,9 +1077,88 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
             save_gif = False # save a gif after plots
             surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
                                                   types_obs, save_gif=save_gif, first_only=True,
-                                                  outflow=True, accflux=True, intermittency=True, 
+                                                  outflow=True, accflux=True, intermittency=False, 
                                                   chronics=True, sim_state=sim_state)
-                
+
+#%% INTERMITTENCY TEST
+
+var = 'REC'
+mod = 'OLD'
+sce = 'historic'
+typ = 'conceptexplo'
+
+simul_list = glob.glob(simulations_folder+typ+'*')
+# simuls = fnmatch.filter(os.listdir(simulations_folder), typ+'*')
+
+wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                           stable_folder+'geographic/'+'watershed_contour.tif',
+                           base = stable_folder+'geographic/'+'watershed_dem.tif')
+line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+line = np.ma.masked_where(line <= 0, line)
+
+for simul in simul_list:
+
+    acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+    for key in acc_npy:
+        # print(key)
+        mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+        # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+        acc_npy[key] = np.ma.masked_array(acc_npy[key], mask=(mask<0))
+    zero = acc_npy[0] * 0
+    for i in range(len(acc_npy)):
+        tempo = acc_npy[i].copy()
+        tempo[tempo>0] = 1
+        zero = zero + tempo
+    days_flux = zero.copy() / len(acc_npy)
+    fig, ax = plt.subplots(1,1, figsize=(7,6))
+    ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
+                   cmap = 'viridis_r', vmin=0, vmax=1, alpha=1)
+    
+    acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+    inf = 0
+    sup = 12
+    step = int(round(len(acc_npy)/12))
+    for i in range(step):
+        interv = list(acc_npy.items())[inf:sup]
+        # print(interv)
+        for key in range(len(interv)):
+            # key = tupl[0]
+            # print(key)
+            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
+        zero = acc_npy[0] * 0
+        for j in range(len(interv)):
+            tempo = interv[j].copy()
+            tempo[tempo>0] = 1
+            zero = zero + tempo
+        days_flux = zero.copy()
+        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))
+        
+        fig, ax = plt.subplots(1,1, figsize=(7,6))
+        # image_hidden = ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys')
+        ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0)
+        ax.imshow(np.ma.masked_where(days_flux<12, days_flux), cmap = mpl.colors.ListedColormap(['dodgerblue']))
+        ax.imshow(np.ma.masked_where(days_flux==12, days_flux), cmap = mpl.colors.ListedColormap(['darkorange']))
+        ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        # divider = make_axes_locatable(ax)
+        # cax = divider.append_axes("right", size="1%", pad=0.05)
+        # fig.add_axes(cax)
+        # cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+        # val = np.ma.masked_where(mask < 0, mask)
+        # minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+        # maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+        # meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+        # cbar.set_ticks([minVal, meanVal, maxVal])
+        # cbar.set_ticklabels([minVal, meanVal, maxVal])
+        # cbar.mappable.set_clim(minVal, maxVal)
+        # cbar.ax.tick_params(labelsize=10)
+        
+        inf+=12
+        sup+=12
+    
 #%% TEST MODEL
 
 var = 'REC'
@@ -2298,7 +2380,7 @@ for ix in np.arange(1,9+1,1):
         ############ FIG 1
         ax = ax1
 
-        pc = ax.imshow(np.ma.masked_where(days_flux <= 0,days_flux),
+        pc = ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
                        cmap = 'viridis_r', vmin=0, vmax=1, alpha=1)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)

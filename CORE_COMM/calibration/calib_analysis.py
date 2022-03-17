@@ -35,8 +35,11 @@ class CalibAnalysis:
         self.data_obs = self.calib['data_obs']
         self.data_ind = self.calib['data_ind']
         self.params_xyz = self.calib['params_xyz']
-        self.sim_results = self.calib['sim_results']
-        self.params_synt = self.calib['params_synt']
+        try:
+            self.sim_results = self.calib['sim_results']
+            self.params_synt = self.calib['params_synt']
+        except:
+            pass
         if len(self.names) == 2:
             self.find_best_2Dvalues()
         try:
