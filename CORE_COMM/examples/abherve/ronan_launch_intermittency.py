@@ -829,44 +829,58 @@ for h in range(len(ind[typ_name])):
     d = ind[typ_name][h][0]
     c.append(d)
 c = np.linspace(0,1,len(obs[typ_name]))
-cmap = mpl.cm.get_cmap('jet_r')
+cmap = mpl.cm.get_cmap('Greys')
 color_gradients = cmap(c)
 vmin = min(c)
 vmax = max(c)
 norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
+nse_good = []
+sat_good = []
+
 for i in range(len(obs[typ_name])):
+    
+    o = obs[typ_name][i]
+    s = sim[typ_name][i]
+    nd = ind[typ_name][i]
+    sat = test.sim_results[synt[i]]['seepage_areas']
+    sat = pd.to_numeric(sat)
     
     ax = axs[0]
     ax.xaxis.set_major_locator(yearsmaj)
     ax.xaxis.set_minor_locator(yearsmin)
     ax.xaxis.set_major_formatter(years_fmt)
-    o = obs[typ_name][i]
-    s = sim[typ_name][i]
-    nd = ind[typ_name][i]
-    ax.plot(o, color='k', lw=2)
     ax.set_yscale('log')
     k = '{:.1e}'.format(xyz[i][0]/24/3600)
     sy = xyz[i][1] * 100
     title = 'Discharge'
+    nselog = round(((nd[0]))*100,1)
     label = 'K = '+k+' - '+'ɸ = '+str(round(sy,1))+' _ '+\
-            'NSElog = '+str(round((1-(nd[0]))*100,1))
-    ax.plot(s, color=color_gradients[i], lw=2, label=label)    
-    ax.set_title(title)
-    
-    ax = axs[1]
-    ax.xaxis.set_major_locator(yearsmaj)
-    ax.xaxis.set_minor_locator(yearsmin)
-    ax.xaxis.set_major_formatter(years_fmt)
-    sat = test.sim_results[synt[i]]['seepage_areas']
-    sat = pd.to_numeric(sat)
-    ax.plot(sat, color=color_gradients[i], lw=2, label=label)
-    ax.set_ylim(-5,100)
-    title = 'Saturation'
-    ax.set_title(title)
-    
+            'NSElog = '+str(nselog)
+    if nselog > 80:
+        if all(i <= 60 for i in sat):
+            nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+            ax.plot(s, color=color_gradients[i], lw=1, label=label)
+            # ax.plot(s, lw=1, label=label)   
+            ax.set_title(title)
+            ax.plot(o, color='dodgerblue', lw=2, ls='-', zorder=0)
+            # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+            
+            ax = axs[1]
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(yearsmin)
+            ax.xaxis.set_major_formatter(years_fmt)
+
+            sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
+            ax.plot(sat, color=color_gradients[i], lw=0.5, label=label)
+            # ax.plot(sat, lw=1, label=label) 
+            ax.set_ylim(-2,60)
+            title = 'Saturation'
+            ax.set_title(title)
+            # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+                        
 plt.tight_layout()
-ax.legend(bbox_to_anchor=(1.4, 1))
+ax.legend(bbox_to_anchor=(1.4, 2.3), ncol=1)
 
 # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
         
@@ -883,7 +897,7 @@ ax.legend(bbox_to_anchor=(1.4, 1))
 
 X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
 Z=test.obj_function
-plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+plt.pcolormesh(X,Y,Z,cmap='jet', shading='gouraud')#figadd.cmap_white_jet()
 plt.xscale('log')
 plt.colorbar()
 
