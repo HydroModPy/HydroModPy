@@ -27,12 +27,12 @@ from .custom_utils import helpers as utils
 ########################################################################################################################
 
 # FOLDER
-folder_path = os.path.dirname(os.path.abspath(__file__)) + '/' #'/'.join(.split('/')[:-1])
+folder_path = os.path.dirname(os.path.abspath(__file__)) + os.sep #'/'.join(.split('/')[:-1])
 print("folder_path : ", folder_path)
 
 # STUDY SITES
-print("folder + string : ", folder_path + "data/study_sites.txt")
-sites = pd.read_table(folder_path + "data/study_sites.txt", sep=',', header=0, index_col=0) #\\s+
+print("folder + string : ", folder_path + "data" + os.sep +"study_sites.txt")
+sites = pd.read_table(folder_path + "data"+ os.sep +"study_sites.txt", sep=',', header=0, index_col=0) #\\s+
 #site_number = 2 #Select site number
 # coordinates = sites._get_values[site_number,1:5]
 
@@ -76,18 +76,18 @@ def setting(permeability, time, geology, theta, input_file, step, ref, chronicle
     # MODEL NAME
     print("site_number :", site_number)
     print("site name formule :", sites.index._data[site_number])
-    site_name = sites.index._data[site_number] + '/'
+    site_name = sites.index._data[site_number] + os.sep
     model_name = utils.generate_model_name(chronicle, approx, rate, ref, steady, site, permeability_param=permeability)
     if rep:
         model_name = model_name + "_" + str(rep)
 
-    model_folder = model_name + '/'
+    model_folder = model_name + os.sep
 
 
     
     if (input_file is None):
         if ref:
-            chronicle_file = pd.read_table(folder_path + "data/chronicles.txt", sep=',', header=0, index_col=0)
+            chronicle_file = pd.read_table(folder_path + "data" + os.sep+ "chronicles.txt", sep=',', header=0, index_col=0)
             input_file = chronicle_file.template[chronicle]
 
         else:
@@ -117,7 +117,7 @@ def setting(permeability, time, geology, theta, input_file, step, ref, chronicle
         print("folder_path : ", folder_path)
         print("model_folder : ", model_folder)
         #modflow.model_modflow(input_file, file_name, model_name, model_folder, coord, tdis, geo, permea, thick, port, porosity, ref)
-        modflow.model_modflow(input_file, file_name=folder_path, model_name=model_name, model_folder=folder_path + "outputs/" + site_name + model_folder, coord=coordinates, tdis=time_param, geo=geology_param, permea=permeability_param, thick=thickness_param, port=int(row_site["port_number"]), porosity=theta_param, ref=ref)
+        modflow.model_modflow(input_file, file_name=folder_path, model_name=model_name, model_folder=folder_path + "outputs" + os.sep + site_name + model_folder, coord=coordinates, tdis=time_param, geo=geology_param, permea=permeability_param, thick=thickness_param, port=int(row_site["port_number"]), porosity=theta_param, ref=ref)
     if seawat_param == 1:
         seawat(filename=folder_path,modelfolder=folder_path + site_name + model_folder, modelname=model_name)
     if modpath_param == 1:
@@ -127,11 +127,11 @@ def setting(permeability, time, geology, theta, input_file, step, ref, chronicle
     # if not os.path.exists(folder_path + "outputs/" + site_name + model_folder + 'output_files'):
     #     os.makedirs(folder_path+ "outputs/" + site_name + model_folder + 'output_files')
     if grid == 1:
-        vtk_grid(modelname=model_name, modelfolder=folder_path + "outputs/" + site_name + model_folder, coord=coordinates)
+        vtk_grid(modelname=model_name, modelfolder=folder_path + "outputs" + os.sep + site_name + model_folder, coord=coordinates)
     if watertable == 1:
-        vtk_watertable(modelname=model_name, modelfolder=folder_path + "outputs/" + site_name + model_folder, coord=coordinates)
+        vtk_watertable(modelname=model_name, modelfolder=folder_path + "outputs" + os.sep + site_name + model_folder, coord=coordinates)
     if pathlines == 1:
-        vtk_pathlines(modelname=model_name + '_swt', modelfolder=folder_path + "outputs/" + site_name + model_folder, coord=coordinates)
+        vtk_pathlines(modelname=model_name + '_swt', modelfolder=folder_path + "outputs" + os.sep + site_name + model_folder, coord=coordinates)
 
 
 

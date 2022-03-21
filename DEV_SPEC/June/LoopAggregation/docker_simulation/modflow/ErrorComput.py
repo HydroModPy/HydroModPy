@@ -29,7 +29,7 @@ __date__ = "04/30/2019"
 __email__ = "june.benvegnu-sallou@univ-rennes1.fr"
 
 
-MAIN_APP_REPO = os.path.dirname(os.path.abspath(__file__)) + '/'
+MAIN_APP_REPO = os.path.dirname(os.path.abspath(__file__)) + os.sep
 
 # Simulation features
 NB_YEARS = 42 # Duration
@@ -50,12 +50,12 @@ def cut_hds_ref_file_into_one_day_hds_files(site_number, chronicle, approx, rate
         site_name = utils.get_site_name_from_site_number(site_number)
         repo_ref = folder + site_name + ref_name
 
-    ref_hds = fpu.HeadFile(repo_ref + '/' + ref_name + '.hds')  
-    os.makedirs(repo_ref + "/HDS", exist_ok=True)
+    ref_hds = fpu.HeadFile(repo_ref + os.sep + ref_name + '.hds')  
+    os.makedirs(repo_ref + os.sep +"HDS", exist_ok=True)
 
     for day in range(START_TIME, END_TIME[chronicle]+1):
         refHead = ref_hds.get_data(kstpkper=(0, day))
-        np.save(repo_ref + '/' + 'HDS' + '/' + 'hds_' + str(day) + '.npy', refHead)
+        np.save(repo_ref + os.sep + 'HDS' + os.sep + 'hds_' + str(day) + '.npy', refHead)
         print((day/END_TIME[chronicle])*100, "%")
 
 
@@ -105,7 +105,7 @@ def getNonDryCellHdsValue(hds, nrow, ncol, nlayer):
     return h
 
 def get_mask_data_for_a_site(site_number):
-    mask_file = os.path.join(MAIN_APP_REPO, "data/Masks/", str(site_number) + "_basins.tif")
+    mask_file = os.path.join(MAIN_APP_REPO, "data"+os.sep+"Masks" + os.sep, str(site_number) + "_basins.tif")
     ds = gdal.Open(mask_file)
     cols = ds.RasterXSize
     rows = ds.RasterYSize
@@ -119,9 +119,9 @@ def get_soil_surface_values_for_a_simulation(repo_simu, model_name):
     """
         Retrieve the matrix of the topographical altitude.
     """
-    mf = flopy.modflow.Modflow.load(repo_simu + "/" + model_name + '.nam')
+    mf = flopy.modflow.Modflow.load(repo_simu + os.sep + model_name + '.nam')
     dis = flopy.modflow.ModflowDis.load(
-        repo_simu + "/" + model_name + '.dis', mf)
+        repo_simu + os.sep + model_name + '.dis', mf)
     topo = dis.top._array
     return topo
 
@@ -131,13 +131,13 @@ def topo_file(site_number, chronicle, approx, rate, ref, folder, steady, permeab
         repo = utils.get_path_to_simulation_directory(site_number, chronicle, approx, rate, permeability, steady, ref=True)
     else:
         site_name = utils.get_site_name_from_site_number(site_number)
-        repo = folder + "/" + site_name + "/" + model_name
+        repo = folder + os.sep + site_name + os.sep + model_name
     topo = get_soil_surface_values_for_a_simulation(repo, model_name)
-    np.save(repo + "/soil_surface_topo_"+ model_name + ".npy", topo)
-    print(repo + "/soil_surface_topo_"+ model_name + ".npy")
+    np.save(repo + os.sep + "soil_surface_topo_"+ model_name + ".npy", topo)
+    print(repo + os.sep + "soil_surface_topo_"+ model_name + ".npy")
 
 def get_model_size(coord):
-    r_dem = MAIN_APP_REPO + "/data/MNT_TOPO_BATH_75m.tif"
+    r_dem = MAIN_APP_REPO + os.sep + "data" + os.sep + "MNT_TOPO_BATH_75m.tif"
     xmin = coord[0]
     xmax = coord[1]
     ymin = coord[2]
@@ -162,7 +162,7 @@ def get_model_size(coord):
 
 
 def get_clip_dem(coord):
-    r_dem = MAIN_APP_REPO + "/data/MNT_TOPO_BATH_75m.tif"
+    r_dem = MAIN_APP_REPO + os.sep + "data"+os.sep+"MNT_TOPO_BATH_75m.tif"
     ulY, lrY, ulX, lrX, clip_dem_x, clip_dem_y = get_model_size(coord)
     dem = gdal.Open(r_dem)
     dem_geot = dem.GetGeoTransform()
@@ -172,20 +172,20 @@ def get_clip_dem(coord):
 
 
 def save_clip_dem(site_number, sat, vul, folder, steady, permeability):
-    sites = pd.read_csv(MAIN_APP_REPO + "data/study_sites.txt", sep=',', header=0, index_col=0)
+    sites = pd.read_csv(MAIN_APP_REPO + "data"+os.sep+"study_sites.txt", sep=',', header=0, index_col=0)
     model_name = utils.get_model_name(site_number, chronicle, approx, rate, ref, steady, permeability)
     site_name = utils.get_site_name_from_site_number(site_number)
-    repo_simu = folder + site_name + "/" + model_name
+    repo_simu = folder + site_name + os.sep + model_name
 
     coord = sites._get_values[site_number, 1:5]
     print(coord)
     geot, geotx, geoty, demData = get_clip_dem(coord)
     drv = gdal.GetDriverByName("GTiff")
     if sat:
-        ds = drv.Create(repo_simu + '/' + "SaturationZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) +  '_MNT.tif',
+        ds = drv.Create(repo_simu + os.sep + "SaturationZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) +  '_MNT.tif',
                     demData.shape[1], demData.shape[0], 1, gdal.GDT_Float32)
     if vul:
-        ds = drv.Create(repo_simu + '/' + "VulnerabilityZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) +  '_MNT.tif',
+        ds = drv.Create(repo_simu + os.sep + "VulnerabilityZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) +  '_MNT.tif',
                     demData.shape[1], demData.shape[0], 1, gdal.GDT_Float32)
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(2154)
@@ -193,9 +193,9 @@ def save_clip_dem(site_number, sat, vul, folder, steady, permeability):
     gt = [geotx[0], geot[1], 0, geoty[1], 0, geot[5]]
     ds.SetGeoTransform(gt)
     if sat:
-        values = np.load(repo_simu + "/SaturationZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy")
+        values = np.load(repo_simu + os.sep + "SaturationZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy")
     if vul:
-        values = np.load(repo_simu + "/VulnerabilityZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy")
+        values = np.load(repo_simu + os.sep + "VulnerabilityZones_" + site_name + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy")
 
     ds.GetRasterBand(1).WriteArray(values)
 
@@ -210,11 +210,11 @@ def compute_h_error_by_interpolation(site_number, chronicle, approx, rate, ref, 
     else:
         site_name = utils.get_site_name_from_site_number(site_number)
         print("site_name: ", site_name)
-        repo_ref = folder + "/" + site_name + "/" + ref_name
+        repo_ref = folder + os.sep + site_name + os.sep + ref_name
 
-    topo_ref = np.load(repo_ref + "/soil_surface_topo_"+ ref_name + ".npy")
+    topo_ref = np.load(repo_ref + os.sep + "soil_surface_topo_"+ ref_name + ".npy")
     # Watertable altitude
-    ref_hds = fpu.HeadFile(repo_ref + '/' + ref_name + '.hds')
+    ref_hds = fpu.HeadFile(repo_ref + os.sep + ref_name + '.hds')
     #print("kstpkper: ", ref_hds.get_kstpkper()
     if ref:
         # Get data for alternate simulation
@@ -233,16 +233,16 @@ def compute_h_error_by_interpolation(site_number, chronicle, approx, rate, ref, 
         if folder is None:
             repo_simu = utils.get_path_to_simulation_directory(site_number, chronicle, approx, rate, permeability, steady, ref=False)
         else:
-            repo_simu = folder + '/' + site_name + '/' + simu_name
+            repo_simu = folder + os.sep + site_name + os.sep + simu_name
         # Topographical altitude
         topoSimu = get_soil_surface_values_for_a_simulation(repo_simu, simu_name)
         # Get heads values for simulation
-        simu_hds = fpu.HeadFile(repo_simu + '/' + simu_name + '.hds')
+        simu_hds = fpu.HeadFile(repo_simu + os.sep + simu_name + '.hds')
 
     #Mask to decide which cell to compute
     mask_array, mask_ncol, mask_nrow = get_mask_data_for_a_site(site_number)
     
-    infile_sub = open(MAIN_APP_REPO + "data/Pickle/ExcludedSubB_Site" + str(site_number) + '.pickle','rb')
+    infile_sub = open(MAIN_APP_REPO + "data"+os.sep+"Pickle"+os.sep+"ExcludedSubB_Site" + str(site_number) + '.pickle','rb')
     subcatch_exluded = pickle.load(infile_sub)
     infile_sub.close()
     print("Excluded SubCatchs: ", subcatch_exluded)
@@ -399,53 +399,53 @@ def compute_h_error_by_interpolation(site_number, chronicle, approx, rate, ref, 
     print("hErrorGlobal: ", hErrorGlobal)
 
 
-    with open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE_SUB.csv', 'w') as f:
+    with open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE_SUB.csv', 'w') as f:
         for key in hErrorGlobalSub.keys():
             f.write("%s; %s\n" % (key, hErrorGlobalSub[key]))
 
-    with open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_generic_error_SUB.csv', 'w') as f:
+    with open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_generic_error_SUB.csv', 'w') as f:
         for key in generic_error_Sub.keys():
             f.write("%s; %s\n" % (key, generic_error_Sub[key]))
 
 
-    with open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv', 'w') as f:
+    with open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv', 'w') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow(['H Error'])
         writer.writerow([hErrorGlobal])
-    print("Results saved here:", repo_simu) # + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv')
+    print("Results saved here:", repo_simu) # + os.sep + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv')
 
     # print("Saving files...")
-    # outfile_s = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_s' +'.pickle','wb')
+    # outfile_s = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_s' +'.pickle','wb')
     # pickle.dump(dict_simuWatertableAltitude,outfile_s)
     # outfile_s.close()
     # print("Saved files:", "1/6")
 
     # print("Saving files...")
-    # outfile_r = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_r' +'.pickle','wb')
+    # outfile_r = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_r' +'.pickle','wb')
     # pickle.dump(dict_r,outfile_r)
     # outfile_r.close()
     # print("Saved files:", "2/6")
 
     # print("Saving files...")
-    # outfile_d = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_d' +'.pickle','wb')
+    # outfile_d = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_d' +'.pickle','wb')
     # pickle.dump(dict_depth,outfile_d)
     # outfile_d.close()
     # print("Saved files:", "3/6")
 
     # print("Saving files...")
-    # outfile_WsRef = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsRef' +'.pickle','wb')
+    # outfile_WsRef = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_WsRef' +'.pickle','wb')
     # pickle.dump(dict_WsRef,outfile_WsRef)
     # outfile_WsRef.close()
     # print("Saved files:", "4/6")
 
     # print("Saving files...")
-    # outfile_WsSimu = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsSimu' +'.pickle','wb')
+    # outfile_WsSimu = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_WsSimu' +'.pickle','wb')
     # pickle.dump(dict_WsSimu,outfile_WsSimu)
     # outfile_WsSimu.close()
     # print("Saved files:", "5/6")
 
     # print("Saving files...")
-    # outfile_generic_error = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_generic_error' +'.pickle','wb')
+    # outfile_generic_error = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_generic_error' +'.pickle','wb')
     # pickle.dump(generic_error,outfile_generic_error)
     # outfile_generic_error.close()
     # print("Saved files:", "6/6")
@@ -473,11 +473,11 @@ def dev_computeH(site_number, chronicle, approx, rate, ref, folder, permeability
     else:
         site_name = utils.get_site_name_from_site_number(site_number)
         print("site_name: ", site_name)
-        repo_ref = folder + "/" + site_name + "/" + ref_name
+        repo_ref = folder + os.sep + site_name + os.sep + ref_name
 
-    topo_ref = np.load(repo_ref + "/soil_surface_topo_"+ ref_name + ".npy")
+    topo_ref = np.load(repo_ref + os.sep + "soil_surface_topo_"+ ref_name + ".npy")
     # Watertable altitude
-    ref_hds = fpu.HeadFile(repo_ref + '/' + ref_name + '.hds')
+    ref_hds = fpu.HeadFile(repo_ref + os.sep + ref_name + '.hds')
     #print("kstpkper: ", ref_hds.get_kstpkper()
     if ref:
         # Get data for alternate simulation
@@ -497,16 +497,16 @@ def dev_computeH(site_number, chronicle, approx, rate, ref, folder, permeability
         if folder is None:
             repo_simu = utils.get_path_to_simulation_directory(site_number, chronicle, approx, rate, permeability, steady, ref=False)
         else:
-            repo_simu = folder + '/' + site_name + '/' + simu_name
+            repo_simu = folder + os.sep + site_name + os.sep + simu_name
         # Topographical altitude
         topoSimu = get_soil_surface_values_for_a_simulation(repo_simu, simu_name)
         # Get heads values for simulation
-        simu_hds = fpu.HeadFile(repo_simu + '/' + simu_name + '.hds')
+        simu_hds = fpu.HeadFile(repo_simu + os.sep + simu_name + '.hds')
 
     #Mask to decide which cell to compute
     mask_array, mask_ncol, mask_nrow = get_mask_data_for_a_site(site_number)
     
-    infile_sub = open(MAIN_APP_REPO + "data/Pickle/ExcludedSubB_Site" + str(site_number) + '.pickle','rb')
+    infile_sub = open(MAIN_APP_REPO + "data"+os.sep+"Pickle"+os.sep+"ExcludedSubB_Site" + str(site_number) + '.pickle','rb')
     subcatch_exluded = pickle.load(infile_sub)
     infile_sub.close()
     print("Excluded SubCatchs: ", subcatch_exluded)
@@ -651,41 +651,41 @@ def dev_computeH(site_number, chronicle, approx, rate, ref, folder, permeability
     print("hErrorGlobal: ", hErrorGlobal)
 
 
-    with open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE_SUB_TEST.csv', 'w') as f:
+    with open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE_SUB_TEST.csv', 'w') as f:
         for key in hErrorGlobalSub.keys():
             f.write("%s; %s\n" % (key, hErrorGlobalSub[key]))
 
-    with open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv_TEST', 'w') as f:
+    with open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv_TEST', 'w') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow(['H Error'])
         writer.writerow([hErrorGlobal])
-    print(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv_TEST')
+    print(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_errorsresult_H_BVE.csv_TEST')
 
     # variables = [dict_s, dict_d, dict_r, dict_WsRef, dict_WsSimu]
     # var_names = ['s', 'd', 'r', 'WsRef', 'WsSimu']
 
-    outfile_s = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_s' +'.pickle_TEST','wb')
+    outfile_s = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_s' +'.pickle_TEST','wb')
     pickle.dump(dict_s,outfile_s)
     outfile_s.close()
 
-    outfile_r = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_r' +'.pickle_TEST','wb')
+    outfile_r = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_r' +'.pickle_TEST','wb')
     pickle.dump(dict_r,outfile_r)
     outfile_r.close()
 
 
-    outfile_d = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_d' +'.pickle_TEST','wb')
+    outfile_d = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_d' +'.pickle_TEST','wb')
     pickle.dump(dict_d,outfile_d)
     outfile_d.close()
 
-    outfile_WsRef = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsRef' +'.pickle_TEST','wb')
+    outfile_WsRef = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_WsRef' +'.pickle_TEST','wb')
     pickle.dump(dict_WsRef,outfile_WsRef)
     outfile_WsRef.close()
 
-    outfile_WsSimu = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_WsSimu' +'.pickle_TEST','wb')
+    outfile_WsSimu = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_WsSimu' +'.pickle_TEST','wb')
     pickle.dump(dict_WsSimu,outfile_WsSimu)
     outfile_WsSimu.close()
 
-    # infile_s = open(repo_simu + "/" + simu_name + '_Ref_' + ref_name + '_' + 's' +'.pickle','rb')
+    # infile_s = open(repo_simu + os.sep + simu_name + '_Ref_' + ref_name + '_' + 's' +'.pickle','rb')
     # reload_s = pickle.load(infile_s)
     # infile_s.close()
     # print("dict_s", dict_s[0][55][55])
@@ -693,8 +693,8 @@ def dev_computeH(site_number, chronicle, approx, rate, ref, folder, permeability
  
 
 
-    np.save(repo_simu + "/SaturationZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy_TEST", saturated_zones)
-    np.save(repo_simu + "/VulnerabilityZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy_TEST", vulnerable_zones)
+    np.save(repo_simu + os.sep + "SaturationZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy_TEST", saturated_zones)
+    np.save(repo_simu + os.sep + "VulnerabilityZones_Site_" + str(site_number) + "_Chronicle_"+ str(chronicle) + "_Approx_" + str(approx) + "_Rate_" + str(rate) + ".npy_TEST", vulnerable_zones)
 
     return nbrowtot, nbcoltot
 
@@ -706,11 +706,11 @@ def getSaturatedZoneArea(site_number, chronicle, approx, rate, folder, ref, stea
         repo_simu = utils.get_path_to_simulation_directory(site_number, chronicle, approx, rate, permeability, steady, ref)
     else :
         site_name = utils.get_site_name_from_site_number(site_number)
-        repo_simu = folder + site_name + "/" + model_name
+        repo_simu = folder + site_name + os.sep + model_name
 
     topoSimu = get_soil_surface_values_for_a_simulation(repo_simu, model_name)
 
-    simuHds = fpu.HeadFile(repo_simu + '/' + model_name + '.hds')
+    simuHds = fpu.HeadFile(repo_simu + os.sep + model_name + '.hds')
     # simuTimes = simuHds.get_times()
     # simuKstpkper = simuHds.get_kstpkper()
     # print(simuTimes, simuKstpkper)
@@ -736,7 +736,7 @@ def getSaturatedZoneArea(site_number, chronicle, approx, rate, folder, ref, stea
     
 
 
-    with open(repo_simu + "/" + model_name + '_extracted_features.csv', 'w') as f:
+    with open(repo_simu + os.sep + model_name + '_extracted_features.csv', 'w') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow(['Satured Zone Area', 'Vulnerability Sum', 'Vulnerability Rate', 'Global Area of site (in cells)'])
         writer.writerow([saturated_area, Ws_sum, Ws_sum/size_site, size_site])
@@ -766,7 +766,7 @@ def dev_get_computed_bassin_Mask(site_number):
                 subs_to_exclude.append(mask_array[row][col])
     #print(subs_to_exclude)
 
-    with open(MAIN_APP_REPO + "data/Pickle/ExcludedSubB_Site" + str(site_number) + '.csv', 'w') as f:
+    with open(MAIN_APP_REPO + "data"+os.sep+"Pickle"+os.sep+"ExcludedSubB_Site" + str(site_number) + '.csv', 'w') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow(subs_to_exclude)
 
@@ -778,7 +778,7 @@ def dev_get_computed_bassin_Mask(site_number):
     #         if np.isnan(mask_array[row][col]):
     #             print("nan")
 
-    outfile = open(MAIN_APP_REPO + "data/Pickle/ExcludedSubB_Site" + str(site_number) + '.pickle','wb')
+    outfile = open(MAIN_APP_REPO + "data"+os.sep+"Pickle"+os.sep+"ExcludedSubB_Site" + str(site_number) + '.pickle','wb')
     pickle.dump(subs_to_exclude,outfile)
     outfile.close()
 
