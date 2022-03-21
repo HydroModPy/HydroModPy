@@ -51,5 +51,5 @@ print("Analysis finished.")
 ## Actual Computation
 ## BE AWARE: TAKES QUITE SOME TIME TO EXECUTE: May be ~1or2hours
 print("Computing of the H indicator starting...")
-ErrorComput.compute_h_error_by_interpolation(site_number=site, chronicle=chronicle, approx=approx, rate=rate, ref=ref, folder=folder, permeability=perm, steady=False, time_step=1)
+#ErrorComput.compute_h_error_by_interpolation(site_number=site, chronicle=chronicle, approx=approx, rate=rate, ref=ref, folder=folder, permeability=perm, steady=False, time_step=1)
 print("Computation of H indicator finished.")
