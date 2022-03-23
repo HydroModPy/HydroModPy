@@ -48,12 +48,12 @@ def vtk_export_watertable(modelname, modelfolder, coord):
     # else:
     #     tsn = kstpkper
 
-    textoVtk = open(modelfolder+'output_files/VTU_WaterTable.pvd', 'w')
+    textoVtk = open(modelfolder+'output_files'+ os.sep + 'VTU_WaterTable.pvd', 'w')
     textoVtk.write('<VTKFile type="Collection" version="0.1">\n')
     textoVtk.write('  <Collection>\n')
     for time_step in tsn:
         #time_step = tsn[time_step_num]
-        textoVtk.write('    <DataSet timestep="' + str(time_step) + '" part="0" file="'+modelfolder+'output_files/VTU_WaterTable_' + str(
+        textoVtk.write('    <DataSet timestep="' + str(time_step) + '" part="0" file="'+modelfolder+'output_files'+os.sep+'VTU_WaterTable_' + str(
             time_step) + '.vtu" />\n')
     textoVtk.write('  </Collection>\n')
     textoVtk.write('</VTKFile>\n')
@@ -272,7 +272,7 @@ def vtk_export_watertable(modelname, modelfolder, coord):
             drawdown = modDis['cellCentroidZList']['lay0'][item] - listWaterTableCellDef[item]
             listDrawdownCellDef.append(drawdown)
 
-        textoVtk = open(modelfolder+'output_files/VTU_WaterTable_' + str(time_step) + '.vtu', 'w')
+        textoVtk = open(modelfolder+'output_files'+os.sep+'VTU_WaterTable_' + str(time_step) + '.vtu', 'w')
         # add header
         textoVtk.write(
             '<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
