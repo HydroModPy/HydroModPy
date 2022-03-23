@@ -1,10 +1,10 @@
 import os, sys
-lib_path = os.path.abspath(os.path.join(__file__, 'docker_simulation', 'modflow', 'custom_utils'))
+lib_path = os.path.abspath(os.path.join(__file__, 'modflow', 'custom_utils'))
 sys.path.append(lib_path)
 
-from docker_simulation.modflow.custom_utils import InputFileManipulation
-from docker_simulation.modflow import settings_model
-from docker_simulation.modflow import ErrorComput
+from modflow.custom_utils import InputFileManipulation
+from modflow import settings_model
+from modflow import ErrorComput
 
 ### Definition of the values of the parameters
 approx=0
