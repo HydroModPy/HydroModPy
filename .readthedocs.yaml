@@ -31,4 +31,4 @@ formats:
 #      - requirements: requirements.txt
 
 conda:
-   environment: CORE_COMM/readme/environment.yml
+   environment: CORE_COMM/readme/hydromodpy.yml
