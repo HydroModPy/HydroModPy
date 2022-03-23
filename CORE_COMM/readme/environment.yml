@@ -6,7 +6,7 @@
 name: hydromodpy
 channels:
     - conda-forge
-    #- defaults
+    - defaults
 dependencies:
     # Obvious
     - python=3.8.10
