@@ -57,6 +57,7 @@ plt.rcParams.update({
   "font.family": "Helvetica"
 })
 
+<<<<<<< Updated upstream
 
 '''
 01423X0044-F4:86.88382635251185
@@ -67,6 +68,8 @@ PzAC4:25.316484786313556
 PzAC2:28.40883690183304
 '''
 
+=======
+>>>>>>> Stashed changes
 name = [r'$01423X0044-F4$',r'$PzAC5$',r'$PzAC3$',r'$PzAC1$',r'$PzAC4$',r'$PzAC2$']
 code = ['01423X0044_F4','AC5','AC3','AC1','AC4','AC2']
 colors = ['r','b','g','m','k','y']
@@ -74,9 +77,14 @@ start = ['08/2015','08/2017','09/2017','08/2017','-','07/1/2017']
 end = ['09/2015','10/2017','10/2017','09/2017','-','8/15/2017'] 
 x_mer = [465, 115, 480, 640,430,635]
 axis = [(0,0),(0,1),(0,2),(1,0),(1,2),(1,1)]
+<<<<<<< Updated upstream
 K= [86.88, 15.24, 86.88, 86.88, 86.88, 86.88]
 K=[6,1,6,6,6,6]
 phi = [13,8,12,9,0,1]
+=======
+K= [6.01, 1.14, 10, 6.01, 6.01, 6.01]
+phi = [1,8,10,10,0,3]
+>>>>>>> Stashed changes
 Awell = [0.25,1,0.4,0.15,0,0.10]
 E = 30
 n=0.025
@@ -103,7 +111,11 @@ for i in range (0, len(name)):
     
         
         ax[axis[i]].plot(t,h,'-k',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
+<<<<<<< Updated upstream
         #ax[axis[i]].plot(t,h2,'-r',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
+=======
+        ax[axis[i]].plot(t,h2,'-r',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
+>>>>>>> Stashed changes
         #ax[axis[i]].plot(t,htide,'-b',alpha=0.5,lw=2, label=r'$h(x,\,t)$')
         amp = (np.nanmax(y) - np.nanmin(y))/4
         ax[axis[i]].set_ylim(np.nanmin(y)-amp/10,np.nanmax(y)+amp)

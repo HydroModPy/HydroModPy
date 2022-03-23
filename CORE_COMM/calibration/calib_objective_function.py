@@ -227,10 +227,16 @@ class Hydrometry:
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        self.listing_indicator = pd.DataFrame(columns=
-                                              ['ER','ABSER','RELER','PERER',
-                                               'MAE','BAL','MSE','RMSE','MARE',
-                                               'KGE','PBIAS','NSE','NSElog'])
+        indicator_path = os.path.join(self.param_folder, self.model, '_watershed', '_listing_indicator.csv')
+        if not os.path.exists(indicator_path):
+            self.listing_indicator = pd.DataFrame(columns=
+                                                  ['ER','ABSER','RELER','PERER',
+                                                   'MAE','BAL','MSE','RMSE','MARE',
+                                                   'KGE','PBIAS','NSE','NSElog'])
+        else:
+            self.listing_indicator = pd.read_csv(indicator_path, sep=';')
+            self.listing_indicator = self.listing_indicator.iloc[: , 1:]
+            
         if len(self.watershed.forcing.recharge) > 1:
             c_path = os.path.join(self.watershed.stable_folder, 'hydrometry')
             codes_path = glob.glob(os.path.join(c_path, 'Hydrometric_*'))
@@ -250,14 +256,17 @@ class Hydrometry:
                     df = df / (area * 1000000) # m/j
                     df.columns = [code]
                     
+                    df_runoff = self.watershed.forcing.runoff.values
+                    
                     df_sim = self.outflow_drain.copy()
                     df_sim = df_sim.rename('sim_' + code)
-            
+                    df_sim = df_sim + df_runoff
+                    
                     df = df.merge(df_sim, left_index=True, right_index=True)
     
                     y0 = df[code].values
                     y1 = df['sim_' + code].values
-                                        
+            
                     ER = np.nansum(y0-y1) # error 
                     ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
                     RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
@@ -270,7 +279,7 @@ class Hydrometry:
                     KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
                     PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
                     NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency (add '1-' ==> actual NSE)
-                    NSElog = 1-he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+                    NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
                     
                     self.store_indicator.append(NSElog)
                     

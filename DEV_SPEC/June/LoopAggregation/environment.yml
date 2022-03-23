@@ -1,15 +1,22 @@
+# Usage:
+#     conda env create -f environment.yml
+#     conda activate loopagg
+
+
 name: loopagg
 
 channels:
     - conda-forge
 
 dependencies:
-    - python=3.10.2
-    - pip=21.0
+    - python
+    - pip
 
-    - pandas=1.4.1
-    - flopy=3.3.5
-    - matplotlib=3.5.1
-    - numpy=1.22.2
-    - scipy=1.8.0
+    - pandas
+    - flopy
+    - matplotlib
+    - numpy
+    - scipy
+    - GDAL
+    - spyder
 

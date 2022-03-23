@@ -6,18 +6,18 @@
 name: hydromodpy
 channels:
     - conda-forge
-    #- defaults
+    - defaults
 dependencies:
     # Obvious
     - python=3.8.10
     - ipykernel=6.2.0
     - pip=21.0.1
     - pip:
-        - hydroeval
-        - geopy
-        - pyproj
-        - contextily
-        - colormap #pip install easydev may be necessary
+        - hydroeval=0.1.0
+        - geopy=2.2.0
+        - pyproj=3.3.0
+        - contextily=1.2.0
+        - colormap=1.3.0 #pip install easydev may be necessary
 
     # Main processing libraries
     - numpy=1.21.2
@@ -42,13 +42,10 @@ dependencies:
     
     # Post-processing
     - matplotlib=3.4.2
-    - matplotlib-scalebar
+    - matplotlib-scalebar=0.8.0
     - vedo=2021.0.6
 
     # Viewing notebooks
     - jupyter=1.0.0
     - jupyterlab=3.1.0
-    - spyder=5.1.5
-
-    - jupyter_sphinx
-    - sphinx-autodoc-typehints
+    - spyder=5.0.5

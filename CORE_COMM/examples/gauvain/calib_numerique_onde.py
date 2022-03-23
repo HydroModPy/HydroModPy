@@ -178,6 +178,7 @@ n = np.ones((1,L))
 n[0][0:dsea] = 0.025#np.logspace(np.log10(n0),np.log10(nL),dsea)
 n[0][dsea:L] = 0.25
 porosity.append(n)
+
 porosity.append(0.28)
 bot = np.linspace(-30,-30,L)#-29.52
 bot = bot[::-1]
@@ -193,6 +194,9 @@ for i in range (0,len(model_name)):
        run_model(model_name[i],exe,full_path,climatic=climatic ,porosity=porosity[i], L=L, dsea=dsea,bot = bot,hyd_cond =hyd_cond[i])
     
 
+for i in range (0,len(model_name)):
+    run_model(model_name[i],exe,full_path,porosity=porosity[i], L=L, dsea=dsea)
+#%%
 import flopy.utils.binaryfile as fpu
 import matplotlib.pyplot as plt
 import matplotlib
@@ -202,12 +206,18 @@ plt.rcParams.update({
   "font.family": "Helvetica"
 })
 
+
 fig, ax1 = plt.subplots(figsize=(5,5))
 #♣ax1 = ax
 #ax2 = ax[1]
 colors=['r','k','g','m']
 line = ['-','--','-.']
 name = ['$S_{y}=2.5\%$','$S_{y}=29\%$','$S_{y}=2.5\%-S_{y}=29\%$','$K=10K1-S_{y}=29\%$']
+
+
+fig, ax = plt.subplots(figsize=(5,5))
+colors=['r','k','g']
+name = ['$n=2.5\%$','$n=28\%$','$n=2.5\%-n=28\%$']
 
 for i in range (0,len(model_name)):
     head_file = os.path.join(full_path,model_name[i]+'.hds')
@@ -231,11 +241,17 @@ for i in range (0,len(model_name)):
     h.plot(ax=ax1, c=colors[i],lw = 1)
 h = pd.DataFrame(data=BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].values, index=climatic.index, columns=['$01423X0044\_F4$'])
 h.plot(ax=ax1, c='b',lw=1)
+
+    hpiezo = []
+    for t in time:
+        hpiezo.append(head[int(t)][0][0][dsea])
+
+    h = pd.DataFrame(data=hpiezo, index=climatic.index, columns=[name[i]])
+    h.plot(ax=ax, c=colors[i],lw = 1)
+h = pd.DataFrame(data=BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].values, index=climatic.index, columns=['$01423X0044\_F4$'])
+h.plot(ax=ax, c='b',lw=1)
 plt.ylabel('$h$ $[m]$')
 #BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].plot(c='b',ax=ax,label=BV.piezometry.codes_bss[0])
 #hobs.plot(c='b',ax=ax,label=BV.piezometry.codes_bss[0])
 plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/analysis_n.png',dpi=300, bbox_inches = "tight")
-
-
-
 

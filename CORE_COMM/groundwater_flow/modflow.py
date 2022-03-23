@@ -277,7 +277,7 @@ class Modflow():
                               watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
                               groundwater_flux = True, specific_discharge = False,
-                              accumulation_flux = True, perenn_intermit = False,
+                              accumulation_flux = True, perenn_intermit_shp = False,
                               groundwater_storage = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
@@ -479,15 +479,21 @@ class Modflow():
                     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
             
+            # Surface flow activation
+            surface_flow = routing_accflux.RoutingAccflux(self.geographic,
+                                                          'outflow_drain_t('+lead_numb+').tif',
+                                                          'tracept_t('+lead_numb+').shp',
+                                                          'accumulation_flux_t('+lead_numb+').tif',
+                                                          extraction_folder=self.save_file)
+            
             if accumulation_flux == True:
                 ### Accumulation flux
-                routing_accflux.RoutingAccflux(self.geographic,
-                                           'outflow_drain_t('+lead_numb+').tif',
-                                           'tracept_t('+lead_numb+').shp',
-                                           'accumulation_flux_t('+lead_numb+').tif',
-                                           extraction_folder=self.save_file)
+                surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
                 self.dict_accumulation_flux[item] = imageio.imread(output_path)
+        
+            if perenn_intermit_shp == True:
+                surface_flow.trace_downslope()
         
         # Save dictionaries to npy
         try:
@@ -503,14 +509,18 @@ class Modflow():
                 np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
             if specific_discharge == True:   
                 np.save(self.save_file+'/specific_discharge', self.dict_specific_discharge)
-            if accumulation_flux == True:
-                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
             if groundwater_storage == True:
                 np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         except:
             pass
         
-        if perenn_intermit == True:
+        try:
+            if accumulation_flux == True:
+                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+        except:
+            pass
+        
+        if perenn_intermit_shp == True:
             self.list_traces = sorted(glob.glob(self.surfaceflow_file+'/'+'tracept_t*.shp'), key=os.path.getmtime)
             # print(self.list_traces)
             cpt = 1
@@ -545,6 +555,7 @@ class Modflow():
                 inf+=12
                 sup+=12
                 cpt+=1
+                
 
 #%% notes
 

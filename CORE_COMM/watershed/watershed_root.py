@@ -379,7 +379,7 @@ class Watershed:
                        groundwater_flux = True,
                        specific_discharge = False,
                        accumulation_flux = True,
-                       perenn_intermit=True,
+                       perenn_intermit_shp=True,
                        groundwater_storage = False,
                        verbose = True,
                        export_tif = True,
@@ -394,7 +394,7 @@ class Watershed:
                                        groundwater_flux = groundwater_flux,
                                        specific_discharge = specific_discharge,
                                        accumulation_flux = accumulation_flux,
-                                       perenn_intermit=perenn_intermit,
+                                       perenn_intermit_shp=perenn_intermit_shp,
                                        groundwater_storage = groundwater_storage,
                                        verbose = verbose,
                                        export_tif = export_tif)
@@ -406,13 +406,15 @@ class Watershed:
         else:
             model_folder = calib
             
-        modflow_results.Results(self.geographic,
+        results = modflow_results.Results(self.geographic,
                                 recharge=self.forcing.recharge,
                                 actual_date=actual_date,
                                 start=start,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,
                                 model_folder=model_folder)
+        simulated_results = results.mfdata
+        return simulated_results
                 
     def run_hs1D(self):
         """

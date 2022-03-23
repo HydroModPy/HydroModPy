@@ -41,19 +41,8 @@ class RoutingAccflux:
         self.abs_rast_path = os.path.join(self.shp_folder, '_abs_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
-        self.trace_downslope()
-        self.trace_cumulated()
-
-    def trace_downslope(self):
-        # Sim to points
-        wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
-        # Trace downslope sim
-        wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc, self.out_rast_path)
-        # Simflow to points
-        wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
-        # Extra
-        wbt.add_point_coordinates_to_table(self.out_pt_path)
-        wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
+        # self.trace_downslope()
+        # self.trace_cumulated()
 
     def trace_cumulated(self):
         ### Loading ###
@@ -71,3 +60,17 @@ class RoutingAccflux:
         ### d8massflux ###
         wbt.d8_mass_flux(self.watershed_buff_fill, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
         
+    def trace_downslope(self):
+        # Sim to points
+        wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
+        # print('raster_to_vector_points')
+        # # Trace downslope sim
+        wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc, self.out_rast_path)
+        # print('trace_downslope_flowpaths')
+        # # # Simflow to points
+        wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
+        # print('raster_to_vector_points')
+        # # Extra
+        # wbt.add_point_coordinates_to_table(self.out_pt_path)
+        # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
+        # print('extract_raster_values_at_points')

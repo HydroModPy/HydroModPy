@@ -18,7 +18,7 @@ from . import helpers as hlp
 
 
 def extract_df_from_ref_input_file(input_name):
-    input_path = os.path.join('/'.join(os.path.realpath(__file__).split('/')[:-2]), "data", input_name)
+    input_path = os.path.join(os.sep.join(os.path.realpath(__file__).split(os.sep)[:-2]), "data", input_name)
     df = pd.read_csv(input_path, sep='\t', dtype=np.float64)
     return df
 
@@ -166,7 +166,7 @@ def change_time_step(df, timestepValue):
 
 def write_custom_input_file(modelname, df):
     outputname = "input_file_" + modelname + ".txt"
-    filepath = os.path.join('/'.join(os.path.realpath(__file__).split('/')[:-2]) , "data", outputname)
+    filepath = os.path.join(os.sep.join(os.path.realpath(__file__).split(os.sep)[:-2]) , "data", outputname)
     df.to_csv(filepath, sep="\t", index=False)
     return outputname
 
@@ -223,12 +223,12 @@ def manipulate_ref_input_file_no_agg(template_name,  approx, rate, steady, time_
 
 def generate_custom_input_file(model_name, approx, rate, chronicle, steady, time_step=None):
     # TO DO : change name model_name for all case (steady, approx =1, etc)
-    folder_path = '/'.join((os.path.dirname((os.path.abspath(__file__)))).split('/')[:-1])
-    chronicle_file = pd.read_table(folder_path + "/data/chronicles.txt", sep=',', header=0, index_col=0)
+    folder_path = os.sep.join((os.path.dirname((os.path.abspath(__file__)))).split(os.sep)[:-1])
+    chronicle_file = pd.read_table(folder_path + os.sep + "data" + os.sep + "chronicles.txt", sep=',', header=0, index_col=0)
     template_file = chronicle_file.template[chronicle]
     df = manipulate_ref_input_file(template_file,  approx, rate, steady, time_step=time_step)
     if model_name is None:
-        model_name = "Step1_Chronicle" + str(chronicle) + "_Approx" + str(approx) + "_Period" + str(rate)
+        model_name = "Step1_Chronicle" + str(chronicle) + "_Approx" + str(approx) + "_Period" + str(float(rate))
     output_name = write_custom_input_file(model_name, df)
     return output_name
 
