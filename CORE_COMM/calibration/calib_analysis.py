@@ -132,14 +132,14 @@ class CalibAnalysis:
                 if self.names[i][0] == 'n':
                     if i == 0:
                         if self.names[i][1]=='0':
-                            plt.xlabel(r'$n$ $[-]$')
+                            plt.xlabel(r'$S_{y}$ $[-]$')
                         else:
                             plt.xlabel(r'$n$'+str(self.names[i][1])+' $[-]$')
                     if i == 1:
                         if self.names[i][1] == '0':
-                            plt.ylabel(r'$n$ $[-]$')
+                            plt.ylabel(r'$S_{y}$ $[-]$')
                         else:
-                            plt.ylabel(r'$n$'+str(self.names[i][1])+' $[-]$')
+                            plt.ylabel(r'$S_{y}$'+str(self.names[i][1])+' $[-]$')
             
             if self.observations == ['piezometry']:
                 plt.colorbar(label=r'$RMSE$')

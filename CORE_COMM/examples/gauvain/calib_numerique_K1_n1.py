@@ -64,7 +64,7 @@ if watershed_name == 'Agon-Coutainville':
     zones[BV.geology.geology_array == 35] = int(2)
 plt.imshow(zones)
 BV.hydrodynamic.update_calib_zones(zones)
-K2 = 0.16859
+K2 = 1
 #K1 = 6.01
 BV.hydrodynamic.update_hyd_cond_from_calib_zones(2, K2)
 #BV.hydrodynamic.update_hyd_cond_from_calib_zones(1, K1)
@@ -74,7 +74,7 @@ from calibration import calib_root
 #◘calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 #calib.exploration(resolution=1000)
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
-calib.exploration(resolution=25)
+calib.exploration(resolution=100)
 #calib = calib_root.Calibration(params_file, BV, observations = ['streams','piezometry'])
 #calib.exploration(resolution=100)
 #calib.dichotomy(gap=10)
@@ -90,4 +90,4 @@ name_file = list_path[0].split('\\')[-1]
 calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
 test = calib_analysis.CalibAnalysis(calib_file)
 
-test.display_objective_function(save='C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+params_file+'.png',vmax=2 ,log=False)
+test.display_objective_function(save='C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+params_file+'.png',vmax= 1.3,log=False)

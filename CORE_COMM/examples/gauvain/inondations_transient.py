@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar  7 09:35:45 2022
+Created on Sun Mar 20 23:25:20 2022
 
 @author: Alexandre Gauvain
 """
@@ -47,21 +47,60 @@ hydrology_path = root_path + 'HYDROLOGY'
 types_obs = ['streams_fr']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
-#%% Add Data
-if load == False:
-    BV.add_surfex(surfex_path) 
-    BV.add_geology(geology_path,'GEO50K.shp','CODE_LEG') 
-    BV.add_hydrology(hydrology_path,types_obs=types_obs)
-    BV.add_oceanic(oceanic_path)
-    #BV.add_hydrometry(hydrometry_path)
-    #BV.add_intermittency(intermittency_path)
-    #BV.add_subbasin()
-    BV.add_piezometry()
-    BV.piezometry.add_data()
-    BV.save_object()
 
-#BV.display(dtype = 'watershed_dem')
-#BV.display(dtype = 'watershed_geology')
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1996, last_year=2005, time_step = 'D', sim_state='transient')#
+
+
+climatic = BV.forcing.recharge.copy()
+
+
+
+ext_period = BV.forcing.recharge['08/2000':'08/2001']
+Recharge = []
+Recharge.append(climatic)
+first_sce = climatic.copy()
+first_sce['08/1996':'08/1997'] = ext_period
+first_sce['08/2004':'08/2005'] = ext_period
+Recharge.append(first_sce)
+second_sce = climatic.copy()
+second_sce['08/1996':'08/1997'] = ext_period
+second_sce['08/2004':'08/2005'] = ext_period
+second_sce['08/1998':'08/1999'] = ext_period
+second_sce['08/2002':'08/2003'] = ext_period
+Recharge.append(second_sce)
+
+plt.rcParams.update({
+  "text.usetex": True,
+  "font.family": "Helvetica"
+})
+
+font = {'family' : 'normal',
+        'weight' : 'bold',
+        'size'   : 30}
+
+fig, ax = plt.subplots(figsize=(10,5), dpi=300)
+second_sce.plot(color='k',ax=ax, label='Scenario 2')
+first_sce.plot(color='r',ax=ax, label='Scenario 1')
+climatic.plot(color='b',ax=ax, label='Historic')
+period = 365*4
+#climatic.rolling(period,1).mean().plot(ax=ax)
+#second_sce.rolling(period,1).mean().plot(color='k',ax=ax)
+#first_sce.rolling(period,1).mean().plot(color='r',ax=ax)
+ax.text('1997',0.009,'(1)',size = 20,c='r',ha='center', va='center')
+ax.text('2001',0.009,'(1)',size = 20,c='r',ha='center', va='center')
+ax.text('2005',0.009,'(1)',size = 20,c='r',ha='center', va='center')
+
+ax.text('2001',0.01,'(2)',size = 20,c='k',ha='center', va='center')
+ax.text('1997',0.01,'(2)',size = 20,c='k',ha='center', va='center')
+ax.text('1999',0.01,'(2)',size = 20,c='k',ha='center', va='center')
+ax.text('2003',0.01,'(2)',size = 20,c='k',ha='center', va='center')
+ax.text('2005',0.01,'(2)',size = 20,c='k',ha='center', va='center')
+
+plt.legend(prop={'size':14})
+
+ax.set_xlabel(r'$Date$') 
+ax.set_ylabel(r'$Recharge$ $[m.d^{-1}]$')
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/chronicle.png',dpi=300, bbox_inches = "tight")
 
 #%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
@@ -82,52 +121,25 @@ K[zones==2]=K2
 BV.display(dtype = 'watershed_zones')
 
 
-#%%
-from tools import vtk
-from groundwater_flow import visualization
-
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')#
 BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.28)
+BV.hydrodynamic.update_porosity(0.29)
 BV.hydrodynamic.update_hyd_cond(K)
 
-fact_cond = np.around(np.linspace(-5,-3,10),2)
+fact_cond = np.around(np.linspace(-5,-3,3),2)
 MSL = np.around([BV.oceanic.MSL, 
        BV.oceanic.RMSL['RCP8.5']['median']['2030'].mean(),
        BV.oceanic.RMSL['RCP8.5']['median']['2050'].mean(),
        BV.oceanic.RMSL['RCP8.5']['median']['2100'].mean(),
        BV.oceanic.MSL+1,
        BV.oceanic.MSL+2],2)
-Recharge = np.around([BV.forcing.recharge*0.3+BV.forcing.recharge,
-            BV.forcing.recharge*0.2+BV.forcing.recharge,
-            BV.forcing.recharge*0.1+BV.forcing.recharge,
-            BV.forcing.recharge*0+BV.forcing.recharge,
-            BV.forcing.recharge*-0.1+BV.forcing.recharge,
-            BV.forcing.recharge*-0.2+BV.forcing.recharge,
-            BV.forcing.recharge*-0.3+BV.forcing.recharge],5)
+sce = ['H','1','2']
 
-#%%
 for c in fact_cond:
-    for s in MSL:
-        for r in Recharge:
-            ident= 'mod_cond_'+str(c)+'_sea_'+str(s)+'_rech_'+str(r)
-            BV.forcing.update_recharge(r,'steady')
+    for i in range(len(Recharge)):
+        for s in MSL:
+            ident= 'mod_cond_'+str(c)+'_sea_'+str(s)+'_rech_'+str(sce[i])
+            BV.forcing.update_recharge(Recharge[i],'transient')
             BV.oceanic.update_MSL(s)
-            succes, mf = BV.run_modflow(ident=ident, modpath_sim=True, lay_number=1, multip_cond=(10**c)*24*60*60,verbose=True)
-            BV.matrix_modflow(succes,
-                       mf,
-                       watertable_elevation = True,
-                       watertable_depth=True, 
-                       seepage_areas = True,
-                       outflow_drain = True,
-                       groundwater_flux = False,
-                       specific_discharge = False,
-                       accumulation_flux = True,
-                       perenn_intermit=False,
-                       verbose = False,
-                       export_tif = True)
-    
-            visu = visualization.Visualization(BV, ident)
-            #object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times']
-            visu.visual2D(object_list = ['drain_flow'],
-              color_scale = [(-1,2)], lines=300, structure='h')
+            succes, mf = BV.run_modflow(ident=ident, modpath_sim=False, lay_number=1, multip_cond=(10**c)*24*60*60,verbose=True)
+
