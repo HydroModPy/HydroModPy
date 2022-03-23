@@ -134,12 +134,19 @@ MSL = np.around([BV.oceanic.MSL,
        BV.oceanic.MSL+1,
        BV.oceanic.MSL+2],2)
 sce = ['H','1','2']
-
+#%%
 for c in fact_cond:
     for i in range(len(Recharge)):
         for s in MSL:
             ident= 'mod_cond_'+str(c)+'_sea_'+str(s)+'_rech_'+str(sce[i])
-            BV.forcing.update_recharge(Recharge[i],'transient')
-            BV.oceanic.update_MSL(s)
-            succes, mf = BV.run_modflow(ident=ident, modpath_sim=False, lay_number=1, multip_cond=(10**c)*24*60*60,verbose=True)
+            path = os.path.join(BV.simulations_folder,ident,ident+'.hds')
+            if not os.path.exists(path):
+                print(ident)
+                BV.forcing.update_recharge(Recharge[i],'transient')
+                BV.oceanic.update_MSL(s)
+                #succes, mf = BV.run_modflow(ident=ident, modpath_sim=False, lay_number=1, multip_cond=(10**c)*24*60*60,verbose=False)
+                #print(succes)
+                
+#%%
 
+head_fpu = fpu.HeadFile(self.path_file+'.hds')
