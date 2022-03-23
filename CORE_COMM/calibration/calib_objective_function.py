@@ -132,13 +132,24 @@ class Piezometry:
                     
                 y0 = df[self.watershed.piezometry.codes_bss[j]].values
                 y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
+                if j == 0:
+                    fig, ax = plt.subplots()
+                    df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                    df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                    #plt.plot(y0,y0-y1)
+                    plt.show()
                 
-                #if j == 0:
-                    #fig, ax = plt.subplots()
-                    #df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
-                    #df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
-                #plt.plot(y0,y0-y1)
-
+                #modified
+                Aobs = (df.groupby(pd.Grouper(freq='1Y'))[self.watershed.piezometry.codes_bss[j]].max() - 
+                     df.groupby(pd.Grouper(freq='1Y'))[self.watershed.piezometry.codes_bss[j]].min())
+                Asim = (df.groupby(pd.Grouper(freq='1Y'))['sim_' + self.watershed.piezometry.codes_bss[j]].max() - 
+                     df.groupby(pd.Grouper(freq='1Y'))['sim_' + self.watershed.piezometry.codes_bss[j]].min())
+                hobs = df[self.watershed.piezometry.codes_bss[j]].mean()
+                hsim = df['sim_' + self.watershed.piezometry.codes_bss[j]].mean()
+                
+                y0 = np.asarray([hobs, Aobs.mean()])
+                y1 = np.asarray([hsim, Asim.mean()])
+                
                 ER = np.nansum(y0-y1)  # error 
                 ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
                 RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
@@ -159,6 +170,7 @@ class Piezometry:
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
             
             #Discrete Data
+            '''
             y0 = []
             y1 = []
             for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
@@ -172,6 +184,7 @@ class Piezometry:
                 y1.append(df_sim[df_sim.index.month == dt.month].mean())
             RMSE = np.sqrt(np.nanmean((np.asarray(y0)-np.asarray(y1))**2))
             self.store_indicator.append(RMSE)
+            '''
                 
         if isinstance(self.watershed.forcing.recharge, float) == True:
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()

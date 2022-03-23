@@ -259,7 +259,7 @@ class Modflow():
         stress_period_data = {}
         for kper in range(self.nper):
             kstp = self.nstp[kper]
-            stress_period_data[(kper, kstp-1)] = ['save head','save budget',]
+            stress_period_data[(kper, kstp-1)] = ['save head'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
