@@ -48,4 +48,4 @@ dependencies:
     # Viewing notebooks
     - jupyter=1.0.0
     - jupyterlab=3.1.0
-    - spyder=5.1.5
+    - spyder=5.0.5
