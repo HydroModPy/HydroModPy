@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 Quality Metric;Sum quality metric;Mean quality metric;Median quality metric;STD quality metric;Min quality metric;Max quality metric
 0;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
 0.044;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
@@ -501,6 +502,8 @@ Quality Metric;Sum quality metric;Mean quality metric;Median quality metric;STD 
 0.03;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
 0.05;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
 =======
+=======
+>>>>>>> Stashed changes
 Quality Metric;Sum quality metric;Mean quality metric;Median quality metric;STD quality metric;Min quality metric;Max quality metric
 0;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
 0.044;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
@@ -1002,4 +1005,7 @@ Quality Metric;Sum quality metric;Mean quality metric;Median quality metric;STD 
 0;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
 0.03;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
 0.05;20.269;0.040538000000000005;0.0;0.09220191188907093;0;1.043
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

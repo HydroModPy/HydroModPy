@@ -41,7 +41,14 @@ class Hydrology:
         
         streams = hydro_path + '/' +  type_obs +'.shp'
         self.streams = data_folder + type_obs +'.shp'
-        wbt.clip(streams, watershed_shp, self.streams)
+        
+        # wbt.clip(streams, watershed_shp, self.streams)
+        
+        streams_file = gpd.read_file(streams)
+        watshd_file = gpd.read_file(watershed_shp)
+        file_clipped = gpd.clip(streams_file, watshd_file)
+        
+        file_clipped.to_file(self.streams)
         
         self.tif_streams = data_folder + type_obs + '.tif'
         shp_type = gpd.read_file(self.streams).geometry.type[0] # forma = forma.geom_type[0] 
