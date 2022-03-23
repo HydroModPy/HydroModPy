@@ -84,7 +84,6 @@ dependencies:
   - hdf5=1.10.6
   - heapdict=1.0.1
   - hyperlink=21.0.0
-  - icu=68.1
   - idna=3.2
   - imageio=2.9.0
   - imagesize=1.2.0
