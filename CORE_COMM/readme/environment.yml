@@ -17,7 +17,7 @@ dependencies:
         #- geopy
         #- pyproj
         #- contextily
-        - colormap #pip install easydev may be necessary
+        #- colormap #pip install easydev may be necessary
 
     # Main processing libraries
     - numpy
