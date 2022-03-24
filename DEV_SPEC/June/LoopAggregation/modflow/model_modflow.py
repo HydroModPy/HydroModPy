@@ -26,7 +26,7 @@ def model_modflow(input_file, file_name, model_name, model_folder, coord, tdis, 
     # number_cells = np.arange(start=0, stop=demData.shape[0] * demData.shape[1])
     # nb_cells = number_cells.reshape(demData.shape[0], demData.shape[1])
     file = pd.read_table(file_name + "data" + os.sep + input_file, delimiter="\t", header=0) #input_file
-    ram = pd.read_table(file_name + "data"+os.sep+"RAM.csv", delimiter=";", header=0)
+    ram = pd.read_table(file_name + "data"+ os.sep +"RAM.csv", delimiter=";", header=0)
     sea_level = ram.NM_IGN[port-1]
     input_file = file.T.values
 

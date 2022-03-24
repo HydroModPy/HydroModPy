@@ -367,7 +367,7 @@ def vtk_export_grid(modelname, modelfolder, coord):
     # In[37]:
 
     print('Create files')
-    textoVtk = open(modelfolder+'output_files/VTU_Grid.vtu', 'w')
+    textoVtk = open(modelfolder+'output_files'+os.sep+'VTU_Grid.vtu', 'w')
 
     # add header
     textoVtk.write('<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
