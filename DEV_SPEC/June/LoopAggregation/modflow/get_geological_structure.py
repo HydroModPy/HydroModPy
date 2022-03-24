@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 import subprocess
 
-r_dem = os.path.dirname(os.path.abspath(__file__)) + "/data/MNT_TOPO_BATH_75m.tif"
-r_k = os.path.dirname(os.path.abspath(__file__)) + "/data/GLHYMPS.tif"
-r_gum = os.path.dirname(os.path.abspath(__file__)) + "/data/GUM.tif"
-r_bedrock_depth = os.path.dirname(os.path.abspath(__file__)) + "/data/bedrock_depth.tif"
-r_sea_earth = os.path.dirname(os.path.abspath(__file__)) + "/data/sea_earth.tif"
-r_river = os.path.dirname(os.path.abspath(__file__)) + "/data/river_75m.tif"
+r_dem = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data" + os.sep + "MNT_TOPO_BATH_75m.tif"
+r_k = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "GLHYMPS.tif"
+r_gum = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "GUM.tif"
+r_bedrock_depth = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "bedrock_depth.tif"
+r_sea_earth = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "sea_earth.tif"
+r_river = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "river_75m.tif"
 
 def get_all_clip(coord):
     clip_dem = get_clip_dem(coord)
@@ -38,7 +38,7 @@ def get_all_clip(coord):
 
 def get_clip_dem(coord):
     #r_dem = "H:/Users/gauvain/DEM/data/MNT_TOPO_BATH_75m.tif"
-    r_dem = os.path.dirname(os.path.abspath(__file__)) + "/data/MNT_TOPO_BATH_75m.tif"
+    r_dem = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "MNT_TOPO_BATH_75m.tif"
     print(r_dem)
     ulY, lrY, ulX, lrX, clip_dem_x, clip_dem_y = get_model_size(coord)
     dem = gdal.Open(r_dem)
@@ -48,15 +48,15 @@ def get_clip_dem(coord):
     return dem_geot, clip_dem_x, clip_dem_y, clip_dem
 
 def save_clip_lidar(site_number):
-    forestcover = os.path.dirname(os.path.abspath(__file__)) + "/data/Lidar1m.tif"
-    sites = pd.read_table(os.path.dirname(os.path.abspath(__file__)) + "/data/study_sites.txt", sep='\s+', header=0, index_col=0)
+    forestcover = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "Lidar1m.tif"
+    sites = pd.read_table(os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "study_sites.txt", sep=r'\s+', header=0, index_col=0)
     coord = sites._get_values[site_number, 1:5]
     save_clip_dem(site_number)
     site_name = sites.axes[0][site_number]
-    clip = site_name+ '/' + site_name + '_MNT.tif'
+    clip = site_name+ os.sep + site_name + '_MNT.tif'
     # output files
-    cutline = site_name + '/cutline.shp'
-    result = site_name+'/'+ site_name+ '_lidar1m.tif'
+    cutline = site_name + os.sep + 'cutline.shp'
+    result = site_name+ os.sep + site_name+ '_lidar1m.tif'
     # create the cutline polygon
     cutline_cmd = ["gdaltindex", cutline, clip]
     subprocess.check_call(cutline_cmd)
@@ -66,15 +66,15 @@ def save_clip_lidar(site_number):
     subprocess.check_call(warp_cmd)
 
 def save_clip_mnt5m(site_number):
-    forestcover = os.path.dirname(os.path.abspath(__file__)) + "/data/MNT5m.tif"
-    sites = pd.read_table(os.path.dirname(os.path.abspath(__file__)) + "/data/study_sites.txt", sep='\s+', header=0, index_col=0)
+    forestcover = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data" + os.sep + "MNT5m.tif"
+    sites = pd.read_table(os.path.dirname(os.path.abspath(__file__)) + os.sep + "data" + os.sep + "study_sites.txt", sep=r'\s+', header=0, index_col=0)
     coord = sites._get_values[site_number, 1:5]
     save_clip_dem(site_number)
     site_name = sites.axes[0][site_number]
-    clip = site_name+'/'+site_name+'_MNT.tif'
+    clip = site_name+os.sep+site_name+'_MNT.tif'
     # output files
-    cutline = site_name+'/cutline.shp'
-    result = site_name+'/'+site_name+'_mnt5m.tif'
+    cutline = site_name + os.sep +'cutline.shp'
+    result = site_name+os.sep+site_name+'_mnt5m.tif'
     # create the cutline polygon
     cutline_cmd = ["gdaltindex", cutline, clip]
     subprocess.check_call(cutline_cmd)
@@ -84,14 +84,14 @@ def save_clip_mnt5m(site_number):
     subprocess.check_call(warp_cmd)
 
 def save_clip_dem(site_number):
-    sites = pd.read_csv(os.path.dirname(os.path.abspath(__file__)) + "/data/study_sites.txt", sep=',', header=0, index_col=0)
+    sites = pd.read_csv(os.path.dirname(os.path.abspath(__file__)) + os.sep + "data" + os.sep + "study_sites.txt", sep=',', header=0, index_col=0)
     coord = sites._get_values[site_number, 1:5]
     print(coord)
     geot, geotx, geoty, demData = get_clip_dem(coord)
     #print("geo", geot, geotx, geoty, demData)
     drv = gdal.GetDriverByName("GTiff")
     #os.makedirs(os.path.dirname(os.path.abspath(__file__)) + "/data/Masks/")
-    ds = drv.Create(os.path.dirname(os.path.abspath(__file__)) + "/data/MNTs/"  + str(site_number) + '_MNT.tif',
+    ds = drv.Create(os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "MNTs" + os.sep  + str(site_number) + '_MNT.tif',
                     demData.shape[1], demData.shape[0], 1, gdal.GDT_Float32) #+ sites.index._data[site_number] + '/'
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(2154)
@@ -108,7 +108,7 @@ def get_clip_sea_earth(coord):
     return clip_sea_earth
 
 def get_clip_K(coord):
-    r_k = os.path.dirname(os.path.abspath(__file__)) + "/data/GLHYMPS.tif"
+    r_k = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "GLHYMPS.tif"
     ulY, lrY, ulX, lrX = get_model_size(coord)
     k = gdal.Open(r_k)
     k_data = k.GetRasterBand(1).ReadAsArray()
@@ -119,7 +119,7 @@ def get_clip_K(coord):
     return clip_K
 
 def get_clip_gum(coord):
-    r_gum = os.path.dirname(os.path.abspath(__file__)) + "/data/GUM.tif"
+    r_gum = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "GUM.tif"
     ulY, lrY, ulX, lrX = get_model_size(coord)
     gum = gdal.Open(r_gum)
     gum_data = gum.GetRasterBand(1).ReadAsArray()
@@ -129,7 +129,7 @@ def get_clip_gum(coord):
     return clip_gum
 
 def get_clip_bedrock_depth(coord):
-    r_bedrock_depth = os.path.dirname(os.path.abspath(__file__)) + "/data/bedrock_depth.tif"
+    r_bedrock_depth = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "bedrock_depth.tif"
     ulY, lrY, ulX, lrX = get_model_size(coord)
     bd = gdal.Open(r_bedrock_depth)
     bd_data = bd.GetRasterBand(1).ReadAsArray()
@@ -138,7 +138,7 @@ def get_clip_bedrock_depth(coord):
 
 
 def get_model_size(coord):
-    r_dem = os.path.dirname(os.path.abspath(__file__)) + "/data/MNT_TOPO_BATH_75m.tif"
+    r_dem = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+os.sep + "MNT_TOPO_BATH_75m.tif"
     xmin = coord[0]
     xmax = coord[1]
     ymin = coord[2]
@@ -166,12 +166,12 @@ def get_geological_structure(coord):
     TO DO if r_dem does not exist ! 
     """
     global clip_dem; global clip_bd; global clip_K; global clip_gum; global dem_geot; global clip_dem_x; global clip_dem_y; global clip_sea_earth; global clip_river
-    r_dem = os.path.dirname(os.path.abspath(__file__)) + "/data/MNT_TOPO_BATH_75m.tif"
-    r_k = os.path.dirname(os.path.abspath(__file__)) + "/data/GLHYMPS.tif"
-    r_gum = os.path.dirname(os.path.abspath(__file__)) + "/data/GUM.tif"
-    r_bedrock_depth = os.path.dirname(os.path.abspath(__file__)) + "/data/bedrock_depth.tif"
-    r_sea_earth = os.path.dirname(os.path.abspath(__file__)) + "/data/sea_earth.tif"
-    r_river = os.path.dirname(os.path.abspath(__file__)) + "/data/river_75m.tif"
+    r_dem = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+os.sep + "MNT_TOPO_BATH_75m.tif"
+    r_k = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+os.sep + "GLHYMPS.tif"
+    r_gum = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "GUM.tif"
+    r_bedrock_depth = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "bedrock_depth.tif"
+    r_sea_earth = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "sea_earth.tif"
+    r_river = os.path.dirname(os.path.abspath(__file__)) + os.sep + "data"+ os.sep + "river_75m.tif"
 
     try:
         if not os.path.exists(r_dem):
