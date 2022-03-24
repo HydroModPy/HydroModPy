@@ -14,7 +14,7 @@ dependencies:
     - pip
     - pip:
         #- hydroeval
-        - geopy
+        #- geopy
         - pyproj
         - contextily
         - colormap #pip install easydev may be necessary
