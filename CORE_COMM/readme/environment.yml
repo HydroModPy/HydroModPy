@@ -13,11 +13,11 @@ dependencies:
     - ipykernel
     - pip
     - pip:
-        #- hydroeval
-        #- geopy
-        #- pyproj
-        #- contextily
-        #- colormap #pip install easydev may be necessary
+        - hydroeval
+        - geopy
+        - pyproj
+        - contextily
+        - colormap #pip install easydev may be necessary
 
     # Main processing libraries
     #- numpy
