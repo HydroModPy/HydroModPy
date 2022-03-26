@@ -167,7 +167,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     [author], 'manual'),
+     author, 'manual'),
 ]
 
 
