@@ -42,24 +42,3 @@ The ``Modpath`` class
     :members:
     :undoc-members:
     :show-inheritance:
-
-Display Model
--------------
-
-The ``SurfaceOutputs`` class
-****************************
-.. autoclass:: plots.SurfaceOutputs
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-The ``Interactive Cross Section`` function
-******************************************
-.. autofunction:: plots.interactive_cross_section
-
-The ``Visualization`` class
-***************************
-.. autoclass:: vizualisation.Visualization
-    :members:
-    :undoc-members:
-    :show-inheritance:

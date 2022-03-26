@@ -11,8 +11,6 @@ Welcome to HydroModPy's documentation!
    install
    watershed
    groundwater_flow
-   surface_flow
-   calibration
    tools
    examples
 
