@@ -88,7 +88,7 @@ from groundwater_flow import visualization
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')#
 BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.28)
+BV.hydrodynamic.update_porosity(0.29)
 BV.hydrodynamic.update_hyd_cond(K)
 
 fact_cond = np.around(np.linspace(-5,-3,10),2)
