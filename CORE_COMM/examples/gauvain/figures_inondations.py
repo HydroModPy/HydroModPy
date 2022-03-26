@@ -528,6 +528,8 @@ ax1.set_ylabel(r'$(A_{S} - A^{actual}_{S})/A$ $[-]$',c='k')
 ax1.set_xlabel(r'$C$ $(10^{X})$ $[m^{2}.d^{-1}]$')
 #fig.tight_layout()
 plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/fig_sea.png',dpi=300, bbox_inches = "tight")
+
+
             
             
             

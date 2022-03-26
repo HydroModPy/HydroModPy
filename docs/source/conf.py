@@ -32,12 +32,12 @@ sys.path.insert(0, os.path.abspath('../../CORE_COMM/calibration/'))
 
 project = 'HydroModPy'
 copyright = '2021, Alexandre Gauvain'
-author = 'Alexandre Gauvain'
+author = 'Alexandre Gauvain \\ Ronan Abhervé \\ June Sallou\\ Clément Roques \\ Jean-Raynald de Dreuzy'
 
 # The short X.Y version
 version = '1.0'
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+release = '1.0.0'
 
 
 # -- General configuration ---------------------------------------------------
