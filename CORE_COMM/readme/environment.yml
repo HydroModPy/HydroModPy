@@ -20,7 +20,7 @@ dependencies:
         - colormap #pip install easydev may be necessary
 
     # Main processing libraries
-    - numpy
+    #- numpy
     - whitebox
     - gdal
     - flopy
