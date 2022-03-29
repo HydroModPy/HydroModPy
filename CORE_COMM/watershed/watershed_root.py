@@ -314,7 +314,7 @@ class Watershed:
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
                     verbose: bool = False, post_process: bool = False,
-                    time_step: str = 'M', calib: str = None):
+                    time_step: str = 'M', calib: str = None, init_rech: str = 'mean'):
         """ 
         Build and run modflow model
         
@@ -337,6 +337,7 @@ class Watershed:
                                      lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
+                                     init_rech=init_rech,
                                      model_name=ident, model_folder=model_folder, multip_cond=multip_cond,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
