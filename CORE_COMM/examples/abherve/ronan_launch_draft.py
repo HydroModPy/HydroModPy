@@ -846,11 +846,18 @@ from calibration import calib_root, calib_dichotomy, calib_analysis, calib_explo
 first = 1990
 last = 2011
 var = 'EFF'
-    
-for mod in ['REA','OLD'] :
+wr = True
+wish = 0
+
+for mod in ['REA'] :
 
     # mod = 'REA'
-
+    
+    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                      first_year = first, last_year=last, time_step = 'M',
+                                      sim_state='transient')
+    Runof = BV.forcing.runoff # m/month
+    
     if var == 'EFF':
         BV.forcing.update_effppt_surfex(clim_mod = mod, clim_sce = 'historic',
                                         first_year = first, last_year = last, time_step = 'M',
@@ -867,19 +874,13 @@ for mod in ['REA','OLD'] :
         Rech = BV.forcing.recharge # m/month
         plt.plot(Rech)
     
-    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                      first_year = first, last_year=last, time_step = 'M',
-                                      sim_state='transient')
-    Runof = BV.forcing.runoff # m/month
+    if wr == True:
+        BV.forcing.update_recharge(BV.forcing.recharge - Runof, sim_state='transient')
+        Rech = BV.forcing.recharge # m/month
+        plt.plot(Rech)
     
-    
-    
-    plt.plot(BV.forcing.recharge)
-    plt.plot(BV.forcing.runoff)
-    
-    # BV.forcing.update_effppt_surfex(clim_mod = 'REA', clim_sce='historic',
-    #                                   first_year = 2010, last_year=2019, time_step = 'M',
-    #                                   sim_state='transient')
+    # plt.plot(BV.forcing.recharge)
+    # plt.plot(BV.forcing.runoff)
     
     BV.hydrodynamic.update_thickness(30)
     # BV.hydrodynamic.update_porosity(0.001)
@@ -890,14 +891,14 @@ for mod in ['REA','OLD'] :
     # params_file = 'calib_explo_hom_1v_k1'
     # params_file = 'calib_dicot_het_2v_k1-k2'
     
-    calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    calib.exploration(resolution=100)
+    # calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+    # calib.exploration(resolution=100)
     
     ##########
     typ_calib = 'hydrometry_calibration'
     list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
                         key=os.path.getmtime, reverse=True)
-    name_file = list_path[0].split('\\')[-1]
+    name_file = list_path[wish].split('\\')[-1]
     calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
     test = calib_analysis.CalibAnalysis(calib_file)
     test.display_objective_function(save=None)
@@ -946,8 +947,8 @@ for mod in ['REA','OLD'] :
     
     for i in range(len(obs[typ_name])):
         
-        o = obs[typ_name][i]
-        s = sim[typ_name][i]
+        o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
+        s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
         nd = ind[typ_name][i]
         sat = test.sim_results[synt[i]]['seepage_areas']
         sat = pd.to_numeric(sat)
@@ -956,15 +957,15 @@ for mod in ['REA','OLD'] :
         ax.xaxis.set_major_locator(yearsmaj)
         ax.xaxis.set_minor_locator(yearsmin)
         ax.xaxis.set_major_formatter(years_fmt)
-        ax.set_yscale('log')
+        # ax.set_yscale('log')
         k = '{:.1e}'.format(xyz[i][0]/24/3600)
         sy = xyz[i][1] * 100
         title = 'Discharge'
         nselog = round(((nd[0]))*100,1)
         label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
                 '$NSE_{log}$ = '+str(nselog)+'%'
-        if nselog > 80:
-            if all(i <= 60 for i in sat):
+        if nselog > 60:
+            if all(i <= 90 for i in sat):
                 nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
                 ax.plot(s, color=color_gradients[i], lw=1, label=label)
                 # ax.plot(s, lw=1, label=label)   
@@ -980,7 +981,7 @@ for mod in ['REA','OLD'] :
                 sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
                 ax.plot(sat, color=color_gradients[i], lw=0.5, label=label)
                 # ax.plot(sat, lw=1, label=label) 
-                ax.set_ylim(-2,60)
+                ax.set_ylim(-2,100)
                 title = 'Saturation'
                 ax.set_title(title)
                 # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
@@ -989,7 +990,7 @@ for mod in ['REA','OLD'] :
     ax.legend(bbox_to_anchor=(1.5, 2.3), ncol=1)
     
     # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
-            
+           
     # divider = make_axes_locatable(ax)
     # cax = divider.append_axes('right', size='1.25%', pad=0.1)
     # fig.add_axes(cax)
@@ -1000,26 +1001,30 @@ for mod in ['REA','OLD'] :
     
     # SHADED
     
-    fig, ax = plt.subplots(1,1, figsize=(5,5))
+    fig, ax = plt.subplots(1,1, figsize=(6,5))
     X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
     Z=test.obj_function
-    ax.pcolormesh(X,Y,Z,cmap='jet', shading='gouraud')#figadd.cmap_white_jet()
+    pc = ax.pcolormesh(X,Y,Z,cmap='jet') #figadd.cmap_white_jet()
     ax.set_xscale('log')
-    fig.colorbar()
+    fig.colorbar(pc)
+    ax.set_ylabel('Sy [-]')
+    ax.set_xlabel('K [m/j]')
     
     # CONTOUR
     
-    fig, ax = plt.subplots(1,1, figsize=(5,5))
+    fig, ax = plt.subplots(1,1, figsize=(6,5))
     X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
     Z=test.obj_function
     Z[Z<0] = np.nan
     # np.ma.masked_where(test.obj_function<0, test.obj_function)
     # plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-    ax.contourf(X, Y, Z)
+    pc = ax.contourf(X, Y, Z)
     # plt.imshow(Z)
     # plt.xlim(1)
-    fig.colorbar()
+    fig.colorbar(pc)
     ax.set_xscale('log')
+    ax.set_ylabel('Sy [-]')
+    ax.set_xlabel('K [m/j]')
 
 #%% ---
 

@@ -387,7 +387,7 @@ class Watershed:
                        calib=None):
         
         if success == True:
-            flow_model.post_processing(first_only=first_only,
+            flow_model.post_processing(first_only = first_only,
                                        watertable_elevation = watertable_elevation,
                                        watertable_depth = watertable_depth, 
                                        seepage_areas = seepage_areas,
