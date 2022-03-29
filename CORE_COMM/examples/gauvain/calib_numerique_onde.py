@@ -31,10 +31,6 @@ BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path,
 
 #%%
 
-
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2010, last_year=2011, time_step = 'D', sim_state='transient')
-climatic = BV.forcing.recharge
-
 import flopy
 import numpy as np
 import pandas as pd
@@ -42,7 +38,7 @@ import matplotlib.pyplot as plt
 
 
 
-def run_model(model_name, exe,full_path,MSL = 0.48, L = 1300, top = 10, bot = -29.52, dsea = 465,
+def run_model(model_name, exe,full_path, climatic, MSL = 0.48, L = 1300, top = 10, bot = -29.52, dsea = 465,
               delr = 1, delc = 1, nlay = 1, hyd_cond = 5.01, porosity = 0.28):
     mf = flopy.modflow.Modflow(model_name, exe_name=exe, version='mfnwt', listunit=2, 
                                verbose=False, model_ws=full_path)
@@ -114,8 +110,7 @@ def run_model(model_name, exe,full_path,MSL = 0.48, L = 1300, top = 10, bot = -2
     
     hk = np.ones((nlay,nrow,ncol))*hyd_cond
     
-    upw = flopy.modflow.ModflowUpw(mf, iphdry=1, hdry=-100, laytyp=laytype, laywet=laywet,chani=1, layvka=layvka, hk=hk,
-                                           vka=1, sy=porosity,hani=1, noparcheck=False, extension='upw', unitnumber=31)
+    upw = flopy.modflow.ModflowUpw(mf, hdry=-100, laytyp=1, hk=hk, sy=porosity,ss=0, noparcheck=False, extension='upw', unitnumber=31)
             
                     
     # rch package
@@ -159,31 +154,49 @@ def run_model(model_name, exe,full_path,MSL = 0.48, L = 1300, top = 10, bot = -2
     mf.write_input()
     # run model
     succes , buff = mf.run_model(silent=False)# True without msg
+    
 
-model_name = ['model_2.5','model_25','model_2n']
+model_name = ['model_2.5','model_25','model_2n','model_10K']
 exe = 'C:/Users/alexa/Dropbox/HydroModPy/_data/MODFLOW/bin/mfnwt.exe'
 full_path = 'C:/Users/alexa/Dropbox/HydroModPy/_analytical'
 
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2010, last_year=2011, time_step = 'D', sim_state='transient')
+climatic = BV.forcing.recharge
+
+K = 5.01
+KR = K/np.mean(climatic)
+print(KR)
+fact = 1
+climatic = climatic*fact
+K = K*fact
+KR = K/np.mean(climatic)
+print(KR)
 L = 1300
-dsea = 465    
+dsea = 465#465
 porosity  = [0.025, 0.28]
 n = np.ones((1,L))
 n[0][0:dsea] = 0.025#np.logspace(np.log10(n0),np.log10(nL),dsea)
-n[0][dsea:L] = 0.40
+n[0][dsea:L] = 0.25
 porosity.append(n)
-<<<<<<< Updated upstream
-bot = np.linspace(-1,-1,L)#-29.52
-bot = bot[::-1]
-hyd_cond = 60.01
-for i in range (0,len(model_name)):
-    run_model(model_name[i],exe,full_path,porosity=porosity[i], L=L, dsea=dsea,bot = bot,hyd_cond =hyd_cond)
 
-=======
+porosity.append(0.28)
+bot = np.linspace(-30,-30,L)#-29.52
+bot = bot[::-1]
+hyd_cond = np.ones(4)*K
+hyd_cond[-1] = hyd_cond[-1]*10
+
+
+
+for i in range (0,len(model_name)):
+    if i == len(model_name):
+       run_model(model_name[i],exe,full_path,climatic=climatic*10 ,porosity=porosity[i], L=L, dsea=dsea,bot = bot,hyd_cond =hyd_cond[i])
+    else:   
+       run_model(model_name[i],exe,full_path,climatic=climatic ,porosity=porosity[i], L=L, dsea=dsea,bot = bot,hyd_cond =hyd_cond[i])
+    
 
 for i in range (0,len(model_name)):
     run_model(model_name[i],exe,full_path,porosity=porosity[i], L=L, dsea=dsea)
 #%%
->>>>>>> Stashed changes
 import flopy.utils.binaryfile as fpu
 import matplotlib.pyplot as plt
 import matplotlib
@@ -193,42 +206,41 @@ plt.rcParams.update({
   "font.family": "Helvetica"
 })
 
-<<<<<<< Updated upstream
-fig, ax = plt.subplots(1,2,figsize=(10,5))
-ax1 = ax[0]
-ax2 = ax[1]
-colors=['r','k','g']
-line = ['-','--','-.']
-name = ['$n=2.5\%$','$n=28\%$','$n=2.5\%-n=28\%$']
 
-=======
+fig, ax1 = plt.subplots(figsize=(5,5))
+#♣ax1 = ax
+#ax2 = ax[1]
+colors=['r','k','g','m']
+line = ['-','--','-.']
+name = ['$S_{y}=2.5\%$','$S_{y}=29\%$','$S_{y}=2.5\%-S_{y}=29\%$','$K=10K1-S_{y}=29\%$']
+
+
 fig, ax = plt.subplots(figsize=(5,5))
 colors=['r','k','g']
 name = ['$n=2.5\%$','$n=28\%$','$n=2.5\%-n=28\%$']
->>>>>>> Stashed changes
+
 for i in range (0,len(model_name)):
     head_file = os.path.join(full_path,model_name[i]+'.hds')
     head_fpu = fpu.HeadFile(head_file)
     head = head_fpu.get_alldata()
     time = np.linspace(0,len(head)-1,len(head))
-<<<<<<< Updated upstream
     sm = plt.cm.ScalarMappable(cmap='jet', norm=matplotlib.colors.Normalize(vmin=365, vmax=len(head)))
     hpiezo = []
     compt = 0
     for t in time:
         hpiezo.append(head[int(t)][0][0][dsea])
+    '''
         if compt==15:
             if i == 2:
                 if t>365:
-                    ax2.plot(head[int(t)][0][0],c=sm.to_rgba(t))
+                    #ax2.plot(head[int(t)][0][0],c=sm.to_rgba(t))
             compt = 0
         compt += 1
-    ax2.plot(bot,c='k',lw=2)
+    ax2.plot(bot,c='k',lw=2)'''
     h = pd.DataFrame(data=hpiezo, index=climatic.index, columns=[name[i]])
     h.plot(ax=ax1, c=colors[i],lw = 1)
 h = pd.DataFrame(data=BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].values, index=climatic.index, columns=['$01423X0044\_F4$'])
 h.plot(ax=ax1, c='b',lw=1)
-=======
 
     hpiezo = []
     for t in time:
@@ -238,15 +250,8 @@ h.plot(ax=ax1, c='b',lw=1)
     h.plot(ax=ax, c=colors[i],lw = 1)
 h = pd.DataFrame(data=BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].values, index=climatic.index, columns=['$01423X0044\_F4$'])
 h.plot(ax=ax, c='b',lw=1)
->>>>>>> Stashed changes
 plt.ylabel('$h$ $[m]$')
 #BV.piezometry.elevation[BV.piezometry.codes_bss[0]]['2010':'2011'].plot(c='b',ax=ax,label=BV.piezometry.codes_bss[0])
 #hobs.plot(c='b',ax=ax,label=BV.piezometry.codes_bss[0])
 plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/analysis_n.png',dpi=300, bbox_inches = "tight")
-<<<<<<< Updated upstream
 
-
-
-
-=======
->>>>>>> Stashed changes
