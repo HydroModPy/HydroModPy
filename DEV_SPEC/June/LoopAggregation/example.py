@@ -1,10 +1,10 @@
 import os, sys
-lib_path = os.path.abspath(os.path.join(__file__, 'docker_simulation', 'modflow', 'custom_utils'))
+lib_path = os.path.abspath(os.path.join(__file__, 'modflow', 'custom_utils'))
 sys.path.append(lib_path)
 
-from docker_simulation.modflow.custom_utils import InputFileManipulation
-from docker_simulation.modflow import settings_model
-from docker_simulation.modflow import ErrorComput
+from modflow.custom_utils import InputFileManipulation
+from modflow import settings_model
+from modflow import ErrorComput
 
 ### Definition of the values of the parameters
 approx=0
@@ -51,5 +51,5 @@ print("Analysis finished.")
 ## Actual Computation
 ## BE AWARE: TAKES QUITE SOME TIME TO EXECUTE: May be ~1or2hours
 print("Computing of the H indicator starting...")
-ErrorComput.compute_h_error_by_interpolation(site_number=site, chronicle=chronicle, approx=approx, rate=rate, ref=ref, folder=folder, permeability=perm, steady=False, time_step=1)
+#ErrorComput.compute_h_error_by_interpolation(site_number=site, chronicle=chronicle, approx=approx, rate=rate, ref=ref, folder=folder, permeability=perm, steady=False, time_step=1)
 print("Computation of H indicator finished.")

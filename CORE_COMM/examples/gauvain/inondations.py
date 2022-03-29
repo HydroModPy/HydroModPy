@@ -74,7 +74,7 @@ zones[BV.geology.geology_array == 29] = int(2)
 zones[BV.geology.geology_array == 35] = int(2)
 
 BV.hydrodynamic.update_calib_zones(zones)
-K1 = 4.01
+K1 = 6.01
 K2 = 1
 K = np.ones(np.shape(BV.geology.geology_array))
 K[zones==1]=K1
@@ -86,9 +86,9 @@ BV.display(dtype = 'watershed_zones')
 from tools import vtk
 from groundwater_flow import visualization
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 1960, last_year=2019, time_step = 'D', sim_state='steady')#
 BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.28)
+BV.hydrodynamic.update_porosity(0.29)
 BV.hydrodynamic.update_hyd_cond(K)
 
 fact_cond = np.around(np.linspace(-5,-3,10),2)
@@ -105,6 +105,8 @@ Recharge = np.around([BV.forcing.recharge*0.3+BV.forcing.recharge,
             BV.forcing.recharge*-0.1+BV.forcing.recharge,
             BV.forcing.recharge*-0.2+BV.forcing.recharge,
             BV.forcing.recharge*-0.3+BV.forcing.recharge],5)
+
+#%%
 for c in fact_cond:
     for s in MSL:
         for r in Recharge:

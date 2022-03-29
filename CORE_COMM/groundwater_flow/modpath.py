@@ -25,10 +25,11 @@ class Modpath:
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self,geographic, model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), verbose=True):
+    def __init__(self,geographic, model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), porosity = 0.01 ,verbose=True):
         self.model_name = model_name
         self.geographic = geographic
         self.model_folder = model_folder
+        self.porosity = porosity
         self.full_path = os.path.join(model_folder, model_name)
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
@@ -133,7 +134,7 @@ class Modpath:
         stl.data = stldata
 
         flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0, laytyp=laytype, ibound=iboundData,
-										prsity=0.01, prsityCB=0.01, extension='mpbas', unitnumber=86)
+										prsity=self.porosity, prsityCB=self.porosity, extension='mpbas', unitnumber=86)
         self.mp.write_input()
     
     def processing(self, verbose=True):
