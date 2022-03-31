@@ -224,6 +224,7 @@ def get_geological_structure(coord):
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
+        #print(len(xx), len(x1), len(y1), (xx,yy))
         clip_dem = interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method='cubic')
         clip_dem =np.around(clip_dem, 2)
 
