@@ -28,7 +28,7 @@ import scipy.stats as sp
 import shapely.geometry as SG
 import matplotlib.pylab as pl
 import math
-import seaborn as sns
+# import seaborn as sns
 from pyproj import Transformer
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
@@ -72,6 +72,12 @@ git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
 out_path = "D:/Users/abherve/INTERMITTENCY/"
+
+git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "D:/abherve/HYDRODATAPY/"
+# Path where the results will be stored
+out_path = "D:/abherve/INTERMITTENCY/"
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
@@ -844,7 +850,7 @@ df = pd.read_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';'
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
     
 first = 1990
-last = 2011
+last = 2019
 var = 'EFF'
 wr = True
 wish = 0
@@ -892,7 +898,7 @@ for mod in ['REA'] :
     # params_file = 'calib_dicot_het_2v_k1-k2'
     
     # calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=100)
+    # calib.exploration(resolution=1000)
     
     ##########
     typ_calib = 'hydrometry_calibration'
@@ -901,7 +907,7 @@ for mod in ['REA'] :
     name_file = list_path[wish].split('\\')[-1]
     calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
     test = calib_analysis.CalibAnalysis(calib_file)
-    test.display_objective_function(save=None)
+    # test.display_objective_function(save=None)
     # test.find_best_values()
     # test.display_best_data()
     
@@ -909,9 +915,11 @@ for mod in ['REA'] :
     # x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
     # plt.plot(x)
     
+    path_fig = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures')
+    
     # CHRONICS
     
-    fig, axs = plt.subplots(2,1, figsize=(7,6))
+    fig, axs = plt.subplots(3,1, figsize=(7,7))
     axs = axs.ravel()
     
     typ_name = typ_calib.split('_')[0]
@@ -930,21 +938,42 @@ for mod in ['REA'] :
     xyz = test.params_xyz
     
     synt = test.params_synt
-    
-    c = []
-    for h in range(len(ind[typ_name])):
-        d = ind[typ_name][h][0]
-        c.append(d)
-    c = np.linspace(0,1,len(obs[typ_name]))
-    cmap = mpl.cm.get_cmap('jet')
-    color_gradients = cmap(c)
-    vmin = min(c)
-    vmax = max(c)
-    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+        
+    # p1 = []
+    # for p in synt:
+    #     p1.append(p.split(';')[0])
+    # p2 = []
+    # for p in synt:
+    #     p2.append(p.split(';')[1])
+    # r3 = []
+    # for r in sim[typ_name]:
+    #     r3.append((r*1000*30).mean()[0])
+    # min3 = []
+    # r3 = []
+    # for t in range(len(synt)):     
+    #     sat = test.sim_results[synt[t]]['seepage_areas']
+    #     sat = pd.to_numeric(sat)
+    #     r3.append(sat.mean())
+    # plt.plot(r3)
+    # plt.plot(p1)
+    # plt.plot(p2, marker='.', lw=0)
+        
+    # X, Y = np.meshgrid(p1, p2)
+    # # idx = np.lexsort((p2, p1)).reshape(4, 3) 
+    # z = np.array([r3 for (p1,p2) in zip(np.ravel(X), np.ravel(Y))])
+    # Z = z.reshape(X.shape)
+   
+    # sat_mean = np.zeros((len(p1),len(p2)))
+    # cp = 0
+    # for i in range(len(p1)):
+    #     for j in range(len(p2)):
+    #         sat_mean[j][i] = (pd.to_numeric(test.sim_results[synt[cp]]['seepage_areas'])).mean()
+    #         cp+=1-1
     
     nse_good = []
     sat_good = []
     
+    numb = 0
     for i in range(len(obs[typ_name])):
         
         o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
@@ -953,20 +982,38 @@ for mod in ['REA'] :
         sat = test.sim_results[synt[i]]['seepage_areas']
         sat = pd.to_numeric(sat)
         
-        ax = axs[0]
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(yearsmin)
-        ax.xaxis.set_major_formatter(years_fmt)
-        # ax.set_yscale('log')
         k = '{:.1e}'.format(xyz[i][0]/24/3600)
         sy = xyz[i][1] * 100
         title = 'Discharge'
         nselog = round(((nd[0]))*100,1)
         label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
                 '$NSE_{log}$ = '+str(nselog)+'%'
+        nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+                
         if nselog > 60:
-            if all(i <= 90 for i in sat):
-                nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+            if all(i <= 50 for i in sat):
+                numb += 1
+                
+        # c = []
+        # for h in range(len(ind[typ_name])):
+        #     d = ind[typ_name][h][0]
+        #     c.append(d)
+        c = np.linspace(0,1,len(obs[typ_name]))
+        # c = np.linspace(0,1,numb)
+        cmap = mpl.cm.get_cmap('jet')
+        color_gradients = cmap(c)
+        # vmin = min(c)
+        # vmax = max(c)
+        # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+                       
+        if nselog > 70:
+            if all(i <= 60 for i in sat):       
+                
+                ax = axs[0]
+                ax.xaxis.set_major_locator(yearsmaj)
+                ax.xaxis.set_minor_locator(yearsmin)
+                ax.xaxis.set_major_formatter(years_fmt)
+                
                 ax.plot(s, color=color_gradients[i], lw=1, label=label)
                 # ax.plot(s, lw=1, label=label)   
                 ax.set_title(title)
@@ -977,7 +1024,14 @@ for mod in ['REA'] :
                 ax.xaxis.set_major_locator(yearsmaj)
                 ax.xaxis.set_minor_locator(yearsmin)
                 ax.xaxis.set_major_formatter(years_fmt)
-    
+                ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
+                ax.set_yscale('log')
+                ax.plot(s, color=color_gradients[i], lw=1, label=label)
+                
+                ax = axs[2]
+                ax.xaxis.set_major_locator(yearsmaj)
+                ax.xaxis.set_minor_locator(yearsmin)
+                ax.xaxis.set_major_formatter(years_fmt)    
                 sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
                 ax.plot(sat, color=color_gradients[i], lw=0.5, label=label)
                 # ax.plot(sat, lw=1, label=label) 
@@ -987,8 +1041,9 @@ for mod in ['REA'] :
                 # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
                             
     plt.tight_layout()
-    ax.legend(bbox_to_anchor=(1.5, 2.3), ncol=1)
-    
+    ax.legend(bbox_to_anchor=(1.5, 3), ncol=1)
+    fig.savefig(path_fig+'/'+'_chronic_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
     # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
            
     # divider = make_axes_locatable(ax)
@@ -999,16 +1054,31 @@ for mod in ['REA'] :
     # n_cmap.set_array([])
     # ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
     
-    # SHADED
+    # MESH
     
     fig, ax = plt.subplots(1,1, figsize=(6,5))
     X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
     Z=test.obj_function
     pc = ax.pcolormesh(X,Y,Z,cmap='jet') #figadd.cmap_white_jet()
     ax.set_xscale('log')
-    fig.colorbar(pc)
+    cb = fig.colorbar(pc)
     ax.set_ylabel('Sy [-]')
     ax.set_xlabel('K [m/j]')
+    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    fig.savefig(path_fig+'/'+'_mesh_'+name_file+'.png', dpi=300, bbox_inches='tight')
+    
+    # SHADED
+    
+    fig, ax = plt.subplots(1,1, figsize=(6,5))
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z=test.obj_function
+    pc = ax.pcolormesh(X,Y,Z,cmap='jet', shading='gouraud') #figadd.cmap_white_jet()
+    ax.set_xscale('log')
+    cb = fig.colorbar(pc)
+    ax.set_ylabel('Sy [-]')
+    ax.set_xlabel('K [m/j]')
+    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    fig.savefig(path_fig+'/'+'_shaded_'+name_file+'.png', dpi=300, bbox_inches='tight')
     
     # CONTOUR
     
@@ -1021,10 +1091,12 @@ for mod in ['REA'] :
     pc = ax.contourf(X, Y, Z)
     # plt.imshow(Z)
     # plt.xlim(1)
-    fig.colorbar(pc)
+    cb = fig.colorbar(pc)
     ax.set_xscale('log')
     ax.set_ylabel('Sy [-]')
     ax.set_xlabel('K [m/j]')
+    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    fig.savefig(path_fig+'/'+'_contour_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
 #%% ---
 
