@@ -73,11 +73,11 @@ data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
 out_path = "D:/Users/abherve/INTERMITTENCY/"
 
-git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = "D:/abherve/HYDRODATAPY/"
-# Path where the results will be stored
-out_path = "D:/abherve/INTERMITTENCY/"
+# git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# # Path to the data folder
+# data_path = "D:/abherve/HYDRODATAPY/"
+# # Path where the results will be stored
+# out_path = "D:/abherve/INTERMITTENCY/"
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
@@ -939,37 +939,38 @@ for mod in ['REA'] :
     
     synt = test.params_synt
         
-    # p1 = []
-    # for p in synt:
-    #     p1.append(p.split(';')[0])
-    # p2 = []
-    # for p in synt:
-    #     p2.append(p.split(';')[1])
-    # r3 = []
-    # for r in sim[typ_name]:
-    #     r3.append((r*1000*30).mean()[0])
-    # min3 = []
-    # r3 = []
-    # for t in range(len(synt)):     
-    #     sat = test.sim_results[synt[t]]['seepage_areas']
-    #     sat = pd.to_numeric(sat)
-    #     r3.append(sat.mean())
-    # plt.plot(r3)
-    # plt.plot(p1)
-    # plt.plot(p2, marker='.', lw=0)
-        
-    # X, Y = np.meshgrid(p1, p2)
-    # # idx = np.lexsort((p2, p1)).reshape(4, 3) 
-    # z = np.array([r3 for (p1,p2) in zip(np.ravel(X), np.ravel(Y))])
-    # Z = z.reshape(X.shape)
-   
-    # sat_mean = np.zeros((len(p1),len(p2)))
-    # cp = 0
-    # for i in range(len(p1)):
-    #     for j in range(len(p2)):
-    #         sat_mean[j][i] = (pd.to_numeric(test.sim_results[synt[cp]]['seepage_areas'])).mean()
-    #         cp+=1-1
+    p1 = []
+    for p in synt:
+        p1.append(p.split(';')[0])
+    p2 = []
+    for p in synt:
+        p2.append(p.split(';')[1])
+    rout = []
+    for r in sim[typ_name]:
+        rout.append((r*1000*30).mean()[0])
+    rsat = []
+    for t in range(len(synt)):     
+        sat = test.sim_results[synt[t]]['seepage_areas']
+        sat = pd.to_numeric(sat)
+        rsat.append(sat.mean())
     
+    fig, ax = plt.subplots(1,1, figsize=(6,5))
+    axb = ax.twinx()
+    x = range(len(p1))
+    ax.plot(x, [float(i) for i in p1], marker='.', lw=0, c='blue', label='K [m/j]')
+    ax.plot(x, [float(i) for i in p2], marker='.', lw=0, c= 'green', label='Sy [-]')
+    axb.plot(x, rsat, marker='.', lw=0, c= 'red', label='Saturation [%]')
+    axb.plot(x, rout, marker='.', lw=0, c= 'darkorange', label='Outflow [mm/mois]')
+    ax.set_xlabel('Simulations')
+    ax.set_ylabel('K and Sy')
+    axb.set_ylabel('Saturation and Outflow', rotation=270, labelpad=25)
+    ax.legend(loc = 'upper left')
+    axb.legend(loc='upper center')
+    ax.grid('grey')
+    ax.axhline(y=6.6E-7*24*3600, c = 'b', lw=2)
+    # ax.axhline(y=0.1, c = 'g', lw=2)
+    # plt.scatter(rout, rsat)
+            
     nse_good = []
     sat_good = []
     
@@ -1124,6 +1125,7 @@ BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
                                          first_year = 2000, last_year = 2010,
                                          time_step = time_step, sim_state=sim_state)
 Hist = BV.forcing.recharge
+
 
 # Active of not modules
 box = False # if True generate a rectangular model
@@ -3972,15 +3974,64 @@ climat = pd.read_csv('D:/Users/abherve/INTERMITTENCY/Canut/results_stable/climat
 #     R = BV.forcing.recharge
 #     plt.plot(R)
 
-climat = select_period(climat, 2000, 2000)
+climat = climat.resample('M').sum()
+climat = select_period(climat, 2000, 2009)
 
-variabs = ['PPT','ETP','RUN','REC']
+watershed_name = 'Canut'
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+raw_path = stable_folder+'/'+'hydrometry/'
+Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+area = float(Qobs_path.split('_')[-3])
+Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/day
+Qobs = Qobs.squeeze()
+Qobs = Qobs.resample('M').sum()
+Qobs = select_period(Qobs, 2000, 2009)
+
+variabs = ['PPT','ETP','RUN','REC','EFF']
+variabs = ['EFF']
 for var in variabs:
     fig, ax = plt.subplots(1,1, figsize=(8,3))
-    ax.plot(climat[var+'_'+'REA'+'_historic'], color='dodgerblue', label='REA')
-    ax.plot(climat[var+'_'+'OLD'+'_historic'], color='red', label='OLD')
-    ax.set_title(var)
-    ax.legend()
+    tp = (climat[var+'_'+'REA'+'_historic'] - climat['RUN'+'_'+'REA'+'_historic'])
+    ax.plot(tp,
+            color='dodgerblue', lw=2,
+            label='REA : '+str(round(tp.sum()))+' mm/an')
+    tp = climat[var+'_'+'OLD'+'_historic'] - climat['RUN'+'_'+'OLD'+'_historic']
+    ax.plot(tp,
+            color='red', lw=2,
+            label='OLD : '+str(round(tp.sum()))+' mm/an')
+    tp = climat[var+'_'+'IPS1'+'_historic'] - climat['RUN'+'_'+'IPS1'+'_historic']
+    ax.plot(tp,
+            color='k', lw=2,
+            label='IPS1 : '+str(round(tp.sum()))+' mm/an')
+    ax.plot(Qobs,
+            color='grey', lw=2,
+            label='Qobs : '+str(round(Qobs.sum()))+' mm/an')
+    ax.set_title(var+'- RUN')
+    ax.legend(loc='upper center')
+    
+variabs = ['PPT','ETP','RUN','REC','EFF']
+variabs = ['REC']
+for var in variabs:
+    fig, ax = plt.subplots(1,1, figsize=(8,3))
+    tp = (climat[var+'_'+'REA'+'_historic'] + climat['RUN'+'_'+'REA'+'_historic'])
+    ax.plot(tp,
+            color='dodgerblue', lw=2,
+            label='REA : '+str(round(tp.sum()))+' mm/an')
+    tp = climat[var+'_'+'OLD'+'_historic'] + climat['RUN'+'_'+'OLD'+'_historic']
+    ax.plot(tp,
+            color='red', lw=2,
+            label='OLD : '+str(round(tp.sum()))+' mm/an')
+    tp = climat[var+'_'+'IPS1'+'_historic'] + climat['RUN'+'_'+'IPS1'+'_historic']
+    ax.plot(tp,
+            color='k', lw=2,
+            label='IPS1 : '+str(round(tp.sum()))+' mm/an')
+    ax.plot(Qobs,
+            color='grey', lw=2,
+            label='Qobs : '+str(round(Qobs.sum()))+' mm/an')
+    ax.set_title(var+'+ RUN')
+    ax.legend(loc='upper center')    
+
 
 #%% ---
 
