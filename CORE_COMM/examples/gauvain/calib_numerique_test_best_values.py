@@ -68,7 +68,7 @@ BV.hydrodynamic.update_thickness(30)
 
 K2 = 1
 K1 = 6 #test.p[0]
-n = 0.01 #test.p[0]
+n = 0.28 #test.p[0]
 bot = None #0.48-30
 
 BV.hydrodynamic.update_hyd_cond_from_calib_zones(2, K2)
@@ -109,6 +109,7 @@ if isinstance(BV.forcing.recharge, float) == False:
         df['sim_' + BV.piezometry.codes_bss[j]].plot(c='r',ax=ax)
         plt.title(BV.piezometry.codes_bss[j])
         plt.plot(y0,y0-y1)
+        plt.show()
 
         ER = np.nansum(y0-y1)  # error 
         ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
@@ -184,11 +185,11 @@ colors = cmap(np.linspace(0, 1, len(months)))
 
 
 
-fig, (ax1) = plt.subplots(1, figsize=(5,5),dpi=300)
+fig, (ax1) = plt.subplots(1, figsize=(5.5,5),dpi=300)
 ax1.plot(yc, ycs,'ok',markersize=10)
 #ax1.plot(yd, yds,'^')#,c=BV.piezometry.date_discrete,cmap='jet_r')
 for x, y, c in zip(df['obs'],df['sim'], df['date']):
-    ax1.scatter(x, y, color=colors[c-1], label=months[c-1],marker='^',s=100)
+    ax1.scatter(x, y, color=colors[c-1],marker='^',edgecolor='k',s=100)
     #ax2.scatter(x, x-y, color=colors[c-1], label=months[c-1],marker='^',s=100)
     
 bounds = np.arange(len(months)+1)
@@ -199,19 +200,26 @@ cbar.set_ticklabels(months)
 cbar.ax.tick_params(length=0, pad=7)
 cbar.ax.invert_yaxis()
 
-ax1.plot([min(y0),max(y0)],[min(y0),max(y0)],'-k')
+ax1.plot([1,100],[1,100],'--k', label='Line 1:1')
+ax1.set_xlim([1,100])
+ax1.set_ylim([1,100])
 #ax2.plot(yc, yc - ycs,'ok',markersize=10)
 
+ax1.plot(0,0,'ok', label=r'Continuous')
+
+ax1.plot(0,0,'^w',markeredgecolor='k', label=r'Discretes')
 #ax2.plot([min(y0),max(y0)],[0,0],'-k')
 ax1.set_xscale('log')
 ax1.set_yscale('log')
-#ax2.set_xscale('log')
 
-corr_matrix = np.corrcoef(yc, ycs)
+#ax2.set_xscale('log')
+corr_matrix = np.corrcoef(y0, y1)
 corr = corr_matrix[0,1]
 R_sq = corr**2
-print(R_sq)
-ax1.set_xlabel(r'$\overline{h}_{obs}$ $[m]$',fontsize=15)
-ax1.set_ylabel(r'$\overline{h}_{sim}$ $[m]$',fontsize=15)
 
+plt.legend(title='$R^{2}$ = '+str(np.around(R_sq,2)), loc='upper left')
+ax1.set_xlabel(r'$h_{obs}$ $[m]$',fontsize=15)
+ax1.set_ylabel(r'$h_{sim}$ $[m]$',fontsize=15)
+
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/calib_hsim_hobs.png',dpi=300, bbox_inches = "tight")
 plt.show()

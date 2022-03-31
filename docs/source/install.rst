@@ -1,7 +1,5 @@
-Installation Procedure
+HydroModPy Installation Procedure
 ======================
-
-HydroModPy installation procedure
 
 GitLab Repository
 -----------------

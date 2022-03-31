@@ -49,7 +49,8 @@ class Modflow():
     def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                 sea_level=None, cond_decay=0.,multip_cond=None, model_name='modflow_model',
+                 sea_level=None, cond_decay=0., multip_cond=None, init_rech='mean',
+                 model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
@@ -83,6 +84,7 @@ class Modflow():
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
         self.exe = exe
+        self.init_rech = init_rech
 
     def pre_processing(self, verbose=False):
         if verbose == True:
@@ -203,7 +205,7 @@ class Modflow():
                         self.evtData[kper] = self.evt[kper]
             if verbose == True:
                 print('ETR')
-                print(self.evt)
+                # print(self.evt)
             self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
                                                 evtr=self.evtData, 
                                                 surf=0, exdp=self.thick)
@@ -220,14 +222,15 @@ class Modflow():
             else:
                 if kper == 0:
                     self.rchData[kper] = np.nanmean(self.climatic)
-                    # self.rchData[kper] = self.climatic.iloc[0]
-                    
+                    if self.init_rech == 'first':
+                        self.rchData[kper] = self.climatic.iloc[0]
+                        print('Init rech is "first"')
                 else:
                     self.rchData[kper] = self.climatic[kper]
         if verbose == True:
             print('REC')
-            print(self.climatic)
-        self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
+            # print(self.climatic)
+        self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
                 
         # Drain package (DRN)
         self.drnData = np.zeros((self.nrow*self.ncol, 5))
@@ -259,7 +262,7 @@ class Modflow():
         stress_period_data = {}
         for kper in range(self.nper):
             kstp = self.nstp[kper]
-            stress_period_data[(kper, kstp-1)] = ['save head'] #['save head','save budget',]
+            stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
@@ -555,8 +558,7 @@ class Modflow():
                 inf+=12
                 sup+=12
                 cpt+=1
-                
-
+            
 #%% notes
 
 # # Export
