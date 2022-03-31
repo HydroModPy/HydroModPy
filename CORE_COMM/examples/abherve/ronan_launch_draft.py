@@ -1104,26 +1104,42 @@ for mod in ['REA'] :
 
 # Input recharge
 bzh_rech = False
-var = 'REC'
-mod = 'OLD'
-sce = 'historic'
-typ = 'steady' # sinu / hist / proj
+var = 'EFF'
+# mod = 'OLD'
+mod = 'IPS1'
+sce = 'RCP8.5'
+# sce = 'historic'
+typ = 'proj' # sinu / hist / proj
 
 # Choice temporal of the simulation
-sim_state = 'steady' # 'steady' or 'transient'
+sim_state = 'transient' # 'steady' or 'transient'
 init_rech = 'first'
-period = [1971,2011] # recharge period
+period = [2010,2099] # recharge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 
+for mod in ['REA','IPS1']:
 
-BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                         first_year = 2000, last_year = 2010,
-                                         time_step = time_step, sim_state=sim_state)
-Hist = BV.forcing.recharge
+    if var =='REC':
+        BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                 first_year = 1961, last_year = 2010,
+                                                 time_step = time_step, sim_state=sim_state)
+        Hist = BV.forcing.recharge
+        plt.plot(Hist)
+        
+    if var =='EFF':
+        BV.forcing.update_effppt_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                 first_year = 1961, last_year = 2010,
+                                                 time_step = time_step, sim_state=sim_state)
+        Hist = BV.forcing.recharge
+        plt.plot(Hist)
+
+    # print(np.nansum(Hist))
+    print(np.nanmean(Hist))
+    print(Hist.head())
 
 # Active of not modules
 box = False # if True generate a rectangular model
@@ -1140,12 +1156,13 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = 4.2e-5 # koptim
-Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
-Sys = [0.1,0.01,0.001]
+Koptim = 9e-7 # koptim
+# Koptim = 3.0e-6 # koptim
+# Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
+# Sys = [0.1,0.01,0.001]
 
-Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
-Sys = [0.01]
+Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
+Sys = [0.15]
 
 # Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
 # Sys = [0.1,0.01,0.001]
@@ -1186,6 +1203,10 @@ for Sy in Sys:
                                             time_step = time_step, sim_state=sim_state)
             BV.forcing.update_recharge(BV.forcing.recharge, sim_state=sim_state)
             Rech = BV.forcing.recharge # m/month
+            if (sce == 'RCP2.6') | (sce == 'RCP8.5'):
+                Rech = pd.concat((Rech, Hist), axis=1).mean(axis=1)
+                BV.forcing.update_recharge(Rech, sim_state=sim_state)
+                Rech = BV.forcing.recharge # m/month
             plt.plot(Rech)
         
         if bzh_rech == True:
