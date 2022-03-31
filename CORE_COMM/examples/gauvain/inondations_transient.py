@@ -102,7 +102,6 @@ ax.set_xlabel(r'$Date$')
 ax.set_ylabel(r'$Recharge$ $[m.d^{-1}]$')
 plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/chronicle.png',dpi=300, bbox_inches = "tight")
 
-#%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
 zones[BV.geology.geology_array>40] = int(2) # Crystalline rocks
 zones[BV.geology.geology_array<40] = int(1) # Sands
@@ -148,5 +147,133 @@ for c in fact_cond:
                 #print(succes)
                 
 #%%
+import flopy.utils.binaryfile as fpu
 
-head_fpu = fpu.HeadFile(self.path_file+'.hds')
+ztop = BV.geographic.dem_clip
+ztop[ztop == -99999] = np.nan
+A = np.sum(BV.geographic.dem_clip>-9999)
+
+AsA_store = []
+for c in fact_cond:
+    for i in range(len(Recharge)):
+        for s in MSL:
+            ident= 'mod_cond_'+str(c)+'_sea_'+str(s)+'_rech_'+str(sce[i])
+            head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder,ident,ident+'.hds'))
+            head = head_fpu.get_alldata()
+            seep = ztop-head[:,0,:,:]
+            AsA = []
+            for j in range(len(seep)):
+                AsA.append(np.nansum(seep[j]<0)/A)
+            AsA_store.append(AsA)
+
+#%%
+import pandas as pd
+
+compt = 0
+plt.rcParams.update({
+  "text.usetex": True,
+  "font.family": "Helvetica"
+})
+
+font = {'family' : 'normal',
+        'weight' : 'bold',
+        'size'   : 30}
+
+fig, ax = plt.subplots(1,1,figsize=(10,5))
+label = ['Historic', 'Scenario 1', 'Scenario 2']
+colors = ['b','r','k']
+for c in fact_cond:
+    for i in range(len(Recharge)):
+        for s in MSL:
+            if c == -3:
+                if s == 0.48:
+                    ss = np.ones(len(AsA_store[compt]))*AsA_store[compt][0]
+                    df = pd.DataFrame(data={label[i]:AsA_store[compt]},index=climatic.index)
+                    df.plot(color=colors[i],ax=ax)
+                    df = pd.DataFrame(data={'Steady state':ss},index=climatic.index)
+                    df.plot(color=colors[i],ax=ax,linestyle = '--')
+            compt += 1
+            
+plt.legend(prop={'size':14})
+ax.set_xlabel(r'$Date$') 
+ax.set_ylabel(r'$A_{S}/A$ $[-]$')
+
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/chronicle_results.png',dpi=300, bbox_inches = "tight")
+
+#%%
+import geopandas as gpd
+import rasterio
+from rasterio.plot import show
+import contextily as cx
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+plt.rcParams.update({
+  "text.usetex": True,
+  "font.family": "Helvetica"
+})
+
+font = {'family' : 'normal',
+        'weight' : 'bold',
+        'size'   : 30}
+
+ztop = BV.geographic.dem_clip
+ztop[ztop == -99999] = np.nan
+contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+A = np.sum(BV.geographic.dem_clip>-9999)
+
+c = -5.0
+i = 2
+s = 2.48
+ident= 'mod_cond_'+str(c)+'_sea_'+str(s)+'_rech_'+str(sce[i])
+head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder,ident,ident+'.hds'))
+head = head_fpu.get_alldata()
+seep = ztop-head[:,0,:,:]
+
+thick = seep[0].copy()
+thick[thick>2]=np.nan
+thick[thick<0]=np.nan
+
+dur = seep<0
+time = np.sum(dur,axis = 0)/10
+time[time==0]= np.nan
+fig, ax = plt.subplots(1,1,figsize=(10,5))
+show(time, ax=ax,transform=dem.transform, cmap='Reds', alpha=1, zorder=2, aspect="auto")
+show(thick, ax=ax,transform=dem.transform, cmap='Blues_r', alpha=1, zorder=2, aspect="auto")
+contour.plot(ax=ax, lw=1, color='k', zorder=4, aspect="auto")
+cx.add_basemap(ax,crs='EPSG:2154',source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+ident+'_map',dpi=300, bbox_inches = "tight")
+
+fig, ax = plt.subplots(1,1,figsize=(5,5))
+t = show(time, ax=ax,transform=dem.transform, cmap='Reds', alpha=1, zorder=2, aspect="auto")
+th = show(thick, ax=ax,transform=dem.transform, cmap='Blues', alpha=1, zorder=2, aspect="auto")
+x = [363000,366000]
+ax.set_xlim(x[0],x[1])
+ax.set_xticks(np.arange(min(x), max(x)+1, 1500))
+ax.set_ylim(6890000+2000,6890000+7000)
+cx.add_basemap(ax,crs='EPSG:2154',source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')#https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+
+divider = make_axes_locatable(ax)
+#cax = divider.append_axes('right', size='10%', pad=0.25)
+pad = 0.8
+cax = fig.add_axes([pad,0.5, 0.05, 0.4])
+cmap = mpl.cm.Reds
+norm = mpl.colors.Normalize(vmin=0, vmax=365)
+cb1 = mpl.colorbar.ColorbarBase(cax, cmap=cmap,
+                                norm=norm)
+cb1.ax.tick_params(labelsize=10) 
+cb1.set_label('Groundwater inundations $[d.y^{-1}]$',font_properties={'size': 10})
+
+#cax2 = divider.append_axes('right', size='10%', pad=0.5)
+cax2 = fig.add_axes([pad,0.1, 0.05, 0.4])
+cmap = mpl.cm.Blues
+norm = mpl.colors.Normalize(vmin=0, vmax=2)
+cb2 = mpl.colorbar.ColorbarBase(cax2, cmap=cmap,
+                                norm=norm)
+cb2.ax.invert_yaxis()
+cb2.ax.tick_params(labelsize=10) 
+cb2.set_label('Watertable depth $[m]$',font_properties={'size': 10})
+
+plt.savefig('C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+ident+'_zoommap',dpi=300, bbox_inches = "tight")

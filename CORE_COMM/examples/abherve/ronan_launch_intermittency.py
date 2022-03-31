@@ -949,7 +949,7 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = 1e-5 # koptim
+Koptim = 4.2e-5 # koptim
 Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
 Sys = [0.1,0.01,0.001]
 
@@ -1090,16 +1090,68 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
             # # Plot maps
             save_gif = False # save a gif after plots
             surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
-                                                  types_obs, save_gif=save_gif, first_only=True,
+                                                  types_obs, save_gif=save_gif, first_only=False,
                                                   outflow=True, accflux=True, intermittency=False, 
                                                   chronics=True, sim_state=sim_state)
 
-#%% INTERMITTENCY TEST
+#%% ---
+
+#%% FLOPY CROSS SECTION
+
+import flopy
+import flopy.utils.binaryfile as fpu
+import flopy.utils.formattedfile as ff
+
+path_mf = simulations_folder+'/'+model_name+'/'+model_name
+mf1 = flopy.modflow.Modflow.load(path_mf + '.nam', verbose=False, check=False, load_only=["bas6", "dis"])
+head_fpu = fpu.HeadFile(path_mf+'.hds')
+head_data = head_fpu.get_data()
+head_data_mask = np.ma.masked_array(head_data, mask=(head_data==-9999))
+
+buffMasked = imageio.imread(BV.geographic.watershed_buff_dem)
+buffMasked = np.ma.masked_where(buffMasked<0, buffMasked)
+# plt.imshow(buffMasked)
+
+col = 60
+
+fig, ax = plt.subplots(1,1, figsize=(10,5))
+extent = (0, head_data_mask.shape[1]*75, 
+          buffMasked[:,col].min()-10, buffMasked[:,col].max()+10) # x1, x2, y1, y2
+xsect = flopy.plot.PlotCrossSection(model=mf1, line={'Column': col}, extent=extent)
+pc = xsect.plot_array(head_data, masked_values=[-9999], head=head_data, cmap='Spectral', alpha=0.5)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="4%", pad=0.05)
+cb = plt.colorbar(pc, cax=cax)
+cb.set_label('Head [m]', labelpad=+10)
+cb.mappable.set_clim(buffMasked[:,col].min()-10, buffMasked[:,col].max()+10)
+wt = xsect.plot_surface(head_data_mask, masked_values=[-9999], color='b', lw=1)
+patches = xsect.plot_ibound()
+linecollection = xsect.plot_grid(alpha=0.3, zorder=0)
+title = ax.set_title('Hydraulic head cross-section')
+ax.set_xlabel('Distance N-S (m)')
+ax.set_ylabel('Elevation (m)')
+ax.set_ylim(0)
+# levels = np.arange(np.nanmin(head_data), np.nanmax(head_data), 100)
+# contour_set = xsect.contour_array(head_data, masked_values=[-9999], head=head_data, 
+#                                   levels=levels, colors='k', alpha = 0.5)
+# plt.clabel(contour_set, fmt='%.1f', colors='k', fontsize=8)
+# size = 7
+# import flopy.utils.postprocessing as pp
+# qx,qy,qz = pp.get_specific_discharge(mf1, model=path_mf + '.cbc')
+# quiver = xsect.plot_vector(qx,qy,qz, head=head_data,
+#                        hstep=60, normalize=True, color='k', 
+#                        scale=20, headwidth=size, headlength=size, 
+#                        headaxislength=size,
+#                        zorder=1, width=0.0025)
+
+#%% INTERMITTENCY MAP
 
 var = 'REC'
 mod = 'OLD'
 sce = 'historic'
 typ = 'conceptexplo'
+
+years = BV.forcing.recharge.index.year.unique()
 
 simul_list = glob.glob(simulations_folder+typ+'*')
 # simuls = fnmatch.filter(os.listdir(simulations_folder), typ+'*')
@@ -1123,10 +1175,11 @@ for simul in simul_list:
         tempo = acc_npy[i].copy()
         tempo[tempo>0] = 1
         zero = zero + tempo
-    days_flux = zero.copy() / len(acc_npy)
-    fig, ax = plt.subplots(1,1, figsize=(7,6))
-    ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
-                   cmap = 'viridis_r', vmin=0, vmax=1, alpha=1)
+    days_flux = zero.copy() # / len(acc_npy)
+    # fig, ax = plt.subplots(1,1, figsize=(7,6))
+    # ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
+    #                cmap = 'viridis_r', vmin=1, vmax=12, alpha=1)
+    # fig.savefig(simul+'_figures'+'persistency_'+str(i)+'.png', dpi=300, bbox_inches='tight')
     
     acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
     inf = 0
@@ -1157,6 +1210,9 @@ for simul in simul_list:
         ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
+        
+        ax.set_title(years[i])
+        
         # divider = make_axes_locatable(ax)
         # cax = divider.append_axes("right", size="1%", pad=0.05)
         # fig.add_axes(cax)
@@ -1170,15 +1226,24 @@ for simul in simul_list:
         # cbar.mappable.set_clim(minVal, maxVal)
         # cbar.ax.tick_params(labelsize=10)
         
+        fig.savefig(simul+'/_figures/'+'intermittency_'+str(i)+'.png', dpi=300, bbox_inches='tight')
+        
         inf+=12
         sup+=12
+    
+    begin_by = simul+'/_figures/'+'intermittency_'
+    filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+    images = []
+    for filename in filenames:
+        images.append(imageio.imread(filename))
+    imageio.mimsave(begin_by+'intermittency_gif'+'.gif', images, duration=0.5, loop=1)
     
 #%% TEST MODEL
 
 var = 'REC'
 mod = 'REA'
 sce = 'historic'
-typ = 'test2'
+typ = 'conceptexplo'
 
 simul_list = glob.glob(simulations_folder+'*'+typ)
 
@@ -1233,7 +1298,7 @@ for simul in simuls:
 
 var = 'REC'
 
-typ = 'rea'
+typ = 'conceptexplo'
 simul_typ = glob.glob(simulations_folder+typ+'*')
 simul_typ = fnmatch.filter(simul_typ, '*historic*')
 
@@ -1320,7 +1385,7 @@ figsim_folder = simulations_folder+'_figures/'
 if not os.path.exists(figsim_folder):
     toolbox.create_folder(figsim_folder)
 
-typ = 'rea1'
+typ = 'conceptexplo'
 var = 'REC'
 scan = 'outflow_drain'
 sce_list = ['historic','RCP2.6','RCP8.5']
@@ -1578,7 +1643,7 @@ if not os.path.exists(figsim_folder):
     toolbox.create_folder(figsim_folder)
 
 sce = 'historic'
-typ = 'rea1'
+typ = 'conceptexplo'
 var = 'REC'
 scan_list = ['surflow_areas','perenn_areas','intermit_areas']
 
@@ -1788,7 +1853,7 @@ figsim_folder = simulations_folder+'_draft/'
 if not os.path.exists(figsim_folder):
     toolbox.create_folder(figsim_folder)
 
-typ = 'rea1'
+typ = 'conceptexplo'
 var = 'REC'
 scan = 'outflow_drain'
 # sce_list = ['historic','RCP2.6','RCP8.5']
@@ -2024,8 +2089,8 @@ for watershed_name in watershed_names:
                 plt.tight_layout()
                 ax.invert_yaxis()
                 
-            fig1.savefig(figsim_folder+'HQ_loop_'+model_name+'.png', dpi=300, bbox_inches='tight')
-            fig2.savefig(figsim_folder+'HQ_indi_'+model_name+'.png', dpi=300, bbox_inches='tight')
+            # fig1.savefig(figsim_folder+'HQ_loop_'+model_name+'.png', dpi=300, bbox_inches='tight')
+            # fig2.savefig(figsim_folder+'HQ_indi_'+model_name+'.png', dpi=300, bbox_inches='tight')
             
     fig1.tight_layout()
     fig2.tight_layout()    
