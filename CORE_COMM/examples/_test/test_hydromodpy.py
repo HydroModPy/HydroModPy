@@ -44,7 +44,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-user = 'Ronan'
+user = 'Martin'
 
 if user == 'Alexandre':
     # # Path to the git repositoty home page
@@ -53,6 +53,14 @@ if user == 'Alexandre':
     data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
     # # Path where the results will be stored
     out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
+
+if user == 'Martin':
+    # # Path to the git repositoty home page
+    git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+    # # Path to the data folder
+    data_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/TEST/"
+    # # Path where the results will be stored
+    out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output/'
 
 if user == 'Ronan':
     # Path to the git repositoty home page
@@ -144,7 +152,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -159,15 +167,15 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 if watershed_name != 'Conceptual':
     if load != True :
         BV.add_surfex(surfex_path) 
-        # BV.add_geology(geology_path) 
-        # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        # BV.add_oceanic(oceanic_path)
-        # BV.add_hydrometry(hydrometry_path)
-        # BV.add_intermittency(intermittency_path)
-        # if piezometry_path == True:
-        #     BV.add_piezometry()
-        # if subbasin_path == True:
-        #     BV.add_subbasin()
+        BV.add_geology(geology_path) 
+        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+        BV.add_oceanic(oceanic_path)
+        BV.add_hydrometry(hydrometry_path)
+        BV.add_intermittency(intermittency_path)
+        if piezometry_path == True:
+            BV.add_piezometry()
+        if subbasin_path == True:
+            BV.add_subbasin()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
@@ -217,7 +225,7 @@ thick_exp = 1 # exponential decay of K with nlay
 cond_decay = 0 # exponential decay of K with depth
 
 # Hydraulic properties
-K = 1e-5 * 3600 * 24 # m/second to m/day
+K = 1e-7 * 3600 * 24 # m/second to m/day
 E = 100 # m
 P = 0.01 # -
 
@@ -260,7 +268,7 @@ if sim_state=='transient':
 #%% LAUNCH MODELING
 
 # Run model
-BV.run_modflow(ident=model_name,
+success, flow_model = BV.run_modflow(ident=model_name,
                 modpath_sim=modpath_sim,
                 first_only=first_only,
                 sink_fill=sink_fill,
@@ -270,6 +278,8 @@ BV.run_modflow(ident=model_name,
                 thick_exp=thick_exp,
                 cond_decay=cond_decay,
                 verbose=verbose)
+
+BV.matrix_modflow(success, flow_model)
 
 # Extract results
 BV.results_modflow(ident=model_name,
@@ -305,15 +315,15 @@ save_gif = True # save a gif after plots
 
 # if sim_state=='transient':
 modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
-                               types_obs, freq_interv=freq_interv, save_gif=save_gif,
+                               types_obs, save_gif=save_gif,
                                outflow=True, intermittency=False, sim_state=sim_state)
 
 #%% 2D CROSS-SECTION
 
-interactive = True
+interactive = False
 
 dem_data = BV.geographic.dem_data # dem data
-wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # watertable data
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
 if watershed_name == 'Conceptual':
     river_data = None
 else:
@@ -347,8 +357,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LightSource
 from matplotlib.colors import LogNorm
 
-lead_numb = '000'
-outflow = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_simulations/steady/_watershed/_tifs/outflow_drain_t(000).tif')
+lead_numb = '0'
+outflow = imageio.imread('C:/Users/Martin/Desktop/Travail/HydroModPy/output/Outlet/results_simulations/steady/_watershed/_tifs/outflow_drain_t(0).tif')
 demData = BV.geographic.dem_data
 res = 100
 
