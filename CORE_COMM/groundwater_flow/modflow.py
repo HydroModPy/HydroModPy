@@ -385,8 +385,8 @@ class Modflow():
                 self.wt_elev[self.dem_mask] = -9999
                 # self.wt_elev.to_hdf(self.dict_watertable_elevation, lead_numb)
                 output_path = self.tifs_file+'/watertable_elevation_t('+lead_numb+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)
+                # if export_tif==True:
+                #     toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)
                 self.dict_watertable_elevation[item] = self.wt_elev
             
             if watertable_depth == True:
@@ -395,8 +395,8 @@ class Modflow():
                 self.wt_depth[self.dem_mask] = -9999
                 # self.wt_depth.to_hdf(self.dict_watertable_depth, lead_numb)
                 output_path = self.tifs_file+'/watertable_depth_t('+lead_numb+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_depth, -9999, output_path)
+                # if export_tif==True:
+                #     toolbox.export_tif(self.dem_path, self.wt_depth, -9999, output_path)
                 self.dict_watertable_depth[item] = self.wt_depth
             
             if seepage_areas == True:
@@ -407,8 +407,8 @@ class Modflow():
                 self.seep_area[self.dem_mask] = -9999
                 # self.seep_area.to_hdf(self.dict_seepage_areas, lead_numb)
                 output_path = self.tifs_file+'/seepage_areas_t('+lead_numb+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.seep_area, -9999, output_path)
+                # if export_tif==True:
+                #     toolbox.export_tif(self.dem_path, self.seep_area, -9999, output_path)
                 self.dict_seepage_areas[item] = self.seep_area
             
             if outflow_drain == True:
@@ -447,8 +447,8 @@ class Modflow():
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
                 output_path = self.tifs_file+'/groundwater_flux_t('+lead_numb+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.flux_top, -9999, output_path)
+                # if export_tif==True:
+                #     toolbox.export_tif(self.dem_path, self.flux_top, -9999, output_path)
                 self.dict_groundwater_flux[item] = self.flux_top
             
             if groundwater_storage == True:
@@ -478,8 +478,8 @@ class Modflow():
                 self.specif_disch_top[self.dem_mask] = -9999
                 # self.specif_disch.to_hdf(self.dict_specific_discharge, lead_numb)
                 output_path = self.tifs_file+'/specific_discharge_t('+lead_numb+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
+                # if export_tif==True:
+                #     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
             
             # Surface flow activation
