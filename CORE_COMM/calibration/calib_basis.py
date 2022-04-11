@@ -122,7 +122,7 @@ class CalibrationBasis:
         
         # Run model
         succes, mf = self.watershed.run_modflow(self.ident, 
-                                                verbose=False, 
+                                                verbose=True, 
                                                 calib=self.param_folder)
         
         # Use objective function from the type of observation
@@ -131,6 +131,7 @@ class CalibrationBasis:
             if 'streams' in self.observations:
                 self.watershed.matrix_modflow(succes,
                        mf,
+                       first_only=True,
                        watertable_elevation = True,
                        watertable_depth=False, 
                        seepage_areas = True,
