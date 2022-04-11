@@ -260,6 +260,8 @@ class Hydrometry:
                     
                     df_sim = self.outflow_drain.copy()
                     df_sim = df_sim.rename('sim_' + code)
+                    # print(df_sim)
+                    # print(df_runoff)
                     df_sim = df_sim + df_runoff
                     
                     df = df.merge(df_sim, left_index=True, right_index=True)
