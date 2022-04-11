@@ -1,0 +1,7 @@
+fonction;name;x_outlet;y_outlet;snap_dist;buff_dist;user
+using;rejetA;338397.541;6789892.783;200;1000;R.Abherve
+using;rejetB;340304.619;6790911.042;200;1000;R.Abherve
+using;rejetC;341784.939;6793747.340;200;1000;R.Abherve
+using;rejetD;342026.560;6794861.306;200;1000;R.Abherve
+using;rejetE;339446.003;6796814.277;200;1000;R.Abherve
+using;rejetF;336410.445;6801184.436;200;1000;R.Abherve

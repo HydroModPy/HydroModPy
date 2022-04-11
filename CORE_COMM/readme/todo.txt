@@ -1,0 +1,39 @@
+Ronan: 
+	forcing
+	geographic
+	climatic
+	hydrology
+	hydrometry
+	intermittency
+	tools
+	rooting_accflux
+	modflow_results
+	modflow_display
+		soon - Geographic: Ajouter la possibilité d'extraire le BV à partir d'un shapefile (Ronan)
+		soon - SurfexPy: Définir l'organisation comme un module d'HydroModPy. ex: spécifié le lien de surfexPy dans HydroModPy (Ronan)
+		ok - clean: séparer hydrology en hydrographic et hydrometry.(Ronan)
+		ok - hydrographic: pour les shapefile de cours d'eau (Ronan)
+		ok - progress - hydrometry: pour les données de débit (Ronan)
+		ok - geology dans data
+		ok - Passer chronics 3 methods de la class modflow: débit, piezos, saturation. Avec en entrée les coordonnées x,y du point d'intéret. (Ronan)
+		ok - Appelez geographic."subbassins" dans les class où il y a des point d'intérêt (piezometry, hydrometry).(Ronan)
+		ok - chaque résulats sera stocké dans results_stable/geographic/points/name.npy ou tif: matrice 0/1 et l'outlet snap shp. (Ronan)
+
+Alex:
+	hydrodynamic
+	geology
+	watershed_display
+	watershed_root
+	oceanic
+	piezometry
+	vtk
+	visualization
+	modflow
+	modpath
+	groundwaterflow
+	calibration
+		ok - "subbassins" sera une class du fichier python geographic avec des method différents: (Alexandre)
+		ok - Mettre objet (climatic, piezometry, geology, oceanic, hydrographic, hydrometry) sous forme de method plutot que de répondre au path en entrée de class watershed_root (Alexandre)
+		- Comment gérer add_data (stations par ex.) ? ==> subbassin.add_data_from_csv(file.csv) or subbassin.add_data_from_csv(name, x , y) 
+
+

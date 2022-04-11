@@ -1,0 +1,21 @@
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+Site;Number Data Training;Number Global Data;MSE Test;R2 Test;Quality Metric;Quality Sum;P Real;P pred;H Real Preal;H Real Ppred
+<<<<<<< HEAD
+17.0;9;10;0.0004010826985430226;0.9757936217786544;nan;0;30.0;30.0;0.0413325160789286;0.0413325160789286
+=======
+18.0;9;10;0.050395201101101586;-113.56836431012637;nan;0.0;3652.0;30.0;0.0515095706017609;0.013022431319223999
+>>>>>>> 0fe9d831d6d0086ef7b044560afa29e87e8ce4ed
+=======
+=======
+>>>>>>> Stashed changes
+Site;Number Data Training;Number Global Data;MSE Test;R2 Test;Quality Metric;Quality Sum;P Real;P pred;H Real Preal;H Real Ppred
+<<<<<<< HEAD
+17.0;9;10;0.0004010826985430226;0.9757936217786544;nan;0;30.0;30.0;0.0413325160789286;0.0413325160789286
+=======
+18.0;9;10;0.050395201101101586;-113.56836431012637;nan;0.0;3652.0;30.0;0.0515095706017609;0.013022431319223999
+>>>>>>> 0fe9d831d6d0086ef7b044560afa29e87e8ce4ed
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
