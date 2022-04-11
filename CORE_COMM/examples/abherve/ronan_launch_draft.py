@@ -103,7 +103,7 @@ from_xy = []
 dem_path = dems_path + dem_name
 
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
-watershed_names = ['Mordelles'] # search the name in watershed_library or just label your result folder
+watershed_names = ['Monfort'] # search the name in watershed_library or just label your result folder
 
 #%% GENERATE WATERSHED
 
@@ -130,7 +130,7 @@ fields_obs = ['persistanc']
 # z.to_file(w)
 # y = gpd.read_file(w)
 
-load = False
+load = True
 
 # for watershed_name, from_xy in zip(watershed_names, coords_list):
 for watershed_name in watershed_names:
@@ -850,7 +850,7 @@ fields_obs = ['fid']
 
 df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
 
-for watershed_name in ['monfort','mordelles']:
+for watershed_name in ['mordelles']:
 
     for type_obs, field_obs in zip(types_obs, fields_obs):
     
@@ -907,24 +907,26 @@ for watershed_name in ['monfort','mordelles']:
         
     df.to_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';')
     
-    koptim = df.loc[0,'drain_complete_chezecanut']
+    # koptim = df.loc[0,'drain_complete_chezecanut']
     
     df = pd.read_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';')
 
 #%% EXPLORATION RECHARGE
 
+watershed_name = 'monfort'
+
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
     
-fcalib = 1990
-lcalib = 2019
+fcalib = 1985
+lcalib = 2011
 
 sim_state = 'transient'
 time_step = 'M'
 
-var = 'EFF'
+var = 'REC'
 wr = True
 wish = 0
-mod = 'REA'
+mod = 'OLD'
 
 raw_path = stable_folder+'/'+'hydrometry/'
 Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
@@ -933,11 +935,13 @@ area = float(Qobs_path.split('_')[-3])
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
 Qobs = Qobs.squeeze()
 Qobs = Qobs.resample('M').mean()
+# plt.plot(Qobs)
+# plt.yscale('log')
 
 fqobs = Qobs.first_valid_index().year+1
 lqobs = Qobs.last_valid_index().year-1
-fhist = 1961
-lhist = 2010
+fhist = 1970
+lhist = 2011
 year_min = max(fqobs, fhist)
 year_max = min(lqobs, lhist)
 
@@ -960,22 +964,27 @@ if var =='EFF':
     plt.plot(Eff - Runof, c='b')
     plt.plot(BV.forcing.recharge, c='r')
 
-if (var =='REC') | (var=='OLD'):
+if var =='REC' :
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                             first_year = fcalib, last_year = lcalib,
+                                             first_year = year_min, last_year = year_max,
                                              time_step = time_step, sim_state=sim_state)
     Rech = BV.forcing.recharge
     BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = fcalib, last_year=lcalib, time_step = 'M',
+                                          first_year = year_min, last_year=year_max, time_step = 'M',
                                           sim_state='transient')
     Runof = BV.forcing.runoff # m/month
     
     norm_Rea = select_period(Rech, year_min, year_max)
     norm_Qobs = select_period(Qobs, year_min, year_max)
+    
     Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
-    Nt = (Rech * Rt_Rea_Qobs)
+    Nt = (norm_Rea * Rt_Rea_Qobs)
+    
     BV.forcing.update_recharge(Nt, sim_state=sim_state)
     plt.plot(BV.forcing.recharge, c='r')
+    
+    calib_rech = BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
+    calib_runof = BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
 
 # BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
 #                                          first_year = fcalib, last_year = lcalib,
@@ -993,7 +1002,7 @@ params_file = 'calib_explo_hom_2v_k1-n1'
 #%% EXPLORATION LAUNCH
 
 calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-calib.exploration(resolution=100)
+calib.exploration(resolution=9)
 
 #%% EXPLORATION PLOT
     
@@ -6310,5 +6319,18 @@ for mod in ['REA','NOR1','OLD']:
             ax.set_yscale('log')
 
 #%% ---
+
+#%% OPEN NETCDF
+
+path_netcdf = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Drias/DRAINC_France_CNRM-CERFACS-CNRM-CM5_CNRM-ALADIN63_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19510801-20050731.nc"
+path_netcdf = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Drias/Debits_France_CNRM-CERFACS-CNRM-CM5_CNRM-ALADIN63_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19510801-20050731.nc"
+path_netcdf = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Drias/RUNOFFC_France_CNRM-CERFACS-CNRM-CM5_CNRM-ALADIN63_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19510801-20050731.nc"
+path_netcdf = "D:/Users/abherve/NETCDF/RUNOFFC_France_CNRM-CERFACS-CNRM-CM5_CNRM-ALADIN63_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19510801-20050731.nc"
+path_netcdf = "D:/Users/abherve/NETCDF/DRAINC_France_CNRM-CERFACS-CNRM-CM5_CNRM-ALADIN63_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19510801-20050731.nc"
+
+import netCDF4 as nc
+# ds = nc.Dataset(path_netcdf, 'w')
+import xarray as xr
+ds  = xr.open_dataset(path_netcdf)
 
 #%% NOTES 
