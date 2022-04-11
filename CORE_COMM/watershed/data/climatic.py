@@ -68,7 +68,8 @@ class Climatic:
     def extract_values_from_h5file(self,data_folder, surfex_path):
         variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
         scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-        simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+        simulations = ['OLD','REA','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+                       'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
         self.values = {}
         for sim in simulations:
             try:
@@ -82,17 +83,20 @@ class Climatic:
                 for sce in scenarios:
                     try:
                         values = pd.read_hdf(surfex_path+'/'+sim+'.h5',var+'/'+sce)
-                        if sim == 'REA':
+                        # print('Find: '+sim)
+                        if (sim == 'REA') | (sim == 'OLD'):
                             values.index.freq = values.index.inferred_freq
-                        values = values.loc[:,self.cells_list]
+                        # values = values.loc[:,self.cells_list]
+                        values = values[values.columns.intersection(self.cells_list)]
                         values['MEAN'] = values.mean(numeric_only=True, axis=1)
                         values.to_hdf(h5file, var+'/'+sce)
                         self.values[sim][var][sce] = values
                     except:
+                        # print('None: '+sim)
                         pass
 
     def display_all_variables(self, model=None, start='1960', end='2010'):
-        mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA']
+        mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA','OLD']
         if model == None or (model not in mod_list):
             print('You must specify the model you want to display')
         else:
@@ -126,7 +130,7 @@ class Climatic:
 
     def display_anomaly(self, mod=None ,var=None, per_hist=[1950,2005], per_fut=  [[2006,2020],[2021,2035],[2036,2050],[2051,2100]]):
         var_list = ['all','TAS','PPT','ETP','RUN','REC','SNOW']
-        mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA']
+        mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA','OLD']
         if var == None or mod==None or (var not in var_list) or (mod not in mod_list):
             print('You must specify the variable/model you want to display')
         else:
@@ -138,7 +142,7 @@ class Merge:
 
         self.variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
         self.scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
-        self.simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
+        self.simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1','OLD']
 
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
                 
@@ -147,7 +151,9 @@ class Merge:
                 for sce in self.scenarios:
                     if (sim == 'REA') & (sce == 'historic'):
                         columns.append(sim+'_'+sce)
-                    if sim != 'REA':
+                    if (sim == 'OLD') & (sce == 'historic'):
+                        columns.append(sim+'_'+sce)
+                    if (sim != 'REA') & (sim != 'OLD'):
                         columns.append(sim+'_'+sce)
                         
         date = pd.date_range(start='01/01/1960', end='31/12/2099', freq='D')
@@ -162,18 +168,20 @@ class Merge:
                 for sce in self.scenarios:
                     try:
                         hdf = pd.read_hdf(self.data_folder+sim+'.h5',var+'/'+sce) # mm/day or °C
-                        df[sim+'_'+sce] = hdf.MEAN                                         
+                        df[sim+'_'+sce] = hdf.MEAN               
                     except:
                         continue
             
             # if (self.time_step == 'M'):
             dfm = df.copy() 
+            dfm = dfm[~dfm.index.duplicated()]
+            # print(dfm)
             mask = dfm.resample("M").count() >= 27
             if (var == 'TAS'):
                 dfm = dfm.resample("M").mean()[mask]
             else:
                 # df = df.resample('M').sum(min_count=27) # mm/month
-                dfm = dfm.resample("M").sum()[mask]
+                dfm = dfm.resample("M").mean()[mask]
                     
             # if (self.time_step == 'Y'):
             dfy = df.copy()
@@ -182,8 +190,24 @@ class Merge:
                 dfy = dfy.resample("Y").mean()[mask]
             else:
                 # df = df.resample('Y').sum(min_count=364) # mm/year
-                dfy = dfy.resample("Y").sum()[mask]
+                dfy = dfy.resample("Y").mean()[mask]
             
             df.to_csv(self.data_folder+'_'+var+'_'+'D'+'.csv', sep=';')
             dfm.to_csv(self.data_folder+'_'+var+'_'+'M'+'.csv', sep=';')
             dfy.to_csv(self.data_folder+'_'+var+'_'+'Y'+'.csv', sep=';')
+            
+        # Mix all data in a dataframe
+        ppt = pd.read_csv(self.data_folder+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+        etp = pd.read_csv(self.data_folder+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+        eff = ppt - etp
+        eff = eff.add_prefix('EFF'+'_')
+        raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS']
+        liste = []
+        for raw in raws :
+            dfd = pd.read_csv(self.data_folder+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+            dfd = dfd.add_prefix(raw+'_')
+            liste.append(dfd)
+        dfd = pd.concat(liste, join='inner', axis=1)
+        dfd = pd.concat([dfd, eff], join='inner', axis=1)
+        dfd = dfd.apply(pd.to_numeric)
+        dfd.to_csv(self.data_folder+'_ALL_D.csv', sep=';')

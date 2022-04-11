@@ -5,7 +5,7 @@ Created on Mon Dec 20 08:05:41 2021
 @author: Ronan Abhervé
 """
 
-#%% GENERAL LIBRARIES
+# GENERAL LIBRARIES
 
 # General
 import sys
@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal, osr
 from IPython import get_ipython
+
 get_ipython().run_line_magic('matplotlib', 'inline')
 # Plot
 import matplotlib.pyplot as plt
@@ -48,18 +49,18 @@ import warnings
 # warnings.warn("You won't see this warning", category=DeprecationWarning) # to modify warnings
 logging.captureWarnings(True)
                  
-#%% HYDROMODPY MODULES
+# HYDROMODPY MODULES
          
 from watershed import watershed_root, forcing, watershed_display
-from tools import tif_adds, serie_transf, tif_features, file_adds, to_plot, vtk
+from tools import toolbox, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
-from groundwater_flow import plots
+from groundwater_flow import modflow_display, visualization
 
-#%% LAYOUT PLOT
+# LAYOUT PLOT
 
-fontprop = to_plot.plot_params(8,15,18,20) # small, medium, interm, large
+fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% NECESSARY PATHS
+# NECESSARY PATHS
 
 # Path to the git repositoty home page
 git_path = DIR
@@ -74,10 +75,12 @@ dems_path = test_path + 'dem/'
 hydrology_path = test_path + 'hydrology/' # add hydrographic shapefiles
 modflow_path = test_path + 'modflow/' # add bin/ folder with necessary .exe
 climate_path =test_path + 'climate/'
-
+intermittency_path = test_path + 'intermittency/'
+hydrometry_path = test_path + 'hydrometry/'
 piezometry_path = None # add piezometry data or nothing for automatic download
 geology_path = None # add geologic layers
 oceanic_path = None # add specific sea level files
+
 # Specifically designed to process SURFEX data (France scale)
 surfex_path =  None # add surfex models in .h5 format
 
@@ -95,7 +98,7 @@ library_path = test_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Select from the library the interest catchment
-watershed_name = 'Watershed' # add manually study site information in map units
+watershed_name = 'Example' # add manually study site information in map units
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
@@ -106,7 +109,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 types_obs = ['streams','sections'] # list of shapefile name layers
 fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
 
-#%% GENERATING WATERSHED
+# GENERATING WATERSHED
 
 load = True
 print('##### '+watershed_name.upper()+' #####')
@@ -120,6 +123,8 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               hydrology_path=hydrology_path,
                               oceanic_path=oceanic_path, 
                               piezometry_path=piezometry_path,
+                              hydrometry_path=hydrometry_path,
+                              intermittency_path=intermittency_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
@@ -131,19 +136,19 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
-#%% SET PARAMETERS
+# SET PARAMETERS
 
 # Choice the state of the simulation
 sim_state = 'steady' # steady
 first = 2010
-last = 2019
+last = 2010
 time_step = 'M'
 
 # Recharge from a csv
 rec = pd.read_csv(climate_path+'_REC_'+time_step+'.csv', sep=';', index_col=[0], parse_dates=True)
 rec = rec[(rec.index.year>=first) & (rec.index.year<=last)]
 rec = rec.squeeze()
-BV.forcing.update_recharge(values = rec / 1000, sim_state=sim_state)
+BV.forcing.update_recharge(values = (rec) / 1000, sim_state=sim_state)
 
 # Finally the rehcarge is set as a value or a serie
 R = BV.forcing.recharge # mm/month to m/month
@@ -167,31 +172,39 @@ BV.hydrodynamic.update_porosity(P)
 
 # Set name of the model
 model_name = sim_state
+model_name = 'test2'
 
-#%% RUN MODEL
-
+# RUN MODEL
 # Launch a model
-BV.run_modflow(ident=model_name, modpath_sim=False, calib=False, sink_fill=False, 
-                lay_number=1, bottom=None, thick_exp=1., sea_level=None, cond_decay=0., 
+BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
+                lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
                 verbose=True)
-print('Modeling process completed')
+
+# print('Modeling process completed')
 
 # Extract result chronics
-BV.chronics_modflow(ident=model_name, mask=False, outlet_type=True, calib_only=False, 
-                    first=first, last=last, time_step='monthly')
+BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_step='M')
 print('Result chronics extraction completed')
 
 #%% VISUALIZATION 3D
 
-from groundwater_flow import visualization
+from tools import toolbox, vtk
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=['grid','watertable','watertable_depth'], view='south-west')
+visu.visual3D(interactive=True,
+              object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'],
+              view='south-west', lines=200, cloc=(0.7,0.1))
 
 #%% PLOT SURFACE OUTPUTS
 
-if sim_state=='transient':
-    plots.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, types_obs, freq_interv=12, save_gif=True)
+if sim_state == 'transient':
+    modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name,
+                                   types_obs, freq_interv=12, save_gif=True)
+
+x = np.load(simulations_folder+'/test2/_watershed/accumulation_flux.npy', allow_pickle=True).item()
+x = x[0]
+x[x<=0] = np.nan
+plt.imshow(x)
 
 #%% INTERACTIVE CROSS-SECTION
 
@@ -201,12 +214,10 @@ dem_data = BV.geographic.dem_data
 # dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
 
 # Wt data
-wt_data = imageio.imread(simulations_folder+model_name+'/_extraction/'+'watertable_elevation_(000).tif') # buffer size no masked
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # buffer size no masked
 
 # River data
 river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 
 # Function
-plots.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
-
-#%%
+modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)

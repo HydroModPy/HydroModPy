@@ -29,6 +29,11 @@ class Forcing:
         self.recharge = values # recharge
         if sim_state == 'steady':
             self.recharge = np.mean(self.recharge)
+            
+    def update_runoff(self, values, sim_state):
+        self.runoff = values # recharge
+        if sim_state == 'steady':
+            self.runoff = np.mean(self.runoff)
     
     def update_synthetic_recharge(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
         self.freq = freq
@@ -48,7 +53,7 @@ class Forcing:
             pdf[(time >= (mean-(shape/2))) & (time < ((shape/2)+mean))] = rech/shape
         self.recharge = pd.Series(data = pdf, index=date)
         if freq != None:
-            self.recharge = self.recharge.resample(self.freq).sum()
+            self.recharge = self.recharge.resample(self.freq).mean()
         
     def update_sinusoid_recharge(self, serie, period, amplitude, offset, omega, phase):
         from scipy.optimize import curve_fit
@@ -84,7 +89,7 @@ class Forcing:
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
-        self.recharge.index = self.recharge.index.to_period(self.freq)
+        # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
@@ -95,12 +100,31 @@ class Forcing:
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic/1000 # recharge in meters
         self.runoff.index = self.runoff.asfreq(self.freq).index
-        self.runoff.index = self.runoff.index.to_period(self.freq)
+        # self.runoff.index = self.runoff.index.to_period(self.freq)
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
         
-       
-        
+    def update_effppt_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+        self.freq = time_step
+        ppt = pd.read_csv(self.data_folder+'_'+'PPT'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
+        ppt = ppt[clim_mod+'_'+clim_sce]
+        ppt = ppt[(ppt.index.year >= first_year) & (ppt.index.year <= last_year)]
+        aet = pd.read_csv(self.data_folder+'_'+'ETP'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
+        aet = aet[clim_mod+'_'+clim_sce]
+        aet = aet[(aet.index.year >= first_year) & (aet.index.year <= last_year)]
+        effppt = ppt - aet
+        self.recharge = effppt/1000 # recharge in meters
+        self.recharge.index = self.recharge.asfreq(self.freq).index
+        self.effppt = self.recharge.copy()
+        self.pe_pos = self.effppt.clip(lower=0)
+        self.pe_neg = self.effppt.clip(upper=0)
+        # self.recharge.index = self.recharge.index.to_period(self.freq)
+        if sim_state == 'steady':
+            self.recharge = self.recharge.mean()
+            self.effppt = self.effppt.mean()
+            self.pe_pos = self.pe_pos.clip(lower=0)
+            self.pe_neg = self.pe_neg.clip(upper=0)
+            
         
         
         

@@ -12,13 +12,24 @@ import ssl
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.font_manager import FontProperties
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes 
+from mpl_toolkits.axes_grid1.inset_locator import mark_inset
+from datetime import datetime
+# Hydromodpy
+from tools import toolbox
 
 class Piezometry:
     def __init__(self, out_path, geographic):
         print('Extraction des données piézomètriques')
         data_folder = os.path.join(out_path,'results_stable','piezometric')
         if not os.path.exists(data_folder):
-                os.makedirs(data_folder)    
+                os.makedirs(data_folder)
+        self.figure_folder = os.path.join(out_path,'results_stable','_figures','piezometric')
+        if not os.path.exists(self.figure_folder):
+                os.makedirs(self.figure_folder)  
         self.download_init_data(data_folder, geographic)
         self.out_path = out_path
         self.geo_x_coord = geographic.x_coord
@@ -30,7 +41,10 @@ class Piezometry:
         self.codes_bss = []
         self.depth_well = []
         self.elevation_well = []
-        self.exctract_piezos_from_watershed(data_folder, geographic)
+        try:
+            self.exctract_piezos_from_watershed(data_folder, geographic)
+        except:
+            pass
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
         if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
             self.extract_data_from_code_bss(data_folder)
@@ -47,13 +61,16 @@ class Piezometry:
             with zipfile.ZipFile(filename, 'r') as zip_ref:
                 zip_ref.extractall(folder)
             os.remove(filename)
-        
+            
         #BSS discrete data
         filename = data_folder + 'BSS.zip'
         folder = os.path.join(data_folder, 'shapefile')
+        #if not os.path.exists(os.path.join(folder,"BSS.shp")):
         bss = 'bss_export_' + str(geographic.dep_code) + '.zip'
         bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
-        url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
+        url = 'http://infoterre.brgm.fr/telechargements/ExportsPublicsBSS/' + bss
+        #url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
+        print('     '+'Piezometric page loaded')
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
@@ -98,24 +115,23 @@ class Piezometry:
                 idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
                 idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
                 self.x_iloc.append(idx)
-                self.y_iloc.append(idy)
+                self.y_iloc.append(idy) 
         
-    
         #BSS discrete data
         bss_shp = os.path.join(data_folder,'shapefile','BSS.shp')
         bss_fr = gpd.read_file(bss_shp)
         bss_fr.to_crs(epsg=2154, inplace=True)
         bss = gpd.clip(bss_fr, watershed)
-        self.codes_bss_discrete = bss['indice'].tolist()
-        self.date_discrete = bss['date_eau_s'].tolist()
-        self.elevation_discrete = bss['cote_eau'].tolist()
-        self.depth_discrete = bss['prof_eau_s'].tolist()
-        self.x_coord_discrete = bss['x_ref06'].tolist()
-        self.y_coord_discrete = bss['y_ref06'].tolist()
+        self.codes_bss_discrete = bss['indice'][bss['cote_eau'] != 0].tolist()
+        self.date_discrete = bss['date_eau_s'][bss['cote_eau'] != 0].tolist()
+        self.elevation_discrete = bss['cote_eau'][bss['cote_eau'] != 0].tolist()
+        self.depth_discrete = bss['prof_eau_s'][bss['cote_eau'] != 0].tolist()
+        self.x_coord_discrete = bss['x_ref06'][bss['cote_eau'] != 0].tolist()
+        self.y_coord_discrete = bss['y_ref06'][bss['cote_eau'] != 0].tolist()
         self.x_iloc_discrete = []
         self.y_iloc_discrete = []
         for i in range(0, len(self.x_coord_discrete)):
-            idx = (np.abs(geographic.x_coord- self.x_coord_discrete[i])).argmin()
+            idx = (np.abs(geographic.x_coord - self.x_coord_discrete[i])).argmin()
             idy = (np.abs(geographic.y_coord- self.y_coord_discrete[i])).argmin()
             self.x_iloc_discrete.append(idx)
             self.y_iloc_discrete.append(idy)
@@ -126,21 +142,22 @@ class Piezometry:
     def extract_data_from_code_bss(self,data_folder):
         for code in self.codes_bss:
             code_ = code.replace('_','/')
+            print('          '+code)
             if not os.path.exists(data_folder+'/'+code):
                 url = 'https://ades.eaufrance.fr/Fiche/PtEau?Code=' + code_
                 chrome_options = webdriver.ChromeOptions()
                 prefs = {'download.default_directory' : data_folder.replace('/','\\')}
                 chrome_options.add_experimental_option('prefs', prefs)
-                driver = webdriver.Chrome(chrome_options=chrome_options)
+                driver = webdriver.Chrome(options=chrome_options)
                 driver.get(url)
                 try:
                     elem = driver.find_element_by_link_text('Tout télécharger')
                     elem.click()
                     compt = 0
                     while (compt==0):
-                        if len(glob.glob(data_folder + '*.zip')) == 1:
+                        if len(glob.glob(os.path.join(data_folder,'*.zip'))) == 1:
                             compt +=1
-                            time.sleep(1)
+                            time.sleep(1)                            
                         time.sleep(1)
                     driver.close()
                     file = glob.glob(data_folder+'/*.zip')[0]
@@ -195,7 +212,30 @@ class Piezometry:
             df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
             gdf.to_file(self.piezos_shp)
-
+        
+    
+    
+    def display_data(self,value='elevation',start=None,end=None):
+        fontprop = toolbox.plot_params(15,15,18,20)
+        values_list = ['elevation','depth']
+        if value not in values_list:
+            print('You must specify the value you want to display: elevation or depth')
+        fig, ax = plt.subplots(figsize=(7,7))
+        colors = plt.cm.rainbow(np.linspace(0, 1, len(self.codes_bss)))
+        if len(self.codes_bss) == 6:
+            colors = ['r','m','y','g','k','b']
+        if value =='elevation':
+            self.elevation[start:end].plot(ax=ax,color=colors,lw=2)
+            #df = pd.DataFrame({'Date': [datetime.strptime(date, '%d/%m/%Y')for date in self.date_discrete], 'elevation_discrete': self.elevation_discrete})
+            #df = df.set_index('Date')
+            #df.plot(ax=ax,style='ok')
+            plt.ylabel('Elevation [m]')
+        plt.legend(loc='best')
+        plt.xlabel('Date')
+    
+        plt.tight_layout()
+        name_out = os.path.join(self.figure_folder,'plot')
+        fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 
 
 

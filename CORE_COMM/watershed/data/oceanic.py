@@ -12,18 +12,24 @@ from data import oceanic_display
 
 class Oceanic:
     def __init__(self):
-        print('Extraction des données océaniques')
         self.MSL = None
-        
+    
+    def update_MSL(self, value):
+        self.MSL = value
+    
     def extract_data(self, out_path, geographic, oceanic_path = None):
-        self.figure_folder = os.path.join(out_path,'figures/oceanic/')
+        self.figure_folder = os.path.join(out_path,'results_stable/_figures/oceanic/')
         if not os.path.exists(self.figure_folder):
             os.makedirs(self.figure_folder)
-        self.mean_sea_level(geographic,oceanic_path)
-        self.rise_sea_level(geographic, oceanic_path)
+        ram_path = self.mean_sea_level(geographic, oceanic_path)
+        if ram_path != None:
+            self.rise_sea_level(geographic, oceanic_path)
 
-    def mean_sea_level(self,geographic,oceanic_path):
+    def mean_sea_level(self,geographic, oceanic_path):
         ram_path = oceanic_path+"/RAM_2020.shp"
+        if not os.path.exists(ram_path):
+            ram_path = None
+            return ram_path
         gdf = gpd.read_file(ram_path)
         ports = gdf.to_crs(epsg=2154)
         ports = ports.dropna(subset=['NM', 'ZH_Ref'])
@@ -32,6 +38,7 @@ class Oceanic:
         index = (np.abs(dist)).argmin()
         self.port = ports.SITE[index]
         self.MSL = ports.NM[index]/100+ports.ZH_Ref[index]
+        return ram_path
 
     def rise_sea_level(self, geographic, oceanic_path):
         xidx, yidx = self.idx_from_global_map(oceanic_path+'/rsl_ts_26.nc',geographic)
@@ -94,7 +101,7 @@ class Oceanic:
         if values not in values_list:
             print('You must specify the values you want to display')
         if values =='RMSL':
-            oceanic_display.display_data(self.RMSL,self.figure_folder+'RMSL')
+            oceanic_display.display_data(self.RMSL,self.figure_folder+'RMSL', values)
         if values =='RSL':
-            oceanic_display.display_data(self.RSL,self.figure_folder+'RSL')
+            oceanic_display.display_data(self.RSL,self.figure_folder+'RSL', values)
 

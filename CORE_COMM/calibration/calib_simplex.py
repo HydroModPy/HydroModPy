@@ -141,7 +141,7 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         # -----------------OPTIMIZATION FUNCTION ------------------
         # Minimization function: Simplex Method
         res = minimize(self.objective_function, p0, 
-                method='nelder-mead', options={'xatol': self.__simplex_xatol, 'fatol': self.__simplex_fatol, 'disp': False}, bounds=bounds) # 'nelder-mead'
+                method='nelder-mead', options={'xatol': self.__simplex_xatol, 'fatol': self.__simplex_fatol, 'disp': True}, bounds=bounds) # 'nelder-mead'
                 # method='BFGS', options={'disp': True})
         
         print(p0, res)
@@ -178,47 +178,11 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         store = []
         for i in range(self.simplex_init_multiples_n):
             # Random choice of lpm in self.lpm
-            self.lpm.random_uniform(rng=rng)
+            self.params.random_uniform(rng=rng)
             # Performs optimization 
-            store.append(self.__Simplex(param = self.lpm.get_parameters_to_array()))
+            store.append(self.__Simplex())
         return store
         
-    
-    def __forward_uncertainty_quantification(self):
-        """ 
-        Forward_uncertainty_quantification strochastic sampling Algorihm
-            to calibrate lpm accounting for uncertainty in the data 
-        
-        Calibration itself uses the classical Simplex algorithm
-            
-        Parameters
-        ----------
-        self.fuq_n: int
-            number of concentration samples, of the order of 10^(1-3 * number of parameters)
-
-        Returns
-        -------
-        self.lpm.p_dist (modification of attribute)
-            All Optimal models found
-            
-       
-        
-        # Initialization of results structure
-        lpm_results = LPM_dist.LPMDist(self.lpm,c_names=self.concentration_sampled.names_dates())
-        # Surrogate calibration structure for the simplex method used for each of the sampled data set
-        lpm_simplex = copy.deepcopy(self)
-        # Calibration is performed with the classical Simplex algorithm
-        lpm_simplex.method = "Simplex_init_multipes"
-        # Initialization of random number generator      
-        rng = np.random.default_rng(self.fuq_seed_rng)
-        # Loop to sample the uncertainty range
-        for i in range(self.fuq_n):
-            # Samples randomly uncertainty in the data
-            lpm_simplex.concentration_sampled = self.concentration_sampled.sample_concentrations_with_errors(rng)
-            # Calibration with this set of concentrations
-            lpm_results.append(lpm_simplex.__Simplex())
-        return lpm_results
-        """ 
 
     def write_parameters(self,file_name):
         """ 

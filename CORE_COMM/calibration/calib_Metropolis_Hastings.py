@@ -173,7 +173,7 @@ class MH_step:
 
 class CalibrationMetropolisHastings(calbas.CalibrationBasis) : 
     """ 
-    Metropolis_Hastinvs Monte-Carlo Markov Chain Algorithm (MH MCMC)
+    Metropolis_Hastings Monte-Carlo Markov Chain Algorithm (MH MCMC)
         to calibrate lpm accounting for uncertainty in the data and possibly for a-priori distributions on parameters 
         Requires large number of evaluations of the objective function (10^5-10^6-10^7)
         

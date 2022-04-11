@@ -13,9 +13,9 @@ import pandas as pd
 from datetime import datetime
                     
 from calibration import tools_figures_additional as figadd                                     
-from calibration import calib_objective_function, calib_params,calib_exploration          
+from calibration import calib_objective_function, calib_params
 
-
+from tools import toolbox
 
 class CalibrationBasis: 
     """ 
@@ -38,7 +38,7 @@ class CalibrationBasis:
     
     """
 
-    def __init__(self, file_name, watershed, observations ,directory_results = None):
+    def __init__(self, file_name, watershed, observations, calibration_folder):
         """ 
         Constructor
         
@@ -56,68 +56,97 @@ class CalibrationBasis:
         self.params = calib_params.CalibParams(file_name, watershed)
         self.watershed = watershed
         self.observations = observations
-        # Name of model
-        self.ident = "_".join(self.observations) +  '_calibration'
-        if directory_results == None:
-            self.directory_results = os.path.join(watershed.simulations_folder, self.ident)
         
+        self.param_ident = self.params.file_name
+        
+        self.param_folder = os.path.join(calibration_folder, self.param_ident)
+        if not os.path.exists(self.param_folder):
+            toolbox.create_folder(self.param_folder)
+        
+        self.ident = "_".join(self.observations) +  '_calibration'
+        
+        self.directory_results = os.path.join(self.param_folder, self.ident)
+        if not os.path.exists(self.directory_results):
+            toolbox.create_folder(self.directory_results)
+                
         self.data_ind = {}
         self.data_sim = {}
         self.data_obs = {}
+        self.data_cri = {}
+        
         for i in self.observations:
             self.data_ind[i] = []
             self.data_sim[i] = []
             self.data_obs[i] = []
+            self.data_cri[i] = []
         # self.__dict__.update(calparam.__dict__)
-    
-    
-    def objective_function(self, params):
-        """ 
-        Objective Function: Squared difference of concentrations normalized by data errors
-            Inverse Problem Theory and Methods for Model Parameter Estimation, Albert Tarantola, SIAM, 2005
-            http://www.ipgp.fr/~tarantola/Files/Professional/Books/InverseProblemTheory.pdf
-            sum((di-mi)^2/sigma_errori^2)
+        # self.parameters = []
         
-        Arguments
-        --------
-        param: array
-            array of parameter values (order should correspond to that of the lpm)
-        concentrations_sampled_c: array
-            target concentrations
-        concentrations_sampled_error: array
-            target concentrations errors
-        lpm: LPM
-            template LPM (parameters are updated with param)
-        tracers: ConvolutionTracers
-            convolution class 
-            
+        self.dic_simulated_results = {}
+        self.params_synt = []
+        
+    def objective_function(self, params):
+        """
+        
+
+        Parameters
+        ----------
+        params : TYPE
+            DESCRIPTION.
+
         Returns
         -------
-        float
-            value of objective function
-        """
+        TYPE
+            DESCRIPTION.
 
+        """
+        
+        # self.parameters.append(params)
+        # print(params)
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
-                self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], self.params.log_to_linear(params[i]))
-            if self.params.name[i][0] == 't':
+                if self.params.num_zone[i] > 0 :
+                    self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], params[i])
+                if self.params.num_zone[i] == 0 :
+                    self.watershed.hydrodynamic.update_hyd_cond(params[i])
+                    
+            if self.params.name[i][0] == 'n':
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_porosity_from_calib_zones(self.params.num_zone[i], params[i])
-            if self.params.name[i][0] == 'e':
+                if self.params.num_zone[i] == 0 :
+                    self.watershed.hydrodynamic.update_porosity(params[i])
+            if self.params.name[i][0] == 't':
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
-                
+        
         # Run model
-        succes = self.watershed.run_modflow(self.ident, verbose=False)
+        succes, mf = self.watershed.run_modflow(self.ident, 
+                                                verbose=True, 
+                                                calib=self.param_folder)
         
         # Use objective function from the type of observation
         if succes == True:
             indicator = []
             if 'streams' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       first_only=True,
+                       watertable_elevation = True,
+                       watertable_depth=False, 
+                       seepage_areas = True,
+                       outflow_drain = False,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit_shp=False,
+                       verbose = False,
+                       export_tif = True)
+                self.watershed.results_modflow(ident=self.ident,
+                                               actual_date=True)
                 obj_func = calib_objective_function.Streams(self.watershed, 
-                                   hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'), 
-                                   simulations_folder=os.path.join(self.watershed.simulations_folder, self.ident))
+                                   hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'),
+                                   calibration_folder=self.directory_results)
                 ind, obs, sim = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['streams'].append(ind)
@@ -125,175 +154,120 @@ class CalibrationBasis:
                 self.data_sim['streams'].append(sim)
             
             if 'piezometry' in self.observations:
-                obj_func = calib_objective_function.Piezometry(self.watershed, self.ident)
-                ind, obs, sim = obj_func.get_indicator()
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       watertable_elevation = True,
+                       watertable_depth=False, 
+                       seepage_areas = False,
+                       outflow_drain = False,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit_shp=False,
+                       verbose = False,
+                       export_tif = True)
+                self.watershed.results_modflow(ident=self.ident,
+                                               actual_date=True,
+                                               calib=self.param_folder)
+                obj_func = calib_objective_function.Piezometry(self.watershed,
+                                                               self.ident,
+                                                               self.param_folder)
+                ind, obs, sim, = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['piezometry'].append(ind)
                 self.data_obs['piezometry'].append(obs)
                 self.data_sim['piezometry'].append(sim)
+                
+            if 'hydrometry' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       first_only = True,
+                       watertable_elevation = True,
+                       watertable_depth= True, 
+                       seepage_areas = True,
+                       outflow_drain = True,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit_shp = False,
+                       verbose = True,
+                       export_tif = True)
+                simulated_results = self.watershed.results_modflow(ident=self.ident,
+                                                                   actual_date=True,
+                                                                   calib=self.param_folder)
+                # print(simulated_results)
+                # print(params)
+                params_synt = ";".join(str(x) for x in params)
+                self.dic_simulated_results[params_synt] = simulated_results
+                
+                obj_func = calib_objective_function.Hydrometry(self.watershed,
+                                                               self.ident,
+                                                               self.param_folder)
+                ind, obs, sim, cri = obj_func.get_indicator()
+                indicator.append(ind)
+                self.data_ind['hydrometry'].append(ind)
+                self.data_obs['hydrometry'].append(obs)
+                self.data_sim['hydrometry'].append(sim)
+                self.data_cri['hydrometry'].append(cri)
+                self.params_synt.append(params_synt)
+                
+                # plt.plot(obs, color='b')
+                # plt.plot(sim, color='r')
+                
+            if 'intermittency' in self.observations:
+                self.watershed.matrix_modflow(succes,
+                       mf,
+                       first_only = True,
+                       watertable_elevation = False,
+                       watertable_depth= False, 
+                       seepage_areas = True,
+                       outflow_drain = False,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = False,
+                       perenn_intermit_shp = False,
+                       verbose = True,
+                       export_tif = True)
+                self.watershed.results_modflow(ident=self.ident,
+                                               actual_date=True,
+                                               calib=self.param_folder)
+                obj_func = calib_objective_function.Hydrometry(self.watershed,
+                                                               self.ident,
+                                                               self.param_folder)
+                sim = obj_func.get_indicator()
+                self.data_ind['intermittency'].append(np.nan)
+                self.data_obs['intermittency'].append(np.nan)
+                self.data_sim['intermittency'].append(sim)
+                # plt.plot(obs, color='b')
+                # plt.plot(sim, color='r')
             
         if succes == False:
             indicator = np.inf
-        print(params, succes, indicator)  
+        try:
+            if len(params) == 1:
+                params_print = str([round(num, 5) for num in params])
+                succes_print = str(succes)
+                indicator_print = str([round(num, 5) for num in indicator])
+                indicatorlog_print = str([round(num, 5) for num in np.log10(indicator)])
+            if len(params) == 2:
+                params_print = str([round(num, 5) for num in params])
+                succes_print = str(succes)
+                indicator_print = str([round(num, 5) for num in indicator[0]])
+                indicatorlog_print = str([round(num, 5) for num in np.log10(indicator[0])])
+            to_print = params_print+' | '+succes_print+' | '+indicator_print+' | '+indicatorlog_print
+            print(to_print)
+        except:
+            pass
         #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
 
-
-    def display_concentrations(self):
-        """ 
-        Dislays concentration results 
-        """
-        self.lpm.display()
-        self.concentration_sampled.display()
-        concentration_computed = self.tracers.convolution(self.lpm,return_type="concentrations_set")
-        concentration_computed.display()
-        print("J=",self.concentration_sampled.sqrt_quadratic_mean_diff(concentration_computed))
-  
-        
-    def display_lpms(self,display_options,lpm_results,lpm_reference=None):
-        """
-        #A garder
-        Display lpm results
-        
-        Arguments
-        ---------
-        display_options: 
-            Options for the display
-        lpm_results: LPMDist
-            All results of the calibration
-        lpm_reference: LPM
-            Target LPM (if existing, eg )
-        """
-        if self.method == "Simplex" or self.method == "Simplex_init_multipes": 
-            # Comparison of parameters
-            if display_options.text and lpm_reference != None : 
-                lpm_results.get_best_lpm().display_parameters(lpm_reference)
-        if self.method == "forward_uncertainty_quantification" or self.method == "Metropolis_Hastings" :
-            # Distribution of parameters
-            if display_options.figure : 
-                lpm_results.display_parameters_dist(self_method=self.method,lpm_reference=lpm_reference,bins=100,directory=self.directory_results)
-                self.build_objective_function(display_options)
-
-
-    def write_calibrated_lpm(self,lpm_results): 
-        """ 
-        A Garder
-        Writes the calibrated lpms
-        """ 
-        # Writes calibration parameters and efficiencty results
-        self.write_parameters(os.path.join(self.directory_results,"parameters_calibration.txt"))
-        self.write_results(os.path.join(self.directory_results,"results_calibration.txt"))
-        # Writes "best" lpm
-        lpm_results.get_best_lpm().write(os.path.join(self.directory_results,"lpm_calibrated.txt"),open_file=True)
-        # Writes distribution of "best" lpm
-        if self.method != "Simplex" : 
-            lpm_results.write_dist(os.path.join(self.directory_results,"lpm_dist_calibrated.txt"))
-            lpm_results.write_stats(os.path.join(self.directory_results,"lpm_stats_calibrated.txt"))
-
-
-    def write_results(self,file_name):
+    def write_results(self, name, obj_function, params_values, params_xyz):
         """ 
         A garder
         Writes parameters of calibration
         """
-        data={}
-        # Generic results for all calibration methods
-        data['time_perform'] = self.time_perform
-        # Specific results to this calibration method
-        self.write_results_spec(data)
-        # Writing in file
-        file = open(file_name,"w")
-        for key, val in data.items():
-            file.write(key+'\t'+str(val)+'\n')
-        file.close()
-        
-        
-    def build_objective_function(self,resolution=10000): 
-        """ 
-        A garder
-        Build Objective Function 
-        """
-        params_values = []
-        pmin = self.params.p_min
-        pmax = self.params.p_max
-        column_names = list()
-        for i in self.params.name:
-            column_names.append(i)
-        if len(self.params.name) == 1 : 
-            # Figure Initialization
-            # 1 parameter
-            params = calib_exploration.systematic_sampling(pmin,pmax,resolution)
-            params_values.append(params)
-            column_names.append('diff')
-            obj_function = pd.DataFrame(columns=column_names)
-            # Use of proxy to avoid modification of self.lpm
-            for i in range(len(params)):
-                temp = params[i]
-                temp.append(self.objective_function(params[i]))
-                obj_function.loc[i] = temp
-            # Graphical Representation 
-            figadd.figure_init(xlab=column_names[0],ylab="",figname='objective function 1D of ' + self.params.name[0])
-            plt.plot(obj_function.values[:,0],obj_function.values[:,1])
-            plt.yscale("log")
-            if self.params.name[0] == 'k':
-                plt.xscale("log")
-            plt.savefig(os.path.join(self.directory_results,"objfunction"),dpi=300)
-        elif len(self.params.name) == 2 : 
-            # 2 parameters
-            # Figure Initialization
-            n = int(np.ceil(resolution**(1/2)))     
-            p1 = pmin[0] + (pmax[0] - pmin[0]) * np.arange(0,n+1) / n
-            p2 = pmin[1] + (pmax[1] - pmin[1]) * np.arange(0,n+1) / n
-            p2 = p2[::-1]
-            params_values.append(p1)
-            params_values.append(p2)
-            obj_function = np.zeros((len(p1),len(p2)))
-            temp=[None]*2
-            for i in range(len(p1)):
-                for j in range(len(p2)):
-                    temp = [p1[i],p2[j]]
-                    obj_function[i][j] = self.objective_function(temp)
-            # colormap
-            X,Y= np.meshgrid(p1, p2)
-            Z=obj_function.reshape((len(p1),len(p2)))
-            figadd.figure_init(xlab=column_names[0],ylab=column_names[1],figname='Objective function 2D')
-            plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-            plt.colorbar()
-            # Whatevert the dimension, saves figure
-            plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(i)),dpi=300)
-        elif len(self.params.name) == 3 : 
-            # 3 parameters
-            for k in range(len(self.params.name)):
-                k1=(k+1)%len(self.params.name)
-                #k2=(k+2)%len(self.params.name)
-                n = int(np.ceil(resolution**(1/2))) 
-                p1 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
-                p2 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
-                p3 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n
-                p2 = p2[::-1]
-                params_values.append(p1)
-                params_values.append(p2)
-                params_values.append(p3)
-                obj_function = np.zeros((len(p1),len(p2)))
-                temp=[None]*len(self.params.name)
-                for i in range(len(p1)):
-                    for j in range(len(p2)):
-                        temp = [p1[i],p2[j],p3[int(len(p3)/2)]]
-                        obj_function[i][j] = self.objective_function(temp)
-                X,Y= np.meshgrid(p1, p2)
-                Z=obj_function.reshape((len(p1),len(p2)))
-                # Figure Initialization
-                figadd.figure_init(xlab=column_names[k],ylab=column_names[k1],figname='objective function 3D')
-                # colorbar
-                plt.pcolor(X,Y,Z,cmap=figadd.cmap_white_jet())
-                plt.colorbar()
-                # Whatevert the dimension, saves figure
-                plt.savefig(os.path.join(self.directory_results,"objfunction_"+str(k)),dpi=300)
         #Save file
         store = {}
-        name = 'exp_' + str(len(self.params.name)) + 'p_'
-        now = datetime.now()
-        name = name + now.strftime("%d_%m_%Y_%Hh%M")
         store['name'] = name
         store['observations'] = self.observations
         # Parameter Values
@@ -304,18 +278,29 @@ class CalibrationBasis:
         self.p_init = []
         self.p_min = []
         self.p_max = []
-        store['params_name'] = self.params.name
-        store['params_min'] = self.params.p_min
-        store['params_max'] = self.params.p_max
-        store['params_values'] = params_values
-        store['data_obs'] = self.data_obs
-        store['data_sim'] = self.data_sim
-        store['data_ind'] = self.data_ind
+        store['file_name'] = self.params.file_name # # 'calib_explo_hom_2v_k1-n1'
+        store['params_name'] = self.params.name # name k1, k2, n1...
+        store['params_min'] = self.params.p_min # bounds min
+        store['params_max'] = self.params.p_max # bounds min
+        store['params_values'] = params_values # linspace of parameters
+        store['data_obs'] = self.data_obs # data_obs each simulation
+        store['data_sim'] = self.data_sim # data_sim each simulation
+        store['data_ind'] = self.data_ind # indicator each simulation
         store['objective_function'] = obj_function
         store['recharge'] = self.watershed.forcing.recharge
         store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
+        store['params_xyz'] = params_xyz
+        try : 
+            store['sim_results'] = self.dic_simulated_results
+            store['params_synt'] = self.params_synt
+        except:
+            pass
+        try : 
+            store['list_criteria'] = self.data_cri
+        except:
+            pass
         with open(os.path.join(self.directory_results, name + '.calib'), 'xb') as config_dictionary_file:
             pickle.dump(store, config_dictionary_file)
         config_dictionary_file.close()
 
-
+        
