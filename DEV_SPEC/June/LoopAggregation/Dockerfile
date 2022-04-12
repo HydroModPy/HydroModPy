@@ -1,13 +1,24 @@
 # Dockerfile for image to run LoopAggregation example
-FROM ubuntu:18.04
+FROM jupyter/scipy-notebook:latest
+
+USER root
 
 # System packages
 RUN apt-get update && \
-apt-get install libgfortran5 python3 python3-pip libgdal-dev python3-gdal libgl1-mesa-glx libxt6 bsdmainutils -y
+DEBIAN_FRONTEND=noninteractive \
+TZ=Europe \
+apt-get install libgfortran5 python3 python3-pip libgdal-dev python3-gdal libgl1-mesa-glx libxt6 bsdmainutils spyder -y
+USER ${NB_UID}
+
+
 
 # Python packages
-RUN pip3 install pandas flopy matplotlib scipy vtk
+RUN pip3 install flopy vtk
+
 
 
 # Add modflow project in the docker
-COPY ./modflow /modflow/
+COPY . ~/LoopAggregation/
+
+# Default folder
+WORKDIR ~/LoopAggregation
