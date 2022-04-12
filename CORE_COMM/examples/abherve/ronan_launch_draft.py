@@ -926,7 +926,7 @@ time_step = 'M'
 var = 'REC'
 wr = True
 wish = 0
-mod = 'OLD'
+mod = 'REA'
 
 raw_path = stable_folder+'/'+'hydrometry/'
 Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
@@ -1001,11 +1001,11 @@ params_file = 'calib_explo_hom_2v_k1-n1'
 
 #%% EXPLORATION LAUNCH
 
-calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-calib.exploration(resolution=9)
+# calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+# calib.exploration(resolution=9)
 
 #%% EXPLORATION PLOT
-    
+
 ##########
 typ_calib = 'hydrometry_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
@@ -1017,7 +1017,7 @@ test = calib_analysis.CalibAnalysis(calib_file)
 # test.find_best_values()
 # test.display_best_data()
 
-# t=test.sim_results
+sim_res=test.sim_results
 # x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
 # plt.plot(x)
 
@@ -1113,7 +1113,7 @@ for i in range(len(obs[typ_name])):
     # vmax = max(c)
     # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
                    
-    if nselog > 70:
+    if nselog > 0:
         if all(i <= 100 for i in sat):       
             
             ax = axs[0]
@@ -1149,7 +1149,7 @@ for i in range(len(obs[typ_name])):
                         
 plt.tight_layout()
 ax.legend(bbox_to_anchor=(1.5, 3), ncol=1)
-fig.savefig(path_fig+'/'+'_chronic_'+name_file+'.png', dpi=300, bbox_inches='tight')
+# fig.savefig(path_fig+'/'+'_chronic_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
 # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
        
@@ -1161,31 +1161,33 @@ fig.savefig(path_fig+'/'+'_chronic_'+name_file+'.png', dpi=300, bbox_inches='tig
 # n_cmap.set_array([])
 # ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
 
-# MESH
+# SAT
 
 fig, ax = plt.subplots(1,1, figsize=(6,5))
 X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
-Z=test.obj_function
-pc = ax.pcolormesh(X,Y,Z,cmap='jet') #figadd.cmap_white_jet()
+Z = np.empty((3,3,))
+Z[:] = np.nan
+p1 = test.params_values[0]
+p2= test.params_values[1]
+sim_sat = np.zeros((len(p1),len(p2)))
+compt=0
+for i in range(len(p1)):
+    for j in range(len(p2)):
+        temp = [p1[i],p2[j]]
+        string = str(p1[i])+';'+str(+p2[j])
+        try:
+            sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).mean()
+        except:
+            pass
+        compt += 1
+Z=sim_sat
+pc = ax.contourf(X,Y,Z,cmap='jet') #figadd.cmap_white_jet()
 ax.set_xscale('log')
 cb = fig.colorbar(pc)
 ax.set_ylabel('Sy [-]')
 ax.set_xlabel('K [m/j]')
-cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-fig.savefig(path_fig+'/'+'_mesh_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-# SHADED
-
-fig, ax = plt.subplots(1,1, figsize=(6,5))
-X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
-Z=test.obj_function
-pc = ax.pcolormesh(X,Y,Z,cmap='jet', shading='gouraud') #figadd.cmap_white_jet()
-ax.set_xscale('log')
-cb = fig.colorbar(pc)
-ax.set_ylabel('Sy [-]')
-ax.set_xlabel('K [m/j]')
-cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-fig.savefig(path_fig+'/'+'_shaded_'+name_file+'.png', dpi=300, bbox_inches='tight')
+cb.set_label('Saturation [%]', rotation=270, labelpad=40)
+# fig.savefig(path_fig+'/'+'_satur_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
 # CONTOUR
 
@@ -1203,7 +1205,33 @@ ax.set_xscale('log')
 ax.set_ylabel('Sy [-]')
 ax.set_xlabel('K [m/j]')
 cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-fig.savefig(path_fig+'/'+'_contour_'+name_file+'.png', dpi=300, bbox_inches='tight')
+# fig.savefig(path_fig+'/'+'_contour_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+# MESH
+
+fig, ax = plt.subplots(1,1, figsize=(6,5))
+X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+Z=test.obj_function
+pc = ax.pcolormesh(X,Y,Z,cmap='jet') #figadd.cmap_white_jet()
+ax.set_xscale('log')
+cb = fig.colorbar(pc)
+ax.set_ylabel('Sy [-]')
+ax.set_xlabel('K [m/j]')
+cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+# fig.savefig(path_fig+'/'+'_mesh_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+# SHADED
+
+fig, ax = plt.subplots(1,1, figsize=(6,5))
+X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+Z=test.obj_function
+pc = ax.pcolormesh(X,Y,Z,cmap='jet', shading='gouraud') #figadd.cmap_white_jet()
+ax.set_xscale('log')
+cb = fig.colorbar(pc)
+ax.set_ylabel('Sy [-]')
+ax.set_xlabel('K [m/j]')
+cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+# fig.savefig(path_fig+'/'+'_shaded_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
 #%% ---
 
@@ -1212,17 +1240,17 @@ fig.savefig(path_fig+'/'+'_contour_'+name_file+'.png', dpi=300, bbox_inches='tig
 # Input recharge
 bzh_rech = False
 var = 'REC'
-mod = 'REA'
+mod = 'OLD'
 # mod = 'NOR1'
 sce = 'historic'
 # sce = 'historic'
-typ = 'monfmord' # sinu / hist / proj
+typ = 'monfmordsteady' # sinu / hist / proj
 wr = True
 
 # Choice temporal of the simulation
-sim_state = 'transient' # 'steady' or 'transient'
-init_rech = 'first'
-period = [1960,2019] # recharge period
+sim_state = 'steady' # 'steady' or 'transient'
+init_rech = None # 'first'
+period = [1971,2011] # recharge period
 first = period[0]
 last = period[1]
 time_step = 'M' # or 'D'
@@ -1340,13 +1368,16 @@ cond_decay = 0 # exponential decay of K with depth
 thick = 30 # m
 
 # Hydraulic properties
-Koptim = 4.2e-5 # koptim
+Koptim = 2e-5 # koptim
 # Koptim = 3.0e-6 # koptim
-Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
-Sys = [0.1,0.01,0.001]
+# Ks = np.array([Koptim/10,Koptim,Koptim*10]) * 3600 * 24 # m/second to m/month
+# Sys = [0.1,0.01,0.001]
 
-# Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
-# Sys = [0.05]
+KR = 3631
+Koptim = KR * BV.forcing.recharge
+
+Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
+Sys = [10]
 
 # Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/month
 # Sys = [0.1,0.01,0.001]
@@ -1383,16 +1414,16 @@ for Sy in Sys:
         try:
             print('SIM - ' + model_name)
             success, flow_model = BV.run_modflow(ident=model_name,
-                                                modpath_sim=modpath_sim,
-                                                sink_fill=sink_fill,
-                                                box=box,
-                                                lay_number=lay_number,
-                                                bottom=bottom,
-                                                thick_exp=thick_exp,
-                                                cond_decay=cond_decay,
-                                                verbose=True,
-                                                post_process=post_process, 
-                                                init_rech=init_rech)
+                                                 modpath_sim=modpath_sim,
+                                                 sink_fill=sink_fill,
+                                                 box=box,
+                                                 lay_number=lay_number,
+                                                 bottom=bottom,
+                                                 thick_exp=thick_exp,
+                                                 cond_decay=cond_decay,
+                                                 verbose=True,
+                                                 post_process=post_process, 
+                                                 init_rech=init_rech)
             if success == True:
                 print(     'Success')
             else:
@@ -1432,12 +1463,12 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
         
             BV.matrix_modflow(success,
                               flow_model,
-                              first_only = False,
+                              first_only = True,
                               watertable_elevation = True,
                               watertable_depth = True, 
                               seepage_areas = True,
                               outflow_drain = True,
-                              groundwater_flux = False,
+                              groundwater_flux = True,
                               specific_discharge = False,
                               accumulation_flux = True,
                               perenn_intermit_shp = False,
@@ -1479,20 +1510,21 @@ for simul in simul_list:
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
     Qmod = Smod['outflow_drain'] 
     Qmod = Qmod.squeeze()    * 1000 * 30
+    Qmod = Qmod + (BV.forcing.runoff * 1000 * 30)
     Cmod = Smod['recharge'] * 1000 * 30 # mm/months
 
-watershed_name = 'Canut'
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 raw_path = stable_folder+'/'+'hydrometry/'
 Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
 Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
 area = float(Qobs_path.split('_')[-3])
-Qobs = (Qobs / (area*1000000)) * (3600 * 24 * 30) * 1000  # m3/s to mm/day
+Qobs = (Qobs / (area*1000000)) * (3600 * 24 * 30) * 1000  # m3/s to mm/month
 Qobs = Qobs.squeeze()
+Qobs = Qobs
 
-plt.plot(Cmod)
-plt.plot(Qobs)
-plt.plot(Qmod)
+# plt.plot(Cmod)
+# plt.plot(Qobs)
+# plt.plot(Qmod)
 
 fig, axs = plt.subplots(3,1, figsize=(7,7))
 axs = axs.ravel()
@@ -1525,14 +1557,14 @@ ax.xaxis.set_major_formatter(years_fmt)
 ax.plot(s, color='red', lw=1)
 # ax.plot(s, lw=1, label=label)   
 ax.set_title(title)
-ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
+ax.plot(o, color='grey', lw=2, ls='-', zorder=0)
 # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
 
 ax = axs[1]
 ax.xaxis.set_major_locator(yearsmaj)
 ax.xaxis.set_minor_locator(yearsmin)
 ax.xaxis.set_major_formatter(years_fmt)
-ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
+ax.plot(o, color='grey', lw=2, ls='-', zorder=0)
 ax.set_yscale('log')
 ax.plot(s, color='red', lw=1)
 
@@ -3743,7 +3775,7 @@ import earthpy.spatial as es
 import earthpy.plot as ep
 
 fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-#polyg = gpd.read_file(BV.geographic.watershed_shp)
+polyg = gpd.read_file(BV.geographic.watershed_shp)
 contour = gpd.read_file(BV.geographic.watershed_contour_shp)
 dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
 #bounds = contour.geometry.total_bounds
@@ -3781,11 +3813,23 @@ show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.t
 # Plot the hillshade layer with the modified angle altitude
 # ep.plot_bands(hillshade, ax=ax, cbar=False)
 try:
+    wet = gpd.read_file(hydrology_path+'wetlands.shp')
+    wet = gpd.clip(wet, polyg)
+    wet.plot(ax=ax, lw=0, color='navy', alpha=1, zorder=4, legend=True, label='Wetlands')
+except:
+    pass
+# try:
+#     drain = gpd.read_file(hydrology_path+'drain_complete_chezecanut.shp')
+#     drain = gpd.clip(drain, polyg)
+#     drain.plot(ax=ax, lw=1, color='k', alpha=1, zorder=3, legend=True, label='Drains')
+# except:
+#     pass
+try:
     streams = gpd.read_file(BV.hydrology.streams)
     streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='deepskyblue',
-                                                  zorder=4,legend=True, label='Streams')
+                                                  zorder=6,legend=True, label='Streams')
     streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='darkorange', ls='-',
-                                                  zorder=3,legend=True, label='Streams')
+                                                  zorder=5,legend=True, label='Streams')
     
 except:
     pass
@@ -3836,10 +3880,9 @@ cbar.ax.yaxis.set_ticks_position('right')
 cbar.ax.tick_params(size=2)
 #cbar.set_label('Elevation (m)', size=12)
 fig.tight_layout()
-# fig.savefig(os.path.join(BV.figure_folder,'watershed_dem.png'), dpi=300, 
-#             bbox_inches='tight', transparent=False)
 
 fig.savefig(figsim_folder+'localisation_map'+'.svg', dpi=300, bbox_inches='tight')
+fig.savefig(figsim_folder+'localisation_map'+'.png', dpi=300, bbox_inches='tight')
 
 #%% FIG - Persistency
 
