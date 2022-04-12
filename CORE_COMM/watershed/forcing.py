@@ -29,6 +29,11 @@ class Forcing:
         self.recharge = values # recharge
         if sim_state == 'steady':
             self.recharge = np.mean(self.recharge)
+            
+    def update_runoff(self, values, sim_state):
+        self.runoff = values # recharge
+        if sim_state == 'steady':
+            self.runoff = np.mean(self.runoff)
     
     def update_synthetic_recharge(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
         self.freq = freq
