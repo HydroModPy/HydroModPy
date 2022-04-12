@@ -105,6 +105,7 @@ class MyApp(QMainWindow):
 
     def select_outputfolder(self):
         test = QFileDialog.getExistingDirectory(self,"Choose Directory","C:\\")
+        self.setWindowTitle(test )
         print(test)
 
     def buttonUI(self):
@@ -120,7 +121,7 @@ class MyApp(QMainWindow):
         button3.setFixedSize(120, 50)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
-        self.view.setContentsMargins(50, 50, 50, 50)
+        self.view.setContentsMargins(50, 50, 20, 50)
 
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
@@ -128,7 +129,7 @@ class MyApp(QMainWindow):
 
         button_container = QtWidgets.QWidget()
         vlay = QtWidgets.QVBoxLayout(button_container)
-        vlay.setSpacing(20)
+        vlay.setSpacing(100)
         vlay.addStretch()
         vlay.addWidget(shortPathButton)
         vlay.addWidget(button2)
@@ -136,6 +137,7 @@ class MyApp(QMainWindow):
         vlay.addStretch()
         lay.addWidget(button_container)
         lay.addWidget(self.view, stretch=1)
+        test = self.view
 
         m = folium.Map(
             location=[46.856578, 2.351828], zoom_start=6
