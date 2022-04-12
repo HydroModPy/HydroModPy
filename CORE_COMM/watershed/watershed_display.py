@@ -16,7 +16,7 @@ import contextily as cx
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from colormap.colors import rgb2hex, hex2rgb
+# from colormap.colors import rgb2hex, hex2rgb
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
