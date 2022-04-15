@@ -265,8 +265,12 @@ class SurfaceOutputs():
         msk_outflow = (outflow<0)
         outflow = np.ma.masked_array(outflow, mask=msk_outflow)
         outflow = np.ma.masked_array(outflow, mask=(self.demData<=0))
-        outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
-        outflow = np.log10(outflow)
+        if typ_file =='outflow_drain':
+            outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000 * 30
+        if typ_file =='accumulation_flux':
+            outflow = np.ma.masked_where(outflow==0, outflow) / 24 / 3600
+        print(outflow.max())
+        # outflow = np.log10(outflow)
         wt = self.wt_all[iter_times]
         wt = np.ma.masked_array(wt, mask=self.msk)
         # Params for plot
@@ -279,8 +283,12 @@ class SurfaceOutputs():
             ax.set_title(str(self.recharge.index[iter_times])[:10])
         except:
             ax.set_title(str(iter_times))
-        vmin = np.log10(min(self.minflow))
-        vmax = np.log10(max(self.maxflow))
+        # vmin = np.log10(min(self.minflow))
+        # vmax = np.log10(max(self.maxflow))
+        vmin = (min(self.minflow))
+        vmax = (max(self.maxflow))
+        vmin=None
+        vmax=None
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
@@ -312,13 +320,17 @@ class SurfaceOutputs():
         cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
         fig.add_axes(cax)
         cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-        ticks = np.linspace(vmin, vmax, 5)
-        cbar.set_ticks(ticks)
-        cbar.set_ticklabels(ticks.round(1).astype(float))
+        from matplotlib import ticker
+        tick_locator = ticker.MaxNLocator(nbins=5)
+        cbar.locator = tick_locator
+        cbar.update_ticks()
+        # ticks = np.linspace(vmin, vmax, 5)
+        # cbar.set_ticks(ticks)
+        # cbar.set_ticklabels(ticks.round(1).astype(float))
         if typ_file =='accumulation_flux':
-            cbar.set_label('Cumulated flux Log(Q) [mm/months]')
+            cbar.set_label('Cumulated flux Log(Q) [$m^3$/s]')
         if typ_file =='outflow_drain':
-            cbar.set_label('Outflow flux Log(Q) [mm/months]')    
+            cbar.set_label('Outflow flux Log(Q) [mm/month]')    
         # Save figure
         plt.tight_layout()
         name_fig = 'map_'+typ_file+'_' + str(lead_numb) + '.png'
