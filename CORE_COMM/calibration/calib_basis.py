@@ -122,7 +122,7 @@ class CalibrationBasis:
         
         # Run model
         succes, mf = self.watershed.run_modflow(self.ident, 
-                                                verbose=True, 
+                                                verbose=False, 
                                                 calib=self.param_folder)
         
         # Use objective function from the type of observation
@@ -188,7 +188,7 @@ class CalibrationBasis:
                        outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
-                       accumulation_flux = False,
+                       accumulation_flux = True,
                        perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)

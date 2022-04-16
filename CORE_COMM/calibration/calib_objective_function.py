@@ -248,11 +248,13 @@ class Hydrometry:
             if codes != []:
                 for j in range(0,len(codes)):
                     code = codes[j].split('_')[1]
-                    area = float(codes[j].split('_')[4])
+                    # area = float(codes[j].split('_')[4])
+                    area=self.watershed.geographic.area
                     
                     df = pd.read_csv(codes_path[j], sep=';', parse_dates=True, index_col=0)
                     df = df.resample('M').mean()
                     df = df * 24 * 3600 # m3/j
+                    # area = 
                     df = df / (area * 1000000) # m/j
                     df.columns = [code]
                     
