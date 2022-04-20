@@ -1197,6 +1197,9 @@ for watershed_name in watershed_names[:] :
 code_names = ['J7513010','J0014010']
 watershed_names = ['Canut','Nancon']
 
+watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
+code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
+
 params_file = 'calib_explo_hom_2v_k1-n1'
 
 wish = 0
@@ -1225,8 +1228,8 @@ for watershed_name in watershed_names[:]:
     # x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
     # plt.plot(x)
     
-    path_fig = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures')
-    # path_fig = os.path.join(out_path, '_figures')
+    # path_fig = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures')
+    path_fig = os.path.join(out_path, '_figures')
     
     # CHRONICS
     
@@ -1306,13 +1309,13 @@ for watershed_name in watershed_names[:]:
             if all(i <= 50 for i in sat):
                 numb += 1
                 
-        # c = []
-        # for h in range(len(ind[typ_name])):
-        #     d = ind[typ_name][h][0]
-        #     c.append(d)
-        c = np.linspace(0,1,len(obs[typ_name]))
+        c = []
+        for h in range(len(ind[typ_name])):
+            d = ind[typ_name][h][0]
+            c.append(d)
+        # c = np.linspace(0,1,len(obs[typ_name]))
         # c = np.linspace(0,1,numb)
-        cmap = mpl.cm.get_cmap('viridis')
+        cmap = mpl.cm.get_cmap('plasma_r')
         color_gradients = cmap(c)
         # vmin = min(c)
         # vmax = max(c)
@@ -1490,6 +1493,127 @@ for watershed_name in watershed_names[:]:
     ax.set_ylabel('Sy [-]')
     ax.set_xlabel('K [m/j]')
     
+    plt.tight_layout()
+    
     fig.savefig(path_fig+'/'+watershed_name+'_discharge_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
+#%% INTERMENSUAL PLOT
+
+watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
+code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
+
+first = 2008
+last = 2021
+one = 2021
+
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+       
+    if watershed_name == 'Gael':
+        series_path = out_path + '_data/' +'export_hydro_series_gael.csv'
+        series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
+        series = series.iloc[1:]
+        series.index.name = None
+        series.index = pd.to_datetime(series.index)
+        series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
+    
+    print('##### '+watershed_name.upper()+' #####')
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+    area = BV.geographic.area
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    Qobs_path = glob.glob(stable_folder+'hydrometry/'+'Hydrometric_'+'*')[0]
+    naming = Qobs_path.split('\\')[-1]
+    
+    # serie = series[series['<CdStationHydro>']==code_name+'01']
+    # Qobs = serie['<ResObsElaborHydro>'] / 1000 # L/s to m3/s
+    # serie = serie.resample('M').sum()
+    # Qobs = serie.copy()
+    
+    Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
+    # area = float(Qobs_path.split('_')[-3])
+    Qobs = Qobs.squeeze()
+    Qobs = Qobs.rename('Q')
+    # Qobs = Qobs.resample('M').sum()
+    # Qobs.to_csv(stable_folder+'hydrometry/'+naming,
+    #             sep=';')
+    
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
+    
+    Qobs = select_period(Qobs, first, last)
+    data_index = Qobs.copy()
+
+    mean_mensual = data_index.resample('M').mean() # mensual mean
+    mean_annual = data_index.resample('Y').mean() # annual mean
+    Mean = round(data_index.mean(),2)
+    Mean = data_index.mean()
+    Min = data_index.resample('Y').min()
+    Q10 = data_index.resample('Y').quantile(0.10)
+    Q25 = data_index.resample('Y').quantile(0.25)
+    Q50 = data_index.resample('Y').quantile(0.50)
+    Q75 = data_index.resample('Y').quantile(0.75)
+    Q90 = data_index.resample('Y').quantile(0.90)
+    Max = data_index.resample('Y').max()
+    mean_interan_days = data_index.groupby([data_index.index.month,
+                                    data_index.index.day], as_index=True).mean().to_frame()
+    std_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).std()
+    q10_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.10)
+    q90_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.90)
+    q50_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.50)
+    mean_interan_days['std'] = std_interan_days
+    mean_interan_days['q10'] = q10_interan_days
+    mean_interan_days['q90'] = q90_interan_days
+    mean_interan_days['q50'] = q50_interan_days
+    mean_interan_days.index.names = ['months','days']
+    mean_interan_days = mean_interan_days.reset_index()
+    # mean_interan_days.months = mean_interan_days.months.replace(
+    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
+    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
+    mean_interan_days = mean_interan_days.sort_values(['months','days'])
+    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
+    fig, ax = plt.subplots(figsize=(5,4))
+    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
+    #         lw=1, color='red', label='Mean')
+    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
+            lw=2, color='darkred', label='Median')
+    yerrmax = mean_interan_days.q90
+    yerrmin = mean_interan_days.q10
+    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+                      color='cyan',edgecolor='grey',
+                      alpha = 0.5, label='10-90th')
+    plt.yscale('log')
+    # ax.yaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xlim(0,366)
+    ax.set_ylim(0.01,50)
+    ax.tick_params(axis='both', which='major', pad=10)
+    x1 = np.linspace(0,366,13)
+    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
+    ax.set_xticks(x1)
+    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+    ax.set_xlabel('Months', labelpad=+10)
+    ax.set_ylabel('Q / A [mm/j]',labelpad=+10)
+    ax.set_title(watershed_name + ' - [' + str(first) + '-' + str(last) + ']')
+    ax.grid(color='grey', lw=0.5, zorder=0)
+    dates = np.array([one],dtype=np.int64)
+    colors = ['blue']
+    for z in np.array(range(len(dates))):
+        onlyone = data_index[(data_index.index.year==dates[z])].to_frame()
+        onlyone = onlyone.groupby([onlyone.index.month,
+                                   onlyone.index.day], as_index=True).mean()
+        onlyone['counts'] = np.array(range(1,len(onlyone)+1))
+        ax.plot(onlyone.counts, onlyone['Q'],
+                color=colors[z], lw=1, label = str(dates[z]))
+    ax.legend(loc='upper left')
     plt.tight_layout()
+    # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
+    
+    fig.savefig(path_fig+'/'+watershed_name+'_intermensual_'+name_file+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(out_path+'/_figures/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
