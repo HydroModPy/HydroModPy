@@ -114,7 +114,7 @@ class MidpointNormalize(mpl.colors.Normalize):
         super().__init__(vmin, vmax, clip)
 
     def __call__(self, value, clip=None):
-        # I'm ignoring masked values and all kinds of edge cases to make a
+        # I'm ignoring ed values and all kinds of edge cases to make a
         # simple example...
         # Note also that we must extrapolate beyond vmin/vmax
         x, y = [self.vmin, self.vcenter, self.vmax], [0, 0.5, 1.]
@@ -681,11 +681,11 @@ data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
 out_path = "D:/Users/abherve/DYNAMIC/"
 
-git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = "D:/abherve/HYDRODATAPY/"
-# Path where the results will be stored
-out_path = "D:/abherve/DYNAMIC/"
+# git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# # Path to the data folder
+# data_path = "D:/abherve/HYDRODATAPY/"
+# # Path where the results will be stored
+# out_path = "D:/abherve/DYNAMIC/"
 # out_path = "D:/abherve/INTERMITTENCY/"
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
@@ -719,6 +719,9 @@ code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010',
 
 #%% GENERATE WATERSHED
 
+watershed_names = ['Canut']
+code_names = ['J7513010']
+
 coords_list = []
 # watershed_names = []
 points = gpd.read_file(os.path.join(out_path, '_data', 'clipped_hydrometric.shp'))
@@ -732,7 +735,7 @@ types_obs = ['complete','intermittent','perennial','river'] # list of shapefile 
 fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
 
 types_obs = ['river'] # list of shapefile name layers for clip hydrology
-fields_obs = ['persistanc']
+fields_obs = ['fid']
 
 # x = gpd.read_file("C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Hydrographic/D035/complete.shp")
 # c = gpd.read_file(BV.geographic.watershed_shp)
@@ -744,12 +747,14 @@ fields_obs = ['persistanc']
 load = False
 
 # for watershed_name, from_xy in zip(watershed_names, coords_list):
-for watershed_name, coord_list in zip(watershed_names[-1:], coords_list[-1:]):
+for watershed_name, coord_list in zip(watershed_names[:], coords_list[:]):
 
     print('##### '+watershed_name.upper()+' #####')
 
     if watershed_name == 'Nancon':
         coord_list[1] = str(float(coord_list[1]) + 100)
+    if watershed_name == 'Canut':
+        coord_list[2] = str(50)
 
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -784,7 +789,9 @@ for watershed_name, coord_list in zip(watershed_names[-1:], coords_list[-1:]):
     watershed_display.watershed_dem(BV)
     watershed_display.watershed_local(dem_path, BV)
 
-#%% OBSERVED DATA
+#%% ----
+
+#%% OBSERVED HYSTERESIS
 
 code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
@@ -800,8 +807,8 @@ if not os.path.exists(figobs_folder):
 out_folder = out_path + '_data/'
 obs_list = glob.glob(out_folder+'*')
 
-temporal = False
-space = 0
+temporal = True
+space = -5
 norm = False
 
 var = 'EFF'
@@ -814,11 +821,11 @@ sce_color = ['k']
 cmap_dict = dict(zip(sce_list, sce_cmap))
 color_dict = dict(zip(sce_list, sce_color))
 
-fig1, ax1 = plt.subplots(1,1, figsize=(9,5))
-ax1b = ax1.twinx()
+# fig1, ax1 = plt.subplots(1,1, figsize=(9,5))
+# ax1b = ax1.twinx()
 
-fig2, ax2 = plt.subplots(1,1, figsize=(9,5))
-ax2b = ax2.twinx()
+# fig2, ax2 = plt.subplots(1,1, figsize=(9,5))
+# ax2b = ax2.twinx()
 
 series_path = out_path + '_data/' +'export_hydro_series.csv'
 series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
@@ -827,7 +834,7 @@ series.index.name = None
 series.index = pd.to_datetime(series.index)
 series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
 
-for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
        
     if watershed_name == 'Gael':
         series_path = out_path + '_data/' +'export_hydro_series_gael.csv'
@@ -864,19 +871,19 @@ for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
     
     Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
 
-    Qobs = select_period(Qobs, 2009,2010)
-    ax1.plot(Qobs, label=watershed_name)
-    ax1.set_yscale('log')
-    ax1.legend()
+    Qobs = select_period(Qobs, 1990, 2019) # Qobs.first_valid_index().year
+    # ax1.plot(Qobs, label=watershed_name)
+    # ax1.set_yscale('log')
+    # ax1.legend()
     
     Clim_path = stable_folder+'climatic/'+'_ALL_D.csv'
     Clim = pd.read_csv(Clim_path, sep=';', index_col=0, parse_dates=True)
-    Clim = select_period(Clim, 2009,2010)
+    Clim = select_period(Clim, 1990, 2019)
     # Clim = Clim.resample('M').sum()
 
-    ax2.plot(Clim['REC_REA_historic'], ls='-', label=watershed_name)
-    ax2.set_yscale('log')
-    ax1.legend()
+    # ax2.plot(Clim['REC_REA_historic'], ls='-', label=watershed_name)
+    # ax2.set_yscale('log')
+    # ax1.legend()
 
     Cobs = Clim['EFF_REA_historic']
 
@@ -1016,6 +1023,9 @@ for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
     ax.set_xticks(np.linspace(x_lim[0], x_lim[1], 5))
     # ax.set_yticks(np.linspace(y_lim[0]+0.1, y_lim[1], 5))
     
+    path_fig = os.path.join(out_path, '_figures')
+    fig1.savefig(path_fig+'/'+watershed_name+'_hysteresis'+'.png', dpi=300, bbox_inches='tight')
+    
     # fig1.savefig(figobs_folder+'loop_'+watershed_name+'.png', dpi=300, bbox_inches='tight')
     
     # plt.close()
@@ -1023,516 +1033,7 @@ for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
 # polygs.to_file(os.path.join(analysis_folder, 'polygs_metrics.shp'))
 # points.to_file(os.path.join(analysis_folder, 'points_metrics.shp'))
 
-#%% ---
-
-#%% DICHOTOMY STREAMS
-
-hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
-
-from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
-
-# types_obs = ['complete','intermittent','perennial','river','drain_complete_chezecanut'] # list of shapefile name layers for clip hydrology
-# fields_obs = ['persistanc','fid','fid','fid','fid'] # list of shapefile name columns to translate as a tif
-
-types_obs = ['streams_bzh'] # list of shapefile name layers for clip hydrology
-fields_obs = ['fid']
-
-df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
-
-for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
-    
-    for type_obs, field_obs in zip(types_obs, fields_obs):
-   
-        print('##### '+watershed_name.upper()+' #####')
-        
-        BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                      dem_path=dem_path, 
-                                      out_path=out_path,
-                                      load=True,
-                                      modflow_path=modflow_path)
-        area = BV.geographic.area
-        
-        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-            
-        BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
-        
-        BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                          first_year = 2001, last_year=2019, time_step = 'D',
-                                          sim_state='steady') #
-        
-        BV.hydrodynamic.update_thickness(30)
-        # BV.hydrodynamic.update_porosity(0.1)
-        # BV.hydrodynamic.update_hyd_cond(2)
-        
-        params_df = pd.DataFrame(columns=['params',
-                                          'init_values','lower_bounds','higher_bounds',
-                                          'units','scale'])
-        params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
-        
-        params_file = 'calib_dicot_hom_1v_k1'
-        
-        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-
-        # params_file = 'calib_dicot_het_2v_k1-k2'
-        # params_file = 'calib_dicot_hom_2v_k1-n1'
-        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-        dicot = calib.dichotomy(gap=1)
-        
-    for i, type_obs in enumerate(types_obs):
-        
-        typ_calib = 'streams_calibration'
-        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                           key=os.path.getmtime)
-        name_file = list_path[i].split('\\')[-1]
-        calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-        test = calib_analysis.CalibAnalysis(calib_file)
-        test.display_objective_function(save=None)
-        
-        koptim = test.calib['params_values'][-1]
-        kr = koptim / test.calib['recharge']
-        obj_func = test.calib['objective_function'][-1]
-        
-        df.loc[0,watershed_name] = koptim / 24 / 3600
-        df.loc[1,watershed_name] = kr
-        df.loc[2,watershed_name] = obj_func
-        
-# df.to_csv(out_path+'/Koptims_dichotomy_streams.csv', sep=';')
-# df = pd.read_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';')
-
-#%% EXPLORATION RECHARGE
-
-code_names = ['J7513010','J0014010']
-watershed_names = ['Canut','Nancon']
-
-watershed_names = ['Monfort']
-
-modflow_path = data_path + 'SOFTWARE/MODFLOW/'
-
-from watershed import watershed_root, watershed_display, forcing
-from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
-
-for watershed_name in watershed_names[:] :
-    
-    print('##### '+watershed_name.upper()+' #####')
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
-
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-
-    fcalib = 1985
-    lcalib = 2011
-    
-    sim_state = 'transient'
-    time_step = 'M'
-    
-    var = 'REC'
-    wr = True
-    wish = 0
-    mod = 'REA'
-    
-    raw_path = stable_folder+'/'+'hydrometry/'
-    Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
-    Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
-    area = float(Qobs_path.split('_')[-3])
-    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-    Qobs = Qobs.squeeze()
-    Qobs = Qobs.resample('M').mean()
-    # plt.plot(Qobs)
-    # plt.yscale('log')
-    
-    fqobs = Qobs.first_valid_index().year+1
-    lqobs = Qobs.last_valid_index().year-1
-    fhist = 1985
-    lhist = 2011
-    year_min = max(fqobs, fhist)
-    year_max = min(lqobs, lhist)
-    
-    # Normalize with discharge
-    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                             first_year = year_min, last_year = year_max,
-                                             time_step = time_step, sim_state=sim_state)
-    Rech = BV.forcing.recharge
-    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = year_min, last_year=year_max, time_step = 'M',
-                                          sim_state='transient')
-    Runof = BV.forcing.runoff # m/month
-    
-    norm_Rea = select_period(Rech, year_min, year_max)
-    norm_Qobs = select_period(Qobs, year_min, year_max)
-    
-    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
-    # print(Rt_Rea_Qobs.round(2))
-    Nt = (norm_Rea * Rt_Rea_Qobs)
-    
-    BV.forcing.update_recharge(Nt, sim_state=sim_state)
-    plt.plot(BV.forcing.recharge, c='r')
-    
-    BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
-    BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
-    
-    BV.hydrodynamic.update_thickness(30)
-    # BV.hydrodynamic.update_porosity(0.001)
-    # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
-    
-    params_df = pd.DataFrame(columns=['params',
-                                      'init_values','lower_bounds','higher_bounds',
-                                      'units','scale'])
-    if watershed_name == 'Canut':
-        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
-        params_df.loc[1] = ['n1',0.01,0.001,0.02,'m/j','lin']
-    if watershed_name == 'Nancon':
-        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
-        params_df.loc[1] = ['n1',0.01,0.02,0.07,'m/j','lin']
-    if watershed_name == 'Monfort':
-        params_df.loc[0] = ['k1',1.7e+00,1.7e-01,1.7e+01,'m/j','lin']
-        params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
-        
-    params_file = 'calib_explo_hom_2v_k1-n1'
-    
-    params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-    
-    # params_file = 'calib_explo_hom_1v_n1'
-    # params_file = 'calib_explo_hom_1v_k1'
-    # params_file = 'calib_dicot_het_2v_k1-k2'•
-
-# EXPLORATION LAUNCH
-
-    # calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=100)
-
-#%% EXPLORATION PLOT
-
-code_names = ['J7513010','J0014010']
-watershed_names = ['Canut','Nancon']
-
-
-watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
-code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
-
-watershed_names = ['Canut']
-# watershed_names = ['Nancon']
-
-params_file = 'calib_explo_hom_2v_k1-n1'
-
-wish = 0
-
-for watershed_name in watershed_names[:]:
-    
-    print('##### '+watershed_name.upper()+' #####')
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True)
-
-    ##########
-    typ_calib = 'hydrometry_calibration'
-    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                        key=os.path.getmtime, reverse=True)
-    name_file = list_path[wish].split('\\')[-1]
-    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-    test = calib_analysis.CalibAnalysis(calib_file)
-    # test.display_objective_function(save=None)
-    # test.find_best_values()
-    # test.display_best_data()
-    
-    sim_res=test.sim_results
-    # x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
-    # plt.plot(x)
-    
-    # path_fig = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures')
-    path_fig = os.path.join(out_path, '_figures')
-    
-    # CHRONICS
-    
-    typ_name = typ_calib.split('_')[0]
-    
-    obs = test.data_obs
-    sim = test.data_sim
-    ind = test.data_ind
-    obj = test.calib['objective_function']
-    xyz = test.params_xyz
-    
-    synt = test.params_synt
-        
-    p1 = []
-    for p in synt:
-        p1.append(p.split(';')[0])
-    p2 = []
-    for p in synt:
-        p2.append(p.split(';')[1])
-    rout = []
-    for r in sim[typ_name]:
-        rout.append((r*1000*30).mean()[0])
-    rsat = []
-    for t in range(len(synt)):     
-        # sat = test.sim_results[synt[t]]['seepage_areas']
-        sat = test.sim_results[synt[t]]['surflow_areas']
-        sat = pd.to_numeric(sat, errors='coerce').isnull()
-        rsat.append(sat.mean())
-    
-    # fig, ax = plt.subplots(1,1, figsize=(6,5))
-    # axb = ax.twinx()
-    # x = range(len(p1))
-    # ax.plot(x, [float(i) for i in p1], marker='.', lw=0, c='blue', label='K [m/j]')
-    # ax.plot(x, [float(i) for i in p2], marker='.', lw=0, c= 'green', label='Sy [-]')
-    # axb.plot(x, rsat, marker='.', lw=0, c= 'red', label='Saturation [%]')
-    # axb.plot(x, rout, marker='.', lw=0, c= 'darkorange', label='Outflow [mm/mois]')
-    # ax.set_xlabel('Simulations')
-    # ax.set_ylabel('K and Sy')
-    # axb.set_ylabel('Saturation and Outflow', rotation=270, labelpad=25)
-    # ax.legend(loc = 'upper left')
-    # axb.legend(loc='upper center')
-    # ax.grid('grey')
-    # ax.axhline(y=6.6E-7*24*3600, c = 'b', lw=2)
-    # # ax.axhline(y=0.1, c = 'g', lw=2)
-    # # plt.scatter(rout, rsat)
-            
-    nse_good = []
-    sat_good = []
-    
-    fig, axs = plt.subplots(2,2, figsize=(9,5))
-    axs = axs.ravel()
-    
-    numb = 0
-    for i in range(len(obs[typ_name])):
-        o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
-        s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
-        nd = ind[typ_name][i]
-        sat = test.sim_results[synt[i]]['seepage_areas']
-        sat = pd.to_numeric(sat)
-        
-        k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
-        sy = float(synt[i].split(';')[1]) * 100
-        title = 'Discharge [mm/month]'
-        nselog = round(((nd[0]))*100,1)
-        label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
-                '$NSE_{log}$ = '+str(nselog)+'%'
-        nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
-                
-        if nselog > 60:
-            if all(i <= 50 for i in sat):
-                numb += 1
-                
-        c = []
-        for h in range(len(ind[typ_name])):
-            d = ind[typ_name][h][0]
-            c.append(d)
-        # c = np.linspace(0,1,len(obs[typ_name]))
-        # c = np.linspace(0,1,numb)
-
-        cmap = mpl.cm.get_cmap('viridis_r')
-
-        color_gradients = cmap(c)
-        # vmin = min(c)
-        # vmax = max(c)
-        # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-        
-        def fmt_xaxes(ax):
-            yearsmaj = mdates.YearLocator(5)   # every year
-            yearsmin = mdates.YearLocator(1)
-            # monthsmaj = mdates.MonthLocator(6)  # every month
-            # monthsmin = mdates.MonthLocator(3)
-            # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-            years_fmt = mdates.DateFormatter('%Y')
-            ax.xaxis.set_major_locator(yearsmaj)
-            ax.xaxis.set_minor_locator(yearsmin)
-            ax.xaxis.set_major_formatter(years_fmt)
-        
-        if nselog > 60:
-            if all(i <= 50 for i in sat):       
-                
-                ax = axs[0]
-                fmt_xaxes(axs[0])
-                # ax.xaxis.set_major_locator(yearsmaj)
-                # ax.xaxis.set_minor_locator(yearsmin)
-                # ax.xaxis.set_major_formatter(years_fmt)
-                
-                ax.plot(s, color=color_gradients[i], lw=1, label=label)
-                # ax.plot(s, lw=1, label=label)   
-                ax.set_title(title)
-                ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
-                ax.set_xlim(pd.to_datetime('1989'), pd.to_datetime('2021'))
-                
-                del(ax)
-                
-                ax = axs[1]
-                fmt_xaxes(axs[1])
-                ax.set_title('Log discharge [mm/month]')
-                ax.plot(select_period(o.copy(),2010,2019), color='grey', lw=3, ls='-', zorder=0)
-                ax.set_yscale('log')
-                ax.plot(select_period(s.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
-                # ax.xaxis.set_major_locator(yearsmaj)
-                # ax.xaxis.set_minor_locator(yearsmin)
-                # ax.xaxis.set_major_formatter(years_fmt)
-
-                ax = axs[2]
-                fmt_xaxes(axs[2])   
-                sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
-                ax.plot(select_period(sat.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
-                # ax.plot(sat, lw=1, label=label) 
-                ax.set_ylim(-2,50)
-                title = 'Saturation [%]'
-                ax.set_title(title)
-                # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
-                            
-    plt.tight_layout()
-    
-    if watershed_name == 'Nancon':
-        ncol = 2
-    else:
-        ncol = 1
-    ax.legend(bbox_to_anchor=(1.2,0.5), prop={'size': 5}, loc="center left", borderaxespad=0, 
-              ncol=ncol)
-    ax = axs[3]
-    # ax.set_title('$NSE_{log}$ > 50 & $SAT_{max}$ < 50')
-    plt.axis('off')
-
-    # plt.tight_layout()
-
-    fig.savefig(path_fig+'/'+watershed_name+'_chronics_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-    # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
-           
-    # divider = make_axes_locatable(ax)
-    # cax = divider.append_axes('right', size='1.25%', pad=0.1)
-    # fig.add_axes(cax)
-    # norm = Normalize(vmin=vmin, vmax=vmax)
-    # n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
-    # n_cmap.set_array([])
-    # ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
-    
-    # SAT
-
-    fig, axs = plt.subplots(1,3, figsize=(10,3.5))
-    axs = axs.ravel()
-    for k in range(3):
-        ax = axs[k]
-        X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
-        Z = np.empty((3,3,))
-        Z[:] = np.nan
-        p1 = test.params_values[0]
-        p2= test.params_values[1]
-        sim_sat = np.zeros((len(p1),len(p2)))
-        compt=0
-        for i in range(len(p1)):
-            for j in range(len(p2)):
-                temp = [p1[i],p2[j]]
-                string = str(p1[i])+';'+str(+p2[j])
-                if k == 0:
-                    try:
-                        ax.set_title('SAT MIN [%]')
-                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).min()
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).min()
-                    except:
-                        pass
-                if k == 1:
-                    try:
-                        ax.set_title('SAT MEAN [%]')
-                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).mean()
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).mean()
-                    except:
-                        pass
-                if k == 2:
-                    try:
-                        ax.set_title('SAT MAX [%]')
-                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).max()
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).max()
-                    except:
-                        pass
-                compt += 1
-        Z=sim_sat
-        pc = ax.contourf(X,Y,Z,cmap='jet', levels=np.arange(0,51,5)) #figadd.cmap_white_jet()
-        ax.set_xscale('log')
-        # cb = fig.colorbar(pc)
-        ax.set_ylabel('Sy [-]')
-        ax.set_xlabel('K [m/j]')
-        # cb.set_label('Saturation [%]', rotation=270, labelpad=40)
-    position=fig.add_axes([1.05,0.2,0.02,0.7])  ## the parameters are the specified position you set 
-    fig.colorbar(pc,cax=position)
-    plt.tight_layout()
-    fig.savefig(path_fig+'/'+watershed_name+'_saturation_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-    # IMSHOW
-    
-    fig, axs = plt.subplots(1,3, figsize=(15,4))
-    axs = axs.ravel()
-    
-    ax = axs[0]
-    
-    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
-    Z=test.obj_function.copy()
-    # Z[Z<0] = 0
-    from numpy import inf
-    # Z[Z == inf] = 0
-    pc = ax.imshow(Z, vmin = 0, vmax=1, aspect='auto') #figadd.cmap_white_jet() , shading='gouraud'
-    # ax.set_xscale('log')
-    ax.set_ylabel('Sy [-]')
-    ax.set_xlabel('K [m/j]')
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    # cb = fig.colorbar(pc)
-    cb=fig.colorbar(pc, cax=cax, orientation='vertical')
-    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    # cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    # fig.savefig(path_fig+'/'+'_shaded_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-    ax = axs[1]
-    
-    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
-    Z=test.obj_function.copy()
-    # Z[Z == inf] = np.nan
-    # Z = np.ma.array(Z,mask=np.isnan(Z))
-    # Z = np.ma.masked_invalid(Z)
-    # Z = Z.replace(np.inf, np.nan)
-    pc = ax.pcolormesh(X,Y,Z, cmap='jet', shading='gouraud', vmin=0, vmax=1) #figadd.cmap_white_jet()
-    ax.set_xscale('log')
-    ax.set_ylabel('Sy [-]')
-    ax.set_xlabel('K [m/j]')
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    # cb = fig.colorbar(pc)
-    cb = fig.colorbar(pc, cax=cax, orientation='vertical')
-    cb.set_ticks(np.arange(0,1.1,0.1)) 
-    # cb.set_ticklabels(np.arange(0,1.1,0.1))
-    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    # fig.savefig(path_fig+'/'+'_mesh_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-    ax = axs[2]
-    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
-    Z=test.obj_function.copy()
-    Z[Z<0] = 0
-    from numpy import inf
-    Z[Z == inf] = 0
-    # np.ma.masked_where(test.obj_function<0, test.obj_function)
-    # plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-    bounds = np.arange(0,1.1,0.1)
-    norm = mpl.colors.Normalize(vmin=-1, vmax=1.0)
-    # norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=256)
-    # pc = ax.contourf(X, Y, Z, vmin=0, vmax=1, norm = norm)
-    pc = ax.contourf(X, Y, Z, levels=np.arange(0,1.1,0.1))    
-    # plt.imshow(Z)
-    # plt.xlim(1)
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    # cb = fig.colorbar(pc)
-    cb = fig.colorbar(pc, cax=cax, orientation='vertical')
-    cb.set_ticks(np.arange(0,1.1,0.1)) 
-    # cb.set_ticklabels(np.arange(0,1.1,0.1))
-    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    ax.set_xscale('log')
-    ax.set_ylabel('Sy [-]')
-    ax.set_xlabel('K [m/j]')
-    
-    plt.tight_layout()
-    
-    fig.savefig(path_fig+'/'+watershed_name+'_discharge_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-#%% INTERMENSUAL PLOT
+#%% OBSERVED DISCHARGE
 
 watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
@@ -1650,5 +1151,1262 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     plt.tight_layout()
     # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
     
-    fig.savefig(path_fig+'/'+watershed_name+'_intermensual_'+name_file+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(path_fig+'/'+watershed_name+'_intermensual_'+name_file+'.png', dpi=300, bbox_inches='tight')
     fig.savefig(out_path+'/_figures/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
+
+#%% OBSERVED HYDROGRAPHIC
+
+hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
+
+# types_obs = ['complete','intermittent','perennial','river','drain_complete_chezecanut'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['persistanc','fid','fid','fid','fid'] # list of shapefile name columns to translate as a tif
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+
+types_obs = ['complete','intermittent','perennial','river','zh_couesnon','zh_meuchezecanut'] # list of shapefile name layers for clip hydrology
+fields_obs = ['persistanc','fid','fid','fid','fid','fid']
+
+# types_obs = ['zh_couesnon'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['fid']
+
+df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+
+from watershed import watershed_root, watershed_display, forcing
+from matplotlib_scalebar.scalebar import ScaleBar
+from rasterio.plot import show
+
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+       
+    print('##### '+watershed_name.upper()+' #####')
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    
+    bv = gpd.read_file(BV.geographic.watershed_shp)
+    area = BV.geographic.area
+    area = round(area, 1)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    
+    # BV.add_hydrometry(hydrometry_path)
+    # BV.add_intermittency(intermittency_path) 
+    # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    
+    path_hydro = stable_folder + 'hydrology/'
+    complete = gpd.read_file(path_hydro+'complete.shp')
+    intermittent = gpd.read_file(path_hydro+'intermittent.shp')
+    perennial = gpd.read_file(path_hydro+'perennial.shp')
+    river = gpd.read_file(path_hydro+'river.shp')
+    
+    if watershed_name == 'Canut':
+        zh = gpd.read_file(path_hydro+'zh_meuchezecanut.shp')
+        zh_tif = imageio.imread(path_hydro+'zh_meuchezecanut.tif')
+    if watershed_name == 'Nancon':
+        zh = gpd.read_file(path_hydro+'zh_couesnon.shp')
+        zh_tif = imageio.imread(path_hydro+'zh_couesnon.tif')
+        
+    perennial_tif = imageio.imread(path_hydro+'perennial.tif')
+    intermittent_tif = imageio.imread(path_hydro+'intermittent.tif')
+    river_tif = imageio.imread(path_hydro+'river.tif')
+    complete_tif = imageio.imread(path_hydro+'complete.tif')
+    
+    area_complete = round((np.sum(complete_tif > 0) * 75**2) / 1000000 / area *100, 1)
+    area_zh = round((np.sum(zh_tif > 0) * 75**2) / 1000000 / area *100, 1)
+    area_intermittent = round((np.sum(intermittent_tif > 0) * 75**2) / 1000000 / area*100, 1)
+    area_perennial = round((np.sum(perennial_tif > 0) * 75**2) / 1000000 / area*100, 1)
+    area_river = round((np.sum(river_tif > 0) * 75**2) / 1000000 / area *100, 1)
+    area_all = round(area_complete + area_zh, 1)
+    drainage = round(area_all / area, 2)
+    
+    fig, ax = plt.subplots(1,1, figsize=(5,5))
+
+    polyg = gpd.read_file(BV.geographic.watershed_shp)
+    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+
+    bounds = dem.bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'bottom', location='upper left')
+    ax.add_artist(scalebar)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_title(watershed_name, fontproperties=fontprop)
+    ax.set(aspect='equal')
+    
+    cmap = 'gist_earth' # 'Greys'
+    wbt.hillshade(BV.geographic.watershed_box_buff_dem,
+                  stable_folder+'geographic/'+'watershed_box_buff_dem_hill.tif',
+                  azimuth=315.0, 
+                  altitude=30.0, 
+                  zfactor=10)
+    hill = rasterio.open(stable_folder+'geographic/'+'watershed_box_buff_dem_hill.tif')
+    show(hill.read(1), ax=ax, transform=dem.transform, cmap='Greys_r', alpha=0.5, zorder=2, aspect="auto")
+    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
+                             cmap=cmap, alpha=0.75)
+    show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
+          cmap=cmap, alpha=0.55, zorder=2, aspect="auto")
+    
+    zh.plot(ax=ax, lw=0, color='darkmagenta', alpha=1, zorder=4, legend=True, label='Wetlands')
+
+    streams = complete.copy()
+    streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='navy',
+                                                  zorder=6,legend=True, label='Streams')
+    streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='dodgerblue', ls='-',
+                                                  zorder=5,legend=True, label='Streams')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    try:
+        if os.path.exists(BV.piezometry.piezos_shp):
+            piezos = gpd.read_file(BV.piezometry.piezos_shp)
+            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
+                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
+    except:
+        pass
+    try:
+        if len(BV.piezometry.x_coord_discrete)>0:
+            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
+                       marker='^', zorder=5, label='Piezometers: discrete')
+    except:
+        pass   
+    try:
+        if os.path.exists(BV.hydrometry.hydrometric_clip):
+            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
+            hydromet.plot(ax=ax, color='yellow', zorder=7, marker='o', markersize=70,
+                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+    except:
+        pass 
+    try:
+        if os.path.exists(BV.intermittency.onde_clip):
+            intermit = gpd.read_file(BV.intermittency.onde_clip)
+            intermit.plot(ax=ax, color='yellow', zorder=8, marker='s',markersize=50,
+                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
+    except:
+        pass
+    
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(size="2%",position='right', pad=0.05)
+    fig.add_axes(cax)
+    cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+    cbar.ax.get_ymajorticklabels()
+    list(cbar.get_ticks())
+    val = np.ma.masked_where(BV.geographic.dem_box_data < 0, BV.geographic.dem_box_data)
+    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+    cbar.set_ticks([minVal, meanVal, maxVal])
+    cbar.set_ticklabels([minVal, meanVal, maxVal])
+    cbar.mappable.set_clim(minVal, maxVal)
+    cbar.ax.tick_params(labelsize=10)
+    cbar.ax.yaxis.set_ticks_position('right')
+    cbar.ax.tick_params(size=2)
+    #cbar.set_label('Elevation (m)', size=12)
+    
+    ax.text(0.015, 0.14, 
+            'BV = ' +str(area) + ' [km²]' + '\n'
+            'All = '+str(area_all) + ' [%]' + '\n'
+            'Wetlands = '+str(area_zh) + ' [%]' + '\n'
+            'Network = '+str(area_complete) + ' [%]' + '\n'
+            'Standard = '+str(area_river) + ' [%]' + '\n'
+            'Intermit. = '+str(area_intermittent) + ' [%]' + '\n'
+            'Perenn. = '+str(area_perennial) + ' [%]',
+            horizontalalignment='left',
+            verticalalignment='center', 
+            transform=ax.transAxes,
+            fontsize = 6, zorder=10)
+    
+    fig.tight_layout()
+    
+    fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping'+'.png', dpi=300, bbox_inches='tight')
+
+#%% ----
+
+#%% DICHOTOMY STREAMS
+
+hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
+
+# types_obs = ['complete','intermittent','perennial','river','drain_complete_chezecanut'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['persistanc','fid','fid','fid','fid'] # list of shapefile name columns to translate as a tif
+
+types_obs = ['streams_bzh'] # list of shapefile name layers for clip hydrology
+fields_obs = ['fid']
+
+df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+
+for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
+    
+    for type_obs, field_obs in zip(types_obs, fields_obs):
+   
+        print('##### '+watershed_name.upper()+' #####')
+        
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dem_path, 
+                                      out_path=out_path,
+                                      load=True,
+                                      modflow_path=modflow_path)
+        area = BV.geographic.area
+        
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+            
+        BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
+        
+        BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                          first_year = 2001, last_year=2019, time_step = 'D',
+                                          sim_state='steady') #
+        
+        BV.hydrodynamic.update_thickness(30)
+        # BV.hydrodynamic.update_porosity(0.1)
+        # BV.hydrodynamic.update_hyd_cond(2)
+        
+        params_df = pd.DataFrame(columns=['params',
+                                          'init_values','lower_bounds','higher_bounds',
+                                          'units','scale'])
+        params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
+        
+        params_file = 'calib_dicot_hom_1v_k1'
+        
+        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+        # params_file = 'calib_dicot_het_2v_k1-k2'
+        # params_file = 'calib_dicot_hom_2v_k1-n1'
+        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+        dicot = calib.dichotomy(gap=1)
+        
+    for i, type_obs in enumerate(types_obs):
+        
+        typ_calib = 'streams_calibration'
+        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                           key=os.path.getmtime)
+        name_file = list_path[i].split('\\')[-1]
+        calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+        test = calib_analysis.CalibAnalysis(calib_file)
+        test.display_objective_function(save=None)
+        
+        koptim = test.calib['params_values'][-1]
+        kr = koptim / test.calib['recharge']
+        obj_func = test.calib['objective_function'][-1]
+        
+        df.loc[0,watershed_name] = koptim / 24 / 3600
+        df.loc[1,watershed_name] = kr
+        df.loc[2,watershed_name] = obj_func
+        
+# df.to_csv(out_path+'/Koptims_dichotomy_streams.csv', sep=';')
+# df = pd.read_csv(BV.calibration_folder+'/Koptims_dichotomy_streams.csv', sep=';')
+
+#%% EXPLORATION RECHARGE
+
+code_names = ['J7513010','J0014010']
+watershed_names = ['Canut','Nancon']
+
+# watershed_names = ['Monfort']
+
+modflow_path = data_path + 'SOFTWARE/MODFLOW/'
+
+from watershed import watershed_root, watershed_display, forcing
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis, calib_params
+
+for watershed_name in watershed_names[:] :
+    
+    print('##### '+watershed_name.upper()+' #####')
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+
+    fcalib = 1985
+    lcalib = 2011
+    
+    sim_state = 'transient'
+    time_step = 'M'
+    
+    var = 'REC'
+    wr = True
+    wish = 0
+    mod = 'REA'
+    
+    raw_path = stable_folder+'/'+'hydrometry/'
+    Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+    Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+    area = float(Qobs_path.split('_')[-3])
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+    Qobs = Qobs.squeeze()
+    Qobs = Qobs.resample('M').mean()
+    # plt.plot(Qobs)
+    # plt.yscale('log')
+    
+    fqobs = Qobs.first_valid_index().year+1
+    lqobs = Qobs.last_valid_index().year-1
+    fhist = 1985
+    lhist = 2011
+    year_min = max(fqobs, fhist)
+    year_max = min(lqobs, lhist)
+    
+    # Normalize with discharge
+    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                             first_year = year_min, last_year = year_max,
+                                             time_step = time_step, sim_state=sim_state)
+    Rech = BV.forcing.recharge
+    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                          first_year = year_min, last_year=year_max, time_step = 'M',
+                                          sim_state='transient')
+    Runof = BV.forcing.runoff # m/month
+    
+    norm_Rea = select_period(Rech, year_min, year_max)
+    norm_Qobs = select_period(Qobs, year_min, year_max)
+    
+    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
+    # print(Rt_Rea_Qobs.round(2))
+    Nt = (norm_Rea * Rt_Rea_Qobs)
+    
+    BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    plt.plot(BV.forcing.recharge, c='r')
+    
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
+    BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
+    
+    BV.hydrodynamic.update_thickness(30)
+    # BV.hydrodynamic.update_porosity(0.001)
+    # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
+    
+    params_df = pd.DataFrame(columns=['params',
+                                      'init_values','lower_bounds','higher_bounds',
+                                      'units','scale'])
+    if watershed_name == 'Canut':
+        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
+        params_df.loc[1] = ['n1',0.01,0.001,0.02,'m/j','lin']
+    if watershed_name == 'Nancon':
+        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
+        params_df.loc[1] = ['n1',0.01,0.02,0.07,'m/j','lin']
+    if watershed_name == 'Monfort':
+        params_df.loc[0] = ['k1',1.7e+00,1.7e-01,1.7e+01,'m/j','lin']
+        params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
+        
+    params_file = 'calib_explo_hom_2v_k1-n1'
+    
+    params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+    
+    # params_file = 'calib_explo_hom_1v_n1'
+    # params_file = 'calib_explo_hom_1v_k1'
+    # params_file = 'calib_dicot_het_2v_k1-k2'•
+
+# EXPLORATION LAUNCH
+
+    # calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+    # calib.exploration(resolution=100)
+
+#%% EXPLORATION PLOT
+
+# watershed_names = ['Canut']
+# watershed_names = ['Nancon']
+
+code_names = ['J7513010','J0014010']
+watershed_names = ['Canut','Nancon']
+
+# code_names = ['J3014330','J1803010','J1105810','J7214010','J7313010']
+# watershed_names = ['Horn','Leff','Arguenon','Flume','Gael']
+
+# watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
+# code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
+
+params_file = 'calib_explo_hom_2v_k1-n1'
+
+wish = 0
+
+for watershed_name in watershed_names[:]:
+    
+    # if (watershed_name == 'Canut') | (watershed_name == 'Nancon'):
+    #     wish = -1
+    # else:
+    #     wish = 0
+    
+    print('##### '+watershed_name.upper()+' #####')
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+
+    ##########
+    typ_calib = 'hydrometry_calibration'
+    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                        key=os.path.getmtime, reverse=True)
+    name_file = list_path[wish].split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+    test = calib_analysis.CalibAnalysis(calib_file)
+    # test.display_objective_function(save=None)
+    # test.find_best_values()
+    # test.display_best_data()
+    
+    sim_res=test.sim_results
+    # x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
+    # plt.plot(x)
+    
+    # path_fig = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures')
+    path_fig = os.path.join(out_path, '_figures')
+    
+    # CHRONICS
+    
+    typ_name = typ_calib.split('_')[0]
+    
+    obs = test.data_obs
+    sim = test.data_sim
+    ind = test.data_ind
+    obj = test.calib['objective_function']
+    xyz = test.params_xyz
+    
+    synt = test.params_synt
+        
+    p1 = []
+    for p in synt:
+        p1.append(p.split(';')[0])
+    p2 = []
+    for p in synt:
+        p2.append(p.split(';')[1])
+    rout = []
+    for r in sim[typ_name]:
+        rout.append((r*1000*30).mean()[0])
+    rsat = []
+    for t in range(len(synt)):     
+        # sat = test.sim_results[synt[t]]['seepage_areas']
+        sat = test.sim_results[synt[t]]['surflow_areas']
+        sat = pd.to_numeric(sat, errors='coerce').isnull()
+        rsat.append(sat.mean())
+    
+    # fig, ax = plt.subplots(1,1, figsize=(6,5))
+    # axb = ax.twinx()
+    # x = range(len(p1))
+    # ax.plot(x, [float(i) for i in p1], marker='.', lw=0, c='blue', label='K [m/j]')
+    # ax.plot(x, [float(i) for i in p2], marker='.', lw=0, c= 'green', label='Sy [-]')
+    # axb.plot(x, rsat, marker='.', lw=0, c= 'red', label='Saturation [%]')
+    # axb.plot(x, rout, marker='.', lw=0, c= 'darkorange', label='Outflow [mm/mois]')
+    # ax.set_xlabel('Simulations')
+    # ax.set_ylabel('K and Sy')
+    # axb.set_ylabel('Saturation and Outflow', rotation=270, labelpad=25)
+    # ax.legend(loc = 'upper left')
+    # axb.legend(loc='upper center')
+    # ax.grid('grey')
+    # ax.axhline(y=6.6E-7*24*3600, c = 'b', lw=2)
+    # # ax.axhline(y=0.1, c = 'g', lw=2)
+    # # plt.scatter(rout, rsat)
+            
+    nse_good = []
+    sat_good = []
+    
+    fig, axs = plt.subplots(2,2, figsize=(9,5))
+    axs = axs.ravel()
+    fig.suptitle(watershed_name.upper())
+    
+    numb = 0
+    for i in range(len(obs[typ_name])):
+        o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
+        s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
+        nd = ind[typ_name][i]
+        sat = test.sim_results[synt[i]]['seepage_areas']
+        sat = pd.to_numeric(sat)
+        
+        k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
+        sy = float(synt[i].split(';')[1]) * 100
+        title = 'Discharge [mm/month]'
+        nselog = round(((nd[0]))*100,1)
+        label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
+                '$NSE_{log}$ = '+str(nselog)+'%'
+        nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+                
+        if nselog > 60:
+            if all(i <= 50 for i in sat):
+                numb += 1
+                
+        # c = []
+        # for h in range(len(ind[typ_name])):
+        #     d = ind[typ_name][h][0]
+        #     c.append(d)
+        c = np.linspace(0,1,len(obs[typ_name]))
+        # c = np.linspace(0,1,numb)
+
+        cmap = mpl.cm.get_cmap('viridis_r')
+
+        color_gradients = cmap(c)
+        # vmin = min(c)
+        # vmax = max(c)
+        # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+        
+        def fmt_xaxes(ax):
+            yearsmaj = mdates.YearLocator(5)   # every year
+            yearsmin = mdates.YearLocator(1)
+            # monthsmaj = mdates.MonthLocator(6)  # every month
+            # monthsmin = mdates.MonthLocator(3)
+            # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+            years_fmt = mdates.DateFormatter('%Y')
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(yearsmin)
+            ax.xaxis.set_major_formatter(years_fmt)
+        
+        if nselog > 60:
+            if all(i <= 50 for i in sat):       
+                
+                ax = axs[0]
+                fmt_xaxes(axs[0])
+                # ax.xaxis.set_major_locator(yearsmaj)
+                # ax.xaxis.set_minor_locator(yearsmin)
+                # ax.xaxis.set_major_formatter(years_fmt)
+                
+                ax.plot(s, color=color_gradients[i], lw=1, label=label)
+                # ax.plot(s, lw=1, label=label)   
+                ax.set_title(title)
+                ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
+                ax.set_xlim(pd.to_datetime('1989'), pd.to_datetime('2021'))
+                
+                del(ax)
+                
+                ax = axs[1]
+                fmt_xaxes(axs[1])
+                ax.set_title('Log discharge [mm/month]')
+                ax.plot(select_period(o.copy(),2010,2019), color='grey', lw=3, ls='-', zorder=0)
+                ax.set_yscale('log')
+                ax.plot(select_period(s.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
+                # ax.xaxis.set_major_locator(yearsmaj)
+                # ax.xaxis.set_minor_locator(yearsmin)
+                # ax.xaxis.set_major_formatter(years_fmt)
+
+                ax = axs[2]
+                fmt_xaxes(axs[2])   
+                sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
+                ax.plot(select_period(sat.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
+                # ax.plot(sat, lw=1, label=label) 
+                ax.set_ylim(-2,50)
+                title = 'Saturation [%]'
+                ax.set_title(title)
+                # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+                            
+    plt.tight_layout()
+    
+    if watershed_name == 'Nancon':
+        ncol = 2
+    else:
+        ncol = 1
+    ax.legend(bbox_to_anchor=(1.2,0.5), prop={'size': 5}, loc="center left", borderaxespad=0, 
+              ncol=ncol)
+    ax = axs[3]
+    # ax.set_title('$NSE_{log}$ > 50 & $SAT_{max}$ < 50')
+    plt.axis('off')
+
+    # plt.tight_layout()
+
+    fig.savefig(path_fig+'/'+watershed_name+'_chronics_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+    # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
+           
+    # divider = make_axes_locatable(ax)
+    # cax = divider.append_axes('right', size='1.25%', pad=0.1)
+    # fig.add_axes(cax)
+    # norm = Normalize(vmin=vmin, vmax=vmax)
+    # n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
+    # n_cmap.set_array([])
+    # ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
+    
+    # SAT
+
+    fig, axs = plt.subplots(1,3, figsize=(10,3.5))
+    fig.suptitle(watershed_name.upper())
+    axs = axs.ravel()
+    for k in range(3):
+        ax = axs[k]
+        ax.axes.tick_params(which='both', direction='out', zorder=10)
+        X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+        Z = np.empty((3,3,))
+        Z[:] = np.nan
+        p1 = test.params_values[0]
+        p2= test.params_values[1]
+        sim_sat = np.zeros((len(p1),len(p2)))
+        compt=0
+        for i in range(len(p1)):
+            for j in range(len(p2)):
+                temp = [p1[i],p2[j]]
+                string = str(p1[i])+';'+str(+p2[j])
+                if k == 0:
+                    try:
+                        ax.set_title('SAT MIN [%]')
+                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).min()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).min()
+                    except:
+                        pass
+                if k == 1:
+                    try:
+                        ax.set_title('SAT MEAN [%]')
+                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).mean()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).mean()
+                    except:
+                        pass
+                if k == 2:
+                    try:
+                        ax.set_title('SAT MAX [%]')
+                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).max()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).max()
+                    except:
+                        pass
+                compt += 1
+        Z=sim_sat
+        pc = ax.contourf(X,Y,Z,cmap='jet', levels=np.arange(0,51,5)) #figadd.cmap_white_jet()
+        ax.set_xscale('log')
+        # cb = fig.colorbar(pc)
+        ax.set_ylabel('Sy [-]')
+        ax.set_xlabel('K [m/j]')
+        # cb.set_label('Saturation [%]', rotation=270, labelpad=40)
+    position=fig.add_axes([1.05,0.2,0.02,0.7])  ## the parameters are the specified position you set 
+    fig.colorbar(pc,cax=position)
+    plt.tight_layout()
+    fig.savefig(path_fig+'/'+watershed_name+'_saturation_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+    # DISCHARGE
+    
+    fig, axs = plt.subplots(1,3, figsize=(15,4))
+    fig.suptitle(watershed_name.upper())
+    axs = axs.ravel()
+    
+    ax = axs[0]
+    
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z=test.obj_function.copy()
+    # Z[Z<0] = 0
+    from numpy import inf
+    # Z[Z == inf] = 0
+    pc = ax.imshow(Z, vmin = 0, vmax=1, aspect='auto') #figadd.cmap_white_jet() , shading='gouraud'
+    # ax.set_xscale('log')
+    ax.set_ylabel('Sy [-]')
+    ax.set_xlabel('K [m/j]')
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    # cb = fig.colorbar(pc)
+    cb=fig.colorbar(pc, cax=cax, orientation='vertical')
+    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    # cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    # fig.savefig(path_fig+'/'+'_shaded_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+    ax = axs[1]
+    
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z=test.obj_function.copy()
+    # Z[Z == inf] = np.nan
+    # Z = np.ma.array(Z,mask=np.isnan(Z))
+    # Z = np.ma.masked_invalid(Z)
+    # Z = Z.replace(np.inf, np.nan)
+    pc = ax.pcolormesh(X,Y,Z, cmap='jet', shading='gouraud', vmin=0, vmax=1) #figadd.cmap_white_jet()
+    ax.set_xscale('log')
+    ax.set_ylabel('Sy [-]')
+    ax.set_xlabel('K [m/j]')
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    # cb = fig.colorbar(pc)
+    cb = fig.colorbar(pc, cax=cax, orientation='vertical')
+    cb.set_ticks(np.arange(0,1.1,0.1)) 
+    # cb.set_ticklabels(np.arange(0,1.1,0.1))
+    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    # fig.savefig(path_fig+'/'+'_mesh_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+    ax = axs[2]
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z=test.obj_function.copy()
+    Z[Z<0] = 0
+    from numpy import inf
+    Z[Z == inf] = 0
+    # np.ma.masked_where(test.obj_function<0, test.obj_function)
+    # plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
+    bounds = np.arange(0,1.1,0.1)
+    norm = mpl.colors.Normalize(vmin=-1, vmax=1.0)
+    # norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=256)
+    # pc = ax.contourf(X, Y, Z, vmin=0, vmax=1, norm = norm)
+    pc = ax.contourf(X, Y, Z, levels=np.arange(0,1.1,0.1))    
+    # plt.imshow(Z)
+    # plt.xlim(1)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    # cb = fig.colorbar(pc)
+    cb = fig.colorbar(pc, cax=cax, orientation='vertical')
+    cb.set_ticks(np.arange(0,1.1,0.1)) 
+    # cb.set_ticklabels(np.arange(0,1.1,0.1))
+    cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    ax.set_xscale('log')
+    ax.set_ylabel('Sy [-]')
+    ax.set_xlabel('K [m/j]')
+    
+    plt.tight_layout()
+    
+    fig.savefig(path_fig+'/'+watershed_name+'_discharge_'+name_file+'.png', dpi=300, bbox_inches='tight')
+
+#%% ----
+
+#%% PARAM RUN MODEL
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+types_obs = ['complete'] # list of shapefile name layers for clip hydrology
+
+watershed_names = ['Canut']
+code_names = ['J7513010']
+
+# watershed_names = ['Nancon']
+# code_names = ['J0014010']
+
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    
+    # BV.add_hydrometry(hydrometry_path)
+    # BV.add_intermittency(intermittency_path) 
+    # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    BV.add_subbasin()
+    
+    # Input recharge
+    bzh_rech = False
+    var = 'REC'
+    mod = 'REA'
+    # mod = 'NOR1'
+    sce = 'historic'
+    # sce = 'historic'
+    typ = 'calib1' # sinu / hist / proj
+    wr = True
+    
+    # Choice temporal of the simulation
+    sim_state = 'transient' # 'steady' or 'transient'
+    init_rech = None # 'first'
+    period = [2010,2019] # recharge period
+    first = period[0]
+    last = period[1]
+    time_step = 'M' # or 'D'
+    actual_date = True # False if date is conceptual
+    start = str(period[0])+'-01-01' # necessary to specify the first time_step date
+    
+    raw_path = stable_folder+'/'+'hydrometry/'
+    Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+    Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+    area = BV.geographic.area
+    # area = float(Qobs_path.split('_')[-3])
+    print(area)
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+    Qobs = Qobs.squeeze()
+    Qobs = Qobs.resample('M').mean()
+    
+    # Normalize with discharge
+    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                             first_year = first, last_year = last,
+                                             time_step = time_step, sim_state=sim_state)
+    Rech = BV.forcing.recharge
+    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                          first_year = first, last_year = last, time_step = 'M',
+                                          sim_state='transient')
+    Runof = BV.forcing.runoff # m/month
+    
+    norm_Rea = select_period(Rech, first, last)
+    norm_Qobs = select_period(Qobs, first, last)
+    
+    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
+    print(Rt_Rea_Qobs.round(2))
+    Nt = (norm_Rea * Rt_Rea_Qobs)
+
+    BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    plt.plot(BV.forcing.recharge, c='r')
+
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, first, last), sim_state=sim_state)
+    BV.forcing.update_runoff(select_period(BV.forcing.runoff, first, last), sim_state=sim_state)
+    
+    # Active of not modules
+    box = False # if True generate a rectangular model
+    sink_fill = False # permit to fill sinks
+    modpath_sim = False # run modpath particle tracking if True
+    verbose = True # add print of MODFLOW in console
+    post_process = False # necessary to decompose post process of process
+    
+    # Strcture of the model
+    lay_number = 1 # vertical discrtization
+    bottom = None # aquifer flat or not
+    thick_exp = 1 # exponential decay of K with nlay
+    cond_decay = 0 # exponential decay of K with depth
+    thick = 30 # m
+    
+    # Hydraulic properties
+    if watershed_name == 'Canut':
+        Koptim = 1.4e-5 # koptim
+        Sy = 0.001
+    if watershed_name == 'Nancon':
+        Koptim = 8e-6 # koptim
+        Sy = 0.03
+        
+    Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
+    Sys = [Sy]
+    
+# RUN MODEL
+
+    list_model_name = []
+    list_of_success = []
+    list_flow_model = []
+    
+    compt = 1
+    # Update properties
+    for Sy in Sys:
+        for K in Ks:
+            # K = 1e-5
+            # Sy = 0.01
+            # print(K)
+            BV.hydrodynamic.update_thickness(thick)
+            BV.hydrodynamic.update_hyd_cond(K) 
+            BV.hydrodynamic.update_porosity(Sy)
+              
+            date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
+            date_today = date_today.replace('/','-')
+            date_today = date_today.replace(':','-')
+            date_today = date_today.replace(' ','_')
+            
+            model_name = typ+'_'+str(compt)+'_'+\
+                         var+'-'+mod+'-'+sce+'_'+\
+                         str(Sy*100)+'-'+str(round(K,2))+'-'+str(thick)+'_'+\
+                         str(first)+'-'+str(last)
+
+            # Run model
+            try:
+                print('SIM - ' + model_name)
+                success, flow_model = BV.run_modflow(ident=model_name,
+                                                     modpath_sim=modpath_sim,
+                                                     sink_fill=sink_fill,
+                                                     box=box,
+                                                     lay_number=lay_number,
+                                                     bottom=bottom,
+                                                     thick_exp=thick_exp,
+                                                     cond_decay=cond_decay,
+                                                     verbose=verbose,
+                                                     post_process=post_process, 
+                                                     init_rech=init_rech)
+                if success == True:
+                    print(     'Success')
+                else:
+                    print(     'Error')
+            except:
+                pass
+            list_model_name.append(model_name)
+            list_of_success.append(success)
+            list_flow_model.append(flow_model)
+            compt+=1
+            
+    print(list_of_success)
+    
+    dictio = {}
+    dictio['list_model_name'] = list_model_name
+    dictio['list_of_success'] = list_of_success
+    dictio['list_flow_model'] = list_flow_model
+    h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
+    # dictio.to_hdf(h5file)
+    dd.io.save(h5file, dictio)
+        
+    # import pickle
+    # with open(h5file, 'wb') as handle:
+    #     pickle.dump(dictio, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # BV.list_flow_model = list_flow_model
+    # BV.list_of_success = list_success
+    # BV.save_object()
+    
+#%% POSTPROCESS MODEL
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+types_obs = ['complete'] # list of shapefile name layers for clip hydrology
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+
+    h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_of_success = d['list_of_success'][:]
+    list_flow_model = d['list_flow_model'][:]
+    
+    for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+            
+        if success==True:
+                print(success)
+                
+                BV.matrix_modflow(success,
+                                  flow_model,
+                                  first_only = False,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = True,
+                                  specific_discharge = False,
+                                  accumulation_flux = True,
+                                  perenn_intermit_shp = False,
+                                  groundwater_storage = True,
+                                  verbose = True,
+                                  export_tif = True)
+                
+                # # Extract results
+                BV.results_modflow(ident=model_name,
+                                   recharge=flow_model.climatic,
+                                   actual_date=actual_date,
+                                   start=start,
+                                   time_step=time_step)
+                
+                # # Plot maps
+                save_gif = False # save a gif after plots
+                Rech = flow_model.climatic
+                surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
+                                                      types_obs, save_gif=save_gif, first_only=True,
+                                                      outflow=True, accflux=True, intermittency=False,
+                                                      chronics=True, sim_state=sim_state)
+
+#%% INTERMITTENTCY MAP
+
+typ_intermit = 'yearly' # yearly or persistency or monthly
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+types_obs = ['complete'] # list of shapefile name layers for clip hydrology
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+
+    years = np.arange(first,last+1,1)
+    
+    simul_list = glob.glob(simulations_folder+typ+'*')
+    # simuls = fnmatch.filter(os.listdir(simulations_folder), typ+'*')
+    
+    wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                               stable_folder+'geographic/'+'watershed_contour.tif',
+                               base = stable_folder+'geographic/'+'watershed_dem.tif')
+    line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+    line = np.ma.masked_where(line <= 0, line)
+    
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+        
+    for simul in simul_list:
+    
+        acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+        for key in acc_npy:
+            # print(key)
+            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+            # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+            acc_npy[key] = np.ma.masked_array(acc_npy[key], mask=(mask<0))
+        zero = acc_npy[0] * 0
+        for l in range(len(acc_npy)):
+            tempo = acc_npy[l].copy()
+            tempo[tempo>0] = 1
+            zero = zero + tempo
+        days_flux = zero.copy() # / len(acc_npy)
+        
+        if typ_intermit == 'persistency':
+            fig, ax = plt.subplots(1,1, figsize=(7,6))
+            
+            days_flux = days_flux / len(acc_npy)
+            im = ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
+                            cmap = 'coolwarm_r', vmin=0, vmax=1, alpha=1)
+            ax.imshow(np.ma.masked_where(days_flux < 1, days_flux),
+                      cmap = mpl.colors.ListedColormap('navy'), alpha=1)
+            ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+    
+            fig.colorbar(im, cax=cax, orientation='vertical',)
+    
+            ax.set_title(str(years[0])+' to '+str(years[-1]))
+            fig.savefig(simul+'/_figures/png/'+'map_intermittent_persistency'+'.png', dpi=300, bbox_inches='tight')
+            
+        acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+        inf = 0
+        sup = 12
+        compt = 0
+        step = int(round(len(acc_npy)/12))
+        
+        for i in range(step):
+            print(str(i)+'/'+str(step))
+            interv = list(acc_npy.items())[inf:sup]
+            # print(interv)
+            for key in range(len(interv)):
+                # key = tupl[0]
+                # print(key)
+                interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
+                
+            zero = acc_npy[0] * 0
+            for j in range(len(interv)):
+                tempo = interv[j].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy()
+            days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+            days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))
+            
+            if typ_intermit == 'monthly':
+    
+                for k in range(len(interv)):
+                    to = interv[k].copy()
+                    
+                    # fig, ax = plt.subplots(1,1, figsize=(7,6))
+                    # ax.imshow(to)
+                    
+                    to[(to>0) & (days_flux==12)] = 2
+                    to[(to>0) & (days_flux<12)] = 1
+                    
+                    to = np.ma.masked_array(to, mask=(mask<0))
+                    to = np.ma.masked_array(to, mask=(to<=0))
+                    
+                    fig, ax = plt.subplots(1,1, figsize=(7,6))
+                    # image_hidden = ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys')
+                    ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0)
+                    ax.imshow(np.ma.masked_where(to==1, to), cmap = mpl.colors.ListedColormap(['dodgerblue']))
+                    ax.imshow(np.ma.masked_where(to==2, to), cmap = mpl.colors.ListedColormap(['darkorange']))
+                    ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+                    ax.get_xaxis().set_visible(False)
+                    ax.get_yaxis().set_visible(False)
+                    
+                    ax.set_title(str(years[i])+'-'+(str(k+1)))
+                    
+                    fig.savefig(simul+'/_figures/png/'+'map_intermittent_monthly_'+str(compt)+'.png', dpi=300, bbox_inches='tight')
+    
+                    plt.close()
+                    
+                    compt += 1
+                    
+                inf+=12
+                sup+=12
+            
+            if typ_intermit == 'yearly':
+                fig, ax = plt.subplots(1,1, figsize=(7,6))
+                # image_hidden = ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys')
+                ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0)
+                ax.imshow(np.ma.masked_where(days_flux<12, days_flux), cmap = mpl.colors.ListedColormap(['dodgerblue']))
+                ax.imshow(np.ma.masked_where(days_flux==12, days_flux), cmap = mpl.colors.ListedColormap(['darkorange']))
+                ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+    
+                ax.set_title(years[i])
+            
+                # divider = make_axes_locatable(ax)
+                # cax = divider.append_axes("right", size="1%", pad=0.05)
+                # fig.add_axes(cax)
+                # cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+                # val = np.ma.masked_where(mask < 0, mask)
+                # minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+                # maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+                # meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+                # cbar.set_ticks([minVal, meanVal, maxVal])
+                # cbar.set_ticklabels([minVal, meanVal, maxVal])
+                # cbar.mappable.set_clim(minVal, maxVal)
+                # cbar.ax.tick_params(labelsize=10)
+            
+                fig.savefig(simul+'/_figures/png/'+'map_intermittent_yearly_'+str(i)+'.png', dpi=300, bbox_inches='tight')
+                plt.close()
+                
+                inf+=12
+                sup+=12
+        
+        # begin_by = simul+'/_figures/png/'+'map_intermittent_streams'
+        # filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+        # images = []
+        # for filename in filenames:
+        #     images.append(imageio.imread(filename))
+        # imageio.mimsave(begin_by+'intermittency_gif'+'.gif', images, duration=0.5, loop=1)
+
+#%% QUICKLY PLOT RESULTS
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+types_obs = ['complete'] # list of shapefile name layers for clip hydrology
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+
+    scan = 'outflow_drain'
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    simul_list = glob.glob(simulations_folder+typ+'*')
+    
+    # Normalize with discharge
+    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                             first_year = first, last_year = last,
+                                             time_step = time_step, sim_state=sim_state)
+    Rech = BV.forcing.recharge
+    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                          first_year = first, last_year = last, time_step = 'M',
+                                          sim_state='transient')
+    Runof = BV.forcing.runoff # m/month
+    norm_Rea = select_period(Rech, first, last)
+    norm_Qobs = select_period(Qobs, first, last)
+    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
+    print(Rt_Rea_Qobs.round(2))
+    Nt = (norm_Rea * Rt_Rea_Qobs)
+    BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, first, last), sim_state=sim_state)
+    R = BV.forcing.recharge
+    BV.forcing.update_runoff(select_period(BV.forcing.runoff, first, last), sim_state=sim_state)
+    
+    for simul in simul_list:
+        model_name = simul.split('\\')[-1]
+        Sy = float(model_name.split('_')[3].split('-')[0]) # %
+        K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+        E = float(model_name.split('_')[3].split('-')[2]) # m
+        D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+        params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+        Smod_path = simul+'/_watershed/_simulated_results.csv'
+        # Smod_path = simul+'/_subbasins/hydrometry_J7353010/_simulated_results.csv'        
+        if not os.path.exists(Smod_path):
+            compt += 1
+            continue
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        Qmod = Smod['outflow_drain'] 
+        Qmod = Qmod.squeeze() * 1000 * 30
+        Qmod = Qmod + (BV.forcing.runoff * 1000 * 30)
+        Cmod = Smod['recharge'] * 1000 * 30 # mm/months
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    raw_path = stable_folder+'/'+'hydrometry/'
+    Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+    Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+    area = float(Qobs_path.split('_')[-3])
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24 * 30) * 1000  # m3/s to mm/month
+    Qobs = Qobs.squeeze()
+    Qobs = select_period(Qobs, 2010,2019)
+    Qobs = Qobs.resample('M').mean()
+    
+    import hydroeval as he
+    nse = he.evaluator(he.nse, Qmod, Qobs, transform='log')[0]
+    print(round(nse,2))
+    
+    # plt.plot(Cmod)
+    # plt.plot(Qobs)
+    # plt.plot(Qmod)
+    
+    fig, axs = plt.subplots(3,1, figsize=(7,7))
+    axs = axs.ravel()
+    
+    yearsmaj = mdates.YearLocator(10)   # every year
+    yearsmin = mdates.YearLocator(1)
+    # monthsmaj = mdates.MonthLocator(6)  # every month
+    # monthsmin = mdates.MonthLocator(3)
+    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+    years_fmt = mdates.DateFormatter('%Y')
+    
+    o = Qobs # m/j to mm/month
+    s = Qmod # m/j to mm/month
+    # nd = 
+    sat = Smod['seepage_areas']
+    
+    k = '{:.1e}'.format(K)
+    sy = Sy
+    title = 'Discharge'
+    # nselog = round(((nd[0]))*100,1)
+    # label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
+    #         '$NSE_{log}$ = '+str(nselog)+'%'
+    # nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+                 
+    ax = axs[0]
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(years_fmt)
+    
+    ax.plot(R, color='k', lw=2)
+    ax.plot(s, color='red', lw=2)
+    # ax.plot(s, lw=1, label=label)   
+    ax.set_title(title)
+    ax.plot(o, color='grey', lw=2, ls='-', zorder=0)
+    ax.grid('grey')
+    ax.set_ylim(-2,200)
+    # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+    
+    ax = axs[1]
+    ax.plot(R, color='k', lw=2)
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(years_fmt)
+    ax.plot(o, color='grey', lw=2, ls='-', zorder=0)
+    ax.set_yscale('log')
+    ax.plot(s, color='red', lw=2)
+    ax.set_ylim(0.1,200)
+    ax.grid('grey')
+    
+    ax = axs[2]
+    # ax.axhline(y=20, color='k', ls= '--', lw=2)
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(years_fmt)    
+    # sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
+    ax.plot(sat, color='dodgerblue', lw=2)
+    # ax.plot(sat, lw=1, label=label) 
+    ax.set_ylim(-2,50)
+    title = 'Saturation'
+    ax.set_title(title)
+    ax.grid('grey')
+    # ax.set_xlim(pd.to_datetime(str(first)), pd.to_datetime(str(last)))
+                            
+    plt.tight_layout()
+    # ax.legend(bbox_to_anchor=(1.5, 3), ncol=1)
+    # fig.savefig(path_fig+'/'+'_chronic_'+name_file+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(simul+'/_figures/png/'+'quickly_plot_results'+'.png', dpi=300, bbox_inches='tight')
+
+#%% CROSS SECTION 2D
+
+watershed_name = 'Nancon'
+
+interactive = False
+
+dem_data = BV.geographic.dem_data # dem data
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
+if watershed_name == 'Conceptual':
+    river_data = None
+else:
+    river_data = imageio.imread(stable_folder+'/hydrology/'+'river.tif') # river data
+
+modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
+
+#%% MAPS TOP VIEW STEADY
+
+from tools import vtk
+from groundwater_flow import visualization
+#☻vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth','drain_flow',
+                              'surface_flow'],
+              color_scale = [(None,None),(None,None),(None,None),(0,10),
+                              (None,None),(None,None)])
+# visu.visual2D(object_list = ['pathlines', 'residence_times'],
+#               color_scale = [(None,None),(None,None)], 
+#               lines=100)
+

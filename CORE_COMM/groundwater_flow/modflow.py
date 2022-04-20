@@ -359,7 +359,7 @@ class Modflow():
         # Loop from time
         for item, time in enumerate(self.times):
             if verbose == True:
-                print('Post-processing time : ', item)
+                print('     Time : ', item)
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
@@ -426,9 +426,12 @@ class Modflow():
                 self.out_drn = self.out_all[0]
                 self.out_drn[self.dem_mask] = -9999
                 # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
-                output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif'
-                if export_tif==True:
+                output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
+                if accumulation_flux==True:
                     toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                else:
+                    if export_tif==True:
+                        toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
                 self.dict_outflow_drain[item] = self.out_drn
             
             if groundwater_flux == True:
