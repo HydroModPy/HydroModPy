@@ -681,10 +681,11 @@ data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
 out_path = "D:/Users/abherve/DYNAMIC/"
 
-# git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
-# # Path to the data folder
-# data_path = "D:/abherve/HYDRODATAPY/"
-# # Path where the results will be stored
+git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "D:/abherve/HYDRODATAPY/"
+# Path where the results will be stored
+out_path = "D:/abherve/DYNAMIC/"
 # out_path = "D:/abherve/INTERMITTENCY/"
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
@@ -1100,6 +1101,11 @@ for watershed_name, code_name in zip(watershed_names[-1:], code_names[-1:]) :
 
 #%% EXPLORATION RECHARGE
 
+code_names = ['J7513010','J0014010']
+watershed_names = ['Canut','Nancon']
+
+watershed_names = ['Monfort']
+
 modflow_path = data_path + 'SOFTWARE/MODFLOW/'
 
 from watershed import watershed_root, watershed_display, forcing
@@ -1115,11 +1121,10 @@ for watershed_name in watershed_names[:] :
                                   load=True,
                                   modflow_path=modflow_path)
 
-    
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 
-    fcalib = 2009
-    lcalib = 2019
+    fcalib = 1985
+    lcalib = 2011
     
     sim_state = 'transient'
     time_step = 'M'
@@ -1141,8 +1146,8 @@ for watershed_name in watershed_names[:] :
     
     fqobs = Qobs.first_valid_index().year+1
     lqobs = Qobs.last_valid_index().year-1
-    fhist = 2009
-    lhist = 2019
+    fhist = 1985
+    lhist = 2011
     year_min = max(fqobs, fhist)
     year_max = min(lqobs, lhist)
     
@@ -1176,26 +1181,36 @@ for watershed_name in watershed_names[:] :
     params_df = pd.DataFrame(columns=['params',
                                       'init_values','lower_bounds','higher_bounds',
                                       'units','scale'])
-    params_df.loc[0] = ['k1',1.7e+00,1.7e-03,1.7e+03,'m/j','lin']
-    params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
-    
+    if watershed_name == 'Canut':
+        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
+        params_df.loc[1] = ['n1',0.01,0.001,0.02,'m/j','lin']
+    if watershed_name == 'Nancon':
+        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
+        params_df.loc[1] = ['n1',0.01,0.02,0.07,'m/j','lin']
+    if watershed_name == 'Monfort':
+        params_df.loc[0] = ['k1',1.7e+00,1.7e-01,1.7e+01,'m/j','lin']
+        params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
+        
     params_file = 'calib_explo_hom_2v_k1-n1'
     
     params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
     
     # params_file = 'calib_explo_hom_1v_n1'
     # params_file = 'calib_explo_hom_1v_k1'
-    # params_file = 'calib_dicot_het_2v_k1-k2'
+    # params_file = 'calib_dicot_het_2v_k1-k2'•
 
 # EXPLORATION LAUNCH
 
     # calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=25)
+    # calib.exploration(resolution=100)
 
 #%% EXPLORATION PLOT
 
 code_names = ['J7513010','J0014010']
 watershed_names = ['Canut','Nancon']
+
+watershed_names = ['Canut']
+# watershed_names = ['Nancon']
 
 params_file = 'calib_explo_hom_2v_k1-n1'
 
@@ -1231,13 +1246,6 @@ for watershed_name in watershed_names[:]:
     # CHRONICS
     
     typ_name = typ_calib.split('_')[0]
-    
-    yearsmaj = mdates.YearLocator(5)   # every year
-    yearsmin = mdates.YearLocator(1)
-    # monthsmaj = mdates.MonthLocator(6)  # every month
-    # monthsmin = mdates.MonthLocator(3)
-    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-    years_fmt = mdates.DateFormatter('%Y')
     
     obs = test.data_obs
     sim = test.data_sim
@@ -1302,7 +1310,7 @@ for watershed_name in watershed_names[:]:
                 '$NSE_{log}$ = '+str(nselog)+'%'
         nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
                 
-        if nselog > 50:
+        if nselog > 60:
             if all(i <= 50 for i in sat):
                 numb += 1
                 
@@ -1312,41 +1320,54 @@ for watershed_name in watershed_names[:]:
         #     c.append(d)
         c = np.linspace(0,1,len(obs[typ_name]))
         # c = np.linspace(0,1,numb)
-        cmap = mpl.cm.get_cmap('viridis')
+        cmap = mpl.cm.get_cmap('viridis_r')
         color_gradients = cmap(c)
         # vmin = min(c)
         # vmax = max(c)
         # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-                       
-        if nselog > 50:
+        
+        def fmt_xaxes(ax):
+            yearsmaj = mdates.YearLocator(5)   # every year
+            yearsmin = mdates.YearLocator(1)
+            # monthsmaj = mdates.MonthLocator(6)  # every month
+            # monthsmin = mdates.MonthLocator(3)
+            # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+            years_fmt = mdates.DateFormatter('%Y')
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(yearsmin)
+            ax.xaxis.set_major_formatter(years_fmt)
+        
+        if nselog > 60:
             if all(i <= 50 for i in sat):       
                 
                 ax = axs[0]
-                ax.xaxis.set_major_locator(yearsmaj)
-                ax.xaxis.set_minor_locator(yearsmin)
-                ax.xaxis.set_major_formatter(years_fmt)
+                fmt_xaxes(axs[0])
+                # ax.xaxis.set_major_locator(yearsmaj)
+                # ax.xaxis.set_minor_locator(yearsmin)
+                # ax.xaxis.set_major_formatter(years_fmt)
                 
-                ax.plot(s, color=color_gradients[i], lw=2, label=label)
+                ax.plot(s, color=color_gradients[i], lw=1, label=label)
                 # ax.plot(s, lw=1, label=label)   
                 ax.set_title(title)
                 ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
-                # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+                ax.set_xlim(pd.to_datetime('1989'), pd.to_datetime('2021'))
+                
+                del(ax)
                 
                 ax = axs[1]
+                fmt_xaxes(axs[1])
                 ax.set_title('Log discharge [mm/month]')
-                ax.xaxis.set_major_locator(yearsmaj)
-                ax.xaxis.set_minor_locator(yearsmin)
-                ax.xaxis.set_major_formatter(years_fmt)
-                ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
+                ax.plot(select_period(o.copy(),2010,2019), color='grey', lw=3, ls='-', zorder=0)
                 ax.set_yscale('log')
-                ax.plot(s, color=color_gradients[i], lw=2, label=label)
+                ax.plot(select_period(s.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
+                # ax.xaxis.set_major_locator(yearsmaj)
+                # ax.xaxis.set_minor_locator(yearsmin)
+                # ax.xaxis.set_major_formatter(years_fmt)
 
                 ax = axs[2]
-                ax.xaxis.set_major_locator(yearsmaj)
-                ax.xaxis.set_minor_locator(yearsmin)
-                ax.xaxis.set_major_formatter(years_fmt)    
+                fmt_xaxes(axs[2])   
                 sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
-                ax.plot(sat, color=color_gradients[i], lw=2, label=label)
+                ax.plot(select_period(sat.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
                 # ax.plot(sat, lw=1, label=label) 
                 ax.set_ylim(-2,50)
                 title = 'Saturation [%]'
@@ -1354,10 +1375,18 @@ for watershed_name in watershed_names[:]:
                 # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
                             
     plt.tight_layout()
-    ax.legend(bbox_to_anchor=(1.2,0.5), loc="center left", borderaxespad=0, ncol=1)
+    
+    if watershed_name == 'Nancon':
+        ncol = 2
+    else:
+        ncol = 1
+    ax.legend(bbox_to_anchor=(1.2,0.5), prop={'size': 5}, loc="center left", borderaxespad=0, 
+              ncol=ncol)
     ax = axs[3]
-    ax.set_title('$NSE_{log}$ > 50 & $SAT_{max}$ < 50')
+    # ax.set_title('$NSE_{log}$ > 50 & $SAT_{max}$ < 50')
     plt.axis('off')
+
+    # plt.tight_layout()
 
     fig.savefig(path_fig+'/'+watershed_name+'_chronics_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
@@ -1391,19 +1420,22 @@ for watershed_name in watershed_names[:]:
                 if k == 0:
                     try:
                         ax.set_title('SAT MIN [%]')
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).min()
+                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).min()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).min()
                     except:
                         pass
                 if k == 1:
                     try:
                         ax.set_title('SAT MEAN [%]')
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).mean()
+                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).mean()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).mean()
                     except:
                         pass
                 if k == 2:
                     try:
                         ax.set_title('SAT MAX [%]')
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).max()
+                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).max()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).max()
                     except:
                         pass
                 compt += 1
