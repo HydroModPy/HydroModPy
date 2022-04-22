@@ -1,21 +1,5 @@
 Ronan: Forcing, subbasins, geographic, climatic, hydrology, tools, rooting_dem, plots, 
 Alex: Hydrodynamic, Geology, watershed_display, watershed_root, oceanic, piezometry, vtk, visualization, modflow, modpath, groundwaterflow,calibration
 
-Liste des modifications:
-- Geographic: Ajouter la possibilité d'extraire le BV à partir d'un shapefile (Ronan)
-- SurfexPy : Définir l'organisation comme un module d'HydroModPy. ex: spécifié le lien de surfexPy dans HydroModPy (Ronan)
-- Mettre objet (climatic, piezometry, geology, oceanic, hydrographic, hydrometry) sous forme de method plutot que de répondre au path en entrée de class watershed_root (Alexandre)
-- séparer hydrology en hydrographic et hydrometry.(Ronan)
-- hydrographic: pour les shapefile de cours d'eau (Ronan)
-- hydrometry : pour les données de débit (Ronan)
-- geology dans data (Alexandre)
 
-- Passer chronics 3 methods de la class modflow: débit, piezos, saturation. Avec en entrée les coordonnées x,y du point d'intéret. (Ronan)
-- Appelez geographic."subbassins" dans les class où il y a des point d'intérêt (piezometry, hydrometry).(Ronan)
-- "subbassins" sera une class du fichier python geographic avec des method différents: (Alexandre)
-	- subbassins.add_data_from_object(piezometry)
-	- subbassin.add_data_from_csv(file.csv)
-	- subbassin.add_data_from_csv(name, x , y)
-- chaque résulats sera stocké dans results_stable/geographic/points/name.npy ou tif: matrice 0/1 et l'outlet snap shp. (Ronan)
-
-
+Bug:
