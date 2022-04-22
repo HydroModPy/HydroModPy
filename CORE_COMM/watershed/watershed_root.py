@@ -409,7 +409,7 @@ class Watershed:
             model_folder = calib
             
         results = modflow_results.Results(self.geographic,
-                                recharge=self.forcing.recharge
+                                recharge=self.forcing.recharge,
                                 actual_date=actual_date,
                                 start=start,
                                 stable_folder=self.stable_folder,
