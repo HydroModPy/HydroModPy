@@ -1185,6 +1185,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                   out_path=out_path,
                                   load=True,
                                   modflow_path=modflow_path)
+    # BV.add_subbasin()
     
     bv = gpd.read_file(BV.geographic.watershed_shp)
     area = BV.geographic.area
@@ -1241,6 +1242,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     ax.set(aspect='equal')
     
     cmap = 'gist_earth' # 'Greys'
+    cmap = 'Greys'
     wbt.hillshade(BV.geographic.watershed_box_buff_dem,
                   stable_folder+'geographic/'+'watershed_box_buff_dem_hill.tif',
                   azimuth=315.0, 
@@ -1253,12 +1255,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
           cmap=cmap, alpha=0.55, zorder=2, aspect="auto")
     
-    zh.plot(ax=ax, lw=0, color='darkmagenta', alpha=1, zorder=4, legend=True, label='Wetlands')
+    zh.plot(ax=ax, lw=0, color='navy', alpha=1, zorder=4, legend=True, label='Wetlands')
 
     streams = complete.copy()
-    streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='navy',
+    streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='dodgerblue',
                                                   zorder=6,legend=True, label='Streams')
-    streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='dodgerblue', ls='-',
+    streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='darkorange', ls='-',
                                                   zorder=5,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     try:
@@ -1270,7 +1272,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         pass
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
-            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
+            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,
+                       c='forestgreen',
                        marker='^', zorder=5, label='Piezometers: discrete')
     except:
         pass   
@@ -1320,9 +1323,13 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             transform=ax.transAxes,
             fontsize = 6, zorder=10)
     
+    path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed.shp'
+    sub = gpd.read_file(path_sub)
+    sub.plot(ax=ax, facecolor='none', edgecolor='k', lw=1, zorder=6)
+    
     fig.tight_layout()
     
-    fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping'+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping2'+'.png', dpi=300, bbox_inches='tight')
 
 #%% ----
 
@@ -1494,6 +1501,10 @@ for watershed_name in watershed_names[:] :
         
     params_file = 'calib_explo_hom_2v_k1-n1'
     
+    list_npy = glob.glob(BV.calibration_folder+'/'+params_file+'/hydrometry_calibration/_watershed/'+'*'+'.npy')
+    for npy in list_npy:
+        os.remove(npy)
+    
     params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
     
     # params_file = 'calib_explo_hom_1v_n1'
@@ -1612,7 +1623,8 @@ for watershed_name in watershed_names[:]:
         o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
         s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
         nd = ind[typ_name][i]
-        sat = test.sim_results[synt[i]]['seepage_areas']
+        # sat = test.sim_results[synt[i]]['seepage_areas']
+        sat = test.sim_results[synt[i]]['surflow_areas']
         sat = pd.to_numeric(sat)
         
         k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
@@ -2064,9 +2076,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                   verbose = True,
                                   export_tif = True)
                 
+                # Necessary for results_modflow
+                BV.forcing.update_recharge(flow_model.climatic,
+                                           sim_state=sim_state)
+                
                 # # Extract results
                 BV.results_modflow(ident=model_name,
-                                   recharge=flow_model.climatic,
                                    actual_date=actual_date,
                                    start=start,
                                    time_step=time_step)
@@ -2081,7 +2096,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 
 #%% INTERMITTENTCY MAP
 
-typ_intermit = 'yearly' # yearly or persistency or monthly
+typ_intermit = 'monthly' # yearly or persistency or monthly
+gif = True
 
 watershed_names = ['Canut','Nancon']
 code_names = ['J7513010','J0014010']
@@ -2169,39 +2185,57 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))
             
             if typ_intermit == 'monthly':
-    
-                for k in range(len(interv)):
-                    to = interv[k].copy()
+                if i < 3:
+                    for k in range(len(interv)):
+                        to = interv[k].copy()
+                        
+                        # fig, ax = plt.subplots(1,1, figsize=(7,6))
+                        # ax.imshow(to)
+                        
+                        to[(to>0) & (days_flux==12)] = 2
+                        to[(to>0) & (days_flux<12)] = 1
+                        
+                        to = np.ma.masked_array(to, mask=(mask<0))
+                        to = np.ma.masked_array(to, mask=(to<=0))
+                        
+                        fig, ax = plt.subplots(1,1, figsize=(7,6))
+                        # image_hidden = ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys')
+                        ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0)
+                        ax.imshow(np.ma.masked_where(to==1, to), cmap = mpl.colors.ListedColormap(['dodgerblue']))
+                        ax.imshow(np.ma.masked_where(to==2, to), cmap = mpl.colors.ListedColormap(['darkorange']))
+                        ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+                        ax.get_xaxis().set_visible(False)
+                        ax.get_yaxis().set_visible(False)
+                        
+                        ax.set_title(str(years[i])+'-'+(str(k+1)))
+                        
+                        path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.shp'
+                        wbt.vector_lines_to_raster(path_sub,
+                                                   glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.tif',
+                                                   base = stable_folder+'geographic/'+'watershed_dem.tif')
+                        line_sub = imageio.imread(glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.tif')
+                        line_sub = np.ma.masked_where(line_sub <= 0, line_sub)
+                        ax.imshow(line_sub, cmap=mpl.colors.ListedColormap('dimgray'))
+                        
+                        ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+                        
+                        fig.savefig(simul+'/_figures/png/'+'map_intermittent_monthly_'+str(compt)+'.png', dpi=300, bbox_inches='tight')
+        
+                        plt.close()
+                        
+                        compt += 1
+                        
+                    inf+=12
+                    sup+=12
                     
-                    # fig, ax = plt.subplots(1,1, figsize=(7,6))
-                    # ax.imshow(to)
-                    
-                    to[(to>0) & (days_flux==12)] = 2
-                    to[(to>0) & (days_flux<12)] = 1
-                    
-                    to = np.ma.masked_array(to, mask=(mask<0))
-                    to = np.ma.masked_array(to, mask=(to<=0))
-                    
-                    fig, ax = plt.subplots(1,1, figsize=(7,6))
-                    # image_hidden = ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys')
-                    ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0)
-                    ax.imshow(np.ma.masked_where(to==1, to), cmap = mpl.colors.ListedColormap(['dodgerblue']))
-                    ax.imshow(np.ma.masked_where(to==2, to), cmap = mpl.colors.ListedColormap(['darkorange']))
-                    ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
-                    ax.get_xaxis().set_visible(False)
-                    ax.get_yaxis().set_visible(False)
-                    
-                    ax.set_title(str(years[i])+'-'+(str(k+1)))
-                    
-                    fig.savefig(simul+'/_figures/png/'+'map_intermittent_monthly_'+str(compt)+'.png', dpi=300, bbox_inches='tight')
-    
-                    plt.close()
-                    
-                    compt += 1
-                    
-                inf+=12
-                sup+=12
-            
+                    if gif == True:
+                        begin_by = simul+'/_figures/png/'+'map_intermittent_monthly'
+                        filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+                        images = []
+                        for filename in filenames:
+                            images.append(imageio.imread(filename))
+                        imageio.mimsave(simul+'/_figures/gif/'+'map_intermittent_monthly'+'.gif', images, duration=0.5, loop=0)
+                
             if typ_intermit == 'yearly':
                 fig, ax = plt.subplots(1,1, figsize=(7,6))
                 # image_hidden = ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys')
@@ -2232,15 +2266,15 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 
                 inf+=12
                 sup+=12
-        
-        # begin_by = simul+'/_figures/png/'+'map_intermittent_streams'
-        # filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
-        # images = []
-        # for filename in filenames:
-        #     images.append(imageio.imread(filename))
-        # imageio.mimsave(begin_by+'intermittency_gif'+'.gif', images, duration=0.5, loop=1)
-
+                
 #%% QUICKLY PLOT RESULTS
+
+typ = 'calib1'
+mod = 'REA'
+first = 2010
+last = 2019
+time_step = 'M'
+sim_state = 'transient'
 
 watershed_names = ['Canut','Nancon']
 code_names = ['J7513010','J0014010']
@@ -2258,8 +2292,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     scan = 'outflow_drain'
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     simul_list = glob.glob(simulations_folder+typ+'*')
-    
-    # Normalize with discharge
+     
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
                                              first_year = first, last_year = last,
                                              time_step = time_step, sim_state=sim_state)
@@ -2268,15 +2301,6 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                           first_year = first, last_year = last, time_step = 'M',
                                           sim_state='transient')
     Runof = BV.forcing.runoff # m/month
-    norm_Rea = select_period(Rech, first, last)
-    norm_Qobs = select_period(Qobs, first, last)
-    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
-    print(Rt_Rea_Qobs.round(2))
-    Nt = (norm_Rea * Rt_Rea_Qobs)
-    BV.forcing.update_recharge(Nt, sim_state=sim_state)
-    BV.forcing.update_recharge(select_period(BV.forcing.recharge, first, last), sim_state=sim_state)
-    R = BV.forcing.recharge
-    BV.forcing.update_runoff(select_period(BV.forcing.runoff, first, last), sim_state=sim_state)
     
     for simul in simul_list:
         model_name = simul.split('\\')[-1]
@@ -2286,7 +2310,6 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
         params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
         Smod_path = simul+'/_watershed/_simulated_results.csv'
-        # Smod_path = simul+'/_subbasins/hydrometry_J7353010/_simulated_results.csv'        
         if not os.path.exists(Smod_path):
             compt += 1
             continue
@@ -2295,7 +2318,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         Qmod = Qmod.squeeze() * 1000 * 30
         Qmod = Qmod + (BV.forcing.runoff * 1000 * 30)
         Cmod = Smod['recharge'] * 1000 * 30 # mm/months
-    
+        
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     raw_path = stable_folder+'/'+'hydrometry/'
     Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
@@ -2305,6 +2328,17 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     Qobs = Qobs.squeeze()
     Qobs = select_period(Qobs, 2010,2019)
     Qobs = Qobs.resample('M').mean()
+    
+    # Normalize with discharge
+    norm_Rea = select_period(Rech, first, last)
+    norm_Qobs = select_period(Qobs, first, last)
+    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
+    print(Rt_Rea_Qobs.round(2))
+    Nt = (norm_Rea * Rt_Rea_Qobs)
+    BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, first, last), sim_state=sim_state)
+    R = BV.forcing.recharge
+    BV.forcing.update_runoff(select_period(BV.forcing.runoff, first, last), sim_state=sim_state)
     
     import hydroeval as he
     nse = he.evaluator(he.nse, Qmod, Qobs, transform='log')[0]
@@ -2327,11 +2361,11 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     o = Qobs # m/j to mm/month
     s = Qmod # m/j to mm/month
     # nd = 
-    sat = Smod['seepage_areas']
+    sat = Smod['surflow_areas']
     
     k = '{:.1e}'.format(K)
     sy = Sy
-    title = 'Discharge'
+    title = watershed_name
     # nselog = round(((nd[0]))*100,1)
     # label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
     #         '$NSE_{log}$ = '+str(nselog)+'%'
@@ -2342,25 +2376,27 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     ax.xaxis.set_minor_locator(yearsmin)
     ax.xaxis.set_major_formatter(years_fmt)
     
-    ax.plot(R, color='k', lw=2)
-    ax.plot(s, color='red', lw=2)
+    ax.plot(R, color='k', lw=2, label='recharge')
+    ax.plot(s, color='red', lw=2, label='modeled')
     # ax.plot(s, lw=1, label=label)   
     ax.set_title(title)
-    ax.plot(o, color='grey', lw=2, ls='-', zorder=0)
+    ax.plot(o, color='grey', lw=2, ls='-', zorder=0, label='observed')
     ax.grid('grey')
     ax.set_ylim(-2,200)
     # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+    ax.legend(loc='upper left')
     
     ax = axs[1]
-    ax.plot(R, color='k', lw=2)
+    ax.plot(R, color='k', lw=2, label='observed')
     ax.xaxis.set_major_locator(yearsmaj)
     ax.xaxis.set_minor_locator(yearsmin)
     ax.xaxis.set_major_formatter(years_fmt)
-    ax.plot(o, color='grey', lw=2, ls='-', zorder=0)
+    ax.plot(o, color='grey', lw=2, ls='-', zorder=0, label='observed')
     ax.set_yscale('log')
-    ax.plot(s, color='red', lw=2)
+    ax.plot(s, color='red', lw=2, label='modeled')
     ax.set_ylim(0.1,200)
     ax.grid('grey')
+    ax.set_title('Discharge')
     
     ax = axs[2]
     # ax.axhline(y=20, color='k', ls= '--', lw=2)
@@ -2368,14 +2404,22 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     ax.xaxis.set_minor_locator(yearsmin)
     ax.xaxis.set_major_formatter(years_fmt)    
     # sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
-    ax.plot(sat, color='dodgerblue', lw=2)
+    ax.plot(sat, color='grey', ls='-', lw=2, label='catchment')
     # ax.plot(sat, lw=1, label=label) 
-    ax.set_ylim(-2,50)
+    ax.set_ylim(-2,30)
     title = 'Saturation'
     ax.set_title(title)
     ax.grid('grey')
     # ax.set_xlim(pd.to_datetime(str(first)), pd.to_datetime(str(last)))
-                            
+    
+    Sub_path = glob.glob(simul+'/_subbasins/intermittency_*')[0]+'/_simulated_results.csv'
+    Sub = pd.read_csv(Sub_path, sep=';', index_col=0, parse_dates=True)
+    ax.axhline(y=20, color='grey', ls='--', lw = 1, label='approxim. observed')
+    ax.plot(Sub['surflow_areas'], color='navy', lw=2, label='upstream')
+    # ax.plot(Sub['perenn_areas'], color='dodgerblue', lw=2)
+    # ax.plot(Sub['intermit_areas'], color='darkorange', lw=2)
+    ax.legend(loc='upper left')
+    
     plt.tight_layout()
     # ax.legend(bbox_to_anchor=(1.5, 3), ncol=1)
     # fig.savefig(path_fig+'/'+'_chronic_'+name_file+'.png', dpi=300, bbox_inches='tight')
