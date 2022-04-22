@@ -2,4 +2,11 @@ Ronan: Forcing, subbasins, geographic, climatic, hydrology, tools, rooting_dem, 
 Alex: Hydrodynamic, Geology, watershed_display, watershed_root, oceanic, piezometry, vtk, visualization, modflow, modpath, groundwaterflow,calibration
 
 
-Bug:
+Code modifié:
+- Ronan :
+- Alex : 
+Python.py - line 192 :
+
+Problème identifier:
+- Ronan :
+- Alex :
