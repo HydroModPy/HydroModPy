@@ -47,7 +47,7 @@ class SurfaceOutputs():
         self.fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
         
         self.stable_folder = stable_folder
-        self.dir_to_analyse = os.path.join(simulations_folder, model_name,'_watershed')
+        self.dir_to_analyse = os.path.join(simulations_folder, model_name, '_watershed')
         self.list_traces = sorted(glob.glob(os.path.join(self.dir_to_analyse,'_surfaceflow','tracept_*.shp')), 
                                   key=os.path.getmtime)
         self.list_outflow = sorted(glob.glob(os.path.join(self.dir_to_analyse,'_tifs','outflow_*.tif')),
@@ -58,9 +58,9 @@ class SurfaceOutputs():
         
         self.types_obs = types_obs
         
-        self.figdir = self.dir_to_analyse + '_fig/'
-        self.pngdir = self.dir_to_analyse + '_fig/_png/'
-        self.gifdir = self.dir_to_analyse + '_fig/_gif/'
+        self.figdir = os.path.join(simulations_folder, model_name, '_figures/')
+        self.pngdir = os.path.join(simulations_folder, model_name, '_figures/png/')
+        self.gifdir = os.path.join(simulations_folder, model_name, '_figures/gif/')
         
         toolbox.create_folder(self.figdir)
         toolbox.create_folder(self.pngdir)
@@ -97,9 +97,9 @@ class SurfaceOutputs():
                 self.scanning_discharge()
                 for iter_time in range(len(self.list_outflow)):
                     print('Plot chronics : '+str(iter_time)+' / '+str(len(self.list_outflow)))
-                    if first_only==True:
-                        if iter_time>0:
-                            break
+                    # if first_only==True:
+                    if iter_time>0:
+                        break
                     self.plot_chronic_results(iter_time)
         
         if save_gif==True:
@@ -123,16 +123,16 @@ class SurfaceOutputs():
         imageio.imread(self.stable_folder+'/geographic/'+'watershed_dem.tif')
         contour = gpd.read_file(self.stable_folder+'/geographic/'+'watershed_contour.shp')
         try:
-            streams = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[1]+'.shp')
+            # streams = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[1]+'.shp')
             sections = gpd.read_file(self.stable_folder+'/hydrology/'+self.types_obs[0]+'.shp')
         except:
             pass
         # Plot observed
         fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
         try:
-            sections[sections.Persistanc=='3'].plot(ax=ax, lw=2, color='k', ls='--', zorder=7,
+            sections[sections.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='k', ls='--', zorder=7,
                             label='Temporary - Obs.')
-            sections[sections.Persistanc=='4'].plot(ax=ax, lw=2, color='k', ls='-', zorder=7,
+            sections[sections.persistanc=='Permanent'].plot(ax=ax, lw=2, color='k', ls='-', zorder=7,
                             label='Perennial - Obs.')
         except:
             pass
@@ -203,8 +203,8 @@ class SurfaceOutputs():
             self.last = self.df.last_valid_index().year    
         except:
             pass
-        self.df['spe'] = (self.df.outflow_drain) * 1000 # mm/m
-        self.df['rec'] = self.recharge * 1000
+        self.df['spe'] = (self.df.outflow_drain) * 1000 # m/j to mm/j
+        self.df['rec'] = self.recharge * 1000 # m/j to mm/j
         self.maxrec = self.df['rec'].max()
         # Dem to watershed scale
         dem_cut = os.path.join(self.stable_folder,'geographic','watershed_dem.tif')
@@ -260,13 +260,17 @@ class SurfaceOutputs():
         # Open data
         # lead_numb = "%03d" % (iter_times,)
         lead_numb = str(iter_times)
-        outflow = imageio.imread(os.path.join(self.mass_to_analyse,typ_file+'_t('+lead_numb+')'+'.tif'))
+        outflow = imageio.imread(os.path.join(self.mass_to_analyse, typ_file+'_t('+lead_numb+')'+'.tif'))
         # Mask data
         msk_outflow = (outflow<0)
         outflow = np.ma.masked_array(outflow, mask=msk_outflow)
         outflow = np.ma.masked_array(outflow, mask=(self.demData<=0))
-        outflow = np.ma.masked_where(outflow==0, outflow) / 75**2 * 1000
-        outflow = np.log10(outflow)
+        if typ_file =='outflow_drain':
+            outflow = ( np.ma.masked_where(outflow==0, outflow) ) / 24 / 3600 # m3/j to m3/s
+        if typ_file =='accumulation_flux':
+            outflow = ( np.ma.masked_where(outflow==0, outflow) ) / 24 / 3600 # m3/j to m3/s
+            # outflow = ( np.ma.masked_where(outflow==0, outflow) / 75**2 ) * 1000 * 30
+        # outflow = np.log10(outflow)
         wt = self.wt_all[iter_times]
         wt = np.ma.masked_array(wt, mask=self.msk)
         # Params for plot
@@ -279,8 +283,12 @@ class SurfaceOutputs():
             ax.set_title(str(self.recharge.index[iter_times])[:10])
         except:
             ax.set_title(str(iter_times))
-        vmin = np.log10(min(self.minflow))
-        vmax = np.log10(max(self.maxflow))
+        # vmin = np.log10(min(self.minflow))
+        # vmax = np.log10(max(self.maxflow))
+        vmin = (min(self.minflow))
+        vmax = (max(self.maxflow))
+        vmin=None
+        vmax=None
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
@@ -312,13 +320,19 @@ class SurfaceOutputs():
         cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
         fig.add_axes(cax)
         cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-        ticks = np.linspace(vmin, vmax, 5)
-        cbar.set_ticks(ticks)
-        cbar.set_ticklabels(ticks.round(1).astype(float))
+        from matplotlib import ticker
+        tick_locator = ticker.MaxNLocator(nbins=5)
+        cbar.locator = tick_locator
+        cbar.update_ticks()
+        # ticks = np.linspace(vmin, vmax, 5)
+        # cbar.set_ticks(ticks)
+        # cbar.set_ticklabels(ticks.round(1).astype(float))
         if typ_file =='accumulation_flux':
-            cbar.set_label('Cumulated flux Log(Q) [mm/months]')
+            # cbar.set_label('Cumulated flux Log(Q) [$m^3$/s]')
+            cbar.set_label('Cumulated outflow [$m^3$/s]')
         if typ_file =='outflow_drain':
-            cbar.set_label('Outflow flux Log(Q) [mm/months]')    
+            # cbar.set_label('Outflow flux Log(Q) [mm/month]')
+            cbar.set_label('Seepage outflow [$m^3$/s]')
         # Save figure
         plt.tight_layout()
         name_fig = 'map_'+typ_file+'_' + str(lead_numb) + '.png'
@@ -367,10 +381,11 @@ class SurfaceOutputs():
         plt.tight_layout()
         # Discharge
         ax = axs[1]
-        ax.plot(self.time_tot, self.df.rec, color='k', lw=2, label='Recharge')
+        ax.plot(self.time_tot, self.df.rec * 30 , color='k', lw=2, label='Recharge')
         ax.set_xlabel("Time")
         ax.set_title("Discharge, [mm/M]")
-        ax.plot(self.time_tot, np.array(self.flow_rate)*1000,'red', lw=2, label='Outflow')
+        # ax.plot(self.time_tot, np.array(self.flow_rate)*1000*30,'red', lw=2, label='Outflow')
+        ax.plot(self.time_tot, self.df.spe * 30 ,'red', lw=2, label='Outflow')
         ax.legend(loc='upper right')
         ax.axvline(x=t_temp, color='k', lw=2)
         # ax.set_yscale("log")
@@ -382,10 +397,10 @@ class SurfaceOutputs():
             ax.xaxis.set_major_formatter(years_fmt)
         except:
             pass
-        ax.set_ylim(0, self.maxrec + (self.maxrec*0.1))
+        ax.set_ylim(0, (self.maxrec*30) + (self.maxrec*30*0.1))
         plt.tight_layout()
         # Save figure
-        name_fig = 'results_' + str(lead_numb) + '.png'
+        name_fig = 'graph_chronic_results_' + str(lead_numb) + '.png'
         plt.tight_layout()
         plt.savefig(self.pngdir + name_fig)
         plt.close(fig)

@@ -33,6 +33,7 @@ class Results:
                  start='1960-01-01',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
+        
         self.geographic = geographic
         self.model_name = model_name
         self.stable_folder = stable_folder

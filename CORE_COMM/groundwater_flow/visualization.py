@@ -289,6 +289,7 @@ class Visualization():
                     streams.plot(ax=axs[i], lw=2, color='b', zorder=4,legend=True, label='Streams')
                 except:
                     pass
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'watertable':
                 axs[i].set_title('Water table elevation, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), 
@@ -297,6 +298,7 @@ class Visualization():
                 basemap.append(0)
                 show(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'watertable_depth':
                 axs[i].set_title('Water table depth, [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), 
@@ -305,6 +307,7 @@ class Visualization():
                 basemap.append(0)
                 show(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'drain_flow':
                 axs[i].set_title('Seepage rates, log(Q) [m/d]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
@@ -316,8 +319,9 @@ class Visualization():
                      transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'surface_flow':
-                # axs[i].set_title('Cumulate seepage rates, log(Q) [mm/y]')
+                axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
@@ -327,6 +331,7 @@ class Visualization():
                      transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
                 show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'pathlines':
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                          transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
@@ -365,12 +370,8 @@ class Visualization():
                     else:
                         lc.set_clim(color_scale[i][0],color_scale[i][1])
                     line = axs[i].add_collection(lc)
-
                 image.append(line)
                 basemap.append(0)
-
-                   
-                
             if obj == 'residence_times':
                 axs[i].set_title('Residence times, log(t) [d]')
                 res_time = np.zeros(np.shape(dem))
@@ -383,18 +384,19 @@ class Visualization():
                 basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
                      transform=dem.transform, cmap='jet_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
-                
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'map':
                 axs[i].set_title('Watershed boundary')
                 basemap.append(1)
                 image.append(None)
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
                 try:
                     streams.plot(ax=axs[i], lw=2, color='b', zorder=4,legend=True, label='Streams')
                 except:
                     pass
         compt = 0
         for ax in axs:
-            ## Rajouter ici if 'conceptal'then do not display watershed boundary
+            ## Rajouter ici if 'conceptal' then do not display watershed boundary
             # contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
             bounds = dem.bounds
             xlim = ([bounds[0], bounds[2]])

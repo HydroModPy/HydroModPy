@@ -104,6 +104,7 @@ class MyApp(QMainWindow):
             self._process.start("open",[os.path.realpath(self.pathOutput)])
 
     def select_outputfolder(self):
+        
         test = QFileDialog.getExistingDirectory(self,"Choose Directory","C:\\")
         print(test)
 
