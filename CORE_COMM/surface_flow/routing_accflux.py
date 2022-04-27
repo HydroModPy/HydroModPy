@@ -32,6 +32,7 @@ class RoutingAccflux:
         toolbox.create_folder(self.tifs_folder)
         
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
+        
         self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_t(xxx).shp')
         self.out_rast_path = os.path.join(self.shp_folder, '_trace_t(xxx).tif')
         self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)

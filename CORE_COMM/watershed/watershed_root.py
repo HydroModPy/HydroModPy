@@ -400,7 +400,8 @@ class Watershed:
                                        verbose = verbose,
                                        export_tif = export_tif)
 
-    def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M', calib=None):
+    def results_modflow(self, ident='modflow', # recharge=250,
+                        actual_date=True, start='2010-01-01', time_step='M', calib=None):
         
         if calib == None:
             model_folder = self.simulations_folder
