@@ -112,6 +112,7 @@ class Geographic:
             # Extract the coordinate system
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            #self.crs = 'EPSG:3035'
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [x], 'y': [y]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
