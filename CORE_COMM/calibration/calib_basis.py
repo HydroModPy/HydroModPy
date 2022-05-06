@@ -73,6 +73,7 @@ class CalibrationBasis:
         self.data_sim = {}
         self.data_obs = {}
         self.data_cri = {}
+        
         for i in self.observations:
             self.data_ind[i] = []
             self.data_sim[i] = []
@@ -80,6 +81,9 @@ class CalibrationBasis:
             self.data_cri[i] = []
         # self.__dict__.update(calparam.__dict__)
         # self.parameters = []
+        
+        self.dic_simulated_results = {}
+        self.params_synt = []
         
     def objective_function(self, params):
         """
@@ -98,17 +102,20 @@ class CalibrationBasis:
         """
         
         # self.parameters.append(params)
-        
+        # print(params)
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
-                self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], 
-                                                                             params[i])
-                
+                if self.params.num_zone[i] > 0 :
+                    self.watershed.hydrodynamic.update_hyd_cond_from_calib_zones(self.params.num_zone[i], params[i])
+                if self.params.num_zone[i] == 0 :
+                    self.watershed.hydrodynamic.update_hyd_cond(params[i])
+                    
             if self.params.name[i][0] == 'n':
                 # Update hydrodynamic parameters
-                self.watershed.hydrodynamic.update_porosity_from_calib_zones(self.params.num_zone[i], 
-                                                                             params[i])
+                self.watershed.hydrodynamic.update_porosity_from_calib_zones(self.params.num_zone[i], params[i])
+                if self.params.num_zone[i] == 0 :
+                    self.watershed.hydrodynamic.update_porosity(params[i])
             if self.params.name[i][0] == 't':
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
@@ -124,6 +131,7 @@ class CalibrationBasis:
             if 'streams' in self.observations:
                 self.watershed.matrix_modflow(succes,
                        mf,
+                       first_only=True,
                        watertable_elevation = True,
                        watertable_depth=False, 
                        seepage_areas = True,
@@ -131,7 +139,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit=False,
+                       perenn_intermit_shp=False,
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -139,7 +147,7 @@ class CalibrationBasis:
                 obj_func = calib_objective_function.Streams(self.watershed, 
                                    hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'),
                                    calibration_folder=self.directory_results)
-                ind, obs, sim = obj_func.get_indicator_steady()
+                ind, obs, sim = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['streams'].append(ind)
                 self.data_obs['streams'].append(obs)
@@ -155,7 +163,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit=False,
+                       perenn_intermit_shp=False,
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -181,12 +189,17 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit = False,
+                       perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
-                self.watershed.results_modflow(ident=self.ident,
-                                               actual_date=True,
-                                               calib=self.param_folder)
+                simulated_results = self.watershed.results_modflow(ident=self.ident,
+                                                                   actual_date=True,
+                                                                   calib=self.param_folder)
+                # print(simulated_results)
+                # print(params)
+                params_synt = ";".join(str(x) for x in params)
+                self.dic_simulated_results[params_synt] = simulated_results
+                
                 obj_func = calib_objective_function.Hydrometry(self.watershed,
                                                                self.ident,
                                                                self.param_folder)
@@ -196,6 +209,8 @@ class CalibrationBasis:
                 self.data_obs['hydrometry'].append(obs)
                 self.data_sim['hydrometry'].append(sim)
                 self.data_cri['hydrometry'].append(cri)
+                self.params_synt.append(params_synt)
+                
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
                 
@@ -210,7 +225,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit = False,
+                       perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -275,6 +290,11 @@ class CalibrationBasis:
         store['recharge'] = self.watershed.forcing.recharge
         store['calib_zone'] = self.watershed.hydrodynamic.calib_zones
         store['params_xyz'] = params_xyz
+        try : 
+            store['sim_results'] = self.dic_simulated_results
+            store['params_synt'] = self.params_synt
+        except:
+            pass
         try : 
             store['list_criteria'] = self.data_cri
         except:

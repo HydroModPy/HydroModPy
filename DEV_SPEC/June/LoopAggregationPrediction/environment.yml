@@ -1,0 +1,14 @@
+# Usage
+#    conda env create -f environment.yml
+#    conda activate lap
+
+name: lap
+
+dependencies:
+    - python
+    - pip
+    - pandas
+    - jupyterlab
+    - notebook
+    - spyder
+

@@ -34,7 +34,7 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = True#False to build and save python object
+load = False #False to build and save python object
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 watershed_shp = os.path.join(out_path, watershed_name, 'watershed.shp')
 dem_path = root_path + "MNT_75m.tif"#'BDALTI_bzh_75m.tif' 

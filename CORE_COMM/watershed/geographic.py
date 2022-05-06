@@ -61,11 +61,11 @@ class Geographic:
         if self.from_xy != []:
             x = self.from_xy[0]
             y = self.from_xy[1]
-            snap_dist = self.from_xy[2]
+            self.snap_dist = self.from_xy[2]
             buff_percent = self.from_xy[3]
         
         if from_dem == False:
-            self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
+            self.processing(dem_path, x, y, self.snap_dist, buff_percent, out_path)
         else:    
             self.model_from_dem(dem_path, out_path, cell_size)
         
@@ -403,7 +403,10 @@ class Subbasin:
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
         outlet_snap_shp = outpath + 'outlet_snap.shp'
-        wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', outlet_snap_shp, geographic.snap_dist)
+        # wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', 
+        #                      outlet_snap_shp, geographic.snap_dist)
+        wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', 
+                             outlet_snap_shp, 150) # add self.snap_dist
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
         wbt.watershed(geographic.reg_path + 'region_direc.tif', outlet_snap_shp, watershed, esri_pntr=False)
