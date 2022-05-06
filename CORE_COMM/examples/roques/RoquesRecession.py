@@ -270,10 +270,12 @@ class RoquesRecession:
             date_deriv = date_deriv[nonan_bool]
             # fit early-time flow
             H = (Q_deriv < np.nanquantile(q, H1)) & (Q_deriv > np.nanquantile(q, H2))
+            ck_H = np.sum(np.log(Q_deriv[H]))
+            ck_H = np.isnan(ck_H)
             
             from sklearn.metrics import r2_score
             
-            if (np.sum(H) >= lr):
+            if (np.sum(H) >= lr and ck_H==False):
                 f2 = lambda x, b, a: b * x + a
                 try:
                     popt, pcov = curve_fit(f2, np.log(Q_deriv[H]), np.log(dQ_dt[H]), ftol=1e-6, xtol=1e-6,
@@ -299,14 +301,17 @@ class RoquesRecession:
             d_H[zz] = np.sum(H)
             date_H[zz] = np.nanmean(date_deriv[H])
             
-            if np.sum(H) < lr:
-                d_H[zz] = np.nan
-                date_H[zz] = np.nan
+            # if np.sum(H) < lr:
+            #     d_H[zz] = np.nan
+            #     date_H[zz] = np.nan
 
 
             #  fit late-time flow
             L = (Q_deriv < np.nanquantile(q, L1)) & (Q_deriv > np.nanquantile(q, L2))
-            if np.sum(L) >= lr:
+            ck_L = np.sum(np.log(Q_deriv[L]))
+            ck_L = np.isnan(ck_L)
+            
+            if (np.sum(L) >= lr and ck_L==False):
                 f2 = lambda x, b, a: b * x + a
                 try:
                     pL, pcov = curve_fit(f2, np.log(Q_deriv[L]), np.log(dQ_dt[L]), ftol=1e-6, xtol=1e-6,
@@ -318,7 +323,6 @@ class RoquesRecession:
                 
                 y_pred_L = f2(np.log(Q_deriv[L]), *pL)
                 rsL[zz] = r2_score(np.log(dQ_dt[L]), y_pred_L)
-                
                 
                 if bL[zz] < 0:
                     bL[zz] = np.nan
@@ -333,12 +337,12 @@ class RoquesRecession:
             d_L[zz] = np.sum(L)
             date_L[zz] = np.nanmean(date_deriv[L])
             
-            if np.sum(L) < lr:
-                d_L[zz] = np.nan
-                date_L[zz] = np.nan
+            # if np.sum(L) < lr:
+            #     d_L[zz] = np.nan
+            #     date_L[zz] = np.nan
 
             # Fit slope of b=1 for characteristic time scale
-            if np.sum(L) >= lr:
+            if (np.sum(L) >= lr and ck_L==False):
                 f3 = lambda x, a: x + a
                 try:
                     popt, pcov = curve_fit(f3, np.log(Q_deriv[L]), np.log(dQ_dt[L]), p0=0.1, ftol=1e-6, xtol=1e-6,
