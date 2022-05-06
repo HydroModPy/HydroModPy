@@ -1401,7 +1401,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         # params_file = 'calib_dicot_hom_2v_k1-n1'
         calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
         
-        # dicot = calib.dichotomy(gap=1)
+        dicot = calib.dichotomy(gap=1)
 
     for i, type_obs in enumerate(types_obs):
         
@@ -1428,7 +1428,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
     df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
-#%% EXPLORATION RECHARGE
+#%% EXPLORATION DISCHARGE
 
 code_names = ['J7513010','J0014010']
 watershed_names = ['Canut','Nancon']
@@ -1466,7 +1466,8 @@ for watershed_name in watershed_names[:] :
     raw_path = stable_folder+'/'+'hydrometry/'
     Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
     Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
-    area = float(Qobs_path.split('_')[-3])
+    # area = float(Qobs_path.split('_')[-3])
+    area = BV.geographic.area
     Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
     Qobs = Qobs.squeeze()
     Qobs = Qobs.resample('M').mean()
@@ -1494,7 +1495,7 @@ for watershed_name in watershed_names[:] :
     norm_Qobs = select_period(Qobs, year_min, year_max)
     
     Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
-    # print(Rt_Rea_Qobs.round(2))
+    print(Rt_Rea_Qobs.round(2))
     Nt = (norm_Rea * Rt_Rea_Qobs)
     
     BV.forcing.update_recharge(Nt, sim_state=sim_state)
@@ -1534,8 +1535,8 @@ for watershed_name in watershed_names[:] :
 
 # EXPLORATION LAUNCH
 
-    # calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=100)
+    calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
+    calib.exploration(resolution=100)
 
 #%% EXPLORATION PLOT
 
@@ -2015,7 +2016,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                  var+'-'+mod+'-'+sce+'_'+\
                                  str(Sy*100)+'-'+str(round(K,2))+'-'+str(thick)+'_'+\
                                  str(first)+'-'+str(last)
-'''
+
                     # Run model
                     try:
                         print('SIM - ' + model_name)
@@ -2059,7 +2060,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             # BV.list_flow_model = list_flow_model
             # BV.list_of_success = list_success
             # BV.save_object()
-'''    
+    
 #%% POSTPROCESS MODEL
 
 typ = 'calib2'
@@ -2095,20 +2096,20 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 if success==True:
                         print(success)
                         
-                        # BV.matrix_modflow(success,
-                        #                   flow_model,
-                        #                   first_only = False,
-                        #                   watertable_elevation = True,
-                        #                   watertable_depth = True, 
-                        #                   seepage_areas = True,
-                        #                   outflow_drain = True,
-                        #                   groundwater_flux = True,
-                        #                   specific_discharge = False,
-                        #                   accumulation_flux = True,
-                        #                   perenn_intermit_shp = False,
-                        #                   groundwater_storage = True,
-                        #                   verbose = True,
-                        #                   export_tif = True)
+                        BV.matrix_modflow(success,
+                                          flow_model,
+                                          first_only = False,
+                                          watertable_elevation = True,
+                                          watertable_depth = True, 
+                                          seepage_areas = True,
+                                          outflow_drain = True,
+                                          groundwater_flux = True,
+                                          specific_discharge = False,
+                                          accumulation_flux = True,
+                                          perenn_intermit_shp = False,
+                                          groundwater_storage = True,
+                                          verbose = True,
+                                          export_tif = True)
                         
                         # Necessary for results_modflow
                         BV.forcing.update_recharge(flow_model.climatic,
@@ -2121,12 +2122,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                            time_step=time_step)
                         
                         ## Plot maps
-                        # save_gif = False # save a gif after plots
-                        # Rech = flow_model.climatic
-                        # surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
-                        #                                       types_obs, save_gif=save_gif, first_only=True,
-                        #                                       outflow=True, accflux=True, intermittency=False,
-                        #                                       chronics=True, sim_state=sim_state)
+                        save_gif = False # save a gif after plots
+                        Rech = flow_model.climatic
+                        surf = modflow_display.SurfaceOutputs(Rech, simulations_folder, stable_folder, model_name, 
+                                                              types_obs, save_gif=save_gif, first_only=True,
+                                                              outflow=True, accflux=True, intermittency=False,
+                                                              chronics=True, sim_state=sim_state)
 
 #%% QUICKLY PLOT RESULTS
 
