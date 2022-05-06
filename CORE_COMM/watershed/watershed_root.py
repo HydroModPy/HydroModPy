@@ -18,7 +18,7 @@ sys.path.append(root_dir)
 
 # HydroModPy modules
 #from watershed.data import  climatic, oceanic, piezometry, hydrology
-import climatic, oceanic, piezometry, hydrology, geology, hydrometry, intermittency
+import climatic, drias, oceanic, piezometry, hydrology, geology, hydrometry, intermittency
 from groundwater_flow import modflow, modpath, modflow_results
 from tools import toolbox
 from watershed import forcing, geographic, hydrodynamic, watershed_display
@@ -221,6 +221,9 @@ class Watershed:
             if ('subbasin' in BV.__dir__()) == True:
                 self.subbasin = BV.subbasin
                 self.elt_def.append('subbasin')
+            if ('drias' in BV.__dir__()) == True:
+                self.drias = BV.drias
+                self.elt_def.append('drias')
             return True 
         else:
             print("Warning : file doesn't exist, python_object", self.watershed_folder)
@@ -274,6 +277,13 @@ class Watershed:
         self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
         climatic.Merge(out_path=self.watershed_folder)
         self.elt_def.append('surfex')
+        self.save_object()
+    
+    def add_drias(self, drias_path):
+        self.drias_path = drias_path
+        self.drias = drias.Drias(out_path=self.watershed_folder, drias_path=self.drias_path, watershed_shp=self.geographic.watershed_shp)
+        # drias.Merge(out_path=self.watershed_folder)
+        self.elt_def.append('drias')
         self.save_object()
 
     def add_piezometry(self):
