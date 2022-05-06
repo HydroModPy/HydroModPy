@@ -80,10 +80,3 @@ The ``Piezometry`` class
     :members:
     :undoc-members:
     :show-inheritance:
-
-Watershed Display
------------------
-
-.. autofunction:: watershed_display.watershed_local
-.. autofunction:: watershed_display.watershed_dem
-.. autofunction:: watershed_display.watershed_geology

@@ -13,7 +13,10 @@ from data import oceanic_display
 class Oceanic:
     def __init__(self):
         self.MSL = None
-        
+    
+    def update_MSL(self, value):
+        self.MSL = value
+    
     def extract_data(self, out_path, geographic, oceanic_path = None):
         self.figure_folder = os.path.join(out_path,'results_stable/_figures/oceanic/')
         if not os.path.exists(self.figure_folder):

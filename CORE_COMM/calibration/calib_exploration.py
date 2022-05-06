@@ -179,7 +179,7 @@ class CalibrationExploration(calbas.CalibrationBasis):
             # Whatevert the dimension, saves figure
             # plt.savefig(os.path.join(self.directory_results,name),dpi=300)
             
-        elif len(self.params.name) == 3 : 
+        elif len(self.params.name) > 2 : 
             
             # 3 parameters
             
@@ -190,7 +190,6 @@ class CalibrationExploration(calbas.CalibrationBasis):
                 p1 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
                 p2 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n 
                 p3 = pmin[k] + (pmax[k] - pmin[k]) * np.arange(0,n+1) / n
-                p2 = p2[::-1]
                 params_values.append(p1)
                 params_values.append(p2)
                 params_values.append(p3)

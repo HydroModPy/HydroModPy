@@ -16,7 +16,7 @@ import contextily as cx
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from colormap.colors import rgb2hex, hex2rgb
+# from colormap.colors import rgb2hex, hex2rgb
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -256,6 +256,86 @@ def generate_geology_color(file):
                                     geol.loc[i,'couleur'][2])
     geol = geol.drop(columns=['couleur'])
     geol.to_file(file)
+    
+def watershed_zones(BV):
+    fontprop = toolbox.plot_params(8,15,18,20)
+    fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
+    
+    #polyg = gpd.read_file(BV.geographic.watershed_shp)
+    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+    #bounds = contour.geometry.total_bounds
+    bounds = dem.bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
+    ax.add_artist(scalebar)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    #ax.set_title(BV.name, fontproperties=fontprop)
+    ax.set(aspect='equal') 
+    image_hidden = ax.imshow(BV.hydrodynamic.calib_zones,cmap='jet')
+    show(BV.hydrodynamic.calib_zones, ax=ax, transform=dem.transform, 
+         cmap='jet', alpha=0.75, zorder=2, aspect="auto")
+    try:
+        streams = gpd.read_file(BV.hydrology.streams)
+        streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
+    except:
+        pass
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    try:
+        if os.path.exists(BV.piezometry.piezos_shp):
+            piezos = gpd.read_file(BV.piezometry.piezos_shp)
+            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
+                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
+    except:
+        pass
+    try:
+        if len(BV.piezometry.x_coord_discrete)>0:
+            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
+                       marker='^', zorder=5, label='Piezometers: discrete')
+    except:
+        pass   
+    try:
+        if os.path.exists(BV.hydrometry.hydrometric_clip):
+            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
+            hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
+                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+    except:
+        pass 
+    try:
+        if os.path.exists(BV.intermittency.onde_clip):
+            intermit = gpd.read_file(BV.intermittency.onde_clip)
+            intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
+                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
+    except:
+        pass
+    ax.legend(loc='lower right', title = BV.watershed_name,framealpha=0.8)
+    divider = make_axes_locatable(ax)
+    '''
+    cax = divider.append_axes(size="4%",position='right', pad=0.05)
+    fig.add_axes(cax)
+    
+    cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
+    cbar.ax.get_ymajorticklabels()
+    list(cbar.get_ticks())
+    val = np.ma.masked_where(BV.geographic.dem_box_data < 0, BV.geographic.dem_box_data)
+    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+    cbar.set_ticks([minVal, meanVal, maxVal])
+    cbar.set_ticklabels([minVal, meanVal, maxVal])
+    cbar.mappable.set_clim(minVal, maxVal)
+    cbar.ax.tick_params(labelsize=10)
+    cbar.ax.yaxis.set_ticks_position('right')
+    cbar.ax.tick_params(size=2)
+    #cbar.set_label('Elevation (m)', size=12)
+    '''
+    fig.tight_layout()
+    fig.savefig(os.path.join(BV.figure_folder,'watershed_zones.png'), dpi=300, 
+                bbox_inches='tight', transparent=False)
 
 
 

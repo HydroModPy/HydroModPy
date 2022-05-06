@@ -49,7 +49,8 @@ class Modflow():
     def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                 sea_level=None, cond_decay=0., model_name='modflow_model',
+                 sea_level=None, cond_decay=0., multip_cond=None, init_rech='mean',
+                 model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         
@@ -63,6 +64,7 @@ class Modflow():
         self.geographic = geographic
         self.resolution = geographic.resolution
         self.sink_fill = sink_fill
+        self.multip_cond = multip_cond
         try : 
             self.sink = geographic.depressions_data
         except:
@@ -82,6 +84,7 @@ class Modflow():
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
         self.exe = exe
+        self.init_rech = init_rech
 
     def pre_processing(self, verbose=False):
         if verbose == True:
@@ -202,7 +205,7 @@ class Modflow():
                         self.evtData[kper] = self.evt[kper]
             if verbose == True:
                 print('ETR')
-                print(self.evt)
+                # print(self.evt)
             self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
                                                 evtr=self.evtData, 
                                                 surf=0, exdp=self.thick)
@@ -219,14 +222,15 @@ class Modflow():
             else:
                 if kper == 0:
                     self.rchData[kper] = np.nanmean(self.climatic)
-                    # self.rchData[kper] = self.climatic.iloc[0]
-                    
+                    if self.init_rech == 'first':
+                        self.rchData[kper] = self.climatic.iloc[0]
+                        print('Init rech is "first"')
                 else:
                     self.rchData[kper] = self.climatic[kper]
         if verbose == True:
             print('REC')
-            print(self.climatic)
-        self.rch = flopy.modflow.ModflowRch(self. mf, rech=self.rchData)
+            # print(self.climatic)
+        self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
                 
         # Drain package (DRN)
         self.drnData = np.zeros((self.nrow*self.ncol, 5))
@@ -238,12 +242,18 @@ class Modflow():
                 self.drnData[compt, 2] = j #col
                 self.drnData[compt, 3]= self.dem[i, j]#elev
                 if self.sink_fill == False:
-                    self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  #cond()
+                    if self.multip_cond != None:
+                        self.drnData[compt, 4] = self.multip_cond 
+                    else:
+                        self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2
                 else:
                     if self.sink[i,j]>0:
                         self.drnData[compt, 4] = 0
                     else:
-                        self.drnData[compt, 4] =self.hk[0, i, j]* self.thick*self.resolution**2  
+                        if self.multip_cond != None:
+                            self.drnData[compt, 4] = self.multip_cond 
+                        else:
+                            self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
                 compt += 1
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
@@ -252,7 +262,7 @@ class Modflow():
         stress_period_data = {}
         for kper in range(self.nper):
             kstp = self.nstp[kper]
-            stress_period_data[(kper, kstp-1)] = ['save head','save budget',]
+            stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
@@ -270,7 +280,7 @@ class Modflow():
                               watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
                               groundwater_flux = True, specific_discharge = False,
-                              accumulation_flux = True, perenn_intermit = False,
+                              accumulation_flux = True, perenn_intermit_shp = False,
                               groundwater_storage = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
@@ -349,7 +359,7 @@ class Modflow():
         # Loop from time
         for item, time in enumerate(self.times):
             if verbose == True:
-                print('Post-processing time : ', item)
+                print('     Time : ', item)
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
@@ -416,9 +426,12 @@ class Modflow():
                 self.out_drn = self.out_all[0]
                 self.out_drn[self.dem_mask] = -9999
                 # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
-                output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif'
-                if export_tif==True:
+                output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
+                if accumulation_flux==True:
                     toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                else:
+                    if export_tif==True:
+                        toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
                 self.dict_outflow_drain[item] = self.out_drn
             
             if groundwater_flux == True:
@@ -472,15 +485,21 @@ class Modflow():
                     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
             
+            # Surface flow activation
+            surface_flow = routing_accflux.RoutingAccflux(self.geographic,
+                                                          'outflow_drain_t('+lead_numb+').tif',
+                                                          'tracept_t('+lead_numb+').shp',
+                                                          'accumulation_flux_t('+lead_numb+').tif',
+                                                          extraction_folder=self.save_file)
+            
             if accumulation_flux == True:
                 ### Accumulation flux
-                routing_accflux.RoutingAccflux(self.geographic,
-                                           'outflow_drain_t('+lead_numb+').tif',
-                                           'tracept_t('+lead_numb+').shp',
-                                           'accumulation_flux_t('+lead_numb+').tif',
-                                           extraction_folder=self.save_file)
+                surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
                 self.dict_accumulation_flux[item] = imageio.imread(output_path)
+        
+            if perenn_intermit_shp == True:
+                surface_flow.trace_downslope()
         
         # Save dictionaries to npy
         try:
@@ -496,14 +515,18 @@ class Modflow():
                 np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
             if specific_discharge == True:   
                 np.save(self.save_file+'/specific_discharge', self.dict_specific_discharge)
-            if accumulation_flux == True:
-                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
             if groundwater_storage == True:
                 np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         except:
             pass
         
-        if perenn_intermit == True:
+        try:
+            if accumulation_flux == True:
+                np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+        except:
+            pass
+        
+        if perenn_intermit_shp == True:
             self.list_traces = sorted(glob.glob(self.surfaceflow_file+'/'+'tracept_t*.shp'), key=os.path.getmtime)
             # print(self.list_traces)
             cpt = 1
@@ -538,7 +561,7 @@ class Modflow():
                 inf+=12
                 sup+=12
                 cpt+=1
-
+            
 #%% notes
 
 # # Export

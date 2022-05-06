@@ -222,8 +222,10 @@ class Piezometry:
             print('You must specify the value you want to display: elevation or depth')
         fig, ax = plt.subplots(figsize=(7,7))
         colors = plt.cm.rainbow(np.linspace(0, 1, len(self.codes_bss)))
+        if len(self.codes_bss) == 6:
+            colors = ['r','m','y','g','k','b']
         if value =='elevation':
-            self.elevation[start:end].plot(ax=ax,color=colors,lw=1)
+            self.elevation[start:end].plot(ax=ax,color=colors,lw=2)
             #df = pd.DataFrame({'Date': [datetime.strptime(date, '%d/%m/%Y')for date in self.date_discrete], 'elevation_discrete': self.elevation_discrete})
             #df = df.set_index('Date')
             #df.plot(ax=ax,style='ok')

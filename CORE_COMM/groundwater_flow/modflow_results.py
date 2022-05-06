@@ -33,6 +33,7 @@ class Results:
                  start='1960-01-01',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
+        
         self.geographic = geographic
         self.model_name = model_name
         self.stable_folder = stable_folder
@@ -96,7 +97,7 @@ class Results:
         except:
             pass  
         try:
-            self.perenn_intermit = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
+            self.perenn_intermit_shp = sorted(glob.glob(os.path.join(self.save_file,'_surfaceflow','tracept_*.shp')), key=os.path.getmtime)
         except:
             pass
         try:
@@ -104,6 +105,7 @@ class Results:
         except:
             pass 
         
+        subbasin = False
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         bv = gdal.Open(self.geographic.watershed_dem)
@@ -112,12 +114,14 @@ class Results:
         self.extract_results(dem_clip, time, recharge, self.save_file)
        
         try:
+            subbasin = True
             self.zones_folder = os.path.join(self.stable_folder, 'subbasin')
             self.zones_list = os.listdir(self.zones_folder)
             for zone_name in self.zones_list:
                   save_file = os.path.join(self.full_path, '_subbasins', zone_name)
                   toolbox.create_folder(save_file) 
                   dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
+                  self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
                   self.extract_results(dem_clip, time, recharge, save_file)
         except:
             pass
@@ -207,9 +211,9 @@ class Results:
                 self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
-            
+        
         try:
-            for idx, key in enumerate(self.perenn_intermit):
+            for idx, key in enumerate(self.perenn_intermit_shp):
                 file = gpd.read_file(key)
                 surflow = ((file['Persistanc'] >= 0).sum() / self.cell) * 100
                 perenn = ((file['Persistanc'] == 1).sum() / self.cell) * 100
@@ -219,12 +223,61 @@ class Results:
                 self.mfdata.loc[idx,'surflow_areas'] = surflow
         except:
             pass
+        
+        try:            
+            inf = 0
+            sup = 12
+            step = int(round(len(self.accumulation_flux)/12))
+            compt=0
             
+            for i in range(step):
+                print('Intermittency: '+str(i)+' / '+str((step)))
+                interv = list(self.accumulation_flux.items())[inf:sup]
+                # print(interv)
+                
+                for key in range(len(interv)):
+                    # key = tupl[0]
+                    # print(key)
+                    mask = dem_clip.copy()
+                    interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
+                    
+                zero = self.accumulation_flux[0] * 0
+                
+                for j in range(len(interv)):
+                    tempo = interv[j].copy()
+                    tempo[tempo>0] = 1
+                    zero = zero + tempo
+                    
+                days_flux = zero.copy()
+                days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))
+                
+                for k in range(len(interv)):
+                    tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                    tempo[days_flux<12] = 0
+                    tempo[days_flux==12] = 1
+                    tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                    surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                    perenn = (((tempo == 1).sum()) / self.cell) * 100
+                    intermit = (((tempo == 0).sum()) / self.cell) * 100
+                    self.mfdata.loc[compt,'perenn_areas'] = perenn
+                    self.mfdata.loc[compt,'intermit_areas'] = intermit
+                    self.mfdata.loc[compt,'surflow_areas'] = surflow
+                    
+                    compt+=1
+                    
+                inf+=12
+                sup+=12                    
+        except:
+            pass
+
         self.mfdata = self.mfdata.set_index(['date'])
         # self.mfdata = self.mfdata.round(2)
         self.mfdata = self.mfdata.applymap(lambda x: "%.5e" % (x))
         self.mfdata.to_csv(save_file + '/_simulated_results.csv', sep=';')
-
+        
+        return self.mfdata
+        
 #%% Notes
 
 # def bla (self, npy_list, zones_list):

@@ -97,7 +97,7 @@ class Streams:
         sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
         self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
         
-        indicator = np.abs(np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
+        indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
         return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
 class Piezometry:
@@ -114,15 +114,14 @@ class Piezometry:
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        if len(self.watershed.forcing.recharge) > 1:
+        if isinstance(self.watershed.forcing.recharge, float) == False:
             try:
                 # df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
                 df = self.watershed.piezometry.elevation.resample(pd.infer_freq(self.watershed.forcing.recharge.index)).mean()
                 #df.index = df.index.to_period(self.watershed.forcing.freq)
             except:
                 sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
-            plt.figure()
-            plt.plot([0,100],[0,0])
+            
             # Continue Data
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
                 sim=[]
@@ -133,9 +132,24 @@ class Piezometry:
                     
                 y0 = df[self.watershed.piezometry.codes_bss[j]].values
                 y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
+                if j == 0:
+                    fig, ax = plt.subplots()
+                    df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                    df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                    #plt.plot(y0,y0-y1)
+                    plt.show()
                 
-                plt.plot(y0,y0-y1)
-
+                #modified
+                Aobs = (df.groupby(pd.Grouper(freq='1Y'))[self.watershed.piezometry.codes_bss[j]].max() - 
+                     df.groupby(pd.Grouper(freq='1Y'))[self.watershed.piezometry.codes_bss[j]].min())
+                Asim = (df.groupby(pd.Grouper(freq='1Y'))['sim_' + self.watershed.piezometry.codes_bss[j]].max() - 
+                     df.groupby(pd.Grouper(freq='1Y'))['sim_' + self.watershed.piezometry.codes_bss[j]].min())
+                hobs = df[self.watershed.piezometry.codes_bss[j]].mean()
+                hsim = df['sim_' + self.watershed.piezometry.codes_bss[j]].mean()
+                
+                y0 = np.asarray([hobs, Aobs.mean()])
+                y1 = np.asarray([hsim, Asim.mean()])
+                
                 ER = np.nansum(y0-y1)  # error 
                 ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
                 RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
@@ -154,8 +168,9 @@ class Piezometry:
                             
             self.y0 = df[[col for col in df if not col.startswith('sim_')]]
             self.y1 = df[[col for col in df if col.startswith('sim_')]]
-
+            
             #Discrete Data
+            '''
             y0 = []
             y1 = []
             for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
@@ -167,12 +182,11 @@ class Piezometry:
                     sim.append(self.watertable_elevation[i][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
                 df_sim = pd.Series(sim, index=self.watershed.forcing.recharge.index, name='sim' )
                 y1.append(df_sim[df_sim.index.month == dt.month].mean())
-            plt.plot(y0,np.asarray(y0)-np.asarray(y1),'o')
             RMSE = np.sqrt(np.nanmean((np.asarray(y0)-np.asarray(y1))**2))
-            plt.show()
             self.store_indicator.append(RMSE)
+            '''
                 
-        if len(self.watershed.forcing.recharge) == 1:
+        if isinstance(self.watershed.forcing.recharge, float) == True:
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
             self.y1 = []
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
@@ -193,7 +207,7 @@ class Piezometry:
             self.store_indicator.append(RMSE)
             
     def get_indicator(self):
-        indicator = sum(self.store_indicator)
+        indicator = np.nanmean(self.store_indicator)
         return indicator, self.y0, self.y1
     
 class Hydrometry:
@@ -213,10 +227,16 @@ class Hydrometry:
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        self.listing_indicator = pd.DataFrame(columns=
-                                              ['ER','ABSER','RELER','PERER',
-                                               'MAE','BAL','MSE','RMSE','MARE',
-                                               'KGE','PBIAS','NSE','NSElog'])
+        indicator_path = os.path.join(self.param_folder, self.model, '_watershed', '_listing_indicator.csv')
+        if not os.path.exists(indicator_path):
+            self.listing_indicator = pd.DataFrame(columns=
+                                                  ['ER','ABSER','RELER','PERER',
+                                                   'MAE','BAL','MSE','RMSE','MARE',
+                                                   'KGE','PBIAS','NSE','NSElog'])
+        else:
+            self.listing_indicator = pd.read_csv(indicator_path, sep=';')
+            self.listing_indicator = self.listing_indicator.iloc[: , 1:]
+            
         if len(self.watershed.forcing.recharge) > 1:
             c_path = os.path.join(self.watershed.stable_folder, 'hydrometry')
             codes_path = glob.glob(os.path.join(c_path, 'Hydrometric_*'))
@@ -228,22 +248,29 @@ class Hydrometry:
             if codes != []:
                 for j in range(0,len(codes)):
                     code = codes[j].split('_')[1]
-                    area = float(codes[j].split('_')[4])
+                    # area = float(codes[j].split('_')[4])
+                    area=self.watershed.geographic.area
                     
                     df = pd.read_csv(codes_path[j], sep=';', parse_dates=True, index_col=0)
                     df = df.resample('M').mean()
                     df = df * 24 * 3600 # m3/j
+                    # area = 
                     df = df / (area * 1000000) # m/j
                     df.columns = [code]
                     
+                    df_runoff = self.watershed.forcing.runoff.values
+                    
                     df_sim = self.outflow_drain.copy()
                     df_sim = df_sim.rename('sim_' + code)
-            
+                    # print(df_sim)
+                    # print(df_runoff)
+                    df_sim = df_sim + df_runoff
+                    
                     df = df.merge(df_sim, left_index=True, right_index=True)
     
                     y0 = df[code].values
                     y1 = df['sim_' + code].values
-                                        
+            
                     ER = np.nansum(y0-y1) # error 
                     ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
                     RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
@@ -256,7 +283,7 @@ class Hydrometry:
                     KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
                     PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
                     NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency (add '1-' ==> actual NSE)
-                    NSElog = 1-he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+                    NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
                     
                     self.store_indicator.append(NSElog)
                     
