@@ -30,15 +30,30 @@ class Hydrodynamic:
     
     :meta public:
     """
-    def __init__(self, nrow: int, ncol: int, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
-                 thickness_init: float = 50.):
+    def __init__(self, nrow: int, ncol: int, nlay_init: int = 1, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
+                 thickness_init: float = 50., bottom_init: float = None, cond_decay_init: float = 0.,
+                 thick_exp_init: float = 1.):
         """
         Constructor
         """
+        
+        self.nlay = nlay_init
         self.hyd_cond = np.ones((nrow, ncol)) * hyd_cond_init
         self.porosity = np.ones((nrow, ncol)) * porosity_init
         self.thickness = thickness_init
         self.calib_zones = np.ones((nrow, ncol))
+        self.bottom = bottom_init
+        self.cond_decay = cond_decay_init
+        self.thick_exp = thick_exp_init
+    
+    def update_nlay(self, nlay_value: float):
+        """
+        Updates :attr:`nlay` with a constant value :data:`nlay_value`.
+        
+        :param nlay_value: .
+        :meta public:
+        """
+        self.nlay = nlay_value
     
     def update_hyd_cond(self, hyd_cond_value: float):
         """
@@ -64,6 +79,30 @@ class Hydrodynamic:
         :param thickness_value: thickness of the aquifer.
         """
         self.thickness =  thickness_value
+    
+    def update_bottom(self, bottom_value: float):
+        """
+        Updates the :attr:`bottom` with a constant value :data:`bottom_value`.
+
+        :param cond_decay_value: .
+        """
+        self.bottom = bottom_value
+    
+    def update_cond_decay(self, cond_decay_value: float):
+        """
+        Updates the :attr:`cond_decay` with a constant value :data:`cond_decay_value`.
+
+        :param cond_decay_value: .
+        """
+        self.cond_decay =  cond_decay_value
+        
+    def update_thick_exp(self, thick_exp_value: float):
+        """
+        Updates the :attr:`thick_exp` with a constant value :data:`thick_exp_value`.
+
+        :param cond_decay_value: .
+        """
+        self.thick_exp =  thick_exp_value
         
     def update_calib_zones(self, zones: np.ndarray):
         """
@@ -99,7 +138,7 @@ class Hydrodynamic:
         :param num_zone: the zone number
         :param thickness_value: thickness of the aquifer.
         """
-        self.thickness[self.calib_zones==num_zone] =   thickness_value
+        self.thickness[self.calib_zones==num_zone] = thickness_value
         
     def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
         """

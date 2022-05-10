@@ -343,12 +343,22 @@ class Watershed:
             model_folder = self.simulations_folder
         else:
             model_folder = calib
-        flow_model = modflow.Modflow(self.geographic, sink_fill=sink_fill, box=box,
-                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
-                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
-                                     climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
+        flow_model = modflow.Modflow(self.geographic,
+                                     sink_fill=sink_fill,
+                                     box=box,
+                                     lay_number=self.hydrodynamic.nlay,
+                                     thick=self.hydrodynamic.thickness,
+                                     thick_exp=self.hydrodynamic.thick_exp,
+                                     bottom=self.hydrodynamic.bottom,
+                                     hyd_cond=self.hydrodynamic.hyd_cond,
+                                     cond_decay=self.hydrodynamic.cond_decay,
+                                     porosity=self.hydrodynamic.porosity,
+                                     climatic=self.forcing.recharge,
+                                     sea_level=self.oceanic.MSL,
                                      init_rech=init_rech,
-                                     model_name=ident, model_folder=model_folder, multip_cond=multip_cond,
+                                     model_name=ident,
+                                     model_folder=model_folder,
+                                     multip_cond=multip_cond,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         if run == True:
@@ -362,7 +372,8 @@ class Watershed:
             if modpath_sim == True:
                 transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
-                                            exe=self.modflow_path + '/bin/mp6.exe',porosity=self.hydrodynamic.porosity)                
+                                            exe=self.modflow_path + '/bin/mp6.exe',
+                                            porosity=self.hydrodynamic.porosity)                
                 transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
                 # transit_model.post_processing()
