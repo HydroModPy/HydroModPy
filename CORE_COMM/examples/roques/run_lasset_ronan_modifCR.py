@@ -122,7 +122,7 @@ code_names = ['?']
 
 #%% GENERATE WATERSHED
 
-load = False
+load = True
 
 for watershed_name in watershed_names[:]:
 
@@ -139,8 +139,8 @@ for watershed_name in watershed_names[:]:
                                   from_xy=[],
                                   cell_size=cell_size)
     
-    watershed_display.watershed_dem(BV)
-    watershed_display.watershed_local(dem_path, BV)
+    # watershed_display.watershed_dem(BV)
+    # watershed_display.watershed_local(dem_path, BV)
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -600,11 +600,11 @@ for watershed_name in watershed_names[:] :
     fhist = 2021
     lhist = 2022
     
-    fcalib = 1985
-    lcalib = 2011
+    fcalib = 2021
+    lcalib = 2022
     
-    year_min = 1985
-    year_max = 2011
+    year_min = 2021
+    year_max = 2022
     
     # Normalize with discharge observed (not possible with your data 2021-2022)
     # BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
@@ -626,9 +626,7 @@ for watershed_name in watershed_names[:] :
     # BV.forcing.update_recharge(Nt, sim_state=sim_state)
     # plt.plot(BV.forcing.recharge, c='r')
     
-    
-    # UTILISER la fonction update_recharge avec P-E ERA5
-    
+  
     # BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
     # BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
     
