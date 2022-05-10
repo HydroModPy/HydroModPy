@@ -52,7 +52,7 @@ class Hydrology:
         
         self.tif_streams = data_folder + type_obs + '.tif'
         shp_type = gpd.read_file(self.streams).geometry.type[0] # forma = forma.geom_type[0]
-        print(shp_type)
+        # print(shp_type)
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
             wbt.dissolve(self.streams, self.streams)
             wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
