@@ -831,16 +831,18 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
             
         # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
-        
-        print('   '+BV.hydrology.streams)
-        
+                
         BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                           first_year = 1960, last_year=2019, time_step = 'D',
                                           sim_state='steady') #
         
-        BV.hydrodynamic.update_thickness(30)
         # BV.hydrodynamic.update_porosity(0.1)
         # BV.hydrodynamic.update_hyd_cond(2)
+        BV.hydrodynamic.update_nlay(1)
+        BV.hydrodynamic.update_thickness(30)
+        BV.hydrodynamic.update_bottom(None)
+        BV.hydrodynamic.update_cond_decay(0)
+        BV.hydrodynamic.update_thick_exp(1)
         
         params_df = pd.DataFrame(columns=['params',
                                           'init_values','lower_bounds','higher_bounds',
@@ -3735,13 +3737,21 @@ for watershed_name in watershed_names:
                                 
 #%% 09_monthly discharge
 
+typ = 'projec-1'
+
 mod_list = ['MPI-R09','NOR-R15']
 
-for watershed_name in watershed_names:
+watershed_names = ['Canut','Nancon']
 
+for watershed_name in watershed_names:
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    
     for mod in mod_list:
         
         for sce in ['RCP2.6','RCP8.5']:
+            
             simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
             simul = simul_list[0]
             
@@ -3776,9 +3786,10 @@ for watershed_name in watershed_names:
             lims = (hist.min(), hist.max())
             vmin = np.array(lims).min()
             vmax = np.array(lims).max()
-            vmin = 4
+            vmin = 1
             vmax = 10
             normalize = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+            # normalize = mpl.colors.LogNorm(vmin, vmax)
             
             fig, ax = plt.subplots(1,1, figsize=(3, 6))
             colori = "jet"
