@@ -108,6 +108,9 @@ watershed_names = ['Pompage'] # search the name in watershed_library or just lab
 
 #%% GENERATE WATERSHED
 
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+
 # coords_list = []
 # watershed_names = []
 # codes_names = ['J7513010','J1803010','J3403020']
@@ -121,8 +124,8 @@ watershed_names = ['Pompage'] # search the name in watershed_library or just lab
 types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
 fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
 
-types_obs = ['river'] # list of shapefile name layers for clip hydrology
-fields_obs = ['persistanc']
+# types_obs = ['river'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['persistanc']
 
 # x = gpd.read_file("C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Hydrographic/D035/complete.shp")
 # c = gpd.read_file(BV.geographic.watershed_shp)
