@@ -99,7 +99,7 @@ ERA5_folder = data_path + 'climate/era5/'
 ERA5_filename = 'adaptor.mars.internal-1646855474.1913588-16842-3-5ad8a136-1ff8-433e-a89f-a0c064ce1122.nc'
 
 #find 
-path_points = data_path + 'hydrology/GRDC_stations_EU_mars2022_EPSG3035_alps.shp'
+path_points = data_path + 'hydrology/GRDC_stations_EU_mars2022_EPSG3035_alps_with_UNINE_sites.shp'
 points = gpd.read_file(path_points)
 
 if path.exists(out_path + 'results.shp')==False:
@@ -180,7 +180,7 @@ else:
 #watershed_names = ['AP_6948360', 'AP_6948120']
 for i, j in points.iterrows():
     if i>=0:
-        
+        i=236
         watershed_name = str(points.loc[i,'grdc_no'])
         print('working on catchment #' + str(i) + ', id=' + watershed_name)
         x = points.loc[i,'X']
