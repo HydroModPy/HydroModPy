@@ -743,40 +743,41 @@ calib.exploration(resolution=100)
 
 #%% PLOT CALIB EXPLORATION DISCHARGE
 
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
+
 watershed_names = ['Lasset']
 
 params_file = 'calib_explo_hom_2v_k1-n1'
 
-wish = 0 # va chercher la dernière calibration (simulation)
+wish = 0
+
+sat_typ = 'surflow_areas'
+
+min_nse = 60
+min_sat = 0
+max_sat = 50
 
 for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
-    
+        
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
                                   out_path=out_path,
                                   load=True)
 
-    ##########
     typ_calib = 'hydrometry_calibration'
     list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
                         key=os.path.getmtime, reverse=True)
     name_file = list_path[wish].split('\\')[-1]
     calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
     test = calib_analysis.CalibAnalysis(calib_file)
+    
     # test.display_objective_function(save=None)
     # test.find_best_values()
     # test.display_best_data()
     
     sim_res=test.sim_results
-    # x= pd.to_numeric(test.sim_results[test.params_synt[0]]['seepage_areas'])
-    # plt.plot(x)
-    
-    # path_fig = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures')
-    path_fig = os.path.join(out_path, '_figures')
-    
-    # CHRONICS
     
     typ_name = typ_calib.split('_')[0]
     
@@ -799,8 +800,7 @@ for watershed_name in watershed_names[:]:
         rout.append((r*1000*30).mean()[0])
     rsat = []
     for t in range(len(synt)):     
-        # sat = test.sim_results[synt[t]]['seepage_areas']
-        # sat = test.sim_results[synt[t]]['surflow_areas']
+        sat = test.sim_results[synt[t]][sat_typ]
         sat = pd.to_numeric(sat, errors='coerce').isnull()
         rsat.append(sat.mean())
     
@@ -816,9 +816,8 @@ for watershed_name in watershed_names[:]:
         o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
         s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
         nd = ind[typ_name][i]
-        # sat = test.sim_results[synt[i]]['seepage_areas']
-        sat = test.sim_results[synt[i]]['surflow_areas']
-        sat = pd.to_numeric(sat, errors='coerce')
+        sat = test.sim_results[synt[i]][sat_typ]
+        sat = pd.to_numeric(sat)
         
         k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
         sy = float(synt[i].split(';')[1]) * 100
@@ -827,90 +826,59 @@ for watershed_name in watershed_names[:]:
         label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
                 '$NSE_{log}$ = '+str(nselog)+'%'
         nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
-                
-        if nselog > 0:
-            if all(i <= 100 for i in sat):
-                numb += 1
-                
-        # c = []
-        # for h in range(len(ind[typ_name])):
-        #     d = ind[typ_name][h][0]
-        #     c.append(d)
-        c = np.linspace(0,1,len(obs[typ_name]))
-        # c = np.linspace(0,1,numb)
+        if nselog > min_nse:
+            # if all(i <= 50 for i in sat):
+            if sat.max() < max_sat:
+                if sat.max() > min_sat:
+                    numb += 1
+                # c = []
+                # for h in range(len(ind[typ_name])):
+                #     d = ind[typ_name][h][0]
+                #     c.append(d)
+                c = np.linspace(0,1,len(obs[typ_name]))
 
         cmap = mpl.cm.get_cmap('viridis_r')
-
         color_gradients = cmap(c)
         # vmin = min(c)
         # vmax = max(c)
         # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
         
-        def fmt_xaxes(ax):
-            yearsmaj = mdates.YearLocator(5)   # every year
-            yearsmin = mdates.YearLocator(1)
-            # monthsmaj = mdates.MonthLocator(6)  # every month
-            # monthsmin = mdates.MonthLocator(3)
-            # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-            years_fmt = mdates.DateFormatter('%Y')
-            ax.xaxis.set_major_locator(yearsmaj)
-            ax.xaxis.set_minor_locator(yearsmin)
-            ax.xaxis.set_major_formatter(years_fmt)
-        
-        if nselog >= 0:
-            if all(i <= 100 for i in sat):       
+        if nselog > min_nse:
+            # if all(i <= 50 for i in sat):
+            if sat.max() < max_sat:
+                if sat.max() > min_sat:    
                 
-                ax = axs[0]
-                fmt_xaxes(axs[0])
-                # ax.xaxis.set_major_locator(yearsmaj)
-                # ax.xaxis.set_minor_locator(yearsmin)
-                # ax.xaxis.set_major_formatter(years_fmt)
+                    ax = axs[0]
+                    fmt_xaxes(axs[0], 6, 1)                 
+                    ax.plot(s, color=color_gradients[i], lw=1, label=label)
+                    ax.set_title(title)
+                    ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
+                    ax.set_xlim(pd.to_datetime('1989'), pd.to_datetime('2021'))
+                    del(ax)
                 
-                ax.plot(s, color=color_gradients[i], lw=1, label=label)
-                # ax.plot(s, lw=1, label=label)   
-                ax.set_title(title)
-                ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
-                # ax.set_xlim(pd.to_datetime('1989'), pd.to_datetime('2021'))
+                    ax = axs[1]
+                    fmt_xaxes(axs[1], 6, 1)
+                    ax.set_title('Log discharge [mm/month]')
+                    ax.plot(select_period(o.copy(),2010,2019), color='grey', lw=3, ls='-', zorder=0)
+                    ax.set_yscale('log')
+                    ax.plot(select_period(s.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
 
-                del(ax)
-                
-                ax = axs[1]
-                fmt_xaxes(axs[1])
-                ax.set_title('Log discharge [mm/month]')
-                ax.plot(o.copy(), color='grey', lw=3, ls='-', zorder=0)
-                ax.set_yscale('log')
-                ax.plot(s.copy(), color=color_gradients[i], lw=1, label=label)
-                # ax.xaxis.set_major_locator(yearsmaj)
-                # ax.xaxis.set_minor_locator(yearsmin)
-                # ax.xaxis.set_major_formatter(years_fmt)
-
-                ax = axs[2]
-                fmt_xaxes(axs[2])   
-                sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
-                ax.plot(sat.copy(), color=color_gradients[i], lw=1, label=label)
-                # ax.plot(sat, lw=1, label=label) 
-                ax.set_ylim(-2,50)
-                title = 'Saturation [%]'
-                ax.set_title(title)
-                # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
-                            
+                    ax = axs[2]
+                    fmt_xaxes(axs[2], 6, 1)
+                    sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
+                    ax.plot(select_period(sat.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
+                    ax.set_ylim(-2,50)
+                    title = 'Saturation [%]'
+                    ax.set_title(title)
+                    # ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+                                
     plt.tight_layout()
-    
-    if watershed_name == 'Nancon':
-        ncol = 2
-    else:
-        ncol = 1
-    ax.legend(bbox_to_anchor=(1.2,0.5), prop={'size': 5}, loc="center left", borderaxespad=0, 
-              ncol=ncol)
+    ncol = 2
+    ax.legend(bbox_to_anchor=(1.2,0.5), prop={'size': 5}, loc="center left", 
+              borderaxespad=0, ncol=ncol)
     ax = axs[3]
     plt.axis('off')
-
-    # plt.tight_layout()
-
-    # fig.savefig(path_fig+'/'+watershed_name+'_chronics_'+name_file+'.png', dpi=300, bbox_inches='tight')
-
-    # ax.plot(BV.forcing.recharge, color='grey', lw= 5)
-           
+        
     # divider = make_axes_locatable(ax)
     # cax = divider.append_axes('right', size='1.25%', pad=0.1)
     # fig.add_axes(cax)
@@ -918,12 +886,11 @@ for watershed_name in watershed_names[:]:
     # n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
     # n_cmap.set_array([])
     # ax.get_figure().colorbar(n_cmap, cax=cax, orientation="vertical")
-    
-    # SAT
 
     fig, axs = plt.subplots(1,3, figsize=(10,3.5))
     fig.suptitle(watershed_name.upper())
     axs = axs.ravel()
+    
     for k in range(3):
         ax = axs[k]
         ax.axes.tick_params(which='both', direction='out', zorder=10)
@@ -941,84 +908,66 @@ for watershed_name in watershed_names[:]:
                 if k == 0:
                     try:
                         ax.set_title('SAT MIN [%]')
-                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).min()
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).min()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).min()
                     except:
                         pass
                 if k == 1:
                     try:
                         ax.set_title('SAT MEAN [%]')
-                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).mean()
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).mean()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).mean()
                     except:
                         pass
                 if k == 2:
                     try:
                         ax.set_title('SAT MAX [%]')
-                        # sim_sat[j][i] = pd.to_numeric(sim_res[string]['seepage_areas']).max()
-                        sim_sat[j][i] = pd.to_numeric(sim_res[string]['surflow_areas']).max()
+                        sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).max()
                     except:
                         pass
                 compt += 1
         Z=sim_sat
         pc = ax.contourf(X,Y,Z,cmap='jet', levels=np.arange(0,51,5)) #figadd.cmap_white_jet()
         ax.set_xscale('log')
-        # cb = fig.colorbar(pc)
         ax.set_ylabel('Sy [-]')
         ax.set_xlabel('K [m/j]')
-        # cb.set_label('Saturation [%]', rotation=270, labelpad=40)
    
     position=fig.add_axes([1.05,0.2,0.02,0.7])  ## the parameters are the specified position you set 
     fig.colorbar(pc,cax=position)
     plt.tight_layout()
-    # fig.savefig(path_fig+'/'+watershed_name+'_saturation_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
-    # DISCHARGE
-    
     fig, axs = plt.subplots(1,3, figsize=(15,4))
     fig.suptitle(watershed_name.upper())
     axs = axs.ravel()
     
     ax = axs[0]
-    
     X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
     Z=test.obj_function.copy()
-    # Z[Z<0] = 0
+    Z[Z<0] = 0
     from numpy import inf
-    # Z[Z == inf] = 0
-    pc = ax.imshow(Z, vmin = 0, vmax=1, aspect='auto') #figadd.cmap_white_jet() , shading='gouraud'
+    Z[Z == inf] = 0
+    pc = ax.imshow(Z, vmin = 0, vmax = 1, aspect='auto') #figadd.cmap_white_jet() , shading='gouraud'
     # ax.set_xscale('log')
     ax.set_ylabel('Sy [-]')
     ax.set_xlabel('K [m/j]')
     divider = make_axes_locatable(ax)
     cax = divider.append_axes('right', size='5%', pad=0.05)
-    # cb = fig.colorbar(pc)
     cb=fig.colorbar(pc, cax=cax, orientation='vertical')
     cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    # cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    # fig.savefig(path_fig+'/'+'_shaded_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
     ax = axs[1]
-    
     ax.axes.tick_params(which='both', direction='out', zorder=10)
     X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
     Z=test.obj_function.copy()
-    # Z[Z == inf] = np.nan
-    # Z = np.ma.array(Z,mask=np.isnan(Z))
-    # Z = np.ma.masked_invalid(Z)
-    # Z = Z.replace(np.inf, np.nan)
+    Z[Z<0] = 0
+    Z[Z == inf] = 0
     pc = ax.pcolormesh(X,Y,Z, cmap='jet', shading='gouraud', vmin=0, vmax=1) #figadd.cmap_white_jet()
     ax.set_xscale('log')
     ax.set_ylabel('Sy [-]')
     ax.set_xlabel('K [m/j]')
     divider = make_axes_locatable(ax)
     cax = divider.append_axes('right', size='5%', pad=0.05)
-    # cb = fig.colorbar(pc)
     cb = fig.colorbar(pc, cax=cax, orientation='vertical')
     cb.set_ticks(np.arange(0,1.1,0.1)) 
-    # cb.set_ticklabels(np.arange(0,1.1,0.1))
     cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
-    # fig.savefig(path_fig+'/'+'_mesh_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
     ax = axs[2]
     ax.axes.tick_params(which='both', direction='out', zorder=10)
@@ -1027,29 +976,19 @@ for watershed_name in watershed_names[:]:
     Z[Z<0] = 0
     from numpy import inf
     Z[Z == inf] = 0
-    # np.ma.masked_where(test.obj_function<0, test.obj_function)
-    # plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
     bounds = np.arange(0,1.1,0.1)
     norm = mpl.colors.Normalize(vmin=-1, vmax=1.0)
-    # norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=256)
-    # pc = ax.contourf(X, Y, Z, vmin=0, vmax=1, norm = norm)
     pc = ax.contourf(X, Y, Z, levels=np.arange(0,1.1,0.1))    
-    # plt.imshow(Z)
-    # plt.xlim(1)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes('right', size='5%', pad=0.05)
-    # cb = fig.colorbar(pc)
     cb = fig.colorbar(pc, cax=cax, orientation='vertical')
     cb.set_ticks(np.arange(0,1.1,0.1)) 
-    # cb.set_ticklabels(np.arange(0,1.1,0.1))
     cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
     ax.set_xscale('log')
     ax.set_ylabel('Sy [-]')
     ax.set_xlabel('K [m/j]')
     
     plt.tight_layout()
-    
-    # fig.savefig(path_fig+'/'+watershed_name+'_discharge_'+name_file+'.png', dpi=300, bbox_inches='tight')
 
 #%% ----
 
