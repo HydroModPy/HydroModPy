@@ -649,34 +649,40 @@ for watershed_name in watershed_names[:] :
     Runof_averag = Runof_averag.append(Runof_averag, ignore_index=True)
     Runof_averag.index = dates
     
+    # Normalized 
+    norm_Runof = select_period(Runof_averag, 2021, 2022)
     norm_Rech = select_period(Rech_averag, 2021, 2022)
     norm_Qobs = select_period(Qobs, 2021, 2022)
-    
     Rt_Rech_Qobs = (norm_Qobs.mean() / norm_Rech.mean())
     print(Rt_Rech_Qobs.round(2))
     Nt = (norm_Rech * Rt_Rech_Qobs)
     
-    BV.forcing.update_recharge(Nt, sim_state=sim_state)
-    plt.plot(BV.forcing.recharge, c='r')
-    plt.plot(Qobs, c='b')
-    plt.yscale('log')
-
     ##### TO CHANGE IN MENSUALLY MODEL BECAUSE THE CALIBRATION ON Q IS NOW MENSUALLY #####
-    Rech_mens = BV.forcing.recharge.resample('M').mean().squeeze() # to transform in pandas series
-    Runof_mens = BV.forcing.runoff.resample('M').mean().squeeze() # to transform in pandas series
+    Rech_mens = Nt.resample('M').mean().squeeze() # to transform in pandas series
+    Runof_mens = norm_Runof.resample('M').mean().squeeze() # to transform in pandas series
     
     BV.forcing.update_recharge(Rech_mens, sim_state=sim_state)
     BV.forcing.update_runoff(Runof_mens, sim_state=sim_state)
     
+    plt.plot(Nt, c='red')
+    plt.plot(Qobs, c='blue')
     plt.plot(BV.forcing.recharge, c='darkorange')
     plt.plot(Qobs.resample('M').mean(), c='forestgreen')
     plt.yscale('log')
 
-    BV.hydrodynamic.update_nlay(1)
-    BV.hydrodynamic.update_bottom(None)
-    BV.hydrodynamic.update_cond_decay(0)
-    BV.hydrodynamic.update_thick_exp(1)
-    BV.hydrodynamic.update_thickness(30)
+    cond_decay = 10
+    cond_decay_inv = cond_decay**-1
+    thickness = 10*cond_decay
+    bottom = 1000    
+    thick_exp = 1.25
+    layer_min_thick = 5
+    nlay = int(np.log(1-thickness*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
+
+    BV.hydrodynamic.update_nlay(nlay) # 1
+    BV.hydrodynamic.update_bottom(bottom) # None
+    BV.hydrodynamic.update_cond_decay(cond_decay_inv) # 0
+    BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+    BV.hydrodynamic.update_thickness(thickness) # 30
     # BV.hydrodynamic.update_porosity(0.001)
     # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
     
