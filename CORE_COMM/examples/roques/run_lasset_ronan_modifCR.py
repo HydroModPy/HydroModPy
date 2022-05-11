@@ -505,9 +505,13 @@ for watershed_name in watershed_names[:] :
                                           first_year = 1960, last_year=2019, time_step = 'D',
                                           sim_state='steady') #
         
-        BV.hydrodynamic.update_thickness(30)
         # BV.hydrodynamic.update_porosity(0.1)
         # BV.hydrodynamic.update_hyd_cond(2)
+        BV.hydrodynamic.update_nlay(1)
+        BV.hydrodynamic.update_thickness(30)
+        BV.hydrodynamic.update_bottom(None)
+        BV.hydrodynamic.update_cond_decay(0)
+        BV.hydrodynamic.update_thick_exp(1)
         
         params_df = pd.DataFrame(columns=['params',
                                           'init_values','lower_bounds','higher_bounds',
@@ -607,35 +611,35 @@ for watershed_name in watershed_names[:] :
     year_max = 2022
     
     # Normalize with discharge observed (not possible with your data 2021-2022)
-    # BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-    #                                          first_year = year_min, last_year = year_max,
-    #                                          time_step = time_step, sim_state=sim_state)
-    # Rech = BV.forcing.recharge
-    # BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-    #                                       first_year = year_min, last_year=year_max, time_step = 'M',
-    #                                       sim_state='transient')
-    # Runof = BV.forcing.runoff # m/month
-    
-    # norm_Rea = select_period(Rech, year_min, year_max)
-    # norm_Qobs = select_period(Qobs, year_min, year_max)
-    
-    # Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
-    # print(Rt_Rea_Qobs.round(2))
-    # Nt = (norm_Rea * Rt_Rea_Qobs)
-    
-    # BV.forcing.update_recharge(Nt, sim_state=sim_state)
-    # plt.plot(BV.forcing.recharge, c='r')
-    
-  
-    # BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
-    # BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
-    
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                              first_year = 2000, last_year = 2001,
+                                              first_year = year_min, last_year = year_max,
                                               time_step = time_step, sim_state=sim_state)
     Rech = BV.forcing.recharge
     BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = 2000, last_year = 2001, time_step = 'M',
+                                          first_year = year_min, last_year=year_max, time_step = 'M',
+                                          sim_state='transient')
+    Runof = BV.forcing.runoff # m/month
+    
+    norm_Rea = select_period(Rech, year_min, year_max)
+    norm_Qobs = select_period(Qobs, year_min, year_max)
+    
+    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
+    print(Rt_Rea_Qobs.round(2))
+    Nt = (norm_Rea * Rt_Rea_Qobs)
+    
+    BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    plt.plot(BV.forcing.recharge, c='r')
+    
+  
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
+    BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
+    
+    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                              first_year = 2021, last_year = 2022,
+                                              time_step = time_step, sim_state=sim_state)
+    Rech = BV.forcing.recharge
+    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                          first_year = 2021, last_year = 2022, time_step = 'M',
                                           sim_state='transient')
     Runof = BV.forcing.runoff # m/month
     
