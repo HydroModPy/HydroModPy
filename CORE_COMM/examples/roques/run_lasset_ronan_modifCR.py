@@ -706,6 +706,17 @@ calib.exploration(resolution=100)
 
 #%% PLOT CALIB EXPLORATION DISCHARGE
 
+def fmt_xaxes(ax, years_maj, years_min):
+    yearsmaj = mdates.YearLocator(years_maj)   # every year
+    yearsmin = mdates.YearLocator(years_min)
+    # monthsmaj = mdates.MonthLocator(6)  # every month
+    # monthsmin = mdates.MonthLocator(3)
+    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+    years_fmt = mdates.DateFormatter('%Y')
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(years_fmt)
+
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
 watershed_names = ['Lasset']
@@ -780,7 +791,7 @@ for watershed_name in watershed_names[:]:
         s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
         nd = ind[typ_name][i]
         sat = test.sim_results[synt[i]][sat_typ]
-        sat = pd.to_numeric(sat)
+        sat = pd.to_numeric(sat, errors='coerce')
         
         k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
         sy = float(synt[i].split(';')[1]) * 100
@@ -800,7 +811,7 @@ for watershed_name in watershed_names[:]:
                 #     c.append(d)
                 c = np.linspace(0,1,len(obs[typ_name]))
 
-        cmap = mpl.cm.get_cmap('viridis_r')
+        cmap = mpl.cm.get_cmap('jet_r')
         color_gradients = cmap(c)
         # vmin = min(c)
         # vmax = max(c)
@@ -816,20 +827,20 @@ for watershed_name in watershed_names[:]:
                     ax.plot(s, color=color_gradients[i], lw=1, label=label)
                     ax.set_title(title)
                     ax.plot(o, color='grey', lw=3, ls='-', zorder=0)
-                    ax.set_xlim(pd.to_datetime('1989'), pd.to_datetime('2021'))
+                    # ax.set_xlim(pd.to_datetime('2021'), pd.to_datetime('2022'))
                     del(ax)
                 
                     ax = axs[1]
                     fmt_xaxes(axs[1], 6, 1)
                     ax.set_title('Log discharge [mm/month]')
-                    ax.plot(select_period(o.copy(),2010,2019), color='grey', lw=3, ls='-', zorder=0)
+                    ax.plot(select_period(o.copy(),2021,2022), color='grey', lw=3, ls='-', zorder=0)
                     ax.set_yscale('log')
-                    ax.plot(select_period(s.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
+                    ax.plot(select_period(s.copy(),2021,2022), color=color_gradients[i], lw=1, label=label)
 
                     ax = axs[2]
                     fmt_xaxes(axs[2], 6, 1)
                     sat_good.append(str(k)+'_'+str(sy)+'_'+str(round(sat.mean(),2)))
-                    ax.plot(select_period(sat.copy(),2010,2019), color=color_gradients[i], lw=1, label=label)
+                    ax.plot(select_period(sat.copy(),2021,2022), color=color_gradients[i], lw=1, label=label)
                     ax.set_ylim(-2,50)
                     title = 'Saturation [%]'
                     ax.set_title(title)
@@ -952,6 +963,234 @@ for watershed_name in watershed_names[:]:
     ax.set_xlabel('K [m/j]')
     
     plt.tight_layout()
+
+#%% PLOT TO SUPERPOSE SATURATION AND DISCHARGE
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
+
+watershed_names = ['lasset']
+
+params_file = 'calib_explo_hom_2v_k1-n1'
+
+wish = 0
+
+sat_typ = 'surflow_areas'
+
+min_nse = 70
+mean_meansat = 3 # sup
+min_maxsat = 8
+max_maxsat = 25
+        
+for watershed_name in watershed_names[:]:
+    
+    print('##### '+watershed_name.upper()+' #####')
+
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+
+    typ_calib = 'hydrometry_calibration'
+    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                        key=os.path.getmtime, reverse=True)
+    name_file = list_path[wish].split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+    test = calib_analysis.CalibAnalysis(calib_file)
+    
+    # test.display_objective_function(save=None)
+    # test.find_best_values()
+    # test.display_best_data()
+    
+    sim_res=test.sim_results
+    
+    typ_name = typ_calib.split('_')[0]
+    
+    obs = test.data_obs
+    sim = test.data_sim
+    ind = test.data_ind
+    obj = test.calib['objective_function']
+    xyz = test.params_xyz
+    
+    synt = test.params_synt
+        
+    p1 = []
+    for p in synt:
+        p1.append(p.split(';')[0])
+    p2 = []
+    for p in synt:
+        p2.append(p.split(';')[1])
+    rout = []
+    for r in sim[typ_name]:
+        rout.append((r*1000*30).mean()[0])
+    rsat = []
+    for t in range(len(synt)):     
+        sat = test.sim_results[synt[t]][sat_typ]
+        sat = pd.to_numeric(sat, errors='coerce').isnull()
+        rsat.append(sat.mean())
+    
+    nse_good = []
+    sat_good = []
+    
+    numb = 0
+    for i in range(len(obs[typ_name])):
+        o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
+        s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
+        nd = ind[typ_name][i]
+        sat = test.sim_results[synt[i]][sat_typ]
+        sat = pd.to_numeric(sat, errors='coerce')
+        
+        k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
+        sy = float(synt[i].split(';')[1]) * 100
+        title = 'Discharge [mm/month]'
+        nselog = round(((nd[0]))*100,1)
+        label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
+                '$NSE_{log}$ = '+str(nselog)+'%'
+        nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+        if nselog > min_nse:
+            # if all(i <= 50 for i in sat):
+            if sat.max() < max_sat:
+                if sat.max() > min_sat:
+                    numb += 1
+                # c = []
+                # for h in range(len(ind[typ_name])):
+                #     d = ind[typ_name][h][0]
+                #     c.append(d)
+                c = np.linspace(0,1,len(obs[typ_name]))
+
+        cmap = mpl.cm.get_cmap('viridis_r')
+        color_gradients = cmap(c)
+        # vmin = min(c)
+        # vmax = max(c)
+        # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z=test.obj_function.copy()
+    Z[Z<0] = 0
+    from numpy import inf
+    Z[Z == inf] = 0
+    bounds = np.arange(0,1.1,0.1)
+    norm = mpl.colors.Normalize(vmin=-1, vmax=1.0)
+    # pc = ax.pcolormesh(X,Y,Z, cmap='jet', shading='gouraud', vmin=0, vmax=1) #figadd.cmap_white_jet()
+    pc = ax.contourf(X/3600/24, Y*100, Z, levels=np.arange(0,1.1,0.1))    
+    # divider = make_axes_locatable(ax)
+    # cax = divider.append_axes('right', size='5%', pad=0.05)
+    # position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+    # cb = fig.colorbar(pc, cax=position, orientation='vertical')
+    # cb.set_ticks(np.arange(0,1.1,0.2)) 
+    # cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    ax.set_xscale('log')
+    ax.set_ylabel('Φ [%]')
+    ax.set_xlabel('K [m/s]')
+    # ax.set_yticks(np.arange(0,11,2))
+    # ax.set_yticklabels(np.arange(0,11,2))
+    # ax.tick_params(direction='in')
+    ax.tick_params(top=False,
+               bottom=True,
+               left=True,
+               right=False,
+               labelleft=True,
+               labelbottom=True)
+    
+    plt.tight_layout()
+
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z = np.empty((3,3,))
+    Z[:] = np.nan
+    p1 = test.params_values[0]
+    p2= test.params_values[1]
+    sim_sat = np.zeros((len(p1),len(p2)))
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).min()
+            except:
+                sim_sat[j][i] = np.nan
+                pass
+            compt += 1
+    Zmin = sim_sat
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).mean()
+            except:
+                sim_sat[j][i] = np.nan
+                pass 
+            compt += 1
+    Zmean = sim_sat
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).median()
+            except:
+                sim_sat[j][i] = np.nan
+                pass 
+            compt += 1
+    Zmed = sim_sat
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).max()
+            except:
+                sim_sat[j][i] = np.nan
+                pass
+            compt += 1
+    Zmax = sim_sat
+    
+    Z = Zmax.copy()
+    Z[Zmax<min_maxsat] = np.nan
+    Z[Zmax>max_maxsat] = np.nan
+    Z[Zmean<mean_meansat] = np.nan
+    
+    Xclip = np.ma.masked_array(X, mask=np.isnan(Z)) /3600/24 # y = y.compress() # y without nan where x has nan's
+    Yclip = np.ma.masked_array(Y, mask=np.isnan(Z)) *100    
+    ax.scatter(Xclip, Yclip, c=Z, s=20, marker='s', edgecolor='k',
+                cmap=mpl.colors.ListedColormap('white'))
+    
+    # pc = ax.pcolormesh(X/3600/24, Y*100, Z,
+    #                   cmap = mpl.colors.ListedColormap('Grey'),
+    #                   alpha=0.5, linewidths=1)
+    # pc = ax.contour(X/3600/24, Y*100, Z, levels=np.arange(0,100,5),
+    #                   cmap =  mpl.colors.ListedColormap('Grey'),
+    #                   alpha=0.75, linewidths=1)
+    
+    # fig2, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    # pc = ax.contourf(X/3600/24, Y*100, Zmax, cmap='seismic',
+    #                   levels=np.arange(0,100,5), alpha=0.75) # mpl.colors.ListedColormap('Grey')
+    # ax.set_xscale('log')
+    # ax.set_ylabel('Φ [%]')
+    # ax.set_xlabel('K [m/s]')
+    # ax.tick_params(top=True,
+    #            bottom=True,
+    #            left=True,
+    #            right=False,
+    #            labelleft=True,
+    #            labelbottom=True)
+    # # ax.tick_params(direction='out', axis='both', which='both')
+    # # position=fig2.add_axes([1.05,0.2,0.02,0.7])  ## the parameters are the specified position you set 
+    # # fig2.colorbar(pc,cax=position)
+    
+    plt.tight_layout()
+    
+    # fig.savefig(figsim_folder+watershed_name+'_calib2D_map'+'.png', dpi=300, bbox_inches='tight')
 
 #%% ----
 
