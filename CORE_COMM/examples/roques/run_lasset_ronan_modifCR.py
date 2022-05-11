@@ -81,15 +81,30 @@ def select_period(df, first, last):
 
 #%% PATH WATERSHED
 
-#############################################################
-git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_data/")
-# Path where the results will be stored
-out_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
-# Figure folder outputs
-figsim_folder = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_figures/")
-#############################################################
+user = 'Clement'
+user = 'Ronan'
+
+if user == 'Clement':
+    #############################################################
+    git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
+    # Path to the data folder
+    data_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_data/")
+    # Path where the results will be stored
+    out_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
+    # Figure folder outputs
+    figsim_folder = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_figures/")
+    #############################################################
+
+if user == 'Ronan':
+    #############################################################
+    git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+    # Path to the data folder
+    data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
+    # Path where the results will be stored
+    out_path = "D:/Users/abherve/DYNAMIC/"
+    # Figure folder outputs
+    figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
+    #############################################################
 
 dems_path = data_path + 'DEM/' # reginal DEM or conceptual DEM
 #shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
@@ -581,7 +596,10 @@ for watershed_name in watershed_names[:] :
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     
     sim_state = 'transient'
-    time_step = 'M'
+    
+    #### STAY IN D TO GENERATE RECHARGE ####
+    # If necessary, you resample in month before to update the last recharge (integrated in the model)
+    time_step = 'D'
     
     var = 'REC'
     wr = True
@@ -596,53 +614,105 @@ for watershed_name in watershed_names[:] :
     area = BV.geographic.area
     Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
     Qobs = Qobs.squeeze()
-    Qobs = Qobs.resample('M').mean()
+    # Qobs = Qobs.resample('D').mean()
     fqobs = Qobs.first_valid_index().year+1
     lqobs = Qobs.last_valid_index().year-1
     
     # Ces dates permettent de normalizer et calibrer sur des périodes différentes, à voir ci-dessous
-    fhist = 2021
-    lhist = 2022
+    # fhist = 2021
+    # lhist = 2021
     
-    fcalib = 2021
-    lcalib = 2022
+    # fcalib = 2021
+    # lcalib = 2021
     
-    year_min = 2021
-    year_max = 2022
+    # year_min = 2021
+    # year_max = 2021
     
-    # Normalize with discharge observed (not possible with your data 2021-2022)
+    ############ METHOD 1 : BUILT RECHARGE ALONE ############
+    '''
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                              first_year = year_min, last_year = year_max,
+                                              first_year = 1960, last_year = 2019,
                                               time_step = time_step, sim_state=sim_state)
     Rech = BV.forcing.recharge
     BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = year_min, last_year=year_max, time_step = 'M',
-                                          sim_state='transient')
+                                          first_year = 1960, last_year=2019,
+                                          time_step = time_step, sim_state=sim_state)
     Runof = BV.forcing.runoff # m/month
     
-    norm_Rea = select_period(Rech, year_min, year_max)
-    norm_Qobs = select_period(Qobs, year_min, year_max)
+    dates = pd.date_range(start='1/1/2021', end='31/12/2022', freq='D', closed=None)
     
-    Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
-    print(Rt_Rea_Qobs.round(2))
-    Nt = (norm_Rea * Rt_Rea_Qobs)
+    Rech_averag = Rech.groupby([Rech.index.month,
+                                Rech.index.day], as_index=True).mean().reset_index().iloc[:,-1:].iloc[:-1]
+    Rech_averag = Rech_averag.append(Rech_averag, ignore_index=True)
+    Rech_averag.index = dates
+    Runof_averag = Runof.groupby([Runof.index.month, 
+                                  Runof.index.day], as_index=True).mean().reset_index().iloc[:,-1:].iloc[:-1]
+    Runof_averag = Runof_averag.append(Runof_averag, ignore_index=True)
+    Runof_averag.index = dates
+    
+    norm_Rech = select_period(Rech_averag, 2021, 2022)
+    norm_Qobs = select_period(Qobs, 2021, 2022)
+    
+    Rt_Rech_Qobs = (norm_Qobs.mean() / norm_Rech.mean())
+    print(Rt_Rech_Qobs.round(2))
+    Nt = (norm_Rech * Rt_Rech_Qobs)
     
     BV.forcing.update_recharge(Nt, sim_state=sim_state)
     plt.plot(BV.forcing.recharge, c='r')
+    plt.plot(Qobs, c='b')
+    plt.yscale('log')
+    '''
     
-  
-    BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
-    BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
+    ############ METHOD 2 : TAKE RECHARGE SURFEX AFTER MODIFY _ALL_D FILE ############
+    
+    # Method 1 is applied for the runoff
     
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                              first_year = 2021, last_year = 2022,
+                                              first_year = 1960, last_year = 2019,
                                               time_step = time_step, sim_state=sim_state)
     Rech = BV.forcing.recharge
     BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = 2021, last_year = 2022, time_step = 'M',
-                                          sim_state='transient')
+                                          first_year = 1960, last_year=2019,
+                                          time_step = time_step, sim_state=sim_state)
     Runof = BV.forcing.runoff # m/month
     
+    norm_Rech = select_period(Rech_averag, 2021, 2022)
+    norm_Qobs = select_period(Qobs, 2021, 2022)
+    
+    Rt_Rech_Qobs = (norm_Qobs.mean() / norm_Rech.mean())
+    print(Rt_Rech_Qobs.round(2))
+    Nt = (norm_Rech * Rt_Rech_Qobs)
+    BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    plt.plot(BV.forcing.recharge, c='r')
+    plt.plot(Qobs, c='b')
+    plt.yscale('log')
+    
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, 2021, 2022), sim_state=sim_state)
+    
+    # Need to add 2021 and 2022 runoff SURFEX, in _ALL_D.csv or with the method behind
+    dates = pd.date_range(start='1/1/2021', end='31/12/2022', freq='D', closed=None)
+    Runof_averag = Runof.groupby([Runof.index.month, 
+                                  Runof.index.day], as_index=True).mean().reset_index().iloc[:,-1:].iloc[:-1]
+    Runof_averag = Runof_averag.append(Runof_averag, ignore_index=True)
+    Runof_averag.index = dates
+    
+    BV.forcing.update_runoff(select_period(Runof_averag, 2021, 2022), sim_state=sim_state)
+
+    ##### TO CHANGE IN MENSUALLY MODEL BECAUSE THE CALIBRATION ON Q IS NOW MENSUALLY #####
+    Rech_mens = BV.forcing.recharge.resample('M').mean().squeeze() # to transform in pandas series
+    Runof_mens = BV.forcing.runoff.resample('M').mean().squeeze() # to transform in pandas series
+    
+    BV.forcing.update_recharge(Rech_mens, sim_state=sim_state)
+    BV.forcing.update_runoff(Runof_mens, sim_state=sim_state)
+    
+    plt.plot(BV.forcing.recharge, c='darkorange')
+    plt.plot(Qobs.resample('M').mean(), c='forestgreen')
+    plt.yscale('log')
+
+    BV.hydrodynamic.update_nlay(1)
+    BV.hydrodynamic.update_bottom(None)
+    BV.hydrodynamic.update_cond_decay(0)
+    BV.hydrodynamic.update_thick_exp(1)
     BV.hydrodynamic.update_thickness(30)
     # BV.hydrodynamic.update_porosity(0.001)
     # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
@@ -662,10 +732,14 @@ for watershed_name in watershed_names[:] :
     
     params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
+# x= pd.read_csv('C:/Users/ronan/Downloads/_ALL_D.csv',
+#                sep=';', parse_dates=True, index_col=0)
+# plt.plot(select_period(x,2015,2025)['REC_REA_historic'])
+
 #%% RUN CALIB EXPLORATION DISCHARGE
 
 calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-calib.exploration(resolution=9)
+calib.exploration(resolution=100)
 
 #%% PLOT CALIB EXPLORATION DISCHARGE
 
@@ -725,7 +799,7 @@ for watershed_name in watershed_names[:]:
         rout.append((r*1000*30).mean()[0])
     rsat = []
     for t in range(len(synt)):     
-        sat = test.sim_results[synt[t]]['seepage_areas']
+        # sat = test.sim_results[synt[t]]['seepage_areas']
         # sat = test.sim_results[synt[t]]['surflow_areas']
         sat = pd.to_numeric(sat, errors='coerce').isnull()
         rsat.append(sat.mean())
