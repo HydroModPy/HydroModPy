@@ -629,7 +629,6 @@ for watershed_name in watershed_names[:] :
     # year_max = 2021
     
     ############ METHOD 1 : BUILT RECHARGE ALONE ############
-    '''
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
                                               first_year = 1960, last_year = 2019,
                                               time_step = time_step, sim_state=sim_state)
@@ -661,42 +660,6 @@ for watershed_name in watershed_names[:] :
     plt.plot(BV.forcing.recharge, c='r')
     plt.plot(Qobs, c='b')
     plt.yscale('log')
-    '''
-    
-    ############ METHOD 2 : TAKE RECHARGE SURFEX AFTER MODIFY _ALL_D FILE ############
-    
-    # Method 1 is applied for the runoff
-    
-    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                              first_year = 1960, last_year = 2019,
-                                              time_step = time_step, sim_state=sim_state)
-    Rech = BV.forcing.recharge
-    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = 1960, last_year=2019,
-                                          time_step = time_step, sim_state=sim_state)
-    Runof = BV.forcing.runoff # m/month
-    
-    norm_Rech = select_period(Rech_averag, 2021, 2022)
-    norm_Qobs = select_period(Qobs, 2021, 2022)
-    
-    Rt_Rech_Qobs = (norm_Qobs.mean() / norm_Rech.mean())
-    print(Rt_Rech_Qobs.round(2))
-    Nt = (norm_Rech * Rt_Rech_Qobs)
-    BV.forcing.update_recharge(Nt, sim_state=sim_state)
-    plt.plot(BV.forcing.recharge, c='r')
-    plt.plot(Qobs, c='b')
-    plt.yscale('log')
-    
-    BV.forcing.update_recharge(select_period(BV.forcing.recharge, 2021, 2022), sim_state=sim_state)
-    
-    # Need to add 2021 and 2022 runoff SURFEX, in _ALL_D.csv or with the method behind
-    dates = pd.date_range(start='1/1/2021', end='31/12/2022', freq='D', closed=None)
-    Runof_averag = Runof.groupby([Runof.index.month, 
-                                  Runof.index.day], as_index=True).mean().reset_index().iloc[:,-1:].iloc[:-1]
-    Runof_averag = Runof_averag.append(Runof_averag, ignore_index=True)
-    Runof_averag.index = dates
-    
-    BV.forcing.update_runoff(select_period(Runof_averag, 2021, 2022), sim_state=sim_state)
 
     ##### TO CHANGE IN MENSUALLY MODEL BECAUSE THE CALIBRATION ON Q IS NOW MENSUALLY #####
     Rech_mens = BV.forcing.recharge.resample('M').mean().squeeze() # to transform in pandas series
@@ -3511,3 +3474,41 @@ for watershed_name in watershed_names :
 #%% ----
 
 #%% NOTES
+
+'''
+############ METHOD 2 : TAKE RECHARGE SURFEX AFTER MODIFY _ALL_D FILE ############
+
+# Method 1 is applied for the runoff
+
+BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                          first_year = 1960, last_year = 2019,
+                                          time_step = time_step, sim_state=sim_state)
+Rech = BV.forcing.recharge
+BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                      first_year = 1960, last_year=2019,
+                                      time_step = time_step, sim_state=sim_state)
+Runof = BV.forcing.runoff # m/month
+
+norm_Rech = select_period(Rech_averag, 2021, 2022)
+norm_Qobs = select_period(Qobs, 2021, 2022)
+
+Rt_Rech_Qobs = (norm_Qobs.mean() / norm_Rech.mean())
+print(Rt_Rech_Qobs.round(2))
+Nt = (norm_Rech * Rt_Rech_Qobs)
+BV.forcing.update_recharge(Nt, sim_state=sim_state)
+plt.plot(BV.forcing.recharge, c='r')
+plt.plot(Qobs, c='b')
+plt.yscale('log')
+
+BV.forcing.update_recharge(select_period(BV.forcing.recharge, 2021, 2022), sim_state=sim_state)
+
+# Need to add 2021 and 2022 runoff SURFEX, in _ALL_D.csv or with the method behind
+dates = pd.date_range(start='1/1/2021', end='31/12/2022', freq='D', closed=None)
+Runof_averag = Runof.groupby([Runof.index.month, 
+                              Runof.index.day], as_index=True).mean().reset_index().iloc[:,-1:].iloc[:-1]
+Runof_averag = Runof_averag.append(Runof_averag, ignore_index=True)
+Runof_averag.index = dates
+
+BV.forcing.update_runoff(select_period(Runof_averag, 2021, 2022), sim_state=sim_state)
+'''
+
