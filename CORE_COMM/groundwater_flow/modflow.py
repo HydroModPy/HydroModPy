@@ -281,7 +281,7 @@ class Modflow():
                               seepage_areas = True, outflow_drain = True,
                               groundwater_flux = True, specific_discharge = False,
                               accumulation_flux = True, perenn_intermit_shp = False,
-                              groundwater_storage = False,
+                              groundwater_storage = False, residence_times = False,
                               verbose = True, export_tif = True):
         # self.wt_elev = []
         # self.wt_depth = []
@@ -484,7 +484,18 @@ class Modflow():
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
-            
+                
+            if residence_times == True:
+                print('residence_times')
+                res_time = np.zeros(np.shape(self.dem))
+                endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
+                e = endobj.get_alldata()
+                for j in range(len(e)):
+                     res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
+                if export_tif==True:
+                    output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
+                    toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
+        
             # Surface flow activation
             surface_flow = routing_accflux.RoutingAccflux(self.geographic,
                                                           'outflow_drain_t('+lead_numb+').tif',
