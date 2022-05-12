@@ -3365,10 +3365,14 @@ for watershed_name in watershed_names:
 import matplotlib as mpl
 
 watershed_names = ['Canut','Nancon']
-# watershed_names = ['Nancon']
+typ = 'projec-1'
+mod_list = ['MPI-R09','NOR-R15']
+sce_list = ['RCP2.6','RCP8.5']
 
 var = 'REC'
 scan = 'outflow_drain'
+
+test_periods = ['2020-2050', '2070-2100']
 
 for watershed_name in watershed_names:
 
@@ -3380,9 +3384,6 @@ for watershed_name in watershed_names:
     rcp26 = pd.DataFrame()
     rcp85 = pd.DataFrame()
         
-    fig2, ax2 = plt.subplots(1,1, figsize=(5,4),
-                            sharex=True, sharey=True)
-
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
@@ -3392,6 +3393,10 @@ for watershed_name in watershed_names:
     line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
     line = np.ma.masked_where(line < 0, line)
     
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+    
+    df_dis = pd.DataFrame()
+
     for mod in mod_list:
         
         for sce in ['RCP2.6','RCP8.5']:
@@ -3413,9 +3418,6 @@ for watershed_name in watershed_names:
                 # Historic
                 acc_npy_h = list(acc_npy.items())[18*12:48*12]
                 for key in range(len(acc_npy_h)):
-                    # print(key)
-                    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-                    # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
                     acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
                 zero = acc_npy_h[0] * 0
                 for i in range(len(acc_npy_h)):
@@ -3423,94 +3425,150 @@ for watershed_name in watershed_names:
                     tempo[tempo>0] = 1
                     zero = zero + tempo
                 days_flux_h = zero.copy() / len(acc_npy_h)
-                # ax.imshow(days_flux_h)
             
-                # To look
-                acc_npy = list(acc_npy.items())[-80*12:-50*12] #-30*12:
-                # acc_npy = list(acc_npy.items())[h:]
-                for key in range(len(acc_npy)):
-                    # print(key)
-                    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-                    # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
-                    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
-                zero = acc_npy[0] * 0
-                for i in range(len(acc_npy)):
-                    tempo = acc_npy[i].copy()
-                    tempo[tempo>0] = 1
-                    zero = zero + tempo
-                days_flux = zero.copy() / len(acc_npy)
-                
-                # Anomaly
-                days_flux_ano = ( (days_flux - days_flux_h) ) * 100
-                data = days_flux_ano[~days_flux_ano.mask]
-                
-                masked = data
-                # masked = days_flux_ano
-                Z = masked.flatten()
-                from scipy.stats import norm
-                pdf = norm.pdf(Z, Z.mean(), Z.std())
-                                
-                if sce == 'RCP2.6':
-                    color = 'dodgerblue'
-                    rcp26[mod] = Z
+                for dates in test_periods:
+            
+                    # To look
+                    if dates == '2020-2050':
+                        acc_npy_f = list(acc_npy.items())[-80*12:-50*12]
+                    if dates == '2070-2100' :
+                        acc_npy_f = list(acc_npy.items())[-30*12:]
+                    for key in range(len(acc_npy_f)):
+                        acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
+                    zero = acc_npy_f[0] * 0
+                    for i in range(len(acc_npy_f)):
+                        tempo = acc_npy_f[i].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo
+                    days_flux_f = zero.copy() / len(acc_npy_f)
+                    
+                    # Anomaly
+                    days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                    data = days_flux_ano[~days_flux_ano.mask]
+                    
+                    masked = data
+                    # masked = days_flux_ano
+                    Z = masked.flatten()
+                    from scipy.stats import norm
+                    pdf = norm.pdf(Z, Z.mean(), Z.std())
+                                    
+                    if sce == 'RCP2.6':
+                        color = 'dodgerblue'
+                        rcp26[mod] = Z
+                    if sce == 'RCP8.5':
+                        color = 'red'
+                        rcp85[mod] = Z
+                    
+                    df_dis[mod+'_'+sce+'_'+dates] = Z
+                    
+    if watershed_name == 'Canut':
+        canut_dis = df_dis.copy()
+    if watershed_name == 'Nancon':
+        nancon_dis = df_dis.copy()
+
+#%% ' '
+
+watershed_names = ['Canut','Nancon']
+mod_list = ['MPI-R09','NOR-R15']
+sce_list = ['RCP2.6','RCP8.5']
+
+for watershed_name in watershed_names:
+
+    for dates in test_periods:
+        
+        # import seaborn as sns
+        # sns.distplot(Z, bins=100, rug = False, hist = True, kde = False, norm_hist = True,
+        #       kde_kws = {'shade': True, 'linewidth': 0.5},
+        #       rug_kws={"color": "k"},
+        #       hist_kws={"histtype": "step", "linewidth": 1, "alpha": 1},
+        #       color=color)
+        
+        # ax2.hist(Z, bins = 100, density=True,
+        #         color = color, edgecolor = 'none')
+        
+        # heights, edges = np.histogram(Z, bins=100, density=True)
+        # left_edges = edges[:-1]
+        # width = 0.85*(left_edges[1] - left_edges[0])
+        # ax2.bar(left_edges, heights, align='edge', width=1/5,
+        #         lw=0, color=color, alpha=0.5)
+        
+        for mod in mod_list:
+            
+            fig2, ax2 = plt.subplots(1,1, figsize=(4,3),
+                                sharex=True, sharey=True)
+        
+            for sce in sce_list:
+                            
                 if sce == 'RCP8.5':
                     color = 'red'
-                    rcp85[mod] = Z
+                if sce == 'RCP2.6':
+                    color = 'dodgerblue'
+                
+                if watershed_name=='Canut':
+                    Z_dis = canut_dis.filter(regex=mod).filter(regex=sce).filter(regex=dates)
+                if watershed_name=='Nancon':
+                    Z_dis = nancon_dis.filter(regex=mod).filter(regex=sce).filter(regex=dates)
+                            
+                Z_t = Z_dis.copy()
+                Z_t = np.nan_to_num(Z_t)
+                Z_t = Z_t[Z_t!=0]
+                N_t = len(Z_t)
+                count_t, bins_count_t = np.histogram(Z_t, bins=100)
+                pdf_t = count_t / sum(count_t)
+                cdf_t = np.cumsum(pdf_t)
     
-                # import seaborn as sns
-                # sns.distplot(Z, bins=100, rug = False, hist = True, kde = False, norm_hist = True,
-                #       kde_kws = {'shade': True, 'linewidth': 0.5},
-                #       rug_kws={"color": "k"},
-                #       hist_kws={"histtype": "step", "linewidth": 1, "alpha": 1},
-                #       color=color)
+                Z_p = Z_dis[Z_dis>0]
+                Z_p = np.nan_to_num(Z_p)
+                # Z_p = Z_p[Z_p!=0]
+                N_p = len(Z_p)
+                count_p, bins_count_p = np.histogram(Z_p, bins=100)
+                pdf_p = count_p / sum(count_p)
+                cdf_p = np.cumsum(pdf_p)
+    
+                Z_n = Z_dis[Z_dis<0]
+                Z_n = np.nan_to_num(Z_n)
+                # Z_n = Z_n[Z_n!=0]
+                N_n = len(Z_n)
+                count_n, bins_count_n = np.histogram(Z_n, bins=100)
+                pdf_n = count_n / sum(count_n)
+                cdf_n = np.cumsum(pdf_n)
                 
-                # ax2.hist(Z, bins = 100, density=True,
-                #         color = color, edgecolor = 'none')
+                # ax2.bar(bins_count[1:], pdf, label="PDF",
+                #         align='edge', width=1/5, lw=0, color=color, alpha=0.5)
+                # ax2.plot(bins_count[1:], cdf, color=color, lw=2, label="CDF")
+                # ax2.plot(bins_count_p[1:], cdf_p, color=color, lw=2, label="CDF")
                 
-                heights, edges = np.histogram(Z, bins=100, density=True)
-                left_edges = edges[:-1]
-                # width = 0.85*(left_edges[1] - left_edges[0])
+                # ax2.bar(bins_count[1:], pdf, label="PDF",
+                #         align='edge', width=1/5, lw=0, color=color, alpha=0.5)
+                # ax2.plot(bins_count[1:], cdf, color=color, lw=2, label="CDF")
+                # ax2.plot(bins_count_n[1:], cdf_n, color=color, lw=2, label="CDF", ls='--')
                 
-                # ax2.bar(left_edges, heights, align='edge', width=1/5,
-                #         lw=0, color=color, alpha=0.5)
-                
-                data = Z.copy()
+                # ax2.set_yscale('log')
                 
                 import seaborn as sns
-                sns.distplot(Z, hist = False, kde = True, norm_hist = True,
+                sns.distplot(Z_t, hist = False, kde = True, norm_hist = True,
                       kde_kws = {'shade': True, 'linewidth': 0},
                       color=color)
                 
-                N = len(data)
-                count, bins_count = np.histogram(data, bins=100)
-                pdf = count / sum(count)
-                cdf = np.cumsum(pdf)
-                  
-                # ax2.bar(bins_count[1:], pdf, label="PDF",
-                #         align='edge', width=1/5, lw=0, color=color, alpha=0.5)
-                ax2.plot(bins_count[1:], cdf, color=color, lw=2, label="CDF")
-                # plt.legend()
+                # ax2.bar(bins_count_t[1:], pdf_t, 
+                #         align='edge', width=1/2, lw=0, color=color, alpha=0.75)
+                ax2.plot(bins_count_t[1:], cdf_t, 
+                        lw=2, color=color, alpha=1)
+            
+                # dates = ' 2070-2100'
+                ax2.set_title(watershed_name+' '+mod+' '+dates, pad=20)
+                
+                # ax2.set_xlabel('Persistency index anomaly [%]')
+                # ax2.set_ylabel('Density')
+                ax2.set_yticklabels([])
                 ax2.set_yscale('log')
-    
-    # hist26, edg26  = np.histogram(rcp26.mean(axis=1), bins=100, density=True)
-    # ax2.plot(edg26[:-1], hist26, lw=1, color='dodgerblue')
-    # hist85, edg85  = np.histogram(rcp85.mean(axis=1), bins=100, density=True)
-    # ax2.plot(edg85[:-1], hist26, lw=1, color='red')
-    
-    dates = ' 2020-2050'
-    
-    ax2.set_xlim(-20,20)
-    ax2.set_ylim(1e-3,1)
-    ax2.set_title(watershed_name + dates)
-    ax2.set_yscale('log')
-    ax2.set_xlabel('Persistency index anomaly [%]')
-    ax2.set_ylabel('Density')
-    
-    ax2.axvline(x=0, color='k', lw= 1.5)
-    
-    fig2.savefig(figsim_folder+
-                  watershed_name+'_'+mod+'_'+sce+'_'+
-                  '_anOmaly'+dates+'.png', dpi=300, bbox_inches='tight')
+                ax2.set_xlim(-20,20)
+                ax2.set_ylim(1e-2,1)
+                ax2.axvline(x=0, color='k', lw= 1.5, zorder=0)
+                
+            fig2.savefig(figsim_folder+'_distributions/'+
+                          watershed_name+'_'+mod+'_'+dates+'_'+
+                          '_ano_distrib'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 08_seasonaly anomaly
 
