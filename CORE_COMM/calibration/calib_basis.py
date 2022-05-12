@@ -122,7 +122,7 @@ class CalibrationBasis:
         
         # Run model
         succes, mf = self.watershed.run_modflow(self.ident, 
-                                                verbose=False, 
+                                                verbose=True, 
                                                 calib=self.param_folder)
         
         # Use objective function from the type of observation
