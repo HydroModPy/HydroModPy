@@ -82,7 +82,7 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 user = 'Clement'
-user = 'Ronan'
+#user = 'Ronan'
 
 if user == 'Clement':
     #############################################################
@@ -161,16 +161,6 @@ for watershed_name in watershed_names[:]:
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
 #%% ADD AND CLIP SPECIFIC DATA
-
-# # Climat
-# BV.add_surfex(surfex_path)
-# BV.add_drias(drias_path)
-
-# # Landscape
-# BV.add_geology(geology_path)
-# BV.add_oceanic(oceanic_path)
-
-# Hydrology
 #% Merger les points shp
 # pt_streams = hydrology_path + 'stream_digit_pt.shp'
 # pt_zh = hydrology_path + 'zh_digit_pt.shp'
@@ -178,14 +168,8 @@ for watershed_name in watershed_names[:]:
 # pt_zhstreams = hydrology_path + 'zhstreams_pt.shp'
 # wbt.merge_vectors(merge_path, pt_zhstreams)
 
-# #Merger les tifs
-# tif_streams = hydrology_path + 'stream_digit.tif'
-# tif_zh = hydrology_path + 'zh_digit.tif'
-# merge_path = tif_streams+';'+tif_zh
-# tif_zhstreams = hydrology_path + 'zhstreams.tif'
-# wbt.mosaic(tif_zhstreams, inputs=merge_path, method="nn")
 
-types_obs = ["zhstreams_dissolved"] # shapefile cours d'eau
+types_obs = ["lasset_stream_perennial"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
@@ -565,12 +549,66 @@ for i, type_obs in enumerate(types_obs):
     # df.loc[1,watershed_name] = kr
     # df.loc[2,watershed_name] = obj_func
     
-    df.loc[0,type_obs] = koptim / 24 / 3600
+    df.loc[0,type_obs] = koptim
     df.loc[1,type_obs] = kr
     df.loc[2,type_obs] = obj_func
     
 df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+#%% RUN Particle tracking and optimize porosity 
+
+#% MODEL with K from dichotomy and explore on RTD
+K_R = 79.2174 # Find path to dichotomy results
+
+K_dic = K_R*BV.forcing.recharge # UNITS OF RECHARGE ?
+BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+
+BV.hydrodynamic.update_porosity = 0.1
+
+# Name of model
+model_name = "test_RTD"
+# Launch model
+
+# Launch a model
+# BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
+#                 lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
+#                 verbose=True)
+success, flow_model = BV.run_modflow(ident=model_name,
+                                     modpath_sim=True)
+BV.matrix_modflow(success,
+                  flow_model,
+                  first_only = False,
+                  watertable_elevation = True,
+                  watertable_depth = True, 
+                  seepage_areas = True,
+                  outflow_drain = True,
+                  groundwater_flux = True,
+                  specific_discharge = False,
+                  accumulation_flux = True,
+                  perenn_intermit_shp = False,
+                  groundwater_storage = True,
+                  verbose = True,
+                  export_tif = True)
+
+BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_step='M')
+print('####################################')
+print('####### simulation completed #######')
+print('####################################')
+
+
+#%% 2D VISUALIZATION
+save_name = model_name + '_KR_'+ str(K_R)  
+visu = visualization.Visualization(BV, model_name)
+# visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+              # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+visu.visual2D(object_list = ['surface_flow','residence_times'],
+              color_scale = [(None,None),(None,None)], lines=10000)
+
+# EXTRACT local RTD at sampling points and compare with measured ones
+
+
+
 
 #%% INIT CALIB EXPLORATION DISCHARGE
 
