@@ -180,7 +180,6 @@ else:
 #watershed_names = ['AP_6948360', 'AP_6948120']
 for i, j in points.iterrows():
     if i>=0:
-        i=236
         watershed_name = str(points.loc[i,'grdc_no'])
         print('working on catchment #' + str(i) + ', id=' + watershed_name)
         x = points.loc[i,'X']
