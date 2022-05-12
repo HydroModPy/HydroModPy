@@ -682,7 +682,7 @@ for watershed_name in watershed_names[:] :
     BV.hydrodynamic.update_bottom(bottom) # None
     BV.hydrodynamic.update_cond_decay(cond_decay_inv) # 0
     BV.hydrodynamic.update_thick_exp(thick_exp) # 1
-    BV.hydrodynamic.update_thickness(thickness) # 30
+    BV.hydrodynamic.update_thickness(thickness) # 30 / intervient pas si bottom != None
     # BV.hydrodynamic.update_porosity(0.001)
     # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
     
