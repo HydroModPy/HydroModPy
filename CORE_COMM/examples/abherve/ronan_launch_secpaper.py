@@ -60,7 +60,7 @@ warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias f
 warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
 warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
-                 
+               
 #%HYDROMODPY MODULES
                     
 from watershed import watershed_root, watershed_display, forcing
@@ -1628,6 +1628,9 @@ hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrogr
 watershed_names = ['Canut','Nancon']
 code_names = ['J7513010','J0014010']
 
+# watershed_names = ['Canut']
+# code_names = ['J7513010']
+
 types_obs = ['complete','intermittent','perennial','river','zh_couesnon','zh_meuchezecanut'] # list of shapefile name layers for clip hydrology
 fields_obs = ['persistanc','fid','fid','fid','fid','fid']
 
@@ -1721,34 +1724,34 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='darkorange', ls='-',
                                                   zorder=5,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
-    try:
-        if os.path.exists(BV.piezometry.piezos_shp):
-            piezos = gpd.read_file(BV.piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
-                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
-    except:
-        pass
-    try:
-        if len(BV.piezometry.x_coord_discrete)>0:
-            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,
-                       c='forestgreen',
-                       marker='^', zorder=5, label='Piezometers: discrete')
-    except:
-        pass   
-    try:
-        if os.path.exists(BV.hydrometry.hydrometric_clip):
-            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
-            hydromet.plot(ax=ax, color='yellow', zorder=7, marker='o', markersize=70,
-                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
-    except:
-        pass 
-    try:
-        if os.path.exists(BV.intermittency.onde_clip):
-            intermit = gpd.read_file(BV.intermittency.onde_clip)
-            intermit.plot(ax=ax, color='yellow', zorder=8, marker='s',markersize=50,
-                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
-    except:
-        pass
+    # try:
+    #     if os.path.exists(BV.piezometry.piezos_shp):
+    #         piezos = gpd.read_file(BV.piezometry.piezos_shp)
+    #         piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
+    #                     edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
+    # except:
+    #     pass
+    # try:
+    #     if len(BV.piezometry.x_coord_discrete)>0:
+    #         ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,
+    #                    c='forestgreen',
+    #                    marker='^', zorder=5, label='Piezometers: discrete')
+    # except:
+    #     pass   
+    # try:
+    #     if os.path.exists(BV.hydrometry.hydrometric_clip):
+    #         hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
+    #         hydromet.plot(ax=ax, color='yellow', zorder=7, marker='o', markersize=70,
+    #                       edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+    # except:
+    #     pass 
+    # try:
+    #     if os.path.exists(BV.intermittency.onde_clip):
+    #         intermit = gpd.read_file(BV.intermittency.onde_clip)
+    #         intermit.plot(ax=ax, color='yellow', zorder=8, marker='s',markersize=50,
+    #                       edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
+    # except:
+    #     pass
     
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="2%",position='right', pad=0.05)
@@ -1783,7 +1786,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     
     path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed.shp'
     sub = gpd.read_file(path_sub)
-    sub.plot(ax=ax, facecolor='none', edgecolor='k', lw=1, zorder=6)
+    # sub.plot(ax=ax, facecolor='none', edgecolor='k', lw=2,
+    #          ls=':', zorder=6)
+    
+    if watershed_name == 'Canut':
+        ofb = gpd.read_file('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/INTERMITTENCE/Chèze-Canut/OFB_Observations_Canut_2018-2019.shp')
+        ofb = ofb.drop([46,47,48])
+        ofb.plot(ax=ax, color='yellow', zorder=6, marker='d', markersize=20,
+                      edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
     
     fig.tight_layout()
     
@@ -3699,28 +3709,38 @@ seasons = ['SON','DJF','MAM','JJA']
 
 for watershed_name in watershed_names:
     
-    gs = (grid_spec.GridSpec(len(seasons),1))
-    
-    # fig = plt.figure(figsize=(8,3))
-    fig, axs = plt.subplots(4,1, figsize=(4,5))
-    #creating empty list
-    ax_objs = []
-    
-    i = 0
-    for season in seasons:
-    
-        # ax = fig.add_subplot(gs[i, :])
-    
-        for mod in mod_list:
+    for mod in mod_list:
         
+        gs = (grid_spec.GridSpec(len(seasons),1))
+        
+        # fig = plt.figure(figsize=(8,3))
+        fig, axs = plt.subplots(4,1, figsize=(4,5))
+        #creating empty list
+        ax_objs = []
+    
+        i = 0
+        for season in seasons:
+        
+            # ax = fig.add_subplot(gs[i, :])
+        
+            
+            
             for sce in sce_list:
                 
                 print(mod,sce,season)
                 
                 if sce == 'RCP8.5':
                     color = 'red'
+                    # if mod == 'MPI-R09':
+                    #     color = 'red'
+                    # else:
+                    #     color = 'darkorange'                   
                 if sce == 'RCP2.6':
                     color = 'dodgerblue'
+                    # if mod == 'MPI-R09':
+                    #     color = 'dodgerblue'
+                    # else:
+                    #     color = 'forestgreen'   
                 
                 if watershed_name=='Canut':
                     to_plt = canut_ano.filter(regex=season).filter(regex=mod).filter(regex=sce)
@@ -3753,6 +3773,9 @@ for watershed_name in watershed_names:
                 width = 0.85*(left_edges[1] - left_edges[0])              
                 ax.bar(left_edges, heights, align='edge', width=1/2,
                         lw=0, color=color, alpha=0.5)
+                # plt.plot(left_edges, heights, lw=1, color=color, alpha=1)
+                # plt.yscale('log')
+                # plt.fill_between(left_edges, 0, heights, lw=0, color=color, alpha=0.5)
             
                 ax.set_xlim(-20, +20)
                 ax.set_ylim(0.001,1)
@@ -3779,8 +3802,8 @@ for watershed_name in watershed_names:
                 
                 # ax.axvline(x=0, c='k')
                 ax.set_ylabel(' ')
-            
-        i += 1
+                
+            i += 1
 
     # gs.update(hspace=-0.5)
     fig.suptitle(watershed_name)
@@ -3789,9 +3812,9 @@ for watershed_name in watershed_names:
     
     dates = '2050-2100'
     
-    fig.savefig(figsim_folder+
-                  watershed_name+
-                  '_seasonal_anomaly'+dates+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(figsim_folder+
+    #               watershed_name+
+    #               '_seasonal_anomaly'+dates+'.png', dpi=300, bbox_inches='tight')
                                 
 #%% 09_monthly discharge
 
@@ -3924,23 +3947,24 @@ joyplot(data=di,
 figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/_outputs/'
 
 # Things
-typ = 'proj1'
+typ = 'projec-1'
 time_step = 'M'
 sim_state = 'transient'
 var = 'REC'
 scan = 'outflow_drain'
 
 # Colored
-mod_list = ['NOR1','IPS1']
+mod_list = ['NOR-R15']
 sce_list = ['historic','RCP2.6','RCP8.5']
+sce_list = ['RCP8.5']
 sce_cmap = ["Greys","Greens","Reds"]
 sce_color = ['k',"dodgerblue","red"]
 cmap_dict = dict(zip(sce_list, sce_cmap))
 color_dict = dict(zip(sce_list, sce_color))
 
 # Hysteres
-temporal = False
-space = 0
+temporal = True
+space = 10
 norm = False
 
 watershed_names = ['Canut','Nancon']
@@ -3956,11 +3980,15 @@ for watershed_name in watershed_names :
     yx = 100
     ax = axs1
     ax.set_title(mod_list)
-    ax.set_aspect('equal', adjustable='box')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    # ax.set_aspect('equal', adjustable='box')
+    '''
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     axz = inset_axes(ax, width="40%", height="40%", loc='upper left',
                      bbox_to_anchor=(0.0,0,1,1), bbox_transform=ax.transAxes)
     axz.set_aspect('equal', adjustable='box')
+    '''
     
     for mod in mod_list:
         
@@ -4000,12 +4028,12 @@ for watershed_name in watershed_names :
             Qmod = (Smod[scan] * 1000 * 30).squeeze()   # mm/months            
             Cmod = Smod['recharge'] * 1000 * 30 # mm/months
 
-            if sce == 'historic' :
-                Qmod = select_period(Qmod, 1990, 2019)
-                Cmod = select_period(Cmod, 1990, 2019)
-            if sce != 'historic':
-                Qmod = select_period(Qmod, 2070, 2099)
-                Cmod = select_period(Cmod, 2070, 2099)
+            # if sce == 'historic' :
+            #     Qmod = select_period(Qmod, 1990, 2019)
+            #     Cmod = select_period(Cmod, 1990, 2019)
+            # if sce != 'historic':
+            #     Qmod = select_period(Qmod, 2070, 2099)
+            #     Cmod = select_period(Cmod, 2070, 2099)
             
             DFmod = pd.DataFrame(columns=['x','y'])
             DFmod['x'] = Cmod
@@ -4032,6 +4060,7 @@ for watershed_name in watershed_names :
             
             n = len(columns_x)
             cmap = cmap_dict[sce]
+            cmap = 'jet'
             cmap_color = plt.get_cmap(cmap)(np.linspace(0, 1, n))
             
             color = color_dict[sce]
@@ -4044,7 +4073,10 @@ for watershed_name in watershed_names :
                 data = pd.DataFrame()
                 data['inx'] = hyst.xrecapl[colx]
                 data['iny'] = hyst.yrecapl[coly]
-                # ax.plot(data.inx, data.iny, linestyle = '-', lw=0.5, color=cmap_color[i], alpha=0.75, zorder=0)
+                ax.plot(data.inx, data.iny, linestyle = '-', lw=2,
+                        color=cmap_color[i], alpha=0.75, zorder=0)
+                # ax.plot(data.inx, data.iny, marker='.', linestyle = '-', lw=0,
+                #         color=cmap_color[i], alpha=0.75, zorder=0)
             ax.plot(data.inx, data.iny, linestyle = '-', lw=2, color=color, zorder=1)
 
             # ax.scatter(hyst.x, hyst.y, c=hyst.wy, cmap=cmap_dict[sce], marker=".", 
@@ -4090,13 +4122,15 @@ for watershed_name in watershed_names :
                 # ax.add_patch(ring_patch)
             
             # plt.setp(axs2, xlim=(min(xmin),max(xmax)), ylim=(min(ymin),max(ymax)))
-            ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
-                    linestyle='--', color='grey', linewidth=1.5, zorder=-1)
+            
+            # ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
+            #         linestyle='--', color='grey', linewidth=1.5, zorder=-1)
 
             ax.grid(color='grey',alpha=0.2)
             ax.set_ylabel('Q [mm/month]')
             ax.set_xlabel('R [mm/month]')
             
+            '''
             # AX ZOOM
             axz.plot(data.inx, data.iny, linestyle = '-', lw=1, color=color, zorder=1)
             xmin, xmax = axz.get_xlim()
@@ -4112,6 +4146,7 @@ for watershed_name in watershed_names :
             # axz.axis('off')
             for axis in ['top','bottom','left','right']:
                 axz.spines[axis].set_linewidth(1)
+            '''
 
     plt.tight_layout()
                         
