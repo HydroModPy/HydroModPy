@@ -403,6 +403,7 @@ class Watershed:
                        accumulation_flux = True,
                        perenn_intermit_shp=True,
                        groundwater_storage = False,
+                       residence_times = False,
                        verbose = True,
                        export_tif = True,
                        calib=None):
@@ -418,6 +419,7 @@ class Watershed:
                                        accumulation_flux = accumulation_flux,
                                        perenn_intermit_shp=perenn_intermit_shp,
                                        groundwater_storage = groundwater_storage,
+                                       residence_times = residence_times,
                                        verbose = verbose,
                                        export_tif = export_tif)
 

@@ -82,7 +82,7 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 user = 'Clement'
-#user = 'Ronan'
+user = 'Ronan'
 
 if user == 'Clement':
     #############################################################
@@ -472,7 +472,21 @@ for watershed_name in watershed_names[:] :
 
 #%% ----
 
+#%% TESTS
+
+['nlay', 'thickness', 'bottom', 'cond_decay', 'thick_exp']
+
+case_list = ['case1', 'case2', 'case3']
+prop_list = [[1, 100, None, 0, 1],
+             [5, 100, 1000, 0, 1],
+             [10, 100, 1000, 0.1, 1.25]]
+
+porosity_list = [0.001, 0.01, 0.1]
+
 #%% INIT CALIB DICHOTOMY STREAMS
+
+
+# names_params_dict = dict(zip(names_list, params_list))
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
@@ -480,63 +494,73 @@ watershed_names = ['Lasset']
 
 for watershed_name in watershed_names[:] :
     
-    types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
+    # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
+    types_obs = ['streams'] # list of shapefile name layers for clip hydrology
     fields_obs = ['fid']
-        
-    df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
     
-    for type_obs, field_obs in zip(types_obs, fields_obs):
-   
-        print('##### '+watershed_name.upper()+' #####')
+    for case, prop in zip(case_list, prop_list):
+    
+        # df = pd.DataFrame(np.nan, index=range(1), columns=case_list)
         
-        BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                      dem_path=dem_path, 
-                                      out_path=out_path,
-                                      load=True,
-                                      modflow_path=modflow_path)
-        area = BV.geographic.area
-        
-        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+        for type_obs, field_obs in zip(types_obs, fields_obs):
+       
+            print('##### '+watershed_name.upper()+' #####')
+            print(case)
+            print(prop)
             
-        # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
+            BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                          dem_path=dem_path, 
+                                          out_path=out_path,
+                                          load=True,
+                                          modflow_path=modflow_path)
+            area = BV.geographic.area
+            
+            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+                
+            # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
+            
+            BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                              first_year = 1960, last_year=2019, time_step = 'D',
+                                              sim_state='steady') #
+            
+            # BV.hydrodynamic.update_porosity(0.1)
+            # BV.hydrodynamic.update_hyd_cond(2)
+            BV.hydrodynamic.update_nlay(prop[0])
+            BV.hydrodynamic.update_thickness(prop[1])
+            BV.hydrodynamic.update_bottom(prop[2])
+            BV.hydrodynamic.update_cond_decay(prop[3])
+            BV.hydrodynamic.update_thick_exp(prop[4])
+            
+            params_df = pd.DataFrame(columns=['params',
+                                              'init_values','lower_bounds','higher_bounds',
+                                              'units','scale'])
+            params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e-1,'m/j','lin']
+            
+            params_file = 'calib_dicot_hom_1v_k1'
+            
+            params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+    
+            # params_file = 'calib_dicot_het_2v_k1-k2'
+            # params_file = 'calib_dicot_hom_2v_k1-n1'
         
-        BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                          first_year = 1960, last_year=2019, time_step = 'D',
-                                          sim_state='steady') #
-        
-        # BV.hydrodynamic.update_porosity(0.1)
-        # BV.hydrodynamic.update_hyd_cond(2)
-        BV.hydrodynamic.update_nlay(1)
-        BV.hydrodynamic.update_thickness(30)
-        BV.hydrodynamic.update_bottom(None)
-        BV.hydrodynamic.update_cond_decay(0)
-        BV.hydrodynamic.update_thick_exp(1)
-        
-        params_df = pd.DataFrame(columns=['params',
-                                          'init_values','lower_bounds','higher_bounds',
-                                          'units','scale'])
-        params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+00,'m/j','lin']
-        
-        params_file = 'calib_dicot_hom_1v_k1'
-        
-        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-
-        # params_file = 'calib_dicot_het_2v_k1-k2'
-        # params_file = 'calib_dicot_hom_2v_k1-n1'
-        
-#%% RUN CALIB DICHOTOMY STREAMS
-
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-dicot = calib.dichotomy(gap=1)
+# RUN CALIB DICHOTOMY STREAMS
+            
+            calib = calib_root.Calibration(params_file, BV,
+                                           observations = ['streams'])
+            dicot = calib.dichotomy(gap=1)
 
 #%% PLOT CALIB DICHOTOMY STREAMS
 
-for i, type_obs in enumerate(types_obs):
+# Search by date
+
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+
+compt = 0
+for case, prop in zip(case_list, prop_list):
     
-    typ_calib = 'streams_calibration'
-    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                       key=os.path.getmtime)
-    name_file = list_path[i].split('\\')[-1]
+    name_file = list_path[compt].split('\\')[-1]
     calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
     test = calib_analysis.CalibAnalysis(calib_file)
     test.display_objective_function(save=None)
@@ -549,66 +573,139 @@ for i, type_obs in enumerate(types_obs):
     # df.loc[1,watershed_name] = kr
     # df.loc[2,watershed_name] = obj_func
     
-    df.loc[0,type_obs] = koptim
-    df.loc[1,type_obs] = kr
-    df.loc[2,type_obs] = obj_func
+    df.loc[0,case] = koptim
+    df.loc[1,case] = kr
+    df.loc[2,case] = obj_func
+    
+    compt+=1
     
 df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+#%% RUN PARTCILE TRACKING
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 1960, last_year=2019, time_step = 'D',
+                                  sim_state='steady') #
+
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
-#%% RUN Particle tracking and optimize porosity 
+for case, prop in zip(case_list, prop_list):
 
 #% MODEL with K from dichotomy and explore on RTD
-K_R = 79.2174 # Find path to dichotomy results
+    # K_R = 79.2174 # Find path to dichotomy results
+    K_R = df.loc[1,case]
 
-K_dic = K_R*BV.forcing.recharge # UNITS OF RECHARGE ?
-BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+    K_dic = K_R*BV.forcing.recharge # UNITS OF RECHARGE ?
+    
+    BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
+    BV.hydrodynamic.update_nlay(prop[0])
+    BV.hydrodynamic.update_thickness(prop[1])
+    BV.hydrodynamic.update_bottom(prop[2])
+    BV.hydrodynamic.update_cond_decay(prop[3])
+    BV.hydrodynamic.update_thick_exp(prop[4])
+    
+    for porosity in porosity_list:
+    
+        BV.hydrodynamic.update_porosity = porosity
+        
+        # Name of model
+        model_name = case+'_'+str(porosity)
+        # Launch model
+        
+        # Launch a model
+        # BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
+        #                 lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
+        #                 verbose=True)
+        success, flow_model = BV.run_modflow(ident=model_name,
+                                             modpath_sim=True)
+        BV.matrix_modflow(success,
+                          flow_model,
+                          first_only = False,
+                          watertable_elevation = True,
+                          watertable_depth = True, 
+                          seepage_areas = True,
+                          outflow_drain = True,
+                          groundwater_flux = True,
+                          specific_discharge = False,
+                          accumulation_flux = True,
+                          perenn_intermit_shp = False,
+                          groundwater_storage = True,
+                          residence_times = True,
+                          verbose = True,
+                          export_tif = True)
+        
+        BV.results_modflow(ident=model_name,
+                           actual_date=True,
+                           start='1960-01-01',
+                           time_step='M')
+        
+        print('####################################')
+        print('####### simulation completed #######')
+        print('####################################')
 
-BV.hydrodynamic.update_porosity = 0.1
+#%% EXTRACT A TSAMPLING POINTS AND PLOT
 
-# Name of model
-model_name = "test_RTD"
-# Launch model
+wateshed_name = 'Lasset'
 
-# Launch a model
-# BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
-#                 lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
-#                 verbose=True)
-success, flow_model = BV.run_modflow(ident=model_name,
-                                     modpath_sim=True)
-BV.matrix_modflow(success,
-                  flow_model,
-                  first_only = False,
-                  watertable_elevation = True,
-                  watertable_depth = True, 
-                  seepage_areas = True,
-                  outflow_drain = True,
-                  groundwater_flux = True,
-                  specific_discharge = False,
-                  accumulation_flux = True,
-                  perenn_intermit_shp = False,
-                  groundwater_storage = True,
-                  verbose = True,
-                  export_tif = True)
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
 
-BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_step='M')
-print('####################################')
-print('####### simulation completed #######')
-print('####################################')
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
 
+for case, prop in zip(case_list, prop_list):
+    
+    for porosity in porosity_list:
+    
+        model_name = case+'_'+str(porosity)
+        folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
+        path_res = folder_results+'residence_times_t(0).tif'
+        
+        ### Plot
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        res_time = rasterio.open(path_res)
+        res_time_data = res_time.read(1)
+        show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
+                  cmap='jet_r', alpha=0.55, zorder=2, aspect="auto")
+        path_obs = stable_folder+'/add_data/'+'campaign_C2_LAMB93.shp'
+        shp_obs = gpd.read_file(path_obs)
+        path_shp = simulations_folder + '/' + model_name + '/' + '_watershed/_shp/'
+        toolbox.create_folder(path_shp)
+        shp_obs.to_file(path_shp+'residence_times_data.shp', encoding='utf-8')
+        del(shp_obs)
+        shp_data = gpd.read_file(path_shp+'residence_times_data.shp')
+        shp_data.plot(ax=ax, color='k', zorder=10, marker='o', markersize=70,
+                     edgecolor='k', lw=1)
+        bounds = dem.bounds
+        xlim = ([bounds[0], bounds[2]])
+        ylim = ([bounds[1], bounds[3]])
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'bottom', location='upper left')
+        ax.add_artist(scalebar)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_title(watershed_name, fontproperties=fontprop)
+        ax.set(aspect='equal')
+        
+        wbt.extract_raster_values_at_points(
+                        path_res, 
+                        path_shp+'residence_times_data.shp', 
+                        out_text=False)
 
 #%% 2D VISUALIZATION
+
 save_name = model_name + '_KR_'+ str(K_R)  
 visu = visualization.Visualization(BV, model_name)
 # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
               # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
 visu.visual2D(object_list = ['surface_flow','residence_times'],
               color_scale = [(None,None),(None,None)], lines=10000)
-
-# EXTRACT local RTD at sampling points and compare with measured ones
-
-
-
 
 #%% INIT CALIB EXPLORATION DISCHARGE
 
