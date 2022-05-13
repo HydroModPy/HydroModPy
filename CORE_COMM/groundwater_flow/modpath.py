@@ -25,7 +25,10 @@ class Modpath:
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
-    def __init__(self,geographic, model_name='modflow_model', model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), porosity = 0.01 ,verbose=True):
+    def __init__(self,geographic, model_name='modflow_model', 
+                 model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
+                 exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), 
+                 porosity = 0.01 ,verbose=True):
         self.model_name = model_name
         self.geographic = geographic
         self.model_folder = model_folder
@@ -132,7 +135,8 @@ class Modpath:
                                 compt = compt + 1
         self.point_data = stldata
         stl.data = stldata
-
+        
+        # print(self.porosity)
         flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0, laytyp=laytype, ibound=iboundData,
 										prsity=self.porosity, prsityCB=self.porosity, extension='mpbas', unitnumber=86)
         self.mp.write_input()
