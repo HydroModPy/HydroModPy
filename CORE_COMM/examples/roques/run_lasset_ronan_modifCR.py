@@ -477,10 +477,7 @@ for watershed_name in watershed_names[:] :
 ['nlay', 'thickness', 'bottom', 'cond_decay', 'thick_exp']
 
 case_list = ['case1', 'case2', 'case3']
-prop_list = [[1, 100, None, 0, 1],
-             [5, 100, 1000, 0, 1],
-             [10, 100, 1000, 0.1, 1.25]]
-
+prop_list = [[1, 100, None, 0, 1], [5, 100, 1000, 0, 1], [10, 100, 1000, 0.1, 1.25]]
 porosity_list = [0.001, 0.01, 0.1]
 
 #%% INIT CALIB DICHOTOMY STREAMS
@@ -606,7 +603,8 @@ for case, prop in zip(case_list, prop_list):
     
     for porosity in porosity_list:
     
-        BV.hydrodynamic.update_porosity = porosity
+        BV.hydrodynamic.update_porosity(porosity)
+        # print(BV.hydrodynamic.porosity)
         
         # Name of model
         model_name = case+'_'+str(porosity)
@@ -643,7 +641,7 @@ for case, prop in zip(case_list, prop_list):
         print('####### simulation completed #######')
         print('####################################')
 
-#%% EXTRACT A TSAMPLING POINTS AND PLOT
+#%% EXTRACT A SAMPLING POINTS AND PLOT
 
 wateshed_name = 'Lasset'
 
@@ -664,23 +662,63 @@ for case, prop in zip(case_list, prop_list):
     
         model_name = case+'_'+str(porosity)
         folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
-        path_res = folder_results+'residence_times_t(0).tif'
         
-        ### Plot
-        fig, ax = plt.subplots(1,1, figsize=(5,5))
-        res_time = rasterio.open(path_res)
-        res_time_data = res_time.read(1)
-        show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
-                  cmap='jet_r', alpha=0.55, zorder=2, aspect="auto")
+        path_res = folder_results+'residence_times_t(0).tif'
         path_obs = stable_folder+'/add_data/'+'campaign_C2_LAMB93.shp'
-        shp_obs = gpd.read_file(path_obs)
         path_shp = simulations_folder + '/' + model_name + '/' + '_watershed/_shp/'
         toolbox.create_folder(path_shp)
-        shp_obs.to_file(path_shp+'residence_times_data.shp', encoding='utf-8')
-        del(shp_obs)
-        shp_data = gpd.read_file(path_shp+'residence_times_data.shp')
-        shp_data.plot(ax=ax, color='k', zorder=10, marker='o', markersize=70,
-                     edgecolor='k', lw=1)
+        path_dat = path_shp+'residence_times_data.shp'
+        
+        res_time = rasterio.open(path_res)
+        res_time_data = res_time.read(1)
+        
+        shp_obs = gpd.read_file(path_obs)
+        shp_obs['geometry'] = shp_obs.geometry.buffer(75)
+        # shp_obs = shp_obs[['ID_station', 'geometry']]
+        shp_obs.to_file(path_dat, encoding='utf-8') # mode a
+        
+        # wbt.extract_raster_values_at_points(
+        #                 path_res, 
+        #                 path_dat, 
+        #                 out_text=False)
+        
+        # Mathod 1
+        wbt.raster_to_vector_polygons(
+                path_res, 
+                path_shp+'raster_polygonized.shp')
+        raster_polyg = gpd.read_file(path_shp+'raster_polygonized.shp')
+        intersect = gpd.overlay(shp_obs, raster_polyg, how='intersection')
+        res_dat = gpd.read_file(path_dat)
+        res_dat['RES_TIME'] = np.nan
+        
+        for ID in intersect['ID_station'].unique():
+            mean_ID = np.nanmean(intersect[intersect['ID_station']==ID]['VALUE'])
+            res_dat['RES_TIME'][res_dat['ID_station']==ID] = mean_ID
+        
+        # Method 2
+        '''
+        from rasterstats import zonal_stats
+        stats = zonal_stats(path_dat, path_res)
+        # print(stats[0].keys())
+        # print(stats)
+        means = [f['mean'] for f in stats]
+        res_dat = gpd.read_file(path_dat)
+        res_dat['RES_TIME'] = means
+        '''
+        
+        res_dat['RES_TIME'][res_dat['RES_TIME']==-np.inf] = np.nan
+        
+        vmin = 0
+        vmax = 5
+        
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
+             cmap='jet_r', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
+        shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
+                     edgecolor='k', lw=2, zorder=30)
+        res = res_dat.plot(ax=ax, cmap='jet_r',  marker='o', markersize=70,
+                     edgecolor='k', lw=0, column='RES_TIME', zorder=30,
+                     vmin=vmin, vmax=vmax)
         bounds = dem.bounds
         xlim = ([bounds[0], bounds[2]])
         ylim = ([bounds[1], bounds[3]])
@@ -690,13 +728,21 @@ for case, prop in zip(case_list, prop_list):
         ax.add_artist(scalebar)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-        ax.set_title(watershed_name, fontproperties=fontprop)
+        ax.set_title(model_name, fontproperties=fontprop)
         ax.set(aspect='equal')
-        
-        wbt.extract_raster_values_at_points(
-                        path_res, 
-                        path_shp+'residence_times_data.shp', 
-                        out_text=False)
+        sm = plt.cm.ScalarMappable(cmap='jet_r', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes(size="2%",position='right', pad=0.05)
+        fig.add_axes(cax)
+        cbar = fig.colorbar(sm, cax=cax, orientation="vertical")
+        cbar.ax.get_ymajorticklabels()
+        cbar.ax.tick_params(labelsize=10)
+        cbar.ax.yaxis.set_ticks_position('right')
+        cbar.ax.tick_params(size=2)
+        contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+        contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
+        cbar.set_ticks(list(cbar.get_ticks()))
+        cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
 
 #%% 2D VISUALIZATION
 

@@ -370,10 +370,11 @@ class Watershed:
             if post_process == True:
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
+                # print(self.hydrodynamic.porosity)
                 transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
                                             exe=self.modflow_path + '/bin/mp6.exe',
-                                            porosity=self.hydrodynamic.porosity)                
+                                            porosity=self.hydrodynamic.porosity)  
                 transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
                 # transit_model.post_processing()
