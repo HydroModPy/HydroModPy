@@ -58,7 +58,10 @@ class Hydrology:
             wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         if (shp_type == 'MultiLineString') | (shp_type == 'LineString') :
             wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
-        
+        if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
+            print(shp_type)
+            wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
+            
         dem_streams = gdal.Open(self.tif_streams)
         self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
         self.streams_array[self.streams_array<0] = np.nan
