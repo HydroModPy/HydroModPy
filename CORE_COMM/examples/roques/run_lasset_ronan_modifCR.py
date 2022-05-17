@@ -82,7 +82,7 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 user = 'Clement'
-user = 'Ronan'
+#user = 'Ronan'
 
 if user == 'Clement':
     #############################################################
@@ -120,7 +120,8 @@ intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermi
 piezometry_path = False # add piezometry data for automatic download
 subbasin_path = False # generate subbasins from stations or manual points
 
-dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
+#dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
+dem_name = "BDALTI_09_75m.tif"
 from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
@@ -315,7 +316,7 @@ for watershed_name in watershed_names[:] :
 
 ################ A REFAIRE AVEC DATA
 
-types_obs = ['streams'] # list of shapefile name layers for clip hydrology
+types_obs = ['lasset_stream_perennial'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid']
 
 df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
@@ -474,11 +475,15 @@ for watershed_name in watershed_names[:] :
 
 #%% TESTS
 
-['nlay', 'thickness', 'bottom', 'cond_decay', 'thick_exp']
+#['nlay', 'thickness', 'bottom', 'cond_decay', 'thick_exp']
+['thickness', 'bottom', 'cond_decay']
 
-case_list = ['case1', 'case2', 'case3']
-prop_list = [[1, 100, None, 0, 1], [5, 100, 1000, 0, 1], [10, 100, 1000, 0.1, 1.25]]
-porosity_list = [0.001, 0.01, 0.1]
+thick_exp = 1.25
+
+case_list = ['case1', 'case2', 'case3', 'case4']
+prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 0.1], [50, 1000, 0.01]]
+
+porosity_list = [0.01, 0.05, 0.1, 0.2]
 
 #%% INIT CALIB DICHOTOMY STREAMS
 
@@ -492,7 +497,7 @@ watershed_names = ['Lasset']
 for watershed_name in watershed_names[:] :
     
     # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
-    types_obs = ['streams'] # list of shapefile name layers for clip hydrology
+    types_obs = ['lasset_stream_wetland_perennial_pt'] # list of shapefile name layers for clip hydrology
     fields_obs = ['fid']
     
     for case, prop in zip(case_list, prop_list):
@@ -522,16 +527,27 @@ for watershed_name in watershed_names[:] :
             
             # BV.hydrodynamic.update_porosity(0.1)
             # BV.hydrodynamic.update_hyd_cond(2)
-            BV.hydrodynamic.update_nlay(prop[0])
-            BV.hydrodynamic.update_thickness(prop[1])
-            BV.hydrodynamic.update_bottom(prop[2])
-            BV.hydrodynamic.update_cond_decay(prop[3])
-            BV.hydrodynamic.update_thick_exp(prop[4])
+            # update the number of layers 
+            nlay = 5
+            if prop[2]>0:
+                length_K_decay = prop[2]**-1
+                thick = 10*length_K_decay
+                layer_min_thick = 5
+                nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
+                print('###########!!!!!!!!!!!!!!!!!############')
+                print('nlay = ' + str(nlay))
+                print('###########!!!!!!!!!!!!!!!!!############')
+                
+            BV.hydrodynamic.update_nlay(nlay)
+            BV.hydrodynamic.update_thickness(prop[0])
+            BV.hydrodynamic.update_bottom(prop[1])
+            BV.hydrodynamic.update_cond_decay(prop[2])
+            BV.hydrodynamic.update_thick_exp(thick_exp)
             
             params_df = pd.DataFrame(columns=['params',
                                               'init_values','lower_bounds','higher_bounds',
                                               'units','scale'])
-            params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e-1,'m/j','lin']
+            params_df.loc[0] = ['k1',8.64e-01,8.64e-04,8.64e-1,'m/j','lin']
             
             params_file = 'calib_dicot_hom_1v_k1'
             
@@ -553,7 +569,7 @@ for watershed_name in watershed_names[:] :
 typ_calib = 'streams_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
                    key=os.path.getmtime)
-
+df=pd.DataFrame()
 compt = 0
 for case, prop in zip(case_list, prop_list):
     
@@ -573,6 +589,9 @@ for case, prop in zip(case_list, prop_list):
     df.loc[0,case] = koptim
     df.loc[1,case] = kr
     df.loc[2,case] = obj_func
+    indicator = np.sqrt(obj_func)
+    indicator = 10**indicator 
+    df.loc[3,case] = indicator
     
     compt+=1
     
@@ -595,11 +614,22 @@ for case, prop in zip(case_list, prop_list):
     K_dic = K_R*BV.forcing.recharge # UNITS OF RECHARGE ?
     
     BV.hydrodynamic.update_hyd_cond(K_dic) # m/d
-    BV.hydrodynamic.update_nlay(prop[0])
-    BV.hydrodynamic.update_thickness(prop[1])
-    BV.hydrodynamic.update_bottom(prop[2])
-    BV.hydrodynamic.update_cond_decay(prop[3])
-    BV.hydrodynamic.update_thick_exp(prop[4])
+    
+    nlay = 5
+    if prop[2]>0:
+        length_K_decay = prop[2]**-1
+        thick = 10*length_K_decay
+        layer_min_thick = 5
+        nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
+        print('###########!!!!!!!!!!!!!!!!!############')
+        print('nlay = ' + str(nlay))
+        print('###########!!!!!!!!!!!!!!!!!############')
+                
+    BV.hydrodynamic.update_nlay(nlay)
+    BV.hydrodynamic.update_thickness(prop[0])
+    BV.hydrodynamic.update_bottom(prop[1])
+    BV.hydrodynamic.update_cond_decay(prop[2])
+    BV.hydrodynamic.update_thick_exp(thick_exp)
     
     for porosity in porosity_list:
     
@@ -664,7 +694,7 @@ for case, prop in zip(case_list, prop_list):
         folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
         
         path_res = folder_results+'residence_times_t(0).tif'
-        path_obs = stable_folder+'/add_data/'+'campaign_C2_LAMB93.shp'
+        path_obs = stable_folder+'/add_data/'+'age_apparent_obs_C2.shp'
         path_shp = simulations_folder + '/' + model_name + '/' + '_watershed/_shp/'
         toolbox.create_folder(path_shp)
         path_dat = path_shp+'residence_times_data.shp'
@@ -707,6 +737,7 @@ for case, prop in zip(case_list, prop_list):
         '''
         
         res_dat['RES_TIME'][res_dat['RES_TIME']==-np.inf] = np.nan
+        res_dat.to_file(path_shp + 'extract_RTD.shp', encoding = 'utf-8')
         
         vmin = 0
         vmax = 5
@@ -743,6 +774,10 @@ for case, prop in zip(case_list, prop_list):
         contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
         cbar.set_ticks(list(cbar.get_ticks()))
         cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
+        
+        
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        ax.scatter(res_dat['RES_TIME'],res_dat['RES_TIME'],)
 
 #%% 2D VISUALIZATION
 
