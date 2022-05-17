@@ -304,7 +304,8 @@ lines = 200
 
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
+visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view,
+              lines=lines, cloc=(0.7,0.1))
 
 #%% 2D MAP VIEW
 

@@ -85,6 +85,7 @@ user = 'Clement'
 user = 'Ronan'
 
 if user == 'Clement':
+    dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
     #############################################################
     git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
     # Path to the data folder
@@ -96,6 +97,8 @@ if user == 'Clement':
     #############################################################
 
 if user == 'Ronan':
+    dem_name = 'BDALTI_09_75m.tif'
+    dem_name = 'BDALTI_09_25m.tif'
     #############################################################
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
@@ -120,7 +123,6 @@ intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermi
 piezometry_path = False # add piezometry data for automatic download
 subbasin_path = False # generate subbasins from stations or manual points
 
-dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
 from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
@@ -137,7 +139,7 @@ code_names = ['?']
 
 #%% GENERATE WATERSHED
 
-load = True
+load = False
 
 for watershed_name in watershed_names[:]:
 
@@ -168,12 +170,25 @@ for watershed_name in watershed_names[:]:
 # pt_zhstreams = hydrology_path + 'zhstreams_pt.shp'
 # wbt.merge_vectors(merge_path, pt_zhstreams)
 
+from watershed import watershed_root, watershed_display, forcing
 
-types_obs = ["lasset_stream_perennial"] # shapefile cours d'eau
+hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/Lasset/' # add hydrographic shapefiles
+
+types_obs = ["lasset_stream_wetland_perennial_pt"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = True
+wbt.vector_points_to_raster(
+    'xxx',
+    'xxx',
+    field='fid',
+    base='xxx')
 
 # # Measurements
 # BV.add_hydrometry(hydrometry_path)
@@ -183,8 +198,8 @@ BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 # # Zones
 # BV.add_subbasin()
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+# watershed_display.watershed_dem(BV)
+# watershed_display.watershed_local(dem_path, BV)
 
 #%% ----
 
