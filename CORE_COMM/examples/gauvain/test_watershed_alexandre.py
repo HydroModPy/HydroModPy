@@ -20,7 +20,7 @@ from watershed import watershed_root
 
 
 # Users
-user_path = "Alexandre"
+user_path = "Martin"
 
 if user_path=="Alexandre":
     root_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
@@ -31,6 +31,9 @@ elif user_path=="Jean-Raynald":
 elif user_path=="Ronan":
     root_path= "D:/Users/abherve/HYDROMODPY/_data/"
     out_path = "D:/Users/abherve/HYDROMODPY"
+elif user_path=="Martin":
+    root_path= "C:/Users/Martin/Desktop/Travail/data/data_test_alex/"
+    out_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/output_test_alex/"
 else:
     print("Define a well-validated name of user")
 
