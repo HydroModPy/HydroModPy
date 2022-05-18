@@ -105,6 +105,7 @@ class Results:
         except:
             pass 
         
+        subbasin = False
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         bv = gdal.Open(self.geographic.watershed_dem)
@@ -113,12 +114,14 @@ class Results:
         self.extract_results(dem_clip, time, recharge, self.save_file)
        
         try:
+            subbasin = True
             self.zones_folder = os.path.join(self.stable_folder, 'subbasin')
             self.zones_list = os.listdir(self.zones_folder)
             for zone_name in self.zones_list:
                   save_file = os.path.join(self.full_path, '_subbasins', zone_name)
                   toolbox.create_folder(save_file) 
                   dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
+                  self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
                   self.extract_results(dem_clip, time, recharge, save_file)
         except:
             pass

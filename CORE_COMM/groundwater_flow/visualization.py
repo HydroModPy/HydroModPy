@@ -335,7 +335,7 @@ class Visualization():
             if obj == 'pathlines':
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                          transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
-                # axs[i].set_title('Residence times, log(t) [d]')
+                axs[i].set_title('Pathlines, log(t) [d]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
                 random_indices = np.random.choice(len(pth_data), size=lines)
@@ -372,6 +372,7 @@ class Visualization():
                     line = axs[i].add_collection(lc)
                 image.append(line)
                 basemap.append(0)
+                contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'residence_times':
                 axs[i].set_title('Residence times, log(t) [d]')
                 res_time = np.zeros(np.shape(dem))
@@ -379,7 +380,8 @@ class Visualization():
                 e = endobj.get_alldata()
                 for j in range(len(e)):
                      res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
-                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), cmap='jet_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time),
+                                             cmap='jet_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 

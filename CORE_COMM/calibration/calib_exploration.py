@@ -100,7 +100,7 @@ class CalibrationExploration(calbas.CalibrationBasis):
         """
         
         now = datetime.now()
-        name = self.param_ident + '_' + now.strftime("%Y-%m-%d_%Hh%M") 
+        name = self.param_ident + '_' + now.strftime("%Y-%m-%d_%Hh%Mm%Ss") 
         params_values = []
         compt=1
         pmin = self.params.p_min

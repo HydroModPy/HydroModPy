@@ -112,6 +112,7 @@ class Geographic:
             # Extract the coordinate system
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            #self.crs = 'EPSG:3035'
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [x], 'y': [y]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
@@ -132,7 +133,9 @@ class Geographic:
             self.watershed_shp = self.gis_path + 'watershed.shp'
             wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
         else:
-            self.watershed_shp = self.from_shp     
+            self.watershed_shp = self.gis_path + 'watershed.shp'
+            shp_file = gpd.read_file(self.from_shp)
+            shp_file.to_file(self.watershed_shp)
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
         self.area = np.abs(area)
@@ -140,85 +143,87 @@ class Geographic:
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
         
-        """
-        Buffer distance operations
-        """
-        # Normalize initial buffer distance value        
-        buff_raw = (np.sqrt(self.area)) * (buff_percent/100) * 1000
-        buff_raw = int(round(buff_raw))
-        dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
-        buff_dist = dist[np.abs(dist-buff_raw).argmin()]
-        # buff_dist = buff_raw
-        # Buffer the watershed shapefile polygon
-        site_polyg = gpd.read_file(self.watershed_shp)
-        site_polyg.to_file(self.watershed_shp)
-        site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
-        buffer = self.gis_path + 'buff.shp'
-        site_polyg.to_file(buffer)
-
-        """
-        Box extent operations
-        """
-        # Create box extent of the watershed
-        self.watershed_box_shp = self.gis_path + 'watershed_box.shp'
-        wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
-        # Buffer the box extent watershed shapefile polygon
-        site_bound = gpd.read_file(self.watershed_box_shp)
-        site_bound.to_file(self.watershed_box_shp)
-        site_bound['geometry'] = site_bound.geometry.buffer(buff_dist)
-        box_buffer = self.gis_path + 'box_buff.shp'
-        site_bound.to_file(box_buffer)
-        wbt.minimum_bounding_envelope(box_buffer, box_buffer, features=False)
-        site_bound = gpd.read_file(box_buffer)
-        site_bound.to_file(box_buffer)
+        if self.from_shp != None:
         
-        """
-        Clip to reach buffer size
-        """
-        # Clip raw regional DEM from buffer watershed shapefile polygon
-        self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem)
-        # Clip corrected regional DEM from buffer watershed shapefile polygon
-        self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill)
-        # Clip flow direction regional DEM from buffer watershed shapefile polygon
-        watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc)
-        
-        """
-        Clip to reach watershed size
-        """
-        # Clip buffer watershed DEM from watershed shapefile polygon
-        self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, maintain_dimensions=True)
-        # Clip corrected regional DEM from watershed shapefile polygon
-        self.watershed_fill = self.gis_path + 'watershed_fill.tif'
-        wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill)
-        # Clip flow direction regional DEM from watershed shapefile polygon
-        self.watershed_direc = self.gis_path + 'watershed_direc.tif'
-        wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc)
-        
-        """
-        Clip to reach box extent size
-        """
-        # Clip raw regional DEM from buffer box extent watershed shapefile polygon
-        self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem)
-        # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
-        watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill)
-        # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
-        watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
-        
-        """
-        Create depressions raster
-        """
-        try:
-            self.depressions = self.gis_path + 'depressions.tif'
-            wbt.sink(self.watershed_box_buff_dem, self.depressions)
-        except:
-            pass
+            """
+            Buffer distance operations
+            """
+            # Normalize initial buffer distance value        
+            buff_raw = (np.sqrt(self.area)) * (buff_percent/100) * 1000
+            buff_raw = int(round(buff_raw))
+            dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
+            buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+            # buff_dist = buff_raw
+            # Buffer the watershed shapefile polygon
+            site_polyg = gpd.read_file(self.watershed_shp)
+            site_polyg.to_file(self.watershed_shp)
+            site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
+            buffer = self.gis_path + 'buff.shp'
+            site_polyg.to_file(buffer)
+    
+            """
+            Box extent operations
+            """
+            # Create box extent of the watershed
+            self.watershed_box_shp = self.gis_path + 'watershed_box.shp'
+            wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
+            # Buffer the box extent watershed shapefile polygon
+            site_bound = gpd.read_file(self.watershed_box_shp)
+            site_bound.to_file(self.watershed_box_shp)
+            site_bound['geometry'] = site_bound.geometry.buffer(buff_dist)
+            box_buffer = self.gis_path + 'box_buff.shp'
+            site_bound.to_file(box_buffer)
+            wbt.minimum_bounding_envelope(box_buffer, box_buffer, features=False)
+            site_bound = gpd.read_file(box_buffer)
+            site_bound.to_file(box_buffer)
+            
+            """
+            Clip to reach buffer size
+            """
+            # Clip raw regional DEM from buffer watershed shapefile polygon
+            self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
+            wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem)
+            # Clip corrected regional DEM from buffer watershed shapefile polygon
+            self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+            wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill)
+            # Clip flow direction regional DEM from buffer watershed shapefile polygon
+            watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
+            wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc)
+            
+            """
+            Clip to reach watershed size
+            """
+            # Clip buffer watershed DEM from watershed shapefile polygon
+            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, maintain_dimensions=True)
+            # Clip corrected regional DEM from watershed shapefile polygon
+            self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+            wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill)
+            # Clip flow direction regional DEM from watershed shapefile polygon
+            self.watershed_direc = self.gis_path + 'watershed_direc.tif'
+            wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc)
+            
+            """
+            Clip to reach box extent size
+            """
+            # Clip raw regional DEM from buffer box extent watershed shapefile polygon
+            self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
+            wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem)
+            # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
+            watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
+            wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill)
+            # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
+            watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
+            wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
+            
+            """
+            Create depressions raster
+            """
+            try:
+                self.depressions = self.gis_path + 'depressions.tif'
+                wbt.sink(self.watershed_box_buff_dem, self.depressions)
+            except:
+                pass
         
     def post_processing_dem(self):
 

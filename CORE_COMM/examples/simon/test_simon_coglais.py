@@ -680,15 +680,17 @@ class Hysteresis:
         # cb.ax.tick_params(labelsize=10)
         # cb.update_ticks()
 
+#%% ----
+
 #%% PATH WATERSHED
 
 git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # Path to the data folder
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/DYNAMIC/"
+out_path = "D:/Users/abherve/COGLAIS/"
 # Figure folder outputs
-figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
+figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/v3/_outputs/'
 
 # git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # # Path to the data folder
@@ -706,14 +708,14 @@ surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/' # add surfex models i
 drias_path = data_path + 'CLIMATE/France/DRIAS/Bretagne/'
 geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
 oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
-hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
+hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/' # add hydrographic shapefiles
 hydrometry_path = data_path + 'HYDROLOGY/France/Hydrometry/' # add hydrometry data for automatic download
 intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
 piezometry_path = False # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 
 dem_name = "BDALTI_bzh_75m.tif" # name of dem
-from_shp = None # specify a path if process start from a given shapefile
+from_shp = 'C:/Users/ronan/OneDrive/_HydroDataPy/SHAPEFILE/coglais.shp' # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
 
@@ -722,44 +724,25 @@ from_xy = []
 dem_path = dems_path + dem_name
 
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
-# watershed_names = ['Pompage'] # search the name in watershed_library or just label your result folder
 
-watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
-code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
+# watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
+# code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
 #%% GENERATE WATERSHED
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
+watershed_names = ['Coglais']
 
-watershed_names = ['Canut']
-code_names = ['J7513010']
+# types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
 
-coords_list = []
-# watershed_names = []
-points = gpd.read_file(os.path.join(out_path, '_data', 'clipped_hydrometric.shp'))
-for m in code_names:
-    for i, j in enumerate(points['CdStatio_1']):
-        if j == m:
-            coords_list.append([points.loc[i,'CoordXStat'],points.loc[i,'CoordYStat'],200,10])
-            # watershed_names.append(j)
-
-types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
-fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
-
-types_obs = ['river'] # list of shapefile name layers for clip hydrology
+types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid']
 
-load = False
+load = True
 
-for watershed_name, coord_list in zip(watershed_names[:], coords_list[:]):
+for watershed_name in watershed_names[:]:
 
     print('##### '+watershed_name.upper()+' #####')
-
-    if watershed_name == 'Nancon':
-        coord_list[1] = str(float(coord_list[1]) + 100)
-    if watershed_name == 'Canut':
-        coord_list[2] = str(50)
 
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -769,61 +752,41 @@ for watershed_name, coord_list in zip(watershed_names[:], coords_list[:]):
                                   load=load,
                                   from_shp=from_shp,
                                   from_dem=from_dem,
-                                  from_xy=coord_list,
+                                  from_xy=[],
                                   cell_size=cell_size)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-    
-    if load != True :
-        
-        BV.add_surfex(surfex_path)
-        BV.add_geology(geology_path) 
-        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        BV.add_oceanic(oceanic_path)
-        BV.add_hydrometry(hydrometry_path)
-        BV.add_intermittency(intermittency_path)
-        try:
-            BV.add_piezometry()
-        except:
-            pass
-        BV.add_subbasin()
+  
+#%% DATA WATERSHED
 
+for watershed_name in watershed_names[:] :
+           
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+
+    BV.add_surfex(surfex_path)
+    # BV.add_drias(drias_path)
+    BV.add_geology(geology_path) 
+    BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    BV.add_oceanic(oceanic_path)
+    BV.add_hydrometry(hydrometry_path)
+    BV.add_intermittency(intermittency_path)
+    try:
+        BV.add_piezometry()
+    except:
+        pass
+    BV.add_subbasin()
+    
     watershed_display.watershed_dem(BV)
     watershed_display.watershed_local(dem_path, BV)
-
-#%% ADD DRIAS RECHARGE
-
-# BV.add_drias(drias_path)
-
-gcm_list = ['CNR','MPI','HAD','ECE','IPS','NOR']
-rcm_list = ['ALA','CCL','REG','RCA','WRF','R15','RAC','R09','HIR']
-mix_list = ['MPI-CCL','ECE-RCA','ECE-RAC','IPS-RCA','CNR-RAC','NOR-R15',
-            'CNR-ALA','NOR-HIR','HAD-CCL','IPS-WRF','HAD-REG','MPI-R09']
-
-# for gcm in gcm_list:
-# for rcm in rcm_list:
-# for mix in mix_list:
-#     gcm = mix.split('-')[0]
-#     rcm = mix.split('-')[1]
     
-#     BV.forcing.update_recharge_drias(gcm, rcm, 'historic', 1990, 1990, sim_state='transient')
-#     BV.forcing.update_runoff_drias(gcm, rcm, 'historic', 1990, 1990, sim_state='transient')
-#     recharge = BV.forcing.recharge
-#     runoff = BV.forcing.runoff
-    # plt.plot(recharge)
-    # plt.plot(runoff)
-    # plt.yscale('log')
-
 #%% ----
 
 
 #%% OBSERVED HYSTERESIS
-
-figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
-
-code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
-watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 
 watershed_names = ['Canut','Nancon']
 code_names = ['J7513010','J0014010']
@@ -859,22 +822,22 @@ color_dict = dict(zip(sce_list, sce_color))
 # fig2, ax2 = plt.subplots(1,1, figsize=(9,5))
 # ax2b = ax2.twinx()
 
-series_path = out_path + '_data/' +'export_hydro_series.csv'
-series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
-series = series.iloc[1:]
-series.index.name = None
-series.index = pd.to_datetime(series.index)
-series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
+# series_path = out_path + '_data/' +'export_hydro_series.csv'
+# series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
+# series = series.iloc[1:]
+# series.index.name = None
+# series.index = pd.to_datetime(series.index)
+# series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
 
 for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
        
-    if watershed_name == 'Gael':
-        series_path = out_path + '_data/' +'export_hydro_series_gael.csv'
-        series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
-        series = series.iloc[1:]
-        series.index.name = None
-        series.index = pd.to_datetime(series.index)
-        series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
+    # if watershed_name == 'Gael':
+    #     series_path = out_path + '_data/' +'export_hydro_series_gael.csv'
+    #     series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
+    #     series = series.iloc[1:]
+    #     series.index.name = None
+    #     series.index = pd.to_datetime(series.index)
+    #     series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -888,8 +851,10 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     Qobs_path = glob.glob(stable_folder+'hydrometry/'+'Hydrometric_'+'*')[0]
     naming = Qobs_path.split('\\')[-1]
     
-    serie = series[series['<CdStationHydro>']==code_name+'01']
-    Qobs = serie['<ResObsElaborHydro>'] / 1000 # L/s to m3/s
+    Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
+    
+    # serie = series[series['<CdStationHydro>']==code_name+'01']
+    # Qobs = serie['<ResObsElaborHydro>'] / 1000 # L/s to m3/s
 
     Qobs = Qobs.squeeze()
     Qobs = Qobs.rename('Q')
@@ -1054,17 +1019,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         '''
     
         path_fig = os.path.join(out_path, '_figures')
-        fig1.savefig(figsim_folder+'/'+watershed_name+'_'+log+'_hysteresis'+'.png', dpi=600, bbox_inches='tight')
+        # fig1.savefig(figsim_folder+'/'+watershed_name+'_'+log+'_hysteresis'+'.png', dpi=600, bbox_inches='tight')
         
     # fig1.savefig(figobs_folder+'loop_'+watershed_name+'.png', dpi=300, bbox_inches='tight')
     # plt.close()
 
 #%% OBSERVED DISCHARGE
-
-figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
-
-watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
-code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
 watershed_names = ['Canut','Nancon']
 code_names = ['J7513010','J0014010']
@@ -1341,28 +1301,21 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     
     fig.tight_layout()
     
-    fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping2'+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping2'+'.png', dpi=300, bbox_inches='tight')
 
 #%% ----
 
 #%% DICHOTOMY STREAMS
 
-hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
-
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
+watershed_names = ['Coglais']
 
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names[:] :
     
-    if watershed_name == 'Canut':
-        types_obs = ['perennial','river','complete','zh_meuchezecanut'] # list of shapefile name layers for clip hydrology
-        fields_obs = ['fid','fid','fid','fid']
-    if watershed_name == 'Nancon':
-        types_obs = ['perennial','river','complete','zh_couesnon'] # list of shapefile name layers for clip hydrology
-        fields_obs = ['fid','fid','fid','fid']
-        
+    types_obs = ['streams'] # list of shapefile name layers for clip hydrology
+    fields_obs = ['fid']
+
     df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
     
     for type_obs, field_obs in zip(types_obs, fields_obs):
@@ -1858,13 +1811,12 @@ for watershed_name in watershed_names[:]:
 
 #%% PARAM RUN MODEL
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
-types_obs = ['complete'] # list of shapefile name layers for clip hydrology
+watershed_names = ['Loisance']
+types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 
-typ = 'calib2' # sinu / hist / proj
+typ = 'calib1' # sinu / hist / proj
 
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -1917,8 +1869,56 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
             Qobs = Qobs.squeeze()
             Qobs = Qobs.resample('M').mean()
+            plt.plot(Qobs)
+            plt.yscale('log')
             
-            # Normalize discharge historic
+            # # Normalize discharge historic
+            # BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+            #                                   first_year = first_hist, last_year = last_hist,
+            #                                   time_step = time_step, sim_state = sim_state)
+            # Rech_hist = BV.forcing.recharge
+            # BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+            #                                 first_year = first_hist, last_year = last_hist,
+            #                                 time_step = time_step, sim_state = sim_state)
+            # Runof_hist = BV.forcing.runoff # m/month
+            
+            # Rech_hist_select = select_period(Rech_hist, first_hist, last_hist)
+            # Q_hist_select = select_period(Qobs, first_hist, last_hist)
+            # Ratio_hist = (Q_hist_select.mean() / Rech_hist_select.mean())
+            # print(Ratio_hist.round(2))
+            
+            # Rech_hist_norm = (Rech_hist_select * Ratio_hist)    
+
+            # if (sce == 'RCP2.6') | (sce == 'RCP8.5'):
+            #     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+            #                                       first_year = first, last_year = last,
+            #                                       time_step = time_step, sim_state = sim_state)
+            #     Rech_fut = BV.forcing.recharge
+            #     BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
+            #                                     first_year = first, last_year = last,
+            #                                     time_step = time_step, sim_state = sim_state)
+            #     Runof_fut = BV.forcing.runoff # m/month
+                                
+            #     Rech_fut_norm = (Rech_fut * Ratio_hist)
+            
+            #     Rech_concat = pd.concat((Rech_fut_norm, Rech_hist_norm), axis=1).mean(axis=1)
+            #     Runof_concat = pd.concat((Runof_fut, Runof_hist), axis=1).mean(axis=1)
+            
+            #     BV.forcing.update_recharge(Rech_concat, sim_state = sim_state)
+            #     BV.forcing.update_runoff(Runof_concat, sim_state = sim_state)
+                
+            #     fig = plt.subplots(1,1)
+            #     plt.plot(Rech_concat)
+            #     plt.yscale('log')
+                
+            # else:
+            #     BV.forcing.update_recharge(Rech_hist_norm, sim_state = sim_state)
+            #     BV.forcing.update_runoff(Runof_hist, sim_state = sim_state)
+            
+            #     # fig = plt.subplots(1,1)
+            #     plt.plot(Rech_hist_norm)
+            #     plt.yscale('log')
+            
             BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
                                               first_year = first_hist, last_year = last_hist,
                                               time_step = time_step, sim_state = sim_state)
@@ -1927,43 +1927,6 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                             first_year = first_hist, last_year = last_hist,
                                             time_step = time_step, sim_state = sim_state)
             Runof_hist = BV.forcing.runoff # m/month
-            
-            Rech_hist_select = select_period(Rech_hist, first_hist, last_hist)
-            Q_hist_select = select_period(Qobs, first_hist, last_hist)
-            Ratio_hist = (Q_hist_select.mean() / Rech_hist_select.mean())
-            print(Ratio_hist.round(2))
-            
-            Rech_hist_norm = (Rech_hist_select * Ratio_hist)    
-
-            if (sce == 'RCP2.6') | (sce == 'RCP8.5'):
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
-                                                  first_year = first, last_year = last,
-                                                  time_step = time_step, sim_state = sim_state)
-                Rech_fut = BV.forcing.recharge
-                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
-                                                first_year = first, last_year = last,
-                                                time_step = time_step, sim_state = sim_state)
-                Runof_fut = BV.forcing.runoff # m/month
-                                
-                Rech_fut_norm = (Rech_fut * Ratio_hist)
-            
-                Rech_concat = pd.concat((Rech_fut_norm, Rech_hist_norm), axis=1).mean(axis=1)
-                Runof_concat = pd.concat((Runof_fut, Runof_hist), axis=1).mean(axis=1)
-            
-                BV.forcing.update_recharge(Rech_concat, sim_state = sim_state)
-                BV.forcing.update_runoff(Runof_concat, sim_state = sim_state)
-                
-                fig = plt.subplots(1,1)
-                plt.plot(Rech_concat)
-                plt.yscale('log')
-                
-            else:
-                BV.forcing.update_recharge(Rech_hist_norm, sim_state = sim_state)
-                BV.forcing.update_runoff(Runof_hist, sim_state = sim_state)
-            
-                # fig = plt.subplots(1,1)
-                plt.plot(Rech_hist_norm)
-                plt.yscale('log')
                 
             # Active of not modules
             box = False # if True generate a rectangular model
@@ -1980,12 +1943,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             thick = 30 # m
             
             # Hydraulic properties
-            if watershed_name == 'Canut':
-                Koptim = 5.5e-5 # koptim 1.4e-5 / 5.33e-5
-                Sy = 0.001
-            if watershed_name == 'Nancon':
-                Koptim = 5.5e-5 # koptim 8e-6 / 5.82e-5
-                Sy = 0.02
+            Koptim = 1.0e-5 # koptim 1.4e-5 / 5.33e-5
+            Sy = 0.01
                 
             Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
             Sys = [Sy]
@@ -2052,7 +2011,6 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             # dictio.to_hdf(h5file)
             dd.io.save(h5file, dictio)
             
-                
             # import pickle
             # with open(h5file, 'wb') as handle:
             #     pickle.dump(dictio, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -2063,13 +2021,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     
 #%% POSTPROCESS MODEL
 
-typ = 'calib2'
-
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
-
-types_obs = ['complete'] # list of shapefile name layers for clip hydrology
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -2131,21 +2083,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 
 #%% QUICKLY PLOT RESULTS
 
-typ = 'calib2'
+typ = 'calib1'
 mod = 'REA'
 first = 1990
-last = 2019
+last = 2002
 time_step = 'M'
 sim_state = 'transient'
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
-
-# watershed_names = ['Canut']
-# code_names = ['J7513010']
-
-types_obs = ['complete'] # list of shapefile name layers for clip hydrology
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -2195,7 +2140,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         Qobs = Qobs.resample('M').mean()
         
         import hydroeval as he
-        nse = he.evaluator(he.nse, Qmod, Qobs, transform='log')[0]
+        nse = he.evaluator(he.nse, select_period(Qmod,1990,2002),
+                           select_period(Qobs,1990,2002), transform='log')[0]
         print(round(nse,2))
         
         # plt.plot(Cmod)
@@ -2294,6 +2240,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         # ax.grid('grey')
         # ax.set_xlim(pd.to_datetime(str(first)), pd.to_datetime(str(last)))
         
+        '''
         fig, ax = plt.subplots(1,1, figsize=(6,3))
         Sub_path = glob.glob(simul+'/_subbasins/intermittency_*')[0]+'/_simulated_results.csv'
         Sub = pd.read_csv(Sub_path, sep=';', index_col=0, parse_dates=True)
@@ -2350,6 +2297,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         
         months_maj = MonthLocator(7)  # every x month
         ax.xaxis.set_minor_locator(months_maj)
+        '''
         
         plt.tight_layout()
         
@@ -2359,15 +2307,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 
 #%% INTERMITTENTCY MAP
 
-typ = 'calib2'
+typ = 'calib1'
 
-typ_intermit = 'monthly' # yearly or persistency or monthly
+typ_intermit = 'yearly' # yearly or persistency or monthly
 gif = True
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
+watershed_names = ['Loisance']
 
-types_obs = ['complete'] # list of shapefile name layers for clip hydrology
+# types_obs = ['complete'] # list of shapefile name layers for clip hydrology
 for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -4636,3 +4583,21 @@ wbt.wetness_index(
 # red = Color("darkblue")
 # colors = list(red.range_to(Color("cyan"),10))
 # plt.plot(10,10, c=colors)
+
+#ADD DRIAS RECHARGE
+# gcm_list = ['CNR','MPI','HAD','ECE','IPS','NOR']
+# rcm_list = ['ALA','CCL','REG','RCA','WRF','R15','RAC','R09','HIR']
+# mix_list = ['MPI-CCL','ECE-RCA','ECE-RAC','IPS-RCA','CNR-RAC','NOR-R15',
+#             'CNR-ALA','NOR-HIR','HAD-CCL','IPS-WRF','HAD-REG','MPI-R09']
+# for gcm in gcm_list:
+# for rcm in rcm_list:
+# for mix in mix_list:
+#     gcm = mix.split('-')[0]
+#     rcm = mix.split('-')[1]
+#     BV.forcing.update_recharge_drias(gcm, rcm, 'historic', 1990, 1990, sim_state='transient')
+#     BV.forcing.update_runoff_drias(gcm, rcm, 'historic', 1990, 1990, sim_state='transient')
+#     recharge = BV.forcing.recharge
+#     runoff = BV.forcing.runoff
+    # plt.plot(recharge)
+    # plt.plot(runoff)
+    # plt.yscale('log')
