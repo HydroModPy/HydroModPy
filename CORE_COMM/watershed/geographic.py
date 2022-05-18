@@ -68,7 +68,7 @@ class Geographic:
             self.processing(dem_path, x, y, self.snap_dist, buff_percent, out_path)
         else:    
             self.model_from_dem(dem_path, out_path, cell_size)
-            
+
         if self.from_shp == None:
             self.post_processing_dem()
             
