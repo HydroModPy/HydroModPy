@@ -61,11 +61,12 @@ class Hydrology:
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
             print(shp_type)
             wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
-            
+        
         dem_streams = gdal.Open(self.tif_streams)
         self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
+        self.streams_array = self.streams_array.astype(float)
         self.streams_array[self.streams_array<0] = np.nan
-        
+                
         pt_streams = data_folder + type_obs + '_pt.shp'
         wbt.raster_to_vector_points(self.tif_streams, pt_streams)
         
