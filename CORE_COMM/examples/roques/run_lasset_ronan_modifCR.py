@@ -142,9 +142,7 @@ code_names = ['?']
 
 #%% GENERATE WATERSHED
 
-load = False
-
-watershed_names = ['Lasset']
+load = True
 
 for watershed_name in watershed_names[:]:
 
@@ -167,7 +165,6 @@ for watershed_name in watershed_names[:]:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
-BV.add_hydrodynamic()
 #%% ADD AND CLIP SPECIFIC DATA
 #% Merger les points shp
 # pt_streams = hydrology_path + 'stream_digit_pt.shp'
@@ -736,13 +733,14 @@ for case, prop in zip(case_list[:], prop_list[:]):
         intersect[intersect['VALUE']==-np.inf] = np.nan
         res_dat = gpd.read_file(path_dat)
         res_dat['RES_TIME'] = np.nan
+        res_dat['STD_TIME'] = np.nan
         
         for ID in intersect['id'].unique():
             mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'])
             res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
             
             std_ID = np.nanstd(intersect[intersect['id']==ID]['VALUE'])
-            res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
+            res_dat['STD_TIME'][res_dat['id']==ID] = std_ID
             
         
         # Method 2
@@ -757,6 +755,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         '''
         
         res_dat['RES_TIME'][res_dat['RES_TIME']==-np.inf] = np.nan
+        res_dat['STD_TIME'][res_dat['STD_TIME']==-np.inf] = np.nan
         res_dat.to_file(path_shp + 'extract_RTD.shp', encoding = 'utf-8')
         
         vmin = 0
@@ -793,7 +792,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         contour = gpd.read_file(BV.geographic.watershed_contour_shp)
         contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
         cbar.set_ticks(list(cbar.get_ticks()))
-        cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
+        # cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
         cbar.set_label('log(t) [days]', rotation=270, labelpad=25)
         
         res_dat['coords'] = res_dat['geometry'].apply(lambda x: x.representative_point().coords[:])
@@ -809,27 +808,39 @@ for case, prop in zip(case_list[:], prop_list[:]):
         mean_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].mean(axis=1)
         std_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].std(axis=1)
         x=2021-(mean_obs)
-        y=(10**res_dat['RES_TIME'])/365
+        xerr=std_obs
+        mean_sim = (10**res_dat['RES_TIME'])/365
+        y=mean_sim
+        yerr=(10**res_dat['STD_TIME'])/365
         ax.scatter(x, y, c=y, s=50, cmap=mpl.colors.ListedColormap('k'))
-        ax.errorbar(x, y, xerr=std_obs, lw=1)
+        plt.errorbar(x, y , xerr=list(xerr), yerr=yerr, lw=1, fmt="o", color='k')
         # ax.legend()
         ax.set_xlabel('$Age_{obs}$ [years]')
         ax.set_ylabel('$Age_{sim}$ [years]')
         ax.set_title(model_name, fontproperties=fontprop)
         for i, txt in enumerate(res_dat.id):
             ax.annotate(txt, (x[i], y[i]))
-        xn=0.1
-        xx=100
-        yn=0.1
-        yx=100
+        xn=20
+        xx=80
+        yn=20
+        yx=80
         ax.set_xlim(xn, xx)
-        ax.set_ylim(yn, yx)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
+        # ax.set_ylim(yn, yx)
+        # ax.set_xscale('log')
+        # ax.set_yscale('log')
+        # ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
+        #         linestyle='--', color='grey', linewidth=2, zorder=-1)
+        maxx = max(ax.get_xlim()[0],ax.get_xlim()[1])
+        maxy = max(ax.get_ylim()[0],ax.get_ylim()[1])
+        minx = min(ax.get_xlim()[0],ax.get_xlim()[1])
+        miny = min(ax.get_ylim()[0],ax.get_ylim()[1])
+        maxt = max(maxx,maxy)
+        mint = max(minx,miny)
+        ax.plot(np.linspace(mint,maxt,50),
+                np.linspace(mint,maxt,50), 
                 linestyle='--', color='grey', linewidth=2, zorder=-1)
         
-        # fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
         
         if compt==0:
             all_dat = res_dat.copy()
@@ -838,7 +849,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         compt+=1
 
 all_dat['coords'] = np.nan
-# all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
+all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
 
 #%% STATISTCIS
 
@@ -855,7 +866,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
     
         model_name = case+'_'+str(porosity)
         
-        y0 = 2021-all_dat['CFC12']
+        y0 = 2021 - (all_dat[['CFC12','CFC11','CFC113']].mean(axis=1))
         y1 = all_dat[model_name]
                 
         ER = np.nansum(y0-y1)  # error 
@@ -905,6 +916,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         stats.loc['PVAL', model_name] = p_value
         stats.loc['STDERR', model_name]  = std_err
         
+stats
 stats.to_csv(simulations_folder+'statistics_residence_times.csv',
              sep=';')
         
