@@ -243,13 +243,14 @@ class Watershed:
                                                 from_xy=self.from_xy, regio_path=self.regio_path,
                                                 cell_size=self.cell_size) #2D
         self.elt_def.append('geographic')
-        
+    
+    def add_forcing(self):
         self.forcing = forcing.Forcing(out_path=self.watershed_folder)
         self.elt_def.append('forcing')
         
+    def add_hydrodynamic(self):
         self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
-        self.oceanic = oceanic.Oceanic()
         #self.hillslope = hillslope() #1D Doesn't exist
         
     def add_hydrology(self, hydrology_path, types_obs = ['streams'], fields_obs = ['FID'], reset = False):
@@ -267,6 +268,7 @@ class Watershed:
         self.save_object()
 
     def add_oceanic(self, oceanic_path):
+        self.oceanic = oceanic.Oceanic()
         self.oceanic_path = oceanic_path
         self.oceanic.extract_data(out_path=self.watershed_folder, oceanic_path=self.oceanic_path, geographic=self.geographic)
         self.elt_def.append('oceanic')

@@ -142,21 +142,21 @@ code_names = ['?']
 
 #%% GENERATE WATERSHED
 
-load = True
+load = False
 
-watershed_names = ['Test_shp']
+watershed_names = ['Lasset']
 
 for watershed_name in watershed_names[:]:
 
     print('##### '+watershed_name.upper()+' #####')
 
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path='C:/Users/ronan/OneDrive/_HydroDataPy/DEM/France/BDALTI_norm-manch_75m.tif', 
+                                  dem_path=dem_path, 
                                   out_path=out_path,
                                   modflow_path=modflow_path,
                                   library_path=library_path,
                                   load=load,
-                                  from_shp='C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/normandie.shp',
+                                  from_shp=from_shp,
                                   from_dem=from_dem,
                                   from_xy=[],
                                   cell_size=cell_size)
@@ -167,6 +167,7 @@ for watershed_name in watershed_names[:]:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
+BV.add_hydrodynamic()
 #%% ADD AND CLIP SPECIFIC DATA
 #% Merger les points shp
 # pt_streams = hydrology_path + 'stream_digit_pt.shp'
