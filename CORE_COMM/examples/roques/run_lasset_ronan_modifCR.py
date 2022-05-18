@@ -82,9 +82,10 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 user = 'Clement'
-#user = 'Ronan'
+user = 'Ronan'
 
 if user == 'Clement':
+    dems_path = data_path + 'DEM/'
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
     #############################################################
     git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
@@ -98,7 +99,7 @@ if user == 'Clement':
 
 if user == 'Ronan':
     dem_name = 'BDALTI_09_75m.tif'
-    dem_name = 'BDALTI_09_25m.tif'
+    # dem_name = 'BDALTI_09_25m.tif'
     #############################################################
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
@@ -123,8 +124,8 @@ intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermi
 piezometry_path = False # add piezometry data for automatic download
 subbasin_path = False # generate subbasins from stations or manual points
 
-#dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
-dem_name = "BDALTI_09_75m.tif"
+# dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
+# dem_name = "BDALTI_09_75m.tif"
 
 from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
@@ -177,21 +178,11 @@ from watershed import watershed_root, watershed_display, forcing
 
 hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/Lasset/' # add hydrographic shapefiles
 
-types_obs = ["lasset_stream_wetland_perennial_pt"] # shapefile cours d'eau
+types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-
-import imageio
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = True
-wbt.vector_points_to_raster(
-    'xxx',
-    'xxx',
-    field='fid',
-    base='xxx')
 
 # # Measurements
 # BV.add_hydrometry(hydrometry_path)
