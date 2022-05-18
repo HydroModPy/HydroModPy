@@ -108,6 +108,9 @@ watershed_names = ['Pompage'] # search the name in watershed_library or just lab
 
 #%% GENERATE WATERSHED
 
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+
 # coords_list = []
 # watershed_names = []
 # codes_names = ['J7513010','J1803010','J3403020']
@@ -121,8 +124,8 @@ watershed_names = ['Pompage'] # search the name in watershed_library or just lab
 types_obs = ['complete','intermittent','perennial','river'] # list of shapefile name layers for clip hydrology
 fields_obs = ['persistanc','fid','fid','fid'] # list of shapefile name columns to translate as a tif
 
-types_obs = ['river'] # list of shapefile name layers for clip hydrology
-fields_obs = ['persistanc']
+# types_obs = ['river'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['persistanc']
 
 # x = gpd.read_file("C:/Users/ronan/OneDrive/_HydroDataPy/HYDROLOGY/France/Hydrographic/D035/complete.shp")
 # c = gpd.read_file(BV.geographic.watershed_shp)
@@ -6406,23 +6409,63 @@ Qobs = select_period(Qobs, 2000, 2009)
 #     ax.set_title(var+'+ RUN')
 #     ax.legend(loc='upper center'
 
-fig, ax = plt.subplots(1,1, figsize=(8,3))
 
 # climat = climat.resample('Y').mean()
 
-# for mod in ['CNR1','IPS1','NOR1']:
-# for mod in ['NOR1']:
-for mod in ['REA','NOR1','OLD']:
-    for sce in ['historic']:
-        for var in ['REC']:
+var_list = ['PPT','ETP','EFF','RUN','REC']
+
+mod_list = ['REA','OLD','IPS1','CNR1']    
+mod_color = ["blue",'forestgreen',"red","darkorange"]
+
+mod_list = ['REA','OLD']    
+mod_color = ["blue",'forestgreen']
+color_dict = dict(zip(mod_list, mod_color))     
+
+mod_list = ['REA']    
+mod_color = ["blue"]
+color_dict = dict(zip(mod_list, mod_color))     
+
+for var in var_list:
+    fig, ax = plt.subplots(1,1, figsize=(10,4))
+    for mod in mod_list:
+        for sce in ['historic']:
             tp = climat[var+'_'+mod+'_'+sce]
-            tp = select_period(tp, 1980, 1981)
-            print(tp.mean())
-            ax.plot(tp, lw=2,
-                    label=mod+' : '+str(round(tp.sum()))+' mm/an')
+            tp = select_period(tp, 1976, 1976)
+            # print(tp.mean())
+            ax.plot(tp, lw=1, label=mod+' : '+str(round(tp.sum()/1))+' mm/an',
+                    color = color_dict[mod])
             # ax.set_title(var+'+ RUN')
-            # ax.legend(loc='upper center')
-            ax.set_yscale('log')
+            ax.legend(loc='upper left')
+            # ax.set_yscale('log')
+            ax.grid('grey')
+            ax.set_ylabel('[mm/day]')
+            ax.set_title(var)
+
+mod_list = ['PPT','ETP','EFF','RUN','REC']  
+mod_color = ['dodgerblue','forestgreen','darkmagenta','darkorange','red']
+color_dict = dict(zip(mod_list, mod_color))    
+
+climat = select_period(climat, 2001, 2001)
+# climat = climat.resample('M').sum()
+for var in mod_list:
+    fig, ax = plt.subplots(1,1, figsize=(10,4))
+
+    # var = 'PPT'
+    sce = 'historic'
+    rea = climat[var+'_'+'REA'+'_'+sce]
+    old = climat[var+'_'+'OLD'+'_'+sce]
+    ano = rea - old
+    # print(tp.mean())
+    ax.plot(ano, lw=1, color = color_dict[var], label=var+'\n'+
+            'Mean anomaly: '+str(round(ano.mean(),2)))
+    # ax.plot(rea, lw=1, color = 'k')
+    # ax.plot(old, lw=1, color = 'red')
+    ax.set_title(var)
+    # ax.set_yscale('log')
+    ax.legend()
+    ax.grid('grey')
+    ax.set_ylabel('Anomaly: NEW - OLD [mm/day]' + '\n')
+    ax.axhline(y=0, c='k', lw=2)
 
 #%% COMPARE DRIAS
 

@@ -305,7 +305,7 @@ for it in range(0,len(defKR)):
     #               color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
     R_visu = np.log10(R*1000*365)
     visu.visual2D(object_list = ['surface_flow','pathlines'],
-                  color_scale = [(R_visu-1,R_visu+2),(0,3)], lines=10000, figure_name = save_name)
+                  color_scale = [(R_visu-1,R_visu+2),(0,3)], lines=10000)
 
 # #%% PLOT 2D
 
