@@ -144,17 +144,19 @@ code_names = ['?']
 
 load = True
 
+watershed_names = ['Test_shp']
+
 for watershed_name in watershed_names[:]:
 
     print('##### '+watershed_name.upper()+' #####')
 
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
+                                  dem_path='C:/Users/ronan/OneDrive/_HydroDataPy/DEM/France/BDALTI_norm-manch_75m.tif', 
                                   out_path=out_path,
                                   modflow_path=modflow_path,
                                   library_path=library_path,
                                   load=load,
-                                  from_shp=from_shp,
+                                  from_shp='C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/normandie.shp',
                                   from_dem=from_dem,
                                   from_xy=[],
                                   cell_size=cell_size)
@@ -737,6 +739,10 @@ for case, prop in zip(case_list[:], prop_list[:]):
         for ID in intersect['id'].unique():
             mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'])
             res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
+            
+            std_ID = np.nanstd(intersect[intersect['id']==ID]['VALUE'])
+            res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
+            
         
         # Method 2
         '''
@@ -799,9 +805,12 @@ for case, prop in zip(case_list[:], prop_list[:]):
         fig.savefig(figsim_folder+model_name+'.png', dpi=300, bbox_inches='tight')
 
         fig, ax = plt.subplots(1,1, figsize=(4,4))
-        x=2021-res_dat['CFC12']
+        mean_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].mean(axis=1)
+        std_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].std(axis=1)
+        x=2021-(mean_obs)
         y=(10**res_dat['RES_TIME'])/365
         ax.scatter(x, y, c=y, s=50, cmap=mpl.colors.ListedColormap('k'))
+        ax.errorbar(x, y, xerr=std_obs, lw=1)
         # ax.legend()
         ax.set_xlabel('$Age_{obs}$ [years]')
         ax.set_ylabel('$Age_{sim}$ [years]')
@@ -819,7 +828,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
                 linestyle='--', color='grey', linewidth=2, zorder=-1)
         
-        fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
         
         if compt==0:
             all_dat = res_dat.copy()
@@ -828,7 +837,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         compt+=1
 
 all_dat['coords'] = np.nan
-all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
+# all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
 
 #%% STATISTCIS
 
@@ -894,6 +903,9 @@ for case, prop in zip(case_list[:], prop_list[:]):
         stats.loc['RVAL', model_name]  = r_value
         stats.loc['PVAL', model_name] = p_value
         stats.loc['STDERR', model_name]  = std_err
+        
+stats.to_csv(simulations_folder+'statistics_residence_times.csv',
+             sep=';')
         
 #%% CROSS SECTION
 
@@ -981,19 +993,29 @@ for watershed_name in watershed_names[:]:
     
             fig, ax = plt.subplots(1, 1, figsize=(5.5,4), dpi=300)
             ax.set_title(model_name)
-            dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
-            wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
-            wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
-                                            color='deepskyblue', alpha=0.5, lw=0)
-            wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
-                                            color='saddlebrown', alpha=0.5, lw=0)
+            
+            if model_name.split('_')[0] == 'case1':
+                dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
+                wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
+                wt_h_fill = plt.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-50, wt_h_plot,
+                                                color='deepskyblue', alpha=0.5, lw=0)
+                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
+                                                color='saddlebrown', alpha=0.5, lw=0)
+            
+            else:
+                dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
+                wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
+                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
+                                                color='deepskyblue', alpha=0.5, lw=0)
+                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
+                                                color='saddlebrown', alpha=0.5, lw=0)
             
             # wt_v_fill = ax.fill_between(np.arange(xx.shape[0]), 0, wt_v_plot,
             #                                     color='deepskyblue', alpha=0.5, lw=0)
             # wt_v_fill = ax.fill_between(np.arange(xx.shape[0]), wt_v_plot, dem_v_plot,
             #                                     color='saddlebrown', alpha=0.5, lw=0)
             
-            ax.set_xlim(1300, 2850)
+            ax.set_xlim(1300, 2100)
             ax.set_ylim(1000, 2500)
             # ax.set_yticks([140,160])
             ax.set_xlabel('Distance [m]')
