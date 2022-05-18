@@ -68,8 +68,9 @@ class Geographic:
             self.processing(dem_path, x, y, self.snap_dist, buff_percent, out_path)
         else:    
             self.model_from_dem(dem_path, out_path, cell_size)
-        
-        self.post_processing_dem()
+            
+        if self.from_shp == None:
+            self.post_processing_dem()
             
     def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
         # Generate folder where processing files are stored
@@ -143,7 +144,7 @@ class Geographic:
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
         
-        if self.from_shp != None:
+        if self.from_shp == None:
         
             """
             Buffer distance operations
