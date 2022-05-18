@@ -62,6 +62,11 @@ class Hydrology:
             print(shp_type)
             wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         
+        wbt.set_nodata_value(
+                    self.tif_streams, 
+                    self.tif_streams, 
+                    back_value=-32768)
+        
         dem_streams = gdal.Open(self.tif_streams)
         self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
         self.streams_array = self.streams_array.astype(float)

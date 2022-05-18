@@ -372,13 +372,25 @@ class Modflow():
                     export_tif=False
             
             # Watertable data
-            if self.nlay > 1:
-                self.head_all = self.head_fpu.get_alldata() # mflay=None
-                self.head_data = self.head_all[item][0]
-            else:
-                self.head_data = self.head_fpu.get_data(totim=time)
-                self.head_data = self.head_data[0]
-                
+            # if self.nlay > 1:
+            #     self.head_all = self.head_fpu.get_alldata() # mflay=None
+            #     self.head_data = self.head_all[item][0]
+            # else:
+            #     self.head_data = self.head_fpu.get_data(totim=time)
+            #     self.head_data = self.head_data[0]
+            
+            # Search watertable data positive values
+            self.head = self.head_fpu.get_data(totim=time)
+            head_final = np.zeros([self.nrow,self.ncol])
+            for i in range(0,self.nrow):
+                for j in range (0,self.ncol):
+                    for k in range(0,self.nlay): 
+                        if self.head[k,i,j] > 0:
+                            head_final[i,j] = self.head[k,i,j]
+                            break   
+            self.head_data = head_final.copy()
+            print(self.head_data.shape)
+            
             if watertable_elevation == True:   
                 ### Watertable elevation
                 self.wt_elev = self.head_data.copy()

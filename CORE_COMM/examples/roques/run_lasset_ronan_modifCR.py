@@ -81,11 +81,10 @@ def select_period(df, first, last):
 
 #%% PATH WATERSHED
 
-user = 'Clement'
+# user = 'Clement'
 user = 'Ronan'
 
 if user == 'Clement':
-    dems_path = data_path + 'DEM/'
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
     #############################################################
     git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
@@ -96,7 +95,7 @@ if user == 'Clement':
     # Figure folder outputs
     figsim_folder = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_figures/")
     #############################################################
-
+    
 if user == 'Ronan':
     dem_name = 'BDALTI_09_75m.tif'
     # dem_name = 'BDALTI_09_25m.tif'
@@ -143,7 +142,7 @@ code_names = ['?']
 
 #%% GENERATE WATERSHED
 
-load = False
+load = True
 
 for watershed_name in watershed_names[:]:
 
@@ -495,7 +494,6 @@ porosity_list = [0.01, 0.05, 0.1, 0.2]
 
 #%% INIT CALIB DICHOTOMY STREAMS
 
-
 # names_params_dict = dict(zip(names_list, params_list))
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
@@ -505,10 +503,10 @@ watershed_names = ['Lasset']
 for watershed_name in watershed_names[:] :
     
     # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
-    types_obs = ['lasset_stream_wetland_perennial_pt'] # list of shapefile name layers for clip hydrology
+    types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
     fields_obs = ['fid']
     
-    for case, prop in zip(case_list, prop_list):
+    for case, prop in zip(case_list[:], prop_list[:]):
     
         # df = pd.DataFrame(np.nan, index=range(1), columns=case_list)
         
@@ -528,24 +526,26 @@ for watershed_name in watershed_names[:] :
             stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
                 
             # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
-            
+
             BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                               first_year = 1960, last_year=2019, time_step = 'D',
                                               sim_state='steady') #
             
             # BV.hydrodynamic.update_porosity(0.1)
             # BV.hydrodynamic.update_hyd_cond(2)
+            
             # update the number of layers 
             nlay = 5
             if prop[2]>0:
                 length_K_decay = prop[2]**-1
+                # length_K_decay = prop[2]
                 thick = 10*length_K_decay
                 layer_min_thick = 5
                 nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
                 print('###########!!!!!!!!!!!!!!!!!############')
                 print('nlay = ' + str(nlay))
                 print('###########!!!!!!!!!!!!!!!!!############')
-                
+
             BV.hydrodynamic.update_nlay(nlay)
             BV.hydrodynamic.update_thickness(prop[0])
             BV.hydrodynamic.update_bottom(prop[1])
@@ -555,7 +555,7 @@ for watershed_name in watershed_names[:] :
             params_df = pd.DataFrame(columns=['params',
                                               'init_values','lower_bounds','higher_bounds',
                                               'units','scale'])
-            params_df.loc[0] = ['k1',8.64e-01,8.64e-04,8.64e-1,'m/j','lin']
+            params_df.loc[0] = ['k1',8.64e-01,8.64e-05,8.64e-1,'m/j','lin']
             
             params_file = 'calib_dicot_hom_1v_k1'
             
@@ -579,7 +579,7 @@ list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, ty
                    key=os.path.getmtime)
 df=pd.DataFrame()
 compt = 0
-for case, prop in zip(case_list, prop_list):
+for case, prop in zip(case_list[:], prop_list[:]):
     
     name_file = list_path[compt].split('\\')[-1]
     calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
@@ -613,7 +613,7 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
 
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
-for case, prop in zip(case_list, prop_list):
+for case, prop in zip(case_list[:], prop_list[:]):
 
 #% MODEL with K from dichotomy and explore on RTD
     # K_R = 79.2174 # Find path to dichotomy results
@@ -681,10 +681,13 @@ for case, prop in zip(case_list, prop_list):
 
 #%% EXTRACT A SAMPLING POINTS AND PLOT
 
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
 wateshed_name = 'Lasset'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+figsim_folder = simulations_folder + '_figures/'
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
@@ -694,7 +697,8 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 dem = rasterio.open(BV.geographic.watershed_dem)
 dem_data = dem.read(1)
 
-for case, prop in zip(case_list, prop_list):
+compt=0
+for case, prop in zip(case_list[:], prop_list[:]):
     
     for porosity in porosity_list:
     
@@ -726,12 +730,13 @@ for case, prop in zip(case_list, prop_list):
                 path_shp+'raster_polygonized.shp')
         raster_polyg = gpd.read_file(path_shp+'raster_polygonized.shp')
         intersect = gpd.overlay(shp_obs, raster_polyg, how='intersection')
+        intersect[intersect['VALUE']==-np.inf] = np.nan
         res_dat = gpd.read_file(path_dat)
         res_dat['RES_TIME'] = np.nan
         
-        for ID in intersect['ID_station'].unique():
-            mean_ID = np.nanmean(intersect[intersect['ID_station']==ID]['VALUE'])
-            res_dat['RES_TIME'][res_dat['ID_station']==ID] = mean_ID
+        for ID in intersect['id'].unique():
+            mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'])
+            res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
         
         # Method 2
         '''
@@ -754,9 +759,9 @@ for case, prop in zip(case_list, prop_list):
         show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
              cmap='jet_r', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
         shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
-                     edgecolor='k', lw=2, zorder=30)
+                     edgecolor='k', lw=1, zorder=30)
         res = res_dat.plot(ax=ax, cmap='jet_r',  marker='o', markersize=70,
-                     edgecolor='k', lw=0, column='RES_TIME', zorder=30,
+                     edgecolor='k', lw=1, column='RES_TIME', zorder=30,
                      vmin=vmin, vmax=vmax)
         bounds = dem.bounds
         xlim = ([bounds[0], bounds[2]])
@@ -782,10 +787,221 @@ for case, prop in zip(case_list, prop_list):
         contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
         cbar.set_ticks(list(cbar.get_ticks()))
         cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
+        cbar.set_label('log(t) [days]', rotation=270, labelpad=25)
         
+        res_dat['coords'] = res_dat['geometry'].apply(lambda x: x.representative_point().coords[:])
+        res_dat['coords'] = [res_dat[0] for res_dat in res_dat['coords']]
+        for idx, row in res_dat.iterrows():
+            row['coords'] = (row['coords'][0], row['coords'][1]+100)
+            ax.annotate(s=row['id'], xy=row['coords'],
+                         horizontalalignment='center')
+
+        fig.savefig(figsim_folder+model_name+'.png', dpi=300, bbox_inches='tight')
+
+        fig, ax = plt.subplots(1,1, figsize=(4,4))
+        x=2021-res_dat['CFC12']
+        y=(10**res_dat['RES_TIME'])/365
+        ax.scatter(x, y, c=y, s=50, cmap=mpl.colors.ListedColormap('k'))
+        # ax.legend()
+        ax.set_xlabel('$Age_{obs}$ [years]')
+        ax.set_ylabel('$Age_{sim}$ [years]')
+        ax.set_title(model_name, fontproperties=fontprop)
+        for i, txt in enumerate(res_dat.id):
+            ax.annotate(txt, (x[i], y[i]))
+        xn=0.1
+        xx=100
+        yn=0.1
+        yx=100
+        ax.set_xlim(xn, xx)
+        ax.set_ylim(yn, yx)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
+                linestyle='--', color='grey', linewidth=2, zorder=-1)
         
-        fig, ax = plt.subplots(1,1, figsize=(5,5))
-        ax.scatter(res_dat['RES_TIME'],res_dat['RES_TIME'],)
+        fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        
+        if compt==0:
+            all_dat = res_dat.copy()
+        all_dat[model_name] = (10**res_dat['RES_TIME'])/365
+        
+        compt+=1
+
+all_dat['coords'] = np.nan
+all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
+
+#%% STATISTCIS
+
+import hydroeval as he
+import scipy
+
+stats = pd.DataFrame()
+
+all_dat = gpd.read_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
+
+for case, prop in zip(case_list[:], prop_list[:]):
+    
+    for porosity in porosity_list:
+    
+        model_name = case+'_'+str(porosity)
+        
+        y0 = 2021-all_dat['CFC12']
+        y1 = all_dat[model_name]
+                
+        ER = np.nansum(y0-y1)  # error 
+        ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
+        RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
+        PERER = np.nansum(np.abs(y0-y1)/y0*100) # percentage error 
+        MAE = np.nanmean(np.abs(y0-y1)) # mean absolute error 
+        BAL = (np.sum(y1)/np.sum(y0))*100 # balance
+        MSE = np.nanmean((y0-y1)**2) # mean square error 
+        RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
+        NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
+        MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
+        KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
+        PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
+        NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
+
+        stats.loc['ER', model_name] = ER
+        stats.loc['ABSER', model_name] = ABSER
+        stats.loc['RELER', model_name] = RELER
+        stats.loc['PERER', model_name] = PERER
+        stats.loc['MAE', model_name] = MAE
+        stats.loc['BAL', model_name] = BAL
+        stats.loc['MSE', model_name] = MSE
+        stats.loc['RMSE', model_name] = RMSE
+        stats.loc['NSE', model_name] = NSE                        
+        stats.loc['MARE', model_name] = MARE
+        stats.loc['KGE', model_name] = KGE
+        stats.loc['PBIAS', model_name]  = PBIAS
+        stats.loc['NSElog', model_name] = NSElog
+
+        # y0 = np.ma.masked_invalid(y0)
+        # y1 = np.ma.masked_invalid(y1)
+        y0 = y0[np.logical_not(np.isnan(y1))]
+        y1 = y1[np.logical_not(np.isnan(y1))]
+
+        slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(y0, y1)
+        res = scipy.stats.linregress(y0.values, y1.values)
+        
+        # plt.plot(y0, y1, 'o', c='k')
+        # plt.plot(y0, res.intercept + res.slope*y0, 'r', label='fitted line')
+        # plt.xlim(0,100)
+        # plt.ylim(0,100)
+        
+        stats.loc['SLOPE', model_name]  = slope
+        stats.loc['INTERC', model_name] = intercept
+        stats.loc['RVAL', model_name]  = r_value
+        stats.loc['PVAL', model_name] = p_value
+        stats.loc['STDERR', model_name]  = std_err
+        
+#%% CROSS SECTION
+
+typ = 'case'
+
+watershed_names = ['Lasset']
+
+for watershed_name in watershed_names[:]:
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                        key=os.path.getmtime, reverse=True)
+    
+    for model in list_path[:]:
+    
+        model_name = model.split('\\')[-1]
+            
+        wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                                   stable_folder+'geographic/'+'watershed_contour.tif',
+                                   base = stable_folder+'geographic/'+'watershed_dem.tif')
+        line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+        line = np.ma.masked_where(line <= 0, line)
+            
+        mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+        
+        import itertools            
+        
+        watertable_elevation = np.load(simulations_folder+model_name+'/_watershed/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+    
+        for key in watertable_elevation:
+        # for key in watertable_elevation:
+            print(key)
+    
+            dem_data = imageio.imread(BV.geographic.watershed_dem)
+            wt_data = watertable_elevation[key]
+            # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0)'+'.tif')
+    
+            xvalues = np.linspace(-1,1,dem_data.shape[1])
+            yvalues = np.linspace(-1,1,dem_data.shape[0])
+            xx, yy = np.meshgrid(xvalues,yvalues)
+            
+            cur_x = dem_data.shape[1] /2
+            cur_y = dem_data.shape[0] /2
+            
+            dem_max = dem_data.max()
+            dem_prof = dem_data.astype(float)
+            dem_prof[dem_prof<0] = np.nan
+            wt_prof = wt_data.astype(float)
+            wt_prof[wt_prof<0] = np.nan
+            
+            cur_y = 35
+            dem_h_plot = dem_prof[int(cur_y),:]
+            dem_h_plot[dem_h_plot == 0] = np.nan
+            wt_h_plot = wt_prof[int(cur_y),:]
+            wt_h_plot[wt_h_plot == 0] = np.nan
+            
+            cur_x = 25  
+            dem_v_plot = dem_prof[:,int(cur_x)]
+            dem_v_plot[dem_v_plot == 0] = np.nan
+            wt_v_plot = wt_prof[:,int(cur_x)]
+            wt_v_plot[wt_v_plot == 0] = np.nan
+                
+            dem_max = dem_data.max()
+            dem_prof = dem_data.astype(float)
+            dem_prof[dem_prof<0] = np.nan
+            dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
+            
+            wt_prof = wt_data.astype(float)
+            wt_prof[wt_prof<0] = np.nan
+                    
+            # fig, ax = plt.subplots(1, 1, figsize=(5,5))
+            # ax.imshow(dem_plot, origin='lower', cmap='Greys', aspect="equal",)
+            # ax.set_ylim(ax.get_ylim()[::-1])
+            # v_line = ax.axvline(cur_x, color='k', lw=2)
+            # h_line = ax.axhline(cur_y, color='k', lw=2)
+    
+            fig, ax = plt.subplots(1, 1, figsize=(5.5,4), dpi=300)
+            ax.set_title(model_name)
+            dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
+            wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
+            wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
+                                            color='deepskyblue', alpha=0.5, lw=0)
+            wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
+                                            color='saddlebrown', alpha=0.5, lw=0)
+            
+            # wt_v_fill = ax.fill_between(np.arange(xx.shape[0]), 0, wt_v_plot,
+            #                                     color='deepskyblue', alpha=0.5, lw=0)
+            # wt_v_fill = ax.fill_between(np.arange(xx.shape[0]), wt_v_plot, dem_v_plot,
+            #                                     color='saddlebrown', alpha=0.5, lw=0)
+            
+            ax.set_xlim(1300, 2850)
+            ax.set_ylim(1000, 2500)
+            # ax.set_yticks([140,160])
+            ax.set_xlabel('Distance [m]')
+            ax.set_ylabel('Elevation [m]')
+        
+            plt.tight_layout()
+            
+            fig.savefig(simulations_folder+'/_figures/'+'cross_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% 2D VISUALIZATION
 
