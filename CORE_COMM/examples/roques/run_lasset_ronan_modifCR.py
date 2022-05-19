@@ -869,13 +869,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
             all_dat = res_dat.copy()
         all_dat[model_name] = (10**res_dat['RES_TIME'])/365
         
-        ##### LOOOP 2D #####
-        visu = visualization.Visualization(BV, model_name)
-        # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
-                      # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
-        visu.visual2D(object_list = ['pathlines'],
-                      color_scale = [(None,None)], lines=100)
-        
+
         compt+=1
 
 all_dat['coords'] = np.nan
@@ -883,10 +877,37 @@ all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding=
 
 #%% EXTRACT PATHLINES TIMES
 
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
+wateshed_name = 'Lasset'
 
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+figsim_folder = simulations_folder + '_figures/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
 
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
 
+compt=0
+for case, prop in zip(case_list[:], prop_list[:]):
+    
+    for porosity in porosity_list:
+    
+        model_name = case+'_'+str(porosity)
+        folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
+        
+        ##### LOOOP 2D #####
+        visu = visualization.Visualization(BV, model_name)
+        # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+                      # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+        visu.visual2D(object_list = ['pathlines'],
+                      color_scale = [(None,None)], lines=None)
+        
 #%% STATISTCIS
 
 import hydroeval as he
