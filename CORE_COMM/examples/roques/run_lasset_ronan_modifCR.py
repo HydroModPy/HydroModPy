@@ -934,7 +934,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
                       # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
         visu.visual2D(object_list = ['pathlines'],
-                      color_scale = [(None,None)], lines=None)
+                      color_scale = [(0,100)], lines=None)
         
 #%% STATISTCIS
 
