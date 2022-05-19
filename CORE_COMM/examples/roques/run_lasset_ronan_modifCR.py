@@ -719,7 +719,7 @@ dem_data = dem.read(1)
 compt=0
 for case, prop in zip(case_list[:], prop_list[:]):
     
-    for porosity in porosity_list:
+    for porosity in porosity_list[:]:
     
         model_name = case+'_'+str(porosity)
         folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
@@ -732,9 +732,10 @@ for case, prop in zip(case_list[:], prop_list[:]):
         
         res_time = rasterio.open(path_res)
         res_time_data = res_time.read(1)
+        res_time_data = res_time_data
         
         shp_obs = gpd.read_file(path_obs)
-        shp_obs['geometry'] = shp_obs.geometry.buffer(50)
+        shp_obs['geometry'] = shp_obs.geometry.buffer(100)
         # shp_obs = shp_obs[['ID_station', 'geometry']]
         shp_obs.to_file(path_dat, encoding='utf-8') # mode a
         
@@ -779,13 +780,16 @@ for case, prop in zip(case_list[:], prop_list[:]):
         res_dat['STD_TIME'][res_dat['STD_TIME']==-np.inf] = np.nan
         res_dat.to_file(path_shp + 'extract_RTD.shp', encoding = 'utf-8')
         
+        res_dat['RES_TIME'] = (10**(res_dat['RES_TIME']))/365
+        res_dat['STD_TIME'] = (10**(res_dat['STD_TIME']))/365
+        
         vmin = 0
-        vmax = 5
+        vmax = 100
         
         fig, ax = plt.subplots(1,1, figsize=(5,5))
         # plt.imshow(res_time_data)
         # plt.colorbar()
-        show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
+        show(np.ma.masked_where(dem_data < -0, (10**res_time_data)/365), ax=ax, transform=dem.transform, 
              cmap='jet', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
         shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
                      edgecolor='k', lw=1, zorder=30)
@@ -816,8 +820,8 @@ for case, prop in zip(case_list[:], prop_list[:]):
         contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
         cbar.set_ticks(list(cbar.get_ticks()))
         # cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
-        cbar.set_label('log(t) [days]', rotation=270, labelpad=25)
-        
+        cbar.set_label('Residence times [years]', rotation=270, labelpad=25)
+
         res_dat['coords'] = res_dat['geometry'].apply(lambda x: x.representative_point().coords[:])
         res_dat['coords'] = [res_dat[0] for res_dat in res_dat['coords']]
         for idx, row in res_dat.iterrows():
@@ -832,9 +836,9 @@ for case, prop in zip(case_list[:], prop_list[:]):
         std_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].std(axis=1)
         x=2021-(mean_obs)
         xerr=std_obs
-        mean_sim = (10**res_dat['RES_TIME'])/365
+        mean_sim = res_dat['RES_TIME']
         y=mean_sim
-        yerr=(10**res_dat['STD_TIME'])/365
+        yerr = res_dat['STD_TIME']
         ax.scatter(x, y, c=y, s=50, cmap=mpl.colors.ListedColormap('k'))
         plt.errorbar(x, y , xerr=list(xerr), yerr=yerr, lw=1, fmt="o", color='k')
         # ax.legend()
@@ -867,9 +871,8 @@ for case, prop in zip(case_list[:], prop_list[:]):
         
         if compt==0:
             all_dat = res_dat.copy()
-        all_dat[model_name] = (10**res_dat['RES_TIME'])/365
+        all_dat[model_name] = res_dat['RES_TIME']
         
-
         compt+=1
 
 all_dat['coords'] = np.nan
