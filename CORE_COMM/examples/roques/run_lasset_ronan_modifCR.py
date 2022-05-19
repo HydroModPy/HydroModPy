@@ -497,7 +497,7 @@ for watershed_name in watershed_names[:] :
 thick_exp = 1.25
 
 case_list = ['case1', 'case2', 'case3', 'case4']
-prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 1/50], [50, 1000, 1/500]]
+prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 1/10], [50, 1000, 1/100]]
 
 porosity_list = np.linspace(0.01, 0.1, 5)
 
@@ -621,6 +621,26 @@ for case, prop in zip(case_list[:], prop_list[:]):
     
 df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
+df = df[["case1", "case2", "case3", "case4"]]
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
+x = pd.DataFrame([1, 2, 3, 4])
+# x = df.loc[1]
+y = df.loc[2]
+
+ax.scatter(x, y, c='b', s=150)
+ax.set_yscale("log")
+ax.set_xticks(x)
+ax.set_xlim([0,5])
+
+plt.xlabel('cases', fontsize = 20)
+plt.yticks(fontsize = 20)
+plt.xticks(fontsize = 20)
+
+plt.ylabel(r'$log(\overline{D_{so}}/\overline{D_{os}})^2$', fontsize = 20)
+
+fig.savefig(figsim_folder+watershed_name+'_cases_calibration_results'+'.png', dpi=300, bbox_inches='tight')
+
 #%% RUN PARTCILE TRACKING
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
@@ -690,6 +710,11 @@ for case, prop in zip(case_list[:], prop_list[:]):
                            actual_date=True,
                            start='1960-01-01',
                            time_step='M')
+        
+
+        visu = visualization.Visualization(BV, model_name)
+        visu.visual2D(object_list = ['pathlines'],
+                      color_scale = [(0,2)], lines=10000)
         
         print('####################################')
         print('####### simulation completed #######')
