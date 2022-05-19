@@ -81,11 +81,12 @@ def select_period(df, first, last):
 
 #%% PATH WATERSHED
 
-# user = 'Clement'
-user = 'Ronan'
+user = 'Clement'
+#user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
+    #dem_name = 'BDALTI_09_75m.tif'
     #############################################################
     git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
     # Path to the data folder
@@ -175,13 +176,21 @@ for watershed_name in watershed_names[:]:
 
 from watershed import watershed_root, watershed_display, forcing
 
-hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/Lasset/' # add hydrographic shapefiles
+if user == 'Ronan':
+    hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/Lasset/' # add hydrographic shapefiles
 
-types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+if user == 'Clement':
+    hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
+
+#types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+types_obs = ["lasset_stream_perennial"]
+#types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+BV.add_forcing()
+BV.add_hydrodynamic()
 
 # # Measurements
 # BV.add_hydrometry(hydrometry_path)
@@ -191,8 +200,8 @@ BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 # # Zones
 # BV.add_subbasin()
 
-# watershed_display.watershed_dem(BV)
-# watershed_display.watershed_local(dem_path, BV)
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
 
 #%% ----
 
@@ -488,9 +497,9 @@ for watershed_name in watershed_names[:] :
 thick_exp = 1.25
 
 case_list = ['case1', 'case2', 'case3', 'case4']
-prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 0.1], [50, 1000, 0.01]]
+prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 1/50], [50, 1000, 1/500]]
 
-porosity_list = [0.01, 0.05, 0.1, 0.2]
+porosity_list = np.linspace(0.01, 0.1, 5)
 
 #%% INIT CALIB DICHOTOMY STREAMS
 
@@ -503,7 +512,8 @@ watershed_names = ['Lasset']
 for watershed_name in watershed_names[:] :
     
     # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
-    types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
+    #types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
+    types_obs = ["lasset_stream_perennial"]
     fields_obs = ['fid']
     
     for case, prop in zip(case_list[:], prop_list[:]):
@@ -511,16 +521,22 @@ for watershed_name in watershed_names[:] :
         # df = pd.DataFrame(np.nan, index=range(1), columns=case_list)
         
         for type_obs, field_obs in zip(types_obs, fields_obs):
-       
+            
+            print('')
             print('##### '+watershed_name.upper()+' #####')
             print(case)
             print(prop)
+            print('###################################')
+            print('')
             
             BV = watershed_root.Watershed(watershed_name=watershed_name,
                                           dem_path=dem_path, 
                                           out_path=out_path,
                                           load=True,
                                           modflow_path=modflow_path)
+            BV.add_forcing()
+            BV.add_hydrodynamic()
+            BV.add_oceanic(oceanic_path)
             area = BV.geographic.area
             
             stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -542,9 +558,9 @@ for watershed_name in watershed_names[:] :
                 thick = 10*length_K_decay
                 layer_min_thick = 5
                 nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
-                print('###########!!!!!!!!!!!!!!!!!############')
-                print('nlay = ' + str(nlay))
-                print('###########!!!!!!!!!!!!!!!!!############')
+                print('')
+                print('changed nlay = ' + str(nlay))
+                print('')
 
             BV.hydrodynamic.update_nlay(nlay)
             BV.hydrodynamic.update_thickness(prop[0])
