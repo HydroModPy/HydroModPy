@@ -82,7 +82,7 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 user = 'Clement'
-#user = 'Ronan'
+user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
@@ -182,8 +182,10 @@ if user == 'Ronan':
 if user == 'Clement':
     hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
 
-#types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
-types_obs = ["lasset_stream_perennial"]
+if user=='Ronan':
+    types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+if user=='Clement':
+    types_obs = ["lasset_stream_perennial"]
 #types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
@@ -191,6 +193,7 @@ fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 BV.add_forcing()
 BV.add_hydrodynamic()
+BV.add_oceanic(oceanic_path)
 
 # # Measurements
 # BV.add_hydrometry(hydrometry_path)
@@ -200,8 +203,8 @@ BV.add_hydrodynamic()
 # # Zones
 # BV.add_subbasin()
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+# watershed_display.watershed_dem(BV)
+# watershed_display.watershed_local(dem_path, BV)
 
 #%% ----
 
@@ -720,7 +723,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         print('####### simulation completed #######')
         print('####################################')
 
-#%% EXTRACT A SAMPLING POINTS AND PLOT
+#%% EXTRACT RESIDENCE TIMES
 
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
@@ -756,7 +759,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         res_time_data = res_time.read(1)
         
         shp_obs = gpd.read_file(path_obs)
-        shp_obs['geometry'] = shp_obs.geometry.buffer(75)
+        shp_obs['geometry'] = shp_obs.geometry.buffer(50)
         # shp_obs = shp_obs[['ID_station', 'geometry']]
         shp_obs.to_file(path_dat, encoding='utf-8') # mode a
         
@@ -777,10 +780,12 @@ for case, prop in zip(case_list[:], prop_list[:]):
         res_dat['STD_TIME'] = np.nan
         
         for ID in intersect['id'].unique():
-            mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'])
+            mask = (intersect[intersect['id']==ID]['VALUE'] != 0)
+            
+            mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'][mask])
             res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
             
-            std_ID = np.nanstd(intersect[intersect['id']==ID]['VALUE'])
+            std_ID = np.nanstd(intersect[intersect['id']==ID]['VALUE'][mask])
             res_dat['STD_TIME'][res_dat['id']==ID] = std_ID
             
         
@@ -803,11 +808,13 @@ for case, prop in zip(case_list[:], prop_list[:]):
         vmax = 5
         
         fig, ax = plt.subplots(1,1, figsize=(5,5))
+        # plt.imshow(res_time_data)
+        # plt.colorbar()
         show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
-             cmap='jet_r', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
+             cmap='jet', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
         shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
                      edgecolor='k', lw=1, zorder=30)
-        res = res_dat.plot(ax=ax, cmap='jet_r',  marker='o', markersize=70,
+        res = res_dat.plot(ax=ax, cmap='jet',  marker='o', markersize=70,
                      edgecolor='k', lw=1, column='RES_TIME', zorder=30,
                      vmin=vmin, vmax=vmax)
         bounds = dem.bounds
@@ -821,7 +828,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         ax.get_yaxis().set_visible(False)
         ax.set_title(model_name, fontproperties=fontprop)
         ax.set(aspect='equal')
-        sm = plt.cm.ScalarMappable(cmap='jet_r', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+        sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
         divider = make_axes_locatable(ax)
         cax = divider.append_axes(size="2%",position='right', pad=0.05)
         fig.add_axes(cax)
@@ -887,11 +894,45 @@ for case, prop in zip(case_list[:], prop_list[:]):
             all_dat = res_dat.copy()
         all_dat[model_name] = (10**res_dat['RES_TIME'])/365
         
+
         compt+=1
 
 all_dat['coords'] = np.nan
 all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
 
+#%% EXTRACT PATHLINES TIMES
+
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+wateshed_name = 'Lasset'
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+figsim_folder = simulations_folder + '_figures/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
+
+compt=0
+for case, prop in zip(case_list[:], prop_list[:]):
+    
+    for porosity in porosity_list:
+    
+        model_name = case+'_'+str(porosity)
+        folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
+        
+        ##### LOOOP 2D #####
+        visu = visualization.Visualization(BV, model_name)
+        # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+                      # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+        visu.visual2D(object_list = ['pathlines'],
+                      color_scale = [(None,None)], lines=None)
+        
 #%% STATISTCIS
 
 import hydroeval as he

@@ -338,7 +338,8 @@ class Visualization():
                 axs[i].set_title('Pathlines, log(t) [d]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
-                random_indices = np.random.choice(len(pth_data), size=lines)
+                # random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
+                random_indices = np.arange(len(pth_data))
                 geotx_p = self.watershed.geographic.x_coord
                 geoty_p = self.watershed.geographic.y_coord
                 geot_p = self.watershed.geographic.geodata

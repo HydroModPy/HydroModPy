@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import geopandas as gpd
 import glob
+from matplotlib.collections import LineCollection
 
 import flopy.utils.binaryfile as fpu
 import flopy.utils.postprocessing as pp
@@ -496,18 +497,74 @@ class Modflow():
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
-                
+
             if residence_times == True:
                 print('residence_times')
+                # path_file = "D:/Users/abherve/DYNAMIC/Lasset/results_simulations/case4_0.05500000000000001/case4_0.05500000000000001"
+                # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
+                pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
+                pth_data = pthobj.get_alldata()
                 res_time = np.zeros(np.shape(self.dem))
                 endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
                 e = endobj.get_alldata()
                 for j in range(len(e)):
-                     res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
+                    # time_out = pth_data[j].time[0] # explore pathlines
+                    # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+                    res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
-        
+            
+            '''
+            if pathlines_times == True:
+                shapes = np.shape(self.dem)
+                cell_tot = shapes[0] * shapes[1]
+                path_file = "D:/Users/abherve/DYNAMIC/Lasset/results_simulations/case4_0.05/case4_0.05"
+                pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth'))
+                pthobj = flopy.utils.PathlineFile(path_file+'.mppth')
+                endobj = flopy.utils.EndpointFile(path_file+'.mpend')
+                e = endobj.get_alldata()
+                pth_data = pthobj.get_alldata()
+                random_indices = np.random.choice(len(pth_data), size=lines)
+                # random_indices = np.arange(len(pth_data))
+                geotx_p = self.watershed.geographic.x_coord
+                geoty_p = self.watershed.geographic.y_coord
+                geot_p = self.watershed.geographic.geodata
+                geotx_p = BV.geographic.x_coord
+                geoty_p = BV.geographic.y_coord
+                geot_p = BV.geographic.geodata
+                cols = geotx_p.shape[0]
+                rows = geoty_p.shape[0]
+                ext = []
+                xarr = [0, cols]
+                yarr = [0, rows]
+                fig, ax = plt.subplots(1,1, figsize=(5,5))
+                for px in xarr:
+                    for py in yarr:
+                        x = geotx_p[0] + (px * geot_p[1]) + (py * geot_p[2])
+                        y = geoty_p[0] + (px * geot_p[4]) + (py * geot_p[5])
+                        ext.append([x, y])
+                max_time = []
+                min_time = []
+                for j in random_indices:
+                    max_time.append(np.max(np.log10(pth_data[j].time)))
+                    min_time.append(np.min(np.log10(pth_data[j].time)))
+                for j in random_indices:
+                    x = pth_data[j].x + ext[1][0]
+                    y = pth_data[j].y + ext[1][1]
+                    points = np.array([x, y]).T.reshape(-1, 1, 2)
+                    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                    # lc = LineCollection(segments, cmap='jet')
+                    # lc.set_array(np.log10(pth_data[j].time))
+                    # lc.set_linewidth(2)
+                    # if color_scale[i][0] == None:
+                    #     lc.set_clim(1,np.max(max_time))
+                    # else:
+                    #     lc.set_clim(color_scale[i][0],color_scale[i][1])
+                #     line = ax.add_collection(lc)
+                # image.append(line)
+            '''
+            
             # Surface flow activation
             surface_flow = routing_accflux.RoutingAccflux(self.geographic,
                                                           'outflow_drain_t('+lead_numb+').tif',
