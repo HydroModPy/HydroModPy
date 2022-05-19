@@ -82,7 +82,7 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 user = 'Clement'
-user = 'Ronan'
+#user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
@@ -185,7 +185,7 @@ if user == 'Clement':
 if user=='Ronan':
     types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 if user=='Clement':
-    types_obs = ["lasset_stream_perennial"]
+    types_obs = ["lasset_stream_perennialv2"]
 #types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
@@ -500,7 +500,7 @@ for watershed_name in watershed_names[:] :
 thick_exp = 1.25
 
 case_list = ['case1', 'case2', 'case3', 'case4']
-prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 1/10], [50, 1000, 1/100]]
+prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 1/50], [50, 1000, 1/500]]
 
 porosity_list = np.linspace(0.01, 0.1, 5)
 
@@ -715,9 +715,9 @@ for case, prop in zip(case_list[:], prop_list[:]):
                            time_step='M')
         
 
-        visu = visualization.Visualization(BV, model_name)
-        visu.visual2D(object_list = ['pathlines'],
-                      color_scale = [(0,2)], lines=10000)
+        # visu = visualization.Visualization(BV, model_name)
+        # visu.visual2D(object_list = ['pathlines'],
+        #               color_scale = [(0,2)], lines=10000)
         
         print('####################################')
         print('####### simulation completed #######')
@@ -810,6 +810,10 @@ for case, prop in zip(case_list[:], prop_list[:]):
         fig, ax = plt.subplots(1,1, figsize=(5,5))
         # plt.imshow(res_time_data)
         # plt.colorbar()
+        
+        ## Modif res_time_data en annees + vmin et vmax
+        
+        
         show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
              cmap='jet', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
         shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
