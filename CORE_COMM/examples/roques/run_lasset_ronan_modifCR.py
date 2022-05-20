@@ -81,8 +81,8 @@ def select_period(df, first, last):
 
 #%% PATH WATERSHED
 
-user = 'Clement'
-#user = 'Ronan'
+# user = 'Clement'
+user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
@@ -2632,8 +2632,14 @@ for watershed_name in watershed_names:
             bounds = np.arange(0, 1.1, 0.1)
             norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
                     
-            pc = ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
-                           cmap=cmap, norm=norm, alpha=1)
+            # pc = ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
+            #                cmap=cmap, norm=norm, alpha=1)
+            
+            pc = ax.imshow(np.ma.masked_where(days_flux < 1, days_flux),
+                           cmap=mpl.colors.ListedColormap('dodgerblue'), norm=norm, alpha=1)
+            pc = ax.imshow(np.ma.masked_where((days_flux == 1) | (days_flux <= 0), days_flux),
+                           cmap=mpl.colors.ListedColormap('darkorange'), norm=norm, alpha=1)
+            
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
             ax.axis('off')
