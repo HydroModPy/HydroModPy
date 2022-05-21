@@ -203,8 +203,8 @@ BV.add_oceanic(oceanic_path)
 # # Zones
 # BV.add_subbasin()
 
-# watershed_display.watershed_dem(BV)
-# watershed_display.watershed_local(dem_path, BV)
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
 
 #%% ----
 
@@ -499,10 +499,13 @@ for watershed_name in watershed_names[:] :
 
 thick_exp = 1.25
 
-case_list = ['case1', 'case2', 'case3', 'case4']
-prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 1/50], [50, 1000, 1/500]]
+dc = np.logspace(np.log10(1/20),np.log10(1/200),3)
 
-porosity_list = np.linspace(0.01, 0.1, 5)
+case_list = ['case1', 'case2', 'case3', 'case4', 'case5']
+
+prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, dc[0]], [50, 1000, dc[1]],  [50, 1000, dc[2]]]
+
+porosity_list = np.linspace(0.1, 0.25, 5)
 
 #%% INIT CALIB DICHOTOMY STREAMS
 
@@ -516,7 +519,7 @@ for watershed_name in watershed_names[:] :
     
     # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
     #types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
-    types_obs = ["lasset_stream_perennial"]
+    types_obs = ["lasset_stream_perennialv2"]
     fields_obs = ['fid']
     
     for case, prop in zip(case_list[:], prop_list[:]):
@@ -574,7 +577,8 @@ for watershed_name in watershed_names[:] :
             params_df = pd.DataFrame(columns=['params',
                                               'init_values','lower_bounds','higher_bounds',
                                               'units','scale'])
-            params_df.loc[0] = ['k1',8.64e-01,8.64e-05,8.64e-1,'m/j','lin']
+            #params_df.loc[0] = ['k1',8.64e-01,8.64e-05,8.64e-1,'m/j','lin']
+            params_df.loc[0] = ['k1',5e-02,1e-06,1e-1,'m/j','lin']
             
             params_file = 'calib_dicot_hom_1v_k1'
             
@@ -597,6 +601,7 @@ typ_calib = 'streams_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
                    key=os.path.getmtime)
 df=pd.DataFrame()
+
 compt = 0
 for case, prop in zip(case_list[:], prop_list[:]):
     
@@ -624,17 +629,17 @@ for case, prop in zip(case_list[:], prop_list[:]):
     
 df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
-df = df[["case1", "case2", "case3", "case4"]]
+df = df[["case1", "case2", "case3", "case4", "case5"]]
 
 fig, ax = plt.subplots(1,1, figsize=(5,5))
-x = pd.DataFrame([1, 2, 3, 4])
+x = pd.DataFrame([1, 2, 3, 4, 5])
 # x = df.loc[1]
 y = df.loc[2]
 
 ax.scatter(x, y, c='b', s=150)
 ax.set_yscale("log")
 ax.set_xticks(x)
-ax.set_xlim([0,5])
+ax.set_xlim([0,6])
 
 plt.xlabel('cases', fontsize = 20)
 plt.yticks(fontsize = 20)
@@ -781,7 +786,11 @@ for case, prop in zip(case_list[:], prop_list[:]):
         res_dat['STD_TIME'] = np.nan
         
         for ID in intersect['id'].unique():
-            mask = (intersect[intersect['id']==ID]['VALUE'] != 0)
+            # threshold = 1 #year
+            # threshold = threshold*365
+            # threshold = np.log10(threshold)
+            
+            mask = (intersect[intersect['id']==ID]['VALUE'] !=0)
             
             mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'][mask])
             res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
@@ -808,8 +817,8 @@ for case, prop in zip(case_list[:], prop_list[:]):
         res_dat['RES_TIME'] = (10**(res_dat['RES_TIME']))/365
         res_dat['STD_TIME'] = (10**(res_dat['STD_TIME']))/365
         
-        vmin = 0
-        vmax = 100
+        vmin = 10
+        vmax = 50
         
         fig, ax = plt.subplots(1,1, figsize=(5,5))
         # plt.imshow(res_time_data)
@@ -820,12 +829,12 @@ for case, prop in zip(case_list[:], prop_list[:]):
         
         #show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
         show(np.ma.masked_where(dem_data < -0, (10**res_time_data)/365), ax=ax, transform=dem.transform, 
-             cmap='jet', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
-        shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
+             cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
+        shp_obs.plot(ax=ax, color=None, marker='o', markersize=10,
                      edgecolor='k', lw=1, zorder=30)
-        res = res_dat.plot(ax=ax, cmap='jet',  marker='o', markersize=70,
-                     edgecolor='k', lw=1, column='RES_TIME', zorder=30,
-                     vmin=vmin, vmax=vmax)
+        # res = res_dat.plot(ax=ax, cmap='jet',  marker='o', markersize=10,
+        #              edgecolor='k', lw=1, column='RES_TIME', zorder=30,
+        #              vmin=vmin, vmax=vmax)
         bounds = dem.bounds
         xlim = ([bounds[0], bounds[2]])
         ylim = ([bounds[1], bounds[3]])
@@ -939,8 +948,48 @@ for case, prop in zip(case_list[:], prop_list[:]):
         # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
                       # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
         visu.visual2D(object_list = ['pathlines'],
-                      color_scale = [(0,100)], lines=None)
-        
+                      color_scale = [(None,None)], lines=100)
+   
+#%% EXTRACT PATHLINES single model
+
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+wateshed_name = 'Lasset'
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+figsim_folder = simulations_folder + '_figures/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
+
+compt=0
+case = case_list[2]
+prop = prop_list[2]
+porosity = porosity_list[2]
+    
+model_name = case+'_'+str(porosity)
+folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
+
+##### LOOOP 2D #####
+visu = visualization.Visualization(BV, model_name)
+# visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+              # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+visu.visual2D(object_list = ['pathlines'],
+               color_scale = [(-1,2)], lines=100)
+
+# from tools import toolbox, vtk
+# vtk.VTK(BV, model_name)
+# visu = visualization.Visualization(BV, model_name)
+# visu.visual3D(interactive=False,
+#               object_list=['pathlines'], z_scale=1,
+#               view='custom', lines=200, cloc=(0,2))
+
 #%% STATISTCIS
 
 import hydroeval as he
