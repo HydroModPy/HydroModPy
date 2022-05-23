@@ -390,7 +390,7 @@ class Modflow():
                             head_final[i,j] = self.head[k,i,j]
                             break   
             self.head_data = head_final.copy()
-            print(self.head_data.shape)
+            # print(self.head_data.shape)
             
             if watertable_elevation == True:   
                 ### Watertable elevation

@@ -748,6 +748,8 @@ fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
 
+watershed_names = ['Gael']
+
 load = True
 
 for watershed_name in watershed_names:
@@ -6114,3 +6116,181 @@ gif1.close()
 gif2.close()    
 new_gif.close()
 
+#%% GAEL
+    
+typ='good'
+
+print('##### '+watershed_name.upper()+' #####')
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+# Observed discharge
+raw_path = stable_folder+'/'+'hydrometry/'
+
+# Input recharge
+bzh_rech = False
+var = 'REC'
+wr = True
+sim_state = 'steady' # 'steady' or 'transient'
+time_step = 'M' # or 'D'
+actual_date = True # False if date is conceptual
+
+# Active of not modules
+box = False # if True generate a rectangular model
+sink_fill = False # permit to fill sinks
+modpath_sim = True # run modpath particle tracking if True
+verbose = True # add print of MODFLOW in console
+post_process = False # necessary to decompose post process of process
+
+# Strcture of the model
+nlay = 1 # vertical discrtization
+bottom = None # aquifer flat or not
+thick_exp = 1 # exponential decay of K with nlay
+cond_decay = 0 # exponential decay of K with depth
+thickness = 30 # m
+
+# Hydraulic properties
+KR = 7090
+Koptim = 3.9
+R = 3.9/7090
+
+K = Koptim
+Sy = 0.01
+
+list_model_name = []
+list_of_success = []
+list_flow_model = []
+
+BV.add_hydrodynamic()
+
+# Update properties
+BV.hydrodynamic.update_nlay(nlay) # 1
+BV.hydrodynamic.update_bottom(bottom) # None
+BV.hydrodynamic.update_cond_decay(cond_decay) # 0
+BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+BV.hydrodynamic.update_thickness(thickness)
+
+BV.hydrodynamic.update_hyd_cond(K) 
+BV.hydrodynamic.update_porosity(Sy)
+
+BV.add_forcing()
+BV.add_oceanic(oceanic_path)
+BV.forcing.update_recharge(R, sim_state=sim_state)
+  
+date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
+date_today = date_today.replace('/','-')
+date_today = date_today.replace(':','-')
+date_today = date_today.replace(' ','_')
+
+model_name = typ+'_'+str(0)+'_'+\
+             str(Sy*100)+'-'+str(round(K,2))+'-'+str(thickness)
+             
+"""
+# Run model
+try:
+    print('SIM - ' + model_name)
+    success, flow_model = BV.run_modflow(ident=model_name,
+                                         modpath_sim=modpath_sim,
+                                         sink_fill=sink_fill,
+                                         box=box,
+                                         verbose=verbose,
+                                         post_process=post_process)
+    if success == True:
+        print(     'Success')
+    else:
+        print(     'Error')
+except:
+    pass
+
+list_model_name.append(model_name)
+list_of_success.append(success)
+list_flow_model.append(flow_model)
+        
+print(list_of_success)
+
+dictio = {}
+dictio['list_model_name'] = list_model_name
+dictio['list_of_success'] = list_of_success
+dictio['list_flow_model'] = list_flow_model
+h5file = simulations_folder+'/'+'list_'+typ
+
+dd.io.save(h5file, dictio)
+    
+print('##### '+watershed_name.upper()+' #####')
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                          dem_path=dem_path, 
+                          out_path=out_path,
+                          load=True,
+                          modflow_path=modflow_path)
+
+h5file = simulations_folder+'/'+'list_'+typ
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name'][:]
+list_of_success = d['list_of_success'][:]
+list_flow_model = d['list_flow_model'][:]
+
+for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+    
+    if success==True:
+        print(success)
+        
+        BV.matrix_modflow(success,
+                          flow_model,
+                          first_only = True,
+                          watertable_elevation = True,
+                          watertable_depth = True, 
+                          seepage_areas = True,
+                          outflow_drain = True,
+                          groundwater_flux = False,
+                          specific_discharge = False,
+                          accumulation_flux = True,
+                          perenn_intermit_shp = False,
+                          groundwater_storage = False,
+                          verbose = True,
+                          export_tif = True)
+        
+        # Necessary for results_modflow
+        BV.forcing.update_recharge(flow_model.climatic,
+                                   sim_state=sim_state)
+        
+        # # Extract results
+        BV.results_modflow(ident=model_name,
+                           actual_date=actual_date,
+                           time_step=time_step)
+        
+        ## Plot maps
+        surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
+                                              model_name, types_obs,
+                                              save_gif=False,
+                                              first_only=True,
+                                              sim_state=sim_state,
+                                              outflow=True,
+                                              accflux=True,
+                                              intermittency=False,
+                                              chronics=False)
+        
+"""
+
+from tools import toolbox, vtk
+from groundwater_flow import visualization, modflow_display
+
+# 3D parameters
+list_view = ['watertable_depth'] # object to represent in 3D
+interactive = True
+z_scale = 10
+view = 'south-west'
+lines = 200
+
+vtk.VTK(BV, model_name)
+visu = visualization.Visualization(BV, model_name)
+visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view,
+              lines=lines, cloc=(0.7,0.1))
