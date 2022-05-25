@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import geopandas as gpd
 import glob
+from matplotlib.collections import LineCollection
 
 import flopy.utils.binaryfile as fpu
 import flopy.utils.postprocessing as pp
@@ -389,7 +390,7 @@ class Modflow():
                             head_final[i,j] = self.head[k,i,j]
                             break   
             self.head_data = head_final.copy()
-            print(self.head_data.shape)
+            # print(self.head_data.shape)
             
             if watertable_elevation == True:   
                 ### Watertable elevation
@@ -496,18 +497,24 @@ class Modflow():
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.specif_disch_top, -9999, output_path)
                 self.dict_specific_discharge[item] = self.specif_disch_top
-                
+
             if residence_times == True:
                 print('residence_times')
+                # path_file = "D:/Users/abherve/DYNAMIC/Lasset/results_simulations/case4_0.05500000000000001/case4_0.05500000000000001"
+                # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
+                pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
+                pth_data = pthobj.get_alldata()
                 res_time = np.zeros(np.shape(self.dem))
                 endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
                 e = endobj.get_alldata()
                 for j in range(len(e)):
-                     res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
+                    # time_out = pth_data[j].time[0] # explore pathlines
+                    # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+                    res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
-        
+            
             # Surface flow activation
             surface_flow = routing_accflux.RoutingAccflux(self.geographic,
                                                           'outflow_drain_t('+lead_numb+').tif',
