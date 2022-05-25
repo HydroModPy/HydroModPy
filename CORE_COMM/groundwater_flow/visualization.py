@@ -339,8 +339,10 @@ class Visualization():
                 axs[i].set_title('Pathlines, (t) [y]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
-                # random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
-                random_indices = np.arange(len(pth_data))
+                if lines != None:
+                    random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
+                if lines == None:
+                    random_indices = np.arange(len(pth_data))
                 geotx_p = self.watershed.geographic.x_coord
                 geoty_p = self.watershed.geographic.y_coord
                 geot_p = self.watershed.geographic.geodata
@@ -364,9 +366,9 @@ class Visualization():
                     y = pth_data[j].y + ext[1][1]
                     points = np.array([x, y]).T.reshape(-1, 1, 2)
                     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, cmap='jet')
-                    lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
-                    #lc.set_array(pth_data[j].time / 365) # t in years
+                    lc = LineCollection(segments, cmap='jet', alpha=0.5)
+                    # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
+                    lc.set_array(pth_data[j].time / 365) # t in years
                     lc.set_linewidth(2)
                     if color_scale[i][0] == None:
                         lc.set_clim(1,np.max(max_time))
