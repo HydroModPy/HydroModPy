@@ -261,8 +261,8 @@ class Visualization():
         drain_area = np.load(drain_file, allow_pickle=True).item()
         
         # open the surface flux files
-        #surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
-        #surface_area = np.load(surface_file, allow_pickle=True).item()
+        surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
+        surface_area = np.load(surface_file, allow_pickle=True).item()
         
         N = len(object_list)
         if structure == 'v':
