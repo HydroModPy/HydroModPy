@@ -4478,13 +4478,314 @@ for watershed_name in watershed_names:
                           watershed_name+'_'+mod+'_'+dates+'_'+
                           '_ano_distrib'+'.png', dpi=300, bbox_inches='tight')
 
+#%% anomaly violin
+
+from scipy.stats import binned_statistic
+
+typ = 'projec-1'
+
+# Things
+time_step = 'M'
+sim_state = 'transient'
+var = 'REC'
+
+# Colored
+mod_list = ['NOR-R15', 'MPI-R09']
+# mod_list = ['MPI-R09']
+# mod_list = ['NOR-R15']
+sce_list = ['RCP2.6', 'RCP8.5']
+sce_cmap = ['Blues', 'Reds']
+sce_color = ['dodgerblue', 'red']
+cmap_dict = dict(zip(sce_list, sce_cmap))
+color_dict = dict(zip(sce_list, sce_color))
+
+# Hysteres
+temporal = False
+space = 0
+norm = False
+
+watershed_names = ['Canut','Nancon']
+
+# y_name = 'surflow_areas'
+y_name = 'intermit_areas'
+y_name = 'prop_ratio'
+# y_name = 'perenn_areas'
+# y_name = 'outflow_drain'
+# y_name = 'recharge'
+# y_name = 'seepage_areas'
+xmin = []
+xmax = []
+ymin = []
+ymax = []
+
+inds_tot = []
+
+fig, axs = plt.subplots(1,2, figsize=(6,4))
+axs = axs.ravel()
+
+compt = 0
+
+for watershed_name in watershed_names[:] :
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    color = 'k'
+    
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+
+    ax = axs[compt]
+    
+    # fig, ax = plt.subplots(1,1, figsize=(3,4))
+    
+    ser_p1_26 = pd.Series()
+    ser_p1_85 = pd.Series()
+    ser_p2_26 = pd.Series()
+    ser_p2_85 = pd.Series()
+    
+    data1 = (pd.Series(), pd.Series())
+    data2 = (pd.Series(), pd.Series())
+    
+    for mod in mod_list:
+        
+        # fig1, axs1 = plt.subplots(1,1, figsize=(5,5))
+        # xn = 0.1
+        # xx = 100
+        # yn = 0.1
+        # yx = 100
+        # ax = axs1
+        # ax.set_title(mod)
+        # ax.set_aspect('equal', adjustable='box')
+
+        for sce in sce_list:
+            
+            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+            simul = simul_list[0]
+            
+            # if sce == 'historic':
+            #     simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+'RCP8.5'+'*')
+            #     simul = simul_list[0]
+                
+            model_name = simul.split('\\')[-1]
+            Sy = float(model_name.split('_')[3].split('-')[0]) # %
+            K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+            E = float(model_name.split('_')[3].split('-')[2]) # m
+            D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+            params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+            Smod_path = simul+'/_watershed/_simulated_results.csv'            
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+            Smod['sce'] = sce
+            
+            # ax.violinplot(Smod['surflow_areas'],
+            #                   showmeans=False,
+            #                   showmedians=True)
+            
+            # from matplotlib import pyplot as plt
+            # import seaborn as sns
+            # import numpy as np
+            
+            # sns.set_style('white')
+            # # iris = sns.load_dataset('iris')
+            # # palette = 'Set2'
+            # iris = Smod
+            # ax = sns.violinplot(x="sce", y="surflow_areas", data=iris, hue="sce", dodge=False,
+            #                     facecolor=color_dict[sce], alpha=0.5,
+            #                     scale="width", inner=None)
+
+            # xlim = ax.get_xlim()
+            # ylim = ax.get_ylim()
+            # for violin in ax.collections:
+            #     bbox = violin.get_paths()[0].get_extents()
+            #     x0, y0, width, height = bbox.bounds
+            #     violin.set_clip_path(plt.Rectangle((x0, y0), width / 2, height, transform=ax.transData))
+            
+            # sns.boxplot(x="sce", y="surflow_areas", data=iris, saturation=1, showfliers=False,
+            #             width=0.1, boxprops={'zorder': 3, 'facecolor': 'none'}, ax=ax)
+            # old_len_collections = len(ax.collections)
+            # sns.stripplot(x="sce", y="surflow_areas", data=iris, hue="sce", dodge=False, ax=ax)
+            # for dots in ax.collections[old_len_collections:]:
+            #     dots.set_offsets(dots.get_offsets() + np.array([-0.12, 0]))
+            # ax.set_xlim(xlim)
+            # ax.set_ylim(0,20)
+            # ax.legend_.remove()
+            # plt.show()
+            
+            '''
+            if sce == 'RCP2.6':
+                rcp26_one = Smod[y_name].copy()
+                ser_p1_26 = ser_p1_26.append(select_period(rcp26_one.copy(), 2020, 2048), ignore_index=True)
+                ser_p2_26 = ser_p2_26.append(select_period(rcp26_one.copy(), 2070, 2098), ignore_index=True)
+            if sce == 'RCP8.5':
+                rcp85_one = Smod[y_name].copy()
+                ser_p1_85 = ser_p1_85.append(select_period(rcp85_one.copy(), 2020, 2048), ignore_index=True)
+                ser_p2_85 = ser_p2_85.append(select_period(rcp85_one.copy(), 2070, 2098), ignore_index=True)
+            '''
+                
+            acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+                
+            # Historic
+            acc_npy_h = list(acc_npy.items())[30*12:48*12]
+            for key in range(len(acc_npy_h)):
+                acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
+            zero = acc_npy_h[0] * 0
+            for i in range(len(acc_npy_h)):
+                tempo = acc_npy_h[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux_h = zero.copy() / len(acc_npy_h)
+                
+            dates = ['p1', 'p2']
+            for date in dates:
+                if date == 'p1':
+                    acc_npy_f = list(acc_npy.items())[-80*12:-50*12]
+                if date == 'p2':
+                    acc_npy_f = list(acc_npy.items())[-30*12:]
+                for key in range(len(acc_npy_f)):
+                    acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
+                zero = acc_npy_f[0] * 0
+                for i in range(len(acc_npy_f)):
+                    tempo = acc_npy_f[i].copy()
+                    tempo[tempo>0] = 1
+                    zero = zero + tempo
+                days_flux_f = zero.copy() / len(acc_npy_f)
+                days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                # data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                data = data.flatten().filled(np.nan)
+                # data = data.flatten()
+                # data = days_flux_ano[~days_flux_ano.mask]
+                # data = data.compressed()
+                data = data[~np.isnan(data)]
+                if date == 'p1':
+                    data_p1 = pd.Series(data.copy())
+                if date == 'p2':
+                    data_p2 = pd.Series(data.copy())
+            
+            if sce == 'RCP2.6':
+                rcp26_one = Smod[y_name].copy()
+                ser_p1_26 = ser_p1_26.append(data_p1, ignore_index=True)
+                ser_p2_26 = ser_p2_26.append(data_p2, ignore_index=True)
+            if sce == 'RCP8.5':
+                rcp85_one = Smod[y_name].copy()
+                ser_p1_85 = ser_p1_85.append(data_p1, ignore_index=True)
+                ser_p2_85 = ser_p2_85.append(data_p2, ignore_index=True)
+         
+    data1 = (np.array(ser_p1_26), np.array(ser_p2_26))
+    data2 = (np.array(ser_p1_85), np.array(ser_p2_85))
+        
+    # data1 = (select_period(rcp26, 2020, 2050),
+    #          select_period(rcp85, 2020, 2050))
+    # data2 = (select_period(rcp26, 2070, 2099),
+    #          select_period(rcp85, 2070, 2099))
+    
+    labels = []
+    import matplotlib.patches as mpatches
+    def add_label(violin, label):
+        color = violin["bodies"][0].get_facecolor().flatten()
+        labels.append((mpatches.Patch(color=color), label))
+    
+    v1 = ax.violinplot(data1, points=1000, positions=np.arange(0, len(data1)),
+                   showmeans=False, showextrema=False, showmedians=False)
+
+    for b in v1['bodies']:
+        # get the center
+        m = np.mean(b.get_paths()[0].vertices[:, 0])
+        # modify the paths to not go further right than the center
+        b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], -np.inf, m)
+        b.set_color('r')
+
+    v2 = ax.violinplot(data2, points=1000, positions=np.arange(0, len(data2)), 
+                   showmeans=False, showextrema=False, showmedians=False)
+
+    for b in v2['bodies']:
+        # get the center
+        m = np.mean(b.get_paths()[0].vertices[:, 0])
+        # modify the paths to not go further left than the center
+        b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], m, np.inf)
+        b.set_color('b')
+    
+    for pc in v1['bodies']:
+        pc.set_facecolor('dodgerblue')
+        pc.set_edgecolor('black')
+        pc.set_alpha(0.5)
+    for pc in v2['bodies']:
+        pc.set_facecolor('red')
+        pc.set_edgecolor('black')
+        pc.set_alpha(0.5)
+    
+    
+    old_len_collections = len(ax.collections)
+    sns.stripplot(data=data1,dodge=False, ax=ax, color='dodgerblue', size=1)
+    for dots in ax.collections[old_len_collections:]:
+        dots.set_offsets(dots.get_offsets() + np.array([-0.1, 0]))
+        dots.set_alpha(0.25)
+    old_len_collections = len(ax.collections)
+    sns.stripplot(data=data2, dodge=False, ax=ax, color='red', size=1)
+    for dots in ax.collections[old_len_collections:]:
+        dots.set_offsets(dots.get_offsets() + np.array([+0.1, 0]))
+        dots.set_alpha(0.25)
+    
+    # sns.swarmplot(data=data2, dodge=False, ax=ax, color='red', size=1)
+    
+    def adjacent_values(vals, q1, q3):
+        upper_adjacent_value = q3 + (q3 - q1) * 1.5
+        upper_adjacent_value = np.clip(upper_adjacent_value, q3, vals[-1])
+    
+        lower_adjacent_value = q1 - (q3 - q1) * 1.5
+        lower_adjacent_value = np.clip(lower_adjacent_value, vals[0], q1)
+        return lower_adjacent_value, upper_adjacent_value
+    
+    for i in range(2):
+        quartile1, medians, quartile3 = np.percentile(data1[i], [25, 50, 75]) # axis = 1
+        # whiskers = np.array([
+        #     adjacent_values(sorted_array, q1, q3)
+        #     for sorted_array, q1, q3 in zip(data1, quartile1, quartile3)])
+        # whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
+        inds = i + - 0.05 # np.arange(1, len(medians) + 1) - 1 - 0.05
+        ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
+        # print(medians)
+        ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1, zorder=1000)
+        # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+        inds_tot.append(inds)
+        
+    for i in range(2):
+        quartile1, medians, quartile3 = np.percentile(data2[i], [25, 50, 75]) # axis = 1
+        # whiskers = np.array([
+        #     adjacent_values(sorted_array, q1, q3)
+        #     for sorted_array, q1, q3 in zip(data2, quartile1, quartile3)])
+        # whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
+        inds = i + 0.05 # np.arange(1, len(medians) + 1) - 1 + 0.05
+        ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
+        # print(medians)
+        ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1,zorder=1000)
+        # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+        inds_tot.append(inds)
+    
+    # ax.get_xaxis().set_visible(False)
+    ax.set_title(watershed_name)
+    ax.set_ylim(-20,20)
+    # ax.set_ylabel(y_name.upper())
+    # ax.set_yscale('log')
+    # ax.set_xticks(inds-0.05)
+    ax.set_xticks([0.0,1.0])
+    ax.set_xticklabels(['2020-2050', '2070-2100'])
+    
+    if watershed_name == 'Canut':
+        ax.legend([v1['bodies'][0], v2['bodies'][0]], ['RCP2.6', 'RCP8.5'], loc=2)
+        leg = ax.get_legend()
+        leg.legendHandles[0].set_color('dodgerblue')
+        leg.legendHandles[1].set_color('red')
+    
+    compt += 1
+    
+plt.tight_layout()
+
 #%% 08_seasonaly anomaly
 
 sce_list = ['RCP2.6','RCP8.5']
 
 mod_list = ['MPI-R09','NOR-R15']
 # mod_list = ['IPS1','NOR1']
-# mod_list = ['NOR-R15']
+mod_list = ['NOR-R15']
 
 watershed_names = ['Canut','Nancon']
 # watershed_names = ['Nancon']
@@ -4563,6 +4864,13 @@ for watershed_name in watershed_names:
                     
                     # Anomaly
                     days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                    # data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                    data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                    # data = data.flatten().filled(np.nan)
+                    # data = data.flatten()
+                    # data = days_flux_ano[~days_flux_ano.mask]
+                    # data = data.compressed()
+                    # data = data[~np.isnan(data)]
                     data = days_flux_ano[~days_flux_ano.mask]
                     
                     return data
@@ -4589,7 +4897,7 @@ for watershed_name in watershed_names:
                 df_ano['DJF_'+mod+'_'+sce] = djf
                 df_ano['MAM_'+mod+'_'+sce] = mam
                 df_ano['JJA_'+mod+'_'+sce] = jja
-    
+                
     if watershed_name == 'Canut':
         canut_ano = df_ano.copy()
     if watershed_name == 'Nancon':
@@ -4606,13 +4914,15 @@ import matplotlib.gridspec as grid_spec
 seasons = ['SON','DJF','MAM','JJA']
 
 for watershed_name in watershed_names:
-    
+    fig, axs = plt.subplots(4,1, figsize=(4,5))
     for mod in mod_list:
         
         gs = (grid_spec.GridSpec(len(seasons),1))
         
         # fig = plt.figure(figsize=(8,3))
-        fig, axs = plt.subplots(4,1, figsize=(4,5))
+        
+        # fig, axs = plt.subplots(4,1, figsize=(4,5))
+        
         #creating empty list
         ax_objs = []
     
@@ -4621,8 +4931,6 @@ for watershed_name in watershed_names:
         
             # ax = fig.add_subplot(gs[i, :])
         
-            
-            
             for sce in sce_list:
                 
                 print(mod,sce,season)
@@ -4640,10 +4948,22 @@ for watershed_name in watershed_names:
                     # else:
                     #     color = 'forestgreen'   
                 
+                # # Each model
+                # if watershed_name=='Canut':
+                #     to_plt = canut_ano.filter(regex=season).filter(regex=mod).filter(regex=sce)
+                # if watershed_name=='Nancon':
+                #     to_plt = nancon_ano.filter(regex=season).filter(regex=mod).filter(regex=sce)
+                # to_plt = to_plt.loc[~(to_plt==0).all(axis=1)]
+                
+                # Mean model
                 if watershed_name=='Canut':
-                    to_plt = canut_ano.filter(regex=season).filter(regex=mod).filter(regex=sce)
+                    to_plt = canut_ano.filter(regex=season).filter(regex=sce)                    
                 if watershed_name=='Nancon':
-                    to_plt = nancon_ano.filter(regex=season).filter(regex=mod).filter(regex=sce)
+                    to_plt = nancon_ano.filter(regex=season).filter(regex=sce)
+                to_plt = to_plt.mean(axis=1)
+                to_plt = to_plt.loc[~(to_plt==0)]
+
+                # to_plt = to_plt[~np.isnan(to_plt)]
                 
                 ax = axs[i]
                 
@@ -4661,11 +4981,12 @@ for watershed_name in watershed_names:
             
                 # ax.fill_between(x, y, color=color, alpha=0.5)
                 
-                # import seaborn as sns
-                # sns.distplot(to_plt, hist = True, kde = False, norm_hist = True, 
-                #       kde_kws = {'shade': True, 'linewidth': 2, 'alpha':0.1},
-                #       color=color)
+                import seaborn as sns
+                sns.distplot(to_plt, hist = False, kde = True, norm_hist = True, 
+                      kde_kws = {'shade': True, 'linewidth': 2, 'alpha':0.1},
+                      color=color, ax=ax)
                 
+                '''
                 heights, edges = np.histogram(to_plt, bins=100, density=True)
                 left_edges = edges[:-1]
                 width = 0.85*(left_edges[1] - left_edges[0])              
@@ -4674,8 +4995,9 @@ for watershed_name in watershed_names:
                 # plt.plot(left_edges, heights, lw=1, color=color, alpha=1)
                 # plt.yscale('log')
                 # plt.fill_between(left_edges, 0, heights, lw=0, color=color, alpha=0.5)
-            
-                ax.set_xlim(-20, +20)
+                '''
+                
+                ax.set_xlim(-30, +30)
                 ax.set_ylim(0.001,1)
                 
                 ax.set_yscale('log')
@@ -5512,15 +5834,20 @@ xmax = []
 ymin = []
 ymax = []
 
+inds_tot = []
+
 fig, axs = plt.subplots(1,2, figsize=(6,4))
 axs = axs.ravel()
 
 compt = 0
 
 for watershed_name in watershed_names[:] :
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
     
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+
     ax = axs[compt]
     
     # fig, ax = plt.subplots(1,1, figsize=(3,4))
@@ -5597,7 +5924,8 @@ for watershed_name in watershed_names[:] :
             # ax.set_ylim(0,20)
             # ax.legend_.remove()
             # plt.show()
-                        
+            
+            '''
             if sce == 'RCP2.6':
                 rcp26_one = Smod[y_name].copy()
                 ser_p1_26 = ser_p1_26.append(select_period(rcp26_one.copy(), 2020, 2048), ignore_index=True)
@@ -5606,6 +5934,56 @@ for watershed_name in watershed_names[:] :
                 rcp85_one = Smod[y_name].copy()
                 ser_p1_85 = ser_p1_85.append(select_period(rcp85_one.copy(), 2020, 2048), ignore_index=True)
                 ser_p2_85 = ser_p2_85.append(select_period(rcp85_one.copy(), 2070, 2098), ignore_index=True)
+            '''
+                
+            acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+                
+            # Historic
+            acc_npy_h = list(acc_npy.items())[30*12:48*12]
+            for key in range(len(acc_npy_h)):
+                acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
+            zero = acc_npy_h[0] * 0
+            for i in range(len(acc_npy_h)):
+                tempo = acc_npy_h[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux_h = zero.copy() / len(acc_npy_h)
+                
+            dates = ['p1', 'p2']
+            for date in dates:
+                if date == 'p1':
+                    acc_npy_f = list(acc_npy.items())[-80*12:-50*12]
+                if date == 'p2':
+                    acc_npy_f = list(acc_npy.items())[-30*12:]
+                for key in range(len(acc_npy_f)):
+                    acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
+                zero = acc_npy_f[0] * 0
+                for i in range(len(acc_npy_f)):
+                    tempo = acc_npy_f[i].copy()
+                    tempo[tempo>0] = 1
+                    zero = zero + tempo
+                days_flux_f = zero.copy() / len(acc_npy_f)
+                days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                # data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                data = data.flatten().filled(np.nan)
+                # data = data.flatten()
+                # data = days_flux_ano[~days_flux_ano.mask]
+                # data = data.compressed()
+                data = data[~np.isnan(data)]
+                if date == 'p1':
+                    data_p1 = pd.Series(data.copy())
+                if date == 'p2':
+                    data_p2 = pd.Series(data.copy())
+            
+            if sce == 'RCP2.6':
+                rcp26_one = Smod[y_name].copy()
+                ser_p1_26 = ser_p1_26.append(data_p1, ignore_index=True)
+                ser_p2_26 = ser_p2_26.append(data_p2, ignore_index=True)
+            if sce == 'RCP8.5':
+                rcp85_one = Smod[y_name].copy()
+                ser_p1_85 = ser_p1_85.append(data_p1, ignore_index=True)
+                ser_p2_85 = ser_p2_85.append(data_p2, ignore_index=True)
          
     data1 = (np.array(ser_p1_26), np.array(ser_p2_26))
     data2 = (np.array(ser_p1_85), np.array(ser_p2_85))
@@ -5621,7 +5999,7 @@ for watershed_name in watershed_names[:] :
         color = violin["bodies"][0].get_facecolor().flatten()
         labels.append((mpatches.Patch(color=color), label))
     
-    v1 = ax.violinplot(data1, points=100, positions=np.arange(0, len(data1)),
+    v1 = ax.violinplot(data1, points=1000, positions=np.arange(0, len(data1)),
                    showmeans=False, showextrema=False, showmedians=False)
 
     for b in v1['bodies']:
@@ -5631,7 +6009,7 @@ for watershed_name in watershed_names[:] :
         b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], -np.inf, m)
         b.set_color('r')
 
-    v2 = ax.violinplot(data2, points=100, positions=np.arange(0, len(data2)), 
+    v2 = ax.violinplot(data2, points=1000, positions=np.arange(0, len(data2)), 
                    showmeans=False, showextrema=False, showmedians=False)
 
     for b in v2['bodies']:
@@ -5640,11 +6018,6 @@ for watershed_name in watershed_names[:] :
         # modify the paths to not go further left than the center
         b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], m, np.inf)
         b.set_color('b')
-    
-    ax.legend([v1['bodies'][0], v2['bodies'][0]], ['RCP2.6', 'RCP8.5'], loc=2)
-    leg = ax.get_legend()
-    leg.legendHandles[0].set_color('dodgerblue')
-    leg.legendHandles[1].set_color('red')
     
     for pc in v1['bodies']:
         pc.set_facecolor('dodgerblue')
@@ -5655,16 +6028,19 @@ for watershed_name in watershed_names[:] :
         pc.set_edgecolor('black')
         pc.set_alpha(0.5)
     
-    '''
+    
     old_len_collections = len(ax.collections)
     sns.stripplot(data=data1,dodge=False, ax=ax, color='dodgerblue', size=1)
     for dots in ax.collections[old_len_collections:]:
         dots.set_offsets(dots.get_offsets() + np.array([-0.1, 0]))
+        dots.set_alpha(0.25)
     old_len_collections = len(ax.collections)
     sns.stripplot(data=data2, dodge=False, ax=ax, color='red', size=1)
     for dots in ax.collections[old_len_collections:]:
         dots.set_offsets(dots.get_offsets() + np.array([+0.1, 0]))
-    '''
+        dots.set_alpha(0.25)
+    
+    # sns.swarmplot(data=data2, dodge=False, ax=ax, color='red', size=1)
     
     def adjacent_values(vals, q1, q3):
         upper_adjacent_value = q3 + (q3 - q1) * 1.5
@@ -5674,35 +6050,46 @@ for watershed_name in watershed_names[:] :
         lower_adjacent_value = np.clip(lower_adjacent_value, vals[0], q1)
         return lower_adjacent_value, upper_adjacent_value
     
-    quartile1, medians, quartile3 = np.percentile(data1, [25, 50, 75], axis=1)
-    whiskers = np.array([
-        adjacent_values(sorted_array, q1, q3)
-        for sorted_array, q1, q3 in zip(data1, quartile1, quartile3)])
-    whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
-    inds = np.arange(1, len(medians) + 1) - 1 -0.05
-    ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
-    # print(medians)
-    ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1, zorder=1000)
-    # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
-    
-    quartile1, medians, quartile3 = np.percentile(data2, [25, 50, 75], axis=1)
-    whiskers = np.array([
-        adjacent_values(sorted_array, q1, q3)
-        for sorted_array, q1, q3 in zip(data2, quartile1, quartile3)])
-    whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
-    inds = np.arange(1, len(medians) + 1) - 1 +0.05
-    ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
-    # print(medians)
-    ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1,zorder=1000)
-    # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+    for i in range(2):
+        quartile1, medians, quartile3 = np.percentile(data1[i], [25, 50, 75]) # axis = 1
+        # whiskers = np.array([
+        #     adjacent_values(sorted_array, q1, q3)
+        #     for sorted_array, q1, q3 in zip(data1, quartile1, quartile3)])
+        # whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
+        inds = i + - 0.05 # np.arange(1, len(medians) + 1) - 1 - 0.05
+        ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
+        # print(medians)
+        ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1, zorder=1000)
+        # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+        inds_tot.append(inds)
+        
+    for i in range(2):
+        quartile1, medians, quartile3 = np.percentile(data2[i], [25, 50, 75]) # axis = 1
+        # whiskers = np.array([
+        #     adjacent_values(sorted_array, q1, q3)
+        #     for sorted_array, q1, q3 in zip(data2, quartile1, quartile3)])
+        # whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
+        inds = i + 0.05 # np.arange(1, len(medians) + 1) - 1 + 0.05
+        ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
+        # print(medians)
+        ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1,zorder=1000)
+        # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+        inds_tot.append(inds)
     
     # ax.get_xaxis().set_visible(False)
     ax.set_title(watershed_name)
-    # ax.set_ylim(-1)
-    ax.set_ylabel(y_name.upper())
+    ax.set_ylim(-20,20)
+    # ax.set_ylabel(y_name.upper())
     # ax.set_yscale('log')
-    ax.set_xticks(inds-0.05)
+    # ax.set_xticks(inds-0.05)
+    ax.set_xticks([0.0,1.0])
     ax.set_xticklabels(['2020-2050', '2070-2100'])
+    
+    if watershed_name == 'Canut':
+        ax.legend([v1['bodies'][0], v2['bodies'][0]], ['RCP2.6', 'RCP8.5'], loc=2)
+        leg = ax.get_legend()
+        leg.legendHandles[0].set_color('dodgerblue')
+        leg.legendHandles[1].set_color('red')
     
     compt += 1
     
