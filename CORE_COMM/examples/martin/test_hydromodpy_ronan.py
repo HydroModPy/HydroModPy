@@ -44,39 +44,13 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-user = 'Martin'
+# # Path to the git repositoty home page
+git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+# # Path to the data folder
+data_path = "C:/Users/Martin/Desktop/Travail/data/data_test_ronan/"
+# # Path where the results will be stored
+out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
 
-if user == 'Alexandre':
-    # # Path to the git repositoty home page
-    git_path = "C:/Users/alexa/Documents/GitHub/HydroModPy/CORE_COMM/"
-    # # Path to the data folder
-    data_path = "C:/Users/alexa/OneDrive/_HydroDataPy/TEST/"
-    # # Path where the results will be stored
-    out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
-
-if user == 'Martin':
-    # # Path to the git repositoty home page
-    git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
-    # # Path to the data folder
-    data_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/TEST/"
-    # # Path where the results will be stored
-    out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output/'
-
-if user == 'Ronan':
-    # Path to the git repositoty home page
-    git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
-    # Path to the data folder
-    data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
-    # Path where the results will be stored
-    out_path = "D:/Users/abherve/TEST/"
-    
-if user == 'Clément':
-    # Path to the git repositoty home page
-    git_path = ""
-    # Path to the data folder
-    data_path = ""
-    # Path where the results will be stored
-    out_path = ""
 
 #%% DATABASE ACCESS FOR THIS TESTS
 
@@ -91,20 +65,20 @@ if user == 'Clément':
 
 # Specify path or boolean to active/enable modules
 
-dems_path = data_path + 'dem/' # reginal DEM or conceptual DEM
-shp_path = data_path + 'shp/' # if you want run a model from a shapefile
-modflow_path = data_path + 'modflow/' # add bin/ folder with necessary .exe
+dems_path = data_path # reginal DEM or conceptual DEM
+# shp_path = data_path + 'shp/' # if you want run a model from a shapefile
+modflow_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/TEST/modflow/' # add bin/ folder with necessary .exe
 
-surfex_path =  data_path + 'surfex/' # add surfex models in .h5 format (France scale, else, specify None)
-geology_path = data_path + 'geology/' # add geologic layers
-oceanic_path = data_path + 'oceanic/' # add specific sea level files
-hydrology_path = data_path + 'hydrology/' # add hydrographic shapefiles
-hydrometry_path = data_path + 'hydrometry/' # add hydrometry data for automatic download
-intermittency_path = data_path + 'intermittency/' # add intermittency data for automatic download
+surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
+# geology_path = data_path + 'geology/' # add geologic layers
+oceanic_path = data_path + 'OCEAN/' # add specific sea level files
+hydrology_path = data_path + 'hydro/' # add hydrographic shapefiles
+# hydrometry_path = data_path + 'hydrometry/' # add hydrometry data for automatic download
+# intermittency_path = data_path + 'intermittency/' # add intermittency data for automatic download
 piezometry_path = True # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 
-library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
+library_path = git_path + 'watershed/watershed_library.csv' # each row is a study site with outlet coordinates
 
 #%% TEST CHOICE
 
@@ -114,35 +88,17 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-watershed_name = 'Outlet' # search the name in watershed_library or just label your result folder
+watershed_name = 'Agon-Coutainville' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
-if watershed_name == 'Outlet':
-    dem_name = "DEM_test_75m_LAMB93.tif" # name of dem
-    from_shp = None # specify a path if process start from a given shapefile
-    from_dem = False # True or False if the process start from a given DEM of xyz file
-    cell_size = None # specify new resolution from a given DEM or None
+dem_name = "BDALTI_norm-manch_75m.tif" # name of dem
+from_shp = "C:/Users/Martin/Desktop/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
+from_dem = False # True or False if the process start from a given DEM of xyz file
+cell_size = None # specify new resolution from a given DEM or None
     
-if watershed_name == 'Shapefile':
-    dem_name = "DEM_test_75m_LAMB93.tif"
-    from_shp = shp_path + 'lambda.shp'
-    from_dem = False
-    cell_size = None
 
-if watershed_name == 'Dem':
-    dem_name = "DEM_circle_75m_LAMB93.tif"
-    from_shp = None
-    from_dem = True
-    cell_size = None
-    
-if watershed_name == 'Conceptual':
-    dem_name = 'topoxyz_Uhigh.txt'
-    from_shp = None
-    from_dem = True
-    cell_size = 100
-
-types_obs = ['streams','sections'] # list of shapefile name layers for clip hydrology
-fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
+types_obs = ['streams_fr'] # list of shapefile name layers for clip hydrology
+fields_obs = ['FID'] # list of shapefile name columns to translate as a tif
 
 # Depending on the choices
 dem_path = dems_path + dem_name
@@ -152,7 +108,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True # loads previously generated basin if true
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -160,58 +116,97 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
-                              from_shp=from_shp,
+                              from_shp=False,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
-if watershed_name != 'Conceptual':
-    if load != True :
-        BV.add_surfex(surfex_path) 
-        BV.add_geology(geology_path) 
-        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        BV.add_oceanic(oceanic_path)
-        BV.add_hydrometry(hydrometry_path)
-        BV.add_intermittency(intermittency_path)
-        if piezometry_path == True:
-            BV.add_piezometry()
-        if subbasin_path == True:
-            BV.add_subbasin()
+#%% extraction climat
+
+BV.add_drias("C:/Users/Martin/Desktop/Travail/data/data_test_ronan/CLIMAT/Normandie")
+
+#%% suite watershed
+
+BV.add_hydrodynamic()
+
+BV.add_surfex(surfex_path) 
+# BV.add_geology(geology_path) 
+BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+BV.add_oceanic(oceanic_path)
+# BV.add_hydrometry(hydrometry_path)
+# BV.add_intermittency(intermittency_path)
+if piezometry_path == True:
+    BV.add_piezometry()
+# if subbasin_path == True:
+#     BV.add_subbasin()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
-#%% REPROJECT LAYER
+#%% Calibration streams Ronan
 
-# All metric should be in meters (UTM or Lambert) during process
-# If your projection files is WGS84 (EPSG:4326), these tools could reproject layers
-# Below few examples to convert your data
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Apr 27 17:16:52 2022
 
-# d = gdal.Open(dem_path)
-# proj = osr.SpatialReference(wkt=d.GetProjection())
-# crs = int(proj.GetAttrValue('AUTHORITY',1))
-# d = None
-crs = None
+@author: ronan
+"""
 
-if crs == 4326:
+import glob
+import os
 
-    # Reproject raw DEM in WGS84 to specific UTM
-    utm_crs = toolbox.reproject_tif(dem_path,
-                                    data_path + 'dem/' + "DEM_test_75m_WGS84" + '.tif',
-                                    data_path + 'dem/' + "DEM_test_75m_UTM" + '.tif')
+type_obs = 'streams_fr'
+
+from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
+
+# Init
+df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+area = BV.geographic.area
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
+                                  first_year = 1960, last_year=2019, time_step = 'D',
+                                  sim_state = 'steady') #
+BV.hydrodynamic.update_thickness(30)
+# BV.hydrodynamic.update_porosity(0.1)
+# BV.hydrodynamic.update_hyd_cond(2)
+params_df = pd.DataFrame(columns=['params',
+                                  'init_values','lower_bounds','higher_bounds',
+                                  'units','scale'])
+params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
+params_file = 'calib_dicot_hom_1v_k1'
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+
+# Launch dichotomy
+dicot = calib.dichotomy(gap=1)
+
+# Extract
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[-1].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+
+koptim = test.calib['params_values'][-1]
+kr = koptim / test.calib['recharge']
+obj_func = test.calib['objective_function'][-1]
+
+df.loc[0,type_obs] = koptim / 24 / 3600
+df.loc[1,type_obs] = kr
+df.loc[2,type_obs] = obj_func
     
-    # Reproject shapefile layer to specific UTM
-    toolbox.reproject_shp(data_path + 'hydrology/' + types_obs[0] + '.shp',
-                          data_path + 'hydrology/' + types_obs[0] + '_utm' + '.shp',
-                          utm_crs)
-    
-    # Convert longitude and latitude WGS84 to specific UTM
-    utm_crs, x_utm, y_utm = toolbox.reproject_coord(-4.53924, 48.62315)
+df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
+#%% Calibration streams Ronan
+
+BV.piezometry.add_data()
+BV.save_object()
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
 sim_state = 'steady' # 'steady' or 'transient'
-period = [2017, 2019] # rehcarge period
+period = [1960, 2019] # rehcarge period
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
@@ -224,9 +219,18 @@ bottom = None # aquifer flat or not
 thick_exp = 1 # exponential decay of K with nlay
 cond_decay = 0 # exponential decay of K with depth
 
+# Update actural recharge
+if watershed_name != 'Conceptual':
+    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                      first_year = period[0], last_year = period[1], 
+                                      time_step = time_step, sim_state=sim_state)
+    if time_step == 'M':
+        R = BV.forcing.recharge
+        BV.forcing.update_recharge(values = R, sim_state = sim_state)
+
 # Hydraulic properties
-K = 1e-7 * 3600 * 24 # m/second to m/day
-E = 100 # m
+K = 4.6 # m/day, modify to get automatic values : (K/R) * R
+E = 30 # m
 P = 0.01 # -
 
 # Active of not modules
@@ -240,6 +244,11 @@ verbose = True # add print of MODFLOW in console
 BV.hydrodynamic.update_hyd_cond(K)
 BV.hydrodynamic.update_thickness(E)
 BV.hydrodynamic.update_porosity(P)
+BV.hydrodynamic.update_nlay(1)
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_bottom(None)
+BV.hydrodynamic.update_cond_decay(0)
+BV.hydrodynamic.update_thick_exp(1)
 
 # Update actural recharge
 if watershed_name != 'Conceptual':
@@ -247,23 +256,23 @@ if watershed_name != 'Conceptual':
                                       first_year = period[0], last_year = period[1], 
                                       time_step = time_step, sim_state=sim_state)
     if time_step == 'M':
-        R = BV.forcing.recharge / 30 # m/month to m/day
+        R = BV.forcing.recharge
         BV.forcing.update_recharge(values = R, sim_state = sim_state)
 
-KR=100
+# KR=100
 
-# Upadate conceptual recharge
-conceptual_serie = np.random.sample(24)/10
-if watershed_name == 'Conceptual':
-    R = (pd.Series(0.015) / 30).mean() # m/month to m/day
-    BV.forcing.update_recharge(R, sim_state=sim_state)
-    BV.hydrodynamic.update_hyd_cond(KR*R)
-    actual_date = False
+# # Upadate conceptual recharge
+# conceptual_serie = np.random.sample(24)/10
+# if watershed_name == 'Conceptual':
+#     R = (pd.Series(0.015) / 30).mean() # m/month to m/day
+#     BV.forcing.update_recharge(R, sim_state=sim_state)
+#     BV.hydrodynamic.update_hyd_cond(KR*R)
+#     actual_date = False
 
-# Check recharge
-if sim_state=='transient':
-    fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
-    ax.plot(R*1000, c='k', lw=2) # m/months to mm/months
+# # Check recharge
+# if sim_state=='transient':
+#     fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
+#     ax.plot(R*1000, c='k', lw=2) # m/months to mm/months
 
 #%% LAUNCH MODELING
 
@@ -304,8 +313,7 @@ lines = 200
 
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view,
-              lines=lines, cloc=(0.7,0.1))
+visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view, lines=lines, cloc=(0.7,0.1))
 
 #%% 2D MAP VIEW
 
