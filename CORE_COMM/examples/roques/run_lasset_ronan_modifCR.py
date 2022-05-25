@@ -86,6 +86,7 @@ user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
+    #dem_name = 'BDALTI_09_75m.tif'
     #############################################################
     git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
     # Path to the data folder
@@ -97,8 +98,8 @@ if user == 'Clement':
     #############################################################
     
 if user == 'Ronan':
-    dem_name = 'BDALTI_09_75m.tif'
-    # dem_name = 'BDALTI_09_25m.tif'
+    # dem_name = 'BDALTI_09_75m.tif'
+    dem_name = 'BDALTI_09_25m.tif'
     #############################################################
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
@@ -142,9 +143,7 @@ code_names = ['?']
 
 #%% GENERATE WATERSHED
 
-load = False
-
-watershed_names = ['Lasset']
+load = True
 
 for watershed_name in watershed_names[:]:
 
@@ -167,7 +166,6 @@ for watershed_name in watershed_names[:]:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
-BV.add_hydrodynamic()
 #%% ADD AND CLIP SPECIFIC DATA
 #% Merger les points shp
 # pt_streams = hydrology_path + 'stream_digit_pt.shp'
@@ -178,13 +176,24 @@ BV.add_hydrodynamic()
 
 from watershed import watershed_root, watershed_display, forcing
 
-hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/Lasset/' # add hydrographic shapefiles
+if user == 'Ronan':
+    hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/Lasset/' # add hydrographic shapefiles
 
-types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+if user == 'Clement':
+    hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
+
+if user=='Ronan':
+    types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+if user=='Clement':
+    types_obs = ["lasset_stream_perennialv2"]
+#types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+BV.add_forcing()
+BV.add_hydrodynamic()
+BV.add_oceanic(oceanic_path)
 
 # # Measurements
 # BV.add_hydrometry(hydrometry_path)
@@ -194,8 +203,8 @@ BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 # # Zones
 # BV.add_subbasin()
 
-# watershed_display.watershed_dem(BV)
-# watershed_display.watershed_local(dem_path, BV)
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
 
 #%% ----
 
@@ -490,10 +499,19 @@ for watershed_name in watershed_names[:] :
 
 thick_exp = 1.25
 
-case_list = ['case1', 'case2', 'case3', 'case4']
-prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, 0.1], [50, 1000, 0.01]]
+dc = np.logspace(np.log10(1/20),np.log10(1/200),3)
 
-porosity_list = [0.01, 0.05, 0.1, 0.2]
+case_list = ['case1', 'case2', 'case3', 'case4', 'case5']
+
+prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, dc[0]], [50, 1000, dc[1]],  [50, 1000, dc[2]]]
+
+porosity_list = np.linspace(0.1, 0.25, 5)
+
+#case_list = ['caseg']
+#prop_list = [[50, 1000, 1/20]]
+
+#porosity_list = [0.15]
+
 
 #%% INIT CALIB DICHOTOMY STREAMS
 
@@ -506,7 +524,8 @@ watershed_names = ['Lasset']
 for watershed_name in watershed_names[:] :
     
     # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
-    types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
+    #types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
+    types_obs = ["lasset_stream_perennialv2"]
     fields_obs = ['fid']
     
     for case, prop in zip(case_list[:], prop_list[:]):
@@ -514,16 +533,22 @@ for watershed_name in watershed_names[:] :
         # df = pd.DataFrame(np.nan, index=range(1), columns=case_list)
         
         for type_obs, field_obs in zip(types_obs, fields_obs):
-       
+            
+            print('')
             print('##### '+watershed_name.upper()+' #####')
             print(case)
             print(prop)
+            print('###################################')
+            print('')
             
             BV = watershed_root.Watershed(watershed_name=watershed_name,
                                           dem_path=dem_path, 
                                           out_path=out_path,
                                           load=True,
                                           modflow_path=modflow_path)
+            BV.add_forcing()
+            BV.add_hydrodynamic()
+            BV.add_oceanic(oceanic_path)
             area = BV.geographic.area
             
             stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -545,9 +570,9 @@ for watershed_name in watershed_names[:] :
                 thick = 10*length_K_decay
                 layer_min_thick = 5
                 nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
-                print('###########!!!!!!!!!!!!!!!!!############')
-                print('nlay = ' + str(nlay))
-                print('###########!!!!!!!!!!!!!!!!!############')
+                print('')
+                print('changed nlay = ' + str(nlay))
+                print('')
 
             BV.hydrodynamic.update_nlay(nlay)
             BV.hydrodynamic.update_thickness(prop[0])
@@ -558,7 +583,8 @@ for watershed_name in watershed_names[:] :
             params_df = pd.DataFrame(columns=['params',
                                               'init_values','lower_bounds','higher_bounds',
                                               'units','scale'])
-            params_df.loc[0] = ['k1',8.64e-01,8.64e-05,8.64e-1,'m/j','lin']
+            #params_df.loc[0] = ['k1',8.64e-01,8.64e-05,8.64e-1,'m/j','lin']
+            params_df.loc[0] = ['k1',5e-02,1e-06,1e-1,'m/j','lin']
             
             params_file = 'calib_dicot_hom_1v_k1'
             
@@ -581,6 +607,7 @@ typ_calib = 'streams_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
                    key=os.path.getmtime)
 df=pd.DataFrame()
+
 compt = 0
 for case, prop in zip(case_list[:], prop_list[:]):
     
@@ -607,6 +634,27 @@ for case, prop in zip(case_list[:], prop_list[:]):
     compt+=1
     
 df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+df = df[["case1", "case2", "case3", "case4", "case5"]]
+
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
+x = pd.DataFrame([1, 2, 3, 4, 5])
+# x = df.loc[1]
+y = df.loc[2]
+
+ax.scatter(x, y, c='b', s=150)
+ax.set_yscale("log")
+ax.set_xticks(x)
+ax.set_xlim([0,6])
+
+plt.xlabel('cases', fontsize = 20)
+plt.yticks(fontsize = 20)
+plt.xticks(fontsize = 20)
+
+plt.ylabel(r'$log(\overline{D_{so}}/\overline{D_{os}})^2$', fontsize = 20)
+
+fig.savefig(figsim_folder+watershed_name+'_cases_calibration_results'+'.png', dpi=300, bbox_inches='tight')
 
 #%% RUN PARTCILE TRACKING
 
@@ -678,11 +726,210 @@ for case, prop in zip(case_list[:], prop_list[:]):
                            start='1960-01-01',
                            time_step='M')
         
+
+
+        visu = visualization.Visualization(BV, model_name)
+        visu.visual2D(object_list = ['pathlines'],
+                      color_scale = [(0,2)], lines=None)
+
+        # visu = visualization.Visualization(BV, model_name)
+        # visu.visual2D(object_list = ['pathlines'],
+        #               color_scale = [(0,2)], lines=10000)
+        
         print('####################################')
         print('####### simulation completed #######')
         print('####################################')
 
-#%% EXTRACT A SAMPLING POINTS AND PLOT
+#%% EXTRACT RESIDENCE TIMES
+
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+wateshed_name = 'Lasset'
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+figsim_folder = simulations_folder + '_figures/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
+
+compt=0
+for case, prop in zip(case_list[:], prop_list[:]):
+    
+    for porosity in porosity_list[:]:
+    
+        model_name = case+'_'+str(porosity)
+        folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
+        
+        path_res = folder_results+'residence_times_t(0).tif'
+        path_obs = stable_folder+'/add_data/'+'age_apparent_obs_C2.shp'
+        path_shp = simulations_folder + '/' + model_name + '/' + '_watershed/_shp/'
+        toolbox.create_folder(path_shp)
+        path_dat = path_shp+'residence_times_data.shp'
+        
+        res_time = rasterio.open(path_res)
+        res_time_data = res_time.read(1)
+        res_time_data = res_time_data
+        
+        shp_obs = gpd.read_file(path_obs)
+        shp_obs['geometry'] = shp_obs.geometry.buffer(100)
+        # shp_obs = shp_obs[['ID_station', 'geometry']]
+        shp_obs.to_file(path_dat, encoding='utf-8') # mode a
+        
+        # wbt.extract_raster_values_at_points(
+        #                 path_res, 
+        #                 path_dat, 
+        #                 out_text=False)
+        
+        # Mathod 1
+        wbt.raster_to_vector_polygons(
+                path_res, 
+                path_shp+'raster_polygonized.shp')
+        raster_polyg = gpd.read_file(path_shp+'raster_polygonized.shp')
+        intersect = gpd.overlay(shp_obs, raster_polyg, how='intersection')
+        intersect[intersect['VALUE']==-np.inf] = np.nan
+        res_dat = gpd.read_file(path_dat)
+        res_dat['RES_TIME'] = np.nan
+        res_dat['STD_TIME'] = np.nan
+        
+        for ID in intersect['id'].unique():
+            # threshold = 1 #year
+            # threshold = threshold*365
+            # threshold = np.log10(threshold)
+            
+            mask = (intersect[intersect['id']==ID]['VALUE'] !=0)
+            
+            mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'][mask])
+            res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
+            
+            std_ID = np.nanstd(intersect[intersect['id']==ID]['VALUE'][mask])
+            res_dat['STD_TIME'][res_dat['id']==ID] = std_ID
+            
+        
+        # Method 2
+        '''
+        from rasterstats import zonal_stats
+        stats = zonal_stats(path_dat, path_res)
+        # print(stats[0].keys())
+        # print(stats)
+        means = [f['mean'] for f in stats]
+        res_dat = gpd.read_file(path_dat)
+        res_dat['RES_TIME'] = means
+        '''
+        
+        res_dat['RES_TIME'][res_dat['RES_TIME']==-np.inf] = np.nan
+        res_dat['STD_TIME'][res_dat['STD_TIME']==-np.inf] = np.nan
+        res_dat.to_file(path_shp + 'extract_RTD.shp', encoding = 'utf-8')
+        
+        res_dat['RES_TIME'] = (10**(res_dat['RES_TIME']))/365
+        res_dat['STD_TIME'] = (10**(res_dat['STD_TIME']))/365
+        
+        vmin = 10
+        vmax = 50
+        
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        # plt.imshow(res_time_data)
+        # plt.colorbar()
+        
+        ## Modif res_time_data en annees + vmin et vmax
+        
+        
+        #show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
+        show(np.ma.masked_where(dem_data < -0, (10**res_time_data)/365), ax=ax, transform=dem.transform, 
+             cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
+        shp_obs.plot(ax=ax, color=None, marker='o', markersize=10,
+                     edgecolor='k', lw=1, zorder=30)
+        # res = res_dat.plot(ax=ax, cmap='jet',  marker='o', markersize=10,
+        #              edgecolor='k', lw=1, column='RES_TIME', zorder=30,
+        #              vmin=vmin, vmax=vmax)
+        bounds = dem.bounds
+        xlim = ([bounds[0], bounds[2]])
+        ylim = ([bounds[1], bounds[3]])
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'bottom', location='upper left')
+        ax.add_artist(scalebar)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_title(model_name, fontproperties=fontprop)
+        ax.set(aspect='equal')
+        sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes(size="2%",position='right', pad=0.05)
+        fig.add_axes(cax)
+        cbar = fig.colorbar(sm, cax=cax, orientation="vertical")
+        cbar.ax.get_ymajorticklabels()
+        cbar.ax.tick_params(labelsize=10)
+        cbar.ax.yaxis.set_ticks_position('right')
+        cbar.ax.tick_params(size=2)
+        contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+        contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
+        cbar.set_ticks(list(cbar.get_ticks()))
+        # cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
+        cbar.set_label('Residence times [years]', rotation=270, labelpad=25)
+
+        res_dat['coords'] = res_dat['geometry'].apply(lambda x: x.representative_point().coords[:])
+        res_dat['coords'] = [res_dat[0] for res_dat in res_dat['coords']]
+        for idx, row in res_dat.iterrows():
+            row['coords'] = (row['coords'][0], row['coords'][1]+100)
+            ax.annotate(s=row['id'], xy=row['coords'],
+                         horizontalalignment='center')
+
+        fig.savefig(figsim_folder+model_name+'.png', dpi=300, bbox_inches='tight')
+
+        fig, ax = plt.subplots(1,1, figsize=(4,4))
+        mean_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].mean(axis=1)
+        std_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].std(axis=1)
+        x=2021-(mean_obs)
+        xerr=std_obs
+        mean_sim = res_dat['RES_TIME']
+        y=mean_sim
+        yerr = res_dat['STD_TIME']
+        ax.scatter(x, y, c=y, s=50, cmap=mpl.colors.ListedColormap('k'))
+        plt.errorbar(x, y , xerr=list(xerr), yerr=yerr, lw=1, fmt="o", color='k')
+        # ax.legend()
+        ax.set_xlabel('$Age_{obs}$ [years]')
+        ax.set_ylabel('$Age_{sim}$ [years]')
+        ax.set_title(model_name, fontproperties=fontprop)
+        for i, txt in enumerate(res_dat.id):
+            ax.annotate(txt, (x[i], y[i]))
+        xn=20
+        xx=80
+        yn=20
+        yx=80
+        ax.set_xlim(xn, xx)
+        # ax.set_ylim(yn, yx)
+        # ax.set_xscale('log')
+        # ax.set_yscale('log')
+        # ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
+        #         linestyle='--', color='grey', linewidth=2, zorder=-1)
+        maxx = max(ax.get_xlim()[0],ax.get_xlim()[1])
+        maxy = max(ax.get_ylim()[0],ax.get_ylim()[1])
+        minx = min(ax.get_xlim()[0],ax.get_xlim()[1])
+        miny = min(ax.get_ylim()[0],ax.get_ylim()[1])
+        maxt = max(maxx,maxy)
+        mint = max(minx,miny)
+        ax.plot(np.linspace(mint,maxt,50),
+                np.linspace(mint,maxt,50), 
+                linestyle='--', color='grey', linewidth=2, zorder=-1)
+        
+        fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        
+        if compt==0:
+            all_dat = res_dat.copy()
+        all_dat[model_name] = res_dat['RES_TIME']
+        
+        compt+=1
+
+all_dat['coords'] = np.nan
+all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
+
+#%% EXTRACT PATHLINES TIMES
 
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
@@ -708,137 +955,52 @@ for case, prop in zip(case_list[:], prop_list[:]):
         model_name = case+'_'+str(porosity)
         folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
         
-        path_res = folder_results+'residence_times_t(0).tif'
-        path_obs = stable_folder+'/add_data/'+'age_apparent_obs_C2.shp'
-        path_shp = simulations_folder + '/' + model_name + '/' + '_watershed/_shp/'
-        toolbox.create_folder(path_shp)
-        path_dat = path_shp+'residence_times_data.shp'
-        
-        res_time = rasterio.open(path_res)
-        res_time_data = res_time.read(1)
-        
-        shp_obs = gpd.read_file(path_obs)
-        shp_obs['geometry'] = shp_obs.geometry.buffer(75)
-        # shp_obs = shp_obs[['ID_station', 'geometry']]
-        shp_obs.to_file(path_dat, encoding='utf-8') # mode a
-        
-        # wbt.extract_raster_values_at_points(
-        #                 path_res, 
-        #                 path_dat, 
-        #                 out_text=False)
-        
-        # Mathod 1
-        wbt.raster_to_vector_polygons(
-                path_res, 
-                path_shp+'raster_polygonized.shp')
-        raster_polyg = gpd.read_file(path_shp+'raster_polygonized.shp')
-        intersect = gpd.overlay(shp_obs, raster_polyg, how='intersection')
-        intersect[intersect['VALUE']==-np.inf] = np.nan
-        res_dat = gpd.read_file(path_dat)
-        res_dat['RES_TIME'] = np.nan
-        
-        for ID in intersect['id'].unique():
-            mean_ID = np.nanmean(intersect[intersect['id']==ID]['VALUE'])
-            res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
-            
-            std_ID = np.nanstd(intersect[intersect['id']==ID]['VALUE'])
-            res_dat['RES_TIME'][res_dat['id']==ID] = mean_ID
-            
-        
-        # Method 2
-        '''
-        from rasterstats import zonal_stats
-        stats = zonal_stats(path_dat, path_res)
-        # print(stats[0].keys())
-        # print(stats)
-        means = [f['mean'] for f in stats]
-        res_dat = gpd.read_file(path_dat)
-        res_dat['RES_TIME'] = means
-        '''
-        
-        res_dat['RES_TIME'][res_dat['RES_TIME']==-np.inf] = np.nan
-        res_dat.to_file(path_shp + 'extract_RTD.shp', encoding = 'utf-8')
-        
-        vmin = 0
-        vmax = 5
-        
-        fig, ax = plt.subplots(1,1, figsize=(5,5))
-        show(np.ma.masked_where(dem_data < -0, res_time_data), ax=ax, transform=dem.transform, 
-             cmap='jet_r', alpha=0.25, zorder=2, aspect="auto", vmin=vmin, vmax=vmax)
-        shp_obs.plot(ax=ax, color='white', marker='o', markersize=70,
-                     edgecolor='k', lw=1, zorder=30)
-        res = res_dat.plot(ax=ax, cmap='jet_r',  marker='o', markersize=70,
-                     edgecolor='k', lw=1, column='RES_TIME', zorder=30,
-                     vmin=vmin, vmax=vmax)
-        bounds = dem.bounds
-        xlim = ([bounds[0], bounds[2]])
-        ylim = ([bounds[1], bounds[3]])
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-        scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'bottom', location='upper left')
-        ax.add_artist(scalebar)
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        ax.set_title(model_name, fontproperties=fontprop)
-        ax.set(aspect='equal')
-        sm = plt.cm.ScalarMappable(cmap='jet_r', norm=plt.Normalize(vmin=vmin, vmax=vmax))
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes(size="2%",position='right', pad=0.05)
-        fig.add_axes(cax)
-        cbar = fig.colorbar(sm, cax=cax, orientation="vertical")
-        cbar.ax.get_ymajorticklabels()
-        cbar.ax.tick_params(labelsize=10)
-        cbar.ax.yaxis.set_ticks_position('right')
-        cbar.ax.tick_params(size=2)
-        contour = gpd.read_file(BV.geographic.watershed_contour_shp)
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=20, legend=False, label='Watershed')
-        cbar.set_ticks(list(cbar.get_ticks()))
-        cbar.set_ticklabels(list(cbar.get_ticks())[::-1])
-        cbar.set_label('log(t) [days]', rotation=270, labelpad=25)
-        
-        res_dat['coords'] = res_dat['geometry'].apply(lambda x: x.representative_point().coords[:])
-        res_dat['coords'] = [res_dat[0] for res_dat in res_dat['coords']]
-        for idx, row in res_dat.iterrows():
-            row['coords'] = (row['coords'][0], row['coords'][1]+100)
-            ax.annotate(s=row['id'], xy=row['coords'],
-                         horizontalalignment='center')
+        ##### LOOOP 2D #####
+        visu = visualization.Visualization(BV, model_name)
+        # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+                      # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+        visu.visual2D(object_list = ['pathlines'],
+                      color_scale = [(None,None)], lines=100)
+   
+#%% EXTRACT PATHLINES single model
 
-        fig.savefig(figsim_folder+model_name+'.png', dpi=300, bbox_inches='tight')
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
-        fig, ax = plt.subplots(1,1, figsize=(4,4))
-        mean_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].mean(axis=1)
-        std_obs = res_dat[['CFC11', 'CFC12', 'CFC113']].std(axis=1)
-        x=2021-(mean_obs)
-        y=(10**res_dat['RES_TIME'])/365
-        ax.scatter(x, y, c=y, s=50, cmap=mpl.colors.ListedColormap('k'))
-        ax.errorbar(x, y, xerr=std_obs, lw=1)
-        # ax.legend()
-        ax.set_xlabel('$Age_{obs}$ [years]')
-        ax.set_ylabel('$Age_{sim}$ [years]')
-        ax.set_title(model_name, fontproperties=fontprop)
-        for i, txt in enumerate(res_dat.id):
-            ax.annotate(txt, (x[i], y[i]))
-        xn=0.1
-        xx=100
-        yn=0.1
-        yx=100
-        ax.set_xlim(xn, xx)
-        ax.set_ylim(yn, yx)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.plot(np.linspace(xn,xx,50), np.linspace(yn,yx,50), 
-                linestyle='--', color='grey', linewidth=2, zorder=-1)
-        
-        # fig.savefig(figsim_folder+'obs_vs_sim_'+model_name+'.png', dpi=300, bbox_inches='tight')
-        
-        if compt==0:
-            all_dat = res_dat.copy()
-        all_dat[model_name] = (10**res_dat['RES_TIME'])/365
-        
-        compt+=1
+wateshed_name = 'Lasset'
 
-all_dat['coords'] = np.nan
-# all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+figsim_folder = simulations_folder + '_figures/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
+
+compt=0
+case = case_list[2]
+prop = prop_list[2]
+porosity = porosity_list[2]
+    
+model_name = case+'_'+str(porosity)
+folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
+
+##### LOOOP 2D #####
+visu = visualization.Visualization(BV, model_name)
+# visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
+              # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
+visu.visual2D(object_list = ['pathlines'],
+               color_scale = [(-1,2)], lines=100)
+
+# from tools import toolbox, vtk
+# vtk.VTK(BV, model_name)
+# visu = visualization.Visualization(BV, model_name)
+# visu.visual3D(interactive=False,
+#               object_list=['pathlines'], z_scale=1,
+#               view='custom', lines=200, cloc=(0,2))
 
 #%% STATISTCIS
 
@@ -855,7 +1017,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
     
         model_name = case+'_'+str(porosity)
         
-        y0 = 2021-all_dat['CFC12']
+        y0 = 2021 - (all_dat[['CFC12','CFC11','CFC113']].mean(axis=1))
         y1 = all_dat[model_name]
                 
         ER = np.nansum(y0-y1)  # error 
@@ -905,12 +1067,13 @@ for case, prop in zip(case_list[:], prop_list[:]):
         stats.loc['PVAL', model_name] = p_value
         stats.loc['STDERR', model_name]  = std_err
         
+stats
 stats.to_csv(simulations_folder+'statistics_residence_times.csv',
              sep=';')
         
 #%% CROSS SECTION
 
-typ = 'case'
+typ = 'caseg_0.15'
 
 watershed_names = ['Lasset']
 
@@ -966,7 +1129,7 @@ for watershed_name in watershed_names[:]:
             wt_prof = wt_data.astype(float)
             wt_prof[wt_prof<0] = np.nan
             
-            cur_y = 35
+            cur_y = 80
             dem_h_plot = dem_prof[int(cur_y),:]
             dem_h_plot[dem_h_plot == 0] = np.nan
             wt_h_plot = wt_prof[int(cur_y),:]
@@ -986,11 +1149,11 @@ for watershed_name in watershed_names[:]:
             wt_prof = wt_data.astype(float)
             wt_prof[wt_prof<0] = np.nan
                     
-            # fig, ax = plt.subplots(1, 1, figsize=(5,5))
-            # ax.imshow(dem_plot, origin='lower', cmap='Greys', aspect="equal",)
-            # ax.set_ylim(ax.get_ylim()[::-1])
-            # v_line = ax.axvline(cur_x, color='k', lw=2)
-            # h_line = ax.axhline(cur_y, color='k', lw=2)
+            fig, ax = plt.subplots(1, 1, figsize=(5,5))
+            ax.imshow(dem_plot, origin='lower', cmap='Greys', aspect="equal",)
+            ax.set_ylim(ax.get_ylim()[::-1])
+            v_line = ax.axvline(cur_x, color='k', lw=2)
+            h_line = ax.axhline(cur_y, color='k', lw=2)
     
             fig, ax = plt.subplots(1, 1, figsize=(5.5,4), dpi=300)
             ax.set_title(model_name)
@@ -1016,7 +1179,7 @@ for watershed_name in watershed_names[:]:
             # wt_v_fill = ax.fill_between(np.arange(xx.shape[0]), wt_v_plot, dem_v_plot,
             #                                     color='saddlebrown', alpha=0.5, lw=0)
             
-            ax.set_xlim(1300, 2100)
+            ax.set_xlim(1200, 4000)
             ax.set_ylim(1000, 2500)
             # ax.set_yticks([140,160])
             ax.set_xlabel('Distance [m]')
@@ -1133,19 +1296,22 @@ for watershed_name in watershed_names[:] :
     plt.plot(Qobs.resample('M').mean(), c='forestgreen')
     plt.yscale('log')
 
-    cond_decay = 10
-    cond_decay_inv = cond_decay**-1
-    thickness = 10*cond_decay
+    cond_decay = 1/20
+    thickness = 50
     bottom = 1000    
     thick_exp = 1.25
+
+    length_K_decay = cond_decay**-1
+    thick = 10*length_K_decay
     layer_min_thick = 5
-    nlay = int(np.log(1-thickness*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
+    nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
 
     BV.hydrodynamic.update_nlay(nlay) # 1
     BV.hydrodynamic.update_bottom(bottom) # None
-    BV.hydrodynamic.update_cond_decay(cond_decay_inv) # 0
+    BV.hydrodynamic.update_cond_decay(cond_decay) # 0
     BV.hydrodynamic.update_thick_exp(thick_exp) # 1
     BV.hydrodynamic.update_thickness(thickness) # 30 / intervient pas si bottom != None
+    
     # BV.hydrodynamic.update_porosity(0.001)
     # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
     
@@ -1153,8 +1319,8 @@ for watershed_name in watershed_names[:] :
                                       'init_values','lower_bounds','higher_bounds',
                                       'units','scale'])
     
-    params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+00,'m/j','lin']
-    params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
+    params_df.loc[0] = ['k1',8.64e-01,8.64e-04,8.64e+01,'m/j','lin']
+    params_df.loc[1] = ['n1',0.01,0.001,0.20,'m/j','lin']
 
     params_file = 'calib_explo_hom_2v_k1-n1'
     
@@ -1668,7 +1834,7 @@ for watershed_name in watershed_names[:]:
 watershed_names = ['Lasset']
 types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 
-typ = 'projec' # sinu / hist / proj
+typ = 'proj' # sinu / hist / proj
 
 for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
@@ -1707,10 +1873,10 @@ for watershed_name in watershed_names[:] :
             init_rech = None # 'first'
             
             if mod == 'REA':
-                period_hist = [1990,2019]
+                period_hist = [2012,2019]
             else:
-                period_hist = [1990,2010] # recharge period
-            period = [2098,2099] # recharge period               
+                period_hist = [1960,2005] # recharge period
+            period = [1960,2099] # recharge period               
             
             first_hist = period_hist[0]
             last_hist = period_hist[1]
@@ -1778,27 +1944,41 @@ for watershed_name in watershed_names[:] :
             #     plt.yscale('log')
             
             if mod == 'REA':
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
                                                   first_year = first_hist, last_year = last_hist,
                                                   time_step = time_step, sim_state = sim_state)
                 Rech_hist = BV.forcing.recharge
-                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
+                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = 'historic',
                                                 first_year = first_hist, last_year = last_hist,
                                                 time_step = time_step, sim_state = sim_state)
                 Runof_hist = BV.forcing.runoff # m/month
             
             if mod != 'REA':
+                BV.forcing.update_recharge_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = 'historic',
+                                                  first_year = first_hist, last_year = last_hist,
+                                                  sim_state = sim_state)
+                Rech_hist = BV.forcing.recharge
+                BV.forcing.update_runoff_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = 'historic',
+                                                  first_year = first_hist, last_year = last_hist,
+                                                  sim_state = sim_state)
+                Runof_hist = BV.forcing.runoff # m/month
+                
                 BV.forcing.update_recharge_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = sce,
                                                   first_year = first, last_year = last,
                                                   sim_state = sim_state)
                 Rech = BV.forcing.recharge.resample('M').mean()
-                BV.forcing.update_recharge(Rech, sim_state=sim_state)
                 BV.forcing.update_runoff_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = sce,
                                                 first_year = first, last_year = last,
                                                 sim_state = sim_state)
                 Runof = BV.forcing.runoff.resample('M').mean() # m/month
-                BV.forcing.update_recharge(Runof, sim_state=sim_state)
                 
+                Rech = pd.concat((Rech, Rech_hist), axis=1).mean(axis=1)
+                Runof = pd.concat((Runof, Runof_hist), axis=1).mean(axis=1)
+                BV.forcing.update_recharge(Rech.resample('M').mean(), sim_state=sim_state)
+                BV.forcing.update_runoff(Runof.resample('M').mean(), sim_state=sim_state)
+                # plt.plot(Rech)
+                # plt.yscale('log')
+
             # Active of not modules
             box = False # if True generate a rectangular model
             sink_fill = False # permit to fill sinks
@@ -1807,17 +1987,27 @@ for watershed_name in watershed_names[:] :
             post_process = False # necessary to decompose post process of process
             
             # Strcture of the model
-            lay_number = 1 # vertical discrtization
-            bottom = None # aquifer flat or not
-            thick_exp = 1 # exponential decay of K with nlay
-            cond_decay = 0 # exponential decay of K with depth
-            thick = 30 # m
+            cond_decay = 1/20
+            thickness = 50
+            bottom = 1000    
+            thick_exp = 1.25
+        
+            length_K_decay = cond_decay**-1
+            thick = 10*length_K_decay
+            layer_min_thick = 5
+            nlay = int(np.log(1-thick*(1-thick_exp)/layer_min_thick) / np.log(thick_exp))
+        
+            BV.hydrodynamic.update_nlay(nlay) # 1
+            BV.hydrodynamic.update_bottom(bottom) # None
+            BV.hydrodynamic.update_cond_decay(cond_decay) # 0
+            BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+            BV.hydrodynamic.update_thickness(thickness) # 30 / intervient pas si bottom != None
             
             # Hydraulic properties
-            Koptim = 2e-6 # koptim 1.4e-5 / 5.33e-5
-            Sy = 0.01
+            Koptim = 0.057 # 
+            Sy = 0.15
                 
-            Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
+            Ks = [Koptim] # m/day
             Sys = [Sy]
             
         # RUN MODEL
@@ -1833,7 +2023,6 @@ for watershed_name in watershed_names[:] :
                     # K = 1e-5
                     # Sy = 0.01
                     # print(K)
-                    BV.hydrodynamic.update_thickness(thick)
                     BV.hydrodynamic.update_hyd_cond(K) 
                     BV.hydrodynamic.update_porosity(Sy)
                       
@@ -1854,10 +2043,6 @@ for watershed_name in watershed_names[:] :
                                                              modpath_sim=modpath_sim,
                                                              sink_fill=sink_fill,
                                                              box=box,
-                                                             lay_number=lay_number,
-                                                             bottom=bottom,
-                                                             thick_exp=thick_exp,
-                                                             cond_decay=cond_decay,
                                                              verbose=verbose,
                                                              post_process=post_process, 
                                                              init_rech=init_rech)
@@ -1892,8 +2077,9 @@ for watershed_name in watershed_names[:] :
     
 #%% POSTPROCESS MODEL
 
-typ = 'projec'
+# typ = 'good'
 # typ = 'identname'
+typ = 'proj'
 
 watershed_names = ['Lasset']
 types_obs = ['streams'] # list of shapefile name layers for clip hydrology
@@ -1963,9 +2149,9 @@ for watershed_name in watershed_names[:] :
 
 #%% PLOT CHRONICS MODEL
 
-typ = 'identname'
+typ = 'good'
 mod = 'REA'
-first = 1990
+first = 1912
 last = 2019
 time_step = 'M'
 sim_state = 'transient'
@@ -2020,12 +2206,14 @@ for watershed_name in watershed_names[:] :
         area = BV.geographic.area
         Qobs = (Qobs / (area*1000000)) * (3600 * 24 * 30) * 1000  # m3/s to mm/month
         Qobs = Qobs.squeeze()
-        Qobs = select_period(Qobs, 1990, 2019)
+        Qobs = select_period(Qobs, 2012, 2019)
         Qobs = Qobs.resample('M').mean()
         
+        '''
         import hydroeval as he
         nse = he.evaluator(he.nse, Qmod, Qobs, transform='log')[0]
         print(round(nse,2))
+        '''
         
         # plt.plot(Cmod)
         # plt.plot(Qobs)
@@ -2034,7 +2222,7 @@ for watershed_name in watershed_names[:] :
         fig, axs = plt.subplots(2,1, figsize=(7,6))
         # axs = axs.ravel()
         
-        yearsmaj = mdates.YearLocator(5)   # every year
+        yearsmaj = mdates.YearLocator(2)   # every year
         yearsmin = mdates.YearLocator(1)
         # monthsmaj = mdates.MonthLocator(6)  # every month
         # monthsmin = mdates.MonthLocator(3)
@@ -2093,7 +2281,7 @@ for watershed_name in watershed_names[:] :
         # ax.grid('grey')
         # ax.set_title('Discharge')
         # ax.set_xlim(pd.to_datetime('1986'))
-        ax.set_xlim(pd.to_datetime('1990'), pd.to_datetime('2020'))
+        ax.set_xlim(pd.to_datetime('2013'), pd.to_datetime('2019'))
         
         # fig, axs = plt.subplots(1,2, figsize=(7,4))
         ax = axs[1]
@@ -2116,10 +2304,10 @@ for watershed_name in watershed_names[:] :
         ax.fill_between(Smod.index, 0, Smod['perenn_areas'],
                         interpolate=False, color='dodgerblue', alpha=0.75)
         # ax.plot(sat, lw=1, label=label) 
-        ax.set_ylim(0,20)
+        ax.set_ylim(0,50)
         # title = 'Saturation'
         # ax.set_title(title)
-        ax.set_xlim(pd.to_datetime('1990'), pd.to_datetime('2020'))
+        ax.set_xlim(pd.to_datetime('2013'), pd.to_datetime('2019'))
         # ax.grid('grey')
         # ax.set_xlim(pd.to_datetime(str(first)), pd.to_datetime(str(last)))
         
@@ -2190,14 +2378,17 @@ for watershed_name in watershed_names[:] :
 
 #%% PLOT INTERMITTENTCY MAP
 
-typ = 'identname'
+typ = 'good'
 
-typ_intermit = 'yearly' # yearly or persistency or monthly
+typ_intermit = 'monthly' # yearly or persistency or monthly
 gif = True
 
 watershed_names = ['Lasset']
 
 types_obs = ['streams'] # list of shapefile name layers for clip hydrology
+
+first = 2012
+last = 2019
 
 for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
@@ -2284,7 +2475,7 @@ for watershed_name in watershed_names[:] :
             days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))
             
             if typ_intermit == 'monthly':
-                if i > 20:
+                if i > 0:
                     for k in range(len(interv)):
                         to = interv[k].copy()
                         
@@ -2308,13 +2499,13 @@ for watershed_name in watershed_names[:] :
                         
                         ax.set_title(str(years[i])+'-'+(str(k+1)))
                         
-                        path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.shp'
-                        wbt.vector_lines_to_raster(path_sub,
-                                                   glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.tif',
-                                                   base = stable_folder+'geographic/'+'watershed_dem.tif')
-                        line_sub = imageio.imread(glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.tif')
-                        line_sub = np.ma.masked_where(line_sub <= 0, line_sub)
-                        ax.imshow(line_sub, cmap=mpl.colors.ListedColormap('dimgray'))
+                        # path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.shp'
+                        # wbt.vector_lines_to_raster(path_sub,
+                        #                            glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.tif',
+                        #                            base = stable_folder+'geographic/'+'watershed_dem.tif')
+                        # line_sub = imageio.imread(glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.tif')
+                        # line_sub = np.ma.masked_where(line_sub <= 0, line_sub)
+                        # ax.imshow(line_sub, cmap=mpl.colors.ListedColormap('dimgray'))
                         
                         ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
                         
@@ -2326,7 +2517,7 @@ for watershed_name in watershed_names[:] :
                         
                     inf+=12
                     sup+=12
-                    
+      
                     if gif == True:
                         begin_by = simul+'/_figures/png/'+'map_intermittent_monthly'
                         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
@@ -2441,7 +2632,7 @@ plt.show()
 
 #%% FIG - Map of persistency index
 
-typ = 'identname'
+typ = 'good'
 
 watershed_names = ['Lasset']
 
@@ -2495,6 +2686,11 @@ for watershed_name in watershed_names:
                 tempo[tempo>0] = 1
                 zero = zero + tempo
             days_flux = zero.copy() / len(acc_npy)
+            
+            
+            toolbox.export_tif(BV.geographic.watershed_dem,
+                               days_flux, -9999, simulations_folder+'persistency_tif.tif')
+
                     
             # ax = ax1
             vmin = 0
@@ -2509,8 +2705,14 @@ for watershed_name in watershed_names:
             bounds = np.arange(0, 1.1, 0.1)
             norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
                     
-            pc = ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
-                           cmap=cmap, norm=norm, alpha=1)
+            # pc = ax.imshow(np.ma.masked_where(days_flux <= 0, days_flux),
+            #                cmap=cmap, norm=norm, alpha=1)
+            
+            pc = ax.imshow(np.ma.masked_where(days_flux < 1, days_flux),
+                           cmap=mpl.colors.ListedColormap('dodgerblue'), norm=norm, alpha=1)
+            pc = ax.imshow(np.ma.masked_where((days_flux == 1) | (days_flux <= 0), days_flux),
+                           cmap=mpl.colors.ListedColormap('darkorange'), norm=norm, alpha=1)
+            
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
             ax.axis('off')
@@ -2560,6 +2762,110 @@ for watershed_name in watershed_names:
     
     # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
 
+#%% PLOT SATURATION EVOLUTION
+
+figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/_outputs/'
+
+# Things
+typ = 'proj'
+time_step = 'M'
+sim_state = 'transient'
+var = 'REC'
+
+# Colored
+mod_list = ['CNR-ALA']
+sce_list = ['RCP2.6','RCP8.5']
+sce_cmap = ["Greens","Reds"]
+sce_color = ["dodgerblue","red"]
+cmap_dict = dict(zip(sce_list, sce_cmap))
+color_dict = dict(zip(sce_list, sce_color))
+
+# Hysteres
+scan_list = ['intermit_areas','perenn_areas']
+
+temporal = True
+space = 0
+norm = False
+
+for watershed_name in watershed_names :
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    
+    for mod in mod_list:
+                
+        fig, ax = plt.subplots(1,1, figsize=(8,3))
+    
+        for sce in sce_list:
+            
+            print(watershed_name + ' + ' + mod + ' + ' + sce)
+            
+            simul_list = glob.glob(simulations_folder+typ+'*'+sce+'*')
+        
+            compt = 0
+            
+            list_max = []
+            list_max_per = []
+            list_max_int = []
+                    
+            for it, simul in enumerate(simul_list[:]):
+                    
+                model_name = simul.split('\\')[-1]
+                Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                E = float(model_name.split('_')[3].split('-')[2]) # m
+                D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+                Smod_path = simul+'/_watershed/_simulated_results.csv'            
+                if not os.path.exists(Smod_path):
+                    compt += 1
+                    continue
+                
+                Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                idx = pd.date_range(start='01/01/2000', end='31/12/2099', freq='M')
+                # Smod = Smod.set_index(idx)
+                years = Smod.index.year.unique()
+                
+                Smod['prop_perenn'] = Smod['perenn_areas'] / Smod['surflow_areas']
+                Smod['prop_intermit'] = Smod['intermit_areas'] / Smod['surflow_areas']
+                
+                Smod['year'] = Smod.index.year.values # group by month and year, get the average
+                Smod['month'] = Smod.index.month.values # group by month and year, get the average
+                Smod = Smod.pivot('month','year')
+                
+                max_per = Smod['perenn_areas'].max().max()
+                max_int = Smod['intermit_areas'].max().max()
+                max_tot = max(max_per,max_int)
+            
+                list_max.append(max_tot)
+                list_max_per.append(max_per)
+                list_max_int.append(max_int)
+                
+            for it, simul in enumerate(simul_list[:]):
+                                
+                model_name = simul.split('\\')[-1]
+                Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                E = float(model_name.split('_')[3].split('-')[2]) # m
+                D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+                Smod_path = simul+'/_watershed/_simulated_results.csv'            
+                if not os.path.exists(Smod_path):
+                    compt += 1
+                    continue
+                
+                Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                idx = pd.date_range(start='01/01/2000', end='31/12/2099', freq='M')
+                # Smod = Smod.set_index(idx)
+                years = Smod.index.year.unique()
+                
+                Smod['prop_perenn'] = Smod['perenn_areas'] / Smod['surflow_areas']
+                Smod['prop_intermit'] = Smod['intermit_areas'] / Smod['surflow_areas']
+                
+                to_see = Smod['intermit_areas'] / Smod['perenn_areas']
+                # to_see = Smod['outflow_drain']
+                ax.plot(to_see, color = color_dict[sce])
+                ax.plot(select_period(to_see, 1960, 2020), color = 'k')
+                # ax.set_yscale('log')
+                
 #%% FIG - Map of persistency index anomaly historic vs future
 
 import matplotlib as mpl

@@ -335,10 +335,14 @@ class Visualization():
             if obj == 'pathlines':
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                          transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
-                axs[i].set_title('Pathlines, log(t) [d]')
+                # axs[i].set_title('Pathlines, log(t) [d]')
+                axs[i].set_title('Pathlines, (t) [y]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
-                random_indices = np.random.choice(len(pth_data), size=lines)
+                if lines != None:
+                    random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
+                if lines == None:
+                    random_indices = np.arange(len(pth_data))
                 geotx_p = self.watershed.geographic.x_coord
                 geoty_p = self.watershed.geographic.y_coord
                 geot_p = self.watershed.geographic.geodata
@@ -362,8 +366,9 @@ class Visualization():
                     y = pth_data[j].y + ext[1][1]
                     points = np.array([x, y]).T.reshape(-1, 1, 2)
                     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, cmap='jet')
-                    lc.set_array(np.log10(pth_data[j].time))
+                    lc = LineCollection(segments, cmap='jet', alpha=0.5)
+                    # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
+                    lc.set_array(pth_data[j].time / 365) # t in years
                     lc.set_linewidth(2)
                     if color_scale[i][0] == None:
                         lc.set_clim(1,np.max(max_time))
@@ -374,12 +379,12 @@ class Visualization():
                 basemap.append(0)
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'residence_times':
-                axs[i].set_title('Residence times, log(t) [d]')
+                axs[i].set_title('Residence times, log(t) [y]')
                 res_time = np.zeros(np.shape(dem))
                 endobj = flopy.utils.EndpointFile(os.path.join(modelfolder,self.modelname+'.mpend'))
                 e = endobj.get_alldata()
                 for j in range(len(e)):
-                     res_time[e[j].i0,e[j].j0] = np.log10(e[j].time)
+                     res_time[e[j].i0,e[j].j0] = np.log10(e[j].time/365) #days to years
                 image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time),
                                              cmap='jet_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
