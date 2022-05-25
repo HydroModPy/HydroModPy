@@ -51,6 +51,7 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0., multip_cond=None, init_rech='mean',
+                 bc_left=None, bc_right=None,
                  model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
@@ -86,6 +87,8 @@ class Modflow():
             self.dem_path = geographic.watershed_buff_dem
         self.exe = exe
         self.init_rech = init_rech
+        self.bc_left = bc_left
+        self.bc_right = bc_right
 
     def pre_processing(self, verbose=False):
         if verbose == True:
@@ -148,8 +151,16 @@ class Modflow():
 		#proj4_str=self.dem.crs)
     
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
-        self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem        
-
+        self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
+        
+        if  isinstance(self.bc_left,(int,float)) == True:
+           self.iboundData[:,:,0] = -1
+           self.strtData[:,:,0] = self.bc_left
+       
+        if  isinstance(self.bc_right,(int,float)) == True:
+           self.iboundData[:,:,-1] = -1
+           self.strtData[:,:,-1] = self.bc_right
+           
         for i in range (self.nlay):
             if isinstance(self.sea_level,(int,float)) == True:
                 self.iboundData[i][self.dem <= self.sea_level] = -1
