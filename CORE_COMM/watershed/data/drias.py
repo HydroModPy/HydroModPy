@@ -11,7 +11,7 @@ import xarray as xr
 from shapely.geometry import mapping
 import numpy as np
 xr.set_options(keep_attrs = True)
-# import rioxarray as rio
+import rioxarray as rio
 import rasterio
 import matplotlib.pyplot as plt
 import gc
