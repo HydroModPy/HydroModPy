@@ -312,9 +312,9 @@ class Watershed:
         
     def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
-                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., 
                     verbose: bool = False, post_process: bool = False,
-                    time_step: str = 'M', calib: str = None, init_rech: str = 'mean'):
+                    time_step: str = 'M', calib: str = None, bc_left: (float) = None, bc_right: (float) = None):
         """ 
         Build and run modflow model
         
@@ -337,9 +337,8 @@ class Watershed:
                                      lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
-                                     init_rech=init_rech,
-                                     model_name=ident, model_folder=model_folder, multip_cond=multip_cond,
-                                     exe=self.modflow_path +'/bin/mfnwt.exe')
+                                     model_name=ident, model_folder=model_folder,
+                                     exe=self.modflow_path +'/bin/mfnwt.exe', bc_left=bc_left, bc_right=bc_right)
         flow_model.pre_processing(verbose = verbose)
         if run == True:
             success = flow_model.processing(verbose = verbose)
@@ -352,7 +351,7 @@ class Watershed:
             if modpath_sim == True:
                 transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
-                                            exe=self.modflow_path + '/bin/mp6.exe',porosity=self.hydrodynamic.porosity)                
+                                            exe=self.modflow_path + '/bin/mp6.exe')                
                 transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
                 # transit_model.post_processing()
@@ -380,14 +379,14 @@ class Watershed:
                        groundwater_flux = True,
                        specific_discharge = False,
                        accumulation_flux = True,
-                       perenn_intermit_shp=True,
+                       perenn_intermit=True,
                        groundwater_storage = False,
                        verbose = True,
                        export_tif = True,
                        calib=None):
         
         if success == True:
-            flow_model.post_processing(first_only = first_only,
+            flow_model.post_processing(first_only=first_only,
                                        watertable_elevation = watertable_elevation,
                                        watertable_depth = watertable_depth, 
                                        seepage_areas = seepage_areas,
@@ -395,7 +394,7 @@ class Watershed:
                                        groundwater_flux = groundwater_flux,
                                        specific_discharge = specific_discharge,
                                        accumulation_flux = accumulation_flux,
-                                       perenn_intermit_shp=perenn_intermit_shp,
+                                       perenn_intermit=perenn_intermit,
                                        groundwater_storage = groundwater_storage,
                                        verbose = verbose,
                                        export_tif = export_tif)
@@ -407,15 +406,13 @@ class Watershed:
         else:
             model_folder = calib
             
-        results = modflow_results.Results(self.geographic,
+        modflow_results.Results(self.geographic,
                                 recharge=self.forcing.recharge,
                                 actual_date=actual_date,
                                 start=start,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,
                                 model_folder=model_folder)
-        simulated_results = results.mfdata
-        return simulated_results
                 
     def run_hs1D(self):
         """
@@ -432,9 +429,7 @@ class Watershed:
         if dtype == 'watershed_dem':
             watershed_display.watershed_dem(self)
         if dtype == 'watershed_geology':
-            watershed_display.watershed_geology(self)
-        if dtype == 'watershed_zones':
-            watershed_display.watershed_zones(self) 
+            watershed_display.watershed_geology(self)    
 
 
             
