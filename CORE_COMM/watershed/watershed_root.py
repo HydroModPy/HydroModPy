@@ -18,7 +18,7 @@ sys.path.append(root_dir)
 
 # HydroModPy modules
 #from watershed.data import  climatic, oceanic, piezometry, hydrology
-import climatic, oceanic, piezometry, hydrology, geology, hydrometry, intermittency
+import climatic, drias, oceanic, piezometry, hydrology, geology, hydrometry, intermittency
 from groundwater_flow import modflow, modpath, modflow_results
 from tools import toolbox
 from watershed import forcing, geographic, hydrodynamic, watershed_display
@@ -221,6 +221,9 @@ class Watershed:
             if ('subbasin' in BV.__dir__()) == True:
                 self.subbasin = BV.subbasin
                 self.elt_def.append('subbasin')
+            if ('drias' in BV.__dir__()) == True:
+                self.drias = BV.drias
+                self.elt_def.append('drias')
             return True 
         else:
             print("Warning : file doesn't exist, python_object", self.watershed_folder)
@@ -240,13 +243,14 @@ class Watershed:
                                                 from_xy=self.from_xy, regio_path=self.regio_path,
                                                 cell_size=self.cell_size) #2D
         self.elt_def.append('geographic')
-        
+    
+    def add_forcing(self):
         self.forcing = forcing.Forcing(out_path=self.watershed_folder)
         self.elt_def.append('forcing')
         
+    def add_hydrodynamic(self):
         self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
-        self.oceanic = oceanic.Oceanic()
         #self.hillslope = hillslope() #1D Doesn't exist
         
     def add_hydrology(self, hydrology_path, types_obs = ['streams'], fields_obs = ['FID'], reset = False):
@@ -264,6 +268,7 @@ class Watershed:
         self.save_object()
 
     def add_oceanic(self, oceanic_path):
+        self.oceanic = oceanic.Oceanic()
         self.oceanic_path = oceanic_path
         self.oceanic.extract_data(out_path=self.watershed_folder, oceanic_path=self.oceanic_path, geographic=self.geographic)
         self.elt_def.append('oceanic')
@@ -274,6 +279,13 @@ class Watershed:
         self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
         climatic.Merge(out_path=self.watershed_folder)
         self.elt_def.append('surfex')
+        self.save_object()
+    
+    def add_drias(self, drias_path):
+        self.drias_path = drias_path
+        self.drias = drias.Drias(out_path=self.watershed_folder, drias_path=self.drias_path, watershed_shp=self.geographic.watershed_shp)
+        # drias.Merge(out_path=self.watershed_folder)
+        self.elt_def.append('drias')
         self.save_object()
 
     def add_piezometry(self):
@@ -333,12 +345,27 @@ class Watershed:
             model_folder = self.simulations_folder
         else:
             model_folder = calib
-        flow_model = modflow.Modflow(self.geographic, sink_fill=sink_fill, box=box,
-                                     lay_number=lay_number, thick=self.hydrodynamic.thickness, thick_exp=thick_exp, bottom=bottom,
-                                     hyd_cond=self.hydrodynamic.hyd_cond, cond_decay=cond_decay, porosity=self.hydrodynamic.porosity,
-                                     climatic=self.forcing.recharge, sea_level=self.oceanic.MSL,
-                                     model_name=ident, model_folder=model_folder,
-                                     exe=self.modflow_path +'/bin/mfnwt.exe', bc_left=bc_left, bc_right=bc_right)
+
+        flow_model = modflow.Modflow(self.geographic,
+                                     sink_fill=sink_fill,
+                                     box=box,
+                                     lay_number=self.hydrodynamic.nlay,
+                                     thick=self.hydrodynamic.thickness,
+                                     thick_exp=self.hydrodynamic.thick_exp,
+                                     bottom=self.hydrodynamic.bottom,
+                                     hyd_cond=self.hydrodynamic.hyd_cond,
+                                     cond_decay=self.hydrodynamic.cond_decay,
+                                     porosity=self.hydrodynamic.porosity,
+                                     climatic=self.forcing.recharge,
+                                     sea_level=self.oceanic.MSL,
+                                     init_rech=init_rech,
+                                     model_name=ident,
+                                     model_folder=model_folder,
+                                     multip_cond=multip_cond, 
+                                     bc_left=bc_left, 
+                                     bc_right=bc_right,
+                                     exe=self.modflow_path +'/bin/mfnwt.exe')
+
         flow_model.pre_processing(verbose = verbose)
         if run == True:
             success = flow_model.processing(verbose = verbose)
@@ -349,9 +376,12 @@ class Watershed:
             if post_process == True:
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
+                # print(self.hydrodynamic.porosity)
                 transit_model = modpath.Modpath(self.geographic,model_name=ident,  
                                             model_folder=self.simulations_folder,
-                                            exe=self.modflow_path + '/bin/mp6.exe')                
+                                            exe=self.modflow_path + '/bin/mp6.exe',
+                                            porosity=self.hydrodynamic.porosity)  
+
                 transit_model.pre_processing(verbose = verbose)
                 transit_model.processing(verbose = verbose)
                 # transit_model.post_processing()
@@ -381,6 +411,7 @@ class Watershed:
                        accumulation_flux = True,
                        perenn_intermit=True,
                        groundwater_storage = False,
+                       residence_times = False,
                        verbose = True,
                        export_tif = True,
                        calib=None):
@@ -396,10 +427,12 @@ class Watershed:
                                        accumulation_flux = accumulation_flux,
                                        perenn_intermit=perenn_intermit,
                                        groundwater_storage = groundwater_storage,
+                                       residence_times = residence_times,
                                        verbose = verbose,
                                        export_tif = export_tif)
 
-    def results_modflow(self, ident='modflow', actual_date=True, start='2010-01-01', time_step='M', calib=None):
+    def results_modflow(self, ident='modflow', # recharge=250,
+                        actual_date=True, start='2010-01-01', time_step='M', calib=None):
         
         if calib == None:
             model_folder = self.simulations_folder

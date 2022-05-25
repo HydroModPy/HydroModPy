@@ -64,7 +64,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         # name = 'exp_' + str(len(self.params.name)) + 'p_res_'
         now = datetime.datetime.now()
         # name = name + now.strftime("%d_%m_%Y_%Hh%M") 
-        name = self.param_ident + '_' + now.strftime("%Y-%m-%d_%Hh%M") 
+        name = self.param_ident + '_' + now.strftime("%Y-%m-%d_%Hh%Mm%Ss") 
         obj_function = []
         params_values = []
         

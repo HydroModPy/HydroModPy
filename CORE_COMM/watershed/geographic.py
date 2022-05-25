@@ -61,14 +61,15 @@ class Geographic:
         if self.from_xy != []:
             x = self.from_xy[0]
             y = self.from_xy[1]
-            snap_dist = self.from_xy[2]
+            self.snap_dist = self.from_xy[2]
             buff_percent = self.from_xy[3]
         
         if from_dem == False:
-            self.processing(dem_path, x, y, snap_dist, buff_percent, out_path)
+            self.processing(dem_path, x, y, self.snap_dist, buff_percent, out_path)
         else:    
             self.model_from_dem(dem_path, out_path, cell_size)
-        
+
+        # if self.from_shp == None: # ADD FOR CLIMATE !!!
         self.post_processing_dem()
             
     def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
@@ -112,6 +113,7 @@ class Geographic:
             # Extract the coordinate system
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            #self.crs = 'EPSG:3035'
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [x], 'y': [y]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs)
@@ -132,7 +134,9 @@ class Geographic:
             self.watershed_shp = self.gis_path + 'watershed.shp'
             wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
         else:
-            self.watershed_shp = self.from_shp     
+            self.watershed_shp = self.gis_path + 'watershed.shp'
+            shp_file = gpd.read_file(self.from_shp)
+            shp_file.to_file(self.watershed_shp)
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
         self.area = np.abs(area)
@@ -140,6 +144,8 @@ class Geographic:
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
         
+        # if self.from_shp == None: # ADD FOR CLIMATE !!!
+    
         """
         Buffer distance operations
         """
@@ -402,7 +408,10 @@ class Subbasin:
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
         outlet_snap_shp = outpath + 'outlet_snap.shp'
-        wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', outlet_snap_shp, geographic.snap_dist)
+        # wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', 
+        #                      outlet_snap_shp, geographic.snap_dist)
+        wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', 
+                             outlet_snap_shp, 150) # add self.snap_dist
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
         wbt.watershed(geographic.reg_path + 'region_direc.tif', outlet_snap_shp, watershed, esri_pntr=False)
