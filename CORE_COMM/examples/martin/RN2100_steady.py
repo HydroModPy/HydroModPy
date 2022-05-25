@@ -47,9 +47,9 @@ dir(os.getcwd())
 
 # %% PATHS + watershed options
 
-watershed_name = 'Caen'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-load = False # loads previously generated basin if true
+load = True # loads previously generated basin if true
 
 # # Path to the git repositoty home page
 git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
@@ -107,7 +107,7 @@ fields_obs = ['FID'] # list of shapefile name columns to translate as a tif
 
 # create watershed properties
 BV.add_hydrodynamic()
-
+BV.add_forcing()
 BV.add_surfex(surfex_path) 
 # BV.add_geology(geology_path) 
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
@@ -176,7 +176,7 @@ df.loc[2,type_obs] = obj_func
 df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
-BV.piezometry.add_data()
+# BV.piezometry.add_data()
 # BV.save_object()
 
 
@@ -197,6 +197,8 @@ print(vars(BV).keys())
 
 
 #%% Historic mean recharge
+
+BV.add_forcing()
 
 # Historic recharge
 sim_state = 'steady' # 'steady' or 'transient'
@@ -353,7 +355,7 @@ R_DRIAS_85 = statistics.mean([R_MPI_CCL_RCP85, R_ECE_RCA_RCP85, R_ECE_RAC_RCP85,
 
 #%% Model Parameters
 
-model_name = sim_state # just a string
+model_name = 'steady_2' # just a string
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
@@ -363,8 +365,8 @@ cond_decay = 0 # exponential decay of K with depth
 
 # Hydraulic properties
 K_hist = kr * R_hist
-K_RCP26 = kr * R_DRIAS_26
-K_RCP85 = kr * R_DRIAS_85
+# K_RCP26 = kr * R_DRIAS_26
+# K_RCP85 = kr * R_DRIAS_85
 
 E = 30 # m
 P = 0.01 #
@@ -390,7 +392,7 @@ BV.hydrodynamic.update_thick_exp(1)
 #%% LAUNCH MODELLING
 
 #Choice of Recharge
-R = R_DRIAS_85
+R = R_hist
 BV.forcing.update_recharge(R, 'steady')
 
 # Run model
@@ -422,10 +424,23 @@ BV.results_modflow(ident=model_name,
 from tools import vtk
 from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
-visu = visualization.Visualization(BV, 'steady')
+visu = visualization.Visualization(BV, 'steady_2')
+
 visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
-                             'surface_flow','pathlines', 'residence_times'],
+                              'surface_flow','pathlines', 'residence_times'],
               color_scale = [(None,None),(None,None),(0,35),(0,10),
-                             (None,None),(None,None),(None,None),(None,None)], 
+                              (None,None),(None,None),(None,None),(None,None)], 
               lines=300)
+
+# visu.visual2D(object_list = ['pathlines', 'residence_times'],
+#               color_scale = [(None,None),(None,None)], 
+#               lines=1000)
+
+
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
+                             'pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(0,35),
+                             (0,10),(None,None), (None,None), (None,None)], 
+              lines=100) # IF LINES = NONE === ALL LINES GENERATED
+
 
