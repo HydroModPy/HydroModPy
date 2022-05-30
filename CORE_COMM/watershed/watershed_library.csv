@@ -6,7 +6,7 @@ Granville;362398;6869014;500;1;'x';A.Gauvain
 Barneville-Carteret;352300;6929662;200;1;'x';A.Gauvain
 Saint-Germain-sur-Ay;364195;6913295;100;1;'x';A.Gauvain
 Caen;463980;6914967;300;1;'x';A.Gauvain
-Canut;327844;6777928;500;10;'x';R.Abherve
+#Canut;327844;6777928;500;10;'x';R.Abherve
 Lasset;601020;6193860;100;10;'x';C.Roques
 Caen;463650;6913840;100;1;'x';A.Gauvain
 Lasset;601020;6193860;100;50;'x';C.Roques
@@ -35,6 +35,7 @@ Pompage;337652.874;6785690.940;200;1;R.Abherve
 Loisance;372028.372;6823351.567;200;1;'x';R
 Minette;371940.988;6813838.580;200;1;'x';R
 Canut;327816.965;6777886.670;150;10;'x';R
+#327811;6777899
 Nancon;389441.944;6816812.768;150;10;'x';R
 Baniguel;151849.772;6855460.830;150;1;'x';R
 Kermorvan;127296.349;6835643.601;150;1;'x';R

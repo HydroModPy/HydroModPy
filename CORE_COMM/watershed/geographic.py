@@ -20,6 +20,7 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 from geopy.geocoders import Nominatim
 import shutil
+import imageio
 
 # HydroModPy modules
 from tools import toolbox
@@ -203,6 +204,11 @@ class Geographic:
         # Clip flow direction regional DEM from watershed shapefile polygon
         self.watershed_direc = self.gis_path + 'watershed_direc.tif'
         wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc)
+        wbt.slope(self.watershed_dem,
+                  self.gis_path + 'watershed_slope.tif',
+                  units="percent")
+        slope = imageio.imread(self.gis_path + 'watershed_slope.tif')
+        self.slope = np.nanmean(slope[slope>=0])
         
         """
         Clip to reach box extent size
