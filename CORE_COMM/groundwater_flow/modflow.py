@@ -339,6 +339,7 @@ class Modflow():
         self.dem_mask = (self.dem<-4000)
         self.head_fpu = fpu.HeadFile(self.path_file+'.hds')
         self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
+        # self.zcbc
         
         # Import times
         self.times = self.head_fpu.get_times()
@@ -513,8 +514,8 @@ class Modflow():
                 print('residence_times')
                 # path_file = "D:/Users/abherve/DYNAMIC/Lasset/results_simulations/case4_0.05500000000000001/case4_0.05500000000000001"
                 # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
-                pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
-                pth_data = pthobj.get_alldata()
+                # pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
+                # pth_data = pthobj.get_alldata()
                 res_time = np.zeros(np.shape(self.dem))
                 endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
                 e = endobj.get_alldata()
@@ -526,6 +527,9 @@ class Modflow():
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
             
+                # if zone_bud == True:...
+                    
+                
             # Surface flow activation
             surface_flow = routing_accflux.RoutingAccflux(self.geographic,
                                                           'outflow_drain_t('+lead_numb+').tif',

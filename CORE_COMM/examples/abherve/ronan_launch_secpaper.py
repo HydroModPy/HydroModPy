@@ -751,7 +751,7 @@ fields_obs = ['fid']
 
 # watershed_names = ['Gael']
 
-load = True
+load = False
 
 for watershed_name in watershed_names:
 
@@ -771,7 +771,8 @@ for watershed_name in watershed_names:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
   
-    # print(BV.geographic.area.round())
+    print(BV.geographic.area.round())
+    print(BV.geographic.slope.round())
   
 #%% DATA WATERSHED
 
@@ -2561,9 +2562,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     Qobs = Qobs.squeeze()
     Qobs = Qobs.rename('Q')
     
+    Qobs = select_period(Qobs, first, last)
+    
+    print(Qobs.min() / (area*1000000) * (3600 * 24) * 1000)
+    # print(Qobs.max() / (area*1000000) * (3600 * 24) * 1000)
+    # print(Qobs.min() / (area*1000000) * (3600 * 24) * 1000)
+
     Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
     
-    Qobs = select_period(Qobs, first, last)
     data_index = Qobs.copy()
 
     mean_mensual = data_index.resample('M').mean() # mensual mean
@@ -2576,6 +2582,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     Q50 = data_index.resample('Y').quantile(0.50)
     Q75 = data_index.resample('Y').quantile(0.75)
     Q90 = data_index.resample('Y').quantile(0.90)
+    print(Q10.min())
+    print(Q90.mean())
     Max = data_index.resample('Y').max()
     mean_interan_days = data_index.groupby([data_index.index.month,
                                     data_index.index.day], as_index=True).mean().to_frame()
@@ -2635,7 +2643,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     plt.tight_layout()
     # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
     
-    fig.savefig(figsim_folder+'/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(figsim_folder+'/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 01b_observed hysteresis
 
@@ -4114,15 +4122,17 @@ fig1.savefig(figsim_folder+'both'+'_freqcumul_pi'+'.png', dpi=300, bbox_inches='
 fig2.savefig(figsim_folder+'both'+'_freqcumul_sat'+'.png', dpi=300, bbox_inches='tight')
 fig3.savefig(figsim_folder+'both'+'_freqcumul_ratio'+'.png', dpi=300, bbox_inches='tight')
 
-#%% 06_anomaly maps
+#%% 06_anomaly maps difference
 
 typ = 'projec-1'
 
 mod_list = ['MPI-R09','NOR-R15']
+mod_list = ['NOR-R15']
 
 import matplotlib as mpl
 
 watershed_names = ['Canut','Nancon']
+watershed_names = ['Canut']
 
 var = 'REC'
 scan = 'outflow_drain'
@@ -4169,7 +4179,7 @@ for watershed_name in watershed_names:
                 
                 # Historic
                 # h = 30 * 12
-                acc_npy_h = list(acc_npy.items())[18*12:48*12]
+                acc_npy_h = list(acc_npy.items())[:30*12] # 18*12:48*12
                 for key in range(len(acc_npy_h)):
                     # print(key)
                     # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
@@ -4181,7 +4191,7 @@ for watershed_name in watershed_names:
                     zero = zero + tempo
                 days_flux_h = zero.copy() / len(acc_npy_h)
                 # ax.imshow(days_flux_h)
-            
+
                 # To look
                 acc_npy = list(acc_npy.items())[-30*12:]
                 # acc_npy = list(acc_npy.items())[h:]
@@ -4198,6 +4208,10 @@ for watershed_name in watershed_names:
                 
                 # Anomaly
                 days_flux_ano = ( (days_flux - days_flux_h) ) * 100
+                # days_flux_ano[(days_flux_ano==days_flux_h)|(days_flux_h!=0)] = False
+                
+                # plt.imshow(days_flux_ano)
+                # plt.colorbar()
                 
                 masked = days_flux_ano
                 Z = masked.flatten()
@@ -4264,9 +4278,168 @@ for watershed_name in watershed_names:
             cb.set_ticks(np.arange(minn, maxn, intn))
             cb.set_ticklabels(np.arange(minn, maxn, intn))
             
-            fig1.savefig(figsim_folder+
-                          watershed_name+'_'+mod+'_'+sce+'_'+
-                          '_anamaly'+'.png', dpi=300, bbox_inches='tight')
+            # fig1.savefig(figsim_folder+
+            #               watershed_name+'_'+mod+'_'+sce+'_'+
+            #               '_anamaly'+'.png', dpi=300, bbox_inches='tight')
+
+#%% 06_anomaly maps divided
+
+typ = 'projec-1'
+
+mod_list = ['MPI-R09','NOR-R15']
+# mod_list = ['NOR-R15']
+
+import matplotlib as mpl
+
+watershed_names = ['Canut','Nancon']
+# watershed_names = ['Canut']
+
+var = 'REC'
+scan = 'outflow_drain'
+
+for watershed_name in watershed_names:
+
+    if watershed_name == 'Canut':
+        color = 'green'
+    if watershed_name == 'Nancon':
+        color = 'darkmagenta'    
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    
+    wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                               stable_folder+'geographic/'+'watershed_contour.tif',
+                               base = stable_folder+'geographic/'+'watershed_dem.tif')
+    line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+    line = np.ma.masked_where(line < 0, line)
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+
+    for mod in mod_list:
+        
+        for sce in ['RCP2.6','RCP8.5']:
+    
+            ix = 1
+            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+        
+            for simul in simul_list:
+                
+                fig1, axs1 = plt.subplots(1,1, figsize=(10,10))
+            
+                ax = axs1
+                ax.set_title(mod+' / '+sce)
+                
+                model_name = simul.split('\\')[-1]
+                Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                E = float(model_name.split('_')[3].split('-')[2]) # m
+                D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+                
+                acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+                
+                # Historic
+                # h = 30 * 12
+                acc_npy_h = list(acc_npy.items())[:30*12] # 18*12:48*12
+                for key in range(len(acc_npy_h)):
+                    # print(key)
+                    # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+                    acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
+                zero = acc_npy_h[0] * 0
+                for i in range(len(acc_npy_h)):
+                    tempo = acc_npy_h[i].copy()
+                    tempo[tempo>0] = 1
+                    zero = zero + tempo
+                days_flux_h = zero.copy() / len(acc_npy_h)
+                # ax.imshow(days_flux_h)
+
+                # To look
+                acc_npy = list(acc_npy.items())[-30*12:]
+                # acc_npy = list(acc_npy.items())[h:]
+                for key in range(len(acc_npy)):
+                    # print(key)
+                    # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+                    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+                zero = acc_npy[0] * 0
+                for i in range(len(acc_npy)):
+                    tempo = acc_npy[i].copy()
+                    tempo[tempo>0] = 1
+                    zero = zero + tempo
+                days_flux = zero.copy() / len(acc_npy)
+                
+                # Anomaly
+                days_flux_ano = ( (days_flux / days_flux_h) )
+                
+                # plt.imshow(days_flux_ano)
+                # plt.colorbar()
+                
+                masked = days_flux_ano
+                Z = masked.flatten()
+                from scipy.stats import norm
+                pdf = norm.pdf(Z, Z.mean(), Z.std())
+            
+                print(days_flux_ano.min(), days_flux_ano.max())
+                
+                cmap = plt.cm.Oranges_r
+                cmaplist = [cmap(i) for i in range(cmap.N)]
+                cmaplist = ['darkred','orange']
+                # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
+                cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                    'Custom cmap', cmaplist, cmap.N)
+                minn = 0
+                maxn = 1.1
+                intn = 0.1
+                bounds = np.arange(minn, maxn, intn)
+                norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+                pcn = ax.imshow(np.ma.masked_where(days_flux_ano >= 1, days_flux_ano),
+                                cmap = cmap,
+                                norm=norm, alpha=1)
+                # plt.imshow(days_flux_ano)
+                # plt.colorbar()
+                
+                cmap = plt.cm.Blues
+                # cmap = plt.cm.winter_r
+                cmaplist = [cmap(i) for i in range(cmap.N)]
+                cmaplist = ['deepskyblue','navy']
+                # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
+                cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                    'Custom cmap', cmaplist, cmap.N)
+                minp = 1
+                maxp = 2.1
+                intp = 0.1
+                bounds = np.arange(minp, maxp, intp)
+                norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+                pcp = ax.imshow(np.ma.masked_where(days_flux_ano <= 1, days_flux_ano),
+                                cmap = cmap,
+                                norm=norm, alpha=1)
+                # plt.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano))
+                # plt.colorbar()
+                
+                pc = ax.imshow(np.ma.masked_where((days_flux_ano!=1)|(days_flux_h==0),
+                                                  days_flux_ano),
+                                            cmap = mpl.colors.ListedColormap('forestgreen'))
+                
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+                ax.axis('off')
+    
+                ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+                # ax.set_title(params, fontsize=8)
+                plt.subplots_adjust(hspace = -0.6)
+            
+            position=fig1.add_axes([1,0.3,0.015,0.32])  ## the parameters are the specified position you set 
+            cb = fig1.colorbar(pcp,cax=position) ##
+            cb.set_ticks(np.arange(minp, maxp, intp))
+            cb.set_ticklabels(np.arange(minp, maxp, intp).round(1))
+            # cb.ax.invert_xaxis()
+            
+            position=fig1.add_axes([1.10,0.3,0.015,0.32])  ## the parameters are the specified position you set 
+            cb = fig1.colorbar(pcn,cax=position) ##   
+            cb.set_ticks(np.arange(minn, maxn, intn))
+            cb.set_ticklabels(np.arange(minn, maxn, intn).round(1))
+            
+            # fig1.savefig(figsim_folder+
+            #               watershed_name+'_'+mod+'_'+sce+'_'+
+            #               '_anamaly'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 07_anomaly distribution
 
@@ -4352,11 +4525,19 @@ for watershed_name in watershed_names:
                     
                     # Anomaly
                     days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                    # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
+                    data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                    data = data.flatten().filled(np.nan)
+                    # data = data.flatten()
                     data = days_flux_ano[~days_flux_ano.mask]
+                    # data = data.compressed()
+                    # data = data[~np.isnan(data)]
                     
                     masked = data
                     # masked = days_flux_ano
                     Z = masked.flatten()
+                    # Z = data.copy()
+                    
                     from scipy.stats import norm
                     pdf = norm.pdf(Z, Z.mean(), Z.std())
                                     
@@ -4474,11 +4655,11 @@ for watershed_name in watershed_names:
                 ax2.set_ylim(1e-2,1)
                 ax2.axvline(x=0, color='k', lw= 1.5, zorder=0)
                 
-            fig2.savefig(figsim_folder+'_distributions/'+
-                          watershed_name+'_'+mod+'_'+dates+'_'+
-                          '_ano_distrib'+'.png', dpi=300, bbox_inches='tight')
+            # fig2.savefig(figsim_folder+'_distributions/'+
+            #               watershed_name+'_'+mod+'_'+dates+'_'+
+            #               '_ano_distrib'+'.png', dpi=300, bbox_inches='tight')
 
-#%% anomaly violin
+#%% 07b_anomaly violin
 
 from scipy.stats import binned_statistic
 
@@ -4492,7 +4673,7 @@ var = 'REC'
 # Colored
 mod_list = ['NOR-R15', 'MPI-R09']
 # mod_list = ['MPI-R09']
-# mod_list = ['NOR-R15']
+mod_list = ['NOR-R15']
 sce_list = ['RCP2.6', 'RCP8.5']
 sce_cmap = ['Blues', 'Reds']
 sce_color = ['dodgerblue', 'red']
@@ -4520,7 +4701,7 @@ ymax = []
 
 inds_tot = []
 
-fig, axs = plt.subplots(1,2, figsize=(6,4))
+fig, axs = plt.subplots(1,2, figsize=(6,3))
 axs = axs.ravel()
 
 compt = 0
@@ -4648,7 +4829,7 @@ for watershed_name in watershed_names[:] :
                     zero = zero + tempo
                 days_flux_f = zero.copy() / len(acc_npy_f)
                 days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
-                # data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
                 data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
                 data = data.flatten().filled(np.nan)
                 # data = data.flatten()
@@ -4769,15 +4950,21 @@ for watershed_name in watershed_names[:] :
     ax.set_xticks([0.0,1.0])
     ax.set_xticklabels(['2020-2050', '2070-2100'])
     
+    '''
     if watershed_name == 'Canut':
         ax.legend([v1['bodies'][0], v2['bodies'][0]], ['RCP2.6', 'RCP8.5'], loc=2)
         leg = ax.get_legend()
         leg.legendHandles[0].set_color('dodgerblue')
         leg.legendHandles[1].set_color('red')
+    '''
+    
+    ax.axhline(y=0, color='k', lw=1, zorder=-1)
     
     compt += 1
     
 plt.tight_layout()
+
+fig.savefig(figsim_folder+'_violin_distributions'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 08_seasonaly anomaly
 
@@ -4864,7 +5051,7 @@ for watershed_name in watershed_names:
                     
                     # Anomaly
                     days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
-                    # data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                    # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
                     data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
                     # data = data.flatten().filled(np.nan)
                     # data = data.flatten()
@@ -5020,7 +5207,7 @@ for watershed_name in watershed_names:
                 ax.tick_params(top=False)
                 ax.tick_params(right=False, which='both')
                 
-                # ax.axvline(x=0, c='k')
+                ax.axvline(x=0, c='k')
                 ax.set_ylabel(' ')
                 
             i += 1
@@ -5032,9 +5219,9 @@ for watershed_name in watershed_names:
     
     dates = '2050-2100'
     
-    # fig.savefig(figsim_folder+
-    #               watershed_name+
-    #               '_seasonal_anomaly'+dates+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(figsim_folder+
+                  watershed_name+
+                  '_seasonal_anomaly'+dates+'.png', dpi=300, bbox_inches='tight')
                                 
 #%% 09_monthly discharge
 
@@ -5808,7 +5995,7 @@ var = 'REC'
 # Colored
 mod_list = ['NOR-R15', 'MPI-R09']
 # mod_list = ['MPI-R09']
-# mod_list = ['NOR-R15']
+mod_list = ['NOR-R15']
 sce_list = ['RCP2.6', 'RCP8.5']
 sce_cmap = ['Blues', 'Reds']
 sce_color = ['dodgerblue', 'red']
