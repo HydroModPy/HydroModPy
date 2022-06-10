@@ -81,8 +81,8 @@ def select_period(df, first, last):
 
 #%% PATH WATERSHED
 
-# user = 'Clement'
-user = 'Ronan'
+user = 'Clement'
+# user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
@@ -185,8 +185,8 @@ if user == 'Clement':
 if user=='Ronan':
     types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
 if user=='Clement':
-    types_obs = ["lasset_stream_perennialv2"]
-#types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+    #types_obs = ["lasset_stream_perennialv2"]
+    types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
@@ -229,7 +229,7 @@ for mix in mix_list:
     plt.yscale('log')
 
 #%% PLOT OBSERVED DISCHARGE
-
+'''
 figsim_folder = 'folder path for output figures'
 
 watershed_names = ['Lasset']
@@ -330,11 +330,11 @@ for watershed_name in watershed_names[:] :
     # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
     # fig.savefig(path_fig+'/'+watershed_name+'_intermensual_'+name_file+'.png', dpi=300, bbox_inches='tight')
     # fig.savefig(figsim_folder+'/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
-
+'''
 #%% PLOT OBSERVED HYDROGRAPHIC
 
 ################ A REFAIRE AVEC DATA
-
+'''
 types_obs = ['lasset_stream_perennial'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid']
 
@@ -489,7 +489,7 @@ for watershed_name in watershed_names[:] :
     fig.tight_layout()
     
     # fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping2'+'.png', dpi=300, bbox_inches='tight')
-
+'''
 #%% ----
 
 #%% TESTS
@@ -505,7 +505,7 @@ case_list = ['case1', 'case2', 'case3', 'case4', 'case5']
 
 prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, dc[0]], [50, 1000, dc[1]],  [50, 1000, dc[2]]]
 
-porosity_list = np.linspace(0.1, 0.25, 5)
+porosity_list = np.linspace(0.1, 0.3, 9)
 
 #case_list = ['caseg']
 #prop_list = [[50, 1000, 1/20]]
@@ -524,8 +524,8 @@ watershed_names = ['Lasset']
 for watershed_name in watershed_names[:] :
     
     # types_obs = ['zhstreams'] # list of shapefile name layers for clip hydrology
-    #types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # list of shapefile name layers for clip hydrology
-    types_obs = ["lasset_stream_perennialv2"]
+    types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # list of shapefile name layers for clip hydrology
+    #types_obs = ["lasset_stream_perennialv2"]
     fields_obs = ['fid']
     
     for case, prop in zip(case_list[:], prop_list[:]):
@@ -758,6 +758,10 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 dem = rasterio.open(BV.geographic.watershed_dem)
 dem_data = dem.read(1)
 
+case_list = ['case3']
+
+prop_list = [[50, 1000, dc[0]]]
+
 compt=0
 for case, prop in zip(case_list[:], prop_list[:]):
     
@@ -777,7 +781,7 @@ for case, prop in zip(case_list[:], prop_list[:]):
         res_time_data = res_time_data
         
         shp_obs = gpd.read_file(path_obs)
-        shp_obs['geometry'] = shp_obs.geometry.buffer(100)
+        shp_obs['geometry'] = shp_obs.geometry.buffer(125)
         # shp_obs = shp_obs[['ID_station', 'geometry']]
         shp_obs.to_file(path_dat, encoding='utf-8') # mode a
         
@@ -1990,8 +1994,10 @@ for watershed_name in watershed_names[:] :
             BV.hydrodynamic.update_thickness(thickness) # 30 / intervient pas si bottom != None
             
             # Hydraulic properties
-            Koptim = 0.057 # 
-            Sy = 0.15
+            # Koptim = 0.057 # 
+            # Sy = 0.15
+            Koptim = 0.062 # 
+            Sy = 0.25
                 
             Ks = [Koptim] # m/day
             Sys = [Sy]
