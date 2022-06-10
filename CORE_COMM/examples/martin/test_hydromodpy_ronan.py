@@ -88,7 +88,7 @@ library_path = git_path + 'watershed/watershed_library.csv' # each row is a stud
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-watershed_name = 'Normandie_50_14' # search the name in watershed_library or just label your result folder
+watershed_name = 'Agon-Coutainville' # search the name in watershed_library or just label your result folder
 print('##### '+watershed_name.upper()+' #####')
 
 dem_name = "BDALTI_norm-manch_75m.tif" # name of dem
@@ -108,7 +108,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False # loads previously generated basin if true
+load = True # loads previously generated basin if true
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -116,15 +116,18 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
-                              from_shp=from_shp,
+                              from_shp=False,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
 #%% extraction climat
 
-BV.add_drias("D:/DRIAS/georeferenced/")
+BV.add_drias("C:/Users/Martin/Desktop/Travail/data/data_test_ronan/CLIMAT/Normandie")
 
-#%% suite
+#%% suite watershed
+
+BV.add_hydrodynamic()
+
 BV.add_surfex(surfex_path) 
 # BV.add_geology(geology_path) 
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
@@ -203,7 +206,7 @@ BV.save_object()
 
 # Choice temporal of the simulation
 sim_state = 'steady' # 'steady' or 'transient'
-period = [2017, 2019] # rehcarge period
+period = [1960, 2019] # rehcarge period
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
@@ -216,9 +219,18 @@ bottom = None # aquifer flat or not
 thick_exp = 1 # exponential decay of K with nlay
 cond_decay = 0 # exponential decay of K with depth
 
+# Update actural recharge
+if watershed_name != 'Conceptual':
+    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                      first_year = period[0], last_year = period[1], 
+                                      time_step = time_step, sim_state=sim_state)
+    if time_step == 'M':
+        R = BV.forcing.recharge
+        BV.forcing.update_recharge(values = R, sim_state = sim_state)
+
 # Hydraulic properties
-K = 1e-7 * 3600 * 24 # m/second to m/day
-E = 100 # m
+K = 4.6 # m/day, modify to get automatic values : (K/R) * R
+E = 30 # m
 P = 0.01 # -
 
 # Active of not modules
@@ -232,6 +244,11 @@ verbose = True # add print of MODFLOW in console
 BV.hydrodynamic.update_hyd_cond(K)
 BV.hydrodynamic.update_thickness(E)
 BV.hydrodynamic.update_porosity(P)
+BV.hydrodynamic.update_nlay(1)
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_bottom(None)
+BV.hydrodynamic.update_cond_decay(0)
+BV.hydrodynamic.update_thick_exp(1)
 
 # Update actural recharge
 if watershed_name != 'Conceptual':
@@ -239,23 +256,23 @@ if watershed_name != 'Conceptual':
                                       first_year = period[0], last_year = period[1], 
                                       time_step = time_step, sim_state=sim_state)
     if time_step == 'M':
-        R = BV.forcing.recharge / 30 # m/month to m/day
+        R = BV.forcing.recharge
         BV.forcing.update_recharge(values = R, sim_state = sim_state)
 
-KR=100
+# KR=100
 
-# Upadate conceptual recharge
-conceptual_serie = np.random.sample(24)/10
-if watershed_name == 'Conceptual':
-    R = (pd.Series(0.015) / 30).mean() # m/month to m/day
-    BV.forcing.update_recharge(R, sim_state=sim_state)
-    BV.hydrodynamic.update_hyd_cond(KR*R)
-    actual_date = False
+# # Upadate conceptual recharge
+# conceptual_serie = np.random.sample(24)/10
+# if watershed_name == 'Conceptual':
+#     R = (pd.Series(0.015) / 30).mean() # m/month to m/day
+#     BV.forcing.update_recharge(R, sim_state=sim_state)
+#     BV.hydrodynamic.update_hyd_cond(KR*R)
+#     actual_date = False
 
-# Check recharge
-if sim_state=='transient':
-    fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
-    ax.plot(R*1000, c='k', lw=2) # m/months to mm/months
+# # Check recharge
+# if sim_state=='transient':
+#     fig, ax = plt.subplots(1,1, figsize=(8,2), dpi=300)
+#     ax.plot(R*1000, c='k', lw=2) # m/months to mm/months
 
 #%% LAUNCH MODELING
 

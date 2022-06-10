@@ -339,8 +339,10 @@ class Visualization():
                 axs[i].set_title('Pathlines, (t) [y]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
                 pth_data = pthobj.get_alldata()
-                # random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
-                random_indices = np.arange(len(pth_data))
+                if lines != None:
+                    random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
+                if lines == None:
+                    random_indices = np.arange(len(pth_data))
                 geotx_p = self.watershed.geographic.x_coord
                 geoty_p = self.watershed.geographic.y_coord
                 geot_p = self.watershed.geographic.geodata
@@ -364,9 +366,9 @@ class Visualization():
                     y = pth_data[j].y + ext[1][1]
                     points = np.array([x, y]).T.reshape(-1, 1, 2)
                     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, cmap='jet')
-                    lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
-                    #lc.set_array(pth_data[j].time / 365) # t in years
+                    lc = LineCollection(segments, cmap='jet', alpha=0.5)
+                    # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
+                    lc.set_array(pth_data[j].time / 365) # t in years
                     lc.set_linewidth(2)
                     if color_scale[i][0] == None:
                         lc.set_clim(1,np.max(max_time))
@@ -382,13 +384,17 @@ class Visualization():
                 endobj = flopy.utils.EndpointFile(os.path.join(modelfolder,self.modelname+'.mpend'))
                 e = endobj.get_alldata()
                 for j in range(len(e)):
-                     res_time[e[j].i0,e[j].j0] = np.log10(e[j].time/365) #days to years
+                    # time_out = pth_data[j].time[0] # explore pathlines
+                    # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+                    res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+                res_time = np.ma.masked_where(res_time <= 0, res_time)
                 image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time),
-                                             cmap='jet_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
-                     transform=dem.transform, cmap='jet_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto",
+                     vmin=color_scale[i][0], vmax=color_scale[i][1])                
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'map':
                 axs[i].set_title('Watershed boundary')

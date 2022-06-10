@@ -51,6 +51,7 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0., multip_cond=None, init_rech='mean',
+                 bc_left=None, bc_right=None,
                  model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
@@ -86,6 +87,8 @@ class Modflow():
             self.dem_path = geographic.watershed_buff_dem
         self.exe = exe
         self.init_rech = init_rech
+        self.bc_left = bc_left
+        self.bc_right = bc_right
 
     def pre_processing(self, verbose=False):
         if verbose == True:
@@ -148,8 +151,16 @@ class Modflow():
 		#proj4_str=self.dem.crs)
     
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
-        self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem        
-
+        self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
+        
+        if  isinstance(self.bc_left,(int,float)) == True:
+           self.iboundData[:,:,0] = -1
+           self.strtData[:,:,0] = self.bc_left
+       
+        if  isinstance(self.bc_right,(int,float)) == True:
+           self.iboundData[:,:,-1] = -1
+           self.strtData[:,:,-1] = self.bc_right
+           
         for i in range (self.nlay):
             if isinstance(self.sea_level,(int,float)) == True:
                 self.iboundData[i][self.dem <= self.sea_level] = -1
@@ -328,6 +339,7 @@ class Modflow():
         self.dem_mask = (self.dem<-4000)
         self.head_fpu = fpu.HeadFile(self.path_file+'.hds')
         self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
+        # self.zcbc
         
         # Import times
         self.times = self.head_fpu.get_times()
@@ -390,7 +402,7 @@ class Modflow():
                             head_final[i,j] = self.head[k,i,j]
                             break   
             self.head_data = head_final.copy()
-            print(self.head_data.shape)
+            # print(self.head_data.shape)
             
             if watertable_elevation == True:   
                 ### Watertable elevation
@@ -502,8 +514,8 @@ class Modflow():
                 print('residence_times')
                 # path_file = "D:/Users/abherve/DYNAMIC/Lasset/results_simulations/case4_0.05500000000000001/case4_0.05500000000000001"
                 # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
-                pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
-                pth_data = pthobj.get_alldata()
+                # pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
+                # pth_data = pthobj.get_alldata()
                 res_time = np.zeros(np.shape(self.dem))
                 endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
                 e = endobj.get_alldata()
@@ -515,6 +527,9 @@ class Modflow():
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
             
+                # if zone_bud == True:...
+                    
+                
             # Surface flow activation
             surface_flow = routing_accflux.RoutingAccflux(self.geographic,
                                                           'outflow_drain_t('+lead_numb+').tif',

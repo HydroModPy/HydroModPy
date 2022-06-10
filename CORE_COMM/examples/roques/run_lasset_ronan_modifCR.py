@@ -1838,7 +1838,7 @@ for watershed_name in watershed_names[:]:
 watershed_names = ['Lasset']
 types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 
-typ = 'good' # sinu / hist / proj
+typ = 'proj' # sinu / hist / proj
 
 for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
@@ -1865,12 +1865,12 @@ for watershed_name in watershed_names[:] :
     # for mod in ['NOR1']:
     #     for sce in ['RCP2.6','RCP8.5']:
         
-    # for gcm, rcm in zip(['CNR'],['ALA']):
-    #     for sce in ['RCP2.6','RCP8.5']:
-    #         mod = gcm
+    for gcm, rcm in zip(['CNR'],['ALA']):
+        for sce in ['RCP2.6','RCP8.5']:
+            mod = gcm
             
-    for mod in ['REA']:
-        for sce in ['historic']:
+    # for mod in ['REA']:
+    #     for sce in ['historic']:
             
             # Choice temporal of the simulation
             sim_state = 'transient' # 'steady' or 'transient'
@@ -1879,8 +1879,8 @@ for watershed_name in watershed_names[:] :
             if mod == 'REA':
                 period_hist = [2012,2019]
             else:
-                period_hist = [1990,2010] # recharge period
-            period = [2012,2019] # recharge period               
+                period_hist = [1960,2005] # recharge period
+            period = [1960,2099] # recharge period               
             
             first_hist = period_hist[0]
             last_hist = period_hist[1]
@@ -1948,27 +1948,41 @@ for watershed_name in watershed_names[:] :
             #     plt.yscale('log')
             
             if mod == 'REA':
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
                                                   first_year = first_hist, last_year = last_hist,
                                                   time_step = time_step, sim_state = sim_state)
                 Rech_hist = BV.forcing.recharge
-                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
+                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = 'historic',
                                                 first_year = first_hist, last_year = last_hist,
                                                 time_step = time_step, sim_state = sim_state)
                 Runof_hist = BV.forcing.runoff # m/month
             
             if mod != 'REA':
+                BV.forcing.update_recharge_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = 'historic',
+                                                  first_year = first_hist, last_year = last_hist,
+                                                  sim_state = sim_state)
+                Rech_hist = BV.forcing.recharge
+                BV.forcing.update_runoff_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = 'historic',
+                                                  first_year = first_hist, last_year = last_hist,
+                                                  sim_state = sim_state)
+                Runof_hist = BV.forcing.runoff # m/month
+                
                 BV.forcing.update_recharge_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = sce,
                                                   first_year = first, last_year = last,
                                                   sim_state = sim_state)
                 Rech = BV.forcing.recharge.resample('M').mean()
-                BV.forcing.update_recharge(Rech, sim_state=sim_state)
                 BV.forcing.update_runoff_drias(gcm_mod=gcm, rcm_mod=rcm, sce_mod = sce,
                                                 first_year = first, last_year = last,
                                                 sim_state = sim_state)
                 Runof = BV.forcing.runoff.resample('M').mean() # m/month
-                BV.forcing.update_recharge(Runof, sim_state=sim_state)
                 
+                Rech = pd.concat((Rech, Rech_hist), axis=1).mean(axis=1)
+                Runof = pd.concat((Runof, Runof_hist), axis=1).mean(axis=1)
+                BV.forcing.update_recharge(Rech.resample('M').mean(), sim_state=sim_state)
+                BV.forcing.update_runoff(Runof.resample('M').mean(), sim_state=sim_state)
+                # plt.plot(Rech)
+                # plt.yscale('log')
+
             # Active of not modules
             box = False # if True generate a rectangular model
             sink_fill = False # permit to fill sinks
@@ -2069,8 +2083,9 @@ for watershed_name in watershed_names[:] :
     
 #%% POSTPROCESS MODEL
 
-typ = 'good'
+# typ = 'good'
 # typ = 'identname'
+typ = 'proj'
 
 watershed_names = ['Lasset']
 types_obs = ['streams'] # list of shapefile name layers for clip hydrology
@@ -2086,11 +2101,11 @@ for watershed_name in watershed_names[:] :
                                   load=True,
                                   modflow_path=modflow_path)
     
-    # for mod in ['CNR']:
-    #     for sce in ['RCP2.6','RCP8.5']:
+    for mod in ['CNR']:
+        for sce in ['RCP2.6','RCP8.5']:
     
-    for mod in ['REA']:
-        for sce in ['historic']:
+    # for mod in ['REA']:
+    #     for sce in ['historic']:
     
             h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
             d = dd.io.load(h5file)
@@ -2677,6 +2692,11 @@ for watershed_name in watershed_names:
                 tempo[tempo>0] = 1
                 zero = zero + tempo
             days_flux = zero.copy() / len(acc_npy)
+            
+            
+            toolbox.export_tif(BV.geographic.watershed_dem,
+                               days_flux, -9999, simulations_folder+'persistency_tif.tif')
+
                     
             # ax = ax1
             vmin = 0
@@ -2748,6 +2768,110 @@ for watershed_name in watershed_names:
     
     # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
 
+#%% PLOT SATURATION EVOLUTION
+
+figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/_outputs/'
+
+# Things
+typ = 'proj'
+time_step = 'M'
+sim_state = 'transient'
+var = 'REC'
+
+# Colored
+mod_list = ['CNR-ALA']
+sce_list = ['RCP2.6','RCP8.5']
+sce_cmap = ["Greens","Reds"]
+sce_color = ["dodgerblue","red"]
+cmap_dict = dict(zip(sce_list, sce_cmap))
+color_dict = dict(zip(sce_list, sce_color))
+
+# Hysteres
+scan_list = ['intermit_areas','perenn_areas']
+
+temporal = True
+space = 0
+norm = False
+
+for watershed_name in watershed_names :
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    
+    for mod in mod_list:
+                
+        fig, ax = plt.subplots(1,1, figsize=(8,3))
+    
+        for sce in sce_list:
+            
+            print(watershed_name + ' + ' + mod + ' + ' + sce)
+            
+            simul_list = glob.glob(simulations_folder+typ+'*'+sce+'*')
+        
+            compt = 0
+            
+            list_max = []
+            list_max_per = []
+            list_max_int = []
+                    
+            for it, simul in enumerate(simul_list[:]):
+                    
+                model_name = simul.split('\\')[-1]
+                Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                E = float(model_name.split('_')[3].split('-')[2]) # m
+                D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+                Smod_path = simul+'/_watershed/_simulated_results.csv'            
+                if not os.path.exists(Smod_path):
+                    compt += 1
+                    continue
+                
+                Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                idx = pd.date_range(start='01/01/2000', end='31/12/2099', freq='M')
+                # Smod = Smod.set_index(idx)
+                years = Smod.index.year.unique()
+                
+                Smod['prop_perenn'] = Smod['perenn_areas'] / Smod['surflow_areas']
+                Smod['prop_intermit'] = Smod['intermit_areas'] / Smod['surflow_areas']
+                
+                Smod['year'] = Smod.index.year.values # group by month and year, get the average
+                Smod['month'] = Smod.index.month.values # group by month and year, get the average
+                Smod = Smod.pivot('month','year')
+                
+                max_per = Smod['perenn_areas'].max().max()
+                max_int = Smod['intermit_areas'].max().max()
+                max_tot = max(max_per,max_int)
+            
+                list_max.append(max_tot)
+                list_max_per.append(max_per)
+                list_max_int.append(max_int)
+                
+            for it, simul in enumerate(simul_list[:]):
+                                
+                model_name = simul.split('\\')[-1]
+                Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                E = float(model_name.split('_')[3].split('-')[2]) # m
+                D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+                Smod_path = simul+'/_watershed/_simulated_results.csv'            
+                if not os.path.exists(Smod_path):
+                    compt += 1
+                    continue
+                
+                Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                idx = pd.date_range(start='01/01/2000', end='31/12/2099', freq='M')
+                # Smod = Smod.set_index(idx)
+                years = Smod.index.year.unique()
+                
+                Smod['prop_perenn'] = Smod['perenn_areas'] / Smod['surflow_areas']
+                Smod['prop_intermit'] = Smod['intermit_areas'] / Smod['surflow_areas']
+                
+                to_see = Smod['intermit_areas'] / Smod['perenn_areas']
+                # to_see = Smod['outflow_drain']
+                ax.plot(to_see, color = color_dict[sce])
+                ax.plot(select_period(to_see, 1960, 2020), color = 'k')
+                # ax.set_yscale('log')
+                
 #%% FIG - Map of persistency index anomaly historic vs future
 
 import matplotlib as mpl
