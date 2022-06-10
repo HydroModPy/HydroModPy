@@ -42,14 +42,14 @@ from calibration import calib_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-import os
-dir(os.getcwd())
+# import os
+# dir(os.getcwd())
 
 # %% PATHS + watershed options
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Baie-du-Cotentin'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-load = True # loads previously generated basin if true
+load = False # loads previously generated basin if true
 
 # # Path to the git repositoty home page
 git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
@@ -79,9 +79,8 @@ library_path = git_path + 'watershed/watershed_library.csv' # each row is a stud
 dem_name = "BDALTI_norm-manch_75m.tif"
 dem_path = dems_path + dem_name
 
-shp_file = "C:/Users/Martin/Desktop/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
+sp_file = "C:/Users/Martin/Desktop/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
 
-sp_file = 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
 cell_size = None # specify new resolution from a given DEM or None
 
 #%% GENERATING WATERSHED + data
@@ -91,17 +90,20 @@ cell_size = None # specify new resolution from a given DEM or None
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
+shp_file = 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+# 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
+# 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
-                              from_shp=sp_file,
+                              from_shp=shp_file,
                               from_dem=False,
                               cell_size=cell_size)
 
-#%%
 types_obs = ['streams_fr'] # list of shapefile name layers for clip hydrology
 fields_obs = ['FID'] # list of shapefile name columns to translate as a tif
 
@@ -122,10 +124,41 @@ if piezometry_path == True:
 # DRIAS climate data extraction
 BV.add_drias("C:/Users/Martin/Desktop/Travail/data/data_test_ronan/CLIMAT/Normandie/")
 
-# BV.save_object()
+BV.save_object()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
+
+
+#%% Load BV object
+    
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              modflow_path=modflow_path,
+                              library_path=library_path,
+                              load=True,
+                              from_shp=None,
+                              from_dem=False,
+                              cell_size=cell_size)
+
+BV.load_object()
+
+#%% SEA LEVEL TESTS
+
+# print(vars(BV.oceanic).keys())
+RSL_85 = BV.oceanic.RSL["RCP8.5"]
+md_rsl_85 = RSL_85.iloc[:,0]
+RSL_26 = BV.oceanic.RSL["RCP2.6"]
+md_rsl_26 = RSL_26.iloc[:,0]
+
+RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
+md_rmsl_85 = RMSL_85.iloc[:,0]
+RMSL_26 = BV.oceanic.RMSL["RCP2.6"]
+md_rmsl_26 = RMSL_26.iloc[:,0]
+
+MSL = BV.oceanic.MSL
+
 
 #%% Calibration based on streams
 
@@ -180,30 +213,14 @@ df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_st
 # BV.save_object()
 
 
-#%% Load BV object
-    
-BV = watershed_root.Watershed(watershed_name=watershed_name,
-                              dem_path=dem_path, 
-                              out_path=out_path,
-                              modflow_path=modflow_path,
-                              library_path=library_path,
-                              load=True,
-                              from_shp=False,
-                              from_dem=False,
-                              cell_size=cell_size)
-
-BV.load_object()
-print(vars(BV).keys())
-
-
 #%% Historic mean recharge
 
 BV.add_forcing()
 
 # Historic recharge
-sim_state = 'steady' # 'steady' or 'transient'
+sim_state = 'transient' # 'steady' or 'transient'
 period = [1960, 2019] # rehcarge period
-time_step = 'M' # or 'D'
+time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 
@@ -355,21 +372,21 @@ R_DRIAS_85 = statistics.mean([R_MPI_CCL_RCP85, R_ECE_RCA_RCP85, R_ECE_RAC_RCP85,
 
 #%% Model Parameters
 
-model_name = 'steady_2' # just a string
+# Hydraulic properties
+E = 30 # m
+P = 0.01 #
+
+K_hist = kr * R_hist
+K_RCP26 = kr * R_DRIAS_26
+K_RCP85 = kr * R_DRIAS_85
+
+K = K_hist
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
 bottom = None # aquifer flat or not
 thick_exp = 1 # exponential decay of K with nlay
 cond_decay = 0 # exponential decay of K with depth
-
-# Hydraulic properties
-K_hist = kr * R_hist
-# K_RCP26 = kr * R_DRIAS_26
-# K_RCP85 = kr * R_DRIAS_85
-
-E = 30 # m
-P = 0.01 #
 
 # Active of not modules
 first_only = False # if True generate results only for the first tim_step
@@ -379,7 +396,7 @@ modpath_sim = True # run modpath particle tracking if True
 verbose = True # add print of MODFLOW in console
 
 # Update properties
-BV.hydrodynamic.update_hyd_cond(K_hist)
+BV.hydrodynamic.update_hyd_cond(K)
 BV.hydrodynamic.update_thickness(E)
 BV.hydrodynamic.update_porosity(P)
 BV.hydrodynamic.update_nlay(1)
@@ -392,7 +409,9 @@ BV.hydrodynamic.update_thick_exp(1)
 #%% LAUNCH MODELLING
 
 #Choice of Recharge
-R = R_hist
+model_name = 'steady_hist' # string for simulation results storage #steady_DRIAS_85 #'steady_hist'
+R = R_hist #R_DRIAS_85   R_hist
+
 BV.forcing.update_recharge(R, 'steady')
 
 # Run model
@@ -418,8 +437,19 @@ BV.results_modflow(ident=model_name,
 # x = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_stable/geographic/watershed_dem.tif')
 # plt.imshow(x)
 
-
 #%% 2D VISUAL
+
+from tools import vtk
+from groundwater_flow import visualization
+#☻vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
+                             'surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(0,35),(0,10),
+                             (None,None),(None,None),(None,None),(None,None)], 
+              lines=300)
+
+#%% 2D VISUAL (modified for large basins)
 
 from tools import vtk
 from groundwater_flow import visualization
