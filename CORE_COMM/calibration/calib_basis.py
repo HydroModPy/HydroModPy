@@ -188,7 +188,7 @@ class CalibrationBasis:
                        outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
-                       accumulation_flux = True,
+                       accumulation_flux = False,
                        perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
