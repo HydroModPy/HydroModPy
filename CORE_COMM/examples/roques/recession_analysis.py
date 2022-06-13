@@ -265,7 +265,7 @@ for i, j in points.iterrows():
         # results.loc[i,'e_mi'] = np.nanmin(e)
         # results.loc[i,'e_ma'] = np.nanmax(e)
         
-        ep = tp - e
+        ep = tp + e
         results.loc[i,'ep_me'] = np.nanmean(ep)
         results.loc[i,'ep_std'] = np.nanstd(ep)
         
@@ -320,6 +320,13 @@ for i, j in points.iterrows():
             wbt.hypsometric_analysis(
                 dem_to_analyze, 
                 out_hypsometric, 
+                watershed=None)
+            
+            #SlopeVsElevationPlot
+            out_SlopeVsElevationPlot = stable_folder+'geographic/'+'out_SlopeVsElevationPlot.html'
+            wbt.slope_vs_elevation_plot(
+                dem_to_analyze, 
+                out_SlopeVsElevationPlot, 
                 watershed=None)
             
             #WETNESS INDEX
@@ -534,7 +541,7 @@ for i, j in points.iterrows():
                 # datetime = df_obs.Datetime
                 RR = RoquesRecession(df_obs)
                 date_event, d_all, date_H, d_H, aH, bH, rsH, date_L, d_L, aL, bL, ts, rsL = RR.recession_extraction_roques_methods(df_obs, column_names=('Datetime', 'q')
-                                                                                        , min_recession_time=5, t_overland=1)
+                                                                                        , min_recession_time=3, t_overland=1)
                 
               
                 df_results_RA = pd.DataFrame([date_event, d_all, date_H, d_H, aH, bH, rsH, date_L, d_L, aL, bL, ts, rsL])
