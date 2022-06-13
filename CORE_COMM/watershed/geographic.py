@@ -150,8 +150,8 @@ class Geographic:
         """
         Buffer distance operations
         """
-        # Normalize initial buffer distance value        
-        buff_raw = (np.sqrt(self.area)) * (buff_percent/100) * 1000
+        # Normalize initial buffer distance value
+        buff_raw = (np.sqrt(float(self.area))) * (float(buff_percent)/100) * 1000
         buff_raw = int(round(buff_raw))
         dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
         buff_dist = dist[np.abs(dist-buff_raw).argmin()]

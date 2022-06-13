@@ -173,7 +173,7 @@ class Watershed:
             self.x_outlet = None
             self.y_outlet = None
             self.snap_dist = None
-            self.buff_percent = 10
+            self.buff_percent = 5
             self.crs_proj = None
             
     def load_object(self):
