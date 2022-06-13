@@ -830,7 +830,7 @@ for site_name in site_names[:]:
     
     # watershed_display.watershed_dem(BV)
     # watershed_display.watershed_local(dem_path, BV)
-    
+        
 #%% DATA WATERSHED
 
 for site_name in site_names[:]:
@@ -902,9 +902,14 @@ for site_name in site_names[:]:
         # ax.set_title(watershed_name)
         # ax.set_yscale('log')
         
+        if watershed_name == 'Gael':
+            serie = select_period(serie, 2008, 2022)
+        
         if watershed_name != 'Vaunoise':
             serie.to_csv(stable_folder+'hydrometry/'+'Hydrometric_'+code_name+'.csv', sep=';')
-
+        
+        plt.plot(serie)
+        
 #%% PLOT SERIES
 
 for site_name in site_names[:]:
@@ -1018,6 +1023,8 @@ for site_name in site_names[:]:
         # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
         
         # fig.savefig(figsim_folder+'/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
+
+#%% ---- DATA
 
 #%% BASE DATA
 
@@ -1178,21 +1185,47 @@ for var in new_vars :
 
 #%% DICHOTOMY STREAMS
 
+watershed_names = [
+                   'Cheze',
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Roche',
+                   'Minette',
+                   'Loisance',
+                   'Moulin',
+                   'Chanut',
+                   'Drains',
+                   'Dam',
+                   'Frame'
+                   ]
+
+watershed_names = [
+                   'Cheze',
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
+
 hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
-
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names[:] :
     
-    if watershed_name == 'Canut':
-        types_obs = ['perennial','river','complete','zh_meuchezecanut'] # list of shapefile name layers for clip hydrology
-        fields_obs = ['fid','fid','fid','fid']
-    if watershed_name == 'Nancon':
-        types_obs = ['perennial','river','complete','zh_couesnon'] # list of shapefile name layers for clip hydrology
-        fields_obs = ['fid','fid','fid','fid']
+    types_obs = ['perennial','river','complete','zh_couesnon'] # list of shapefile name layers for clip hydrology
+    fields_obs = ['fid','fid','fid','fid']
         
     df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
     
@@ -1267,8 +1300,18 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 
 #%% EXPLORATION DISCHARGE
 
-code_names = ['J7513010','J0014010']
-watershed_names = ['Canut','Nancon']
+watershed_names = [
+                   'Cheze',
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
 
 # watershed_names = ['Monfort']
 
@@ -1291,12 +1334,6 @@ for watershed_name in watershed_names[:] :
     BV.add_hydrodynamic()
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-
-    fcalib = 1985
-    lcalib = 2019
-    
-    fhist = fcalib
-    lhist = lcalib
     
     sim_state = 'transient'
     time_step = 'M'
@@ -1317,38 +1354,41 @@ for watershed_name in watershed_names[:] :
     # plt.plot(Qobs)
     # plt.yscale('log')
     
-    fqobs = Qobs.first_valid_index().year+1
-    lqobs = Qobs.last_valid_index().year-1
-
-    year_min = max(fqobs, fhist)
-    year_max = min(lqobs, lhist)
-    
-    Qobs = select_period(Qobs, year_min, year_max)
+    f_simu = Qobs.first_valid_index().year+1-5
+    l_simu = Qobs.last_valid_index().year-1
+    if l_simu == 2021:
+        l_simu = 2019
+    if f_simu < 1960:
+        f_simu = 1960
+        
+    Qobs = select_period(Qobs, f_simu, l_simu)
     print(Qobs.mean() * 1000)
     
     # Normalize with discharge
     BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                             first_year = year_min, last_year = year_max,
+                                             first_year = f_simu, last_year = l_simu,
                                              time_step = time_step, sim_state=sim_state)
     Rech = BV.forcing.recharge
     BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
-                                          first_year = year_min, last_year=year_max, time_step = 'M',
-                                          sim_state='transient')
+                                          first_year = f_simu, last_year = l_simu,
+                                          time_step = time_step, sim_state=sim_state)
     Runof = BV.forcing.runoff # m/month
     
-    norm_Rea = select_period(Rech, year_min, year_max)
-    norm_Qobs = select_period(Qobs, year_min, year_max)
+    norm_Rea = select_period(Rech, f_simu, l_simu)
+    norm_Qobs = select_period(Qobs, f_simu, l_simu)
     
     Rt_Rea_Qobs = (norm_Qobs.mean() / norm_Rea.mean())
     print(Rt_Rea_Qobs.round(2))
     Nt = (norm_Rea * Rt_Rea_Qobs)
     
     BV.forcing.update_recharge(Nt, sim_state=sim_state)
+    fig, ax = plt.subplots()
     plt.plot(BV.forcing.recharge, c='r')
+    plt.plot(Qobs, c='b')
     
-    BV.forcing.update_recharge(select_period(BV.forcing.recharge, fcalib, lcalib), sim_state=sim_state)
-    BV.forcing.update_runoff(select_period(BV.forcing.runoff, fcalib, lcalib), sim_state=sim_state)
-    
+    BV.forcing.update_recharge(select_period(BV.forcing.recharge, f_simu, l_simu), sim_state=sim_state)
+    BV.forcing.update_runoff(select_period(BV.forcing.runoff, f_simu, l_simu), sim_state=sim_state)
+
     BV.hydrodynamic.update_thickness(30)
     # BV.hydrodynamic.update_porosity(0.001)
     # BV.hydrodynamic.update_hyd_cond(0.08640) # 1e-6 m/s
@@ -1356,15 +1396,9 @@ for watershed_name in watershed_names[:] :
     params_df = pd.DataFrame(columns=['params',
                                       'init_values','lower_bounds','higher_bounds',
                                       'units','scale'])
-    if watershed_name == 'Canut':
-        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
-        params_df.loc[1] = ['n1',0.01,0.001,0.02,'m/j','lin']
-    if watershed_name == 'Nancon':
-        params_df.loc[0] = ['k1',4.3e+00,4.3e-01,4.3e+01,'m/j','lin']
-        params_df.loc[1] = ['n1',0.01,0.02,0.07,'m/j','lin']
-    if watershed_name == 'Monfort':
-        params_df.loc[0] = ['k1',1.7e+00,1.7e-01,1.7e+01,'m/j','lin']
-        params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
+    
+    params_df.loc[0] = ['k1',0.864, 0.864e-03, 0.864e+03,'m/j','lin']
+    params_df.loc[1] = ['n1',0.01,0.001,0.10,'m/j','lin']
         
     params_file = 'calib_explo_hom_2v_k1-n1'
     
@@ -1376,7 +1410,7 @@ for watershed_name in watershed_names[:] :
     
     # params_file = 'calib_explo_hom_1v_n1'
     # params_file = 'calib_explo_hom_1v_k1'
-    # params_file = 'calib_dicot_het_2v_k1-k2'•
+    # params_file = 'calib_dicot_het_2v_k1-k2'
 
     print((BV.forcing.recharge*1000*365).mean())
             
@@ -1389,8 +1423,18 @@ for watershed_name in watershed_names[:] :
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-code_names = ['J7513010','J0014010']
-watershed_names = ['Canut','Nancon']
+watershed_names = [
+                   'Cheze',
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
 
 params_file = 'calib_explo_hom_2v_k1-n1'
 
@@ -2207,7 +2251,7 @@ for watershed_name in watershed_names[:] :
     visu.visual2D(object_list = ['pathlines'],
                   color_scale = [(None,None)], lines=1000)
 
-#%% CROSS SECTION 2D
+#%% CROSS SECTION 2D INTERAC
 
 watershed_names = ['Nancon']
 # watershed_names = ['Canut']
@@ -2233,7 +2277,7 @@ for watershed_name in watershed_names[:]:
     river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif') # river data
     modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
-#%% CROSS CONTROL 1
+#%% CROSS SECTION 2D MANUAL
 
 from IPython import get_ipython
 
@@ -2411,7 +2455,7 @@ if interactive == True:
 
 fig.canvas.mpl_connect('close_event', on_close)
 
-#%% CROSS CONTROL 2
+#%% CROSS SECTION 2D SIMPLE
 
 typ = 'calibr-t1'
 
@@ -3758,7 +3802,7 @@ for watershed_name in watershed_names[:]:
     
     plt.tight_layout()
     
-    fig.savefig(figsim_folder+watershed_name+'_calib2D_map'+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(figsim_folder+watershed_name+'_calib2D_map'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 03_intermittency map
 
