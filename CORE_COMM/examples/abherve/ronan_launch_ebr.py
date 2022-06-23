@@ -1224,8 +1224,8 @@ from calibration import calib_root, calib_dichotomy, calib_analysis, calib_explo
 
 for watershed_name in watershed_names[:] :
     
-    types_obs = ['perennial','river','complete','zh_couesnon'] # list of shapefile name layers for clip hydrology
-    fields_obs = ['fid','fid','fid','fid']
+    types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
+    fields_obs = ['fid','persistanc']
         
     df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
     
@@ -1239,15 +1239,26 @@ for watershed_name in watershed_names[:] :
                                       load=True,
                                       modflow_path=modflow_path)
         BV.add_forcing()
+        BV.add_hydrodynamic()
         
         area = BV.geographic.area
         
         stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
             
         # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
-                
+        
+        raw_path = stable_folder+'/'+'hydrometry/'
+        Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+        Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+        f_simu = Qobs.first_valid_index().year+1-5
+        l_simu = Qobs.last_valid_index().year-1
+        if l_simu == 2021:
+            l_simu = 2019
+        if f_simu < 1960:
+            f_simu = 1960
+        
         BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
-                                          first_year = 1960, last_year=2019, time_step = 'D',
+                                          first_year = f_simu, last_year=l_simu, time_step = 'D',
                                           sim_state='steady') #
 
         # BV.hydrodynamic.update_porosity(0.1)
@@ -1271,7 +1282,7 @@ for watershed_name in watershed_names[:] :
         # params_file = 'calib_dicot_hom_2v_k1-n1'
         calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
         
-        # dicot = calib.dichotomy(gap=1)
+        dicot = calib.dichotomy(gap=1)
 
     for i, type_obs in enumerate(types_obs):
         
@@ -1427,11 +1438,11 @@ watershed_names = [
                    'Cheze',
                    'Canut',
                    'Gael',
-                   'Monfort',
+                   # 'Monfort',
                    'Vaunoise',
-                   'Jouan',
+                   # 'Jouan',
                    'Neal',
-                   'Rophemel',
+                   # 'Rophemel',
                    'Nancon',
                    'Moulin',
                    ]
@@ -1446,14 +1457,9 @@ for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
     
-    if watershed_name == 'Canut':
-        min_nse = 70
-        min_sat = 3
-        max_sat = 25
-    if watershed_name == 'Nancon':
-        min_nse = 70
-        min_sat = 4
-        max_sat = 25
+    min_nse = 65
+    min_sat = 3
+    max_sat = 25
     
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -1522,14 +1528,15 @@ for watershed_name in watershed_names[:]:
         nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
         if nselog > min_nse:
             # if all(i <= 50 for i in sat):
-            if sat.max() < max_sat:
-                if sat.max() > min_sat:
+            if sat.max() < max_maxsat:
+                if sat.max() > min_maxsat:
                     numb += 1
                 # c = []
                 # for h in range(len(ind[typ_name])):
                 #     d = ind[typ_name][h][0]
                 #     c.append(d)
-                c = np.linspace(0,1,len(obs[typ_name]))
+        
+        c = np.linspace(0,1,len(obs[typ_name]))
 
         cmap = mpl.cm.get_cmap('viridis_r')
         color_gradients = cmap(c)
@@ -3314,7 +3321,20 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 
 #%% 02_calibration chronics
 
-typ = 'calibr-t1'
+typ = 'calib'
+
+watershed_names = [
+                   'Cheze',
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
 
 mod = 'REA'
 first = 1990
@@ -3323,13 +3343,12 @@ time_step = 'M'
 sim_state = 'transient'
 
 watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
 
 # watershed_names = ['Canut']
 # code_names = ['J7513010']
 
 types_obs = ['complete'] # list of shapefile name layers for clip hydrology
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -3409,7 +3428,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         ax.set_xlabel('$Q_{obs}$ / A [mm/month]')
         ax.set_ylabel('$Q_{sim}$ / A [mm/month]')
         
-        fig.savefig(figsim_folder+watershed_name+'_obs_sim_compar'+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+watershed_name+'_obs_sim_compar'+'.png', dpi=300, bbox_inches='tight')
 
 
         fig, axs = plt.subplots(2,1, figsize=(7,6))
@@ -3500,7 +3519,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         # ax.grid('grey')
         # ax.set_xlim(pd.to_datetime(str(first)), pd.to_datetime(str(last)))
         
-        fig.savefig(figsim_folder+watershed_name+'_quickly_plot_results'+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+watershed_name+'_quickly_plot_results'+'.png', dpi=300, bbox_inches='tight')
 
         
         fig, ax = plt.subplots(1,1, figsize=(6,3))
@@ -3565,14 +3584,26 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         
         # ax.legend(bbox_to_anchor=(1.5, 3), ncol=1)
         
-        fig.savefig(figsim_folder+watershed_name+'_onde_compar'+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+watershed_name+'_onde_compar'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 02b_calibration 2D
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
-code_names = ['J7513010','J0014010']
-watershed_names = ['Canut','Nancon']
+typ = 'calib'
+
+watershed_names = [
+                   'Cheze',
+                   'Canut',
+                   'Gael',
+                   # 'Monfort',
+                   'Vaunoise',
+                   # 'Jouan',
+                   'Neal',
+                   # 'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
 
 # watershed_names = ['Canut']
 
@@ -3585,17 +3616,11 @@ sat_typ = 'seepage_areas'
 for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
-    
-    if watershed_name == 'Canut':
-        min_nse = 70
-        mean_meansat = 3 # sup
-        min_maxsat = 8
-        max_maxsat = 25
-    if watershed_name == 'Nancon':
-        min_nse = 70
-        mean_meansat = 3 # sup
-        min_maxsat = 8
-        max_maxsat = 25
+
+    min_nse = 50
+    mean_meansat = 3 # sup
+    min_maxsat = 8
+    max_maxsat = 25
     
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -3660,14 +3685,15 @@ for watershed_name in watershed_names[:]:
         nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
         if nselog > min_nse:
             # if all(i <= 50 for i in sat):
-            if sat.max() < max_sat:
-                if sat.max() > min_sat:
+            if sat.max() < max_maxsat:
+                if sat.max() > min_maxsat:
                     numb += 1
                 # c = []
                 # for h in range(len(ind[typ_name])):
                 #     d = ind[typ_name][h][0]
                 #     c.append(d)
-                c = np.linspace(0,1,len(obs[typ_name]))
+        
+        c = np.linspace(0,1,len(obs[typ_name]))
 
         cmap = mpl.cm.get_cmap('viridis_r')
         color_gradients = cmap(c)
