@@ -1120,7 +1120,7 @@ for watershed_name in watershed_names[:]:
                 # for h in range(len(ind[typ_name])):
                 #     d = ind[typ_name][h][0]
                 #     c.append(d)
-                c = np.linspace(0,1,len(obs[typ_name]))
+        c = np.linspace(0,1,len(obs[typ_name]))
 
         cmap = mpl.cm.get_cmap('viridis_r')
         color_gradients = cmap(c)
@@ -1280,7 +1280,7 @@ for watershed_name in watershed_names[:]:
 #%% TYP SIM NAMING
 
 # typ = 'calibr-t2'
-typ = 'projec-2'
+typ = 'projec-3'
 # typ = 'reanal-1'
 # typ = 'steady-1'
 
@@ -1294,6 +1294,30 @@ mod_list = ['MPI-CCL','NOR-R15','ECE-RCA','ECE-RAC',
 # sce_list = ['historic']
 sce_list = ['RCP2.6','RCP8.5']
 # sce_list = ['RCP2.6']
+
+#%% RECHARGE BR
+
+load = True
+
+surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/'
+from_shp = 'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/frame_ebr.shp'
+
+BV = watershed_root.Watershed(watershed_name='Frame',
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              modflow_path=modflow_path,
+                              library_path=library_path,
+                              load=load,
+                              from_shp=from_shp,
+                              from_dem=from_dem,
+                              from_xy=from_xy,
+                              cell_size=cell_size)
+
+stable_folder = out_path+'/'+'Frame'+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+'Frame'+'/'+'results_simulations/'  # necessary for plots  
+
+surfex = pd.read_csv(stable_folder+'climatic/'+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True).resample('M').mean()
+drias = pd.read_csv(stable_folder+'drias/'+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True).resample('M').mean()
 
 #%% PARAM RUN MODEL
 
@@ -1311,6 +1335,8 @@ code_names = ['J7513010','J0014010']
 # code_names = ['J0014010']
 
 for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+    
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -1405,10 +1431,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 
             if mod == 'REA':
                 # Normalize
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                                  first_year = first_norm, last_year = last_norm,
-                                                  time_step = time_step, sim_state = sim_state)
-                Rech_norm = BV.forcing.recharge
+                '''
+                # BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                #                                   first_year = first_norm, last_year = last_norm,
+                #                                   time_step = time_step, sim_state = sim_state)
+                # Rech_norm = BV.forcing.recharge
+                '''
+                
+                Rech_norm = select_period(surfex['REC_REA_historic'], first_norm, last_norm)
                 
                 # for t in Q_norm.index.year:
                     # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
@@ -1416,14 +1446,20 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
                 
                 # Historic
+                '''
                 BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
                                                   first_year = first, last_year = last,
                                                   time_step = time_step, sim_state = sim_state)
                 Rech = BV.forcing.recharge * Ratio_norm
+                
                 BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
                                                 first_year = first, last_year = last,
                                                 time_step = time_step, sim_state = sim_state)
-                Runof = BV.forcing.runoff # m/month
+                Runof = BV.forcing.runoff
+                '''
+                
+                Rech = select_period(surfex['REC_REA_historic'], first, last) * Ratio_norm
+                Runof = select_period(surfex['RUN_REA_historic'], first, last)
                 
                 # Update recharge
                 BV.forcing.update_recharge(Rech , sim_state = sim_state)
@@ -1434,16 +1470,22 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 rcm = mod.split('-')[1]
                 
                 # Normalize
+                '''
                 BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = 'historic',
                                                  first_year = first_norm, last_year = last_norm,
                                                  sim_state = sim_state)
                 Rech_norm = BV.forcing.recharge.resample('M').mean()
+                '''
+                
+                Rech_norm = select_period(drias['REC_'+gcm+'-'+rcm+'_historic'], first_norm, last_norm)
+
                 # for t in Q_norm.index.year:
                     # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
                     # print(Ratio_norm.round(2))
                 Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
                 
                 # Historic
+                '''
                 BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = 'historic',
                                                  first_year = first_hist, last_year = last_hist,
                                                  sim_state = sim_state)
@@ -1452,8 +1494,9 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                                  first_year = first_hist, last_year = last_hist,
                                                  sim_state = sim_state)
                 Runof_hist = BV.forcing.runoff.resample('M').mean() # m/month
-                
+                '''
                 # Future
+                '''
                 BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
                                                   first_year = first, last_year = last,
                                                   sim_state = sim_state)
@@ -1462,7 +1505,13 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                                 first_year = first, last_year = last,
                                                 sim_state = sim_state)
                 Runof_fut = BV.forcing.runoff.resample('M').mean() # m/month
-                                
+                '''
+                
+                Rech_hist = select_period(drias['REC_'+gcm+'-'+rcm+'_'+'historic'], first_hist, last_hist) * Ratio_norm
+                Runof_hist = select_period(drias['RUN_'+gcm+'-'+rcm+'_'+'historic'], first_hist, last_hist)
+                Rech_fut = select_period(drias['REC_'+gcm+'-'+rcm+'_'+sce], first, last) * Ratio_norm
+                Runof_fut = select_period(drias['RUN_'+gcm+'-'+rcm+'_'+sce], first, last)
+                
                 Rech = pd.concat((Rech_fut, Rech_hist), axis=1).mean(axis=1)
                 Runof = pd.concat((Runof_fut, Runof_hist), axis=1).mean(axis=1)
                 
@@ -1470,7 +1519,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 BV.forcing.update_recharge(Rech, sim_state = sim_state)
                 BV.forcing.update_runoff(Runof, sim_state = sim_state)
                 
-                plt.plot(BV.forcing.recharge)
+                ax.plot(BV.forcing.runoff)
+                # ax.set_yscale('log')
 
             list_model_name = []
             list_of_success = []
@@ -3013,7 +3063,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         ax.set_xlabel('$Q_{obs}$ / A [mm/month]')
         ax.set_ylabel('$Q_{sim}$ / A [mm/month]')
         
-        fig.savefig(figsim_folder+watershed_name+'_obs_sim_compar_'+typ+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+watershed_name+'_obs_sim_compar_'+typ+'.png', dpi=300, bbox_inches='tight')
 
         ###########################################
         fig, axs = plt.subplots(2,1, figsize=(7,6))
@@ -3103,8 +3153,9 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         ax.set_xlim(pd.to_datetime('1990'), pd.to_datetime('2020'))
         # ax.grid('grey')
         # ax.set_xlim(pd.to_datetime(str(first)), pd.to_datetime(str(last)))
+        print(Smod['perenn_areas'].mean().round(2), Smod['surflow_areas'].mean().round(2), Smod['surflow_areas'].max().round(2))
         
-        fig.savefig(figsim_folder+watershed_name+'_quickly_plot_results_'+typ+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+watershed_name+'_quickly_plot_results_'+typ+'.png', dpi=300, bbox_inches='tight')
 
         ###########################################
         fig, ax = plt.subplots(1,1, figsize=(6,3))
@@ -3169,7 +3220,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
         
         # ax.legend(bbox_to_anchor=(1.5, 3), ncol=1)
         
-        fig.savefig(figsim_folder+watershed_name+'_onde_compar_'+typ+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(figsim_folder+watershed_name+'_onde_compar_'+typ+'.png', dpi=300, bbox_inches='tight')
 
 #%% 02b_calibration 2D
 
@@ -4113,12 +4164,21 @@ for watershed_name in watershed_names:
             # ax.set_xscale('log')
             # ax.set_yscale('log')
             '''
-            
+     
+    days_flux = np.ma.masked_where(days_flux == 0, days_flux)
+
+    count_inf = np.ma.masked_where(days_flux > 0.1, days_flux).count()
+    count_sup = np.ma.masked_where(days_flux < 0.9, days_flux).count()
+    
+    total = np.ma.masked_where(days_flux == 0, days_flux).count()
+
+    print(watershed_name, (count_inf / total)*100, (count_sup / total)*100)
+  
     position=fig1.add_axes([0.93,0.35,0.01,0.30])  ## the parameters are the specified position you set 
     fig1.colorbar(pc,cax=position, orientation="vertical")
     position.set_ylabel('Persistency index [-]', rotation=270, labelpad=40)
     
-    fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
+    # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 05b_persistency boxplot
 
@@ -4444,7 +4504,7 @@ for watershed_name in watershed_names:
 
 #%% 06_anomaly maps divided
 
-typ = 'projec-2'
+typ = 'projec-3'
 
 mod_list = ['MPI-R09','NOR-R15']
 # mod_list = ['NOR-R15']
@@ -4486,7 +4546,7 @@ for watershed_name in watershed_names:
     
         for mod in mod_list:
             
-            # fig1, axs1 = plt.subplots(1,1, figsize=(10,10))
+            fig1, axs1 = plt.subplots(1,1, figsize=(10,10))
 
             ix = 1
             simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
@@ -4670,16 +4730,16 @@ for watershed_name in watershed_names:
         cb.set_ticks(np.arange(minn, maxn, intn))
         cb.set_ticklabels(np.arange(minn, maxn, intn).round(1))
         
-        fig1.savefig(figsim_folder+
-                      watershed_name+'_'+'tot'+'_'+sce+'_'+
-                      '_anamaly'+'.png', dpi=300, bbox_inches='tight')
+        # fig1.savefig(figsim_folder+
+        #               watershed_name+'_'+'tot'+'_'+sce+'_'+
+        #               '_anamaly'+'.png', dpi=300, bbox_inches='tight')
 
 #%% 07_anomaly distribution
 
 import matplotlib as mpl
 
 watershed_names = ['Canut','Nancon']
-typ = 'projec-2'
+typ = 'projec-3'
 mod_list = ['MPI-R09','NOR-R15']
 sce_list = ['RCP2.6','RCP8.5']
 mod_list = ['MPI-CCL','ECE-RCA','ECE-RAC','CNR-RAC',
@@ -4911,7 +4971,7 @@ for watershed_name in watershed_names:
 
 from scipy.stats import binned_statistic
 
-typ = 'projec-2'
+typ = 'projec-3'
 
 # Things
 time_step = 'M'
@@ -5118,7 +5178,7 @@ for model in mod_list:
              
         data1 = (np.array(ser_p1_26), np.array(ser_p2_26))
         data2 = (np.array(ser_p1_85), np.array(ser_p2_85))
-            
+
         # data1 = (select_period(rcp26, 2020, 2050),
         #          select_period(rcp85, 2020, 2050))
         # data2 = (select_period(rcp26, 2070, 2099),
@@ -5130,6 +5190,8 @@ for model in mod_list:
             color = violin["bodies"][0].get_facecolor().flatten()
             labels.append((mpatches.Patch(color=color), label))
         
+        # fig, ax = plt.subplots(1,1, figsize=(5,5))
+        
         v1 = ax.violinplot(data1, points=1000, positions=np.arange(0, len(data1)),
                        showmeans=False, showextrema=False, showmedians=False)
     
@@ -5138,7 +5200,7 @@ for model in mod_list:
             m = np.mean(b.get_paths()[0].vertices[:, 0])
             # modify the paths to not go further right than the center
             b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], -np.inf, m)
-            b.set_color('r')
+            b.set_color('b')
     
         v2 = ax.violinplot(data2, points=1000, 
                            positions=np.arange(0, len(data2)), 
@@ -5149,7 +5211,7 @@ for model in mod_list:
             m = np.mean(b.get_paths()[0].vertices[:, 0])
             # modify the paths to not go further left than the center
             b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], m, np.inf)
-            b.set_color('b')
+            b.set_color('r')
         
         for pc in v1['bodies']:
             pc.set_facecolor('dodgerblue')
@@ -5233,21 +5295,386 @@ for model in mod_list:
         
     plt.tight_layout()
     
-    fig.savefig(figsim_folder+'_violin_distributions'+'_'+model+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(figsim_folder+'_violin_distributions'+'_'+model+'.png', dpi=300, bbox_inches='tight')
+
+#%% 07b_anomaly violin seasonaly
+
+inds_tot = []
+
+typ = 'projec-3'
+
+plot_maps = True
+
+# sce_list = ['RCP2.6','RCP8.5']
+sce_list = ['RCP2.6','RCP8.5']
+
+watershed_names = ['Canut','Nancon']
+# watershed_names = ['Nancon']
+# watershed_names = ['Canut']
+
+superficie = pd.DataFrame(np.nan, index=range(4), columns=['no'])
+
+# for mod_list in [['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'],  # Pessimistic
+#                  ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09']]: # Optimistic
+for mod_list in [['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'],
+                  ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09']]: # Optimistic
+
+# for mod_list in [['HAD-REG'],['MPI-R09']]: # Optimistic
+
+    for watershed_name in watershed_names:
+        
+        fig, ax = plt.subplots(1,1, figsize=(3,4))
+        
+        rcp26 = pd.DataFrame()
+        rcp85 = pd.DataFrame()
+    
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+        simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+        
+        mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+        cell = np.ma.masked_array(mask, mask=(mask<0)).count()
+        
+        df_ano = pd.DataFrame()
+        
+        _SON_h = []
+        _DJF_h = []
+        _MAM_h = []
+        _JJA_h = []
+        
+        _SON_f = []
+        _DJF_f = []
+        _MAM_f = []
+        _JJA_f = []
+        
+        _SON_ano = []
+        _DJF_ano = []
+        _MAM_ano = []
+        _JJA_ano = []
+        
+        # for sce in ['RCP2.6','RCP8.5']:
+        for sce in sce_list:
+                
+            for mod in mod_list:
+            
+                simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+            
+                for simul in simul_list:
+                    
+                    model_name = simul.split('\\')[-1]
+                    Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                    K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                    E = float(model_name.split('_')[3].split('-')[2]) # m
+                    D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                    params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+                    
+                    acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+                    
+                    def season_anomaly(months, begin_h, end_h, begin_f, end_f):
+                        # months = [5,6,7]
+                        # begin_h = 18*12
+                        # end_h = 48*12
+                        # begin_f = -30*12
+                        # end_f = 0
+                    
+                        # Historic
+                        if begin_h == 0:
+                            acc_npy_h = list(acc_npy.items())[:end_h]
+                        else:
+                            acc_npy_h = list(acc_npy.items())[begin_h:end_h]
+                        acc_npy_1 = list(acc_npy_h)[months[0]::12]
+                        acc_npy_2 = list(acc_npy_h)[months[1]::12]
+                        acc_npy_3 = list(acc_npy_h)[months[2]::12]
+                        acc_npy_h = acc_npy_1 + acc_npy_2 + acc_npy_3
+                        for key in range(len(acc_npy_h)):
+                            acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
+                        zero = acc_npy_h[0] * 0
+                        for i in range(len(acc_npy_h)):
+                            tempo = acc_npy_h[i].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo
+                        days_flux_h = zero.copy() / len(acc_npy_h)
+                    
+                        # To look
+                        if end_f == 0:
+                            acc_npy_f = list(acc_npy.items())[begin_f:]
+                        else:
+                            acc_npy_f = list(acc_npy.items())[begin_f:end_f]
+                        acc_npy_1 = list(acc_npy_f)[months[0]::12]
+                        acc_npy_2 = list(acc_npy_f)[months[0]::12]
+                        acc_npy_3 = list(acc_npy_f)[months[2]::12]
+                        acc_npy_f = acc_npy_1 + acc_npy_2 + acc_npy_3
+                        for key in range(len(acc_npy_f)):
+                            acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
+                        zero = acc_npy[0] * 0
+                        for i in range(len(acc_npy_f)):
+                            tempo = acc_npy_f[i].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo
+                        days_flux_f = zero.copy() / len(acc_npy_f)
+                        
+                        # Anomaly
+                        # days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                        days_flux_ano = ( (days_flux_f - days_flux_h) ) / days_flux_h
+                        # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
+                        # plt.imshow(data)
+                        data = np.ma.masked_where((days_flux_h==0), days_flux_ano)
+                        # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h>0), days_flux_ano)
+                        # plt.imshow(data)
+                        # data = data.flatten().filled(np.nan)
+                        # data = data.flatten()
+                        # data = days_flux_ano[~days_flux_ano.mask]
+                        # data = data.compressed()
+                        # data = data[~np.isnan(data)]
+                        #### data = days_flux_ano[~days_flux_ano.mask]
+                        # data = np.ma.masked_where(mask<0, days_flux_ano)
+                        data = data.flatten().filled(np.nan)
+                        # data = data.flatten()
+                        data = data[~np.isnan(data)] # data = data.compressed()
+                        
+                        return days_flux_h, days_flux_f, days_flux_ano, data
+                    
+                    begin_h = 38*12
+                    end_h = 68*12
+                    begin_f = -30*12
+                    end_f = 0
+                    
+                    h_son, f_son, ano_son, son = season_anomaly([10,11,0,1,2,3], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(son)
+                    # print(len(son))
+                    h_djf, f_djf, ano_djf, djf = season_anomaly([10,11,0,1,2,3], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(djf)
+                    # print(len(djf))
+                    h_mam, f_mam, ano_mam, mam = season_anomaly([5,6,7,8], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(mam)
+                    # print(len(mam))
+                    h_jja, f_jja, ano_jja, jja = season_anomaly([5,6,7,8], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(jja)
+                    # print(len(jja))
+                    
+                    df_ano['SON_'+mod+'_'+sce] = pd.Series(son)
+                    df_ano['DJF_'+mod+'_'+sce] = pd.Series(djf)
+                    df_ano['MAM_'+mod+'_'+sce] = pd.Series(mam)
+                    df_ano['JJA_'+mod+'_'+sce] = pd.Series(jja)
+                    
+                    _SON_h.append(h_son)
+                    _DJF_h.append(h_djf)
+                    _MAM_h.append(h_mam)
+                    _JJA_h.append(h_jja)
+                    
+                    _SON_f.append(f_son)
+                    _DJF_f.append(f_djf)
+                    _MAM_f.append(f_mam)
+                    _JJA_f.append(f_jja)
+                    
+                    _SON_ano.append(ano_son)
+                    _DJF_ano.append(ano_djf)
+                    _MAM_ano.append(ano_mam)
+                    _JJA_ano.append(ano_jja)
+    
+            if watershed_name == 'Canut':
+                canut_ano = df_ano.copy()
+            if watershed_name == 'Nancon':
+                nancon_ano = df_ano.copy()
+        
+            _SON_h_mean = sum(_SON_h)/len(_SON_h)
+            _DJF_h_mean = sum(_DJF_h)/len(_DJF_h)
+            _MAM_h_mean = sum(_MAM_h)/len(_MAM_h)
+            _JJA_h_mean = sum(_JJA_h)/len(_JJA_h)
+            
+            _SON_f_mean = sum(_SON_f)/len(_SON_f)
+            _DJF_f_mean = sum(_DJF_f)/len(_DJF_f)
+            _MAM_f_mean = sum(_MAM_f)/len(_MAM_f)
+            _JJA_f_mean = sum(_JJA_f)/len(_JJA_f)
+            
+            # _SON_ano_mean = sum(_SON_ano)/len(_SON_ano)
+            # _DJF_ano_mean = sum(_DJF_ano)/len(_DJF_ano)
+            # _MAM_ano_mean = sum(_MAM_ano)/len(_MAM_ano)
+            # _JJA_ano_mean = sum(_JJA_ano)/len(_JJA_ano)
+             
+            _SON_ano_mean = ( _SON_f_mean - _SON_h_mean ) / _SON_h_mean
+            _DJF_ano_mean = ( _DJF_f_mean - _DJF_h_mean ) / _DJF_h_mean
+            _MAM_ano_mean = ( _MAM_f_mean - _MAM_h_mean ) / _MAM_h_mean
+            _JJA_ano_mean = ( _JJA_f_mean - _JJA_h_mean ) / _JJA_h_mean
+            
+            if watershed_name == 'Canut':
+                canut_ano = df_ano.copy()
+            if watershed_name == 'Nancon':
+                nancon_ano = df_ano.copy()
+        
+        if watershed_name == 'Canut':
+            ser_p1_26 = np.nanmean(canut_ano.filter(regex='RCP2.6').filter(regex='DJF'), axis=1)
+            ser_p2_26 = np.nanmean(canut_ano.filter(regex='RCP2.6').filter(regex='JJA'), axis=1)
+            ser_p1_85 = np.nanmean(canut_ano.filter(regex='RCP8.5').filter(regex='DJF'), axis=1)
+            ser_p2_85 = np.nanmean(canut_ano.filter(regex='RCP8.5').filter(regex='JJA'), axis=1)
+        if watershed_name == 'Nancon':
+            ser_p1_26 = np.nanmean(nancon_ano.filter(regex='RCP2.6').filter(regex='DJF'), axis=1)
+            ser_p2_26 = np.nanmean(nancon_ano.filter(regex='RCP2.6').filter(regex='JJA'), axis=1)
+            ser_p1_85 = np.nanmean(nancon_ano.filter(regex='RCP8.5').filter(regex='DJF'), axis=1)
+            ser_p2_85 = np.nanmean(nancon_ano.filter(regex='RCP8.5').filter(regex='JJA'), axis=1)
+            
+        data1 = (np.array(ser_p1_26), np.array(ser_p2_26))
+        data2 = (np.array(ser_p1_85), np.array(ser_p2_85))
+
+        # data1 = (select_period(rcp26, 2020, 2050),
+        #          select_period(rcp85, 2020, 2050))
+        # data2 = (select_period(rcp26, 2070, 2099),
+        #          select_period(rcp85, 2070, 2099))
+        
+        # fig, ax = plt.subplots(1,1, figsize=(5,5))
+        
+        labels = []
+        import matplotlib.patches as mpatches
+        def add_label(violin, label):
+            color = violin["bodies"][0].get_facecolor().flatten()
+            labels.append((mpatches.Patch(color=color), label))
+        
+        v1a = ax.violinplot(data1[0][~np.isnan(data1[0])], points=1000, positions=[0],
+                       showmeans=False, showextrema=False, showmedians=False)
+        v1b = ax.violinplot(data1[1][~np.isnan(data1[1])], points=1000, positions=[1],
+                       showmeans=False, showextrema=False, showmedians=False)
+    
+        for b in v1a['bodies']:
+            # get the center
+            m = np.mean(b.get_paths()[0].vertices[:, 0])
+            # modify the paths to not go further right than the center
+            b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], -np.inf, m)
+            b.set_color('b')
+        for b in v1b['bodies']:
+            # get the center
+            m = np.mean(b.get_paths()[0].vertices[:, 0])
+            # modify the paths to not go further right than the center
+            b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], -np.inf, m)
+            b.set_color('b')
+    
+        v2a = ax.violinplot(data2[0][~np.isnan(data2[0])], points=1000, positions=[0],
+                       showmeans=False, showextrema=False, showmedians=False)
+        v2b = ax.violinplot(data2[1][~np.isnan(data2[1])], points=1000, positions=[1],
+                       showmeans=False, showextrema=False, showmedians=False)
+    
+        for b in v2a['bodies']:
+            # get the center
+            m = np.mean(b.get_paths()[0].vertices[:, 0])
+            # modify the paths to not go further right than the center
+            b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], m, np.inf)
+            b.set_color('r')
+        for b in v2b['bodies']:
+            # get the center
+            m = np.mean(b.get_paths()[0].vertices[:, 0])
+            # modify the paths to not go further right than the center
+            b.get_paths()[0].vertices[:, 0] = np.clip(b.get_paths()[0].vertices[:, 0], m, np.inf)
+            b.set_color('r')
+        
+        for pc in v1a['bodies']:
+            pc.set_facecolor('dodgerblue')
+            pc.set_edgecolor('black')
+            pc.set_alpha(0.5)
+        for pc in v1b['bodies']:
+            pc.set_facecolor('dodgerblue')
+            pc.set_edgecolor('black')
+            pc.set_alpha(0.5)
+        for pc in v2a['bodies']:
+            pc.set_facecolor('red')
+            pc.set_edgecolor('black')
+            pc.set_alpha(0.5)
+        for pc in v2b['bodies']:
+            pc.set_facecolor('red')
+            pc.set_edgecolor('black')
+            pc.set_alpha(0.5)
+     
+        '''
+        old_len_collections = len(ax.collections)
+        sns.stripplot(data=data1,dodge=False, ax=ax, color='dodgerblue', size=1)
+        for dots in ax.collections[old_len_collections:]:
+            dots.set_offsets(dots.get_offsets() + np.array([-0.1, 0]))
+            dots.set_alpha(0.25)
+        old_len_collections = len(ax.collections)
+        sns.stripplot(data=data2, dodge=False, ax=ax, color='red', size=1)
+        for dots in ax.collections[old_len_collections:]:
+            dots.set_offsets(dots.get_offsets() + np.array([+0.1, 0]))
+            dots.set_alpha(0.25)
+        '''
+        
+        # sns.swarmplot(data=data2, dodge=False, ax=ax, color='red', size=1)
+        
+        def adjacent_values(vals, q1, q3):
+            upper_adjacent_value = q3 + (q3 - q1) * 1.5
+            upper_adjacent_value = np.clip(upper_adjacent_value, q3, vals[-1])
+        
+            lower_adjacent_value = q1 - (q3 - q1) * 1.5
+            lower_adjacent_value = np.clip(lower_adjacent_value, vals[0], q1)
+            return lower_adjacent_value, upper_adjacent_value
+
+        for i in range(2):
+            quartile1, medians, quartile3 = np.nanpercentile(data1[i], [25, 50, 75]) # axis = 1
+            # whiskers = np.array([
+            #     adjacent_values(sorted_array, q1, q3)
+            #     for sorted_array, q1, q3 in zip(data1, quartile1, quartile3)])
+            # whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
+            inds = i + - 0.05 # np.arange(1, len(medians) + 1) - 1 - 0.05
+            ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
+            # print(medians)
+            ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1, zorder=1000)
+            # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+            inds_tot.append(inds)
+            
+        for i in range(2):
+            quartile1, medians, quartile3 = np.nanpercentile(data2[i], [25, 50, 75]) # axis = 1
+            # whiskers = np.array([
+            #     adjacent_values(sorted_array, q1, q3)
+            #     for sorted_array, q1, q3 in zip(data2, quartile1, quartile3)])
+            # whiskersMin, whiskersMax = whiskers[:, 0], whiskers[:, 1]
+            inds = i + 0.05 # np.arange(1, len(medians) + 1) - 1 + 0.05
+            ax.scatter(inds, medians, marker='o', color='k', s=10, zorder=1000)
+            # print(medians)
+            ax.vlines(inds, quartile1, quartile3, color='k', linestyle='-', lw=1,zorder=1000)
+            # ax.vlines(inds, whiskersMin, whiskersMax, color='k', linestyle='-', lw=1)
+            inds_tot.append(inds)
+
+        ax.get_xaxis().set_visible(False)
+        # ax.set_title(watershed_name)
+        # ax.set_ylim(-20,20)
+        ax.set_ylim(-1,1)
+        # ax.set_ylabel(y_name.upper())
+        # ax.set_yscale('log')
+        # ax.set_xticks(inds-0.05)
+        ax.set_xticks([0.0,1.0])
+        # ax.set_xticklabels(['High water', 'Low water'])
+        ax.set_yticklabels([-100,-50,0,50,100])
+        
+        # fig.suptitle(model, fontsize=5)
+        
+        '''
+        if watershed_name == 'Canut':
+            ax.legend([v1['bodies'][0], v2['bodies'][0]], ['RCP2.6', 'RCP8.5'], loc=2)
+            leg = ax.get_legend()
+            leg.legendHandles[0].set_color('dodgerblue')
+            leg.legendHandles[1].set_color('red')
+        '''
+        
+        ax.axhline(y=0, color='k', lw=2, zorder=-1)    
+        
+        fig.savefig(figsim_folder+'_violin_distributions'+'_'+watershed_name+'_'+
+                    str(mod_list)+'.png', dpi=300, bbox_inches='tight')
 
 #%% 08_seasonaly anomaly map
+
+typ = 'projec-3'
 
 plot_maps = False
 
 sce_list = ['RCP2.6','RCP8.5']
 # sce_list = ['RCP8.5']
 
-mod_list = ['MPI-R09','NOR-R15']
+# mod_list = ['MPI-R09','NOR-R15']
 # mod_list = ['IPS1','NOR1']
-mod_list = ['NOR-R15']
+# mod_list = ['NOR-R15']
 
 mod_list = ['MPI-CCL','ECE-RCA','ECE-RAC','CNR-RAC',
             'NOR-R15','CNR-ALA','HAD-REG','MPI-R09']
+
+mod_list = ['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'] # Pessimistic
+# mod_list = ['ECE-RCA']
+mod_list = ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09'] # Optimistic
 
 # mod_list = ['HAD-REG']
 # mod_list = ['MPI-R09']
@@ -5256,265 +5683,297 @@ watershed_names = ['Canut','Nancon']
 # watershed_names = ['Nancon']
 # watershed_names = ['Canut']
 
-for watershed_name in watershed_names:
-        
-    rcp26 = pd.DataFrame()
-    rcp85 = pd.DataFrame()
+superficie = pd.DataFrame()
 
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+for mod_list in [['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'],  # Pessimistic
+                 ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09']]: # Optimistic
+
+    for watershed_name in watershed_names:
+            
+        rcp26 = pd.DataFrame()
+        rcp85 = pd.DataFrame()
     
-    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-    
-    df_ano = pd.DataFrame()
-    
-    _SON_h = []
-    _DJF_h = []
-    _MAM_h = []
-    _JJA_h = []
-    
-    _SON_f = []
-    _DJF_f = []
-    _MAM_f = []
-    _JJA_f = []
-    
-    _SON_ano = []
-    _DJF_ano = []
-    _MAM_ano = []
-    _JJA_ano = []
-    
-    for mod in mod_list:
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+        simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+        
+        mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+        cell = np.ma.masked_array(mask, mask=(mask<0)).count()
+        
+        df_ano = pd.DataFrame()
+        
+        _SON_h = []
+        _DJF_h = []
+        _MAM_h = []
+        _JJA_h = []
+        
+        _SON_f = []
+        _DJF_f = []
+        _MAM_f = []
+        _JJA_f = []
+        
+        _SON_ano = []
+        _DJF_ano = []
+        _MAM_ano = []
+        _JJA_ano = []
         
         # for sce in ['RCP2.6','RCP8.5']:
         for sce in sce_list:
-    
-            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
-        
-            for simul in simul_list:
                 
-                model_name = simul.split('\\')[-1]
-                Sy = float(model_name.split('_')[3].split('-')[0]) # %
-                K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
-                E = float(model_name.split('_')[3].split('-')[2]) # m
-                D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
-                params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
-                
-                acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
-                
-                def season_anomaly(months, begin_h, end_h, begin_f, end_f):
-                    # months = [5,6,7]
-                    # begin_h = 18*12
-                    # end_h = 48*12
-                    # begin_f = -30*12
-                    # end_f = 0
-                
-                    # Historic
-                    if begin_h == 0:
-                        acc_npy_h = list(acc_npy.items())[:end_h]
-                    else:
-                        acc_npy_h = list(acc_npy.items())[begin_h:end_h]
-                    acc_npy_1 = list(acc_npy_h)[months[0]::12]
-                    acc_npy_2 = list(acc_npy_h)[months[1]::12]
-                    acc_npy_3 = list(acc_npy_h)[months[2]::12]
-                    acc_npy_h = acc_npy_1 + acc_npy_2 + acc_npy_3
-                    for key in range(len(acc_npy_h)):
-                        acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
-                    zero = acc_npy_h[0] * 0
-                    for i in range(len(acc_npy_h)):
-                        tempo = acc_npy_h[i].copy()
-                        tempo[tempo>0] = 1
-                        zero = zero + tempo
-                    days_flux_h = zero.copy() / len(acc_npy_h)
-                
-                    # To look
-                    if end_f == 0:
-                        acc_npy_f = list(acc_npy.items())[begin_f:]
-                    else:
-                        acc_npy_f = list(acc_npy.items())[begin_f:end_f]
-                    acc_npy_1 = list(acc_npy_f)[months[0]::12]
-                    acc_npy_2 = list(acc_npy_f)[months[0]::12]
-                    acc_npy_3 = list(acc_npy_f)[months[2]::12]
-                    acc_npy_f = acc_npy_1 + acc_npy_2 + acc_npy_3
-                    for key in range(len(acc_npy_f)):
-                        acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
-                    zero = acc_npy[0] * 0
-                    for i in range(len(acc_npy_f)):
-                        tempo = acc_npy_f[i].copy()
-                        tempo[tempo>0] = 1
-                        zero = zero + tempo
-                    days_flux_f = zero.copy() / len(acc_npy_f)
+            for mod in mod_list:
+            
+                simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+            
+                for simul in simul_list:
                     
-                    # Anomaly
-                    # days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
-                    days_flux_ano = ( (days_flux_f - days_flux_h) ) / days_flux_h
-                    # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
-                    data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
-                    # data = data.flatten().filled(np.nan)
-                    # data = data.flatten()
-                    # data = days_flux_ano[~days_flux_ano.mask]
-                    # data = data.compressed()
-                    # data = data[~np.isnan(data)]
-                    data = days_flux_ano[~days_flux_ano.mask]
+                    model_name = simul.split('\\')[-1]
+                    Sy = float(model_name.split('_')[3].split('-')[0]) # %
+                    K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+                    E = float(model_name.split('_')[3].split('-')[2]) # m
+                    D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+                    params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
                     
-                    return days_flux_h, days_flux_f, days_flux_ano, data
-                
-                begin_h = 38*12
-                end_h = 68*12
-                begin_f = -30*12
-                end_f = 0
-                
-                h_son, f_son, ano_son, son = season_anomaly([8,9,10], begin_h, end_h, begin_f, end_f)
-                # plt.plot(son)
-                # print(len(son))
-                h_djf, f_djf, ano_djf, djf = season_anomaly([0,1,11], begin_h, end_h, begin_f, end_f)
-                # plt.plot(djf)
-                # print(len(djf))
-                h_mam, f_mam, ano_mam, mam = season_anomaly([2,3,4], begin_h, end_h, begin_f, end_f)
-                # plt.plot(mam)
-                # print(len(mam))
-                h_jja, f_jja, ano_jja, jja = season_anomaly([5,6,7], begin_h, end_h, begin_f, end_f)
-                # plt.plot(jja)
-                # print(len(jja))
-                
-                df_ano['SON_'+mod+'_'+sce] = pd.Series(son)
-                df_ano['DJF_'+mod+'_'+sce] = pd.Series(djf)
-                df_ano['MAM_'+mod+'_'+sce] = pd.Series(mam)
-                df_ano['JJA_'+mod+'_'+sce] = pd.Series(jja)
-                
-                _SON_h.append(h_son)
-                _DJF_h.append(h_djf)
-                _MAM_h.append(h_mam)
-                _JJA_h.append(h_jja)
-                
-                _SON_f.append(f_son)
-                _DJF_f.append(f_djf)
-                _MAM_f.append(f_mam)
-                _JJA_f.append(f_jja)
-                
-                _SON_ano.append(ano_son)
-                _DJF_ano.append(ano_djf)
-                _MAM_ano.append(ano_mam)
-                _JJA_ano.append(ano_jja)
-
-    if watershed_name == 'Canut':
-        canut_ano = df_ano.copy()
-    if watershed_name == 'Nancon':
-        nancon_ano = df_ano.copy()
-
-    _SON_h_mean = sum(_SON_h)/len(_SON_h)
-    _DJF_h_mean = sum(_DJF_h)/len(_DJF_h)
-    _MAM_h_mean = sum(_MAM_h)/len(_MAM_h)
-    _JJA_h_mean = sum(_JJA_h)/len(_JJA_h)
+                    acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+                    
+                    def season_anomaly(months, begin_h, end_h, begin_f, end_f):
+                        # months = [5,6,7]
+                        # begin_h = 18*12
+                        # end_h = 48*12
+                        # begin_f = -30*12
+                        # end_f = 0
+                    
+                        # Historic
+                        if begin_h == 0:
+                            acc_npy_h = list(acc_npy.items())[:end_h]
+                        else:
+                            acc_npy_h = list(acc_npy.items())[begin_h:end_h]
+                        acc_npy_1 = list(acc_npy_h)[months[0]::12]
+                        acc_npy_2 = list(acc_npy_h)[months[1]::12]
+                        acc_npy_3 = list(acc_npy_h)[months[2]::12]
+                        acc_npy_h = acc_npy_1 + acc_npy_2 + acc_npy_3
+                        for key in range(len(acc_npy_h)):
+                            acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
+                        zero = acc_npy_h[0] * 0
+                        for i in range(len(acc_npy_h)):
+                            tempo = acc_npy_h[i].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo
+                        days_flux_h = zero.copy() / len(acc_npy_h)
+                    
+                        # To look
+                        if end_f == 0:
+                            acc_npy_f = list(acc_npy.items())[begin_f:]
+                        else:
+                            acc_npy_f = list(acc_npy.items())[begin_f:end_f]
+                        acc_npy_1 = list(acc_npy_f)[months[0]::12]
+                        acc_npy_2 = list(acc_npy_f)[months[0]::12]
+                        acc_npy_3 = list(acc_npy_f)[months[2]::12]
+                        acc_npy_f = acc_npy_1 + acc_npy_2 + acc_npy_3
+                        for key in range(len(acc_npy_f)):
+                            acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
+                        zero = acc_npy[0] * 0
+                        for i in range(len(acc_npy_f)):
+                            tempo = acc_npy_f[i].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo
+                        days_flux_f = zero.copy() / len(acc_npy_f)
+                        
+                        # Anomaly
+                        # days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+                        days_flux_ano = ( (days_flux_f - days_flux_h) ) / days_flux_h
+                        # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
+                        data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+                        # data = data.flatten().filled(np.nan)
+                        # data = data.flatten()
+                        # data = days_flux_ano[~days_flux_ano.mask]
+                        # data = data.compressed()
+                        # data = data[~np.isnan(data)]
+                        data = days_flux_ano[~days_flux_ano.mask]
+                        
+                        return days_flux_h, days_flux_f, days_flux_ano, data
+                    
+                    begin_h = 38*12
+                    end_h = 68*12
+                    begin_f = -30*12
+                    end_f = 0
+                    
+                    h_son, f_son, ano_son, son = season_anomaly([10,11,0,1,2,3], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(son)
+                    # print(len(son))
+                    h_djf, f_djf, ano_djf, djf = season_anomaly([10,11,0,1,2,3], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(djf)
+                    # print(len(djf))
+                    h_mam, f_mam, ano_mam, mam = season_anomaly([5,6,7,8], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(mam)
+                    # print(len(mam))
+                    h_jja, f_jja, ano_jja, jja = season_anomaly([5,6,7,8], begin_h, end_h, begin_f, end_f)
+                    # plt.plot(jja)
+                    # print(len(jja))
+                    
+                    df_ano['SON_'+mod+'_'+sce] = pd.Series(son)
+                    df_ano['DJF_'+mod+'_'+sce] = pd.Series(djf)
+                    df_ano['MAM_'+mod+'_'+sce] = pd.Series(mam)
+                    df_ano['JJA_'+mod+'_'+sce] = pd.Series(jja)
+                    
+                    _SON_h.append(h_son)
+                    _DJF_h.append(h_djf)
+                    _MAM_h.append(h_mam)
+                    _JJA_h.append(h_jja)
+                    
+                    _SON_f.append(f_son)
+                    _DJF_f.append(f_djf)
+                    _MAM_f.append(f_mam)
+                    _JJA_f.append(f_jja)
+                    
+                    _SON_ano.append(ano_son)
+                    _DJF_ano.append(ano_djf)
+                    _MAM_ano.append(ano_mam)
+                    _JJA_ano.append(ano_jja)
     
-    _SON_f_mean = sum(_SON_f)/len(_SON_f)
-    _DJF_f_mean = sum(_DJF_f)/len(_DJF_f)
-    _MAM_f_mean = sum(_MAM_f)/len(_MAM_f)
-    _JJA_f_mean = sum(_JJA_f)/len(_JJA_f)
-    
-    # _SON_ano_mean = sum(_SON_ano)/len(_SON_ano)
-    # _DJF_ano_mean = sum(_DJF_ano)/len(_DJF_ano)
-    # _MAM_ano_mean = sum(_MAM_ano)/len(_MAM_ano)
-    # _JJA_ano_mean = sum(_JJA_ano)/len(_JJA_ano)
-     
-    _SON_ano_mean = ( _SON_f_mean - _SON_h_mean ) / _SON_h_mean
-    _DJF_ano_mean = ( _DJF_f_mean - _DJF_h_mean ) / _DJF_h_mean
-    _MAM_ano_mean = ( _MAM_f_mean - _MAM_h_mean ) / _MAM_h_mean
-    _JJA_ano_mean = ( _JJA_f_mean - _JJA_h_mean ) / _JJA_h_mean
-    
-    if watershed_name == 'Canut':
-        canut_ano = df_ano.copy()
-    if watershed_name == 'Nancon':
-        nancon_ano = df_ano.copy()
-    
-    for season, days_flux_h, days_flux_f, days_flux_ano in zip(['SON', 'DJF', 'MAM', 'JJA'],
-                                                               [_SON_h_mean, _DJF_h_mean, _MAM_h_mean, _JJA_h_mean],
-                                                               [_SON_f_mean, _DJF_f_mean, _MAM_f_mean, _JJA_f_mean],
-                                                               [_SON_ano_mean, _DJF_ano_mean, _MAM_ano_mean, _JJA_ano_mean]):
+            if watershed_name == 'Canut':
+                canut_ano = df_ano.copy()
+            if watershed_name == 'Nancon':
+                nancon_ano = df_ano.copy()
         
-        if plot_maps == True:
+            _SON_h_mean = sum(_SON_h)/len(_SON_h)
+            _DJF_h_mean = sum(_DJF_h)/len(_DJF_h)
+            _MAM_h_mean = sum(_MAM_h)/len(_MAM_h)
+            _JJA_h_mean = sum(_JJA_h)/len(_JJA_h)
+            
+            _SON_f_mean = sum(_SON_f)/len(_SON_f)
+            _DJF_f_mean = sum(_DJF_f)/len(_DJF_f)
+            _MAM_f_mean = sum(_MAM_f)/len(_MAM_f)
+            _JJA_f_mean = sum(_JJA_f)/len(_JJA_f)
+            
+            # _SON_ano_mean = sum(_SON_ano)/len(_SON_ano)
+            # _DJF_ano_mean = sum(_DJF_ano)/len(_DJF_ano)
+            # _MAM_ano_mean = sum(_MAM_ano)/len(_MAM_ano)
+            # _JJA_ano_mean = sum(_JJA_ano)/len(_JJA_ano)
+             
+            _SON_ano_mean = ( _SON_f_mean - _SON_h_mean ) / _SON_h_mean
+            _DJF_ano_mean = ( _DJF_f_mean - _DJF_h_mean ) / _DJF_h_mean
+            _MAM_ano_mean = ( _MAM_f_mean - _MAM_h_mean ) / _MAM_h_mean
+            _JJA_ano_mean = ( _JJA_f_mean - _JJA_h_mean ) / _JJA_h_mean
+            
+            if watershed_name == 'Canut':
+                canut_ano = df_ano.copy()
+            if watershed_name == 'Nancon':
+                nancon_ano = df_ano.copy()
+            
+            # for season, days_flux_h, days_flux_f, days_flux_ano in zip(['SON', 'DJF', 'MAM', 'JJA'],
+            #                                                            [_SON_h_mean, _DJF_h_mean, _MAM_h_mean, _JJA_h_mean],
+            #                                                            [_SON_f_mean, _DJF_f_mean, _MAM_f_mean, _JJA_f_mean],
+            #                                                            [_SON_ano_mean, _DJF_ano_mean, _MAM_ano_mean, _JJA_ano_mean]):
         
-            fig, ax = plt.subplots(1,1, figsize=(10,10))
-            
-            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
-            line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
-            line = np.ma.masked_where(line < 0, line)
-            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-            
-            cmap = plt.cm.Oranges_r
-            cmaplist = [cmap(i) for i in range(cmap.N)]
-            cmaplist = ['darkred','orange']
-            # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
-            cmap = mpl.colors.LinearSegmentedColormap.from_list(
-                'Custom cmap', cmaplist, cmap.N)
-            minn = -1.01 # 0 
-            maxn = 0 # 1.1
-            intn = 0.1 # 0.1
-            bounds = np.arange(minn, maxn, intn)
-            norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-            pcn = ax.imshow(np.ma.masked_where(days_flux_ano >= 0, days_flux_ano), #1
-                            cmap = cmap,
-                            norm=norm, alpha=1)
-            # plt.imshow(days_flux_ano)
-            # plt.colorbar()
-            
-            cmap = plt.cm.Blues
-            # cmap = plt.cm.winter_r
-            cmaplist = [cmap(i) for i in range(cmap.N)]
-            cmaplist = ['deepskyblue','navy']
-            # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
-            cmap = mpl.colors.LinearSegmentedColormap.from_list(
-                'Custom cmap', cmaplist, cmap.N)
-            minp = 0 # 1
-            maxp = 1.01 # 2.1
-            intp = 0.1 # 0.1
-            bounds = np.arange(minp, maxp, intp)
-            norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-            pcp = ax.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano), #1
-                            cmap = cmap,
-                            norm=norm, alpha=1)
-            
-            # plt.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano))
-            # plt.colorbar()
-            
-            pc = ax.imshow(np.ma.masked_where((days_flux_ano!=0)|(days_flux_h==0),
-                                              days_flux_ano),
-                                        cmap = mpl.colors.ListedColormap('forestgreen'))
-            
-            pc = ax.imshow(np.ma.masked_where((days_flux_f==0)|(days_flux_h!=0),
-                                              days_flux_f),
-                                        cmap = mpl.colors.ListedColormap('darkgrey'))
-            
-            # try:
-            #     days = days_flux_ano.copy()
-            #     days[(days_flux==0)|(days_flux_h!=0)] = np.nan
-            #     plt.imshow(days, cmap = mpl.colors.ListedColormap('k'))
-            # except:
-            #     pass
-            
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-            ax.axis('off')
-            
-            ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
-            # ax.set_title(params, fontsize=8)
-            plt.subplots_adjust(hspace = -0.6)
-            
-            # position=fig1.add_axes([1,0.3,0.015,0.32])  ## the parameters are the specified position you set 
-            # cb = fig1.colorbar(pcp,cax=position) ##
-            # cb.set_ticks(np.arange(minp, maxp, intp))
-            # cb.set_ticklabels(np.arange(minp, maxp, intp).round(1))
-            # # cb.ax.invert_xaxis()
-            
-            # position=fig1.add_axes([1.10,0.3,0.015,0.32])  ## the parameters are the specified position you set 
-            # cb = fig1.colorbar(pcn,cax=position) ##   
-            # cb.set_ticks(np.arange(minn, maxn, intn))
-            # cb.set_ticklabels(np.arange(minn, maxn, intn).round(1))
-            
-            # fig.savefig(figsim_folder+
-            #               '_map_seasonal_anomaly_'+watershed_name+'_'
-            #               +season+'_'+mod_list[0]+'.png', dpi=300, bbox_inches='tight')
+            for season, days_flux_h, days_flux_f, days_flux_ano in zip(['DJF',  'JJA'],
+                                                                        [_DJF_h_mean, _JJA_h_mean],
+                                                                        [_DJF_f_mean, _JJA_f_mean],
+                                                                        [_DJF_ano_mean, _JJA_ano_mean]):
+                        
+                if plot_maps == True:
+                
+                    fig, ax = plt.subplots(1,1, figsize=(10,10))
+                    
+                    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+                    line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+                    line = np.ma.masked_where(line < 0, line)
+                    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+                    
+                    cmap = plt.cm.Oranges_r
+                    cmaplist = [cmap(i) for i in range(cmap.N)]
+                    cmaplist = ['darkred','orange']
+                    # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
+                    cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                        'Custom cmap', cmaplist, cmap.N)
+                    minn = -1.01 # 0 
+                    maxn = 0 # 1.1
+                    intn = 0.1 # 0.1
+                    bounds = np.arange(minn, maxn, intn)
+                    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+                    pcn = ax.imshow(np.ma.masked_where(days_flux_ano >= 0, days_flux_ano), #1
+                                    cmap = cmap,
+                                    norm=norm, alpha=1)
+                    # plt.imshow(days_flux_ano)
+                    # plt.colorbar()
+                    
+                    cmap = plt.cm.Blues
+                    # cmap = plt.cm.winter_r
+                    cmaplist = [cmap(i) for i in range(cmap.N)]
+                    cmaplist = ['deepskyblue','navy']
+                    # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
+                    cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                        'Custom cmap', cmaplist, cmap.N)
+                    minp = 0 # 1
+                    maxp = 1.01 # 2.1
+                    intp = 0.1 # 0.1
+                    bounds = np.arange(minp, maxp, intp)
+                    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+                    pcp = ax.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano), #1
+                                    cmap = cmap,
+                                    norm=norm, alpha=1)
+                    
+                    # plt.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano))
+                    # plt.colorbar()
+                    
+                    pc = ax.imshow(np.ma.masked_where((days_flux_ano!=0)|(days_flux_h==0),
+                                                      days_flux_ano),
+                                                cmap = mpl.colors.ListedColormap('forestgreen'))
+                    
+                    pc = ax.imshow(np.ma.masked_where((days_flux_f==0)|(days_flux_h!=0),
+                                                      days_flux_f),
+                                                cmap = mpl.colors.ListedColormap('darkgrey'))
+                    
+                    # try:
+                    #     days = days_flux_ano.copy()
+                    #     days[(days_flux==0)|(days_flux_h!=0)] = np.nan
+                    #     plt.imshow(days, cmap = mpl.colors.ListedColormap('k'))
+                    # except:
+                    #     pass
+                    
+                    ax.get_xaxis().set_visible(False)
+                    ax.get_yaxis().set_visible(False)
+                    ax.axis('off')
+                    
+                    ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+                    ax.set_title(mod+'_'+sce+'_'+season, fontsize=8)
+                    plt.subplots_adjust(hspace = -0.6)
                                     
-#%% ' ' 08_seasonaly anomaly distrib
+                    # position=fig1.add_axes([1,0.3,0.015,0.32])  ## the parameters are the specified position you set 
+                    # cb = fig1.colorbar(pcp,cax=position) ##
+                    # cb.set_ticks(np.arange(minp, maxp, intp))
+                    # cb.set_ticklabels(np.arange(minp, maxp, intp).round(1))
+                    # # cb.ax.invert_xaxis()
+                    
+                    # position=fig1.add_axes([1.10,0.3,0.015,0.32])  ## the parameters are the specified position you set 
+                    # cb = fig1.colorbar(pcn,cax=position) ##   
+                    # cb.set_ticks(np.arange(minn, maxn, intn))
+                    # cb.set_ticklabels(np.arange(minn, maxn, intn).round(1))
+                    
+                    # fig.savefig(figsim_folder+
+                    #               '_map_seasonal_anomaly_'+watershed_name+'_'+sce+'_'+mod_list[0]+'_'+
+                    #               season+'.png', dpi=300, bbox_inches='tight')
+                
+                days_flux_ano = days_flux_ano * 100
+                total = days_flux_ano.count()
+                
+                n_0_100 = np.ma.masked_where((days_flux_ano >= 0)|(days_flux_ano <= -100), days_flux_ano).count()
+                n_100 = np.ma.masked_where((days_flux_ano > -100), days_flux_ano).count()
+                p_0_100 = np.ma.masked_where((days_flux_ano <= 0)|(days_flux_ano >= 100), days_flux_ano).count()
+                p_100 = np.ma.masked_where((days_flux_ano < 100), days_flux_ano).count()
+                flow_0 = np.ma.masked_where((days_flux_ano!=0)|(days_flux_h==0), days_flux_ano).count()
+                new_f = np.ma.masked_where((days_flux_f==0)|(days_flux_h!=0), days_flux_f).count()
+                
+                index_name = sce+'_'+mod_list[0]+'_'+season
+                column_name = watershed_name+'_'
+                superficie.loc[index_name,column_name+'dry_100'] = (n_100 / total)*100
+                superficie.loc[index_name,column_name+'loosing_100-0'] = (n_0_100 / total)*100
+                superficie.loc[index_name,column_name+'flow_0'] = (flow_0 / total)*100
+                superficie.loc[index_name,column_name+'gaining_0-100'] = (p_0_100 / total)*100
+                superficie.loc[index_name,column_name+'wetter_100'] = (p_100 / total)*100
+                superficie.loc[index_name,column_name+'new_flow'] = (new_f / total)*100
+
+superficie.to_csv(figsim_folder+'_superficie_anomaly'+'.csv', sep=';')        
+                    
+#%% ' ' 08_seasonaly anomaly histogram
 
 import pandas as pd
 import numpy as np
@@ -5772,6 +6231,521 @@ di['Month'] = di['Month'].astype(cat_month)
 joyplot(data=di, 
         by='m',
         figsize=(4, 3))
+
+#%% ---- RECHARGE
+
+#%% data
+
+mod_list = ['MPI-CCL','NOR-R15','ECE-RCA','ECE-RAC',
+            'CNR-RAC','CNR-ALA','HAD-REG','MPI-R09','REA']
+sce_list = ['RCP2.6','RCP8.5']
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+
+# watershed_names = ['Canut']
+# code_names = ['J7513010']
+
+store = pd.DataFrame()
+
+with_norm = True
+
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+    
+    print('##### '+watershed_name.upper()+' #####')
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    BV.add_forcing()
+    BV.add_hydrodynamic()
+    BV.add_oceanic(oceanic_path)
+    
+    # Observed discharge
+    raw_path = stable_folder+'/'+'hydrometry/'
+    Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+    Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+    area = BV.geographic.area
+    # area = float(Qobs_path.split('_')[-3])
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+    Qobs = Qobs.squeeze()
+    Qobs = Qobs.resample('M').mean()
+    
+    # Input recharge
+    bzh_rech = False
+    var = 'REC'
+    wr = True
+    time_step = 'D' # or 'D'
+    actual_date = True # False if date is conceptual
+    sim_state= 'transient'
+        
+    # Model of recharge
+    for mod in mod_list:
+        
+        for sce in sce_list:
+            
+            print(mod, sce)
+            
+            # Recharge
+            if mod == 'REA':
+                init_rech = None
+                
+                period = [1990,2019]
+                first = period[0]
+                last = period[1]
+                start = str(period[0])+'-01-01' # necessary to specify the first time_step date
+
+                # period_hist = [1985,2019]         
+                # first_hist = period_hist[0]
+                # last_hist = period_hist[1]
+                
+                period_norm = [1990,2019]
+                first_norm = period_norm[0]
+                last_norm = period_norm[1]
+            else:
+                init_rech = 'first'
+                
+                period = [1972,2098]
+                first = period[0]
+                last = period[1]
+                start = str(period[0])+'-01-01' # necessary to specify the first time_step date
+                
+                period_hist = [1972,2005] # recharge period     
+                first_hist = period_hist[0]
+                last_hist = period_hist[1]
+                
+                period_norm = [1990,2004]
+                first_norm = period_norm[0]
+                last_norm = period_norm[1]
+                                    
+            Q_norm = select_period(Qobs, first_norm, last_norm)
+
+            if mod == 'REA':
+                # Normalize
+                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                  first_year = first_norm, last_year = last_norm,
+                                                  time_step = time_step, sim_state = sim_state)
+                Rech_norm = BV.forcing.recharge
+                
+                # for t in Q_norm.index.year:
+                    # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
+                    # print(Ratio_norm.round(2))
+                Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
+                print(Ratio_norm)
+                
+                # Historic
+                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                  first_year = first, last_year = last,
+                                                  time_step = time_step, sim_state = sim_state)
+                if with_norm == True:
+                    Rech = BV.forcing.recharge * Ratio_norm
+                else:
+                    Rech = BV.forcing.recharge
+                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce='historic',
+                                                first_year = first, last_year = last,
+                                                time_step = time_step, sim_state = sim_state)
+                Runof = BV.forcing.runoff # m/month
+                
+                # Update recharge
+                BV.forcing.update_recharge(Rech , sim_state = sim_state)
+                BV.forcing.update_runoff(Runof, sim_state = sim_state)
+                                                    
+            if mod != 'REA':
+                gcm = mod.split('-')[0]
+                rcm = mod.split('-')[1]
+                
+                # Normalize
+                BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = 'historic',
+                                                 first_year = first_norm, last_year = last_norm,
+                                                 sim_state = sim_state)
+                Rech_norm = BV.forcing.recharge.resample('M').mean()
+                # for t in Q_norm.index.year:
+                    # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
+                    # print(Ratio_norm.round(2))
+                Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
+                
+                # Historic
+                BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = 'historic',
+                                                 first_year = first_hist, last_year = last_hist,
+                                                 sim_state = sim_state)
+                if with_norm == True:
+                    Rech_hist = BV.forcing.recharge.resample('M').mean() * Ratio_norm
+                else:
+                    Rech_hist = BV.forcing.recharge.resample('M').mean()
+                BV.forcing.update_runoff_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = 'historic',
+                                                 first_year = first_hist, last_year = last_hist,
+                                                 sim_state = sim_state)
+                Runof_hist = BV.forcing.runoff.resample('M').mean() # m/month
+                
+                # Future
+                BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                                  first_year = first, last_year = last,
+                                                  sim_state = sim_state)
+                if with_norm == True:
+                    Rech_fut = BV.forcing.recharge.resample('M').mean() * Ratio_norm
+                else:
+                    Rech_fut = BV.forcing.recharge.resample('M').mean()
+                BV.forcing.update_runoff_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                                first_year = first, last_year = last,
+                                                sim_state = sim_state)
+                Runof_fut = BV.forcing.runoff.resample('M').mean() # m/month
+                                
+                Rech = pd.concat((Rech_fut, Rech_hist), axis=1).mean(axis=1)
+                Runof = pd.concat((Runof_fut, Runof_hist), axis=1).mean(axis=1)
+                
+                # Update recharge
+                BV.forcing.update_recharge(Rech, sim_state = sim_state)
+                BV.forcing.update_runoff(Runof, sim_state = sim_state)
+                
+                plt.plot(BV.forcing.recharge)
+            
+            store[watershed_name+'_'+var+'_'+mod+'_'+sce] = BV.forcing.recharge
+
+#%% boxplot
+
+dfd = store.copy() * 1000 * 30
+
+for mod in mod_list:
+    fig, ax= plt.subplots(1,1, figsize=(5,5))
+    dfd_plt = dfd.filter(regex=mod)
+    dfd_plt = dfd_plt.dropna()
+    ax.boxplot(dfd_plt)
+    ax.set_xticklabels(dfd_plt.columns, rotation=90)
+    ax.set_yscale('log')
+
+#%% bilan
+
+def legend_without_duplicate_labels(ax):
+    handles, labels = ax.get_legend_handles_labels()
+    unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
+    ax.legend(*zip(*unique), bbox_to_anchor=(1.1,0.5), prop={'size': 7}, loc="center left", 
+              borderaxespad=0)
+
+models = [
+          'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15', # Pessimistic
+          'MPI-CCL','MPI-R09','CNR-ALA','CNR-RAC'] # Optimistic
+
+# models = ['REA']
+
+couleurs = [
+            'red','darkorange','gold','orchid',
+            'forestgreen','yellowgreen','dodgerblue','blue']
+
+# models = ['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'] # Pessimistic
+# models = ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09'] # Optimistic
+
+color_dict = dict(zip(models, couleurs))
+# models = ['HAD-REG']
+
+# mod = 'REA'
+# mod = 'HAD-REG'
+# sce = 'historic'
+var = 'REC'
+per = [1960,2019]
+cond = 0
+
+scenar = 'RCP8.5'
+
+for watershed_name in watershed_names:
+    
+    dfd = store.copy() * 1000 * 30
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,4))
+    dfd = dfd.filter(regex=watershed_name)
+    
+    for mod in models:
+    
+        if mod == 'REA':
+            his = dfd[(dfd.index.year>=1960) & (dfd.index.year<=2019)].filter(regex=sce)
+        else:
+            his = dfd[(dfd.index.year>=1972) & (dfd.index.year<=2005)].filter(regex=sce)
+        pro = dfd[(dfd.index.year>=2005) & (dfd.index.year<=2098)].filter(regex=sce)
+        
+        d = pd.concat((pro.filter(regex=var+'_'+mod+'_'+sce),
+                       his.filter(regex=var+'_'+mod+'_'+'historic')), axis=1).mean(axis=1)
+        # d = d*365
+        
+        d.columns = ['values']
+        d = d.round(2).squeeze().to_frame()
+        d['month'] = d.index.month
+        d.columns = ['values','month']
+        
+        d_lw = d.query("month == "+"["+'5,6,7,8,9,10'+"]") # 4,5,6,7,8,9,10,11
+        d_hw = d.query("month == "+"["+'11,12,1,2,3,4'+"]") # 10,11,12,1,2,3,4
+        
+        ax.plot(0,
+                (select_period(d, 2070, 2098).values.mean()-
+                select_period(d, 2010, 2040).values.mean())/
+                select_period(d, 2010, 2040).values.mean() * 100, marker='s', lw=0,
+                color=color_dict[mod], ms=10, label=mod)
+        # ax.legend()
+        # ax.set_title('ALL')
+        # ax.set_ylim(-1, 5)
+        
+        ax.plot(0.5,
+                (select_period(d_hw, 2070, 2098).values.mean()-
+                select_period(d_hw, 2010, 2040).values.mean())/
+                select_period(d_hw, 2010, 2040).values.mean() * 100, marker='s', lw=0,
+                color=color_dict[mod], ms=10, label=mod)
+        # ax.legend()
+        # ax.set_title('HW')
+        ax.set_ylim(-60, 60)
+        
+        # ax = axs[2]
+        ax.plot(1,
+                (select_period(d_lw, 2070, 2098).values.mean()-
+                select_period(d_lw, 2010, 2040).values.mean())/
+                select_period(d_lw, 2010, 2040).values.mean() * 100, marker='s', lw=0,
+                color=color_dict[mod], ms=10, label=mod)
+        # ax.set_title('LW')
+        # ax.set_ylim(-1, 5)
+        ax.set_xticks([0,0.5,1])
+        ax.set_xticklabels(['WY','HW','LW'])
+        ax.axhline(0, color='k', zorder=-10)
+        
+        ax.set_title(watershed_name+' '+sce)
+        
+        ax.set_ylabel('Recharge anomaly \n 2070-2100 vs 2010-2040 [%]', fontsize=12)
+        
+    legend_without_duplicate_labels(ax)
+    plt.tight_layout()
+
+# fig.savefig(fig_path + 'compar_models_recharge_bilan_' + scenar + '.png', dpi=300, bbox_inches='tight')
+
+#%% evol
+
+time_step = 'M'
+
+var = 'REC'
+scenarios = ['historic','RCP8.5']
+
+models = [
+          'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15', # Pessimistic
+          'MPI-CCL','MPI-R09','CNR-ALA','CNR-RAC'] # Optimistic
+
+# models = ['REA']
+
+couleurs = [
+            'red','darkorange','gold','orchid',
+            'forestgreen','yellowgreen','dodgerblue','blue']
+
+color_dict = dict(zip(models, couleurs))
+
+seasons = ['9,10,11',
+           '12,1,2',
+           '3,4,5',
+           '6,7,8']
+string = ['SON','DJF','MAM','JJA']
+seas_dict = dict(zip(seasons, string))
+
+space = 10
+
+dfd = store.copy() * 1000 * 30
+
+for watershed_name in watershed_names:
+    fig, axs = plt.subplots(2,2, figsize=(10,5))
+    axs = axs.ravel()
+    
+    df_fil = dfd.copy().filter(regex=watershed_name)
+    df_fil = df_fil.resample('M').mean()
+
+    for i, sea in enumerate(seasons):
+        ax = axs[i]
+        for sce in scenarios:
+            for mod in models:
+                dfb = df_fil.filter(regex=var)
+                dfb = dfb.filter(regex=sce)
+                dfb = dfb.filter(regex=mod)
+                # if sce == 'historic':
+                    # dfb = dfb[(dfb.index.year >= 1960) & (dfb.index.year <= 2009)]
+                    
+                    # rea = dfb['REA_historic']
+                    # rea = rea.groupby([(rea.index.year),(rea.index.month)]).mean()
+                    # rea = rea.rename_axis(["year", "month"]).to_frame()
+                    # rea = rea.query("month == "+"["+sea+"]")
+                    # rea = rea.groupby('year').sum()
+                    # rea.index =  pd.to_datetime(rea.index, format='%Y')
+                    
+                # else:
+                dfb = dfb[(dfb.index.year >= 1960) & (dfb.index.year <= 2099)]
+                
+                dfb = dfb.groupby([(dfb.index.year),(dfb.index.month)]).mean()
+                dfb = dfb.rename_axis(["year", "month"])
+                
+                dfb = dfb.query("month == "+"["+sea+"]")
+                # dfb = dfb.dropna()
+                dfb = dfb.groupby('year').apply(lambda g: g.sum(skipna=False))
+                dfb.index =  pd.to_datetime(dfb.index, format='%Y')
+                
+                dfs = pd.DataFrame(index=dfb.index)
+                
+                dfb = dfb.rolling(window=space).mean() # .shift(-space)
+                
+                # ax.plot(dfb, lw=0.1, color=color_dict[sce])
+                dfs['MEAN'] = np.nanmean(dfb, axis=1)
+                dfs['MIN'] = dfb.min(axis=1)
+                dfs['MAX'] = dfb.max(axis=1)
+                dfs['Q25'] = dfb.quantile(q=0.25, axis=1)
+                dfs['Q50'] = dfb.quantile(q=0.50, axis=1)
+                dfs['Q75'] = dfb.quantile(q=0.75, axis=1)
+                dfs['STD'] = dfb.std(axis=1)
+                dfs = dfs.iloc[1:-1]
+                
+                # dfs = dfs.rolling(window=space).mean().shift(-space)
+                
+                # ax.plot(rea, ls='-', color='k', lw=0.25)
+                ax.fill_between(dfs.index, dfs['Q25'], dfs['Q75'], color=color_dict[mod], alpha=0.2, edgecolor='none')
+                # ax.plot(dfs['Q50'], lw=1, color=color_dict[sce], label=sce)
+                # ax.fill_between(dfs.index, dfs.MEAN-dfs['STD'], dfs.MEAN+dfs['STD'], color=color_dict[sce], alpha=0.2, edgecolor='none')
+                ax.plot(dfs['Q50'], lw=2, color=color_dict[mod], label=sce)
+                ax.set_xlim(pd.to_datetime('1960'), pd.to_datetime('2100'))
+                ax.set_title(seas_dict[sea])
+                # ax.legend(loc='upper left')
+                # ax.axvline(pd.to_datetime('2010'), color='k', ls='--')
+                from datetime import date
+                ax.axvline(date.today(), color='k', ls='--')
+                
+                # ax.axvline(dfs.first_valid_index(), color='grey', ls='-', lw=0.1)
+                # ax.axvline(dfs.last_valid_index(), color='grey', ls='-', lw=0.1)
+                # ax.text(dfs.first_valid_index(),0.8, str(dfs.first_valid_index().year), rotation=90,
+                #         transform=ax.get_xaxis_transform())
+                
+                fig.suptitle(watershed_name+' '+' '+sce)
+                plt.tight_layout()
+                
+    # fig.savefig(fig_path + 'compar_models_recharge_evol_' + sce + '.png', dpi=300, bbox_inches='tight')
+
+#%% pdf
+
+watershed_names = ['Canut']
+
+time_step = 'M'
+var = 'REC'
+scenarios = ['RCP8.5']
+models = ['ECE-RCA','ECE-RAC','HAD-REG','NOR-R15', # Pessimistic
+          'MPI-CCL','MPI-R09','CNR-ALA','CNR-RAC'] # Optimistic
+models = ['HAD-REG'] # Optimistic
+couleurs = [
+            'red','darkorange','gold','orchid',
+            'forestgreen','yellowgreen','dodgerblue','blue']
+color_dict = dict(zip(models, couleurs))
+seasons = ['9,10,11',
+           '12,1,2',
+           '3,4,5',
+           '6,7,8']
+string = ['SON','DJF','MAM','JJA']
+seas_dict = dict(zip(seasons, string))
+space = 10
+
+dfd = store.copy() * 1000 * 30
+
+for watershed_name in watershed_names:
+    
+    df_fil = dfd.copy().filter(regex=watershed_name)
+    df_fil = df_fil.resample('M').mean()
+
+    # for i, sea in enumerate(seasons):
+        
+    fig, ax = plt.subplots(1,1, figsize=(5,5))
+    
+    for sce in scenarios:
+        for mod in models:
+            
+            for p, per in enumerate([[1980,2010],[2070,2100]]):
+                
+                # color = color_dict[mod]
+                
+                if p == 0:
+                    color='darkmagenta'
+                if p == 1:
+                    color='darkorange'
+            
+                dfb = df_fil.filter(regex=var)
+                dfb = dfb.filter(regex=sce)
+                dfb = dfb.filter(regex=mod)
+                # if sce == 'historic':
+                    # dfb = dfb[(dfb.index.year >= 1960) & (dfb.index.year <= 2009)]
+                    
+                    # rea = dfb['REA_historic']
+                    # rea = rea.groupby([(rea.index.year),(rea.index.month)]).mean()
+                    # rea = rea.rename_axis(["year", "month"]).to_frame()
+                    # rea = rea.query("month == "+"["+sea+"]")
+                    # rea = rea.groupby('year').sum()
+                    # rea.index =  pd.to_datetime(rea.index, format='%Y')
+                    
+                # else:
+                dfb = dfb[(dfb.index.year >= per[0]) & (dfb.index.year <= per[1])]
+                
+                # dfb = dfb.groupby([(dfb.index.year),(dfb.index.month)]).mean()
+                # dfb = dfb.rename_axis(["year", "month"])
+                # dfb = dfb.query("month == "+"["+sea+"]")
+                # dfb = dfb.groupby('year').apply(lambda g: g.sum(skipna=False))
+                # dfb.index =  pd.to_datetime(dfb.index, format='%Y')
+                
+                if p == 0:
+                    Q_inf = dfb.quantile(0.05)
+                    # print(Q_inf)
+                
+                dfs = pd.DataFrame(index=dfb.index)
+                # dfb = dfb.rolling(window=space).mean() # .shift(-space)
+                
+                dfs['MEAN'] = np.nanmean(dfb, axis=1)
+                dfs['MIN'] = dfb.min(axis=1)
+                dfs['MAX'] = dfb.max(axis=1)
+                dfs['Q25'] = dfb.quantile(q=0.25, axis=1)
+                dfs['Q50'] = dfb.quantile(q=0.50, axis=1)
+                dfs['Q75'] = dfb.quantile(q=0.75, axis=1)
+                dfs['STD'] = dfb.std(axis=1)
+                dfs = dfs.iloc[1:-1]
+    
+                dfb.columns = ['values']
+                Z = dfb.sort_values('values').round(0)
+    
+                # Z = np.sort(dfb)
+                test = np.histogram(Z, bins=100, density=True)[0]
+                from scipy.stats import norm
+                pdf = norm.pdf(Z, Z.mean(), Z.std())
+                N = len(Z)
+                count, bins_count = np.histogram(Z, bins=100, density=True)
+                pdf = count / sum(count)
+                cdf = np.cumsum(pdf)
+                plt.plot(pdf, color=color, lw=1, label="CDF")
+                # ax.plot(cdf*100, color=color, lw=1, label="CDF")
+                ax.set_xscale('log')
+                # ax.set_yscale('log')
+                
+                freq = Z.groupby('values').size().reset_index(name='counts')
+                freq['frequency'] = freq.counts/freq.counts.sum() #freq
+                freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
+                freq['retour'] = 1/((1-freq['cumulative_frequency']))
+                # freq['retour'] = 1/freq['cumulative_frequency']
+                # freq['retour'] = 1/freq['frequency']
+                freq['target'] = 5
+                # ax.plot(freq['values'], freq['cumulative_frequency'], ls='-', c=color,
+                #         linewidth=3, label=mod)
+                # ax.set_ylim(0,1)
+                # ax.set_xlim(1,1000)
+                # ax.plot(freq['values'], freq['frequency'], ls='-', c=color,
+                #         linewidth=1, label=mod, marker='.')
+                # ax.set_xscale('log')
+                # ax.set_yscale('log')
+                ax.axvline(Q_inf.values, color='k', ls='--')
+                ax.set_title(sea)
+                
+                # sns.distplot(Z, hist = True, kde = False, norm_hist = True, 
+                #       kde_kws = {'shade': True, 'linewidth': 2, 'alpha':0.1},
+                #       color=color, ax=ax)
+                # ax.axvline(Q_inf.values, color='k')
+                # ax.set_xlim(0,200)
+                # ax.set_ylim(0,0.05)
+                # # ax.set_xscale('log')
+                # # ax.set_yscale('log')
+                
+# plt.plot(freq.values)
 
 #%% ---- STORAGE
       
@@ -7049,7 +8023,7 @@ for watershed_name in watershed_names :
             plt.xlabel('Date')
             ax.axvspan(pd.to_datetime(str(1990)), pd.to_datetime(str(2021)), color='lightgrey', alpha=0.1, zorder=0)
 
-            years = mdates.YearLocator(20)   # every year
+            years = mdates.YearLocator(1)   # every year
             yearsmin = mdates.YearLocator(1)
             years_fmt = mdates.DateFormatter('%Y')
             months_fmt = mdates.DateFormatter('%m') #b = name of month ?
