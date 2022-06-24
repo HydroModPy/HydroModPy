@@ -119,10 +119,11 @@ class Modflow():
             self.nstp = np.ones(len(self.climatic))
             self.nper = len(self.climatic)
             self.perlen = np.ones(len(self.climatic))
-            if pd.infer_freq(self.climatic.index) != 'D':
-                for i in range(1,len(self.climatic)):      
-                    dif = self.climatic.index[i]-self.climatic.index[i-1]
-                    self.perlen[i] = dif.days
+            if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
+                if pd.infer_freq(self.climatic.index) != 'D':
+                    for i in range(1,len(self.climatic)):      
+                        dif = self.climatic.index[i]-self.climatic.index[i-1]
+                        self.perlen[i] = dif.days
 
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
@@ -238,7 +239,10 @@ class Modflow():
                         self.rchData[kper] = self.climatic.iloc[0]
                         print('Init rech is "first"')
                 else:
-                    self.rchData[kper] = self.climatic[kper]
+                    try:
+                        self.rchData[kper] = self.climatic[kper]
+                    except:
+                        self.rchData[kper] = self.climatic.iloc[kper].values[0]
         if verbose == True:
             print('REC')
             # print(self.climatic)
