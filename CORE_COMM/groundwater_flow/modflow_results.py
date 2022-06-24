@@ -53,14 +53,14 @@ class Results:
                 time=[0]
             else:
                 time = self.recharge.index
-                recharge = self.recharge.values
+                recharge = self.recharge.squeeze().values
         else:
             if isinstance(self.recharge,(int,float)) == True:
                 time=[0]
                 recharge = self.recharge
             else:
                 time = np.array(range(len(self.recharge)))
-                recharge = self.recharge.values
+                recharge = self.recharge.squeeze().values
                
         npy_list = [] 
         for f in os.listdir(self.save_file):

@@ -198,12 +198,14 @@ class SurfaceOutputs():
         # Open data
         self.df = pd.read_csv(os.path.join(self.dir_to_analyse,'_simulated_results.csv'), sep=';',
                          index_col='date', parse_dates=True)
+        print(self.df)
         try:
             self.first = self.df.first_valid_index().year
             self.last = self.df.last_valid_index().year    
         except:
             pass
-        self.df['spe'] = (self.df.outflow_drain) * 1000 # m/j to mm/j
+        
+        self.df['spe'] = (self.df['outflow_drain']) * 1000 # m/j to mm/j
         self.df['rec'] = self.recharge * 1000 # m/j to mm/j
         self.maxrec = self.df['rec'].max()
         # Dem to watershed scale
