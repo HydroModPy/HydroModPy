@@ -455,7 +455,7 @@ porosity_list = np.linspace(0.1, 0.3, 9)
 
 #%% TYP SIM NAMING
 
-typ = 'test-1'
+typ = 'test-vlays'
 
 #%% RUN MODEL
 
@@ -485,11 +485,13 @@ for watershed_name in watershed_names[:] :
     post_process = False # necessary to decompose post process of process
     
     # Strcture of the model
-    nlay = 1 # vertical discrtization
-    bottom = None # aquifer flat or not
+    nlay = 2 # vertical discrtization
+    bottom = 200 # aquifer flat or not
     thick_exp = 1 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
     thick = 100 # m
+    verti_k = [[1e-5],[40]] # None
+    # verti_k = None
     
     # Hydraulic properties
     Koptim = 40 / 365 / 24 / 3600 # m/y to m/s
@@ -531,21 +533,28 @@ for watershed_name in watershed_names[:] :
                              str(Sy*100)+'-'+str(round(K,2))+'-'+str(thick)
 
             # Run model
-            try:
-                print('SIM - ' + model_name)
-                success, flow_model = BV.run_modflow(ident=model_name,
-                                                     modpath_sim=modpath_sim,
-                                                     sink_fill=sink_fill,
-                                                     box=box,
-                                                     verbose=verbose,
-                                                     post_process=post_process, 
-                                                     init_rech=init_rech)
-                if success == True:
-                    print(     'Success')
-                else:
-                    print(     'Error')
-            except:
-                pass
+            from watershed import watershed_root, watershed_display, forcing
+            from watershed.data import climatic
+            from tools import toolbox, vtk
+            from groundwater_flow import visualization, modflow_display
+            from calibration import calib_root
+            
+            # try:
+            print('SIM - ' + model_name)
+            success, flow_model = BV.run_modflow(ident=model_name,
+                                                 modpath_sim=modpath_sim,
+                                                 sink_fill=sink_fill,
+                                                 box=box,
+                                                 verbose=verbose,
+                                                 post_process=post_process, 
+                                                 init_rech=init_rech,
+                                                 verti_k=verti_k)
+            if success == True:
+                print(     'Success')
+            else:
+                print(     'Error')
+            # except:
+            #     pass
             list_model_name.append(model_name)
             list_of_success.append(success)
             list_flow_model.append(flow_model)
@@ -671,10 +680,10 @@ for watershed_name in watershed_names[:]:
 
     visu = visualization.Visualization(BV, model_name)
     
-    # visu.visual2D(object_list = ['grid', 'watertable', 'watertable_depth',
-    #                               'drain_flow', 'surface_flow'],
-    #               color_scale = [(None,None),(None,None),(0,10),
-    #                               (None,None),(None,None)])
+    visu.visual2D(object_list = ['grid', 'watertable', 'watertable_depth',
+                                  'drain_flow', 'surface_flow'],
+                  color_scale = [(None,None),(None,None),(0,10),
+                                  (None,None),(None,None)])
     
     # visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
     #                               'drain_flow', 'surface_flow','pathlines','residence_times'],
@@ -682,9 +691,9 @@ for watershed_name in watershed_names[:]:
     #                               (None,None),(None,None),(None,None),(None,None)],
     #               lines = 100)
     
-    visu.visual2D(object_list = ['pathlines'],
-                  color_scale = [(None,None)],
-                  lines=None)
+    # visu.visual2D(object_list = ['pathlines'],
+    #               color_scale = [(None,None)],
+    #               lines=None)
     
 #%%---- PATHLINES
 
@@ -912,4 +921,34 @@ visu = visualization.Visualization(BV, model_name)
 visu.visual2D(object_list = ['pathlines'],
               color_scale = [(None,None)], lines=100*2)
 
+#%% TEST PLOT CROSS SECTION K
 
+import flopy
+
+naming = 'test-vlays_1_10.0-0.11-100'
+
+mf = flopy.modflow.Modflow.load(
+    'D:/Users/abherve/GUADELOUPE/Test/results_simulations/'+
+    naming+'/'+naming+'.nam')
+fname = 'D:/Users/abherve/GUADELOUPE/Test/results_simulations/'+naming+'/'+naming+'.hds'
+fig = plt.figure(figsize=(7, 3))
+ax = fig.add_subplot(1, 1, 1)
+xsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': 50})
+linecollection = xsect.plot_grid()
+Kv = np.zeros((2,106,209))
+Kv[0,:,:] = 1e-5 #first layer of lime
+Kv[1,:,:] = 1e-6 #second layer of sand
+# xsect.plot_array(Kv)
+patches = xsect.plot_ibound()
+# linecollection = xsect.plot_grid()
+
+hdobj = flopy.utils.HeadFile(fname)
+head = hdobj.get_data()
+pc = xsect.plot_array(head,
+                      masked_values=[-9999.0], head=head, alpha=0.5)
+patches = xsect.plot_ibound(head=head)
+linecollection = xsect.plot_grid()
+cb = plt.colorbar(pc, shrink=0.75)
+ax.set_ylim(100,500)
+
+#%%
