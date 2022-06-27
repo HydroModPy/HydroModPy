@@ -526,7 +526,8 @@ class Modflow():
                 for j in range(len(e)):
                     # time_out = pth_data[j].time[0] # explore pathlines
                     # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
-                    res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
+                    # res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
+                    res_time[e[j].i,e[j].j] = (e[j].time) / 365 # where outputed in years
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
