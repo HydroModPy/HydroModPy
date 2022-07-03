@@ -1440,7 +1440,7 @@ watershed_names = [
                    'Gael',
                    # 'Monfort',
                    'Vaunoise',
-                   # 'Jouan',
+                   'Jouan',
                    'Neal',
                    # 'Rophemel',
                    'Nancon',
@@ -1458,8 +1458,8 @@ for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
     
     min_nse = 65
-    min_sat = 3
-    max_sat = 25
+    min_maxsat = 3
+    max_maxsat = 25
     
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -1546,8 +1546,8 @@ for watershed_name in watershed_names[:]:
         
         if nselog > min_nse:
             # if all(i <= 50 for i in sat):
-            if sat.max() < max_sat:
-                if sat.max() > min_sat:    
+            if sat.max() < max_maxsat:
+                if sat.max() > min_maxsat:    
                 
                     ax = axs[0]
                     fmt_xaxes(axs[0], 6, 1)                 
@@ -1690,7 +1690,7 @@ for watershed_name in watershed_names[:]:
     ax.set_xlabel('K [m/j]')
     
     plt.tight_layout()
-
+    
 #%% ---- MODEL
 
 #%% TYP SIM NAMING
@@ -1700,31 +1700,38 @@ for watershed_name in watershed_names[:]:
 typ = 'projec-2'
 # typ = 'reanal-1'
 # typ = 'steady-1'
+typ = 'pathlines-1'
 
 mod_list = ['MPI-CCL','ECE-RCA','ECE-RAC','CNR-RAC',
             'NOR-R15','CNR-ALA','HAD-REG','MPI-R09']
 # mod_list = ['CNR-ALA']
 # mod_list = ['MPI-R09','NOR-R15']
 # mod_list = ['MPI-R09']
-# mod_list = ['REA']
+mod_list = ['REA']
 
-# sce_list = ['historic']
-sce_list = ['RCP2.6','RCP8.5']
+sce_list = ['historic']
+# sce_list = ['RCP2.6','RCP8.5']
 # sce_list = ['RCP2.6']
 
 #%% PARAM RUN MODEL
 
 sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 modpath_sim = True # run modpath particle tracking if True
-nlay = 1
+nlay = 10
 
 watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+
+watershed_names = ['Dam']
 code_names = ['J7513010','J0014010']
 
 # watershed_names = ['Canut']
 # code_names = ['J7513010']
 
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+normalize=False
+
+for watershed_name in watershed_names[:] :
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -1735,16 +1742,21 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                   out_path=out_path,
                                   load=True,
                                   modflow_path=modflow_path)
+    BV.add_forcing()
+    BV.add_hydrodynamic()
     
     # Observed discharge
-    raw_path = stable_folder+'/'+'hydrometry/'
-    Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
-    Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
-    area = BV.geographic.area
-    # area = float(Qobs_path.split('_')[-3])
-    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-    Qobs = Qobs.squeeze()
-    Qobs = Qobs.resample('M').mean()
+    try:
+        raw_path = stable_folder+'/'+'hydrometry/'
+        Qobs_path = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')[0]
+        Qobs = pd.read_csv(raw_path+Qobs_path, sep=';', index_col=0, parse_dates=True)
+        area = BV.geographic.area
+        # area = float(Qobs_path.split('_')[-3])
+        Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+        Qobs = Qobs.squeeze()
+        Qobs = Qobs.resample('M').mean()
+    except:
+        pass
     
     # Input recharge
     bzh_rech = False
@@ -1761,18 +1773,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     
     # Strcture of the model
     lay_number = 1 # vertical discrtization
-    bottom = None # aquifer flat or not
+    bottom = 0 # aquifer flat or not
     thick_exp = 1 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
     thick = 30 # m
     
     # Hydraulic properties
-    if watershed_name == 'Canut':
-        Koptim = 5.5e-5 # koptim 1.4e-5 / 5.33e-5
-        Sy = 0.002
-    if watershed_name == 'Nancon':
-        Koptim = 5.5e-5 # koptim 8e-6 / 5.82e-5
-        Sy = 0.02
+    Koptim = 1e-5 # koptim 1.4e-5 / 5.33e-5
+    Sy = 0.01
     Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
     Sys = [Sy]
     
@@ -1812,35 +1820,50 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 first_norm = period_norm[0]
                 last_norm = period_norm[1]
                                     
-            Q_norm = select_period(Qobs, first_norm, last_norm)
-
             if mod == 'REA':
-                # Normalize
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                                  first_year = first_norm, last_year = last_norm,
-                                                  time_step = time_step, sim_state = sim_state)
-                Rech_norm = BV.forcing.recharge
+                if normalize == True:
+                    
+                    Q_norm = select_period(Qobs, first_norm, last_norm)
+                    
+                    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                      first_year = first_norm, last_year = last_norm,
+                                                      time_step = time_step, sim_state = sim_state)
+                    Rech_norm = BV.forcing.recharge
                 
-                # for t in Q_norm.index.year:
-                    # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
-                    # print(Ratio_norm.round(2))
-                Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
-                
-                # Historic
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
-                                                  first_year = first, last_year = last,
-                                                  time_step = time_step, sim_state = sim_state)
-                Rech = BV.forcing.recharge * Ratio_norm
-                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
-                                                first_year = first, last_year = last,
-                                                time_step = time_step, sim_state = sim_state)
-                Runof = BV.forcing.runoff # m/month
-                
-                # Update recharge
-                BV.forcing.update_recharge(Rech , sim_state = sim_state)
-                BV.forcing.update_runoff(Runof, sim_state = sim_state)
-                                                    
+                    # for t in Q_norm.index.year:
+                        # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
+                        # print(Ratio_norm.round(2))
+                    Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
+                    
+                    # Historic
+                    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                                                      first_year = first, last_year = last,
+                                                      time_step = time_step, sim_state = sim_state)
+                    Rech = BV.forcing.recharge * Ratio_norm
+                    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
+                                                    first_year = first, last_year = last,
+                                                    time_step = time_step, sim_state = sim_state)
+                    Runof = BV.forcing.runoff # m/month
+                    
+                    # Update recharge
+                    BV.forcing.update_recharge(Rech , sim_state = sim_state)
+                    BV.forcing.update_runoff(Runof, sim_state = sim_state)
+                else:
+                    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                                                      first_year = first, last_year = last,
+                                                      time_step = time_step, sim_state = sim_state)
+                    Rech = BV.forcing.recharge
+                    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce=sce,
+                                                    first_year = first, last_year = last,
+                                                    time_step = time_step, sim_state = sim_state)
+                    Runof = BV.forcing.runoff # m/month
+                    BV.forcing.update_recharge(Rech , sim_state = sim_state)
+                    BV.forcing.update_runoff(Runof, sim_state = sim_state)
+                    
             if mod != 'REA':
+                
+                Q_norm = select_period(Qobs, first_norm, last_norm)
+                
                 gcm = mod.split('-')[0]
                 rcm = mod.split('-')[1]
                 
@@ -1947,10 +1970,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                         
 #%% POSTPROCESS MODEL
 
-watershed_names = ['Canut','Nancon']
-code_names = ['J7513010','J0014010']
-
-for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+for watershed_name in watershed_names :
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -1961,6 +1981,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                   out_path=out_path,
                                   load=True,
                                   modflow_path=modflow_path)
+    BV.add_forcing()
     
     
     for mod in mod_list:
@@ -1989,7 +2010,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                                           accumulation_flux = True,
                                           perenn_intermit_shp = False,
                                           groundwater_storage = False,
-                                          residence_times = False,
+                                          residence_times = True,
                                           verbose = True,
                                           export_tif = True)
                         
@@ -2224,8 +2245,6 @@ all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding=
 
 #%% EXTRACT PATHLINES TIMES
 
-watershed_names = ['Canut','Nancon']
-
 for watershed_name in watershed_names[:] :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -2236,7 +2255,7 @@ for watershed_name in watershed_names[:] :
                                   load=True,
                                   modflow_path=modflow_path)
     
-    df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+    # df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
@@ -2256,7 +2275,7 @@ for watershed_name in watershed_names[:] :
     # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
                   # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
     visu.visual2D(object_list = ['pathlines'],
-                  color_scale = [(None,None)], lines=1000)
+                  color_scale = [(None,None)], lines=None)
 
 #%% CROSS SECTION 2D INTERAC
 
@@ -3598,7 +3617,7 @@ watershed_names = [
                    'Gael',
                    # 'Monfort',
                    'Vaunoise',
-                   # 'Jouan',
+                    'Jouan',
                    'Neal',
                    # 'Rophemel',
                    'Nancon',
@@ -3826,9 +3845,13 @@ for watershed_name in watershed_names[:]:
     # # position=fig2.add_axes([1.05,0.2,0.02,0.7])  ## the parameters are the specified position you set 
     # # fig2.colorbar(pc,cax=position)
     
+    ax.set_title(watershed_name)
     plt.tight_layout()
     
     # fig.savefig(figsim_folder+watershed_name+'_calib2D_map'+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/15_results/EBR_v1/out/_calib/' + 
+                watershed_name + '.png', dpi=300, bbox_inches='tight')
+
 
 #%% 03_intermittency map
 
