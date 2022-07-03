@@ -5,7 +5,7 @@ Created on Wed Jan 26 10:49:18 2022
 @author: ronan
 """
 
-#%% LIBRARIES MODULES
+#%% LIBRARIES MODULES£
 
 # General
 import sys
@@ -455,12 +455,14 @@ porosity_list = np.linspace(0.1, 0.3, 9)
 
 #%% TYP SIM NAMING
 
-typ = 'test-vlays'
+typ = 'case1-k1+k2'
 
 #%% RUN MODEL
 
 sim_state = 'steady' # 'steady' or 'transient'
 modpath_sim = True # run modpath particle tracking if True
+
+run = True
 
 for watershed_name in watershed_names[:] :
     
@@ -486,15 +488,17 @@ for watershed_name in watershed_names[:] :
     
     # Strcture of the model
     nlay = 2 # vertical discrtization
-    bottom = 200 # aquifer flat or not
+    bottom = None # aquifer flat or not
     thick_exp = 1 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
     thick = 100 # m
-    verti_k = [[1e-5],[40]] # None
+    verti_k = [[(2e-6)*3600* 24],
+               [40]] # None
     # verti_k = None
     
     # Hydraulic properties
-    Koptim = 40 / 365 / 24 / 3600 # m/y to m/s
+    # Koptim = 40 / 365 / 24 / 3600 # m/y to m/s
+    Koptim = 2e-7
     Sy = 0.1
 
     Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
@@ -530,7 +534,7 @@ for watershed_name in watershed_names[:] :
             date_today = date_today.replace(' ','_')
             
             model_name = typ+'_'+str(compt)+'_'+\
-                             str(Sy*100)+'-'+str(round(K,2))+'-'+str(thick)
+                             str(Sy*100)+'-'+str(round(K,2))+'-'+str(thick)+'_'+str(nlay)
 
             # Run model
             from watershed import watershed_root, watershed_display, forcing
@@ -539,16 +543,17 @@ for watershed_name in watershed_names[:] :
             from groundwater_flow import visualization, modflow_display
             from calibration import calib_root
             
-            # try:
-            print('SIM - ' + model_name)
-            success, flow_model = BV.run_modflow(ident=model_name,
-                                                 modpath_sim=modpath_sim,
-                                                 sink_fill=sink_fill,
-                                                 box=box,
-                                                 verbose=verbose,
-                                                 post_process=post_process, 
-                                                 init_rech=init_rech,
-                                                 verti_k=verti_k)
+            if run == True:
+                # try:
+                print('SIM - ' + model_name)
+                success, flow_model = BV.run_modflow(ident=model_name,
+                                                     modpath_sim=modpath_sim,
+                                                     sink_fill=sink_fill,
+                                                     box=box,
+                                                     verbose=verbose,
+                                                     post_process=post_process, 
+                                                     init_rech=init_rech,
+                                                     verti_k=verti_k)
             if success == True:
                 print(     'Success')
             else:
@@ -697,6 +702,50 @@ for watershed_name in watershed_names[:]:
     
 #%%---- PATHLINES
 
+#%% PLOT CROSS SECTION MAP VIEW
+
+import flopy
+
+for watershed_name in watershed_names[:]:
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+        
+    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                        key=os.path.getmtime, reverse=True)
+    model_name = list_path[-1].split('\\')[-1]
+    
+    mf = flopy.modflow.Modflow.load(
+        simulations_folder+model_name+'/'+model_name+'.nam')
+    fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    fig = plt.figure(figsize=(7, 3))
+    ax = fig.add_subplot(1, 1, 1)
+    xsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': 50})
+    linecollection = xsect.plot_grid()
+    Kv = np.zeros((2,106,209))
+    Kv[0,:,:] = 1e-5 #first layer of lime
+    Kv[1,:,:] = 1e-6 #second layer of sand
+    # xsect.plot_array(Kv)
+    patches = xsect.plot_ibound()
+    # linecollection = xsect.plot_grid()
+    
+    hdobj = flopy.utils.HeadFile(fname)
+    head = hdobj.get_data()
+    pc = xsect.plot_array(head,
+                          masked_values=[-9999.0], head=head, alpha=0.5)
+    patches = xsect.plot_ibound(head=head)
+    linecollection = xsect.plot_grid()
+    cb = plt.colorbar(pc, shrink=0.75)
+    ax.set_ylim(100,500)
+    
+    # xsect.plot_pathline(pth_data, travel_time=None)
+    # xsect.plot_endpoint(e, direction='ending')
+
 #%% EXTRACT RESIDENCE TIMES
 
 wateshed_name = 'Test'
@@ -713,15 +762,14 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 dem = rasterio.open(BV.geographic.watershed_dem)
 dem_data = dem.read(1)
 
-case = 'test-1_1_10.0-0.11-100'
-# case_list = ['test-1']
-# prop_list = [[50, 1000, dc[0]]]
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=True)
+model_name = list_path[-1].split('\\')[-1]
 
 compt=0
 # for case, prop in zip(case_list[:], prop_list[:]):
 #     for porosity in porosity_list[:]:
     
-model_name = case # +'_'+str(porosity)
 folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
 
 path_res = folder_results+'residence_times_t(0).tif'
@@ -889,7 +937,7 @@ compt+=1
 
 #%% EXTRACT PATHLINES TIMES
 
-wateshed_name = 'Test'
+watershed_name = 'Test'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
@@ -903,15 +951,14 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 dem = rasterio.open(BV.geographic.watershed_dem)
 dem_data = dem.read(1)
 
-case = 'test-1_1_10.0-0.11-100'
-# case_list = ['test-1']
-# prop_list = [[50, 1000, dc[0]]]
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=True)
+model_name = list_path[-1].split('\\')[-1]
 
 compt=0
 # for case, prop in zip(case_list[:], prop_list[:]):
 #     for porosity in porosity_list[:]:
     
-model_name = case # +'_'+str(porosity)
 folder_results = simulations_folder + '/' + model_name + '/' + '_watershed/_tifs/'
 
 ##### LOOOP 2D #####
@@ -919,36 +966,147 @@ visu = visualization.Visualization(BV, model_name)
 # visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'],
               # color_scale = [(None,None),(0,140),(0,140),(0,2),(None,None),(None,None),(None,None),(None,None)], lines=10000)
 visu.visual2D(object_list = ['pathlines'],
-              color_scale = [(None,None)], lines=100*2)
+              color_scale = [(None,None)], lines=1000)
 
-#%% TEST PLOT CROSS SECTION K
+#%% FLOPY IMPORT TRACKING DATA
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
 
 import flopy
 
-naming = 'test-vlays_1_10.0-0.11-100'
+for watershed_name in watershed_names[:]:
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+        
+    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                        key=os.path.getmtime, reverse=True)
+    model_name = list_path[-1].split('\\')[-1]
 
-mf = flopy.modflow.Modflow.load(
-    'D:/Users/abherve/GUADELOUPE/Test/results_simulations/'+
-    naming+'/'+naming+'.nam')
-fname = 'D:/Users/abherve/GUADELOUPE/Test/results_simulations/'+naming+'/'+naming+'.hds'
-fig = plt.figure(figsize=(7, 3))
-ax = fig.add_subplot(1, 1, 1)
-xsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': 50})
-linecollection = xsect.plot_grid()
-Kv = np.zeros((2,106,209))
-Kv[0,:,:] = 1e-5 #first layer of lime
-Kv[1,:,:] = 1e-6 #second layer of sand
-# xsect.plot_array(Kv)
-patches = xsect.plot_ibound()
-# linecollection = xsect.plot_grid()
+    res_time = np.zeros(np.shape(dem))
+    endobj = flopy.utils.EndpointFile(simulations_folder+
+                                      model_name+'/'+model_name+'.mpend')
+    e = endobj.get_alldata()
+    for j in range(len(e)):
+        # time_out = pth_data[j].time[0] # explore pathlines
+        # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+        res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+    res_time = np.ma.masked_where(res_time <= 0, res_time)
+    image_hidden = ax.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time),
+                                 cmap='jet', vmin=None, vmax=None)
+    # image.append(image_hidden)
+    # basemap.append(1)
+    # show(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time), ax=ax, 
+    #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto",
+    #      vmin=None, vmax=None)
+    # endobj.write_shapefile(endpoint_data=e,
+    #                        shpname='D:/Users/abherve/GUADELOUPE/Shp/endpoints.shp',
+    #                        direction='ending',
+    #                        mg=None, epsg=None, sr=None)
+    
+    pthobj = flopy.utils.PathlineFile(simulations_folder+
+                                      model_name+'/'+model_name+'.mppth')
+    pth_data = pthobj.get_alldata()
+    
+    keep = []
+    for i, j in enumerate(pth_data):
+        if len(np.unique(j.k))==1:
+            if np.unique(j.k)[0] == 0:
+                keep.append(j)
+    
+    ml = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
 
-hdobj = flopy.utils.HeadFile(fname)
-head = hdobj.get_data()
-pc = xsect.plot_array(head,
-                      masked_values=[-9999.0], head=head, alpha=0.5)
-patches = xsect.plot_ibound(head=head)
-linecollection = xsect.plot_grid()
-cb = plt.colorbar(pc, shrink=0.75)
-ax.set_ylim(100,500)
+#%% PLOT WITH LINECOLLECTION
 
-#%%
+from matplotlib.collections import LineCollection
+
+color_scale = [(None,None)]
+
+fig, ax = plt.subplots()
+show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, 
+         transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
+
+layers = [1,0]
+color_layers = ['red','dodgerblue']
+dict_layers = dict(zip(layers, color_layers))
+
+for lay in layers:
+    
+    if lay == 0:
+        keep = []
+        for i, j in enumerate(pth_data):
+            if len(np.unique(j.k))==1:
+                if np.unique(j.k)[0] == lay:
+                    keep.append(j)
+    if lay == 1:
+        keep = []
+        for i, j in enumerate(pth_data):
+            if len(np.unique(j.k))!=1:
+                keep.append(j)
+        
+    random_indices = np.random.choice(len(keep), size=1000) # RANDOM LINES
+    # random_indices = np.arange(len(keep))
+    geotx_p = BV.geographic.x_coord
+    geoty_p = BV.geographic.y_coord
+    geot_p = BV.geographic.geodata
+    cols = geotx_p.shape[0]
+    rows = geoty_p.shape[0]
+    ext = []
+    xarr = [0, cols]
+    yarr = [0, rows]
+    for px in xarr:
+        for py in yarr:
+            x = geotx_p[0] + (px * geot_p[1]) + (py * geot_p[2])
+            y = geoty_p[0] + (px * geot_p[4]) + (py * geot_p[5])
+            ext.append([x, y])
+    max_time = []
+    min_time = []
+    for j in random_indices:
+        max_time.append(np.max(np.log10(keep[j].time)))
+        min_time.append(np.min(np.log10(keep[j].time)))
+    for j in random_indices:
+        x = keep[j].x + ext[1][0]
+        y = keep[j].y + ext[1][1]
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        # lc = LineCollection(segments, cmap='jet', alpha=0.5)
+        lc = LineCollection(segments, color=dict_layers[lay], alpha=0.5)
+        # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
+        lc.set_array(pth_data[j].time / 365) # t in years
+        lc.set_linewidth(2)
+        lc.set_clim(1,np.max(max_time))
+        line = ax.add_collection(lc) 
+    
+        # fig, ax = plt.subplots(1)
+        # ax.add_collection(lc)
+        # axcb = fig.colorbar(lc, pad=0.02)
+
+contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+
+#%% PLOT WITH MAPVIEW
+
+fig, ax = plt.subplots(1,1, figsize=(8, 8))
+show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, 
+         transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
+# mapview = flopy.plot.PlotMapView(model=ml)
+# ibound = mapview.plot_ibound()
+# linecollection = mapview.plot_grid()
+# kwargs = {'layer':'10','colors':'red'}
+# pathlines = mapview.plot_pathline(pth_data,
+#                                   **kwargs)
+# mapview.plot_pathline(pth_data, layer='10', colors="blue");
+# line = ax.add_collection(pathlines)
+mm = flopy.plot.PlotMapView(model=ml, layer=0)
+# mm.plot_grid(lw=0)
+mm.plot_pathline(pth_data, layer=1, lw=0.5, colors='red', travel_time=None)
+# mm.plot_pathline(pth_data, layer=0, lw=0.5, colors='dodgerblue', travel_time=None)
+# mm.plot_endpoint(e, direction="ending", colorbar=True, size=10)
+mm.ax.legend()
+
+
