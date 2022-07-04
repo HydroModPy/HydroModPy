@@ -438,6 +438,7 @@ for watershed_name in watershed_names[:] :
 
 #%% CASES TO TEST
 
+'''
 #['nlay', 'thickness', 'bottom', 'cond_decay', 'thick_exp']
 ['thickness', 'bottom', 'cond_decay']
 
@@ -452,9 +453,11 @@ prop_list = [[50, None, 0], [50, 1000, 0], [50, 1000, dc[0]], [50, 1000, dc[1]],
 porosity_list = np.linspace(0.1, 0.3, 9)
 
 # for case, prop in zip(case_list[:], prop_list[:]):
+'''
 
 #%% TYP SIM NAMING
 
+typ = 'case1-k1-k2'
 typ = 'case1-k1+k2'
 
 #%% RUN MODEL
@@ -492,13 +495,13 @@ for watershed_name in watershed_names[:] :
     thick_exp = 1 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
     thick = 100 # m
-    verti_k = [[(2e-6)*3600* 24],
+    verti_k = [[(2e-7)*3600* 24],
                [40]] # None
     # verti_k = None
     
     # Hydraulic properties
     # Koptim = 40 / 365 / 24 / 3600 # m/y to m/s
-    Koptim = 2e-7
+    Koptim = 2e-6
     Sy = 0.1
 
     Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
@@ -700,9 +703,14 @@ for watershed_name in watershed_names[:]:
     #               color_scale = [(None,None)],
     #               lines=None)
     
+#%% STEADY 3D MAP VIEW
+
+    
 #%%---- PATHLINES
 
-#%% PLOT CROSS SECTION MAP VIEW
+#%% FLOPY IMPORT TRACKING DATA
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
 
 import flopy
 
@@ -715,7 +723,65 @@ for watershed_name in watershed_names[:]:
                                   out_path=out_path,
                                   load=True,
                                   modflow_path=modflow_path)
-        
+    
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+    
+    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                        key=os.path.getmtime, reverse=True)
+    model_name = list_path[-1].split('\\')[-1]
+
+    res_time = np.zeros(np.shape(dem))
+    endobj = flopy.utils.EndpointFile(simulations_folder+
+                                      model_name+'/'+model_name+'.mpend')
+    e = endobj.get_alldata()
+    for j in range(len(e)):
+        # time_out = pth_data[j].time[0] # explore pathlines
+        # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+        res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+    res_time = np.ma.masked_where(res_time <= 0, res_time)
+    image_hidden = ax.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time),
+                                 cmap='jet', vmin=None, vmax=None)
+    # image.append(image_hidden)
+    # basemap.append(1)
+    # show(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time), ax=ax, 
+    #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto",
+    #      vmin=None, vmax=None)
+    # endobj.write_shapefile(endpoint_data=e,
+    #                        shpname='D:/Users/abherve/GUADELOUPE/Shp/endpoints.shp',
+    #                        direction='ending',
+    #                        mg=None, epsg=None, sr=None)
+    
+    pthobj = flopy.utils.PathlineFile(simulations_folder+
+                                      model_name+'/'+model_name+'.mppth')
+    pth_data = pthobj.get_alldata()
+    
+    keep = []
+    for i, j in enumerate(pth_data):
+        if len(np.unique(j.k))==1:
+            if np.unique(j.k)[0] == 0:
+                keep.append(j)
+    
+    ml = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+
+#%% PLOT CROSS SECTION MAP VIEW
+
+import flopy
+import matplotlib.pyplot as plt
+
+for watershed_name in watershed_names[:]:
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+    
     list_path = sorted(glob.glob(simulations_folder+typ+'*'),
                         key=os.path.getmtime, reverse=True)
     model_name = list_path[-1].split('\\')[-1]
@@ -723,30 +789,56 @@ for watershed_name in watershed_names[:]:
     mf = flopy.modflow.Modflow.load(
         simulations_folder+model_name+'/'+model_name+'.nam')
     fname = simulations_folder+model_name+'/'+model_name+'.hds'
-    fig = plt.figure(figsize=(7, 3))
-    ax = fig.add_subplot(1, 1, 1)
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    
+    fig, ax = plt.subplots(1,1, figsize=(7, 3))
     xsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': 50})
-    linecollection = xsect.plot_grid()
-    Kv = np.zeros((2,106,209))
-    Kv[0,:,:] = 1e-5 #first layer of lime
-    Kv[1,:,:] = 1e-6 #second layer of sand
+    
+    linecollection = xsect.plot_grid(color='k', lw=1)
+    
+    # Kv = np.zeros((2,106,209))
+    # Kv[0,:,:] = 1e-5 #first layer of lime
+    # Kv[1,:,:] = 1e-6 #second layer of sand
     # xsect.plot_array(Kv)
-    patches = xsect.plot_ibound()
-    # linecollection = xsect.plot_grid()
+    
+    xsect.get_extent()
+    # xsect.plot_bc()
     
     hdobj = flopy.utils.HeadFile(fname)
     head = hdobj.get_data()
-    pc = xsect.plot_array(head,
-                          masked_values=[-9999.0], head=head, alpha=0.5)
-    patches = xsect.plot_ibound(head=head)
-    linecollection = xsect.plot_grid()
-    cb = plt.colorbar(pc, shrink=0.75)
-    ax.set_ylim(100,500)
-    
-    # xsect.plot_pathline(pth_data, travel_time=None)
-    # xsect.plot_endpoint(e, direction='ending')
+        
+    xsect.plot_fill_between(head, color='saddlebrown', edgecolor='none',
+                            alpha=0.5)
 
-#%% EXTRACT RESIDENCE TIMES
+    pc = xsect.plot_array(head,
+                          masked_values=[-9999.0], head=head, alpha=0.5,
+                          cmap = 'Blues', lw=0,
+                          vmin=200, vmax=400)
+    # patches = xsect.plot_ibound(head=head)
+    # linecollection = xsect.plot_grid()
+    cb = plt.colorbar(pc, shrink=0.75)
+    ax.set_ylim(200,400)
+    ax.set_xlim(150,1000)
+    
+    
+    # xsect.plot_pathline(pth_data[3000:3050], method='all', colors='k')
+    # xsect.plot_endpoint(e, direction='ending')
+    
+    # keep = []
+    # for i, j in enumerate(pth_data[:]):
+    #     if (j.z<250).any():
+    #         print(i, len(pth_data))
+    #         keep.append(j)
+    #         ax.plot(j.x, j.z, color='red')
+
+    keep_idx = []
+    for i, j in enumerate(pth_data):
+        if len(np.unique(j.k)) != 1:
+            print(i, len(pth_data))
+            keep_idx.append(i)
+            ax.plot(j.x, j.z, color='darkorange')
+    
+#%% EXTRACT RESIDENCE TIMES 2D
 
 wateshed_name = 'Test'
 
@@ -935,7 +1027,7 @@ compt+=1
 # all_dat['coords'] = np.nan
 # all_dat.to_file(simulations_folder+'residence_times_all.shp', sep=';', encoding='utf-8')
 
-#%% EXTRACT PATHLINES TIMES
+#%% EXTRACT PATHLINES TIMES 2D
 
 watershed_name = 'Test'
 
@@ -968,60 +1060,7 @@ visu = visualization.Visualization(BV, model_name)
 visu.visual2D(object_list = ['pathlines'],
               color_scale = [(None,None)], lines=1000)
 
-#%% FLOPY IMPORT TRACKING DATA
-
-fig, ax = plt.subplots(1,1, figsize=(5,5))
-
-import flopy
-
-for watershed_name in watershed_names[:]:
-    
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
-        
-    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
-                        key=os.path.getmtime, reverse=True)
-    model_name = list_path[-1].split('\\')[-1]
-
-    res_time = np.zeros(np.shape(dem))
-    endobj = flopy.utils.EndpointFile(simulations_folder+
-                                      model_name+'/'+model_name+'.mpend')
-    e = endobj.get_alldata()
-    for j in range(len(e)):
-        # time_out = pth_data[j].time[0] # explore pathlines
-        # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
-        res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
-    res_time = np.ma.masked_where(res_time <= 0, res_time)
-    image_hidden = ax.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time),
-                                 cmap='jet', vmin=None, vmax=None)
-    # image.append(image_hidden)
-    # basemap.append(1)
-    # show(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time), ax=ax, 
-    #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto",
-    #      vmin=None, vmax=None)
-    # endobj.write_shapefile(endpoint_data=e,
-    #                        shpname='D:/Users/abherve/GUADELOUPE/Shp/endpoints.shp',
-    #                        direction='ending',
-    #                        mg=None, epsg=None, sr=None)
-    
-    pthobj = flopy.utils.PathlineFile(simulations_folder+
-                                      model_name+'/'+model_name+'.mppth')
-    pth_data = pthobj.get_alldata()
-    
-    keep = []
-    for i, j in enumerate(pth_data):
-        if len(np.unique(j.k))==1:
-            if np.unique(j.k)[0] == 0:
-                keep.append(j)
-    
-    ml = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
-
-#%% PLOT WITH LINECOLLECTION
+#%% SEPARATE WITH LINECOLLECTION
 
 from matplotlib.collections import LineCollection
 
@@ -1041,12 +1080,12 @@ for lay in layers:
         keep = []
         for i, j in enumerate(pth_data):
             if len(np.unique(j.k))==1:
-                if np.unique(j.k)[0] == lay:
+                if np.unique(j.k)[0] == 0:
                     keep.append(j)
     if lay == 1:
         keep = []
         for i, j in enumerate(pth_data):
-            if len(np.unique(j.k))!=1:
+            if len(np.unique(j.k)) != 1:
                 keep.append(j)
         
     random_indices = np.random.choice(len(keep), size=1000) # RANDOM LINES
@@ -1089,7 +1128,7 @@ for lay in layers:
 contour = gpd.read_file(BV.geographic.watershed_contour_shp)
 contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
 
-#%% PLOT WITH MAPVIEW
+#%% SEPARATE WITH MAPVIEW
 
 fig, ax = plt.subplots(1,1, figsize=(8, 8))
 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, 
@@ -1108,5 +1147,231 @@ mm.plot_pathline(pth_data, layer=1, lw=0.5, colors='red', travel_time=None)
 # mm.plot_pathline(pth_data, layer=0, lw=0.5, colors='dodgerblue', travel_time=None)
 # mm.plot_endpoint(e, direction="ending", colorbar=True, size=10)
 mm.ax.legend()
+
+#%% PATHLINES 3D
+
+import matplotlib.pyplot as p
+
+watershed_name = 'Test'
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = dem.read(1)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=True)
+modelname = list_path[-1].split('\\')[-1]
+
+from groundwater_flow import visualization
+# vtk.VTK(BV, model_name)
+# visu = visualization.Visualization(BV, model_name)
+# visu.visual3D(interactive=True, object_list=['grid','watertable'], view='south-west')
+
+object_list = ['grid', 'pathlines']
+view = 'south-west'
+bg = 'lb'
+interactive = True
+lines=100
+z_scale=1
+render=1
+cscale = 'default'
+cmin = -1
+cmax = 1
+cloc=(0.65,0.75)
+size=(1500,1080)
+
+import vedo
+
+vedo.settings.screeshotScale = render
+plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
+                                  yzGrid=False), size=size)
+
+# load files
+contour = vedo.Mesh(os.path.join(BV.simulations_folder,
+                                 modelname,
+                                 '_watershed',
+                                 'VTK',
+                                 'VTU_watershed_contour.vtk'))
+contour.scale([1,1,z_scale])
+contour.color('k').lw(2)
+contour.renderLinesAsTubes(value=True)
+
+try:
+    stream = vedo.Mesh(os.path.join(BV.simulations_folder, modelname, '_watershed', 'VTK','VTU_streams.vtk'))
+    stream.scale([1,1,z_scale])
+    stream.color('b').lw(5)
+    stream.renderLinesAsTubes(value=True)
+except:
+    stream=None
+    pass
+
+try:
+    grid = os.path.join(BV.simulations_folder, modelname, '_watershed', 'VTK','VTU_Grid.vtu')
+    grid_mesh = vedo.Mesh(grid) #grid_mesh
+    grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
+    if bg == 'white':
+        grid_wireframe.color('black')
+    else:
+        grid_wireframe.color('white')
+    grid_wireframe.scale([1,1,z_scale])
+    grid_wireframe.alpha(0.1)
+    plt += grid_wireframe.flag()
+    
+    zvals = grid_mesh.points()[:, 2]
+    grid_mesh.addElevationScalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
+    grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
+    grid_mesh.addScalarBar(pos=cloc, title='Topographic elevation, [m]', horizontal=False, titleFontSize=20)
+    grid_mesh.scale([1,1,z_scale])
+    
+
+    grid_mesh.alpha(1)
+    plt += grid_mesh.flag()     
+    plt += grid_mesh.isolines(5).lw(1).c('k')
+
+except:
+    print("VTK grid doesn't exist")
+    
+try: 
+    watertable = os.path.join(BV.simulations_folder, modelname, '_watershed', 'VTK','VTU_Watertable_0.vtu')
+    watertable_elev = vedo.Mesh(watertable) # 1 Elevation
+    watertable_depth = vedo.Mesh(watertable) # 3 Depth
+    surface_flow = vedo.UGrid(watertable) # 3 Surface Flow
+    drain_flow = vedo.UGrid(watertable) # 3 Drain Flow
+    watertable_blue = vedo.Mesh(watertable) # 4 blue
+    
+    zvals = watertable_elev.points()[:, 2]
+    watertable_elev.cmap('jet',zvals, vmin=min(zvals))
+    watertable_elev.addScalarBar(pos=cloc, title='Water table elevation, [m]', horizontal=False, titleFontSize=20)
+    watertable_elev.scale([1,1,z_scale])
+    plt += watertable_elev.flag() 
+    
+    watertable_depth.mapCellsToPoints()
+    watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
+    watertable_depth.addScalarBar(pos=cloc, title='Water table depth, [m]', horizontal=False, titleFontSize=20)
+    watertable_depth.scale([1,1,z_scale])
+    plt += watertable_depth.flag()
+    
+    watertable_blue.color('b')
+    watertable_blue.alpha(0.2)
+    watertable_blue.scale([1,1,z_scale])
+    watertable_blue.legend('Water table')
+    plt += watertable_blue.flag()  
+    
+    nan_loc = ~np.isnan(surface_flow.celldata['Surfaceflow_log'])
+    surface_flow = surface_flow.extractCellsByID([i for i, x in enumerate(nan_loc) if x])
+    surface_flow = surface_flow.tomesh()
+    surface_flow.cmap('jet','Surfaceflow_log', on='cells')
+    surface_flow.addScalarBar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=20)
+    surface_flow.scale([1,1,z_scale])
+    
+    nan_loc = ~np.isnan(drain_flow.celldata['Drainflow_log'])
+    drain_flow = drain_flow.extractCellsByID([i for i, x in enumerate(nan_loc) if x])
+    drain_flow = drain_flow.tomesh()
+    # cmin = min(drain_flow.pointdata['Drainflow_log'])
+    # cmax = max(drain_flow.pointdata['Drainflow_log'])
+    if cscale == 'custom':
+        mi = 1
+        ma = 4
+        drain_flow.cmap('jet','Drainflow_log', on='cells',vmin = mi, vmax=ma)
+    else:
+        drain_flow.cmap('jet','Drainflow_log', on='cells')
+    drain_flow.addScalarBar(pos=cloc, title='Seepage rates, log(Q) [mm/y]', horizontal=False, titleFontSize=20)
+    drain_flow.scale([1,1,z_scale])
+except:
+    print("VTK watertable doesn't exist")
+# try:
+pathlines = os.path.join(BV.simulations_folder, modelname, '_watershed', 'VTK','VTU_Pathlines.vtk')
+pathlines_mesh = vedo.Mesh(pathlines) #5
+
+#Pathlines
+if cscale == 'default':
+    cmin = int(min(pathlines_mesh.pointdata['Time_log']))
+    cmax = int(max(pathlines_mesh.pointdata['Time_log']))
+if cscale == 'custom':
+    cmin = cmin
+    cmax = cmax
+pathlines_mesh.cmap('hot_r',input_array='Time_log',vmin = cmin, vmax=cmax).lw(5)
+pathlines_mesh.addScalarBar(pos=cloc, title='Residence times, log(t) [y]', horizontal=False, titleFontSize=20)
+pathlines_mesh.scale([1,1,z_scale])
+pathlines_mesh.renderLinesAsTubes(value=True)
+pathlines_mesh.legend('Pathlines')
+x = pathlines_mesh.lines()
+# x = [x[i] for i in keep_idx]
+length = max(map(len, x))
+y=np.array([xi+[None]*(length-len(xi)) for xi in x])
+number_of_rows = y.shape[0]
+# random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
+n = lines
+# n = len(x)-1
+random_indices = np.arange(0, n, 1)
+y1 = y[random_indices, :].flatten()
+pts =  y1[y1 != np.array(None)]
+pathlines_mesh.deletePoints(pts)
+# except:
+# print("VTK pathlines doesn't exist")
+
+#View
+xs = max(watertable_elev.points()[:, 0]) - min(watertable_elev.points()[:, 0])
+ys = max(watertable_elev.points()[:, 1]) - min(watertable_elev.points()[:, 1])
+zs = max(watertable_elev.points()[:, 2]) - min(watertable_elev.points()[:, 2])
+if view == 'north':
+    pos = (min(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'north-east':
+    pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'east':
+    pos = (max(watertable_elev.points()[:, 0])+ xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'south-east':
+    pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'south':
+    pos = (min(watertable_elev.points()[:, 0])+ xs ,min(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'south-west':
+    pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'west':
+    pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'north-west':
+    pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+if view == 'custom':
+    pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*4)
+if view == 'vertical':
+    pos = (np.mean(watertable_elev.points()[:, 0]) ,np.mean(watertable_elev.points()[:,1]), np.mean(watertable_elev.points()[:, 2])*400)
+
+focal = (min(watertable_elev.points()[:, 0])+(xs/2), min(watertable_elev.points()[:, 1])+(ys/2), zs)
+cam = dict(pos = pos,focalPoint = focal)
+
+for i in range (0,len(object_list)):
+    obj = object_list[i]
+    if obj == 'grid':
+        plt.show(grid_mesh,contour,stream,"Topography elevation", at=i, camera=cam, viewup='z', axes = 13, bg=bg)
+    if obj == 'watertable':
+        plt.show(grid_wireframe,contour,stream, watertable_elev,"Watertable elevation",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+    if obj == 'watertable_depth':
+        plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+    if obj == 'pathlines':
+        #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
+        plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Groundwater flow paths",
+                 camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+        #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
+        #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
+    if obj == 'surface_flow':
+        plt.show(grid_wireframe,contour, watertable_blue, surface_flow,"Surface flow",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+    if obj == 'drain_flow':
+        #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
+        plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+        #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
+        #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
+
+
+if interactive == True:
+    plt.show(interactive=1,interactorStyle=6).close()
+else:
+    plt.screenshot(os.path.join(BV.simulations_folder, modelname, '_watershed_fig','3Dvisual.png')).close()
 
 

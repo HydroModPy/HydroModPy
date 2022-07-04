@@ -22,7 +22,8 @@ class Visualization():
         self.modelname = modelname
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', bg = 'lb',
-                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080)):
+                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1,
+                 cloc=(0.65,0.75) , size=(1500,1080)):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
