@@ -68,9 +68,9 @@ git_path = DIR
 # Path to the test folder
 test_path = git_path + "/examples/_example/"
 # Path where the results will be stored
-# out_path = "D:/Users/abherve/TEST/"
+out_path = "D:/Users/abherve/TEST/"
 # out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
-out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
+# out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
 ####################################################
 
 # We suggest to store the data in specific folder
@@ -136,11 +136,11 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_xy=from_xy,
                               cell_size=cell_size)
 
-BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-
 print('##### '+watershed_name.upper()+' #####')
 
 #%% ADD SPECIFIC DATA
+
+BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
 BV.add_hydrodynamic()
 BV.add_forcing()
@@ -188,15 +188,17 @@ BV.hydrodynamic.update_porosity(P)
 
 # Set name of the model
 model_name = sim_state
-model_name = 'test2'
+model_name = 'test'
 
 #%% RUN MODEL
 # Launch a model
-success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
-                lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
-                verbose=True)
 
-# print('Modeling process completed')
+success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True,
+                                    sink_fill=False, box=False,
+                                    lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
+                                    verbose=True)
+
+print('Modeling process completed')
 
 #%% POST PROCESS
 
@@ -235,11 +237,12 @@ visu.visual3D(interactive=True,
 if sim_state == 'transient':
     modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name,
                                    types_obs, freq_interv=12, save_gif=True)
-
-x = np.load(simulations_folder+'/test2/_watershed/accumulation_flux.npy', allow_pickle=True).item()
-x = x[0]
-x[x<=0] = np.nan
-plt.imshow(x)
+if sim_state == 'steady':
+    # Control plot
+    x = np.load(simulations_folder+'/test/_watershed/accumulation_flux.npy', allow_pickle=True).item()
+    x = x[0]
+    x[x<=0] = np.nan
+    plt.imshow(x, cmap='jet')
 
 #%% INTERACTIVE CROSS-SECTION
 
@@ -249,10 +252,12 @@ dem_data = BV.geographic.dem_data
 # dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
 
 # Wt data
-wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(000).tif') # buffer size no masked
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # buffer size no masked
 
 # River data
 river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
 
 # Function
 modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
+
+#%% NOTES

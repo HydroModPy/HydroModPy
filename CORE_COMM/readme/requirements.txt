@@ -1,0 +1,4 @@
+jupyter_sphinx
+sphinx-autodoc-typehints
+
+conda install -c conda-forge rioxarray 
