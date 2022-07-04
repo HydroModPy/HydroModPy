@@ -45,9 +45,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 # import os
 # dir(os.getcwd())
 
+
 # %% PATHS + watershed options
 
-watershed_name = 'Baie-du-Cotentin'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 load = False # loads previously generated basin if true
 
@@ -100,7 +101,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
-                              from_shp=shp_file,
+                              from_shp=None,
                               from_dem=False,
                               cell_size=cell_size)
 
@@ -144,20 +145,12 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 
 BV.load_object()
 
-#%% SEA LEVEL TESTS
+#%% Add piezometry
 
-# print(vars(BV.oceanic).keys())
-RSL_85 = BV.oceanic.RSL["RCP8.5"]
-md_rsl_85 = RSL_85.iloc[:,0]
-RSL_26 = BV.oceanic.RSL["RCP2.6"]
-md_rsl_26 = RSL_26.iloc[:,0]
+BV.add_forcing()
 
-RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
-md_rmsl_85 = RMSL_85.iloc[:,0]
-RMSL_26 = BV.oceanic.RMSL["RCP2.6"]
-md_rmsl_26 = RMSL_26.iloc[:,0]
-
-MSL = BV.oceanic.MSL
+BV.piezometry.add_data()
+BV.piezometry.display_data()
 
 
 #%% Calibration based on streams
@@ -166,6 +159,7 @@ import glob
 import os
 
 type_obs = 'streams_fr'
+types_obs = ['streams_fr'] # list of shapefile name layers for clip hydrology
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
@@ -175,19 +169,24 @@ area = BV.geographic.area
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
                                   first_year = 1960, last_year=2019, time_step = 'M',
                                   sim_state = 'steady') #
+# BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
 BV.hydrodynamic.update_thickness(30)
 # BV.hydrodynamic.update_porosity(0.1)
 # BV.hydrodynamic.update_hyd_cond(2)
 params_df = pd.DataFrame(columns=['params',
                                   'init_values','lower_bounds','higher_bounds',
                                   'units','scale'])
-params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
+# params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
+params_df.loc[0] = ['k1',10,1e-04,1e+02,'m/j','lin']
+# params_df.loc[1] = ['k2',10,1e-04,1e+02,'m/j','lin']
+
 params_file = 'calib_dicot_hom_1v_k1'
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+calib = calib_root.Calibration(params_file, BV, observations = ['streams']) #streams piezometry
 
 # Launch dichotomy
 dicot = calib.dichotomy(gap=1)
+# calib.exploration(10)
 
 # Extract
 typ_calib = 'streams_calibration'
@@ -212,6 +211,18 @@ df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_st
 # BV.piezometry.add_data()
 # BV.save_object()
 
+#%% calib analysis
+
+from calibration import calib_analysis
+import glob
+typ_calib = 'piezometry_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+key=os.path.getmtime, reverse=True)
+name_file = list_path[0].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+
+test.display_objective_function(save='C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+params_file+'.png',vmax= 1.3,log=False)
 
 #%% Historic mean recharge
 
@@ -229,12 +240,13 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
                                       time_step = time_step, sim_state = sim_state)
 
 R_hist = BV.forcing.recharge
-BV.forcing.update_recharge(values = R_hist, sim_state = sim_state)
+# BV.forcing.update_recharge(values = R_hist, sim_state = sim_state)
 
 #%% DRIAS recharges
 
+sim_state = 'transient' # 'steady' or 'transient'
 first_yr = 2020
-last_yr = 2050
+last_yr = 2100
 BV.add_forcing()
 
 #MPI-CCL
@@ -367,8 +379,31 @@ R_MPI_R09_RCP85 = BV.forcing.recharge
 
 #Mean values
 import statistics
-R_DRIAS_26 = statistics.mean([R_MPI_CCL_RCP26, R_ECE_RCA_RCP26, R_ECE_RAC_RCP26, R_CNR_RAC_RCP26, R_NOR_R15_RCP26, R_CNR_ALA_RCP26, R_HAD_REG_RCP26, R_MPI_R09_RCP26])
-R_DRIAS_85 = statistics.mean([R_MPI_CCL_RCP85, R_ECE_RCA_RCP85, R_ECE_RAC_RCP85, R_CNR_RAC_RCP85, R_NOR_R15_RCP85, R_CNR_ALA_RCP85, R_HAD_REG_RCP85, R_MPI_R09_RCP85])
+import numpy
+
+if sim_state == 'steady' :
+    R_DRIAS_26 = numpy.nanmean([R_MPI_CCL_RCP26, R_ECE_RCA_RCP26, R_ECE_RAC_RCP26, R_CNR_RAC_RCP26, R_NOR_R15_RCP26, R_CNR_ALA_RCP26, R_HAD_REG_RCP26, R_MPI_R09_RCP26])
+    R_DRIAS_85 = numpy.nanmean([R_MPI_CCL_RCP85, R_ECE_RCA_RCP85, R_ECE_RAC_RCP85, R_CNR_RAC_RCP85, R_NOR_R15_RCP85, R_CNR_ALA_RCP85, R_HAD_REG_RCP85, R_MPI_R09_RCP85])
+elif sim_state == 'transient' :
+    R_DRIAS_26 = numpy.nanmean([numpy.nanmean(R_MPI_CCL_RCP26), numpy.nanmean(R_ECE_RCA_RCP26), numpy.nanmean(R_ECE_RAC_RCP26), numpy.nanmean(R_CNR_RAC_RCP26), numpy.nanmean(R_NOR_R15_RCP26), numpy.nanmean(R_CNR_ALA_RCP26), numpy.nanmean(R_HAD_REG_RCP26), numpy.nanmean(R_MPI_R09_RCP26)])
+    R_DRIAS_85 = numpy.nanmean([numpy.nanmean(R_MPI_CCL_RCP85), numpy.nanmean(R_ECE_RCA_RCP85), numpy.nanmean(R_ECE_RAC_RCP85), numpy.nanmean(R_CNR_RAC_RCP85), numpy.nanmean(R_NOR_R15_RCP85), numpy.nanmean(R_CNR_ALA_RCP85), numpy.nanmean(R_HAD_REG_RCP85), numpy.nanmean(R_MPI_R09_RCP85)])
+
+
+#%% SEA LEVEL TESTS
+
+# print(vars(BV.oceanic).keys())
+RSL_85 = BV.oceanic.RSL["RCP8.5"]
+md_rsl_85 = RSL_85.iloc[:,0]
+RSL_26 = BV.oceanic.RSL["RCP2.6"]
+md_rsl_26 = RSL_26.iloc[:,0]
+
+RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
+md_rmsl_85 = RMSL_85.iloc[:,0]
+RMSL_26 = BV.oceanic.RMSL["RCP2.6"]
+md_rmsl_26 = RMSL_26.iloc[:,0]
+
+MSL = BV.oceanic.MSL
+
 
 #%% Model Parameters
 
@@ -408,9 +443,10 @@ BV.hydrodynamic.update_thick_exp(1)
 
 #%% LAUNCH MODELLING
 
-#Choice of Recharge
-model_name = 'steady_hist' # string for simulation results storage #steady_DRIAS_85 #'steady_hist'
+#Choice of Recharge and sea level
+model_name = 'steady_RSL85' # string for simulation results storage #steady_DRIAS_85 #'steady_hist'
 R = R_hist #R_DRIAS_85   R_hist
+sea_lev_rise = RSL85_df['median']
 
 BV.forcing.update_recharge(R, 'steady')
 
@@ -436,6 +472,40 @@ BV.results_modflow(ident=model_name,
 
 # x = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_stable/geographic/watershed_dem.tif')
 # plt.imshow(x)
+
+#%% Water table depth processing
+
+import rioxarray
+import pandas
+
+rds = rioxarray.open_rasterio(r"C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Agon-Coutainville/WT_depth_hist_ACO.tif",)
+raster_val = rds.squeeze().drop("band")
+raster_values = raster_val.values
+
+c_tot = c_ndv = c_sub = c_03 = c_ok = 0
+for x in range(raster_values.shape[0]) :
+    for y in range(raster_values.shape[1]) :
+        c_tot +=1
+        h = raster_values[x,y]
+        if h == -9999 :
+            c_ndv += 1
+        elif h <= 0 :
+            c_sub += 1
+        elif h <= 0.3 :
+            c_03 += 1
+        else :
+            c_ok += 1
+        
+if c_tot != raster_values.shape[0] * raster_values.shape[1] :
+    print('wrong total')
+elif c_ndv + c_ok + c_03 + c_sub != c_tot :
+    print('wrong count')
+else :
+    print('OK')
+    
+# for h in raster_values :
+#     print(h)
+    
 
 #%% 2D VISUAL
 
