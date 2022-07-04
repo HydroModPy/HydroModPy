@@ -56,7 +56,7 @@ class Hydrology:
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
             wbt.dissolve(self.streams, self.streams)
             wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
-        if (shp_type == 'MultiLineString') | (shp_type == 'LineString') :
+        if (shp_type == 'MultiLineString') | (shp_type == 'LineString') | (shp_type == 'Line'):
             wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
             print(shp_type)

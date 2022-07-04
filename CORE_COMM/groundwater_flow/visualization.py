@@ -22,7 +22,8 @@ class Visualization():
         self.modelname = modelname
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', bg = 'lb',
-                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080)):
+                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1,
+                 cloc=(0.65,0.75) , size=(1500,1080)):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
@@ -220,7 +221,7 @@ class Visualization():
         else:
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed_fig','3Dvisual.png')).close()
 
-    def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'], 
+    def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines','residence_times'], 
                  color_scale = None, time_step = 0, lines=100, structure = 'v'):
        
         if len(object_list) == len(color_scale):
@@ -379,7 +380,7 @@ class Visualization():
                 basemap.append(0)
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'residence_times':
-                axs[i].set_title('Residence times, log(t) [y]')
+                axs[i].set_title('Residence times [y]')
                 res_time = np.zeros(np.shape(dem))
                 endobj = flopy.utils.EndpointFile(os.path.join(modelfolder,self.modelname+'.mpend'))
                 e = endobj.get_alldata()
@@ -414,7 +415,7 @@ class Visualization():
             ylim = ([bounds[1], bounds[3]])
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
-            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right')
             ax.add_artist(scalebar)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
@@ -429,7 +430,10 @@ class Visualization():
                 cbar.ax.yaxis.set_ticks_position('right')
                 cbar.ax.tick_params(size=2)
             if basemap[compt] == 1:
-                cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+                try:
+                    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+                except:
+                    pass
             ax.legend(loc='best',framealpha=0.8)
             compt +=1
         
