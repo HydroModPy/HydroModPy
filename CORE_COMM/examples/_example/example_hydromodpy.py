@@ -79,7 +79,7 @@ intermittency_path = test_path + 'intermittency/'
 hydrometry_path = test_path + 'hydrometry/'
 piezometry_path = None # add piezometry data or nothing for automatic download
 geology_path = None # add geologic layers
-oceanic_path = None # add specific sea level files
+oceanic_path = 'None' # add specific sea level files
 
 # Specifically designed to process SURFEX data (France scale)
 surfex_path =  None # add surfex models in .h5 format
@@ -115,26 +115,37 @@ load = True
 print('##### '+watershed_name.upper()+' #####')
 
 # try:
+
+subbasin_path = True # generate subbasins from stations or manual points
+from_shp = None # specify a path if process start from a given shapefile
+from_dem = False # True or False if the process start from a given DEM of xyz file
+cell_size = None # specify new resolution from a given DEM or None
+from_xy = []
+
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
-                              surfex_path=surfex_path, 
-                              geology_path = geology_path, 
-                              hydrology_path=hydrology_path,
-                              oceanic_path=oceanic_path, 
-                              piezometry_path=piezometry_path,
-                              hydrometry_path=hydrometry_path,
-                              intermittency_path=intermittency_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
-                              types_obs=types_obs,
-                              fields_obs=fields_obs)
-# except:
-#     print('There is a problem to generate the watershed object')
+                              from_shp=from_shp,
+                              from_dem=from_dem,
+                              from_xy=from_xy,
+                              cell_size=cell_size)
+
+BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+
+print('##### '+watershed_name.upper()+' #####')
+#%%
+BV.add_hydrodynamic()
+BV.add_forcing()
+BV.add_oceanic(oceanic_path)
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
+
+# except:
+#     print('There is a problem to generate the watershed object')
 
 # SET PARAMETERS
 
@@ -176,13 +187,32 @@ model_name = 'test2'
 
 # RUN MODEL
 # Launch a model
-BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
+success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
                 lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
                 verbose=True)
 
 # print('Modeling process completed')
 
 # Extract result chronics
+
+success = True
+
+BV.matrix_modflow(success,
+                  flow_model,
+                  first_only = True,
+                  watertable_elevation = True,
+                  watertable_depth = True, 
+                  seepage_areas = True,
+                  outflow_drain = True,
+                  groundwater_flux = False,
+                  specific_discharge = False,
+                  accumulation_flux = True,
+                  perenn_intermit_shp = False,
+                  groundwater_storage = True,
+                  residence_times = True,
+                  verbose = True,
+                  export_tif = True)
+
 BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_step='M')
 print('Result chronics extraction completed')
 
