@@ -5,7 +5,7 @@ Created on Mon Dec 20 08:05:41 2021
 @author: Ronan Abhervé
 """
 
-# GENERAL LIBRARIES
+#%% GENERAL LIBRARIES
 
 # General
 import sys
@@ -56,19 +56,22 @@ from tools import toolbox, vtk
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow_display, visualization
 
-# LAYOUT PLOT
+#%% LAYOUT PLOT
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-# NECESSARY PATHS
+#%% NECESSARY PATHS
 
+####################################################3
 # Path to the git repositoty home page
 git_path = DIR
 # Path to the test folder
 test_path = git_path + "/examples/_example/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/TEST/"
+# out_path = "D:/Users/abherve/TEST/"
 # out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
+out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
+####################################################
 
 # We suggest to store the data in specific folder
 dems_path = test_path + 'dem/'
@@ -109,7 +112,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 types_obs = ['streams','sections'] # list of shapefile name layers
 fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
 
-# GENERATING WATERSHED
+#%% GENERATING WATERSHED
 
 load = True
 print('##### '+watershed_name.upper()+' #####')
@@ -136,7 +139,9 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
 print('##### '+watershed_name.upper()+' #####')
-#%%
+
+#%% ADD SPECIFIC DATA
+
 BV.add_hydrodynamic()
 BV.add_forcing()
 BV.add_oceanic(oceanic_path)
@@ -147,7 +152,7 @@ watershed_display.watershed_local(dem_path, BV)
 # except:
 #     print('There is a problem to generate the watershed object')
 
-# SET PARAMETERS
+#%% SET PARAMETERS
 
 # Choice the state of the simulation
 sim_state = 'steady' # steady
@@ -185,7 +190,7 @@ BV.hydrodynamic.update_porosity(P)
 model_name = sim_state
 model_name = 'test2'
 
-# RUN MODEL
+#%% RUN MODEL
 # Launch a model
 success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True, sink_fill=False, box=False,
                 lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
@@ -193,7 +198,7 @@ success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_on
 
 # print('Modeling process completed')
 
-# Extract result chronics
+#%% POST PROCESS
 
 success = True
 
