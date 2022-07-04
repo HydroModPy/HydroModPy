@@ -40,8 +40,11 @@ class CalibAnalysis:
             self.params_synt = self.calib['params_synt']
         except:
             pass
-        if len(self.names) == 2:
-            self.find_best_2Dvalues()
+        try:
+            if len(self.names) == 2:
+                self.find_best_2Dvalues()
+        except:
+            pass
         try:
             if len(self.names) == 1:
                 self.find_best_1Dvalues()

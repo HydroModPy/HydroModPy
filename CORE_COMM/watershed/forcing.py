@@ -30,6 +30,8 @@ class Forcing:
         self.recharge = values # recharge
         if sim_state == 'steady':
             self.recharge = np.mean(self.recharge)
+            if isinstance(self.recharge,(int,float))==False:
+                self.recharge = self.recharge[0]
             
     def update_runoff(self, values, sim_state):
         self.runoff = values # recharge

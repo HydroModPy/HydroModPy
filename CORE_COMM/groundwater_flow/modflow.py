@@ -51,7 +51,7 @@ class Modflow():
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
                  sea_level=None, cond_decay=0., multip_cond=None, init_rech='mean',
-                 bc_left=None, bc_right=None,
+                 bc_left=None, bc_right=None, verti_k=None,
                  model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
@@ -89,6 +89,7 @@ class Modflow():
         self.init_rech = init_rech
         self.bc_left = bc_left
         self.bc_right = bc_right
+        self.verti_k = verti_k
 
     def pre_processing(self, verbose=False):
         if verbose == True:
@@ -119,14 +120,16 @@ class Modflow():
             self.nstp = np.ones(len(self.climatic))
             self.nper = len(self.climatic)
             self.perlen = np.ones(len(self.climatic))
-            if pd.infer_freq(self.climatic.index) != 'D':
-                for i in range(1,len(self.climatic)):      
-                    dif = self.climatic.index[i]-self.climatic.index[i-1]
-                    self.perlen[i] = dif.days
+            if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
+                if pd.infer_freq(self.climatic.index) != 'D':
+                    for i in range(1,len(self.climatic)):      
+                        dif = self.climatic.index[i]-self.climatic.index[i-1]
+                        self.perlen[i] = dif.days
 
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
-
+        
+        # bottom definition 
         self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
         if self.bottom is None:
             bottom_layer = self.dem - self.thick
@@ -142,7 +145,15 @@ class Modflow():
             else:
                 p = (1-self.thick_exp**i) / exp_scale
             self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
-
+        
+        if self.verti_k != None:
+            self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
+            # self.zbot[0,:,:] = self.dem - self.verti_k[1][0]
+            # self.zbot[1,:,:] = bottom_layer
+            for i in range(len(self.verti_k[1])):
+                self.zbot[i,:,:] = self.dem - self.verti_k[1][i]
+            self.zbot[-1,:,:] = bottom_layer
+            
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
             delr=self.resolution, delc=self.resolution, top=self.dem.data, 
             botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
@@ -197,8 +208,18 @@ class Modflow():
             for j in range(0,nlay):
                 self.hk[j][self.structure.geology==self.number_structure[i]]= logParamValue[i]*3600*24
 		'''
-        self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, laytyp=self.laytype, laywet=self.laywet, hk=self.hk,
-                                       vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
+        if self.verti_k != None:
+            Kv = np.zeros((self.nlay,self.nrow,self.ncol))
+            # Kv[0,:,:] = self.verti_k[0][0] #first layer of lime
+            # Kv[1,:,:] = np.mean(self.hk) #second layer of sand
+            for i in range(len(self.verti_k[0])):
+                Kv[i,:,:] = self.verti_k[0][i]
+            Kv[-1,:,:] = np.mean(self.hk)
+            self.hk = Kv.copy()
+        self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, 
+                                            laytyp=self.laytype, laywet=self.laywet, 
+                                            hk=self.hk,
+                                            vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
         
         if (self.climatic < 0).any().any() == True:
             #evt package
@@ -238,7 +259,10 @@ class Modflow():
                         self.rchData[kper] = self.climatic.iloc[0]
                         print('Init rech is "first"')
                 else:
-                    self.rchData[kper] = self.climatic[kper]
+                    try:
+                        self.rchData[kper] = self.climatic[kper]
+                    except:
+                        self.rchData[kper] = self.climatic.iloc[kper].values[0]
         if verbose == True:
             print('REC')
             # print(self.climatic)
@@ -279,6 +303,13 @@ class Modflow():
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
+        
+        # fig = plt.figure(figsize=(20, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        # modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((Kv.shpae[1])/2)})
+        # linecollection = modelxsect.plot_grid()
+        # modelxsect.plot_array(Kv)
+        
     def processing(self, verbose=False):
         if verbose == True:
             print('Simulation d\'un modèle')
@@ -522,7 +553,8 @@ class Modflow():
                 for j in range(len(e)):
                     # time_out = pth_data[j].time[0] # explore pathlines
                     # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
-                    res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
+                    # res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
+                    res_time[e[j].i,e[j].j] = (e[j].time) / 365 # where outputed in years
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)

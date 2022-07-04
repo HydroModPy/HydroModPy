@@ -173,7 +173,7 @@ class Watershed:
             self.x_outlet = None
             self.y_outlet = None
             self.snap_dist = None
-            self.buff_percent = 10
+            self.buff_percent = 5
             self.crs_proj = None
             
     def load_object(self):
@@ -326,7 +326,8 @@ class Watershed:
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
                     verbose: bool = False, post_process: bool = False,
-                    time_step: str = 'M', calib: str = None, init_rech: str = 'mean', bc_left: (float) = None, bc_right: (float) = None):
+                    time_step: str = 'M', calib: str = None, init_rech: str = 'mean', bc_left: (float) = None, bc_right: (float) = None,
+                    verti_k: list = None):
         """ 
         Build and run modflow model
         
@@ -363,6 +364,7 @@ class Watershed:
                                      multip_cond=multip_cond,
                                      bc_left=bc_left, 
                                      bc_right=bc_right,
+                                     verti_k=verti_k,
                                      exe=self.modflow_path +'/bin/mfnwt.exe')
         flow_model.pre_processing(verbose = verbose)
         if run == True:
