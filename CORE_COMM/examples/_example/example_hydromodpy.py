@@ -3,6 +3,14 @@
 Created on Mon Dec 20 08:05:41 2021
 
 @author: Ronan Abhervé
+
+Simple example for basic execution of HydroModPy (execution should be of the ordre of seconds)
+- NW of Brittany (France), some km2 catchment
+- Extract watershed
+- Hydrological extraction of stream network
+- GW simulation with synthetic recharge
+- No calibration 
+- Some visualization
 """
 
 #%% GENERAL LIBRARIES
@@ -11,8 +19,12 @@ Created on Mon Dec 20 08:05:41 2021
 import sys
 import os
 from os.path import dirname, abspath
+# Current Directory stored in DIR 
 DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
+#MARTIN: Add test to confirm that current folder is CORE_COMM
+# If not, returns error message and stop running execution 
+
 from glob import glob
 import numpy as np
 import pandas as pd
@@ -35,11 +47,12 @@ import imageio
 import rasterio
 import geopandas as gpd
 import whitebox
+# Creation of basis whitebox class (wbt)
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
-# Warnings
+# Warnings: Mask error messages and captures them (logging)
 import logging
-import warnings
+import warnings  
 # warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 # warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
 # warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
@@ -67,22 +80,24 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 git_path = DIR
 # Path to the test folder
 test_path = git_path + "/examples/_example/"
-# Path where the results will be stored
+# Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
 out_path = "D:/Users/abherve/TEST/"
 # out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
 # out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
 ####################################################
 
-# We suggest to store the data in specific folder
+# We suggest that data be stored in the following suite of specific folders
+# 1 folder for each of the type of data and "process" to be simulated
 dems_path = test_path + 'dem/'
-hydrology_path = test_path + 'hydrology/' # add hydrographic shapefiles
-modflow_path = test_path + 'modflow/' # add bin/ folder with necessary .exe
+hydrology_path = test_path + 'hydrology/'   # add hydrographic shapefiles
+modflow_path = test_path + 'modflow/'       # add bin/ folder with necessary .exe
 climate_path =test_path + 'climate/'
 intermittency_path = test_path + 'intermittency/'
 hydrometry_path = test_path + 'hydrometry/'
-piezometry_path = None # add piezometry data or nothing for automatic download
-geology_path = None # add geologic layers
-oceanic_path = 'None' # add specific sea level files
+piezometry_path = None                      # add piezometry data or nothing for automatic download
+geology_path = None                         # add geologic layers
+#RONAN: uniformiser les notations pour oceanic_path
+oceanic_path = 'None'                       # add specific sea level files
 
 # Specifically designed to process SURFEX data (France scale)
 surfex_path =  None # add surfex models in .h5 format
@@ -93,36 +108,34 @@ dem_name = "DEM_test_75m_LAMB93.tif"
 dem_path = dems_path + dem_name
 
 dem = gdal.Open(dem_path)
-proj = osr.SpatialReference(wkt=dem.GetProjection())
-crs = int(proj.GetAttrValue('AUTHORITY',1))
+proj = osr.SpatialReference(wkt=dem.GetProjection())    # Retrieves projection system attached to the dem
+crs = int(proj.GetAttrValue('AUTHORITY',1))             # Gets name of the projection system
 
-# Import the library of watersheds to generate
+# Import the library of watersheds (maybe several watersheds in the loaded file: library of watersheds)
 library_path = test_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
-# Select from the library the interest catchment
+# Selection of the watershed to deal within from the just loaded library of watersheds
 watershed_name = 'Example' # add manually study site information in map units
+#RONAN: Supprimer la ligne?
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
 # Paths generated automatically but necessary for plots
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-# Specify the hydrologic layers to clip
-types_obs = ['streams','sections'] # list of shapefile name layers
-fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
 
 #%% GENERATING WATERSHED
 
+# If watershed has already been generated, used the generated one instead of recreating it
 load = True
+
 print('##### '+watershed_name.upper()+' #####')
 
-# try:
-
-subbasin_path = True # generate subbasins from stations or manual points
-from_shp = None # specify a path if process start from a given shapefile
-from_dem = False # True or False if the process start from a given DEM of xyz file
-cell_size = None # specify new resolution from a given DEM or None
+subbasin_path = True   # generate subbasins from stations or manual points
+from_shp = None        # specify a path if process start from a given shapefile
+from_dem = False       # True or False if the process start from a given DEM of xyz file
+cell_size = None       # specify new resolution from a given DEM or None
 from_xy = []
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -139,6 +152,10 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 print('##### '+watershed_name.upper()+' #####')
 
 #%% ADD SPECIFIC DATA
+
+# Specify the hydrologic layers to clip
+types_obs = ['streams','sections'] # list of shapefile name layers
+fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
 
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
