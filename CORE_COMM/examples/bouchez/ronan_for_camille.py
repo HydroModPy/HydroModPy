@@ -291,14 +291,14 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
-watershed_names = ['Test']
+watershed_names = ['Quiock']
 
 types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid','fid']
 
 #%% GENERATE WATERSHED
 
-load = True
+load = False
 
 for watershed_name in watershed_names[:]:
         
@@ -479,6 +479,10 @@ for watershed_name in watershed_names[:] :
                                   load=True,
                                   modflow_path=modflow_path)
     
+    BV.add_forcing()
+    BV.add_hydrodynamic()
+    BV.add_oceanic('None')
+    
     # Input recharge
     time_step = 'D' # or 'D'
     actual_date = False # False if date is conceptual
@@ -495,13 +499,13 @@ for watershed_name in watershed_names[:] :
     thick_exp = 1 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
     thick = 100 # m
-    verti_k = [[(2e-7)*3600* 24],
+    verti_k = [[(2e-6)*3600* 24],
                [40]] # None
     # verti_k = None
     
     # Hydraulic properties
     # Koptim = 40 / 365 / 24 / 3600 # m/y to m/s
-    Koptim = 2e-6
+    Koptim = 2e-7
     Sy = 0.1
 
     Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
@@ -659,7 +663,7 @@ for watershed_name in watershed_names[:]:
                                   load=True,
                                   modflow_path=modflow_path)
     
-    interactive = False
+    interactive = True
     
     dem = rasterio.open(BV.geographic.watershed_dem)
     dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
@@ -817,7 +821,7 @@ for watershed_name in watershed_names[:]:
     # patches = xsect.plot_ibound(head=head)
     # linecollection = xsect.plot_grid()
     cb = plt.colorbar(pc, shrink=0.75)
-    ax.set_ylim(200,400)
+    ax.set_ylim(100,400)
     ax.set_xlim(150,1000)
     
     
@@ -1029,7 +1033,7 @@ compt+=1
 
 #%% EXTRACT PATHLINES TIMES 2D
 
-watershed_name = 'Test'
+watershed_name = 'Quiock'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
@@ -1152,7 +1156,7 @@ mm.ax.legend()
 
 import matplotlib.pyplot as p
 
-watershed_name = 'Test'
+watershed_name = 'Quiock'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
