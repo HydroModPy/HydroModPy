@@ -270,7 +270,9 @@ class Watershed:
     def add_oceanic(self, oceanic_path):
         self.oceanic = oceanic.Oceanic()
         self.oceanic_path = oceanic_path
-        self.oceanic.extract_data(out_path=self.watershed_folder, oceanic_path=self.oceanic_path, geographic=self.geographic)
+        self.oceanic.extract_data(out_path=self.watershed_folder,
+                                  oceanic_path=self.oceanic_path,
+                                  geographic=self.geographic)
         self.elt_def.append('oceanic')
         self.save_object()
 
