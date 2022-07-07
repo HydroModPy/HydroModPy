@@ -5316,8 +5316,11 @@ superficie = pd.DataFrame(np.nan, index=range(4), columns=['no'])
 
 # for mod_list in [['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'],  # Pessimistic
 #                  ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09']]: # Optimistic
-for mod_list in [['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'],
-                  ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09']]: # Optimistic
+# for mod_list in [['ECE-RCA','NOR-R15','HAD-REG','ECE-RAC'],
+#                   ['MPI-CCL','CNR-RAC','CNR-ALA','MPI-R09']]: # Optimistic
+
+for mod_list in [['ECE-RCA'],
+                  ['MPI-R09']]:
 
 # for mod_list in [['HAD-REG'],['MPI-R09']]: # Optimistic
 

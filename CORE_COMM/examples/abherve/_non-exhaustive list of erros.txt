@@ -1,8 +1,4 @@
-- Comment timporter un module issue d'un autre fichier parent
-
 - Comment faire un fichier de config qui définit les bons chemins?
-
-- Où faut-il placer dans le code les "outputs files paths" nécessaires à WBT?
 
 - Problem wbt:
 	wbt.set_verbose_mode(False) ==> ['.\\whitebox_tools.exe', '-v=false']
@@ -29,11 +25,3 @@
   	(oid, self.atom, self.shape, self._v_chunkshape) = self._open_array()
   	
  - Syper cannot save Pickle : cannot pickle 'SwigPyObject' object
- 
- - File "D:\Users\abherve\GITHUB\HydroModPy\CORE_COMM\groundwater_flow\modflow.py", line 473, in post_processing
-    vtk.watertable(self.model_name, self.full_path, self.save_file, self.geographic)
-
-  File "D:\Users\abherve\GITHUB\HydroModPy\CORE_COMM\tools\vtk.py", line 674, in watertable
-    waterTableCellGrid[row, col] = a[a > -100][0]
-
-IndexError: index 0 is out of bounds for axis 0 with size 0
