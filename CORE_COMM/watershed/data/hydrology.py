@@ -38,27 +38,55 @@ class Hydrology:
                 pass
         
     def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem):
-        
+        """
+        Clips (meaning selects) everything within the zone defined by watershed_shp
+
+        Parameters
+        ----------
+        type_obs : TYPE
+            DESCRIPTION.
+        field_obs : TYPE
+            DESCRIPTION.
+        hydro_path : TYPE
+            DESCRIPTION.
+        data_folder : TYPE
+            DESCRIPTION.
+        watershed_shp : TYPE
+            DESCRIPTION.
+        watershed_dem : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         streams = hydro_path + '/' +  type_obs +'.shp'
         self.streams = data_folder + type_obs +'.shp'
         
+        # First clip of the shape file at the watershed scale (classical GIS function performed here in geopandas)
+        #       geopandas more robust than wbt for the shapefiles
+        #       clips steams_file by watshd_file
         # wbt.clip(streams, watershed_shp, self.streams)
-        
         streams_file = gpd.read_file(streams)
         watshd_file = gpd.read_file(watershed_shp)
         file_clipped = gpd.clip(streams_file, watshd_file)
-        
+        # saves clipped file to the reuslts file structure
         file_clipped.to_file(self.streams)
         
+        # Transforms shapefile to raster file (.tif format)
         self.tif_streams = data_folder + type_obs + '.tif'
         shp_type = gpd.read_file(self.streams).geometry.type[0] # forma = forma.geom_type[0]
         # print(shp_type)
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
+            # e.g. wetlands and ponds
             wbt.dissolve(self.streams, self.streams)
             wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         if (shp_type == 'MultiLineString') | (shp_type == 'LineString') | (shp_type == 'Line'):
+            # e.g. streams
             wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
+            # e.g. landslides, sources, wells
             print(shp_type)
             wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         

@@ -80,8 +80,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 git_path = DIR
 # Path to the test folder
 test_path = git_path + "/examples/_example/"
-# Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
-out_path = "D:/Users/abherve/TEST/"
+# Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER) #JR: à sortir dans les paramètres
+out_path = "D:/results/HydroModPy/"          #JR:Parameters
 # out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
 # out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
 ####################################################
@@ -103,7 +103,7 @@ oceanic_path = 'None'                       # add specific sea level files
 surfex_path =  None # add surfex models in .h5 format
 
 # Indicate the name of the regional DEM
-dem_name = "DEM_test_75m_LAMB93.tif"
+dem_name = "DEM_test_75m_LAMB93.tif"           #JR:Parameters
 # dem_name = "DEM_bzh_75m_LAMB93.tif"
 dem_path = dems_path + dem_name
 
@@ -116,7 +116,7 @@ library_path = test_path + 'watershed_library.csv' # each row is a study site
 library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
 
 # Selection of the watershed to deal within from the just loaded library of watersheds
-watershed_name = 'Example' # add manually study site information in map units
+watershed_name = 'Example' # add manually study site information in map units  #JR:Parameters
 #RONAN: Supprimer la ligne?
 mysite = library[library['watershed_name'] == watershed_name] # specific row
 
@@ -154,8 +154,8 @@ print('##### '+watershed_name.upper()+' #####')
 #%% ADD SPECIFIC DATA
 
 # Specify the hydrologic layers to clip
-types_obs = ['streams','sections'] # list of shapefile name layers
-fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif
+types_obs = ['streams','sections'] # list of shapefile name layers  #JR:Parameters
+fields_obs = ['FID','Persistanc'] # list of shapefile name columns to translate in a tif #JR:Parameters
 
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
