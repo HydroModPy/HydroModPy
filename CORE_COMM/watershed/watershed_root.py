@@ -27,11 +27,39 @@ from calibration import calib_dichotomy
 class Watershed:
     """
     class Watershed is used to extract watershed and its data from regional DEM
+    
+    Attributes, public
+    -------------------
+    watershed_name: str 
+        name of the watershed
+        
+    watershed_def_option: str
+        Option for the definition of the Watershed 
 
+    
+    from_shp: str   #RONAN: from_dem_file
+        Path to the shapefile that will be used as "Watershed"
+        With such an option, Watershed is not generated but loaded from the file
+    
+    from_dem: str #RONAN: from_dem_path
+        Uses DEM instead of shapefile
+        Cases where domain is georeferenced (e.g. synthetic geometry, erosion models)
+    cell_size: #RONAN Même racine de nom eg: from_dem_size
+        Modifies the resolution of the DEM
+
+    outlet_def_option: str #RONAN
+        Method to define the watershed outlets 
+
+    from_xy: list of floats
+        Definition of the outlets directly with the list of coordinates (floats)
+        
+    library_path: str  #RONAN: from_library_file
+        definition of the outlets of the watershed loaded from watershed_library.csv file.
+        
+        
     :param str name: name of watershed.
     :param dem_path: folder of the regional DEM.
     :param out_path: root directory of results.
-    :library_path: path of the watershed_library.csv file.
     :param surfex_path: root directory of surfex data.
     :param oceanic_path: root directory of oceanic data.
     :param geology_path: root directory of geology data.
@@ -92,14 +120,15 @@ class Watershed:
         Constructor
         """
         
-        # self.load_watershed_csv()
-        
         self.watershed_name = watershed_name
         self.library_path = library_path
         
+        #RONAN: Expliciter les diffétentes options de génération
         self.from_shp = from_shp
         self.from_dem = from_dem
         self.from_xy = from_xy
+        
+        #RONAN: comment 
         self.cell_size = cell_size
         
         self.dem_path = dem_path
