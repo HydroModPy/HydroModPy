@@ -293,12 +293,15 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
 
 watershed_names = ['Quiock']
 
-types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
-fields_obs = ['fid','fid']
+# types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
+# fields_obs = ['fid','fid']
+
+types_obs = ['L_Quiock_creek2']
+fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
 
-load = False
+load = True
 
 for watershed_name in watershed_names[:]:
         
@@ -324,9 +327,6 @@ for watershed_name in watershed_names[:]:
     # watershed_display.watershed_local(dem_path, BV)
         
 #%% DATA WATERSHED
-
-types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
-fields_obs = ['fid','fid']
 
 for watershed_name in watershed_names[:]:
                    
@@ -354,9 +354,6 @@ hydrology_path = data_path # add hydrographic shapefiles
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
 
 for watershed_name in watershed_names[:] :
-    
-    types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
-    fields_obs = ['fid','fid']
         
     df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
     
@@ -389,7 +386,7 @@ for watershed_name in watershed_names[:] :
         # BV.hydrodynamic.update_porosity(0.1)
         # BV.hydrodynamic.update_hyd_cond(2)
         BV.hydrodynamic.update_nlay(1)
-        BV.hydrodynamic.update_thickness(100)
+        BV.hydrodynamic.update_thickness(300)
         BV.hydrodynamic.update_bottom(None)
         BV.hydrodynamic.update_cond_decay(0)
         BV.hydrodynamic.update_thick_exp(1)
@@ -407,14 +404,12 @@ for watershed_name in watershed_names[:] :
         # params_file = 'calib_dicot_hom_2v_k1-n1'
         calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
         
-        # dicot = calib.dichotomy(gap=1)
-
-    for i, type_obs in enumerate(types_obs):
+        dicot = calib.dichotomy(gap=1)
         
         typ_calib = 'streams_calibration'
         list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
                            key=os.path.getmtime)
-        name_file = list_path[i].split('\\')[-1]
+        name_file = list_path[-1].split('\\')[-1]
         calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
         test = calib_analysis.CalibAnalysis(calib_file)
         test.display_objective_function(save=None)
@@ -433,6 +428,94 @@ for watershed_name in watershed_names[:] :
         
     df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
     df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+#%% DICHOTOMY MAP DEM
+
+# geol_f = gpd.read_file(geology_path+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
+# geol_s = gpd.read_file(geology_path+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
+
+watershed_names = ['Quiock']
+
+for idx, watershed_name in enumerate(watershed_names):
+
+    site = watershed_name
+    
+    s='o'
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+
+    df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+    
+    fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
+    
+    obs = 'complete'
+    
+    print('#################### SITE '+str(idx)+' PLOT '+' : '+site.upper()+' ####################')
+
+    optim = BV.calibration_folder+'/'+'calib_dicot_hom_1v_k1/'+'streams_calibration/'+'_streams/'
+    simflow = gpd.read_file(optim+'/simflow.shp')
+    
+    streams = gpd.read_file(stable_folder+'hydrology/'+types_obs[0]+'.shp')
+    polyg = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+    contour = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+    
+    bounds = contour.geometry.total_bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])
+
+    dem = stable_folder+'geographic/'+'watershed_extent.tif'
+    gdal.Translate(dem, gdal.Open(dem_path), 
+                    projWin=[xlim[0],ylim[1],xlim[1],ylim[0]], noData=-99999)
+    hill = stable_folder+'geographic/'+'watershed_extent_hill.tif'
+    wbt.hillshade(dem, hill, azimuth=315.0, altitude=45.0, zfactor=2)
+    
+    dem = rasterio.open(stable_folder+'geographic/'+'watershed_extent.tif')
+    hill = rasterio.open(stable_folder+'geographic/'+'watershed_extent_hill.tif')
+    img = imageio.imread(stable_folder+'geographic/'+'watershed_extent.tif')
+    # raster =  rasterio.open(optim+'/simflow_raster.tif')
+        
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_title(site, fontproperties=fontprop)
+
+    hil = rasterio.plot.show(np.ma.masked_where(hill.read(1) < 0, hill.read(1)), 
+                              ax=ax, transform=dem.transform,
+                              cmap='Greys_r', alpha=0.5, zorder=2)
+    
+    # geol_f.plot(ax=ax, color=list(geol_f['hex']),alpha=0.4, edgecolor='dimgrey', zorder=0)
+    
+    # geol_s.plot(ax=ax, color=list(geol_s['hex']), alpha=0.4, zorder=1)
+    
+    xlims = ax.get_xlim()[1] - ax.get_xlim()[0]
+    ylims = ax.get_ylim()[1] - ax.get_ylim()[0]
+    
+    bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+    width, height = bbox.width, bbox.height
+    width *= fig.dpi
+    height *= fig.dpi
+
+    streams.plot(ax=ax, lw=2, color='navy', zorder=3)
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=5)
+    
+    # rast = rasterio.plot.show(np.ma.masked_where(raster.read(1) < 0, raster.read(1)), 
+    #                   ax=ax, transform=dem.transform, vmin=0, vmax=1000,
+    #                   cmap='RdYlGn_r', alpha=1, zorder=4)
+    
+    simflow.plot(ax=ax, alpha=1, column='VALUE1', cmap="RdYlGn_r", 
+                  marker='s', markersize=7.5, lw=0.1, edgecolor='none',
+                  scheme="User_Defined", 
+                  classification_kwds=dict(bins=[5, 25, 50, 75, 100]),
+                  zorder=4)
+
+    fig.tight_layout()
+    
+    fig.savefig(res_path+'calib_streams_homogeneous'+'.png', dpi=300, bbox_inches='tight')
 
 #%% ---- MODEL
 
@@ -459,6 +542,7 @@ porosity_list = np.linspace(0.1, 0.3, 9)
 
 typ = 'case1-k1-k2'
 typ = 'case1-k1+k2'
+typ = 'case1-khom'
 
 #%% RUN MODEL
 
@@ -488,19 +572,26 @@ for watershed_name in watershed_names[:] :
     actual_date = False # False if date is conceptual
     
     # Active of not modules
-    box = False # if True generate a rectangular model
+    box = True # if True generate a rectangular model
     sink_fill = False # permit to fill sinks
     verbose = True # add print of MODFLOW in console
     post_process = False # necessary to decompose post process of process
     
     # Strcture of the model
-    nlay = 2 # vertical discrtization
-    bottom = None # aquifer flat or not
+    nlay = 10 # vertical discrtization
+    bottom = -100 # aquifer flat or not
     thick_exp = 1 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
-    thick = 100 # m
-    verti_k = [[(2e-6)*3600* 24],
-               [40]] # None
+    thick = 300 # m
+    
+    k_dis = [(2e-7)*3600* 24] * (nlay-1)
+    if nlay == 2:
+        t_dis = 40 * (nlay-1)
+    if nlay > 2:
+        t_dis = list(np.linspace(40,300,nlay))[0:-1]
+    # print(t_dis)
+    
+    verti_k = [k_dis, t_dis]
     # verti_k = None
     
     # Hydraulic properties
@@ -635,7 +726,6 @@ for watershed_name in watershed_names[:] :
                 # # Extract results
                 BV.results_modflow(ident=model_name,
                                    actual_date=actual_date,
-                                   start=None,
                                    time_step=time_step)
                 
                 ## Plot maps
@@ -649,7 +739,7 @@ for watershed_name in watershed_names[:] :
                                                       intermittency=False,
                                                       chronics=False)
 
-#%% ---- PLOT
+#%% ---- PLOTAUTO
 
 #%% STEADY 2D CROSS SECTION
 
@@ -671,7 +761,7 @@ for watershed_name in watershed_names[:]:
                         key=os.path.getmtime, reverse=True)
     model_name = list_path[-1].split('\\')[-1]
     wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
-    river_data = imageio.imread(stable_folder+'/hydrology/'+'perennial_intermittent.tif') # river data
+    river_data = imageio.imread(stable_folder+'/hydrology/'+'L_Quiock_creek2.tif') # river data
     modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
 #%% STEADY 2D MAP VIEW
@@ -692,16 +782,16 @@ for watershed_name in watershed_names[:]:
 
     visu = visualization.Visualization(BV, model_name)
     
-    visu.visual2D(object_list = ['grid', 'watertable', 'watertable_depth',
-                                  'drain_flow', 'surface_flow'],
-                  color_scale = [(None,None),(None,None),(0,10),
-                                  (None,None),(None,None)])
+    # visu.visual2D(object_list = ['grid', 'watertable', 'watertable_depth',
+    #                               'drain_flow', 'surface_flow'],
+    #               color_scale = [(None,None),(None,None),(0,10),
+    #                               (None,None),(None,None)])
     
-    # visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
-    #                               'drain_flow', 'surface_flow','pathlines','residence_times'],
-    #               color_scale = [(None,None),(None,None),(None,None),(0,10),
-    #                               (None,None),(None,None),(None,None),(None,None)],
-    #               lines = 100)
+    visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
+                                  'drain_flow', 'surface_flow','pathlines','residence_times'],
+                  color_scale = [(None,None),(None,None),(None,None),(0,10),
+                                  (None,None),(None,None),(None,None),(None,None)],
+                  lines = 100)
     
     # visu.visual2D(object_list = ['pathlines'],
     #               color_scale = [(None,None)],
@@ -709,64 +799,544 @@ for watershed_name in watershed_names[:]:
     
 #%% STEADY 3D MAP VIEW
 
+# 3D parameters
+list_view = ['watertable_depth'] # object to represent in 3D
+list_view = ['pathlines'] # object to represent in 3D
+interactive = True
+z_scale = 1
+view = 'south-west'
+lines = 100
+
+vtk.VTK(BV, model_name)
+visu = visualization.Visualization(BV, model_name)
+visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view,
+              lines=lines, cloc=(0.7,0.1))
     
-#%%---- PATHLINES
+#%%---- SPECIFIC
 
 #%% FLOPY IMPORT TRACKING DATA
 
-fig, ax = plt.subplots(1,1, figsize=(5,5))
+# fig, ax = plt.subplots(1,1, figsize=(5,5))
 
 import flopy
 
-for watershed_name in watershed_names[:]:
-    
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
-    
-    dem = rasterio.open(BV.geographic.watershed_dem)
-    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
-    
-    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
-                        key=os.path.getmtime, reverse=True)
-    model_name = list_path[-1].split('\\')[-1]
+from flopy.utils.gridgen import Gridgen 
 
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+dem = rasterio.open(BV.geographic.watershed_dem)
+dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+
+### IMPORT MODEL
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=True)
+model_name = list_path[-1].split('\\')[-1]
+ml = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+fname = simulations_folder+model_name+'/'+model_name+'.hds'
+gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+
+grid_model = flopy.discretization.grid.Grid(ml)
+# sr_model = flopy.utils.reference.SpatialReference()
+
+### IMPORT ENDPOINTS
+res_time = np.zeros(np.shape(dem))
+endobj = flopy.utils.EndpointFile(simulations_folder+
+                                  model_name+'/'+model_name+'.mpend')
+e = endobj.get_alldata()
+for j in range(len(e)):
+    # time_out = pth_data[j].time[0] # explore pathlines
+    # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+    res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+res_time = np.ma.masked_where(res_time <= 0, res_time)
+# image_hidden = ax.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time),
+#                              cmap='jet', vmin=None, vmax=None)
+# image.append(image_hidden)
+# basemap.append(1)
+# show(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time), ax=ax, 
+#      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto",
+#      vmin=None, vmax=None)
+
+endobj.write_shapefile(endpoint_data=e,
+                        shpname=simulations_folder+
+                                model_name+'/'+'_endpoints/'+
+                                'ending.shp',
+                        direction='ending',
+                        mg=grid_model, epsg=32620, sr=None)
+endobj.write_shapefile(endpoint_data=e,
+                        shpname=simulations_folder+
+                                model_name+'/'+'_endpoints/'+
+                                'starting.shp',
+                        direction='starting',
+                        mg=grid_model, epsg=32620, sr=None)
+
+# shp = gpd.read_file(simulations_folder+
+#                     model_name+'/'+'_endpoints/'+
+#                     'starting.shp')
+# # crs_code = 32620
+# # shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
+# # shp.to_crs(utm_crs)
+# x = shp.geometry.x/5
+# y = shp.geometry.y/5
+# gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
+# gdf.to_file(simulations_folder+
+#             model_name+'/'+'_endpoints/'+
+#             'starting.shp')
+
+# shp = gpd.read_file(simulations_folder+
+#                     model_name+'/'+'_endpoints/'+
+#                     'ending.shp')
+# # crs_code = 32620
+# # shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
+# # shp.to_crs(utm_crs)
+# x = shp.geometry.x/5
+# y = shp.geometry.y/5
+# gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
+# gdf.to_file(simulations_folder+
+#             model_name+'/'+'_endpoints/'+
+#             'ending.shp')
+
+### IMPORT PATHLINES
+pthobj = flopy.utils.PathlineFile(simulations_folder+
+                                  model_name+'/'+model_name+'.mppth')
+pth_data = pthobj.get_alldata()
+
+'''
+pthobj.write_shapefile(pathline_data=pth_data,
+                        shpname=simulations_folder+
+                                model_name+'/'+'_pathlines/'+
+                                'ending.shp',
+                        one_per_particle=True, # False
+                        direction='ending',
+                        mg=grid_model, epsg=32620, sr=None)
+pthobj.write_shapefile(pathline_data=pth_data,
+                        shpname=simulations_folder+
+                                model_name+'/'+'_pathlines/'+
+                                'starting.shp',
+                        one_per_particle=True, # False
+                        direction='starting',
+                        mg=grid_model, epsg=32620, sr=None)
+'''
+
+# shp = gpd.read_file(simulations_folder+
+#                     model_name+'/'+'_pathlines/'+
+#                     'starting.shp')
+# # crs_code = 32620
+# # shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
+# # shp.to_crs(utm_crs)
+# points = shp.apply(lambda x: [y for y in x['geometry'].coords], axis=1)
+# x = shp.geometry.x/5
+# y = shp.geometry.y/5
+# gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
+# gdf.to_file(simulations_folder+
+#             model_name+'/'+'_pathlines/'+
+#             'starting.shp')
+
+# shp = gpd.read_file(simulations_folder+
+#                     model_name+'/'+'_pathlines/'+
+#                     'ending.shp')
+# # crs_code = 32620
+# # shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
+# # shp.to_crs(utm_crs)
+# points = shp.apply(lambda x: [y for y in x['geometry'].coords], axis=1)
+# x = shp.geometry.x/5
+# y = shp.geometry.y/5
+# gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
+# gdf.to_file(simulations_folder+
+#             model_name+'/'+'_pathlines/'+
+#             'ending.shp')
+
+### SELECT PARTICLES
+layers = [1,0]
+indices_layers = []
+for lay in layers:
+    keep_id = []
+    if lay == 0:
+        keep = []
+        for i, j in enumerate(pth_data):
+            if len(np.unique(j.k))==1:
+                if np.unique(j.k)[0] == 0:
+                    keep.append(j)
+    if lay == 1:
+        keep = []
+        for i, j in enumerate(pth_data):
+            if len(np.unique(j.k)) != 1:
+                keep.append(j)
+    print(len(keep))
+    # random_indices = np.random.choice(len(keep), size=1000) # RANDOM LINES
+    random_indices = np.arange(len(keep))
+    geotx_p = BV.geographic.x_coord
+    geoty_p = BV.geographic.y_coord
+    geot_p = BV.geographic.geodata
+    cols = geotx_p.shape[0]
+    rows = geoty_p.shape[0]
+    ext = []
+    xarr = [0, cols]
+    yarr = [0, rows]
+    for px in xarr:
+        for py in yarr:
+            x = geotx_p[0] + (px * geot_p[1]) + (py * geot_p[2])
+            y = geoty_p[0] + (px * geot_p[4]) + (py * geot_p[5])
+            ext.append([x, y])
+    max_time = []
+    min_time = []
+    for j in random_indices:
+        max_time.append(np.max(np.log10(keep[j].time)))
+        min_time.append(np.min(np.log10(keep[j].time)))
+    for j in random_indices:
+        x = keep[j].x + ext[1][0]
+        y = keep[j].y + ext[1][1]
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        part_id = keep[j]['particleid'][0]       
+        keep_id.append(part_id)
+    indices_layers.append(keep_id) # lasr layers and first layer
+
+### DATA PLOT
+acc_flux = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
+                          'accumulation_flux_t(0).tif') 
+acc_mask = np.ma.masked_where(dem.read(1) < -100, acc_flux)
+acc_mask = acc_mask.filled(np.nan)
+acc_mask[acc_mask<=0] = np.nan
+time_res = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
+                          'residence_times_t(0).tif')
+res_mask = np.ma.masked_where(dem.read(1) < -100, time_res)
+res_mask = res_mask.filled(np.nan)
+res_mask[res_mask<=0] = np.nan
+
+#%% PLOT GRAPHS
+
+fig, axs = plt.subplots(2,2, figsize=(6,5))    
+axs = axs.ravel()
+    
+acc_flux = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
+                          'accumulation_flux_t(0).tif') 
+acc_mask = np.ma.masked_where(dem.read(1) < -100, acc_flux)
+acc_mask = acc_mask.filled(np.nan)
+acc_mask[acc_mask<=0] = np.nan
+time_res = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
+                          'residence_times_t(0).tif')
+res_mask = np.ma.masked_where(dem.read(1) < -100, time_res)
+res_mask = res_mask.filled(np.nan)
+res_mask[res_mask<=0] = np.nan
+
+def flatten_on_xy(x):
+    XX,YY = np.meshgrid(np.arange(x.shape[1]),np.arange(x.shape[0]))
+    table = np.vstack((x.ravel(),XX.ravel(),YY.ravel())).T
+    return table
+
+# plt.imshow(res_mask)
+
+flat_acc = flatten_on_xy(acc_mask)
+ax = axs[0]
+ax.scatter(flat_acc[:,1], flat_acc[:,0], color='k', lw=0, s=5)
+ax.set_xlim(60, 160)
+ax.set_ylabel('Discharge')
+ax.set_xlabel('Distance')
+
+flat_res = flatten_on_xy(res_mask)
+ax = axs[1]
+ax.scatter(flat_res[:,1], flat_res[:,0], c=flat_res[:,0], lw=0, s=5)
+ax.set_xlim(60, 160)
+ax.set_ylabel('Residence times')
+ax.set_xlabel('Distance')
+
+# ax.invert_xaxis()
+# axb.invert_xaxis()
+
+color_layers = ['red','dodgerblue']
+cp = 2
+for h in range(len(layers[:])):
+    ax = axs[cp]
     res_time = np.zeros(np.shape(dem))
-    endobj = flopy.utils.EndpointFile(simulations_folder+
-                                      model_name+'/'+model_name+'.mpend')
-    e = endobj.get_alldata()
+    res_count = np.zeros(np.shape(dem))
+    compt=0
     for j in range(len(e)):
         # time_out = pth_data[j].time[0] # explore pathlines
         # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
-        res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+        if e[j].particleid in indices_layers[h]:
+            res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+            res_count[e[j].i,e[j].j] = res_count[e[j].i,e[j].j] + 1 # where outputed
     res_time = np.ma.masked_where(res_time <= 0, res_time)
+    # image_hidden = plt.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time),
+    #                              cmap='jet', vmin=0, vmax=100)
+    res_count = np.ma.masked_where(res_count <= 0, res_count)
+    # image_hidden = plt.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_count),
+    #                               cmap='jet', vmin=None, vmax=None)
+    flat_count = flatten_on_xy(res_count)
+    ax.scatter(flat_count[:,1], flat_count[:,0], color=color_layers[h], lw=0, s=5)
+    ax.set_xlim(60, 160)
+    ax.set_ylabel('Count out particle')
+    ax.set_xlabel('Distance')
+    cp+=1
+plt.tight_layout()
+
+#%% PLOT MAPS
+
+fig, axs = plt.subplots(2,2, figsize=(6,5))    
+axs = axs.ravel()
+
+color_layers = ['red','dodgerblue']
+cp = 0
+for h in range(len(layers[:])):
+    ax = axs[cp]
+    if cp == 0:
+        ax.set_title('Times for deep layer')
+    else:
+        ax.set_title('Times for shallow layer')
+    res_time = np.zeros(np.shape(dem))
+    res_count = np.zeros(np.shape(dem))
+    compt=0
+    for j in range(len(e)):
+        # time_out = pth_data[j].time[0] # explore pathlines
+        # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
+        if e[j].particleid in indices_layers[h]:
+            res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
+            res_count[e[j].i,e[j].j] = res_count[e[j].i,e[j].j] + 1 # where outputed
+    res_time = np.ma.masked_where(res_time <= 0, res_time)
+    ax.imshow(dem_data, cmap='Greys', alpha=0.8)
     image_hidden = ax.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time),
-                                 cmap='jet', vmin=None, vmax=None)
-    # image.append(image_hidden)
-    # basemap.append(1)
-    # show(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_time), ax=ax, 
-    #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto",
-    #      vmin=None, vmax=None)
-    # endobj.write_shapefile(endpoint_data=e,
-    #                        shpname='D:/Users/abherve/GUADELOUPE/Shp/endpoints.shp',
-    #                        direction='ending',
-    #                        mg=None, epsg=None, sr=None)
+                                  cmap='jet', vmin=0, vmax=100)
+    res_count = np.ma.masked_where(res_count <= 0, res_count)
+    # image_hidden = plt.imshow(np.ma.masked_where(BV.geographic.dem_clip<= 0, res_count),
+    #                               cmap='jet', vmin=None, vmax=None)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)    
+    cp+=1
     
-    pthobj = flopy.utils.PathlineFile(simulations_folder+
-                                      model_name+'/'+model_name+'.mppth')
-    pth_data = pthobj.get_alldata()
+cp = 2
+for h in range(len(layers[:])):
+    ax = axs[cp]
+    if cp == 2:
+        ax.set_title('Points of deep layer')
+    else:
+        ax.set_title('Points of shallow layer')
+    # axb = ax.twinx()
+    shp_pathline = gpd.read_file(simulations_folder+
+                        model_name+'/'+'_pathlines/'+
+                        'ending.shp')
+    shp_endpoint = gpd.read_file(simulations_folder+
+                        model_name+'/'+'_endpoints/'+
+                        'starting.shp')
+    mask_line = np.isin(shp_pathline.particleid, indices_layers[h])
+    mask_point = np.isin(shp_endpoint.particleid, indices_layers[h])
+
+    shp_pathline = shp_pathline[mask_line]
+    shp_endpoint = shp_endpoint[mask_point]
+
+    x_1 = np.array([*range(0, dem_data.shape[0], 1)])
+    x = 5 * x_1      #deltaT is 2 min
+    ax.imshow(dem_data, cmap='Greys', alpha=0.8,
+              extent=[0,dem_data.shape[1]*5,
+                      0,dem_data.shape[0]*5])
+    shp_pathline.plot(ax=ax, color=color_layers[h], lw=0.05)
+    shp_endpoint[shp_endpoint.time>0].plot(ax=ax, markersize=2, c=color_layers[h], lw=0)
+    # ax.invert_yaxis()
     
-    keep = []
-    for i, j in enumerate(pth_data):
-        if len(np.unique(j.k))==1:
-            if np.unique(j.k)[0] == 0:
-                keep.append(j)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
     
-    ml = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    # ax.set_xlim(0, 170)
+    # ax.set_ylim(135,0)
+    # ax.set_xbound(lower=0.0, upper=170)
+    # ax.set_ybound(lower=135, upper=0)
+    # axb.set_xlim(0, 170)
+    # axb.set_ylim(0, 135)
+    
+    # scale_factor = 5
+    # xmin, xmax = plt.xlim()
+    # ymin, ymax = plt.ylim()
+    # plt.xlim(xmin / scale_factor, xmax / scale_factor)
+    # plt.ylim(ymin / scale_factor, ymax / scale_factor)
+        
+    cp+=1
+
+fig.tight_layout()
+
+#%% PLOT CROSS FLOPY
+
+### FLOPY METHOD
+fig, ax = plt.subplots(1,1, figsize=(7, 3))
+xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 50})
+linecollection = xsect.plot_grid(color='k', lw=1)
+# Kv = np.zeros((2,106,209))
+# Kv[0,:,:] = 1e-5 #first layer of lime
+# Kv[1,:,:] = 1e-6 #second layer of sand
+# xsect.plot_array(Kv)
+xsect.get_extent()
+# xsect.plot_bc()
+hdobj = flopy.utils.HeadFile(fname)
+head = hdobj.get_data() 
+xsect.plot_fill_between(head, color='saddlebrown', edgecolor='none',
+                        alpha=0.5)
+pc = xsect.plot_array(head,
+                      masked_values=[-9999.0], head=head, alpha=0.5,
+                      cmap = 'Blues', lw=0,
+                      vmin=200, vmax=400)
+# patches = xsect.plot_ibound(head=head)
+# linecollection = xsect.plot_grid()
+cb = plt.colorbar(pc, shrink=0.75)
+# ax.set_xlim(0,dem_data.shape[1]*5)
+ax.set_ylim(-100,350)
+# xsect.plot_pathline(pth_data[3000:3050], method='all', colors='k')
+# xsect.plot_endpoint(e, direction='ending')
+# keep = []
+# for i, j in enumerate(pth_data[:]):
+#     if (j.z<250).any():
+#         print(i, len(pth_data))
+#         keep.append(j)
+#         ax.plot(j.x, j.z, color='red')
+
+xlims = ax.get_xlim()
+head_profile = pc.get_array()[0:170]
+
+keep_idx = []
+for i, j in enumerate(np.random.choice(pth_data,1000)):
+    if j.particleid[0] in indices_layers[0]:
+        j_xmin = j.x.min()/5
+        j_xmax = j.x.max()/5
+        head_restr = head_profile[int(j_xmin):int(j_xmax)]
+        if len(head_restr)>0:
+            head_max = head_restr.max()
+            if j.z.max()<head_max:
+                print(i, len(pth_data))
+                keep_idx.append(i)
+                ax.plot(j.x, j.z, color='red', lw=1)
+
+keep_idx = []
+for i, j in enumerate(np.random.choice(pth_data,1000)):
+    if j.particleid[0] in indices_layers[1]:
+        j_xmin = j.x.min()/5
+        j_xmax = j.x.max()/5
+        head_restr = head_profile[int(j_xmin):int(j_xmax)]
+        if len(head_restr)>0:
+            head_max = head_restr.max()
+            if j.z.max()<head_max:
+                print(i, len(pth_data))
+                keep_idx.append(i)
+                ax.plot(j.x, j.z, color='blue', lw=1)
+
+#%% PLOT CROSS MANU
+
+# dem_data = imageio.imread(BV.geographic.watershed_dem)
+wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
+                          'watertable_elevation_t(0).tif') 
+# river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
+
+xvalues = np.linspace(-1,1,dem_data.shape[1])
+yvalues = np.linspace(-1,1,dem_data.shape[0])
+xx, yy = np.meshgrid(xvalues,yvalues)
+
+# cur_x = dem_data.shape[1] /2
+# cur_y = dem_data.shape[0] /2
+
+# cur_x = 65
+# cur_y = 40
+
+dem_max = dem_data.max()
+dem_prof = dem_data.astype(float)
+dem_prof[dem_prof<0] = np.nan
+wt_prof = wt_data.astype(float)
+wt_prof[wt_prof<0] = np.nan
+
+fig_l, ax_l = plt.subplots(1, 1, figsize=(5,8))
+
+for i, coord in enumerate([[80,60,140,40],[100,100,140,40]]):
+# for i, coord in enumerate([[80,60,140,40]]):
+
+    x0, y0 = coord[0], coord[1] # These are in _pixel_ coordinates !
+    x1, y1 = coord[2], coord[3]
+    num = int(np.hypot(x1-x0, y1-y0))
+    num = x1-x0
+    # num=100
+    x, y = np.linspace(x0, x1, num), np.linspace(y0, y1, num)
+    zd = dem_data[y.astype(np.int), x.astype(np.int)]
+    zw = wt_data[y.astype(np.int), x.astype(np.int)]
+    
+    # dem_h_plot = dem_prof[int(cur_y),:]
+    # dem_h_plot[dem_h_plot == 0] = np.nan
+    # wt_h_plot = wt_prof[int(cur_y),:]
+    # wt_h_plot[wt_h_plot == 0] = np.nan
+        
+    dem_max = dem_data.max()
+    dem_prof = dem_data.astype(float)
+    dem_prof[dem_prof<0] = np.nan
+    dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
+    
+    wt_prof = wt_data.astype(float)
+    wt_prof[wt_prof<0] = np.nan
+    
+    # axs = axs.ravel()
+    # ax = axs[0]
+    # ax.autoscale(enable=False)
+    # ax.plot(Rech)
+    # ax = axs[1]
+    # ax.autoscale(enable=False)
+    ax_l.imshow(dem_plot, origin='lower', cmap='Greys', aspect="equal")
+    ax_l.set_ylim(ax_l.get_ylim()[::-1])
+    d_line = ax_l.plot((x0,x1),(y0,y1), 'k-', lw=2)
+    # v_line = ax.axvline(cur_x, color='k', lw=2)
+    # h_line = ax.axhline(cur_y, color='k', lw=2)
+
+
+    fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
+    wt_h_fill = ax.fill_between(np.arange(x.shape[0]), 0, zw,
+                                    color='dodgerblue', alpha=0.5, lw=0)
+    wt_h_fill = ax.fill_between(np.arange(x.shape[0]), zw, zd,
+                                    color='saddlebrown', alpha=0.5, lw=0)
+    d_prof = ax.plot(np.arange(x.shape[0]), zd, 'saddlebrown', lw=2)
+    d_prof = ax.plot(np.arange(x.shape[0]), zd-40, 'k', lw=2, ls='--')
+    w_prof = ax.plot(np.arange(x.shape[0]), zw, 'navy', lw=2)
+    
+    if i == 0 :
+        ax.set_xlim(0, 58)
+        ax.set_ylim(100, 300)
+        ax.axvline(40, c='k', ls='--')
+        ax.set_xticks(np.arange(0,58,10))
+        # ax.set_xticklabels(np.arange(0,58,10)*5)
+
+    if i == 1 :
+        ax.set_xlim(0, 37)
+        ax.set_ylim(100, 300)
+        ax.axvline(30, c='k', ls='--')
+        ax.set_xticks(np.arange(0,37,10))
+        # ax.set_xticklabels(np.arange(0,37,10)*5)
+
+    
+    # head_profile = dem_data[0][0:60].copy()
+    head_profile = wt_data[0][0:60].copy()
+    head_prfoile = zw[0:58]
+    # head_profile = wt_data[y.astype(np.int), x.astype(np.int)].copy()
+    
+    # for i, j in enumerate(np.random.choice(pth_data[:],len(pth_data[:]))):
+    for i, j in enumerate(np.random.choice(pth_data[:],1000)):
+    # for i, j in enumerate(pth_data[:]):
+        if j.particleid[0] in indices_layers[0]:
+            # if j.z.max() < zd.max():
+            # if j.z.max() < 270:
+            j_xmin = round(j.x.min()/5, 2)
+            j_xmax = round(j.x.max()/5, 2)
+            head_restr = head_profile[round(j_xmin):round(j_xmax)]
+            if len(head_restr)>0:
+                head_max = head_restr.max()
+                head_mean = head_restr.mean()
+                # if j.z.max()<head_max:
+                if j.z.max()<=head_max:
+                    # print(j.z.max(), head_max)
+                    # print(i, len(pth_data))
+                    ax.plot(j.x/5, j.z, color='navy', lw=1, marker=None)
+    
+    ax.set_xlabel('Pixels')
+    ax.set_ylabel('Elevation [m]')
+            
+ax_l.invert_yaxis()
+
+#%% ---- VRAC
 
 #%% PLOT CROSS SECTION MAP VIEW
 
@@ -844,8 +1414,6 @@ for watershed_name in watershed_names[:]:
     
 #%% EXTRACT RESIDENCE TIMES 2D
 
-wateshed_name = 'Test'
-
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
@@ -879,7 +1447,7 @@ res_time_data = res_time.read(1)
 res_time_data = res_time_data
 
 shp_obs = gpd.read_file(path_obs)
-shp_obs['geometry'] = shp_obs.geometry.buffer(50)
+shp_obs['geometry'] = shp_obs.geometry.buffer(100)
 # shp_obs = shp_obs[['ID_station', 'geometry']]
 shp_obs.to_file(path_dat, encoding='utf-8') # mode a
 
@@ -980,7 +1548,7 @@ res_dat['coords'] = [res_dat[0] for res_dat in res_dat['coords']]
 #     ax.annotate(s=row['id'], xy=row['coords'],
 #                  horizontalalignment='center')
 
-fig.savefig(res_path+model_name+'.png', dpi=300, bbox_inches='tight')
+# fig.savefig(res_path+model_name+'.png', dpi=300, bbox_inches='tight')
 
 '''
 fig, ax = plt.subplots(1,1, figsize=(4,4))
@@ -1033,8 +1601,6 @@ compt+=1
 
 #%% EXTRACT PATHLINES TIMES 2D
 
-watershed_name = 'Quiock'
-
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
@@ -1078,7 +1644,11 @@ layers = [1,0]
 color_layers = ['red','dodgerblue']
 dict_layers = dict(zip(layers, color_layers))
 
+indices_layers = []
+
 for lay in layers:
+    
+    keep_id = []
     
     if lay == 0:
         keep = []
@@ -1091,9 +1661,10 @@ for lay in layers:
         for i, j in enumerate(pth_data):
             if len(np.unique(j.k)) != 1:
                 keep.append(j)
+    print(len(keep))
         
-    random_indices = np.random.choice(len(keep), size=1000) # RANDOM LINES
-    # random_indices = np.arange(len(keep))
+    # random_indices = np.random.choice(len(keep), size=1000) # RANDOM LINES
+    random_indices = np.arange(len(keep))
     geotx_p = BV.geographic.x_coord
     geoty_p = BV.geographic.y_coord
     geot_p = BV.geographic.geodata
@@ -1124,10 +1695,16 @@ for lay in layers:
         lc.set_linewidth(2)
         lc.set_clim(1,np.max(max_time))
         line = ax.add_collection(lc) 
+        
+        part_id = keep[j]['particleid'][0]
     
         # fig, ax = plt.subplots(1)
         # ax.add_collection(lc)
         # axcb = fig.colorbar(lc, pad=0.02)
+        
+        keep_id.append(part_id)
+
+    indices_layers.append(keep_id) # lasr layers and first layer
 
 contour = gpd.read_file(BV.geographic.watershed_contour_shp)
 contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
@@ -1180,6 +1757,7 @@ from groundwater_flow import visualization
 # visu.visual3D(interactive=True, object_list=['grid','watertable'], view='south-west')
 
 object_list = ['grid', 'pathlines']
+object_list = ['pathlines']
 view = 'south-west'
 bg = 'lb'
 interactive = True
@@ -1372,10 +1950,7 @@ for i in range (0,len(object_list)):
         #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
 
-
 if interactive == True:
     plt.show(interactive=1,interactorStyle=6).close()
 else:
     plt.screenshot(os.path.join(BV.simulations_folder, modelname, '_watershed_fig','3Dvisual.png')).close()
-
-

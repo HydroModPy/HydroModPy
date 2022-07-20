@@ -462,7 +462,7 @@ class Watershed:
                                        export_tif = export_tif)
 
     def results_modflow(self, ident='modflow', # recharge=250,
-                        actual_date=True, start='2010-01-01', time_step='M', calib=None):
+                        actual_date=True, time_step='M', calib=None):
         
         if calib == None:
             model_folder = self.simulations_folder
@@ -472,7 +472,6 @@ class Watershed:
         results = modflow_results.Results(self.geographic,
                                 recharge=self.forcing.recharge,
                                 actual_date=actual_date,
-                                start=start,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,
                                 model_folder=model_folder)
