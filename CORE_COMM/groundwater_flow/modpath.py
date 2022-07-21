@@ -102,7 +102,9 @@ class Modpath:
         pcol = 1
         #stldata = flopy.modpath.mpsim.StartingLocationsFile.get_empty_starting_locations_data(npt=ncol*nrow*prow*pcol)
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip != -99999)*pcol*prow)
-
+        '''
+        stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip >= -99999)*pcol*prow)
+        '''
         hds_1c = fpu.HeadFile(head_file)
         # hds_1c = ff.FormattedHeadFile('model1.hds')
         head_1c = hds_1c.get_alldata(mflay=None)
@@ -118,7 +120,9 @@ class Modpath:
         compt = 0
         for i in range(0, nrow):
             for j in range(0, ncol):
-                if self.geographic.dem_clip[i,j] != -99999.:
+                
+                if self.geographic.dem_clip[i,j] != -99999.: # active or note
+                
                     if head_1c[0][0][i][j] != 0.48:
                         for ii in range (0, prow):
                             for jj in range (0, pcol):

@@ -513,15 +513,19 @@ class Modflow():
             if groundwater_storage == True:
                 # Groundwater data
                 # print(self.kstpkper)
+                
                 # if time == 0:
                 #     self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
                 # else:
                 #     self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper, totim=time)[0]
                 # self.gw_storage = self.sto.copy()
+                # self.dict_groundwater_storage[item] = self.gw_storage
+                
                 self.wt_sto = self.wt_elev.copy()
                 self.wt_sto[self.dem<0] = np.nan
-                self.wt_sto = ( self.wt_sto - (self.dem-30) ) * (self.resolution**2) * self.porosity
+                self.wt_sto = ( self.wt_sto - (self.dem-self.thick) ) * (self.resolution**2) * self.porosity
                 self.dict_groundwater_storage[item] = self.wt_sto
+                
                 # np.count_nonzero(~np.isnan(dem))
                 # self.gw_sto = np.nansum(self.wt_sto)
             
