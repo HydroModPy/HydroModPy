@@ -1,8 +1,0 @@
-Recharge:
-- Sinusoidal recharge from sinus function
-
-Landslide:
-- See whiteboxtools possibilities
-
-Environment:
-- Add ==> mayavi, scipy

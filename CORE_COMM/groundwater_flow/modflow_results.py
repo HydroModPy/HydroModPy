@@ -30,7 +30,6 @@ from tools import toolbox
 
 class Results:
     def __init__(self, geographic, recharge=250, actual_date=True, model_name='modflow_model',
-                 start='1960-01-01',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
         
@@ -38,7 +37,6 @@ class Results:
         self.model_name = model_name
         self.stable_folder = stable_folder
         self.model_folder = model_folder
-        self.start = start
         self.actual_date = actual_date
         self.recharge = recharge
        

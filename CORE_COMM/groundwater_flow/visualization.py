@@ -310,28 +310,42 @@ class Visualization():
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'drain_flow':
-                axs[i].set_title('Seepage rates, log(Q) [m/d]')
+                # axs[i].set_title('Seepage rates, log(Q) [m/d]')
+                axs[i].set_title('Seepage rates, Q [m/d]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
-                image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
-                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
+                #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, (drain)), 
+                              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
-                show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
+                #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
+                #      vmax=color_scale[i][1])
+                show(np.ma.masked_where(drain<= 0, (drain)), ax=axs[i], 
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
+                     vmax=color_scale[i][1])
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'surface_flow':
-                axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
+                # axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
+                axs[i].set_title('Cumulate seepage rates, Q [m/d]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
-                image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
-                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
+                #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, (surface)), 
+                              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
-                show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
+                #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], 
+                #      vmax=color_scale[i][1])
+                show(np.ma.masked_where(surface_area[time_step]<= 0, (surface)), ax=axs[i], 
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], 
+                     vmax=color_scale[i][1])
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'pathlines':
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
@@ -440,8 +454,19 @@ class Visualization():
         fig.tight_layout()
         now = datetime.now()
         #name = now.strftime("%d_%m_%Y_%Hh%M")
-        name = self.modelname 
-        fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'.png'), dpi=300, bbox_inches='tight', transparent=False)
+        name = self.modelname
+        if not os.path.exists(os.path.join(modelfolder,'_figures',str(name)+'_0'+'.png')):
+            fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_0'+'.png'), dpi=300, 
+                        bbox_inches='tight', transparent=False)
+        else:
+            fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_1'+'.png'), dpi=300, 
+                        bbox_inches='tight', transparent=False)
+            if not os.path.exists(os.path.join(modelfolder,'_figures',str(name)+'_1'+'.png')):
+                fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_1'+'.png'), dpi=300, 
+                            bbox_inches='tight', transparent=False)
+            else:
+                fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_2'+'.png'), dpi=300, 
+                            bbox_inches='tight', transparent=False)
         plt.show()
 
         

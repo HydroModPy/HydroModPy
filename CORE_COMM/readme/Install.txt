@@ -31,7 +31,8 @@ Spyder debugging
 7-Package conflicts
 Between matplotlib and geopandas/gdal/rasterio
 => Resolve by adding specific version in the environment.yml
+Add this package manually : conda install -c conda-forge rioxarray 
 
-8-Data required (climate, DEM, geology, hydrology at scale of France)
+8-Data required (climate, DEM, geology, hydrology at an equivalent or superior size of your study site)
 HydroDataPy (OneDrive)
 Avoid Delete functions that would remove files in all user folders (not only you)
