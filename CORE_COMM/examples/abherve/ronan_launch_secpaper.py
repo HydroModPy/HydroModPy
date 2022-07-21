@@ -2432,7 +2432,7 @@ for watershed_name in watershed_names[:]:
 
 #%% ---- RESPONSE
 
-#%% WT
+#%% CALC FLOWPATHS
 
 hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
 
@@ -2619,7 +2619,251 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 # plt.plot(Smod['recharge'],Smod['tau'])
 # plt.plot()
 
-#%% RELATIONS
+#%% MATRIX INTERMITTENCY
+
+hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/D035/' # add hydrographic shapefiles
+
+watershed_names = ['Canut','Nancon']
+code_names = ['J7513010','J0014010']
+
+# watershed_names = ['Canut']
+# code_names = ['J7513010']
+
+types_obs = ['complete','intermittent','perennial','river','zh_couesnon','zh_meuchezecanut'] # list of shapefile name layers for clip hydrology
+fields_obs = ['persistanc','fid','fid','fid','fid','fid']
+
+df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+
+c = ['forestgreen','orchid']
+dict_c = dict(zip(watershed_names, c))
+
+typ = 'calibr-t2'
+
+mod_list = ['REA']
+
+sce_list = ['historic']
+
+from watershed import watershed_root, watershed_display, forcing
+from matplotlib_scalebar.scalebar import ScaleBar
+from rasterio.plot import show
+
+for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
+       
+    print('##### '+watershed_name.upper()+' #####')
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    
+    # BV.add_hydrology(hydrology_path, types_obs=['intermittent'], fields_obs=['fid'])
+
+    bv = gpd.read_file(BV.geographic.watershed_shp)
+    area = BV.geographic.area
+    area = round(area, 1)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = dem.read(1)
+    
+    path_hydro = stable_folder + 'hydrology/'
+    complete = gpd.read_file(path_hydro+'complete.shp')
+    intermittent = gpd.read_file(path_hydro+'intermittent.shp')
+    perennial = gpd.read_file(path_hydro+'perennial.shp')
+    river = gpd.read_file(path_hydro+'river.shp')
+    
+    if watershed_name == 'Canut':
+        zh = gpd.read_file(path_hydro+'zh_meuchezecanut.shp')
+        zh_tif = imageio.imread(path_hydro+'zh_meuchezecanut.tif')
+    if watershed_name == 'Nancon':
+        zh = gpd.read_file(path_hydro+'zh_couesnon.shp')
+        zh_tif = imageio.imread(path_hydro+'zh_couesnon.tif')
+
+    perennial_tif = imageio.imread(path_hydro+'perennial.tif')
+    intermittent_tif = imageio.imread(path_hydro+'intermittent.tif')
+    river_tif = imageio.imread(path_hydro+'river.tif')
+    complete_tif = imageio.imread(path_hydro+'complete.tif')
+    
+    area_complete = round((np.sum(complete_tif > 0) * 75**2) / 1000000 / area *100, 1)
+    area_zh = round((np.sum(zh_tif > 0) * 75**2) / 1000000 / area *100, 1)
+    area_intermittent = round((np.sum(intermittent_tif > 0) * 75**2) / 1000000 / area*100, 1)
+    area_perennial = round((np.sum(perennial_tif > 0) * 75**2) / 1000000 / area*100, 1)
+    area_river = round((np.sum(river_tif > 0) * 75**2) / 1000000 / area *100, 1)
+    area_all = round(area_complete + area_zh, 1)
+    drainage = round(area_all / area, 2)
+
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    color = 'k'
+        
+    for mod in mod_list:
+        
+        # fig1, axs1 = plt.subplots(1,1, figsize=(5,5))
+        # xn = 0.1
+        # xx = 100
+        # yn = 0.1
+        # yx = 100
+        # ax = axs1
+        # ax.set_title(mod)
+        # ax.set_aspect('equal', adjustable='box')
+
+        for sce in sce_list:
+            
+            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+            simul = simul_list[0]
+            
+            # if sce == 'historic':
+            #     simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+'RCP8.5'+'*')
+            #     simul = simul_list[0]
+                
+            model_name = simul.split('\\')[-1]
+            Sy = float(model_name.split('_')[3].split('-')[0]) # %
+            K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+            E = float(model_name.split('_')[3].split('-')[2]) # m
+            D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+            params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+            Smod_path = simul+'/_watershed/_simulated_results.csv'            
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+            
+            Smod = select_period(Smod, 1960, 2019)
+
+            hist = Smod.copy()
+            hist['month'] = hist.index.month.values
+            hist['year'] = hist.index.year.values # group by month and year, get the average
+            hist = hist.groupby(['month', 'year']).apply(lambda g: g.sum(skipna=False))
+            hist = hist.unstack(level=0, fill_value=np.nan)
+            hist = hist['surflow_areas']
+            
+            lims = (hist.min(), hist.max())
+            vmin = 0
+            vmax = 10
+            
+            xticks = np.arange((hist.index[-1]+1) - hist.index[0])+0.5
+            years = list(hist.index.values.astype(str))[::2] 
+            
+            hist = hist.T
+            
+            fig, ax = plt.subplots(1,1, figsize=(10, 3))
+            # axs = axs.ravel()
+            colori = "jet_r"
+            yticks = np.arange(12)+0.5
+            mois = ['J','F','M','A','M','J','J','A','S','O','N','D']
+            ax = ax
+            pc = ax.pcolormesh(hist, cmap=colori, vmin=vmin, vmax=vmax, edgecolor='grey', lw=0.2, alpha=0.7) # norm=mpl.colors.LogNorm(vmin, vmax)
+            ax.set_yticks(yticks)
+            ax.set_yticklabels(mois, minor=False, rotation='horizontal', fontsize=13)
+            # ax.yaxis.tick_top()
+            ax.set_xticks(xticks[::2])
+            ax.set_xticklabels(years, minor=False, rotation='horizontal', fontsize=13)
+            # ax.invert_yaxis()
+            ax.tick_params(axis="x", direction='out', length=5)
+            ax.tick_params(axis="y", direction='out', length=5)
+            cb = fig.colorbar(pc)
+            cb.ax.set_ylabel('$A_{sat}$ [%]')
+
+            acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+            # acc_npy = np.load(os.path.join(simul, '_watershed','outflow_drain.npy'), allow_pickle=True).item()
+            
+            if watershed_name == 'Canut':
+                idx_x = np.arange(0, dem_data.shape[1], 1)
+                flat_flux = pd.DataFrame(index=idx_x)
+            if watershed_name == 'Nancon':
+                idx_x = np.arange(0, dem_data.shape[0], 1)
+                flat_flux = pd.DataFrame(index=idx_x)
+                
+            for i in range(len(acc_npy)):
+                print(i+1, len(acc_npy))
+                
+                if watershed_name == 'Canut':
+                    def flatten_on_xy(x): # [val, col-horiz, row-verti]
+                        XX,YY = np.meshgrid(np.arange(x.shape[1]),np.arange(x.shape[0]))
+                        table = np.vstack((x.ravel(),XX.ravel(),YY.ravel())).T
+                        return table
+                    acc_path = os.path.join(simul, '_watershed/_tifs/','accumulation_flux_t('+str(i)+').tif')
+                    # acc_path = os.path.join(simul, '_watershed/_tifs/','outflow_drain_t('+str(i)+').tif')
+                    acc = imageio.imread(acc_path)
+                    acc[dem_data<0] = np.nan
+                    acc[acc<=0] = np.nan
+                    acc = acc / 24 / 3600 * 1000
+                    flat_acc = flatten_on_xy(acc)
+                    flat_acc = pd.DataFrame(flat_acc)
+                    # flat_acc[0][flat_acc[0]>0] = 1
+                    flat_cum_acc = flat_acc.groupby(1).max() # flat_acc = flat_acc.agg({0: "nunique"})
+                    flat_cum_acc = flat_cum_acc[0].to_frame()
+                    flat_cum_acc[1] = flat_cum_acc[0].cumsum() # 3 is cumulated on sum xaxis in 1
+                    # flat_x = flat_x.agg({0: "nunique"})
+                    # flat_acc = flat_acc.reset_index()
+                    # flat_acc = flat_acc.set_index(flat_acc[1])
+                    
+                if watershed_name == 'Nancon':
+                    def flatten_on_xy(x):
+                        XX,YY = np.meshgrid(np.arange(x.shape[1]),np.arange(x.shape[0]))
+                        table = np.vstack((x.ravel(),XX.ravel(),YY.ravel())).T
+                        return table                    
+                    acc_path = os.path.join(simul, '_watershed/_tifs/','accumulation_flux_t('+str(i)+').tif')
+                    acc = imageio.imread(acc_path)
+                    acc[dem_data<0] = np.nan
+                    acc[acc<=0] = np.nan
+                    acc = acc / 24 / 3600 * 1000 # m3 to L/s
+                    flat_acc = flatten_on_xy(acc)
+                    flat_acc = pd.DataFrame(flat_acc)
+                    # flat_acc[0][flat_acc[0]>0] = 1
+                    flat_cum_acc = flat_acc.groupby(2).max() # flat_acc = flat_acc.agg({0: "nunique"})
+                    flat_cum_acc = flat_cum_acc[0].to_frame()
+                    flat_cum_acc[1] = flat_cum_acc[0].cumsum() # 3 is cumulated on sum xaxis in 1
+                    # flat_x = flat_x.agg({0: "nunique"})
+                    # flat_acc = flat_acc.reset_index()
+                    # flat_acc = flat_acc.set_index(flat_acc[1])
+                    
+                flat_flux[i] = flat_cum_acc[0]
+                        
+            flat_flux = flat_flux.T
+            flat_flux.index = Smod.index
+            
+            flat_flux_intm = flat_flux.groupby([lambda x: x.month]).mean()
+            print(np.nanmax(flat_flux_intm))
+            # flat_flux_intm = flat_flux_intm.fillna(0)
+            
+            # vmin = np.nanmin(flat_flux_intm)
+            # vmax = np.nanmax(flat_flux_intm)
+            
+            vmin = 1
+            vmax = 1000
+            
+            fig, ax = plt.subplots(1,1, figsize=(10,3))
+            yticks = np.arange(12)+0.5
+            mois = ['J','F','M','A','M','J','J','A','S','O','N','D']
+            ax = ax
+            pc = ax.pcolormesh(flat_flux_intm, cmap='jet_r', vmin=vmin, vmax=vmax,
+                          shading='flat',
+                          norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax)
+                          ) # 
+            ax.set_yticks(yticks)
+            ax.set_yticklabels(mois, minor=False, rotation='horizontal', fontsize=13)
+            
+            if watershed_name == 'Canut':
+                ax.set_xlim(5,118)
+            if watershed_name == 'Nancon':
+                ax.set_xlim(8,140)
+                
+            ax.invert_xaxis()
+            ax.set_title(watershed_name)
+            cb = plt.colorbar(pc)
+            cb.ax.set_ylabel('Q [L/s]')
+            ax.set_xlabel('Pixels on x axis from outlet to upstream')
+            
+            # ax.xaxis.tick_top()
+            # yticks = np.arange((hist.index[-1]+1) - hist.index[0])+0.5
+            # years = list(hist.index.values.astype(str))[::2] 
+            # ax.set_yticks(yticks[::2])
+            # ax.set_yticklabels(years, minor=False, rotation='horizontal', fontsize=13)
+            # ax.invert_yaxis()
+            # ax.tick_params(axis="x", direction='out', length=5)
+            # ax.tick_params(axis="y", direction='out', length=5)
+            
+#%% MIX RELATIONS
 
 from scipy.stats import binned_statistic
 
