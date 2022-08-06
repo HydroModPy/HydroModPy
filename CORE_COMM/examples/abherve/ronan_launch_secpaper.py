@@ -6365,9 +6365,9 @@ ymax = []
 
 # fig3, ax3 = plt.subplots(1,1, figsize=(3,3))
 
-fig2, axs2 = plt.subplots(1,1, figsize=(3,3))
+# fig2, axs2 = plt.subplots(1,1, figsize=(3,3))
 
-fig3, ax3 = plt.subplots(1,1, figsize=(3,3))
+# fig3, ax3 = plt.subplots(1,1, figsize=(3,3))
 
 for watershed_name in watershed_names :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -6444,7 +6444,7 @@ for watershed_name in watershed_names :
             print('hi='+str(hyst.hi))
             print('q0='+str(hyst.q0))
             
-            '''
+            
             fig3, ax3 = plt.subplots(1,1, figsize=(3,3))
             
             if watershed_name == 'Nancon':
@@ -6524,7 +6524,7 @@ for watershed_name in watershed_names :
             
             ax3.scatter(xi, yi, c=wyi, marker=mark, cmap=cmapping,
                         s=35, vmin=1, vmax=12, alpha=1, 
-                        ec='k', lw = 0.5)
+                        ec='k', lw = 0.5, zorder=1)
 
             cl = mpl.cm.jet(np.linspace(0,1,len(wyi)))
             compt = 2
@@ -6540,10 +6540,13 @@ for watershed_name in watershed_names :
                             linestyle = 'None', zorder=compt) # cl[k-1]
                 compt+=1
             
-            ax3.grid(zorder=-1000)
+            ax3.set_axisbelow(True)
+            # ax.grid(zorder=-1000)
+            ax3.xaxis.grid(color='gray', zorder=-1)
+            ax3.yaxis.grid(color='gray', zorder=-1)
             
-            ax3.axhline(y=0, color='k', zorder=-1)
-            ax3.axvline(x=0, color='k', zorder=-1)
+            ax3.axhline(y=0, color='k', zorder=0)
+            ax3.axvline(x=0, color='k', zorder=0)
             ax3.set_xlim(-2, 2)
             ax3.set_ylim(-4, 4)
             
@@ -6613,19 +6616,19 @@ for watershed_name in watershed_names :
             ye['q25'] = (y.groupby(y.index.month).quantile(0.25))
             ye['q75'] = (y.groupby(y.index.month).quantile(0.75))
             
-            # ax.errorbar(xi, yi,
-            #              yerr=np.vstack([yi-ye.q25, ye.q75-yi]),
-            #              xerr=np.vstack([xi-xe.q25, xe.q75-xi]),
-            #              ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
-            #              capthick=0.5, zorder=1)
+            ax.errorbar(xi, yi,
+                          yerr=np.vstack([yi-ye.q25, ye.q75-yi]),
+                          xerr=np.vstack([xi-xe.q25, xe.q75-xi]),
+                          ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
+                          capthick=0.5, zorder=1)
             
             # fig1.savefig(figsim_folder+watershed_name+'_recharge_sat'+'.png', dpi=300, bbox_inches='tight')
-            '''
             
+            '''
             # fig2, axs2 = plt.subplots(1,1, figsize=(3,3))
             # x_name = "groundwater_storage"
-            x_name = "tau"
-            y_name = "groundwater_storage"
+            x_name = "recharge"
+            y_name = "surflow_areas"
             # xn = 1e-6
             # xx = 1e-2
             # yn = 1e-3
@@ -6855,7 +6858,7 @@ for watershed_name in watershed_names :
             # axb=ax.twinx()
             # ax.plot(Smod.recharge, Smod.tau,c='b')
             # axb.plot(, c='r')
-
+            '''
             
 #%% 05_persistency index
 
@@ -6996,17 +6999,19 @@ for watershed_name in watershed_names:
 #%% 05b_persistency boxplot
 
 typ = 'projec-3'
+typ = 'calibr-t3'
 
 watershed_names = ['Canut','Nancon']
 
 var = 'REC'
 scan = 'outflow_drain'
 sce_list = ['RCP8.5']
+sce_list = ['historic']
 
-fig1, axs1 = plt.subplots(1,1, figsize=(5,4),
-                        sharex=True, sharey=True)
+# fig1, axs1 = plt.subplots(1,1, figsize=(5,4),
+#                         sharex=True, sharey=True)
 
-fig2, axs2 = plt.subplots(1,1, figsize=(5,4),
+fig2, axs2 = plt.subplots(1,1, figsize=(4,3),
                         sharex=True, sharey=True)
 
 fig3, axs3 = plt.subplots(1,1, figsize=(3.5,3),
@@ -7021,7 +7026,7 @@ for watershed_name in watershed_names:
     if watershed_name == 'Canut':
         color = 'forestgreen'
     if watershed_name == 'Nancon':
-        color = 'blueviolet'    
+        color = 'darkmagenta'    
 
     # axs1 = axs1.ravel()
     
@@ -7088,8 +7093,8 @@ for watershed_name in watershed_names:
             Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
             
             ax = axs1
-            test = np.histogram(Z, bins=100, density=True)
             Z = np.sort(days_flux[~days_flux.mask]).flatten()
+            test = np.histogram(Z, bins=100, density=True)
             from scipy.stats import norm
             pdf = norm.pdf(Z, Z.mean(), Z.std())
             N = len(Z)
@@ -7114,26 +7119,41 @@ for watershed_name in watershed_names:
             ax.invert_yaxis()
 
             ax = axs2
+            # axb = ax.twinx()
             y_name= 'surflow_areas'
             X2 = np.sort(Smod[y_name])
+            
+            if watershed_name == 'Canut':
+                Xc = X2.copy()
+                
             N = len(Smod[y_name])
             # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
             #         color=color, lw=2)
             ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
-                    color=color, lw=4)
+                    color=color, lw=2)
+            ax.fill_between((1-np.arange(0,N,1)/N)*100,
+                            Xc,
+                            X2,
+                             lw=0,
+                            color='silver', alpha=0.5)
+            # axb.plot((1-np.arange(0,N,1)/N)*100, (X2)/(X2.mean()),
+            #         color=color, lw=2, ls='--')
+            # axb.set_ylabel('Cumulated $A_{sat}$ normalized [-]', rotation=270, labelpad=25)
             # ax.set_xlabel('Frequency in time [%]')
             ax.set_xlabel('Frequency of occurrence [%]')
             ax.set_ylabel('Cumulated $A_{sat}$ [%]')
             ax.set_xlim(0,100)
             ax.set_ylim(0,20)
+            # axb.set_ylim(0,4)
+            # axb.set_yticks([0,1,2,3,4])
             # ax.set_xscale('log')
             # ax.set_yscale('log')
             # ax.grid('grey')
             
             ax = axs3
-            ax.axhline(y=1, color='grey', lw=1)
+            # ax.axhline(y=1, color='grey', lw=1)
             # ax = ax.twinx()
-            y_name= 'prop_ratio'
+            y_name= 'surflow_areas'
             Smod_path = simul+'/_watershed/_simulated_results.csv'            
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
             Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
@@ -7141,12 +7161,23 @@ for watershed_name in watershed_names:
             N = len(Smod[y_name])
             # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
             #         color=color, lw=2)
-            ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
-                    color=color, lw=4)
+            ax.plot((1-np.arange(0,N,1)/N)*100, (X2)/X2.mean(),
+                    color=color, lw=2)
+            
+            ax.fill_between((1-np.arange(0,N,1)/N)*100,
+                            Xc/Xc.mean(),
+                            X2/X2.mean(),
+                             lw=0,
+                            color='silver', alpha=0.5)
+            
             # ax.set_xlabel('Frequency in time [%]')
             # ax.set_ylabel('$A_{intermittent}$ / $A_{perennial}$ [-]')
             ax.set_xlim(0,100)
-            ax.set_ylim(0,10)
+            # ax.set_xscale('log')
+            ax.set_ylim(0,4)
+            ax.set_yticks([0,1,2,3,4])
+            # ax.set_ylabel('Cumulated $A_{sat}$ normalized [-]')
+
             # ax.set_xscale('log')
             # ax.set_yscale('log')
             # ax.grid('grey')

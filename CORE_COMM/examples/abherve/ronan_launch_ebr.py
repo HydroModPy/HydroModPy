@@ -1649,9 +1649,14 @@ watershed_names = [
                     'Moulin',
                    ]
 
+watershed_names = [
+
+                    'Vaunoise',
+                   ]
+
 dic_t = watershed_names
 dic_v = [0.001,0.001,0.002,0.002,0.002,0.005,0.02,0.02]
-# dic_v = [0.01]
+dic_v = [0.002]
 dic_m = dict(zip(dic_t,dic_v))
 
 # watershed_names = ['Canut']
@@ -1729,6 +1734,9 @@ for watershed_name in watershed_names[:] :
                     l_simu = 2019
                 if f_simu < 1960:
                     f_simu = 1960
+                
+                if watershed_name == 'Vaunoise':
+                    l_simu = 2019
                     
                 Qobs = select_period(Qobs, f_simu, l_simu)
                 print(Qobs.mean() * 1000)
