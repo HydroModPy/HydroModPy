@@ -690,7 +690,7 @@ class Watershed:
                                        export_tif = export_tif)
 
 
-    def results_modflow(self, ident='modflow', # recharge=250,
+    def results_modflow(self, ident='modflow', recharge=250, runoff=25,
                         actual_date=True, time_step='M', calib=None):
         """
         Gets the results of Matrix Modflow (raster tiffs) and generates aggregated characteristics
@@ -710,7 +710,8 @@ class Watershed:
             model_folder = calib
             
         results = modflow_results.Results(self.geographic,
-                                recharge=self.forcing.recharge,
+                                recharge=recharge,
+                                runoff=runoff,
                                 actual_date=actual_date,
                                 stable_folder=self.stable_folder,
                                 model_name=ident,

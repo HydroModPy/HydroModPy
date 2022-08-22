@@ -37,6 +37,8 @@ class Forcing:
         self.runoff = values # recharge
         if sim_state == 'steady':
             self.runoff = np.mean(self.runoff)
+            if isinstance(self.runoff,(int,float))==False:
+                self.runoff = self.runoff[0]
     
     def update_synthetic_recharge(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
         self.freq = freq
@@ -131,14 +133,14 @@ class Forcing:
     def update_recharge_drias(self, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
         data = pd.read_csv(self.drias_folder+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
-        self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000
+        self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
     def update_runoff_drias(self, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
         data = pd.read_csv(self.drias_folder+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
-        self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000
+        self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
             
