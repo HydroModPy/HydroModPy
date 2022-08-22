@@ -29,7 +29,7 @@ from tools import toolbox
 #%% Extract results
 
 class Results:
-    def __init__(self, geographic, recharge=250, actual_date=True, model_name='modflow_model',
+    def __init__(self, geographic, recharge=250, runoff=25, actual_date=True, model_name='modflow_model',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
         
@@ -39,6 +39,7 @@ class Results:
         self.model_folder = model_folder
         self.actual_date = actual_date
         self.recharge = recharge
+        self.runoff = runoff
        
         self.full_path = os.path.join(self.model_folder, self.model_name)
         self.save_file = os.path.join(self.full_path, '_watershed')
@@ -52,13 +53,16 @@ class Results:
             else:
                 time = self.recharge.index
                 recharge = self.recharge.squeeze().values
+                runoff = self.runoff.squeeze().values
         else:
             if isinstance(self.recharge,(int,float)) == True:
                 time=[0]
                 recharge = self.recharge
+                runoff = self.runoff
             else:
                 time = np.array(range(len(self.recharge)))
                 recharge = self.recharge.squeeze().values
+                runoff = self.runoff.squeeze().values
                
         npy_list = [] 
         for f in os.listdir(self.save_file):
@@ -109,7 +113,7 @@ class Results:
         bv = gdal.Open(self.geographic.watershed_dem)
         geodata = bv.GetGeoTransform()
         self.resolution = geodata[1]
-        self.extract_results(dem_clip, time, recharge, self.save_file)
+        self.extract_results(dem_clip, time, recharge, runoff, self.save_file)
        
         try:
             subbasin = True
@@ -120,11 +124,11 @@ class Results:
                   toolbox.create_folder(save_file) 
                   dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
                   self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
-                  self.extract_results(dem_clip, time, recharge, save_file)
+                  self.extract_results(dem_clip, time, recharge, runoff, save_file)
         except:
             pass
     
-    def extract_results(self, dem_clip, time, recharge, save_file):
+    def extract_results(self, dem_clip, time, recharge, runoff, save_file):
         
         def calc_max(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
@@ -149,7 +153,8 @@ class Results:
             calc = (count/cell) * 100
             return calc
         
-        self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, index=range(len(time)))
+        self.mfdata = pd.DataFrame({"date": time, "recharge": recharge, "runoff": runoff}, 
+                                   index=range(len(time)))
         
         if self.actual_date==True:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')

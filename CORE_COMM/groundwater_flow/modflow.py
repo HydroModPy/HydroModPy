@@ -258,6 +258,9 @@ class Modflow():
                     if self.init_rech == 'first':
                         self.rchData[kper] = self.climatic.iloc[0]
                         print('Init rech is "first"')
+                    if isinstance(self.init_rech,(int,float)):
+                        self.rchData[kper] = self.init_rech
+                        print('Init rech is "a value"')
                 else:
                     try:
                         self.rchData[kper] = self.climatic[kper]
