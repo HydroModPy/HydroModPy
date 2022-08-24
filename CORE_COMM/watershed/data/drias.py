@@ -21,7 +21,7 @@ import gc
 
 class Drias:
     
-    def __init__(self, out_path, drias_path, watershed_shp):
+    def __init__(self, out_path, drias_path, watershed_shp, list_vars):
         """
 
         Parameters
@@ -32,7 +32,9 @@ class Drias:
             DESCRIPTION.
         watershed_shp : TYPE
             DESCRIPTION.
-
+            
+        list_vars : ['DRAINC','RUNOFF','EVAPC']
+        
         Returns
         -------
         None.
@@ -63,9 +65,11 @@ class Drias:
             for model in models_path:
                 print('     '+model)
                                 
-                # for var in ['DRAINC','RUNOFF']:
-                for var in ['DRAINC', 'RUNOFF']:
-                    files_path = glob.glob(model + '/' + var + '*' + 'QGIS.nc')
+                # for var in ['DRAINC','RUNOFF','EVAPC']:
+                # for var in ['DRAINC', 'RUNOFF']:
+                for var in list_vars:
+                    # files_path = glob.glob(model + '/' + var + '*' + 'QGIS.nc')
+                    files_path = glob.glob(model + '/' + var + '*' + '.nc')
                     for en, file_path in enumerate(files_path):
                         # print('    ' + str(file_path))
                         self.clip_netcdf(data_folder, file_path, watershed_shp)
@@ -79,7 +83,8 @@ class Drias:
     def clip_netcdf(self, data_folder, path_qgis, shp_path):
         
         # path_qgis = 'C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/All/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731_QGIS.nc'
-    
+        # path_qgis = 'G:/DRIAS/downloaded/Model_01/tasAdjust_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_Historical_METEO-FRANCE_ADAMONT-France_SAFRAN_day_1950-2005.nc'
+        
         """
         problem with file path
         """
@@ -130,6 +135,12 @@ class Drias:
                 var = 'REC'
             if var_raw =='RUNOFFC':
                 var = 'RUN'
+            if var_raw =='EVAPC':
+                var = 'ETP'
+            if var_raw == 'tasAdjust':
+                var = 'TAS'
+            if var_raw == 'prtotAdjust':
+                var = 'PPT'
             
             if 'CNRM' in gcm_raw :
                 gcm = 'CNR'
@@ -256,14 +267,20 @@ def time_series(*, input_file, epsg = None,
     return results
 
 #%% TEST
+"""
+list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+                'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
 
-# list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
-#                'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+list_models = ['Model_01']
 
 # Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
 #       'G:/DRIAS/georeferenced/',
 #       'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp')
 
+Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
+      'G:/DRIAS/downloaded/',
+      'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp')
+"""
 # import matplotlib as mpl
 # import matplotlib.pyplot as plt
 # fig, ax = plt.subplots(1,1)

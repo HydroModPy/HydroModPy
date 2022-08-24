@@ -2857,10 +2857,12 @@ for sce in sce_list:
 plot_maps = True
 
 mod_list = [
-            'MPI-CCL','MPI-R09',
-            'CNR-RAC','CNR-ALA',
-            'ECE-RCA','ECE-RAC',
-            'HAD-REG','NOR-R15'
+            # 'MPI-CCL','MPI-R09',
+            # 'CNR-RAC',
+            # 'ECE-RCA',
+            # 'ECE-RCA','ECE-RAC',
+            'HAD-REG',
+            # 'NOR-R15'
             ]
 # mod_list = ['TOT1']
 

@@ -8757,7 +8757,7 @@ base_name = figsim_folder+'fig08/'
 spec_name = str(watershed_names)+'_DS_SAT-DELTA'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
-#%% 9 - SPECIFIC PLOTS
+#%% 9 - SPECIFIC PLOTS CONVOL
 
 from scipy.stats import binned_statistic
 
@@ -8908,7 +8908,7 @@ for tau_typ in [1, 'calc']:
                 dfevol = hyst.dfmet.iloc[:-1]
                 dfevol = dfevol.set_index(pd.to_datetime(dfevol.index, format='%Y'))
     
-                Smod['tau_stock'] = Smod['groundwater_storage'].diff() / Smod['outflow_drain'].diff()
+                Smod['tau_stock'] = (Smod['groundwater_storage'].diff() / Smod['outflow_drain'].diff())
                 
                 Smod['convol'] = np.nan
                 
@@ -8935,6 +8935,8 @@ for tau_typ in [1, 'calc']:
         cmapping = dict_cmap[watershed_name]
         ax.scatter(Smod.convol_rec, Smod.convol_dis, c=wy, marker='o', cmap=cmapping,
                     s=5, vmin=1, vmax=12, alpha=0.75, ec='none', lw=0.2)
+        # ax.scatter(Smod.convol_rec, Smod.outflow_drain, c=wy, marker='o', cmap=cmapping,
+        #             s=5, vmin=1, vmax=12, alpha=0.75, ec='none', lw=0.2)
         # cmapping = mpl.colors.ListedColormap(dict_c[watershed_name])
         # ax.scatter(Smod.recharge, Smod.outflow_drain, c=wy, marker='o', cmap=cmapping,
         #             s=5, vmin=1, vmax=12, alpha=0.75, ec='none', lw=0.2)
@@ -8956,7 +8958,7 @@ for tau_typ in [1, 'calc']:
     
     base_name = figsim_folder+'fig09/'
     spec_name = str(watershed_names)+'_CONV_REC-DIS_'+str(tau_typ)
-    fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
 #%% 10 - FOCUS YEARS
 
