@@ -21,7 +21,7 @@ import gc
 
 class Drias:
     
-    def __init__(self, out_path, drias_path, watershed_shp, list_vars):
+    def __init__(self, out_path, drias_path, watershed_shp, list_models, list_vars):
         """
 
         Parameters
@@ -32,8 +32,11 @@ class Drias:
             DESCRIPTION.
         watershed_shp : TYPE
             DESCRIPTION.
-            
-        list_vars : ['DRAINC','RUNOFF','EVAPC']
+        
+        list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+                       'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+        
+        list_vars = ['DRAINC','RUNOFF','EVAPC','tasAdjust','prtotAdjust']
         
         Returns
         -------
@@ -54,11 +57,6 @@ class Drias:
         df = pd.DataFrame()
         df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
         
-        list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
-                       'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
-        
-        # list_models = ['Model_01','Model_02','Model_03']
-        
         for model in list_models:
             models_path = glob.glob(os.path.join(drias_path, model +'*'))
             
@@ -72,7 +70,7 @@ class Drias:
                     files_path = glob.glob(model + '/' + var + '*' + '.nc')
                     for en, file_path in enumerate(files_path):
                         # print('    ' + str(file_path))
-                        self.clip_netcdf(data_folder, file_path, watershed_shp)
+                        self.clip_netcdf(data_folder, file_path, watershed_shp, var)
                     
         self.extract_values(data_folder, df)
         
@@ -80,7 +78,7 @@ class Drias:
         df = df[(df.index.year>=first) & (df.index.year<=last)]
         return df
     
-    def clip_netcdf(self, data_folder, path_qgis, shp_path):
+    def clip_netcdf(self, data_folder, path_qgis, shp_path, var):
         
         # path_qgis = 'C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/All/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731_QGIS.nc'
         # path_qgis = 'G:/DRIAS/downloaded/Model_01/tasAdjust_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_Historical_METEO-FRANCE_ADAMONT-France_SAFRAN_day_1950-2005.nc'
@@ -104,6 +102,15 @@ class Drias:
         del ds
                 
         outfile_path = os.path.join(data_folder, path_qgis.split('\\')[-1])
+        
+        if (var == 'tasAdjust') | (var == 'prtotAdjust') :
+            clipped_ds.lat.attrs['missing_value'] = np.nan
+            clipped_ds.lon.attrs['missing_value'] = np.nan
+            # del clipped_ds.lat.attrs['_FillValue']
+            clipped_ds['lat'] = clipped_ds['lat'].where(pd.notnull(clipped_ds['lat']), -9999).astype('int32')
+            clipped_ds['lon'] = clipped_ds['lon'].where(pd.notnull(clipped_ds['lon']), -9999).astype('int32')
+            # del clipped_ds.lon.attrs['_FillValue']
+        
         clipped_ds.to_netcdf(outfile_path)
         
         del clipped_ds
@@ -124,12 +131,6 @@ class Drias:
             print(str(idx+1)+'/'+str(len(paths_netcdf)))
             
             var_raw = path_netcdf.split('\\')[-1].split('_')[0]
-            gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
-            rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
-            
-            sce = path_netcdf.split('\\')[-1].split('_')[-4]
-            if sce == 'Historique':
-                sce = 'historic'
             
             if var_raw =='DRAINC':
                 var = 'REC'
@@ -142,6 +143,18 @@ class Drias:
             if var_raw == 'prtotAdjust':
                 var = 'PPT'
             
+            gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
+            rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
+            
+            if (var == 'REC') | (var == 'RUN') | (var == 'ETP'):
+                sce = path_netcdf.split('\\')[-1].split('_')[-4]
+                
+            if (var == 'PPT') | (var == 'TAS'):
+                sce = path_netcdf.split('\\')[-1].split('_')[-9]
+            
+            if (sce == 'Historique') | (sce == 'Historical'):
+                sce = 'historic'
+                        
             if 'CNRM' in gcm_raw :
                 gcm = 'CNR'
             if 'MPI' in gcm_raw :
@@ -267,20 +280,26 @@ def time_series(*, input_file, epsg = None,
     return results
 
 #%% TEST
-"""
+
+######## ATTENTION NAMING
+'''
 list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
                 'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
 
-list_models = ['Model_01']
-
-# Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
-#       'G:/DRIAS/georeferenced/',
-#       'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp')
+# list_models = ['Model_01']
+list_vars = ['prtotAdjust']
 
 Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
-      'G:/DRIAS/downloaded/',
-      'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp')
-"""
+      'G:/DRIAS/georeferenced/',
+      'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp',
+      list_models,
+      list_vars)
+'''
+
+# Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
+#       'G:/DRIAS/downloaded/',
+#       'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp')
+
 # import matplotlib as mpl
 # import matplotlib.pyplot as plt
 # fig, ax = plt.subplots(1,1)
@@ -295,3 +314,26 @@ Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
 # plt.plot(x[var+'_'+gcm+'-'+rcm+'_'+sce])
 # plt.yscale('log')
 
+
+#%% PLT
+
+'''
+path_qgis = 'G:/DRIAS/georeferenced/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731_QGIS.nc'
+# path_qgis = 'G:/DRIAS/georeferenced/Model_01/tasAdjust_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_Historical_METEO-FRANCE_ADAMONT-France_SAFRAN_day_1950-2005_QGIS.nc'
+shp_path = 'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp'
+
+with xr.open_dataset(path_qgis, decode_coords = 'all') as ds:
+    ds.load()
+# ds.sel(x = 76000, y = 2273000)
+
+# val = ds.DRAINC.values[0]
+# val = val[::-1]
+
+geodf = gpd.read_file(shp_path)
+geom = geodf.geometry.apply(mapping)
+clipped_ds = ds.rio.clip(geom, geodf.crs, all_touched = True, drop = True)
+
+clip_drain = clipped_ds.copy()
+'''
+
+# clipped_ds.tasAdjust[10078].plot()
