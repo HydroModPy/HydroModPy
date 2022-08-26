@@ -1283,7 +1283,7 @@ for watershed_name in watershed_names[:]:
 
 #%% TYP SIM NAMING
 
-typ = 'calibr-t3'
+typ = 'calibr-t6'
 # typ = 'projec-test-poro'
 # typ = 'reanal-1'
 # typ = 'steady-1'
@@ -1319,8 +1319,15 @@ BV = watershed_root.Watershed(watershed_name='Frame',
 stable_folder = out_path+'/'+'Frame'+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+'Frame'+'/'+'results_simulations/'  # necessary for plots  
 
-surfex = pd.read_csv(stable_folder+'climatic/'+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True).resample('M').mean()
-drias = pd.read_csv(stable_folder+'drias/'+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True).resample('M').mean()
+# surfex = pd.read_csv(stable_folder+'climatic/'+'_ALL_D.csv', sep=';',
+#                       index_col=0, parse_dates=True).resample('M').sum() / 1000
+# drias = pd.read_csv(stable_folder+'drias/'+'_ALL_D.csv', sep=';', index_col=0,
+#                     parse_dates=True).resample('M').sum() / 1000
+
+surfex = pd.read_csv(stable_folder+'climatic/'+'_ALL_D.csv', sep=';',
+                      index_col=0, parse_dates=True).resample('M').mean() / 1000
+drias = pd.read_csv(stable_folder+'drias/'+'_ALL_D.csv', sep=';', index_col=0,
+                    parse_dates=True).resample('M').mean() / 1000
 
 #%% PARAM RUN MODEL
 
@@ -1362,6 +1369,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     # area = float(Qobs_path.split('_')[-3])
     Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
     Qobs = Qobs.squeeze()
+    # Qobs = Qobs.resample('M').sum()
     Qobs = Qobs.resample('M').mean()
     
     # Input recharge
@@ -1442,11 +1450,15 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 '''
                 
                 Rech_norm = select_period(surfex['REC_REA_historic'], first_norm, last_norm)
-                
+                Runof_norm = select_period(surfex['RUN_'+mod+'_historic'], first_norm, last_norm)
+
                 # for t in Q_norm.index.year:
                     # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
                     # print(Ratio_norm.round(2))
                 Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
+                # Ratio_norm = (Q_norm.mean() / (Rech_norm.mean()+Runof_norm.mean()))
+                
+                print(Ratio_norm)
                 
                 # Historic
                 '''
@@ -1481,11 +1493,14 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 '''
                 
                 Rech_norm = select_period(drias['REC_'+gcm+'-'+rcm+'_historic'], first_norm, last_norm)
+                # Runof_norm = select_period(drias['RUN_'+gcm+'-'+rcm+'_historic'], first_norm, last_norm)
 
                 # for t in Q_norm.index.year:
                     # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
                     # print(Ratio_norm.round(2))
                 Ratio_norm = (Q_norm.mean() / Rech_norm.mean())
+                # Ratio_norm = (Q_norm.mean() / (Rech_norm.mean()+Runof_norm))
+
                 
                 # Historic
                 '''
@@ -1526,12 +1541,16 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                 #     lw=2
                 # if watershed_name == 'Nancon':
                 #     lw=1
-                # ax.plot(BV.forcing.recharge, lw=lw)
+            # plt.plot((BV.forcing.recharge*1000*30).resample('Y').sum(), lw=1)
+            # plt.plot((Qobs*1000*30).resample('Y').sum(), lw=1)
                 # ax.set_yscale('log')
-
+            
+            print((Rech*1000).resample('Y').sum().round(2)[0])
+            
             list_model_name = []
             list_of_success = []
             list_flow_model = []
+            list_var_store = []
 
             # Update properties
             compt = 1
@@ -1581,6 +1600,8 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                     list_model_name.append(model_name)
                     list_of_success.append(success)
                     list_flow_model.append(flow_model)
+                    list_var_store.append(BV.forcing.runoff)
+                    
                     compt+=1
                     
             print(list_of_success)
@@ -1589,11 +1610,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             dictio['list_model_name'] = list_model_name
             dictio['list_of_success'] = list_of_success
             dictio['list_flow_model'] = list_flow_model
+            dictio['list_var_store'] = list_var_store
             h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
             
             dd.io.save(h5file, dictio)
                         
-#%% POSTPROCESS MODEL
+#POSTPROCESS MODEL
 
 watershed_names = ['Canut','Nancon']
 code_names = ['J7513010','J0014010']
@@ -1622,8 +1644,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
             list_model_name = d['list_model_name'][:]
             list_of_success = d['list_of_success'][:]
             list_flow_model = d['list_flow_model'][:]
+            list_var_store = d['list_var_store'][:]
             
-            for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+            for model_name, success, flow_model, var_store in zip(list_model_name,
+                                                                 list_of_success,
+                                                                 list_flow_model,
+                                                                 list_var_store):
                     
                 if success==True:
                         print(success)
@@ -1647,9 +1673,13 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
                         # Necessary for results_modflow
                         BV.forcing.update_recharge(flow_model.climatic,
                                                    sim_state=sim_state)
+                        recharge = BV.forcing.recharge
+                        runoff = var_store.copy()
                         
                         # # Extract results
                         BV.results_modflow(ident=model_name,
+                                           recharge=recharge,
+                                           runoff=runoff,
                                            actual_date=actual_date,
                                            time_step=time_step)
                         
@@ -8761,7 +8791,7 @@ fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
 from scipy.stats import binned_statistic
 
-typ = 'calibr-t3'
+typ = 'calibr-t6'
 
 # Things
 time_step = 'M'

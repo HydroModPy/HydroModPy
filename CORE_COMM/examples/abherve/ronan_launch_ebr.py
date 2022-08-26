@@ -835,9 +835,11 @@ for site_name in site_names[:]:
     watershed_display.watershed_dem(BV)
     watershed_display.watershed_local(dem_path, BV)
         
-# DATA WATERSHED
+#%% DATA WATERSHED
 
 # site_names = [['Drains',None]]
+
+site_names = [['Frame', None]]
 
 for site_name in site_names[:]:
 
@@ -848,29 +850,32 @@ for site_name in site_names[:]:
                                   dem_path=dem_path, 
                                   out_path=out_path,
                                   load=True)
-
-    BV.add_geology(geology_path)
-    BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-    BV.add_oceanic(oceanic_path)
-    BV.add_hydrometry(hydrometry_path)
-    BV.add_intermittency(intermittency_path)
-    BV.add_subbasin()
-    BV.add_surfex(surfex_path)
-    BV.add_drias(drias_path)
-
+    
     print('##### '+watershed_name.upper()+' #####')
 
-    BV.add_hydrodynamic()
-    BV.add_forcing()
+    # BV.add_geology(geology_path)
+    # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    # BV.add_oceanic(oceanic_path)
+    # BV.add_hydrometry(hydrometry_path)
+    # BV.add_intermittency(intermittency_path)
+    # BV.add_subbasin()
+    # BV.add_surfex(surfex_path)
+
+    BV.add_drias(drias_path,
+                 list_models=['all'],
+                 list_vars=['all'])
+
+    # BV.add_hydrodynamic()
+    # BV.add_forcing()
     
-    watershed_display.watershed_dem(BV)
-    watershed_display.watershed_local(dem_path, BV)
+    # watershed_display.watershed_dem(BV)
+    # watershed_display.watershed_local(dem_path, BV)
     
-    try:
-        if (watershed_name == 'Monfort') | (watershed_name == 'Roche'):
-            BV.add_piezometry()
-    except:
-        pass
+    # try:
+    #     if (watershed_name == 'Monfort') | (watershed_name == 'Roche'):
+    #         BV.add_piezometry()
+    # except:
+    #     pass
     
 #%% HYDROPORTAIL SERIES
 
