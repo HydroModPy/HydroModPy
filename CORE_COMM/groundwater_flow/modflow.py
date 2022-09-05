@@ -11,9 +11,9 @@ import numpy as np
 import os
 import pandas as pd
 import sys
-import imageio    # Import raster to numpy matrix (not georeferenced but handy)
+import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
 from os.path import dirname, abspath
-from osgeo import gdal  # Gdal: referenced rasters (complex objects)
+from osgeo import gdal                   # Gdal: referenced rasters (complex objects)
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import geopandas as gpd
@@ -37,6 +37,39 @@ class Modflow():
     """
     Preprocessing, processing and postprocessing of modflow (groundwater flow)
         Discretization: by default, the number of rows and columns is the DEM discretization
+    
+    Simulation on a model given by its DEM for close subsurface saturated flows
+        Prepares and runs the model for conditions of significant interactions with the surface
+        
+    Spatio-temporal discretizations are given 
+        - By the DEM for the spatial discretization 
+        - By the recharge for the temporal discretization 
+        
+    Recharge can be
+        - Steady
+        - Transient following some climatological conditions
+        - Transient with synthetic forcings
+    
+    Initial conditions are
+        - steady-state with the mean or last recharge value within the chronicle
+        - an imposed value externally from the simulation 
+        
+    Boundary condtions are 
+        - No flow on the side boundaries
+        - Seepage on the surface
+        - Imposed head on specific zone (sea-level boundary condition)
+    
+    Sink/Source Term 
+    #ALEXANDRE: is it technically a sink/source term or a boundary condition?
+        - Recharge imposed on the surface
+    
+    Model Properties (hydraulic conductivity and porosity)
+        - Laterally: Homogeneous or Heterogeneous (defined by zones)
+        - Vertically: Homogeneous or Layered 
+    
+    
+    Methods
+    -------
     
     Preprocessing: 
         Model construction from 
@@ -69,11 +102,11 @@ class Modflow():
     geographic: class Geographic
         Model geometry (eg DEM path)
         
-    dem: 
-        #JR Pourquoi le chemin ici? pas la défintion avant
+    dem: np array
+        DEM for the zone studied
         
-    dem_path: 
-        #JR
+    dem_path: string
+        path = directory + file name of the DEM
         
     nrow: int
         number of rows (derived from DEM resolution)
@@ -87,19 +120,20 @@ class Modflow():
         
     sink_fill: bool
         Should it fill the holes in the DEM that mess the groundwater flow simulations
-        Difition of the hole in the DEM:
+        Difition of the hole in the DEM: convergence of flow lines to a cell (endoreism)
+        It should be checked that the filling of the sinks lead to a new dem (is it intended?)
             
     sink:
-        #JR
+        Parameters of the hole
     
-    multip_cond: 
-        #JR
+    multip_cond: vector of floats
+        Multiple hdyraulic conductivies for the simulation of heterogeneous domains
         
     xul: float
-        #JR
+        xmin for the domain to simulate
             
     yul: float
-        #JR
+        ymax for the domain to simulate
             
     hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
         -- initial value: :data:`hyd_cond_init`
@@ -533,7 +567,7 @@ VERTICAL
                                             hk=self.hk,
                                             vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
         
-        #%% Source Term: Recharge on the top of the model 
+        #%% Source Term & Initial Conditions: Recharge on the top of the model 
         # Between the two possibilities (evt and rch, rch should it rather be used)
         if (self.climatic < 0).any().any() == True:
             #evt package
@@ -976,7 +1010,7 @@ VERTICAL
                 sup+=12
                 cpt+=1
             
-#%% notes
+#%% Old versions of codes
 
 # # Export
 # if self.calib == True:
