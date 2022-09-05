@@ -837,9 +837,11 @@ for site_name in site_names[:]:
         
 #%% DATA WATERSHED
 
+# surfex_path =  'G:/SURFEX/DATA/COREC_h5/' # add surfex models in .h5 format (France scale, else, specify None)
+
 # site_names = [['Drains',None]]
 
-site_names = [['Frame', None]]
+site_names = [['Cheze', None]]
 
 for site_name in site_names[:]:
 
@@ -859,11 +861,11 @@ for site_name in site_names[:]:
     # BV.add_hydrometry(hydrometry_path)
     # BV.add_intermittency(intermittency_path)
     # BV.add_subbasin()
-    # BV.add_surfex(surfex_path)
+    BV.add_surfex(surfex_path)
 
-    BV.add_drias(drias_path,
-                 list_models=['all'],
-                 list_vars=['all'])
+    # BV.add_drias(drias_path,
+    #              list_models=['all'],
+    #              list_vars=['all'])
 
     # BV.add_hydrodynamic()
     # BV.add_forcing()
@@ -1615,11 +1617,15 @@ for watershed_name in watershed_names[:]:
 # typ = 'calib-test-v2'
 # typ = 'calib-cont-v1'
 # typ = 'app-stead-v1'
-typ = 'app-trans-v2'
-# typ = 'surf-trans-v2'
+# typ = 'app-trans-v2'
+typ = 'surf-trans-v3'
 
-mod_list = ['MPI-CCL','ECE-RCA','ECE-RAC','CNR-RAC',
-            'NOR-R15','CNR-ALA','HAD-REG','MPI-R09']
+
+# mod_list = ['MPI-CCL','ECE-RCA','ECE-RAC','CNR-RAC',
+#             'NOR-R15','CNR-ALA','HAD-REG','MPI-R09']
+# mod_list = ['ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
+#             'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
+#             'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
 # mod_list = ['ECE-RCA'
 #             'HAD-REG',
 #             'MPI-R09']
@@ -1630,11 +1636,15 @@ mod_list = ['MPI-CCL','ECE-RCA','ECE-RAC','CNR-RAC',
 # mod_list = ['HAD-REG']
 # mod_list = ['REA']
 # mod_list = ['ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+filter_list = 'ACC1|BCC1|BNU1|CAN1|CAN2|CAN3|CAN4|CAN5|CNR1|CSI1|IPS1|MIR1|MIR2|MIR3|NOR1'
+# mod_list = ['TOT1']
 # mod_list = ['TOT1']
 # mod_list = ['IPS1','NOR1']
 
-# typ_climate = 'SURFEX'
-typ_climate = 'DRIAS'
+typ_climate = 'SURFEX'
+# typ_climate = 'DRIAS'
 
 # sce_list = ['historic']
 sce_list = ['RCP2.6','RCP8.5']
@@ -1730,6 +1740,8 @@ normalize = True
 
 #%% LAUNCH
 
+watershed_names = ['Frame']
+
 for watershed_name in watershed_names[:] :
     
     print('##### '+watershed_name.upper()+' #####')
@@ -1746,6 +1758,7 @@ for watershed_name in watershed_names[:] :
     
     surfex = pd.read_csv(stable_folder+'climatic/'+'_ALL_D.csv',
                          sep=';', index_col=0, parse_dates=True)#.resample('M').mean() / 1000
+    surfex = surfex.filter(regex=filter_list)
     surfex = surfex.resample('M').mean() / 1000
     for v in ['REC','RUN']:
         for s in ['historic','RCP2.6','RCP8.5']:
@@ -1813,7 +1826,7 @@ for watershed_name in watershed_names[:] :
     # Model of recharge
     for mod in mod_list:           
         for sce in sce_list:
-                        
+            
             # Recharge  
             if mod == 'REA':
                 
@@ -1870,7 +1883,7 @@ for watershed_name in watershed_names[:] :
             if mod != 'REA':
                 
                 if typ_climate == 'SURFEX':
-                
+                    
                     if obs_dates == True:
                         f_simu = Qobs.first_valid_index().year+1-5
                         # l_simu = Qobs.last_valid_index().year-1
@@ -1880,20 +1893,26 @@ for watershed_name in watershed_names[:] :
                             f_simu = 1960
                         l_simu = 2004
                     
-                    first_hist = 1975
+                    first_hist = 1960
                     last_hist = 2005
-                    first_fut = 2005
+                    first_fut = 2006
                     last_fut = 2100
-                    
+                        
                     Qobs = select_period(Qobs, f_simu, l_simu)
-                    
+                                        
+                    if (select_period(surfex['REC_'+mod+'_'+'historic'], 1975, 2000).isnull().all() == False) & \
+                       (select_period(surfex['REC_'+mod+'_'+sce], 2020, 2090).isnull().all() == False):
+                           print(mod, sce, 'OK')
+                    else:
+                        continue
+
                     Rech_norm = select_period(surfex['REC_'+mod+'_historic'],
                                               f_simu, l_simu)
                     
-                    fig, ax = plt.subplots(1,1, figsize=(7,3))
-                    # ax.plot(surfex['REC_'+mod+'_'+sce])
-                    ax.plot(select_period(surfex['REC_'+mod+'_'+'historic'],
-                                              1975, 2100).resample('Y').sum()*1000*30, c='b')
+                    # fig, ax = plt.subplots(1,1, figsize=(7,3))
+                    # # ax.plot(surfex['REC_'+mod+'_'+sce])
+                    # ax.plot(select_period(surfex['REC_'+mod+'_'+'historic'],
+                    #                           1975, 2100).resample('Y').sum()*1000*30, c='b')
                     
                     Runof_norm = select_period(surfex['RUN_'+mod+'_historic'],
                                               f_simu, l_simu)
@@ -1902,7 +1921,7 @@ for watershed_name in watershed_names[:] :
                     if normalize == True:
                         
                         Ratio_norm = Qobs.mean() / Rech_norm.mean() #+ Runof_norm.mean()
-                        print(Ratio_norm.round(2))
+                        # print(mod, sce, Ratio_norm.round(5))
     
                     # for t in Q_norm.index.year:
                         # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
@@ -1928,15 +1947,15 @@ for watershed_name in watershed_names[:] :
                         BV.forcing.update_recharge(Rech, sim_state = sim_state)
                         BV.forcing.update_runoff(Runof, sim_state = sim_state)
                         
-                        fig, ax = plt.subplots(1,1, figsize=(7,3))
-                        # ax.plot(surfex['REC_'+mod+'_'+sce])
-                        ax.plot(Rech*1000*30, c='b')
+                        # fig, ax = plt.subplots(1,1, figsize=(7,3))
+                        # # ax.plot(surfex['REC_'+mod+'_'+sce])
+                        # ax.plot(Rech*1000*30, c='b')
                         
                         # plt.plot(BV.forcing.recharge, lw=2)
                         # plt.plot(BV.forcing.runoff, lw=2)
                         # plt.yscale('log')
                 
-                    init_rech = select_period(Rech, 1975,2004).mean() # first or mean or value
+                    init_rech = select_period(Rech, 1960, 2005).mean() # first or mean or value
 
                 if typ_climate == 'DRIAS':
                                             
@@ -1969,7 +1988,7 @@ for watershed_name in watershed_names[:] :
                     if normalize == True:
                         
                         Ratio_norm = (Qobs.mean() / Rech_norm.mean()) #+ Runof_norm.mean()
-                        print(Ratio_norm.round(2))
+                        print(mod, sce, Ratio_norm.round(2))
 
                     # for t in Q_norm.index.year:
                         # Ratio_norm = (Q_norm[Q_norm.index.year==t].mean() / Rech_norm[Rech_norm.index.year==t].mean())
@@ -1995,9 +2014,9 @@ for watershed_name in watershed_names[:] :
                         BV.forcing.update_recharge(Rech, sim_state = sim_state)
                         BV.forcing.update_runoff(Runof, sim_state = sim_state)
                         
-                        fig, ax = plt.subplots(1,1, figsize=(7,3))
+                        # fig, ax = plt.subplots(1,1, figsize=(7,3))
                         # ax.plot(surfex['REC_'+mod+'_'+sce])
-                        ax.plot(Rech, c='b')
+                        # ax.plot(Rech, c='b')
                         
                         # plt.plot(BV.forcing.recharge, lw=2)
                         # plt.plot(BV.forcing.runoff, lw=2)
@@ -2009,13 +2028,17 @@ for watershed_name in watershed_names[:] :
             # plt.plot(init_rech)
             # plt.yscale('log')
             
-            # fig, ax = plt.subplots(1,1, figsize=(7,3))
+            fig, ax = plt.subplots(1,1, figsize=(7,3))
             # ax.plot(surfex['REC_'+mod+'_'+sce])
             # ax.plot(Rech.resample('Y').sum()*1000, c='r')
-            # ax.plot(Rech.re, c='r')
+            # print(select_period(Rech, 1960, 2005).sum())
+            # print(init_rech)
+            ax.plot(Rech, c='r')
+            ax.plot(Rech_norm, c='k')
             # ax.plot(Qobs, c='k')
             ax.set_title(mod+'-'+sce)
             # ax.set_yscale('log')
+            ax.set_xlim(pd.to_datetime('1970'), pd.to_datetime('2100'))
 
             list_model_name = []
             list_of_success = []
@@ -2105,64 +2128,65 @@ for watershed_name in watershed_names :
         for sce in sce_list:
     
             h5file = simulations_folder+'/'+'list_'+typ+'_'+var+'-'+mod+'-'+sce
-            d = dd.io.load(h5file)
-            list_model_name = d['list_model_name'][:]
-            list_of_success = d['list_of_success'][:]
-            list_flow_model = d['list_flow_model'][:]
-            list_var_store = d['list_var_store'][:]
-            
-            for model_name, success, flow_model, var_store in zip(list_model_name,
-                                                                  list_of_success,
-                                                                  list_flow_model,
-                                                                  list_var_store):
-                print(mod, success)
-
-# CHECK
-
-                if success==True:
+            if os.path.exists(h5file):
+                d = dd.io.load(h5file)
+                list_model_name = d['list_model_name'][:]
+                list_of_success = d['list_of_success'][:]
+                list_flow_model = d['list_flow_model'][:]
+                list_var_store = d['list_var_store'][:]
+                
+                for model_name, success, flow_model, var_store in zip(list_model_name,
+                                                                      list_of_success,
+                                                                      list_flow_model,
+                                                                      list_var_store):
+                    print(mod, success)
+    
+    # CHECK
+    
+                    if success==True:
+                            
+                            
+                            BV.matrix_modflow(success,
+                                              flow_model,
+                                              first_only = True,
+                                              watertable_elevation = True,
+                                              watertable_depth = True, 
+                                              seepage_areas = True,
+                                              outflow_drain = True,
+                                              groundwater_flux = True,
+                                              specific_discharge = False,
+                                              accumulation_flux = True,
+                                              perenn_intermit_shp = False,
+                                              groundwater_storage = True,
+                                              residence_times = False,
+                                              verbose = True,
+                                              export_tif = True)
+                            
+                            # Necessary for results_modflow
+                            BV.forcing.update_recharge(flow_model.climatic,
+                                                       sim_state=sim_state)
+                            recharge = BV.forcing.recharge
+                            runoff = var_store.copy()
                         
-                        
-                        BV.matrix_modflow(success,
-                                          flow_model,
-                                          first_only = True,
-                                          watertable_elevation = True,
-                                          watertable_depth = True, 
-                                          seepage_areas = True,
-                                          outflow_drain = True,
-                                          groundwater_flux = True,
-                                          specific_discharge = False,
-                                          accumulation_flux = True,
-                                          perenn_intermit_shp = False,
-                                          groundwater_storage = True,
-                                          residence_times = False,
-                                          verbose = True,
-                                          export_tif = True)
-                        
-                        # Necessary for results_modflow
-                        BV.forcing.update_recharge(flow_model.climatic,
-                                                   sim_state=sim_state)
-                        recharge = BV.forcing.recharge
-                        runoff = var_store.copy()
-                    
-                        
-                        # # Extract results
-                        BV.results_modflow(ident=model_name,
-                                           recharge=recharge,
-                                           runoff=runoff,
-                                           actual_date=actual_date,
-                                           time_step=time_step)
-                        
-                        ## Plot maps
-                        surf = modflow_display.SurfaceOutputs(flow_model.climatic,
-                                                              simulations_folder, stable_folder,
-                                                              model_name, types_obs,
-                                                              save_gif=False,
-                                                              first_only=True,
-                                                              sim_state=sim_state,
-                                                              outflow=True,
-                                                              accflux=True,
-                                                              intermittency=False,
-                                                              chronics=False)
+                            
+                            # # Extract results
+                            BV.results_modflow(ident=model_name,
+                                               recharge=recharge,
+                                               runoff=runoff,
+                                               actual_date=actual_date,
+                                               time_step=time_step)
+                            
+                            ## Plot maps
+                            surf = modflow_display.SurfaceOutputs(flow_model.climatic,
+                                                                  simulations_folder, stable_folder,
+                                                                  model_name, types_obs,
+                                                                  save_gif=False,
+                                                                  first_only=True,
+                                                                  sim_state=sim_state,
+                                                                  outflow=True,
+                                                                  accflux=True,
+                                                                  intermittency=False,
+                                                                  chronics=False)
 
 #%% ---- NOTES
 
@@ -2203,19 +2227,20 @@ res_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/1
 
 watershed_names = ['Cheze']
 
-typ_climate = 'DRIAS'
-typ = 'app-trans-v2'
-mod_list = [
-            'MPI-CCL','MPI-R09',
-            'CNR-RAC','CNR-ALA',
-            'ECE-RCA','ECE-RAC',
-            'HAD-REG',
-            'NOR-R15'
-            ]
+typ_climate = 'SURFEX'
+# typ = 'app-trans-v2'
+typ = 'surf-trans-v3'
+# mod_list = [
+#             'MPI-CCL','MPI-R09',
+#             'CNR-RAC','CNR-ALA',
+#             'ECE-RCA','ECE-RAC',
+#             'HAD-REG',
+#             'NOR-R15'
+#             ]
 
 # typ_climate = 'SURFEX'
 # typ = 'surf-trans-v2'
-# mod_list = ['TOT1']
+mod_list = ['TOT1']
 
 fig_path = res_folder+typ+'/'
 
@@ -2223,6 +2248,13 @@ if not os.path.exists(fig_path):
     toolbox.create_folder(fig_path)
 
 #%% EVOLUTION
+ 
+typ = 'surf-trans-v3'
+
+watershed_names = ['Cheze']
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+# mod_list = ['TOT1']
 
 sce_list = ['historic','RCP2.6','RCP8.5']
 
@@ -2241,10 +2273,14 @@ for watershed_name in watershed_names :
                 sce_name = 'RCP8.5'
             else:
                 sce_name = sce
-                
-            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce_name+'*')
-            simul = simul_list[0]
             
+            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce_name+'*')
+            
+            if len(simul_list)>0 :
+                simul = simul_list[0]
+            else:
+                continue
+                
             model_name = simul.split('\\')[-1]
             Sy = float(model_name.split('_')[3].split('-')[0]) # %
             K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
@@ -2255,7 +2291,7 @@ for watershed_name in watershed_names :
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
                         
             # df['Q_'+mod+'_'+sce] = Smod['recharge'] #+ Smod['runoff'] 
-            df['Q_'+mod+'_'+sce] = Smod['outflow_drain'] * 1000 * 365 #+ Smod['runoff']
+            df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+ Smod['runoff']) * 1000 * 365 #
             # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
                         
             # plt.plot(Smod.recharge*1000)
@@ -2270,7 +2306,7 @@ for watershed_name in watershed_names :
             # plt.plot(Smod.runoff)
             # plt.yscale('log')
 
-fig, ax = plt.subplots(1,1, figsize=(9,3))
+fig, ax = plt.subplots(1,1, figsize=(10,4))
 
 per_list = [[1975,2005],[2005,2100],[2005,2100]]
 sce_list = ['historic','RCP2.6','RCP8.5']
@@ -2285,7 +2321,7 @@ for sce, per in zip(sce_list, per_list):
     # d = select_period(df, per[0], per[1])
     
     # if typ_climate == 'DRIAS' :
-    d = df.copy()        
+    d = df.copy()
     d['MIN'] = d.filter(regex=sce).min(axis=1)
     d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
     d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
@@ -2312,7 +2348,19 @@ for sce, per in zip(sce_list, per_list):
     #     d['MAX'] = df.filter(regex=sce).resample('Y').max()
     #     d = d * 1000 * 365
     #     ax.set_yscale('log')
-        
+    
+    # d = (df.resample('Y').mean()).copy()
+    # d['MIN'] = df.filter(regex=sce).resample('Y').min()
+    # d['Q5'] = df.filter(regex=sce).resample('Y').quantile(0.05)
+    # d['Q10'] = df.filter(regex=sce).resample('Y').quantile(0.10)
+    # d['Q25'] = df.filter(regex=sce).resample('Y').quantile(0.25)
+    # d['MEAN'] = df.filter(regex=sce).resample('Y').mean()
+    # d['MED'] = df.filter(regex=sce).resample('Y').median()
+    # d['Q75'] = df.filter(regex=sce).resample('Y').quantile(0.75)
+    # d['Q90'] = df.filter(regex=sce).resample('Y').quantile(0.90)
+    # d['Q95'] = df.filter(regex=sce).resample('Y').quantile(0.95)
+    # d['MAX'] = df.filter(regex=sce).resample('Y').max()
+    # d = d* 365
     # df = select_period(df, 1970, 2005)
     
     # d = d * 365
@@ -2325,7 +2373,7 @@ for sce, per in zip(sce_list, per_list):
     # mean = select_period(d['MED'].copy(), per[0], per[1])
     # low = select_period(d['Q90'].copy(), per[0], per[1])
     
-    ax.plot(mean, c=dict_c_b[sce], lw=3)
+    ax.plot(mean, c=dict_c_b[sce], lw=4)
     ax.fill_between(mean.index, low, high, color=dict_c[sce], alpha=0.25)
     # d = d.T
     # ax.boxplot(d)
@@ -2340,6 +2388,8 @@ for sce, per in zip(sce_list, per_list):
     ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
     ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
     
+    ax.set_ylim(100, 700)
+    
     yearsmaj = mdates.YearLocator(10)   # every year
     # yearsmin = mdates.YearLocator(years_min)
     # monthsmaj = mdates.MonthLocator(6)  # every month
@@ -2353,9 +2403,12 @@ for sce, per in zip(sce_list, per_list):
     # ax.set_yscale('log')
     
     fig.savefig(fig_path + watershed_name +
-                '_evolution_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
+                '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
 
 #%% BOXPLOT
+
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
 
 sce_list = ['historic','RCP2.6','RCP8.5']
 
@@ -2376,8 +2429,12 @@ for watershed_name in watershed_names :
                 sce_name = sce
                 
             simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce_name+'*')
-            simul = simul_list[0]
-            
+                        
+            if len(simul_list)>0 :
+                simul = simul_list[0]
+            else:
+                continue
+                
             model_name = simul.split('\\')[-1]
             Sy = float(model_name.split('_')[3].split('-')[0]) # %
             K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
@@ -2389,10 +2446,12 @@ for watershed_name in watershed_names :
                         
             df['Q_'+mod+'_'+sce] = ( Smod['outflow_drain'] + Smod['runoff'] ) * 1000 * 30
             # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
+            # plt.plot(df['Q_'+mod+'_'+sce])
+    
+fig, ax = plt.subplots(1,1, figsize=(5,4))
 
-fig, ax = plt.subplots(1,1, figsize=(4,3))
-
-per_list = [[1980,2005],[2010,2040],[2040,2070],[2070,2098]]
+per_list = [[1980,2010],[2010,2040],[2040,2070],[2070,2098]]
+# per_list = [[1980,2010]]
 
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['dodgerblue','red']
@@ -2404,13 +2463,17 @@ for sce in sce_list:
     
     for per in per_list:
         
+        # if per[0] == 1980:
+        #     sce = 'RCP8.5'
+        
         d = df.copy()
         d = d.filter(regex=sce) 
         d = select_period(d, per[0], per[1])
         d = pd.Series(d.values.ravel('F'))
-        
+        # d = d * 1000 * 365
+
         coul = dict_c[sce]
-        
+
         if sce == 'RCP2.6':
             ps = -0.12
             ax.axvline(1.5, c='grey')
@@ -2423,11 +2486,11 @@ for sce in sce_list:
             coul = 'dimgray'
         
         boxprops = dict(linestyle='-', linewidth=1, color='black',
-                        facecolor=coul, alpha=0.5)
+                        facecolor=coul, alpha=0.40)
         medianprops = dict(linestyle='-', linewidth=1, color='black')
         meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
                               markerfacecolor='k', linestyle='-')
-
+        
         bp = ax.boxplot(d, widths=0.2,
                         positions=[i+1+ps],
                           whis=False, showfliers=False, showmeans=False, 
@@ -2436,7 +2499,7 @@ for sce in sce_list:
         for element in bp['whiskers']:
             element.set_color('k')
             element.set_linestyle('-')
-            
+        
         ax.vlines(x=i+1+ps, 
                     ymin=d.quantile(0.75), 
                     ymax=d.quantile(0.90), color='k', zorder=2)
@@ -2454,9 +2517,11 @@ for sce in sce_list:
                 mfc='k', mew=1,
                 color='k', zorder=1000)
         
-        ax.get_xaxis().set_visible(False)
+        # ax.get_xaxis().set_visible(False)
         ax.set_yscale('log')
         ax.set_ylim(2, 200)
+        # ax.set_yticks([2,10,100])
+        # ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
         ax.set_xlim(0.5,4.5)
         
         ax.set_axisbelow(True)
@@ -2467,11 +2532,17 @@ for sce in sce_list:
         i += 1
         
 fig.savefig(fig_path + watershed_name +
-            '_boxplot_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
+            '_boxplot_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
 
 #%% INTERMENSUAL
 
 sce_list = ['historic','RCP2.6','RCP8.5']
+
+typ = 'surf-trans-v3'
+
+watershed_names = ['Cheze']
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
 
 df = pd.DataFrame()
 
@@ -2490,7 +2561,10 @@ for watershed_name in watershed_names :
                 sce_name = sce
                 
             simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce_name+'*')
-            simul = simul_list[0]
+            if len(simul_list)>0 :
+                simul = simul_list[0]
+            else:
+                continue
             
             model_name = simul.split('\\')[-1]
             Sy = float(model_name.split('_')[3].split('-')[0]) # %
@@ -2503,15 +2577,19 @@ for watershed_name in watershed_names :
             
             # df['Q_'+mod+'_'+sce] = Smod['recharge'] * 1000
 
-            df['Q_'+mod+'_'+sce] = (Smod['outflow_drain'] + (Smod['runoff']*1)) * 1000 * 30
+            df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+Smod['runoff']) * 1000 * 30 # + (Smod['runoff']*1)) 
             # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
 
-per_list = [[2010,2040],[2040,2070],[2070,2100],[1980,2005]]
-per_list = [[2070,2100],[1980,2005]]
+# per_list = [[2010,2040],[2040,2070],[2070,2100],[1980,2005]]
+per_list = [[2070,2100],[1980,1990]]
 
-sce_list = ['RCP2.6','RCP8.5']
-col_list = ['dodgerblue','red']
-col_list_b = ['navy','darkred']
+# per_list = [[1980,1990]]
+
+sce_list = ['RCP8.5','RCP2.6']
+# sce_list = ['RCP2.6']
+# sce_list = ['RCP8.5']
+col_list = ['red','dodgerblue']
+col_list_b = ['darkred','navy']
 dict_c = dict(zip(sce_list, col_list))
 dict_c_b = dict(zip(sce_list, col_list))
 
@@ -2519,7 +2597,7 @@ for sce in sce_list:
     
     i = 0
     
-    fig, ax = plt.subplots(1,1, figsize=(4,3))
+    fig, ax = plt.subplots(1,1, figsize=(5.5,3.5))
     
     for per in per_list:
         
@@ -2536,10 +2614,33 @@ for sce in sce_list:
             list_c_b = ['navy','k']
         
         d = df.copy()
-        d = d.filter(regex=sce)  
+        d = d.filter(regex=sce)
         d = select_period(d, per[0], per[1])
-        d = d.groupby([(d.index.month)]).median()
-
+        print(d.shape)
+        # d = pd.Series(d.values.ravel('F'))
+        d = d.stack().reset_index()
+        d = d.set_index('date')
+        d = d[0]
+        
+        if (sce == 'RCP8.5') & (per[0] == 1980):
+            store = d
+        
+        if (sce == 'RCP2.6') & (per[0] == 1980):
+            d = store.copy()
+            
+        dg = d.groupby([(d.index.month)]).median().to_frame()
+        dg.columns = ['MED']
+        dg['MIN'] = d.groupby([(d.index.month)]).min()
+        dg['Q5'] = d.groupby([(d.index.month)]).quantile(0.05)
+        dg['Q10'] = d.groupby([(d.index.month)]).quantile(0.1)
+        dg['Q25'] = d.groupby([(d.index.month)]).quantile(0.25)
+        dg['MEAN'] = d.groupby([(d.index.month)]).mean()
+        dg['Q75'] = d.groupby([(d.index.month)]).quantile(0.75)
+        dg['Q90'] = d.groupby([(d.index.month)]).quantile(0.90)
+        dg['Q95'] = d.groupby([(d.index.month)]).quantile(0.95)
+        dg['MAX'] = d.groupby([(d.index.month)]).max()
+        
+        '''
         d['MIN'] = d.filter(regex=sce).min(axis=1)
         d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
         d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
@@ -2550,6 +2651,7 @@ for sce in sce_list:
         d['Q90'] = d.filter(regex=sce).quantile(0.90, axis=1)
         d['Q95'] = d.filter(regex=sce).quantile(0.95, axis=1)
         d['MAX'] = d.filter(regex=sce).max(axis=1)
+        '''
 
         # dfb = d.groupby([(d.index.month)]).mean()
         # dfb = dfb.rename_axis(["year", "month"])
@@ -2561,9 +2663,19 @@ for sce in sce_list:
         if per[0] == 1980:
             coul = 'k'
         
+        '''
         # ax.plot(d['MED'], c=coul, lw=3)
         ax.plot(d['MED'], c=list_c_b[i], lw=2)
+        # for idx in d.index:
+        #     ax.vlines(idx, d.loc[idx,'Q25'], d.loc[idx,'Q75'], color=coul)
         ax.fill_between(d.index, d['Q10'], d['Q90'], color=coul, alpha=0.5, ec='none')
+        '''
+        
+        # ax.plot(d['MED'], c=coul, lw=3)
+        ax.plot(dg['MED'], c=list_c_b[i], lw=3)
+        # for idx in d.index:
+        #     ax.vlines(idx, d.loc[idx,'Q25'], d.loc[idx,'Q75'], color=coul)
+        ax.fill_between(dg.index, dg['Q10'], dg['Q90'], color=coul, alpha=0.25, ec='none')
         
         squad = ['J','F','M','A','M','J','J','A','S','O','N','D']
         x1 = np.arange(1,12+1,1)
@@ -2572,7 +2684,7 @@ for sce in sce_list:
         ax.set_xlim(1,12)
         ax.set_yscale('log')
         
-        ax.set_ylim(2, 200)
+        ax.set_ylim(1, 500)
         
         ax.set_axisbelow(True)
         # ax.grid(zorder=-1000)
@@ -2582,11 +2694,21 @@ for sce in sce_list:
         i += 1
         
     fig.savefig(fig_path + watershed_name +
-                '_intermensual_' + str(mod_list) + '_' + sce + '.png', dpi=300, bbox_inches='tight')
+                '_intermensual_' + str(mod_list[0]) + '_' + sce + '.png', dpi=300, bbox_inches='tight')
 
 #%% TABLEAU
 
 sce_list = ['historic','RCP2.6','RCP8.5']
+
+typ = 'surf-trans-v3'
+
+watershed_names = ['Cheze']
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+
+# mod_list = ['ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
+
+mod_list = ['TOT1']
 
 df = pd.DataFrame()
 
@@ -2605,7 +2727,8 @@ for watershed_name in watershed_names :
                 sce_name = sce
                 
             simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce_name+'*')
-            simul = simul_list[0]
+            if len(simul_list)>0 :
+                simul = simul_list[0]
             
             model_name = simul.split('\\')[-1]
             Sy = float(model_name.split('_')[3].split('-')[0]) # %
@@ -2619,7 +2742,7 @@ for watershed_name in watershed_names :
             df['Q_'+mod+'_'+sce] = Smod['outflow_drain'] * 1000 * 30
             # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
 
-per = [2005,2100]
+per = [2040,2070]
 
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['dodgerblue','red']
@@ -2634,53 +2757,74 @@ for sce in sce_list:
     
     i = 0
     
-    if typ_climate == 'DRIAS':
+    # if typ_climate == 'DRIAS':
         
-        hist = df.copy()
-        hist = hist.filter(regex=sce)
-        hist = select_period(hist, 1980, 2005)
-        hist = hist.groupby([(hist.index.month)]).mean()
-        # hist = hist.T
-        
-        fut = df.copy()
-        fut = fut.filter(regex=sce)
-        fut = select_period(fut, per[0], per[1])
-        fut = fut.groupby([(fut.index.month)]).mean()
+    hist = df.copy()
+    hist = hist.filter(regex='historic')
+    hist = select_period(hist, 1980, 2005)
+    hist = hist.stack().reset_index()
+    hist = hist.set_index('date')
+    hist = hist[0]
+    dft['Past'] = hist.groupby([(hist.index.month)]).mean()
+    # hist = hist.T
     
-        dft['Past'] = hist.mean(axis=1)
-        dft['Future_'+sce] = fut.mean(axis=1)
+    fut = df.copy()
+    fut = fut.filter(regex=sce)
+    fut = select_period(fut, per[0], per[1])
+    fut = fut.stack().reset_index()
+    fut = fut.set_index('date')
+    fut = fut[0]
+    dft['Future_'+sce] = fut.groupby([(fut.index.month)]).mean()
     
-        dft['d_min_'+sce] = ((fut.min(axis=1)-hist.min(axis=1))/hist.min(axis=1))*100
-        dft['d_mean_'+sce] = ((fut.mean(axis=1)-hist.mean(axis=1))/hist.mean(axis=1))*100
-        dft['d_med_'+sce] = ((fut.median(axis=1)-hist.median(axis=1))/hist.median(axis=1))*100
-        dft['d_max_'+sce] = ((fut.max(axis=1)-hist.max(axis=1))/hist.max(axis=1))*100
-        
-    if typ_climate == 'SURFEX':
-        
-        hist = df.copy()
-        hist = hist.filter(regex=sce)
-        hist = select_period(hist, 1980, 2005)
-        hist_min = hist.groupby([(hist.index.month)]).min()
-        hist_mean = hist.groupby([(hist.index.month)]).mean()
-        hist_med = hist.groupby([(hist.index.month)]).median()
-        hist_max = hist.groupby([(hist.index.month)]).max()
-        # hist = hist.T
-        
-        fut = df.copy()
-        fut = fut.filter(regex=sce)
-        fut = select_period(fut, per[0], per[1])
-        fut_min = fut.groupby([(fut.index.month)]).min()
-        fut_mean = fut.groupby([(fut.index.month)]).mean()
-        fut_med = fut.groupby([(fut.index.month)]).median()
-        fut_max = fut.groupby([(fut.index.month)]).max()
+    dft['d_min_'+sce] = ((fut.groupby([(fut.index.month)]).min()-
+                          hist.groupby([(hist.index.month)]).min())/
+                          hist.groupby([(hist.index.month)]).min())*100
+    dft['d_mean_'+sce] = ((fut.groupby([(fut.index.month)]).mean()-
+                          hist.groupby([(hist.index.month)]).mean())/
+                          hist.groupby([(hist.index.month)]).mean())*100
+    dft['d_med_'+sce] = ((fut.groupby([(fut.index.month)]).median()-
+                          hist.groupby([(hist.index.month)]).median())/
+                          hist.groupby([(hist.index.month)]).median())*100
+    dft['d_max_'+sce] = ((fut.groupby([(fut.index.month)]).max()-
+                          hist.groupby([(hist.index.month)]).max())/
+                          hist.groupby([(hist.index.month)]).max())*100
+
+    '''
+    dft['Past'] = hist.mean(axis=1)
+    dft['Future_'+sce] = fut.mean(axis=1)
+
+    dft['d_min_'+sce] = ((fut.min(axis=1)-hist.min(axis=1))/hist.min(axis=1))*100
+    dft['d_mean_'+sce] = ((fut.mean(axis=1)-hist.mean(axis=1))/hist.mean(axis=1))*100
+    dft['d_med_'+sce] = ((fut.median(axis=1)-hist.median(axis=1))/hist.median(axis=1))*100
+    dft['d_max_'+sce] = ((fut.max(axis=1)-hist.max(axis=1))/hist.max(axis=1))*100
+    '''   
     
-        dft['Past'] = hist.groupby([(hist.index.month)]).mean()
-        dft['Future_'+sce] = fut.groupby([(fut.index.month)]).mean()
+    # if typ_climate == 'SURFEX':
         
-        dft['d_min_'+sce] = ((fut_min-hist_min)/hist_min)*100
-        dft['d_mean_'+sce] = ((fut_mean-hist_mean)/hist_mean)*100
-        dft['d_med_'+sce] = ((fut_med-hist_med)/hist_med)*100
-        dft['d_max_'+sce] = ((fut_max-hist_max)/hist_max)*100
+    #     hist = df.copy()
+    #     hist = hist.filter(regex=sce)
+    #     hist = select_period(hist, 1980, 2005)
+    #     hist_min = hist.groupby([(hist.index.month)]).min()
+    #     hist_mean = hist.groupby([(hist.index.month)]).mean()
+    #     hist_med = hist.groupby([(hist.index.month)]).median()
+    #     hist_max = hist.groupby([(hist.index.month)]).max()
+    #     # hist = hist.T
+        
+    #     fut = df.copy()
+    #     fut = fut.filter(regex=sce)
+    #     fut = select_period(fut, per[0], per[1])
+    #     fut_min = fut.groupby([(fut.index.month)]).min()
+    #     fut_mean = fut.groupby([(fut.index.month)]).mean()
+    #     fut_med = fut.groupby([(fut.index.month)]).median()
+    #     fut_max = fut.groupby([(fut.index.month)]).max()
+    
+    #     dft['Past'] = hist.groupby([(hist.index.month)]).mean()
+    #     dft['Future_'+sce] = fut.groupby([(fut.index.month)]).mean()
+        
+    #     dft['d_min_'+sce] = ((fut_min-hist_min)/hist_min)*100
+    #     dft['d_mean_'+sce] = ((fut_mean-hist_mean)/hist_mean)*100
+    #     dft['d_med_'+sce] = ((fut_med-hist_med)/hist_med)*100
+    #     dft['d_max_'+sce] = ((fut_max-hist_max)/hist_max)*100
 
 dft.boxplot(rot=-270)   
 
@@ -2694,6 +2838,13 @@ dft.to_csv(fig_path + watershed_name +
 #%% QMNA
 
 sce_list = ['historic','RCP2.6','RCP8.5']
+
+typ = 'surf-trans-v3'
+
+watershed_names = ['Cheze']
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+mod_list = ['TOT1']
 
 df = pd.DataFrame()
 
@@ -2712,8 +2863,9 @@ for watershed_name in watershed_names :
                 sce_name = sce
                 
             simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce_name+'*')
-            simul = simul_list[0]
-            
+            if len(simul_list)>0 :
+                simul = simul_list[0]
+                
             model_name = simul.split('\\')[-1]
             Sy = float(model_name.split('_')[3].split('-')[0]) # %
             K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
@@ -2723,10 +2875,10 @@ for watershed_name in watershed_names :
             Smod_path = simul+'/_watershed/_simulated_results.csv'            
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
                         
-            df['Q_'+mod+'_'+sce] = Smod['outflow_drain'] * 1000
+            df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+Smod['runoff']) * 1000 * 30
             # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
 
-per = [2020,2100]
+per = [2040,2070]
 
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['dodgerblue','red']
@@ -2734,34 +2886,57 @@ col_list_b = ['navy','darkred']
 dict_c = dict(zip(sce_list, col_list))
 dict_c_b = dict(zip(sce_list, col_list_b))
 
-fig, ax = plt.subplots(1,1, figsize=(3,3))
+fig, ax = plt.subplots(1,1, figsize=(4.5,3.5))
 
 # dft = pd.DataFrame(columns=np.arange(1,13,1))
 dft = pd.DataFrame()
+
+# for mod in mod_list:
 
 for sce in sce_list:
     
     i = 0
     
+    '''
     hist = df.copy()
-    hist = hist.filter(regex=sce) * 365
-    hist = select_period(hist, 1970, 2005)
-    hist = hist.mean(axis=1)
+    hist = hist.filter(regex=sce) #* 365
+    hist = select_period(hist, 1980, 2004)
+    hist = hist.median(axis=1)
     # hist = hist.groupby([(hist.index.month)]).mean()
     # hist = hist.T
+    # hist = hist.groupby([(hist.index.year)]).min()
     
     fut = df.copy()
-    fut = fut.filter(regex=sce) * 365
+    fut = fut.filter(regex=sce) #* 365
     fut = select_period(fut, per[0], per[1])
-    fut = fut.mean(axis=1)
+    fut = fut.median(axis=1)
     # fut = fut.groupby([(fut.index.month)]).mean()
+    # fut = hist.groupby([(hist.index.year)]).min()
+    '''
+    
+    hist = df.copy()
+    hist = hist.filter(regex='historic')
+    hist = hist.filter(regex=mod)
+    hist = select_period(hist, 1980, 2005)
+    hist = hist.stack().reset_index()
+    hist = hist.set_index('date')
+    hist = hist[0]
+
+    fut = df.copy()
+    fut = fut.filter(regex=sce)
+    fut = fut.filter(regex=mod)
+    fut = select_period(fut, per[0], per[1])
+    fut = fut.stack().reset_index()
+    fut = fut.set_index('date')
+    fut = fut[0]
     
     ################################################
     
-    qmna_hist = hist.groupby(hist.index.year).min()
+    qmna_hist = hist.groupby([(hist.index.year)]).min()
     qmna_sort = qmna_hist.sort_values().to_frame()
     qmna_sort.columns = ['x']
-    qmna_sort = qmna_sort.round(0) / 12
+
+    qmna_sort = qmna_sort.round(3) #/ 12
     
     # Method 1
     Z = qmna_sort.copy()
@@ -2798,10 +2973,10 @@ for sce in sce_list:
 
     ################################################
 
-    qmna_fut = fut.groupby(fut.index.year).min()
+    qmna_fut = fut.groupby([(fut.index.year)]).min()
     qmna_sort = qmna_fut.sort_values().to_frame()
     qmna_sort.columns = ['x']
-    qmna_sort = qmna_sort.round(0) / 12
+    qmna_sort = qmna_sort.round(3) #/ 12
     
     # Method 1
     Z = qmna_sort.copy()
@@ -2842,10 +3017,11 @@ for sce in sce_list:
     
     # ax.set_yscale('log')
     ax.set_xlim(1, 20)
-    ax.set_ylim(1.5, 4.5)
-    ax.set_yticks([2, 3, 4])
+    # ax.set_ylim(2, 7)
+    # ax.set_yticks([1, 2, 3, 4])
     ax.set_xscale('log')
     # ax.set_yscale('log')
+    # ax.set_xticks([2, 5, 10, 20])
     ax.set_xticks([2, 5, 10, 20])
     ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
     
@@ -2853,28 +3029,40 @@ for sce in sce_list:
     # ax.grid(zorder=-1000)
     ax.xaxis.grid(color='gray', alpha=0.5, zorder=-20)
     ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='both')
-    
-    fig.savefig(fig_path + watershed_name +
-                '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
+        
+fig.savefig(fig_path + watershed_name +
+            '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
 
 #%% PERSISTENCY
 
 plot_maps = True
 
-mod_list = [
-            # 'MPI-CCL','MPI-R09',
-            # 'CNR-RAC',
-            # 'ECE-RCA',
-            # 'ECE-RCA','ECE-RAC',
-            'HAD-REG',
-            # 'NOR-R15'
-            ]
+# mod_list = [
+#             # 'MPI-CCL','MPI-R09',
+#             # 'CNR-RAC',
+#             # 'ECE-RCA',
+#             # 'ECE-RCA','ECE-RAC',
+#             'HAD-REG',
+#             # 'NOR-R15'
+#             ]
 # mod_list = ['TOT1']
+
+watershed_names = ['Cheze']
+
+# typ_climate = 'SURFEX'
+typ = 'surf-trans-v3'
+# mod_list = ['IPS1']
+
+# mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+#             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+mod_list = ['TOT1']
+# mod_list = ['IPS1']
 
 mods_list = [mod_list]
 
-sce_list = ['RCP2.6', 'RCP8.5']
+# sce_list = ['RCP2.6', 'RCP8.5']
 # sce_list = ['RCP8.5']
+sce_list = ['RCP2.6']
 
 for sce in sce_list:
 
@@ -2922,6 +3110,8 @@ for sce in sce_list:
                 for mod in mod_list:
                 
                     simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+                    
+                    # if len(simul_list)>0 :
                 
                     for simul in simul_list:
                         
@@ -2934,7 +3124,7 @@ for sce in sce_list:
                         
                         Smod_path = simul+'/_watershed/_simulated_results.csv'            
                         Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-                        
+
                         '''
                         figb, axb = plt.subplots(1,1, figsize=(5,5))
                         axb.plot(select_period(Smod.recharge,2010, 2040),
@@ -3006,8 +3196,8 @@ for sce in sce_list:
                             
                             return days_flux_h, days_flux_f, days_flux_ano, data
                         
-                        begin_h = 5*12
-                        end_h = 35*12
+                        begin_h = 20*12
+                        end_h = 50*12
                         # begin_h = 3*12
                         # end_h = 38*12
                         # begin_f = -60*12
@@ -3221,8 +3411,8 @@ for sce in sce_list:
                     
                     superficie.to_csv(fig_path + watershed_name +
                                 '_table_PI_' + str(mod_list) + '_' + sce + '.csv', sep=';')
-                    
-                    
-                    
+                
+                
+                
 
-                    
+                
