@@ -11,9 +11,9 @@ import numpy as np
 import os
 import pandas as pd
 import sys
-import imageio
+import imageio    # Import raster to numpy matrix (not georeferenced but handy)
 from os.path import dirname, abspath
-from osgeo import gdal
+from osgeo import gdal  # Gdal: referenced rasters (complex objects)
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import geopandas as gpd
@@ -28,12 +28,197 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 from tools import toolbox
 
+# Surface routing 
 from surface_flow import routing_accflux
 
 # VARIABLES GLOBALES
 
 class Modflow():
     """
+    Preprocessing, processing and postprocessing of modflow (groundwater flow)
+        Discretization: by default, the number of rows and columns is the DEM discretization
+    
+    Preprocessing: 
+        Model construction from 
+            - domain definition
+            - boundary conditions
+            - initial conditions
+            - parameter values
+        
+    Processing: 
+        Runs the modflow once modeled has been parameterized
+        
+    Postprocessing: 
+        Exports Tiff and Raster files from specific modflow files 
+        Raster will be re-read in another script 
+
+    Attributes, public
+    -------------------
+    mf: class specific to "flopy"
+        Modflow model (custom object impossible to edit with spyder)
+        
+    nwt: class of flopy 
+        Details of the nwt version of modfow used (flopy format)
+        Contains all numerical parameters of the simulation (e.g. tolerances, max number of iterations)
+        
+    Domain definition, hydraulic properties and discretization 
+    ----------------------------------------------------------
+
+2D LATERAL
+
+    geographic: class Geographic
+        Model geometry (eg DEM path)
+        
+    dem: 
+        #JR Pourquoi le chemin ici? pas la défintion avant
+        
+    dem_path: 
+        #JR
+        
+    nrow: int
+        number of rows (derived from DEM resolution)
+        
+    ncol: int 
+        number of columns (derived from DEM resolution)
+    
+    resolution: float
+        Resolution of the discertization
+        EQUAL TO THAT OF THE DEM (geographic)
+        
+    sink_fill: bool
+        Should it fill the holes in the DEM that mess the groundwater flow simulations
+        Difition of the hole in the DEM:
+            
+    sink:
+        #JR
+    
+    multip_cond: 
+        #JR
+        
+    xul: float
+        #JR
+            
+    yul: float
+        #JR
+            
+    hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
+        -- initial value: :data:`hyd_cond_init`
+        only 2D, generalization 3D in the script specific to modflow
+        
+    porosity: (:data:`nrow`, :data:`ncol`) 
+        -- initial value: :data:`porosity_init`
+        :vartype porosity: :class:`numpy.ndarray`
+        
+VERTICAL
+
+    thick: float
+        aquifer thickness () 
+        
+    thick_exp: float
+        Exponential increase of the mesh thickness
+        Default value: 1, exponential decay not activated 
+        Hydraulic conductivies are calculated in flowpy
+        
+    bottom: float
+        == None : constant thickness of the aquifer equal to attribute "thickness"
+        other value: flat bottom which altitude is equal to "bottom" (reference: m NGF)
+                
+    nlay: int
+        number of layers 
+    
+    cond_decay: float
+        Exponential decay thickness of the hydraulic conductivity (only, not porosity)
+        Default value: 0, exponential decay not activated 
+        K = Ksurface * exp (- cond_decay * z)
+        
+    verti_k: vector of floats
+        Applies different hydraulic conductivities with layers 
+        Default: None
+        
+    zbot: np matrix of floats
+        altitude of bottom for each of the dem cells
+        
+    laytype: 2D np array
+        cells where water can seep (by default, all the domain)
+          
+        
+    Hydraulic properties (discretized)
+    ----------------------------------
+    
+    hK: 3D np array 
+        hydraulic conductivity discretized on the grid
+
+    hK: porosity
+        hydraulic conductivity discretized on the grid 
+    
+    
+    Initial Conditions
+    ------------------
+    
+    
+    Boundary Conditions
+    -------------------
+
+    bc_left: flopy class
+        Boundary conditions 
+        
+    bc_right: flopy class
+        Boundary conditions 
+    
+    sea_level: float or series (set as a climatic chronicle)
+        constant sea level (no transience: # JR: To check)
+                            
+    iboundData: 3D np array
+        one value per cell (flopy coding)
+        -1: Constant head (null flux)
+         0: Inactive Cell (no flow)
+        +1: Active Cell 
+        
+    strtData: 3D np array
+        Value affected to the boundary condition
+        = Altitude 
+
+    
+    Sink/Source Terms
+    -----------------
+
+    init_rech: string of float 
+        == "mean" : takes the mean value and applies it as the first value of forcing
+        == "first": takes the first value and applies it as the first value of forcing
+        == float : recharge value
+        Initial recharge applied on the first time step
+        Used for synthetic simulation to determine drainage time of aquifer
+        
+    climatic: float
+        Recharge applied to the model 
+        By defaut, in steady state, a value
+        Otherwise pandas series given by a database (eg SURFEX)
+        
+    evt: class climatic
+        Package to apply evapotranspiration directly to the saturation of the groundwater
+        
+        
+    
+    Time definition and discretization 
+    ----------------------------------
+    
+    nper: vector of int
+        Number of forcing periods (recharge)
+        
+    perlen: float
+        Length of period
+    
+    nstp: vector of float
+        Steps in a given period (not used here)
+        
+    steady: vector of bool 
+        Is simulation in steady state
+        
+    start_datetime: float
+        First date of climatic recharge
+        
+    
+    
     model_name
     model_path
     dem : path of dem file (.tif)
@@ -47,6 +232,7 @@ class Modflow():
         - homogeneous : float
         - heterogeneous : numpy array (same size as the dem)
     """
+    #%% Initialization
     def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
@@ -55,12 +241,91 @@ class Modflow():
                  model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
+        """
+        Constructor
+ 
+        Arguments
+        ----------
+        geographic: class Geographic
+            Model geometry (eg DEM path)
+            
+        sink_fill: bool 
+            Fills the holes in the DEM
+            Smoothens the DEM to avoid small scale holes
+            = true : modifies the way drainace is implemented 
+            
+        box: bool 
+            Specifies if the studied watershed is embedded in a rectangle 
+            
+        climatic: float
+            Recharge applied to the model 
+            By defaut, in steady state, a value
+            Otherwise pandas series given by a database (eg SURFEX)
         
+        lay_number: int
+            Number of layers (vertical discretization)
+            
+        thick: float
+            aquifer thickness () 
+        
+        cond_decay: float
+            Exponential decay thickness of the hydraulic conductivity (only, not porosity)
+            Default value: 0, exponential decay not activated 
+            K = Ksurface * exp (- cond_decay * z)
+            
+        thick_exp: float
+            Exponential increase of the mesh thickness
+            Default value: 1, exponential decay not activated 
+            Hydraulic conductivies are calculated in flowpy
+            
+        hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
+            -- initial value: :data:`hyd_cond_init`
+            only 2D, generalization 3D in the script specific to modflow
+            
+        porosity: (:data:`nrow`, :data:`ncol`) 
+            -- initial value: :data:`porosity_init`
+            :vartype porosity: :class:`numpy.ndarray`
+        
+        nlay: int
+            number of layers 
+            
+        bottom: float
+            == None : constant thickness of the aquifer equal to attribute "thickness"
+            other value: flat bottom which altitude is equal to "bottom" (reference: m NGF)
+
+        model_folder: string
+            Folder where results will be stored
+        
+        model_name: string
+            id of the model (model configuration + hour/date)
+            
+        sea_level: float or series (set as a climatic chronicle)
+            constant sea level (no transience: # JR: To check)
+                                
+        init_rech: string of float 
+            == "mean" : takes the mean value and applies it as the first value of forcing
+            == "first": takes the first value and applies it as the first value of forcing
+            == float : recharge value
+            Initial recharge applied on the first time step
+            Used for synthetic simulation to determine drainage time of aquifer
+        
+        bc_left: flopy class
+            Boundary conditions 
+            
+        bc_right: flopy class
+            Boundary conditions 
+            
+        verti_k: vector of floats
+            Applies different hydraulic conductivities with layers 
+            Default: None
+        """
+
         self.model_name = model_name
         self.model_folder = model_folder
+        self.exe = exe
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
-        self.climatic = climatic.copy()
-        self.sea_level = sea_level 
+        
+        #%% Domain definition 
         self.thick = thick
         self.thick_exp = thick_exp
         self.geographic = geographic
@@ -71,54 +336,92 @@ class Modflow():
             self.sink = geographic.depressions_data
         except:
             pass
+        
         self.bottom = bottom
         self.nlay = lay_number
-        self.hyd_cond = hyd_cond
-        self.porosity = porosity
-        self.cond_decay = cond_decay
         self.xul = geographic.xmin
         self.yul = geographic.ymax
+        
         # if sea_level == None:
+        # Enlarges the modeled domain
         if box == True:
             self.dem = geographic.dem_box_data  
             self.dem_path = geographic.watershed_box_buff_dem
         else:
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
-        self.exe = exe
+        
+        #%% Initial conditions
         self.init_rech = init_rech
+        
+        #%% Boundary conditions
         self.bc_left = bc_left
         self.bc_right = bc_right
+        self.sea_level = sea_level 
+        
+        #%% Source/Sink terms 
+        self.climatic = climatic.copy()
+                
+        #%% Model parameters 
         self.verti_k = verti_k
+        self.hyd_cond = hyd_cond
+        self.porosity = porosity
+        self.cond_decay = cond_decay
 
+
+    #%% Pre-Processing
     def pre_processing(self, verbose=False):
+        """
+        Prerpocessing
+            - 3D Discretization by flopy of the domain according to the DEM and to the vertical discretization
+ 
+        Arguments
+        ----------
+        verbose: bool 
+            Displays messages in command window
+        """
+        
+        #%% Initialization of flopy model 
         if verbose == True:
             print('Build model')
+            
+        # Flopy initialization of Modflow model
         self.mf = flopy.modflow.Modflow(self.model_name, 
                                         exe_name=self.exe, version='mfnwt', listunit=2, verbose=False,
                                         model_ws=self.full_path) # external_path=self.full_path
+        
+        # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
+        # Sets up numerical parameters 
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1, options='COMPLEX',
                                             Continue=False, backflag=0) # ibotav=0
-
+        
+        # Preprocess conductivity values 
+        #ALEXANDRE
         try:
             if len(self.hyd_cond)!=1:
                 self.dem[self.hyd_cond<0]=-9999
         except:
             pass
 
+        #%% Spatial and Temporal discreitzations (time step is driven by recharge)
         if isinstance(self.climatic,(int,float))==True:
-            self.nper = 1
-            self.perlen = 1
-            self.nstp = [1]
-            self.steady = True
+            # Steady state
+            self.nper = 1               # Number of forcing periods (recharge)
+            self.perlen = 1             # Length of period
+            self.nstp = [1]             # Steps in a given period (not used here)
+            self.steady = True          # Steady state
             self.start_datetime = None
         else:
-            self.start_datetime = self.climatic.index[0]
-            self.steady = np.zeros(len(self.climatic),dtype=bool)
-            self.steady[0] = True
-            self.nstp = np.ones(len(self.climatic))
+            # Transient state
+            self.start_datetime = self.climatic.index[0]            # First date of climatic recharge
+            self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
+            self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
+            self.nstp = np.ones(len(self.climatic))     # One step per time step
             self.nper = len(self.climatic)
+            # Definition of period duration (forcing is constant on a period)
+            #       As many periods as recharge values 
+            #       Extracts from climatic data the time steps (self.perlen)
             self.perlen = np.ones(len(self.climatic))
             if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
                 if pd.infer_freq(self.climatic.index) != 'D':
@@ -126,24 +429,29 @@ class Modflow():
                         dif = self.climatic.index[i]-self.climatic.index[i-1]
                         self.perlen[i] = dif.days
 
+        # Model Domain definition and discretization 
+        # Discretization: by default, the number of rows and columns is the DEM discretization
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
         
-        # bottom definition 
+        # bottom definition for each of the layers 
         self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
         if self.bottom is None:
-            bottom_layer = self.dem - self.thick
+            bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
         else:
-            bottom_layer = self.bottom
+            bottom_layer = self.bottom              # Float for flat bottom case
 
+        # Modification of layer thickness for exponentially decreasing hydraulic conductivity cases
         if self.thick_exp != 1.:
             exp_scale = 1-self.thick_exp**self.nlay
     
+        # p: evoling proportions of bottom layer to surface values
         for i in range(1, self.nlay+1):
             if self.thick_exp == 1.:
-                p = i / self.nlay
+                p = i / self.nlay       # Uniform thicknesses
             else:
-                p = (1-self.thick_exp**i) / exp_scale
+                p = (1-self.thick_exp**i) / exp_scale   # Increasing thicknesses with depth
+            # weighted formula to go from bottom_layer to surface (self.dem)
             self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
         
         if self.verti_k != None:
@@ -154,6 +462,7 @@ class Modflow():
                 self.zbot[i,:,:] = self.dem - self.verti_k[1][i]
             self.zbot[-1,:,:] = bottom_layer
             
+        # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
             delr=self.resolution, delc=self.resolution, top=self.dem.data, 
             botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
@@ -161,6 +470,8 @@ class Modflow():
             start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
 		#proj4_str=self.dem.crs)
     
+        #%% Boundary Conditions: no flow 
+        # ALEXANDRE: no flow boundary conditions on the 4 sides (is all here)? 
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
         
@@ -180,7 +491,7 @@ class Modflow():
 
         self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
 
-        # Constant Head package
+        #%% Boundary Conditions: Constant Head boundary conditions (at sea level)
         if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             if isinstance(self.sea_level,(int,float)) == False:
@@ -198,6 +509,7 @@ class Modflow():
         self.laywet = np.zeros(self.nlay)
         self.laytype = np.ones(self.nlay)
 
+        # Necessary to give hydraulic conductivity
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         if self.cond_decay != 0.:
             depth = np.zeros(self.hk.shape)
@@ -221,6 +533,8 @@ class Modflow():
                                             hk=self.hk,
                                             vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
         
+        #%% Source Term: Recharge on the top of the model 
+        # Between the two possibilities (evt and rch, rch should it rather be used)
         if (self.climatic < 0).any().any() == True:
             #evt package
             self.evt = self.climatic.copy()
@@ -251,17 +565,24 @@ class Modflow():
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(int,float)):
+                # Only value in self.climatic (steady)
                 self.rchData[kper] = self.climatic
             else:
                 if kper == 0:
+                    # First value: steady (to reach equilibrium before starting the transient state of the simulation)
+                    # By default mean of the climatic chronicle
                     self.rchData[kper] = np.nanmean(self.climatic)
                     if self.init_rech == 'first':
+                        # First value of the cimatic chronicle
                         self.rchData[kper] = self.climatic.iloc[0]
                         print('Init rech is "first"')
                     if isinstance(self.init_rech,(int,float)):
+                        # Imposed value (if steady state: just one value)
                         self.rchData[kper] = self.init_rech
                         print('Init rech is "a value"')
                 else:
+                    # More flexibility in the possible format of the climatic chronicles 
+                    # Should only be used exceptionnaly (pandas series recommended)
                     try:
                         self.rchData[kper] = self.climatic[kper]
                     except:
@@ -269,17 +590,20 @@ class Modflow():
         if verbose == True:
             print('REC')
             # print(self.climatic)
+        # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
                 
-        # Drain package (DRN)
+        #%% Drain package (DRN) applied to all the surface of the model : enables seepage on the top layer
         self.drnData = np.zeros((self.nrow*self.ncol, 5))
         compt = 0
+        # First value (0): layer number
         self.drnData[:, 0] = 0 # layer
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
-                self.drnData[compt, 1] = i #row
-                self.drnData[compt, 2] = j #col
-                self.drnData[compt, 3]= self.dem[i, j]#elev
+                self.drnData[compt, 1] = i # Second value (1): row number
+                self.drnData[compt, 2] = j # Third value (2): column number
+                self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
+                # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
                 if self.sink_fill == False:
                     if self.multip_cond != None:
                         self.drnData[compt, 4] = self.multip_cond 
@@ -294,13 +618,15 @@ class Modflow():
                         else:
                             self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
                 compt += 1
+        # Imposes condition to Modflow through flopy
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
 
-        # oc package
+        #%% OC (Output Control) package
         stress_period_data = {}
         for kper in range(self.nper):
             kstp = self.nstp[kper]
+            # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
             stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
@@ -313,6 +639,8 @@ class Modflow():
         # linecollection = modelxsect.plot_grid()
         # modelxsect.plot_array(Kv)
         
+        
+    #%% Processing
     def processing(self, verbose=False):
         if verbose == True:
             print('Simulation d\'un modèle')
@@ -322,6 +650,8 @@ class Modflow():
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
+    
+    #%% Post-Processing
     def post_processing(self, first_only = False,
                               watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
