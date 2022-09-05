@@ -413,6 +413,7 @@ class Watershed:
         
         
     def add_hydrodynamic(self):
+        #RONAN: out of date
         self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
         #self.hillslope = hillslope() #1D Doesn't exist
