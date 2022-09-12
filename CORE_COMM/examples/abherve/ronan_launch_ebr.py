@@ -2402,8 +2402,8 @@ for sce, per in zip(sce_list, per_list):
 
     # ax.set_yscale('log')
     
-    fig.savefig(fig_path + watershed_name +
-                '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(fig_path + watershed_name +
+    #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
 
 #%% BOXPLOT
 
@@ -2444,95 +2444,116 @@ for watershed_name in watershed_names :
             Smod_path = simul+'/_watershed/_simulated_results.csv'            
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
                         
-            df['Q_'+mod+'_'+sce] = ( Smod['outflow_drain'] + Smod['runoff'] ) * 1000 * 30
+            df['Q_'+mod+'_'+sce] = ( Smod['outflow_drain'] + Smod['runoff'] ) * 1000 * 365
             # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
             # plt.plot(df['Q_'+mod+'_'+sce])
     
 fig, ax = plt.subplots(1,1, figsize=(5,4))
 
-per_list = [[1980,2010],[2010,2040],[2040,2070],[2070,2098]]
+per_list = [[1980,2000],[2010,2040],[2040,2070],[2070,2098]]
 # per_list = [[1980,2010]]
 
-sce_list = ['RCP2.6','RCP8.5']
-col_list = ['dodgerblue','red']
+sce_list = ['RCP8.5','RCP2.6']
+col_list = ['red','dodgerblue']
 dict_c = dict(zip(sce_list, col_list))
 
+g = 0
+
 for sce in sce_list:
+        
+    if g >= 0:
+        
+        i = 0
+        
+        for per in per_list:
+            
+            d = df.copy()
+            d = d.filter(regex=sce) 
+            d = select_period(d, per[0], per[1])
+            d = d.resample('Y').mean()
+            d = pd.Series(d.values.ravel('F'))
+            # d = d * 1000 * 365
+            # d = d * 12
+            
+            if (per[0] == 1980) & (sce == 'RCP8.5'):
+                store = d.copy()
+            
+            if (per[0] == 1980):
+                d = store.copy()
+            
+            coul = dict_c[sce]
     
-    i = 0
-    
-    for per in per_list:
+            if sce == 'RCP2.6':
+                ps = -0.12
+                ax.axvline(1.5, c='grey')
+            if sce == 'RCP8.5':
+                ps = +0.12
+                ax.axvline(2.5, c='grey')
+            if per[0] == 1980:
+                ps = 0
+                ax.axvline(3.5, c='grey')
+                coul = 'dimgray'
+            
+            boxprops = dict(linestyle='-', linewidth=1, color='black',
+                            facecolor=coul, alpha=0.40)
+            medianprops = dict(linestyle='-', linewidth=1, color='black')
+            meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
+                                  markerfacecolor='k', linestyle='-')
+            
+            bp = ax.boxplot(d, widths=0.2,
+                            positions=[i+1+ps],
+                              whis=False, showfliers=False, showmeans=False, 
+                              medianprops=medianprops, meanprops=meanpointprops,
+                              patch_artist=True, boxprops=boxprops)
+            for element in bp['whiskers']:
+                element.set_color('k')
+                element.set_linestyle('-')
+            
+            ax.vlines(x=i+1+ps, 
+                        ymin=d.quantile(0.75), 
+                        ymax=d.quantile(0.90), color='k', zorder=2)
+            ax.vlines(x=i+1+ps, 
+                        ymin=d.quantile(0.10), 
+                        ymax=d.quantile(0.25), color='k', zorder=2)
+            ax.plot(i+1+ps, 
+                      d.quantile(0.10), color='k', zorder=2, lw=0,
+                      marker='_', mew=1)
+            ax.plot(i+1+ps, 
+                      d.quantile(0.90), color='k', zorder=2, lw=0,
+                      marker='_', mew=1)
+              
+            ax.plot(i+1+ps, d.mean(), marker='o', mec='k', ms=3, lw=0,
+                    mfc='k', mew=1,
+                    color='k', zorder=1000)
+            
+            # ax.plot(i+1+ps, d.median(), marker='_', mec='k', ms=3, lw=0,
+            #         mfc='k', mew=1,
+            #         color='k', zorder=1000)
+            
+            # ax.get_xaxis().set_visible(False)
+            ax.set_yscale('log')
+            ax.set_ylim(2, 200)
+            ax.set_ylim(200, 700)
+            ax.set_yticks([200,300,400,500,600,700])
+            # ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            ax.set_yticklabels([200,300,400,500,600,700])
+            ax.set_xlim(0.5,4.5)
+                 
+            ax.set_axisbelow(True)
+            # ax.grid(zorder=-1000)
+            ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+            ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
+            
+            i += 1
+            
+            # print(sce, per, d.median().round(2))
+            print(sce, per, d.quantile(0.10).round(2))
+            
+        else:
+            continue
         
-        # if per[0] == 1980:
-        #     sce = 'RCP8.5'
-        
-        d = df.copy()
-        d = d.filter(regex=sce) 
-        d = select_period(d, per[0], per[1])
-        d = pd.Series(d.values.ravel('F'))
-        # d = d * 1000 * 365
-
-        coul = dict_c[sce]
-
-        if sce == 'RCP2.6':
-            ps = -0.12
-            ax.axvline(1.5, c='grey')
-        if sce == 'RCP8.5':
-            ps = +0.12
-            ax.axvline(2.5, c='grey')
-        if per[0] == 1980:
-            ps = 0
-            ax.axvline(3.5, c='grey')
-            coul = 'dimgray'
-        
-        boxprops = dict(linestyle='-', linewidth=1, color='black',
-                        facecolor=coul, alpha=0.40)
-        medianprops = dict(linestyle='-', linewidth=1, color='black')
-        meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
-                              markerfacecolor='k', linestyle='-')
-        
-        bp = ax.boxplot(d, widths=0.2,
-                        positions=[i+1+ps],
-                          whis=False, showfliers=False, showmeans=False, 
-                          medianprops=medianprops, meanprops=meanpointprops,
-                          patch_artist=True, boxprops=boxprops)
-        for element in bp['whiskers']:
-            element.set_color('k')
-            element.set_linestyle('-')
-        
-        ax.vlines(x=i+1+ps, 
-                    ymin=d.quantile(0.75), 
-                    ymax=d.quantile(0.90), color='k', zorder=2)
-        ax.vlines(x=i+1+ps, 
-                    ymin=d.quantile(0.10), 
-                    ymax=d.quantile(0.25), color='k', zorder=2)
-        ax.plot(i+1+ps, 
-                  d.quantile(0.10), color='k', zorder=2, lw=0,
-                  marker='_', mew=1)
-        ax.plot(i+1+ps, 
-                  d.quantile(0.90), color='k', zorder=2, lw=0,
-                  marker='_', mew=1)
-          
-        ax.plot(i+1+ps, d.mean(), marker='o', mec='k', ms=3, lw=0,
-                mfc='k', mew=1,
-                color='k', zorder=1000)
-        
-        # ax.get_xaxis().set_visible(False)
-        ax.set_yscale('log')
-        ax.set_ylim(2, 200)
-        # ax.set_yticks([2,10,100])
-        # ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
-        ax.set_xlim(0.5,4.5)
-        
-        ax.set_axisbelow(True)
-        # ax.grid(zorder=-1000)
-        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
-
-        i += 1
-        
-fig.savefig(fig_path + watershed_name +
-            '_boxplot_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+# fig.savefig(fig_path + watershed_name +
+#             '_boxplot_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
 
 #%% INTERMENSUAL
 
