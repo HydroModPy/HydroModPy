@@ -454,6 +454,7 @@ VERTICAL
             # weighted formula to go from bottom_layer to surface (self.dem)
             self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
         
+        '''
         if self.verti_k != None:
             self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
             # self.zbot[0,:,:] = self.dem - self.verti_k[1][0]
@@ -461,6 +462,7 @@ VERTICAL
             for i in range(len(self.verti_k[1])):
                 self.zbot[i,:,:] = self.dem - self.verti_k[1][i]
             self.zbot[-1,:,:] = bottom_layer
+        '''
             
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
@@ -470,7 +472,7 @@ VERTICAL
             start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
 		#proj4_str=self.dem.crs)
     
-        #%% Boundary Conditions: no flow 
+        #%% Boundary Conditions: Constant Head boundary conditions of No Flow (sides of domain)
         # ALEXANDRE: no flow boundary conditions on the 4 sides (is all here)? 
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
@@ -491,7 +493,7 @@ VERTICAL
 
         self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
 
-        #%% Boundary Conditions: Constant Head boundary conditions (at sea level)
+        #%% Boundary Conditions: Constant Head boundary conditions of No Flow (at sea level)
         if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             if isinstance(self.sea_level,(int,float)) == False:
@@ -504,22 +506,41 @@ VERTICAL
                                 package[kper,i,j] = 1
                                 chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.rchData[kper] = chdKper
-
+        
+        #%% Hydraulic parameters         
         # lpf package
         self.laywet = np.zeros(self.nlay)
         self.laytype = np.ones(self.nlay)
 
         # Necessary to give hydraulic conductivity
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
+        
         if self.cond_decay != 0.:
             depth = np.zeros(self.hk.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             self.hk *= np.exp(-self.cond_decay*depth)
+            
+        if self.verti_k != None:
+            for j in range(len(self.verti_k)):
+                # print('j', j)
+                for i in range(len(self.zbot)):
+                    # print('i', i)
+                    k_val = self.verti_k[j][0]
+                    d1 = self.verti_k[j][1][0]
+                    d2 = self.verti_k[j][1][1]
+                    cond_d1 = (self.dem - d1)
+                    cond_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
+                    self.hk[i][mask] = k_val
+                    # print(k_val)
+                    
         '''
         for i in range(0,len(self.number_structure)):
             for j in range(0,nlay):
                 self.hk[j][self.structure.geology==self.number_structure[i]]= logParamValue[i]*3600*24
-		'''
+		   '''
+           
+        """
         if self.verti_k != None:
             Kv = np.zeros((self.nlay,self.nrow,self.ncol))
             # Kv[0,:,:] = self.verti_k[0][0] #first layer of lime
@@ -528,6 +549,8 @@ VERTICAL
                 Kv[i,:,:] = self.verti_k[0][i]
             Kv[-1,:,:] = np.mean(self.hk)
             self.hk = Kv.copy()
+        """
+        
         self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk,
@@ -632,13 +655,11 @@ VERTICAL
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
-        
-        # fig = plt.figure(figsize=(20, 3))
-        # ax = fig.add_subplot(1, 1, 1)
-        # modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((Kv.shpae[1])/2)})
-        # linecollection = modelxsect.plot_grid()
-        # modelxsect.plot_array(Kv)
-        
+        fig = plt.figure(figsize=(10, 5))
+        ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
+        linecollection = modelxsect.plot_grid()
+        modelxsect.plot_array(self.hk)
         
     #%% Processing
     def processing(self, verbose=False):
