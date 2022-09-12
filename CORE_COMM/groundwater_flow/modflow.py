@@ -67,6 +67,9 @@ class Modflow():
         - Laterally: Homogeneous or Heterogeneous (defined by zones)
         - Vertically: Homogeneous or Layered 
     
+    SOURCE TERMS: EVAPOTRANSPIRATION: Between the two possibilities (evt and rch, rch should rather be used)
+        - Negative recharge values (P-E): ETP managed as a pumping term 
+        - Positive recharge values (P-E): Recharge to the aquifer
     
     Methods
     -------
@@ -534,12 +537,13 @@ VERTICAL
                                 chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.rchData[kper] = chdKper
         
-        #%% Hydraulic parameters         
+        #%% PARAMETERIZATION: Hydraulic Conductivity        
         # lpf package
         self.laywet = np.zeros(self.nlay)
         self.laytype = np.ones(self.nlay)
 
-        # Necessary to give hydraulic conductivity
+        # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
+        # Homogeneous hydraulic conductivity
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
         if self.cond_decay != 0.:
@@ -547,6 +551,7 @@ VERTICAL
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             self.hk *= np.exp(-self.cond_decay*depth)
             
+        # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
         if self.verti_k != None:
             for j in range(len(self.verti_k)):
                 # print('j', j)
@@ -560,7 +565,8 @@ VERTICAL
                     mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
                     self.hk[i][mask] = k_val
                     # print(k_val)
-                    
+               
+        #ALEXANDRE: should it be put again in the code without comments? 
         '''
         for i in range(0,len(self.number_structure)):
             for j in range(0,nlay):
@@ -583,9 +589,10 @@ VERTICAL
                                             hk=self.hk,
                                             vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
         
+        
         #%% Source Term & Initial Conditions: Recharge on the top of the model 
         
-        # Boundary Conditions: Constant Head boundary conditions (at sea level)
+        # BOUNDARY CONDITIONS-SEA LEVEL: Constant Head boundary conditions (at sea level)
         #ALEXANDRE: commenter avec Alexandre
         if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
@@ -600,17 +607,27 @@ VERTICAL
                                 chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.rchData[kper] = chdKper
         
-        # Between the two possibilities (evt and rch, rch should it rather be used)
+        # SOURCE TERMS: UNIFORM EVAPOTRANSPIRATION: Between the two possibilities (evt and rch, rch should rather be used)
+        #   - Negative recharge values (P-E): ETP managed as a pumping term 
+        #   - Positive recharge values (P-E): Recharge to the aquifer
         if (self.climatic < 0).any().any() == True:
+            # self.climatic : recharge values (float in steady state or chronicles in transient state)
             #evt package
-            self.evt = self.climatic.copy()
+            # Modifies ETP values (self.climatic): from negative to positive values (sink term)
+            #   package evt requires positive values (negative values are not allowed)
+            self.evt = self.climatic.copy() 
+            # All positive values are set to 0 (no negative values)
             self.evt[self.evt>=0] = 0
+            # All negative values are set to positive values
             self.evt = abs(self.evt)
             self.evtData = {}
+            # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
             for kper in range(0, self.nper):
                 if isinstance(self.evt,(int,float)):
+                    # If integer or float, do it only once (steady state)
                     self.evtData[kper] = self.evt
                 else:
+                    # Transient state: 
                     if kper == 0:
                         # self.evtData[kper] = np.nanmean(self.evt)
                         self.evtData[kper] = 0
@@ -619,15 +636,16 @@ VERTICAL
             if verbose == True:
                 print('ETR')
                 # print(self.evt)
+            # expd = self.thick : ETP can take water all over the aquifer thickness
             self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
                                                 evtr=self.evtData, 
                                                 surf=0, exdp=self.thick)
+            # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
             if not isinstance(self.climatic,(int,float)):
                 self.climatic[self.climatic<0] = 0
                 
-        # rch package
-        if not isinstance(self.climatic,(int,float)):
-            self.climatic[self.climatic<0] = 0
+                
+        # RECHARGE TO THE AQUIFER (over the surface) rch package (should always be positive)
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(int,float)):
@@ -672,11 +690,13 @@ VERTICAL
                 # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
                 if self.sink_fill == False:
                     if self.multip_cond != None:
+                        #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
                         self.drnData[compt, 4] = self.multip_cond 
                     else:
                         self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2
                 else:
                     if self.sink[i,j]>0:
+                        #ALEXANDRE: when filled, no possible drains, why?
                         self.drnData[compt, 4] = 0
                     else:
                         if self.multip_cond != None:
@@ -698,6 +718,7 @@ VERTICAL
                                 unitnumber=[14, 51, 52, 53, 0], compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
+        # CrossSection figure
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(1, 1, 1)
         modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
@@ -747,7 +768,7 @@ VERTICAL
         self.tifs_file = os.path.join(self.full_path, '_watershed', '_tifs')
         toolbox.create_folder(self.tifs_file)
         
-        # Model parameters
+        #%% Model parameters
         self.path_file = os.path.join(self.full_path, self.model_name)
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
@@ -763,19 +784,28 @@ VERTICAL
         self.params = params
         self.params.to_csv(self.full_path+'/_model_parameters.txt', sep=';', index=False)
 
-        # Import essential data
-        self.dem_mask = (self.dem<-4000)
-        self.head_fpu = fpu.HeadFile(self.path_file+'.hds')
+        #%% Import essential data of modflow specific files (written in the processing phase)
+        # Files have been output in the processing phase and are re-read here
+        self.dem_mask = (self.dem<-4000)  # 4000 meters (sure no DEM value below: equivalent to no data value)
+        # heads
+        self.head_fpu = fpu.HeadFile(self.path_file+'.hds') 
+        # fluxes
         self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
         # self.zcbc
         
         # Import times
         self.times = self.head_fpu.get_times()
         self.kstpkper = self.head_fpu.get_kstpkper()
+        # Stress periods (flopy "language")
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
-                
-        # Create dictionnaries
+             
+        #%% Gets aggregated results over times
+        # Create dictionnaries for each of the results to extract 
+        # x[time]=matrix
+        #   - x: type of output
+        #   - time: time at which it is taken
+        #   - matrix: 2D matrix of values
         self.dict_watertable_elevation = {}
         self.dict_watertable_depth = {}
         self.dict_seepage_areas = {}
@@ -797,7 +827,7 @@ VERTICAL
         if verbose == True:
             print('Post-processing in progress')
         
-        # Loop from time
+        # Loop over times, fills each of the previous structures 
         for item, time in enumerate(self.times):
             if verbose == True:
                 print('     Time : ', item)
