@@ -291,7 +291,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
-watershed_names = ['Quiock']
+watershed_names = ['Quiock_test']
 
 # types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
 # fields_obs = ['fid','fid']
@@ -348,7 +348,7 @@ for watershed_name in watershed_names[:]:
 #%% ---- CALIB
 
 #%% DICHOTOMY STREAMS
-
+"""
 hydrology_path = data_path # add hydrographic shapefiles
 
 from calibration import calib_root, calib_dichotomy, calib_analysis, calib_exploration, calib_basis
@@ -428,7 +428,7 @@ for watershed_name in watershed_names[:] :
         
     df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
     df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
-
+"""
 #%% ---- MODEL
 
 #%% CASES TO TEST
@@ -490,20 +490,22 @@ for watershed_name in watershed_names[:] :
     post_process = False # necessary to decompose post process of process
     
     # Strcture of the model
-    nlay = 10 # vertical discrtization
+    nlay = 50 # vertical discrtization
     bottom = -100 # aquifer flat or not
-    thick_exp = 1 # exponential decay of K with nlay
+    thick_exp = 1.2 # exponential decay of K with nlay
     cond_decay = 0 # exponential decay of K with depth
     thick = 300 # m
     
+    '''
     k_dis = [(2e-7)*3600* 24] * (nlay-1)
     if nlay == 2:
         t_dis = 40 * (nlay-1)
     if nlay > 2:
         t_dis = list(np.linspace(40,300,nlay))[0:-1]
     # print(t_dis)
+    '''
     
-    verti_k = [k_dis, t_dis]
+    verti_k = [ [2e-7 * 3600 * 24, [0, 40]] ]
     # verti_k = None
     
     # Hydraulic properties
