@@ -136,10 +136,14 @@ class Modflow():
         ymax for the domain to simulate
             
     hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
+        - homogeneous : float
+        - heterogeneous : numpy array (same size as the dem)
         -- initial value: :data:`hyd_cond_init`
         only 2D, generalization 3D in the script specific to modflow
         
     porosity: (:data:`nrow`, :data:`ncol`) 
+        - homogeneous : float
+        - heterogeneous : numpy array (same size as the dem)
         -- initial value: :data:`porosity_init`
         :vartype porosity: :class:`numpy.ndarray`
         
@@ -251,20 +255,6 @@ VERTICAL
     start_datetime: float
         First date of climatic recharge
         
-    
-    
-    model_name
-    model_path
-    dem : path of dem file (.tif)
-    climatic : float or Dataframe Datatimeseries
-    lay_number: int - number of layer - default is 1
-    thickness_aquifer: float
-    cond_hyd :
-        - homogeneous : float
-        - heterogeneous : numpy array (same size as the dem)
-    porosity: :
-        - homogeneous : float
-        - heterogeneous : numpy array (same size as the dem)
     """
     #%% Initialization
     def __init__(self, geographic, sink_fill = False, box=True,
@@ -509,36 +499,26 @@ VERTICAL
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
         
+        # SYNTHETIC CASE: FIXED HEAD ON THE LEFT BORDER (square domain), no longer actively used
         if  isinstance(self.bc_left,(int,float)) == True:
-           self.iboundData[:,:,0] = -1
+           self.iboundData[:,:,0] = -1                      
            self.strtData[:,:,0] = self.bc_left
        
+        # SYNTHETIC CASE: FIXED HEAD ON THE RIGHT BORDER (square domain), no longer actively used
         if  isinstance(self.bc_right,(int,float)) == True:
            self.iboundData[:,:,-1] = -1
            self.strtData[:,:,-1] = self.bc_right
            
+        # NO FLOW BOUNDARY CONDITIONS 
         for i in range (self.nlay):
             if isinstance(self.sea_level,(int,float)) == True:
                 self.iboundData[i][self.dem <= self.sea_level] = -1
                 self.strtData[self.iboundData == -1] = self.sea_level
-            self.iboundData[i][self.dem < -1000] = 0
+            self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
 
         self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
 
-        #%% Boundary Conditions: Constant Head boundary conditions (at sea level)
-        if self.sea_level != None:
-            package = np.zeros((self.nper,self.nrow, self.ncol))
-            if isinstance(self.sea_level,(int,float)) == False:
-                self.chdData = {}
-                for kper in range(0, self.nper):
-                    chdKper = []
-                    for i in range (0,self.nrow):
-                        for j in range (0, self.ncol):
-                            if self.dem[i,j] < self.sea_level[kper]:
-                                package[kper,i,j] = 1
-                                chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
-                            self.rchData[kper] = chdKper
-
+        #%% MODEL PARAMETRIZATION  
         # lpf package
         self.laywet = np.zeros(self.nlay)
         self.laytype = np.ones(self.nlay)
@@ -568,6 +548,22 @@ VERTICAL
                                             vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
         
         #%% Source Term & Initial Conditions: Recharge on the top of the model 
+        
+        # Boundary Conditions: Constant Head boundary conditions (at sea level)
+        #ALEXANDRE: commenter avec Alexandre
+        if self.sea_level != None:
+            package = np.zeros((self.nper,self.nrow, self.ncol))
+            if isinstance(self.sea_level,(int,float)) == False:
+                self.chdData = {}
+                for kper in range(0, self.nper):
+                    chdKper = []
+                    for i in range (0,self.nrow):
+                        for j in range (0, self.ncol):
+                            if self.dem[i,j] < self.sea_level[kper]:
+                                package[kper,i,j] = 1
+                                chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
+                            self.rchData[kper] = chdKper
+        
         # Between the two possibilities (evt and rch, rch should it rather be used)
         if (self.climatic < 0).any().any() == True:
             #evt package
