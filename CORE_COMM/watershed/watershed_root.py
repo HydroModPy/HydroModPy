@@ -413,6 +413,7 @@ class Watershed:
         
         
     def add_hydrodynamic(self):
+        #RONAN: out of date
         self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
         #self.hillslope = hillslope() #1D Doesn't exist
@@ -453,12 +454,16 @@ class Watershed:
         self.save_object()
     
     
-    def add_drias(self, drias_path):
+    def add_drias(self, drias_path, list_models='all', list_vars='all'):
         self.drias_path = drias_path
-        self.drias = drias.Drias(out_path=self.watershed_folder, drias_path=self.drias_path, watershed_shp=self.geographic.watershed_shp)
+        self.drias = drias.Drias(out_path=self.watershed_folder,
+                                 drias_path=self.drias_path,
+                                 watershed_shp=self.geographic.watershed_shp,
+                                 list_models=list_models, 
+                                 list_vars=list_vars)
         # drias.Merge(out_path=self.watershed_folder)
         self.elt_def.append('drias')
-        self.save_object()
+        # self.save_object()
 
 
     def add_piezometry(self):

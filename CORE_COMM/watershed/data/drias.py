@@ -21,7 +21,7 @@ import gc
 
 class Drias:
     
-    def __init__(self, out_path, drias_path, watershed_shp, list_models, list_vars):
+    def __init__(self, out_path, drias_path, watershed_shp, list_models='all', list_vars = 'all'):
         """
 
         Parameters
@@ -57,6 +57,17 @@ class Drias:
         df = pd.DataFrame()
         df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
         
+
+        if list_models == 'all':
+            list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+                           'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+        
+        if list_vars == 'all':
+            list_vars = ['DRAINC','RUNOFF','EVAPC','tasAdjust','prtotAdjust']
+            
+        print(list_models)
+        print(list_vars)
+        
         for model in list_models:
             models_path = glob.glob(os.path.join(drias_path, model +'*'))
             
@@ -70,8 +81,9 @@ class Drias:
                     files_path = glob.glob(model + '/' + var + '*' + '.nc')
                     for en, file_path in enumerate(files_path):
                         # print('    ' + str(file_path))
-                        self.clip_netcdf(data_folder, file_path, watershed_shp, var)
-                    
+                        if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
+                            self.clip_netcdf(data_folder, file_path, watershed_shp, var)
+    
         self.extract_values(data_folder, df)
         
     def select_period(df, first, last):
@@ -143,17 +155,20 @@ class Drias:
             if var_raw == 'prtotAdjust':
                 var = 'PPT'
             
-            gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
-            rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
-            
             if (var == 'REC') | (var == 'RUN') | (var == 'ETP'):
                 sce = path_netcdf.split('\\')[-1].split('_')[-4]
+                gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
+                rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
                 
             if (var == 'PPT') | (var == 'TAS'):
-                sce = path_netcdf.split('\\')[-1].split('_')[-9]
+                sce = path_netcdf.split('\\')[-1].split('_')[-7]
+                gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
+                rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
             
             if (sce == 'Historique') | (sce == 'Historical'):
                 sce = 'historic'
+            else:
+                sce = sce.upper()
                         
             if 'CNRM' in gcm_raw :
                 gcm = 'CNR'
@@ -186,7 +201,9 @@ class Drias:
                 rcm = 'R09'
             if 'HIRH' in rcm_raw :
                 rcm = 'HIR'
-        
+                
+            # path_netcdf = 'D:/Users/abherve/EBR/Frame/results_stable/drias/prtotAdjust_France_CNRM-CERFACS-CNRM-CM5_CNRM-ALADIN63_Historical_METEO-FRANCE_ADAMONT-France_SAFRAN_day_1951-2005_QGIS.nc' 
+            
             with xr.open_dataset(path_netcdf, decode_coords = 'all') as clipped_ds:
                 clipped_ds.load()
             
@@ -206,6 +223,7 @@ class Drias:
             # res = var_ds.mean(dim = 'time', skipna = True, keep_attrs = True)
     
             name_col = var+'_'+gcm+'-'+rcm+'_'+sce
+            print(name_col)
             if name_col not in df:
                 df[name_col] = ""
                 
@@ -218,8 +236,14 @@ class Drias:
             serie = pd.Series(( x_mean + y_mean ) / 2 )
             serie.index = dates
             
+            if (var == 'PPT') :
+                serie = serie * 3600 * 24
+                
+            if (var == 'TAS') :
+                serie = serie - 273.15
+                
             df[name_col] = serie
-        
+            
         df.to_csv(data_folder+'/'+'_ALL_D.csv', sep=';')
         # df.to_csv('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/results_stable/drias/'+
         #           '_ALL_D.csv', sep=';')
