@@ -130,7 +130,8 @@ class Climatic:
 
     def display_anomaly(self, mod=None ,var=None, per_hist=[1950,2005], per_fut=  [[2006,2020],[2021,2035],[2036,2050],[2051,2100]]):
         var_list = ['all','TAS','PPT','ETP','RUN','REC','SNOW']
-        mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA','OLD']
+        mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+                    'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA','OLD']
         if var == None or mod==None or (var not in var_list) or (mod not in mod_list):
             print('You must specify the variable/model you want to display')
         else:
@@ -143,18 +144,20 @@ class Merge:
         self.variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
         self.scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
         self.simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1','OLD']
+        self.simulations = ['REA','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+                            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','OLD']
 
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
                 
         columns = []
         for sim in self.simulations:
-                for sce in self.scenarios:
-                    if (sim == 'REA') & (sce == 'historic'):
-                        columns.append(sim+'_'+sce)
-                    if (sim == 'OLD') & (sce == 'historic'):
-                        columns.append(sim+'_'+sce)
-                    if (sim != 'REA') & (sim != 'OLD'):
-                        columns.append(sim+'_'+sce)
+            for sce in self.scenarios:
+                if (sim == 'REA') & (sce == 'historic'):
+                    columns.append(sim+'_'+sce)
+                if (sim == 'OLD') & (sce == 'historic'):
+                    columns.append(sim+'_'+sce)
+                if (sim != 'REA') & (sim != 'OLD'):
+                    columns.append(sim+'_'+sce)
                         
         date = pd.date_range(start='01/01/1960', end='31/12/2099', freq='D')
         self.base = pd.DataFrame(index=date, columns=columns)
