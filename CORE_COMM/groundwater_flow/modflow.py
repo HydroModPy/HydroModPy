@@ -426,6 +426,8 @@ VERTICAL
         # Preprocess conductivity values 
         #ALEXANDRE
         try:
+            # For heterogeneous cases of hydraulic conducitivy, inactivation of part of the dem 
+            # Should still be checked: is it still used? Remove? 
             if len(self.hyd_cond)!=1:
                 self.dem[self.hyd_cond<0]=-9999
         except:
@@ -500,8 +502,11 @@ VERTICAL
 		#proj4_str=self.dem.crs)
     
         #%% Boundary Conditions: Constant Head boundary conditions of No Flow (sides of domain)
-        # ALEXANDRE: no flow boundary conditions on the 4 sides (is all here)? 
+        # iboundData=1: Should compute head in cells 
+        # iboundData=0: Nothing is calculated in celles (should not be really used)
+        # iboundData=-1: Values imposed at the value of strtData
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
+        # Free surface level is set to the surface (altitude of DEM)
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
         
         # SYNTHETIC CASE: FIXED HEAD ON THE LEFT BORDER (square domain), no longer actively used
@@ -543,7 +548,8 @@ VERTICAL
         self.laytype = np.ones(self.nlay)
 
         # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
-        # Homogeneous hydraulic conductivity
+        # Homogeneous or heterogeneous hydraulic conductivity 
+        # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
         if self.cond_decay != 0.:

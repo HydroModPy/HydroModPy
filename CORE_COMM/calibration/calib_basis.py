@@ -87,7 +87,8 @@ class CalibrationBasis:
         
     def objective_function(self, params):
         """
-        
+        Updates values of parameters according to params
+            Should be separated from objective function 
 
         Parameters
         ----------
@@ -103,6 +104,10 @@ class CalibrationBasis:
         
         # self.parameters.append(params)
         # print(params)
+        # Heterogeneity of hydraulic conductivities: 
+        # Updates the (hydraulic conductivies, porisities, thicknesses)
+        #   of the grid according to the geological zones defined 
+        # Would also be possible externally to calibration
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
@@ -120,7 +125,7 @@ class CalibrationBasis:
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
         
-        # Run model
+        # Run model: seeks the parameters automatically in the elements of self.watershed
         succes, mf = self.watershed.run_modflow(self.ident, 
                                                 verbose=True, 
                                                 calib=self.param_folder)
