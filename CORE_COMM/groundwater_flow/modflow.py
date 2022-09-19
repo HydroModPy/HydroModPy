@@ -387,7 +387,10 @@ VERTICAL
         self.sea_level = sea_level 
         
         #%% Source/Sink terms 
-        self.climatic = climatic.copy()
+        if isinstance(climatic, 'float') == False :  
+            self.climatic = climatic.copy()
+        else: 
+            self.climatic = climatic
                 
         #%% Model parameters 
         self.verti_k = verti_k
