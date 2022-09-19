@@ -44,7 +44,7 @@ geology_path = os.path.join(root_path,'GEOLOGY',"France","Layer")
 oceanic_path = os.path.join(root_path,root_path,'OCEAN')
 modflow_path = os.path.join(root_path,'MODFLOW')
 hydrology_path = os.path.join(root_path,'HYDROLOGY')
-types_obs = ['streams_fr']
+types_obs = ['streams']
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
 BV.add_forcing()
@@ -54,6 +54,9 @@ BV.add_hydrodynamic()
 BV.hydrodynamic.update_thickness(30)
 BV.hydrodynamic.update_porosity(0.1)
 BV.add_geology(geology_path)
+BV.add_oceanic(oceanic_path)
+
+BV.add_hydrology(hydrology_path,types_obs=types_obs)
 
 params_file = "calib_params" # 'calib_explo_hom_2v_k1-k2'
 

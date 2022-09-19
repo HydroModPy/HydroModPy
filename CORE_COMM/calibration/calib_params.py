@@ -57,7 +57,7 @@ class CalibParams():
         """
         # Loads file in which parameters are stored
         file_path = os.path.join(watershed.calibration_folder, file_name+'.csv')
-        temp = pd.read_csv(file_path, sep=';', header=0)
+        temp = pd.read_csv(file_path, sep=',', header=0)
         # Affects param_values to the distribution
         self.file_name = file_name
         self.name = temp.params.values
