@@ -52,19 +52,19 @@ watershed_name = 'Saint-Germain-sur-Ay'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 load = False # loads previously generated basin if true
 
-# # Path to the git repositoty home page
-git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
-# # Path to the data folder
-data_path = "C:/Users/Martin/Desktop/Travail/data/data_test_ronan/"
-# # Path where the results will be stored
-out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
+# Path to the git repositoty home page
+git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
+# Path where the results will be stored
+out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 
 dems_path = data_path # reginal DEM or conceptual DEM
 # shp_path = data_path + 'shp/' # if you want run a model from a shapefile
-modflow_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/TEST/modflow/' # add bin/ folder with necessary .exe
+modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
 
 surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
 # geology_path = data_path + 'geology/' # add geologic layers
@@ -80,7 +80,7 @@ library_path = git_path + 'watershed/watershed_library.csv' # each row is a stud
 dem_name = "BDALTI_norm-manch_75m.tif"
 dem_path = dems_path + dem_name
 
-sp_file = "C:/Users/Martin/Desktop/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
+sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
 
 cell_size = None # specify new resolution from a given DEM or None
 
@@ -91,9 +91,9 @@ cell_size = None # specify new resolution from a given DEM or None
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-shp_file = 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
-# 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
-# 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
+# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -101,7 +101,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=load,
-                              from_shp=None,
+                              from_shp=shp_file,
                               from_dem=False,
                               cell_size=cell_size)
 
@@ -123,7 +123,7 @@ if piezometry_path == True:
 #     BV.add_subbasin()
 
 # DRIAS climate data extraction
-BV.add_drias("C:/Users/Martin/Desktop/Travail/data/data_test_ronan/CLIMAT/Normandie/")
+BV.add_drias("C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/CLIMAT/Normandie/")
 
 BV.save_object()
 
@@ -167,7 +167,7 @@ from calibration import calib_root, calib_dichotomy, calib_analysis, calib_explo
 df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
 area = BV.geographic.area
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
-                                  first_year = 1960, last_year=2019, time_step = 'M',
+                                  first_year = 2015, last_year=2019, time_step = 'M',
                                   sim_state = 'steady') #
 # BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
 BV.hydrodynamic.update_thickness(30)
@@ -230,7 +230,7 @@ BV.add_forcing()
 
 # Historic recharge
 sim_state = 'transient' # 'steady' or 'transient'
-period = [1960, 2019] # rehcarge period
+period = [2015, 2019] # rehcarge period
 time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
@@ -246,7 +246,7 @@ R_hist = BV.forcing.recharge
 
 sim_state = 'transient' # 'steady' or 'transient'
 first_yr = 2020
-last_yr = 2100
+last_yr = 2025
 BV.add_forcing()
 
 #MPI-CCL
@@ -411,7 +411,7 @@ MSL = BV.oceanic.MSL
 E = 30 # m
 P = 0.01 #
 
-K_hist = kr * R_hist
+K_hist = kr * np.mean(R_hist)
 K_RCP26 = kr * R_DRIAS_26
 K_RCP85 = kr * R_DRIAS_85
 
@@ -446,7 +446,7 @@ BV.hydrodynamic.update_thick_exp(1)
 #Choice of Recharge and sea level
 model_name = 'steady_RSL85' # string for simulation results storage #steady_DRIAS_85 #'steady_hist'
 R = R_hist #R_DRIAS_85   R_hist
-sea_lev_rise = RSL85_df['median']
+# sea_lev_rise = RSL85_df['median']
 
 BV.forcing.update_recharge(R, 'steady')
 
@@ -478,7 +478,7 @@ BV.results_modflow(ident=model_name,
 import rioxarray
 import pandas
 
-rds = rioxarray.open_rasterio(r"C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Agon-Coutainville/WT_depth_hist_ACO.tif",)
+rds = rioxarray.open_rasterio(r"C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Agon-Coutainville/WT_depth_hist_ACO.tif",)
 raster_val = rds.squeeze().drop("band")
 raster_values = raster_val.values
 
