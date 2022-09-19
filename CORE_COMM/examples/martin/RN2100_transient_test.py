@@ -146,8 +146,8 @@ from calibration import calib_root, calib_dichotomy, calib_analysis, calib_explo
 df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
 area = BV.geographic.area
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
-                                  first_year = 1960, last_year=2019, time_step = 'M',
-                                  sim_state = 'steady') #
+                                  first_year = 2015, last_year=2019, time_step = 'M',
+                                  sim_state = 'transient') #
 # BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
 BV.hydrodynamic.update_thickness(30)
 # BV.hydrodynamic.update_porosity(0.1)
