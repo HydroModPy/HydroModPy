@@ -46,8 +46,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # # Path to the git repositoty home page
 git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+# git_path = "D:/codes-gitlab-public/HydroModPy/HydroModPy/CORE_COMM/"
 # # Path to the data folder
 data_path = "C:/Users/Martin/Desktop/Travail/data/data_test_ronan/"
+# data_path = "D:/codes-data/HydroModPy_Data"
 # # Path where the results will be stored
 out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
 
