@@ -101,7 +101,6 @@ import os
 from datetime import datetime
 
 BV.add_forcing()
-
 BV.piezometry.add_data()
 BV.piezometry.display_data()
 
@@ -394,13 +393,24 @@ BV.hydrodynamic.update_cond_decay(cond_decay)
 
 #%% Launch test simulation
 
-R = R_HAD_REG_RCP26
-sea_lev = MSL
-sim_name = 'hor' + horiz + '_rech' + rech + '_climod' + modclim + '_sealev' + sealev
+BV.add_forcing()
+sim_state = 'transient'
+first_yr = 2023
+last_yr = 2025
+gcm = 'MPI'
+rcm = 'CCL'
+sce = 'RCP2.6'
+BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                  first_year = first_yr, last_year = last_yr,
+                                  sim_state = sim_state)
+R = BV.forcing.recharge
+sea_lev = BV.oceanic.MSL
+
+sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
 print(sim_name)
 
-BV.oceanic.update_MSL(sea_lev)
-BV.forcing.update_recharge(R, 'steady')
+# BV.oceanic.update_MSL(sea_lev)
+# BV.forcing.update_recharge(R, 'steady')
 
 success, flow_model = BV.run_modflow(ident=sim_name,
                 modpath_sim=modpath_sim,
@@ -415,192 +425,9 @@ success, flow_model = BV.run_modflow(ident=sim_name,
 BV.matrix_modflow(success, flow_model)
 time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
-start = start_year_dict[horiz] + '-01-01' # necessary to specify the first time_step date
+start = str(first_yr) + '-01-01' # necessary to specify the first time_step date
 BV.results_modflow(ident=sim_name,
                     actual_date=actual_date,
                     start=start,
                     time_step=time_step)
-
-#%% Launch simulations
-
-horiz_list = ['2030', '2050', '2100']
-rech_list = ['26', '85', 'HI']
-modclim_list = ['MIN', 'MED', 'MAX']
-sealev_list = ['MSL', 'RSL']
-
-R_dict = {
-    'hor2030_rech26_climodMIN' : R_DRIAS_26_2030_min,
-    'hor2030_rech26_climodMED' : R_DRIAS_26_2030_med,
-    'hor2030_rech26_climodMAX' : R_DRIAS_26_2030_max,
-    'hor2030_rech85_climodMIN' : R_DRIAS_85_2030_min,
-    'hor2030_rech85_climodMED' : R_DRIAS_85_2030_med,
-    'hor2030_rech85_climodMAX' : R_DRIAS_85_2030_max,
-    
-    'hor2050_rech26_climodMIN' : R_DRIAS_26_2050_min,
-    'hor2050_rech26_climodMED' : R_DRIAS_26_2050_med,
-    'hor2050_rech26_climodMAX' : R_DRIAS_26_2050_max,
-    'hor2050_rech85_climodMIN' : R_DRIAS_85_2050_min,
-    'hor2050_rech85_climodMED' : R_DRIAS_85_2050_med,
-    'hor2050_rech85_climodMAX' : R_DRIAS_85_2050_max,
-    
-    'hor2100_rech26_climodMIN' : R_DRIAS_26_2100_min,
-    'hor2100_rech26_climodMED' : R_DRIAS_26_2100_med,
-    'hor2100_rech26_climodMAX' : R_DRIAS_26_2100_max,
-    'hor2100_rech85_climodMIN' : R_DRIAS_85_2100_min,
-    'hor2100_rech85_climodMED' : R_DRIAS_85_2100_med,
-    'hor2100_rech85_climodMAX' : R_DRIAS_85_2100_max}
-
-SL_dict = {
-    ('2030', '26') : RMSL_26_2030,
-    ('2030', '85') : RMSL_85_2030,
-    
-    ('2050', '26') : RMSL_26_2050,
-    ('2050', '85') : RMSL_85_2050,
-    
-    ('2100', '26') : RMSL_26_2100,
-    ('2100', '85') : RMSL_85_2100}
-
-start_year_dict = {
-    '2030' : '2028',
-    '2050' : '2048',
-    '2100' : '2095'}
-
-forcing_dict = {}
-
-# Loop through forcings
-
-for horiz in horiz_list :
-    rech_hist = 0
-    # print(horiz)
-    for rech in rech_list :
-        # print(rech)
-        for modclim in modclim_list :
-            # print(modclim)
-            if rech_hist == 1 : continue
-            for sealev in sealev_list :
-                # print(sealev)
-                
-
-
-                if rech == 'HI' :
-                    R = R_hist_mean
-                    rech_hist = 1
-                    modclim = 'REA'
-                    
-                    if  horiz == '2030' :
-                        sea_lev = MSL
-                        sim_name = 'hor' + horiz + '_rech' + rech + '_climod' + modclim + '_sealev' + sealev
-                        print(sim_name)
-                        BV.oceanic.update_MSL(sea_lev)
-                        BV.forcing.update_recharge(R, 'steady')
-                        forcing_dict[(sim_name, 'R')] = BV.forcing.recharge
-                        forcing_dict[(sim_name, 'SL')] = BV.oceanic.MSL
-                        success, flow_model = BV.run_modflow(ident=sim_name,
-                                        modpath_sim=modpath_sim,
-                                        first_only=first_only,
-                                        sink_fill=sink_fill,
-                                        box=box,
-                                        lay_number=lay_number,
-                                        bottom=bottom,
-                                        thick_exp=thick_exp,
-                                        cond_decay=cond_decay,
-                                        verbose=verbose)
-                        BV.matrix_modflow(success, flow_model)
-                        time_step = 'D' # DMY
-                        actual_date = True # False if date is conceptual
-                        start = start_year_dict[horiz] + '-01-01' # necessary to specify the first time_step date
-                        BV.results_modflow(ident=sim_name,
-                                            actual_date=actual_date,
-                                            start=start,
-                                            time_step=time_step)
-
-                    sea_lev = float(SL_dict[(horiz, '26')])
-                    sealev = 'RS2'
-                    sim_name = 'hor' + horiz + '_rech' + rech + '_climod' + modclim + '_sealev' + sealev
-                    print(sim_name)
-                    BV.oceanic.update_MSL(sea_lev)
-                    BV.forcing.update_recharge(R, 'steady')
-                    forcing_dict[(sim_name, 'R')] = BV.forcing.recharge
-                    forcing_dict[(sim_name, 'SL')] = BV.oceanic.MSL
-                    success, flow_model = BV.run_modflow(ident=sim_name,
-                                    modpath_sim=modpath_sim,
-                                    first_only=first_only,
-                                    sink_fill=sink_fill,
-                                    box=box,
-                                    lay_number=lay_number,
-                                    bottom=bottom,
-                                    thick_exp=thick_exp,
-                                    cond_decay=cond_decay,
-                                    verbose=verbose)
-                    BV.matrix_modflow(success, flow_model)
-                    time_step = 'D' # DMY
-                    actual_date = True # False if date is conceptual
-                    start = start_year_dict[horiz] + '-01-01' # necessary to specify the first time_step date
-                    BV.results_modflow(ident=sim_name,
-                                        actual_date=actual_date,
-                                        start=start,
-                                        time_step=time_step)
-
-                    sea_lev = float(SL_dict[(horiz, '85')])
-                    sealev = 'RS8'
-                    sim_name = 'hor' + horiz + '_rech' + rech + '_climod' + modclim + '_sealev' + sealev
-                    print(sim_name)
-                    BV.oceanic.update_MSL(sea_lev)
-                    BV.forcing.update_recharge(R, 'steady')
-                    forcing_dict[(sim_name, 'R')] = BV.forcing.recharge
-                    forcing_dict[(sim_name, 'SL')] = BV.oceanic.MSL
-                    success, flow_model = BV.run_modflow(ident=sim_name,
-                                    modpath_sim=modpath_sim,
-                                    first_only=first_only,
-                                    sink_fill=sink_fill,
-                                    box=box,
-                                    lay_number=lay_number,
-                                    bottom=bottom,
-                                    thick_exp=thick_exp,
-                                    cond_decay=cond_decay,
-                                    verbose=verbose)
-                    BV.matrix_modflow(success, flow_model)
-                    time_step = 'D' # DMY
-                    actual_date = True # False if date is conceptual
-                    start = start_year_dict[horiz] + '-01-01' # necessary to specify the first time_step date
-                    BV.results_modflow(ident=sim_name,
-                                        actual_date=actual_date,
-                                        start=start,
-                                        time_step=time_step)
-
-                    break
-
-                else :
-                    sim_name = 'hor' + horiz + '_rech' + rech + '_climod' + modclim + '_sealev' + sealev
-                    print(sim_name)
-
-                    R = R_dict[sim_name[0:24]]
-                    
-                    if 'MSL' in sim_name :
-                        sea_lev = MSL
-                    else :
-                        sea_lev = float(SL_dict[(sim_name[3:7], sim_name[12:14])])
-    
-                    BV.oceanic.update_MSL(sea_lev)
-                    BV.forcing.update_recharge(R, 'steady')
-                    forcing_dict[(sim_name, 'R')] = BV.forcing.recharge
-                    forcing_dict[(sim_name, 'SL')] = BV.oceanic.MSL
-                    success, flow_model = BV.run_modflow(ident=sim_name,
-                                    modpath_sim=modpath_sim,
-                                    first_only=first_only,
-                                    sink_fill=sink_fill,
-                                    box=box,
-                                    lay_number=lay_number,
-                                    bottom=bottom,
-                                    thick_exp=thick_exp,
-                                    cond_decay=cond_decay,
-                                    verbose=verbose)
-                    BV.matrix_modflow(success, flow_model)
-                    time_step = 'D' # DMY
-                    actual_date = True # False if date is conceptual
-                    start = start_year_dict[horiz] + '-01-01' # necessary to specify the first time_step date
-                    BV.results_modflow(ident=sim_name,
-                                        actual_date=actual_date,
-                                        start=start,
-                                        time_step=time_step)
 

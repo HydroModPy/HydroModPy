@@ -1010,7 +1010,7 @@ VERTICAL
                 ### Accumulation flux
                 surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
-                self.dict_accumulation_flux[item] = imageio.imread(output_path)
+                self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
         
             if perenn_intermit_shp == True:
                 surface_flow.trace_downslope()
