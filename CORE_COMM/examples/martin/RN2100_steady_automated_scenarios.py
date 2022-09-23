@@ -48,23 +48,23 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Agon-Coutainville'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 load = False # loads previously generated basin if true
 
 # # Path to the git repositoty home page
-git_path = r"C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
 # # Path to the data folder
-data_path = r"C:/Users/Martin/Desktop/Travail/data/data_test_ronan/"
+data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
 # # Path where the results will be stored
-out_path = r'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
+out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 
 dems_path = data_path # reginal DEM or conceptual DEM
 # shp_path = data_path + 'shp/' # if you want run a model from a shapefile
-modflow_path = r'C:/Users/Martin/Desktop/Travail/HydroModPy/TEST/modflow/' # add bin/ folder with necessary .exe
+modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow/' # add bin/ folder with necessary .exe
 
 surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
 # geology_path = data_path + 'geology/' # add geologic layers
@@ -80,7 +80,7 @@ library_path = git_path + 'watershed/watershed_library.csv' # each row is a stud
 dem_name = "BDALTI_norm-manch_75m.tif"
 dem_path = dems_path + dem_name
 
-sp_file = r"C:/Users/Martin/Desktop/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
+sp_file = r"C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
 
 cell_size = None # specify new resolution from a given DEM or None
 
@@ -91,9 +91,10 @@ cell_size = None # specify new resolution from a given DEM or None
     # 3 - From an actual DEM : 'Dem'
     # 4 - From a conceptual DEM : 'Conceptual'
 
-shp_file = r'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
 # 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
 # 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+# '‪C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -123,7 +124,7 @@ if piezometry_path == True:
 #     BV.add_subbasin()
 
 # DRIAS climate data extraction
-BV.add_drias(r"C:/Users/Martin/Desktop/Travail/data/data_test_ronan/CLIMAT/Normandie/")
+BV.add_drias(r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/CLIMAT/Normandie/")
 
 BV.save_object()
 
