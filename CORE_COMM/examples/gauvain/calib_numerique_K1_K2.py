@@ -162,7 +162,7 @@ for i in range(len(typ_calib)):
         cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i])
         plt.colorbar(cmap,label=r'$RMSE$',ax=ax[i])
     if test.observations == ['streams']:
-        cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i],norm=matplotlib.colors.LogNorm())
+        cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i])
         plt.colorbar(cmap,label=r'$log(D_{SO}/D_{OS})^{2}$',ax=ax[i])
 
 plt.tight_layout()

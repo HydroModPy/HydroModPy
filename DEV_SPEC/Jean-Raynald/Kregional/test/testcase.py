@@ -18,7 +18,7 @@ NPARAM_GAUSSIAN=2
 PARAM_GAUSSIAN_MU=0
 PARAM_GAUSSIAN_SIGMA=1
 NPARAM_LN=2
-PARAM_LN_MU=1
+PARAM_LN_MU=0
 PARAM_LN_SIGMA=1
 
 
@@ -59,7 +59,7 @@ class BuildTestCase:
         print()
         self.nrows = nrows
         self.ncols = ncols
-        self.distribution_type = "Gaussian"
+        self.distribution_type = "LogNormal"#"Gaussian"
         if(self.distribution_type=="Gaussian"):
             self.nparam = NPARAM_GAUSSIAN
         elif(self.distribution_type == "LogNormal"):
@@ -85,7 +85,7 @@ class BuildTestCase:
                 self.param[i][PARAM_GAUSSIAN_SIGMA]=self.param[i][PARAM_GAUSSIAN_MU]*0.05*0
             elif(self.distribution_type=="LogNormal"):
                 self.param[i][PARAM_LN_MU]=np.log(1e-1)
-                self.param[i][PARAM_LN_SIGMA]=2
+                self.param[i][PARAM_LN_SIGMA]=0.01
                 
         # Random sampling of distributions
         self.X = np.zeros((self.nrows,self.ncols))
@@ -99,13 +99,29 @@ class BuildTestCase:
         self.b = (self.A * self.X).sum(axis=1)
         
         
+    def mean_distribution(self): 
+        if(self.distribution_type=="Gaussian"): 
+            # Parameters of the distribution 
+            return self.param[:,PARAM_GAUSSIAN_MU]
+        elif(self.distribution_type=="LogNormal"):
+            return np.exp(self.param[:,PARAM_LN_MU]+self.param[:,PARAM_LN_SIGMA]**2)
+    
+    
+    def std_distribution(self): 
+        if(self.distribution_type=="Gaussian"): 
+            # Parameters of the distribution 
+            return self.param[:,PARAM_GAUSSIAN_SIGMA] * np.sqrt(2*np.pi)
+        elif(self.distribution_type=="LogNormal"):
+            return np.sqrt((np.exp(self.param[:,PARAM_LN_SIGMA]**2)-1) * np.exp(2*self.param[:,PARAM_LN_MU]+self.param[:,PARAM_LN_SIGMA]**2))
+    
+        
     def benchmark_results(self,x,cond,residue,rate_select):
         mean=np.mean(x,axis=0)
         std=np.std(x,axis=0)
         print("selection ration", format(rate_select*100,".2f"))
-        print("mean ratios = ", mean/self.param[:,0])
+        print("mean ratios = ", mean/self.mean_distribution())
         print("mean of mean rate differences = ", np.mean(mean/self.param[:,0]))
-        print("std ratios = ", std/self.param[:,1]/np.sqrt(2*np.pi))
+        print("std ratios = ", std/self.std_distribution())
         print("mean of std rate differences = ", np.mean(std/self.param[:,1])/np.sqrt(2*np.pi))
         plt.figure()
         uu=np.histogram(x[:,1],bins='auto')
