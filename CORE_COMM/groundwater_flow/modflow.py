@@ -387,7 +387,7 @@ VERTICAL
         self.sea_level = sea_level 
         
         #%% Source/Sink terms 
-        if isinstance(climatic, 'float') == False :  
+        if isinstance(climatic, float) == False :  
             self.climatic = climatic.copy()
         else: 
             self.climatic = climatic
@@ -619,7 +619,7 @@ VERTICAL
         # SOURCE TERMS: UNIFORM EVAPOTRANSPIRATION: Between the two possibilities (evt and rch, rch should rather be used)
         #   - Negative recharge values (P-E): ETP managed as a pumping term 
         #   - Positive recharge values (P-E): Recharge to the aquifer
-        if (self.climatic < 0).any().any() == True:
+        if isinstance(self.climatic,float)==False and (self.climatic < 0).any().any() == True:
             # self.climatic : recharge values (float in steady state or chronicles in transient state)
             #evt package
             # Modifies ETP values (self.climatic): from negative to positive values (sink term)
