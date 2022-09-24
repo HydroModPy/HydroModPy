@@ -711,6 +711,8 @@ data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
 out_path = "D:/Users/abherve/PAPER/"
 # Figure folder outputs
 figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/v5/'
+figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/v4/'
+
 
 # git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # # Path to the data folder
@@ -3498,12 +3500,12 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
           cmap=cmap, alpha=0.55, zorder=2, aspect="auto")
     
-    zh.plot(ax=ax, lw=0, color='dodgerblue', alpha=1, zorder=4, legend=True, label='Wetlands')
+    zh.plot(ax=ax, lw=0, color='navy', alpha=1, zorder=4, legend=True, label='Wetlands')
 
     streams = complete.copy()
-    streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='blue',
+    streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='dodgerblue',
                                                   zorder=6,legend=True, label='Streams')
-    streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=1, color='navy', ls='-',
+    streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=1.5, color='darkorange', ls='-',
                                                   zorder=5,legend=True, label='Streams')
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
     # try:
@@ -3573,11 +3575,11 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     # sub.plot(ax=ax, facecolor='none', edgecolor='k', lw=2,
     #          ls=':', zorder=6)
     
-    if watershed_name == 'Canut':
-        ofb = gpd.read_file('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/INTERMITTENCE/Chèze-Canut/OFB_Observations_Canut_2018-2019.shp')
-        ofb = ofb.drop([46,47,48])
-        ofb.plot(ax=ax, color='yellow', zorder=6, marker='d', markersize=20,
-                      edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+    # if watershed_name == 'Canut':
+    #     ofb = gpd.read_file('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/2_data/Hydrology/INTERMITTENCE/Chèze-Canut/OFB_Observations_Canut_2018-2019.shp')
+    #     ofb = ofb.drop([46,47,48])
+    #     ofb.plot(ax=ax, color='yellow', zorder=6, marker='d', markersize=20,
+    #                   edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
     
     fig.tight_layout()
     base_name = figsim_folder+'fig01/'
@@ -9773,8 +9775,8 @@ sce_color = ["k"]
 cmap_dict = dict(zip(sce_list, sce_cmap))
 color_dict = dict(zip(sce_list, sce_color))
 
-c = ['forestgreen','darkmagenta']
-c = ['blue','darkmagenta']
+c = ['darkgreen','darkmagenta']
+# c = ['blue','darkmagenta']
 cmaps = ['winter','spring']
 # cmaps = ['YlGn','RdPu']
 dict_c = dict(zip(watershed_names, c))
@@ -9880,6 +9882,7 @@ for watershed_name in watershed_names :
                 #               ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
                 #               capthick=0.5, zorder=1)               
                 # ax.axvline(x.median(), c=dict_c[watershed_name], ls='--')
+                # ax.axhline(y.median(), c=dict_c[watershed_name], ls='--')
 
 base_name = figsim_folder+'fig12/'
 spec_name = str(watershed_names)+'_R vs Asat'
@@ -9946,7 +9949,8 @@ ax.yaxis.grid(color='gray', zorder=-1)
 ax.axhline(y=0, color='k', zorder=2)
 ax.axvline(x=0, color='k', zorder=2)
 ax.set_ylim(-4, 4)
-ax.set_xlim(-4, 4)
+# ax.set_xlim(-4, 4)
+ax.set_xlim(-0.25, 0.25)
 
 for watershed_name in watershed_names :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -9970,8 +9974,8 @@ for watershed_name in watershed_names :
             Smod['prop_ratio'] = Smod.intermit_areas / Smod.surflow_areas
             Smod['recharge'] = Smod['recharge'] * 1000 * 30
             Smod['outflow_drain'] = Smod['outflow_drain'] * 1000 * 30
-            # Smod['groundwater_storage'] = Smod['groundwater_storage']/(Smod['groundwater_storage'].mean())
-            Smod['groundwater_storage'] = Smod['groundwater_storage']/1e6
+            Smod['groundwater_storage'] = (Smod['groundwater_storage']/(Smod['groundwater_storage'].mean()))
+            # Smod['groundwater_storage'] = Smod['groundwater_storage']/1e6
             Smod = select_period(Smod, 1960, 2019)
             
             for xy in xy_list:
@@ -10018,7 +10022,7 @@ for watershed_name in watershed_names :
                 # ax.axvline(x.median(), c=dict_c[watershed_name], ls='--')
 
 base_name = figsim_folder+'fig12/'
-spec_name = str(watershed_names)+'_dGW vs dA'
+spec_name = str(watershed_names)+'_dGWnorm vs dA'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
 #%% Q vs Aint
@@ -10227,6 +10231,7 @@ ax.set_axisbelow(True)
 # ax.set_xlim(-4, 4)
 # ax.set_xlabel('\u0394$GW_{storage}$ $[Mm^3$]')
 # ax.set_ylabel('\u0394$A_{sat}$ [-]')
+# ax.set_xlim(0,100)
 
 for watershed_name in watershed_names :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -10301,7 +10306,7 @@ for watershed_name in watershed_names :
 
 base_name = figsim_folder+'fig12/'
 spec_name = str(watershed_names)+'_Q vs Asat'
-fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+# fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
 #%% t vs Aint
 
@@ -10464,8 +10469,8 @@ sce_color = ["k"]
 cmap_dict = dict(zip(sce_list, sce_cmap))
 color_dict = dict(zip(sce_list, sce_color))
 
-c = ['forestgreen','darkmagenta']
-c = ['blue','darkmagenta']
+c = ['darkgreen','darkmagenta']
+# c = ['blue','darkmagenta']
 cmaps = ['winter','spring']
 # cmaps = ['YlGn','RdPu']
 dict_c = dict(zip(watershed_names, c))
@@ -10486,31 +10491,27 @@ xy_list = [['groundwater_storage','outflow_drain','surflow_areas']]
 # fig, axs = plt.subplots(2,1, figsize=(3.5,6))
 # axs = axs.ravel()
 
-fig, ax = plt.subplots(1,1, figsize=(3.7,3.2))
+fig, ax = plt.subplots(1,1, figsize=(3.5,3.2))
 ax.set_xscale('log')
-ax.set_xlabel('\u0394$S_{gws}$ / \u0394$Q_{spe}$ [d]')
+ax.set_xlabel('L² / D [d]')
+ax.set_xlabel('R [mm/month]')
+# ax.set_ylabel('$A_{int}$ / $A_{per}$ [-]')
 ax.set_ylabel('$A_{sat}$ [%]')
-ax.set_axisbelow(True)
-# ax.axhline(y=0, color='k', zorder=2)
-# ax.axvline(x=0, color='k', zorder=2)
-ax.set_xlim(1, 1000)
+# ax.set_xlim(0.1,250)
+# ax.set_ylim(-0.05,1)
 ax.set_ylim(0, 15)
 ax.set_yticks(np.arange(0,15+1,5))
+fig.tight_layout()
+# fig3.tight_layout()
+ax.set_axisbelow(True)
 # ax.grid(zorder=-1000)
 # ax.xaxis.grid(color='gray', zorder=-1)
 # ax.yaxis.grid(color='gray', zorder=-1)
+ax.set_xlim(0.1, 1000)
 
 for watershed_name in watershed_names :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
-    
-    area = BV.geographic.area
         
     for mod in mod_list:
         
@@ -10575,9 +10576,9 @@ for watershed_name in watershed_names :
                 #               xerr=np.vstack([xi-xe.q25, xe.q75-xi]),
                 #               ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
                 #               capthick=0.5, zorder=1)               
-                ax.axvline(x.median(), c=dict_c[watershed_name], ls='--')
-
-# ax.set_ylim(bottom=None, top=1)
+                ax.axvline(x.median(), c=dict_c[watershed_name], ls='--', lw= 1.5)
+                # ax.axhline(y.median(), c=dict_c[watershed_name], ls='--')
+                print(x.median())
 
 base_name = figsim_folder+'fig12/'
 spec_name = str(watershed_names)+'_t vs Asat'
@@ -10631,6 +10632,7 @@ ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel(r'$\int_{n-t}^{n}R$', labelpad=5)
 ax.set_ylabel(r'$\int_{n-t}^{n}Q_{spe}$')
+ax.set_ylabel(r'$\int_{n-t}^{n}Q_{spe}$')
 ax.set_axisbelow(True)
 # ax.axhline(y=0, color='k', zorder=2)
 # ax.axvline(x=0, color='k', zorder=2)
@@ -10642,7 +10644,8 @@ ax.set_axisbelow(True)
 # ax.yaxis.grid(color='gray', zorder=-1)
 ax.set_aspect('equal')
 
-tau_typ = 'calc'
+tau_typ = 1
+# tau_typ = 'calc'
 
 for watershed_name in watershed_names :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -10706,7 +10709,8 @@ for watershed_name in watershed_names :
                                                     [1,2,3,4,5,6,7,8,9,10,11,12])
             
     cmapping = dict_cmap[watershed_name]
-    ax.scatter(Smod.convol_rec, Smod.convol_dis, c=wy, marker='o', cmap=cmapping,
+    ax.scatter(Smod.convol_rec,
+               Smod.convol_dis, c=wy, marker='o', cmap=cmapping,
                 s=5, vmin=1, vmax=12, alpha=0.75, ec='none', lw=0.2)
 
     minimum = np.min((ax.get_xlim(),ax.get_ylim()))
@@ -10717,11 +10721,18 @@ for watershed_name in watershed_names :
     ax.set_xlim(minimum*1.2,maximum*1.2)
     ax.set_ylim(minimum*1.2,maximum*1.2)
     
-    ax.set_xlim(10,maximum*1.2)
-    ax.set_ylim(10,maximum*1.2)
+    # ax.set_xlim(10,maximum*1.2)
+    # ax.set_ylim(10,maximum*1.2)
+    
+    if tau_typ == 'calc':
+        list_lims = [10,maximum*1.2]
+        
+    # if tau_typ != 'calc':
+    #     ax.set_xlim(list_lims[0],list_lims[1])
+    #     ax.set_ylim(list_lims[0],list_lims[1])
     
 base_name = figsim_folder+'fig12/'
-spec_name = str(watershed_names)+'_Rt vs Qt'
+spec_name = str(watershed_names)+'_Rt vs Qt_one day'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
 #%% Lphy vs Aint
