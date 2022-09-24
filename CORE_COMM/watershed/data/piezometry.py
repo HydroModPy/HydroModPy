@@ -225,11 +225,12 @@ class Piezometry:
         if len(self.codes_bss) == 6:
             colors = ['r','m','y','g','k','b']
         if value =='elevation':
-            self.elevation[start:end].plot(ax=ax,color=colors,lw=2)
+            interp_elev = self.elevation[start:end].interpolate() #linear interpolation of NaN values (in case several piezometers are logging non synchronized)
+            interp_elev.plot(ax=ax,color=colors,lw=2)
             #df = pd.DataFrame({'Date': [datetime.strptime(date, '%d/%m/%Y')for date in self.date_discrete], 'elevation_discrete': self.elevation_discrete})
             #df = df.set_index('Date')
             #df.plot(ax=ax,style='ok')
-            plt.ylabel('Elevation [m]')
+            plt.ylabel('Elevation [m asl]')
         plt.legend(loc='best')
         plt.xlabel('Date')
     

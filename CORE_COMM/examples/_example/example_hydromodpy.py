@@ -237,7 +237,7 @@ BV.matrix_modflow(success,
                   verbose = True,
                   export_tif = True)
 
-BV.results_modflow(ident=model_name, actual_date=True, start='2010-01-01', time_step='M')
+BV.results_modflow(ident=model_name, actual_date=True, time_step='M')
 print('Result chronics extraction completed')
 
 #%% VISUALIZATION 3D
@@ -245,7 +245,7 @@ print('Result chronics extraction completed')
 from tools import toolbox, vtk
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=True,
+visu.visual3D(interactive=False,
               object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'],
               view='south-west', lines=200, cloc=(0.7,0.1))
 

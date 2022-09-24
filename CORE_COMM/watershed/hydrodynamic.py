@@ -21,6 +21,8 @@ class Hydrodynamic:
         - Exponencial Decaying hydraulic conductivity with depth
         - lateral 2D (not vertical) affectation of properties according to predefined zones (calib_zones) that may be determined by geology 
                 defined manually or in calibration class
+                
+    Manages heterogeneity of hydraulic conductivies for which it creates a 2D array (no resolution of depth)
 
     Attributes, public
     -------------------
