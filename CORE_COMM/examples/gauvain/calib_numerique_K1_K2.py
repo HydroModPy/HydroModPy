@@ -21,38 +21,50 @@ from watershed import watershed_root
 
 
 # Users
-user_path = "Alexandre"
+user_path = "Jean-Raynald"
 
 if user_path=="Alexandre":
     root_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
     out_path = 'C:/Users/alexa/Dropbox/HydroModPy'
 elif user_path=="Jean-Raynald":
-    root_path= "C:/DATA/codes-gitlab-public/HydroModPy_data/"
-    out_path = "C:/DATA/results/HydroModPy"
+    root_path= "D:\codes-data\HydroModPy_Data"
+    out_path = "D:/results/HydroModPy"
 elif user_path=="Ronan":
     root_path= "D:/Users/abherve/HYDROMODPY/_data/"
     out_path = "D:/Users/abherve/HYDROMODPY"
 else:
     print("Define a well-validated name of user")
 
-load = True#False to build and save python object
+ 
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
-watershed_shp = os.path.join(out_path, watershed_name, 'watershed.shp')
-dem_path = root_path + "MNT_75m.tif"#'BDALTI_bzh_75m.tif' 
-surfex_path =  root_path + 'SURFEX/Normandie_h5'
-geology_path = root_path + 'GEOLOGY'
-oceanic_path = root_path + 'OCEAN'
-modflow_path = root_path + 'MODFLOW'
-hydrology_path = root_path + 'HYDROLOGY'
-types_obs = ['streams_fr']
+watershed_shp = os.path.join(out_path, watershed_name, "results_stable", "geographic", 'watershed.shp')
+dem_path = os.path.join(root_path,"DEM","France","BDALTI_norm-manch_75m.tif")#'BDALTI_bzh_75m.tif' 
+surfex_path =  os.path.join(root_path,'CLIMATE\France\SURFEX\All')
+geology_path = os.path.join(root_path,'GEOLOGY',"France","Layer")
+oceanic_path = os.path.join(root_path,root_path,'OCEAN')
+modflow_path = os.path.join(root_path,'MODFLOW')
+hydrology_path = os.path.join(root_path,'HYDROLOGY','France', 'Hydrographic')
+types_obs = ['streams']
+
+
+load = True#False to build and save python object4
+
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
-BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.1)
+if load == False :  
+    BV.add_forcing()
+    # BV.add_surfex(surfex_path) 
+    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
+    BV.add_hydrodynamic()
+    BV.hydrodynamic.update_thickness(30)
+    BV.hydrodynamic.update_porosity(0.1)
+    BV.add_geology(geology_path)
+    BV.add_oceanic(oceanic_path)
+    BV.add_piezometry()    
+    BV.add_hydrology(hydrology_path,types_obs=types_obs)
 
-params_file = 'calib_explo_hom_2v_k1-k2'
+params_file = "calib_params" # 'calib_explo_hom_2v_k1-k2'
 
 #%% zones
 zones = np.ones(np.shape(BV.geology.geology_array))
@@ -67,13 +79,13 @@ if watershed_name == 'Agon-Coutainville':
 plt.imshow(zones)
 BV.hydrodynamic.update_calib_zones(zones)
 
-#%% Calibration Model piezometry
+#%% Calibration Model piezometry (Type of calibration)
 from calibration import calib_root
 
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-calib.exploration(resolution=1000)
+calib.exploration(resolution=10)  #1000
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
-calib.exploration(resolution=1000)
+calib.exploration(resolution=10)  #1000
 #calib = calib_root.Calibration(params_file, BV, observations = ['streams','piezometry'])
 #calib.exploration(resolution=100)
 #calib.dichotomy(gap=10)
@@ -89,7 +101,7 @@ name_file = list_path[0].split('\\')[-1]
 calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
 test = calib_analysis.CalibAnalysis(calib_file)
 
-test.display_objective_function(save='C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+params_file+'.png',vmax=8)
+test.display_objective_function(save=os.path.join(root_path,params_file+'.png'),vmax=8)
 
 #%% 
 from calibration import calib_analysis
@@ -150,7 +162,7 @@ for i in range(len(typ_calib)):
         cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i])
         plt.colorbar(cmap,label=r'$RMSE$',ax=ax[i])
     if test.observations == ['streams']:
-        cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i],norm=matplotlib.colors.LogNorm())
+        cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i])
         plt.colorbar(cmap,label=r'$log(D_{SO}/D_{OS})^{2}$',ax=ax[i])
 
 plt.tight_layout()
