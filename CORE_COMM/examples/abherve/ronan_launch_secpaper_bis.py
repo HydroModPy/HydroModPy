@@ -11409,5 +11409,511 @@ for watershed_name in watershed_names :
     spec_name = str(watershed_name)+'_R vs Aint'
     fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
+#%% Pi statistics
+
+watershed_names = ['Canut','Nancon']
+
+typ = 'calibr-t6'
+
+
+var = 'REC'
+scan = 'outflow_drain'
+sce_list = ['historic']
+
+# fig2, axs2 = plt.subplots(1,1, figsize=(5,4),
+#                         sharex=True, sharey=True)
+
+y_name = 'surflow_areas'
+
+# fig1, axs1 = plt.subplots(1,1, figsize=(4,3),
+#                         sharex=True, sharey=True)
+
+# fig2, axs2 = plt.subplots(1,1, figsize=(4,3),
+#                         sharex=True, sharey=True)
+
+# fig3, axs3 = plt.subplots(1,1, figsize=(3.5,3),
+#                         sharex=True, sharey=True)
+
+for watershed_name in watershed_names:
+
+    if watershed_name == 'Canut':
+        color = 'green'
+        m = '^'
+    if watershed_name == 'Nancon':
+        color = 'darkmagenta'
+        m = 'o'
+
+    fig1, axs1 = plt.subplots(1,1, figsize=(4,2),
+                            sharex=True, sharey=True)
+
+    # fig1, axs1 = plt.subplots(1,1, figsize=(10,10), sharex=True, sharey=True)
+    # axs1 = axs1.ravel()
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+        
+    for ix in np.arange(1,1+1,1):
+        # simul_list = glob.glob(simulations_folder+'*'+typ+'_'+str(i)+'*')
+                    
+        for sce in sce_list:
+            # simul_list = glob.glob(simulations_folder+'*'+typ+'_'+str(i)+'*'+sce+'*')
+            
+            simul = glob.glob(simulations_folder+'*'+typ+'_'+str(ix)+'*'+sce+'*')[0]
+            model_name = simul.split('\\')[-1]
+            Sy = float(model_name.split('_')[3].split('-')[0]) # %
+            K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+            E = float(model_name.split('_')[3].split('-')[2]) # m
+            D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+            params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+            
+            Smod_path = simul+'/_watershed/_simulated_results.csv'            
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+            
+            acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+            acc_npy = list(acc_npy.items())[:]
+            # acc_npy = list(acc_npy.items())[360:720]
+            
+            for key in range(len(acc_npy)):
+                # print(key)
+                mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+                # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+            zero = acc_npy[0] * 0
+            for i in range(len(acc_npy)):
+                tempo = acc_npy[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy() / len(acc_npy)
+            
+            days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
+                    
+            box = np.sort(days_flux[~days_flux.mask]).flatten() #.round(5)
+            
+            cell = np.ma.masked_array(mask, mask=(mask<0)).count()        
+    
+            import collections
+            a = box.copy()
+            counter=collections.Counter(a)
+
+            df = pd.DataFrame()
+            df['values'] = counter.values()
+            df['values'] = (df['values'] / cell) * 100
+            df['keys'] = np.array(list(counter.keys()))
+            # keyss = np.array(list(counter.keys())).round(2)
+            # index = (keyss.round(2)).astype(str)
+            # df.index = index
+            # df = df.T
+            
+            Z = np.sort(days_flux[~days_flux.mask]).flatten() #.round(3)
+            
+            ###### NP HISTOGRAM
+            ax = axs1
+            bins = 100
+            test = np.histogram(Z, bins=bins, density=True)
+            # ax.plot(test[1][1:], test[0], color=color, lw=2, label="CDF")
+            # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
+            #             c=test[0]/sum(test[0]),
+            #             cmap=cmap, lw=0.1, label="CDF",
+            #             norm=normalize)
+            # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
+            #             c=test[1][1:],
+            #             cmap=cmap, lw=0.1, label="CDF",
+            #             norm=normalize)
+            my_cmap = plt.get_cmap("jet_r")
+            rescale = lambda y: (y - 0) / (1 - 0)
+            ax.bar(test[1][1:], test[0]/sum(test[0])*100, width=0.02, lw=0,
+                   color=my_cmap(rescale(test[1][1:])))
+            ax.set_yscale('log')
+            # plt.plot()
+            ax.set_xlim(0.0,1.01)
+            ax.set_ylim(1E-3*100, 1*100)
+            
+            ax.spines.right.set_visible(False)
+            ax.spines.top.set_visible(False)
+            ax.yaxis.set_ticks_position('left')
+            ax.xaxis.set_ticks_position('bottom')
+            
+            ax.set_yticks([1,10,100])
+            ax.tick_params(direction='out', which='both', colors='k',
+                           grid_color='r', grid_alpha=1)
+            
+            """
+            # Colors
+            ccol = plt.cm.jet_r  # define the colormap
+            # cmap = plt.cm.RdYlGn  # define the colormap
+            # cmap = parula_map
+            cmaplist = [cmap(i) for i in range(cmap.N)]
+            # cmaplist[0] = (.5, .5, .5, 1.0)
+            cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                'Custom cmap', cmaplist, ccol.N)
+            bounds = np.arange(0, 1.1, 0.1)
+            norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+            normalize = matplotlib.colors.Normalize(vmin=0, vmax=1)
+            
+            ###### BIN FROM NP HIST NORM
+            ax = axs2
+            from scipy.stats import norm
+            pdf = norm.pdf(Z, Z.mean(), Z.std())
+            N = len(Z)
+            count, bins_count = np.histogram(Z, bins=100, density=True)
+            pdf = count / sum(count)
+            cdf = np.cumsum(pdf)
+            # cdf = pdf.copy()
+            # ax.plot(cdf*100, color=color, lw=4, label="CDF")
+            # ax.plot(cdf, color=color, lw=2, label="CDF")
+            ax.scatter(np.arange(0, len(cdf), 1)/100, cdf, s=20, marker=m,
+                        c=cdf,
+                        cmap=cmap, lw=0.1, label="CDF",
+                        norm=normalize)
+            # ax.scatter(np.arange(0, len(pdf), 1), pdf, s=20, marker=m,
+            #             c=pdf,
+            #             cmap=cmap, lw=0.1, label="CDF")
+            # ax.scatter(bins_count[:-1], pdf, s=20, marker=m,
+            #             c=pdf,
+            #             cmap=cmap, lw=0.1, label="CDF")
+            """
+    figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/v5/'
+    base_name = figsim_folder+'2_fig_mod_pi/'
+    spec_name = str(watershed_name)+'_histog'
+    fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+
+#%% Asat statistics
+
+watershed_names = ['Canut','Nancon']
+
+typ = 'calibr-t6'
+
+
+var = 'REC'
+scan = 'outflow_drain'
+sce_list = ['historic']
+
+# fig2, axs2 = plt.subplots(1,1, figsize=(5,4),
+#                         sharex=True, sharey=True)
+
+y_name = 'surflow_areas'
+y_name = 'prop_ratio'
+
+fig2, axs2 = plt.subplots(1,1, figsize=(4,3),
+                        sharex=True, sharey=True)
+
+fig3, axs3 = plt.subplots(1,1, figsize=(3.5,3),
+                        sharex=True, sharey=True)
+
+for watershed_name in watershed_names:
+
+    if watershed_name == 'Canut':
+        color = 'green'
+        m = '^'
+    if watershed_name == 'Nancon':
+        color = 'darkmagenta'
+        m = 'o'
+
+    # fig1, axs1 = plt.subplots(1,1, figsize=(10,10), sharex=True, sharey=True)
+    # axs1 = axs1.ravel()
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+        
+    for ix in np.arange(1,1+1,1):
+        # simul_list = glob.glob(simulations_folder+'*'+typ+'_'+str(i)+'*')
+                    
+        for sce in sce_list:
+            # simul_list = glob.glob(simulations_folder+'*'+typ+'_'+str(i)+'*'+sce+'*')
+            
+            simul = glob.glob(simulations_folder+'*'+typ+'_'+str(ix)+'*'+sce+'*')[0]
+            model_name = simul.split('\\')[-1]
+            Sy = float(model_name.split('_')[3].split('-')[0]) # %
+            K = float(model_name.split('_')[3].split('-')[1]) / 30 / 24 / 3600 # m/s
+            E = float(model_name.split('_')[3].split('-')[2]) # m
+            D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+            params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+            
+            Smod_path = simul+'/_watershed/_simulated_results.csv'            
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.surflow_areas
+            
+
+            ax = axs2
+            # axb = ax.twinx()
+            y_name= 'surflow_areas'
+            X2 = np.sort(Smod[y_name])
+            
+            if watershed_name == 'Canut':
+                Xc = X2.copy()
+                
+            N = len(Smod[y_name])
+            # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
+            #         color=color, lw=2)
+            ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
+                    color=color, lw=2)
+            ax.fill_between((1-np.arange(0,N,1)/N)*100,
+                            Xc,
+                            X2,
+                             lw=0,
+                            color='silver', alpha=0.5)
+            # axb.plot((1-np.arange(0,N,1)/N)*100, (X2)/(X2.mean()),
+            #         color=color, lw=2, ls='--')
+            # axb.set_ylabel('Cumulated $A_{sat}$ normalized [-]', rotation=270, labelpad=25)
+            # ax.set_xlabel('Frequency in time [%]')
+            ax.set_xlabel('Frequency of occurrence [%]')
+            ax.set_ylabel('Cumulated $A_{sat}$ [%]')
+            ax.set_xlim(0,100)
+            ax.set_ylim(0,20)
+            # axb.set_ylim(0,4)
+            # axb.set_yticks([0,1,2,3,4])
+            # ax.set_xscale('log')
+            # ax.set_yscale('log')
+            # ax.grid('grey')
+
+            ax = axs3
+            # ax.axhline(y=1, color='grey', lw=1)
+            # ax = ax.twinx()
+            y_name= 'prop_ratio'
+            X2 = np.sort(Smod[y_name])
+            N = len(Smod[y_name])
+            # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
+            #         color=color, lw=2)
+            ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
+                    color=color, lw=2)
+            
+            if watershed_name == 'Canut':
+                Xc = X2.copy()
+            
+            ax.fill_between((1-np.arange(0,N,1)/N)*100,
+                            Xc,
+                            X2,
+                             lw=0,
+                            color='silver', alpha=0.5)
+            
+            # ax.set_xlabel('Frequency in time [%]')
+            # ax.set_ylabel('$A_{intermittent}$ / $A_{perennial}$ [-]')
+            # ax.set_xlim(0,100)
+            # ax.set_xscale('log')
+            # ax.set_ylim(0,4)
+            # ax.set_yticks([0,1,2,3,4])
+            # ax.set_ylabel('Cumulated $A_{sat}$ normalized [-]')
+
+            # ax.set_xscale('log')
+            # ax.set_yscale('log')
+            # ax.grid('grey')
+
+            
+# fig1.savefig(figsim_folder+'both'+'_freqcumul_pi'+'.png', dpi=300, bbox_inches='tight')
+# fig2.savefig(figsim_folder+'both'+'_freqcumul_sat'+'.png', dpi=300, bbox_inches='tight')
+# fig3.savefig(figsim_folder+'both'+'_freqcumul_ratio'+'.png', dpi=300, bbox_inches='tight')
+
+#%% R vs Qobs
+
+from scipy.stats import binned_statistic
+
+watershed_names = ['Canut','Nancon']
+
+typ = 'calibr-t6'
+
+# Things
+time_step = 'M'
+sim_state = 'transient'
+var = 'REC'
+
+# Colored
+mod_list = ['REA']
+sce_list = ['historic']
+sce_cmap = ["Greys"]
+sce_color = ["k"]
+cmap_dict = dict(zip(sce_list, sce_cmap))
+color_dict = dict(zip(sce_list, sce_color))
+
+c = ['darkgreen','darkmagenta']
+# c = ['blue','darkmagenta']
+cmaps = ['winter','spring']
+# cmaps = ['YlGn','RdPu']
+dict_c = dict(zip(watershed_names, c))
+dict_cmap = dict(zip(watershed_names, cmaps))
+
+# Hysteres
+temporal = False
+space = 0
+norm = False
+
+# fig, axs = plt.subplots(1,4, figsize=(14,3))
+# axs = axs.ravel()
+# fig3, axs3 = plt.subplots(1,4, figsize=(14,3))
+# axs3 = axs3.ravel()
+
+xy_list = [['recharge','outflow_obs']]
+
+# fig, axs = plt.subplots(2,1, figsize=(3.5,6))
+# axs = axs.ravel()
+
+fig, ax = plt.subplots(1,1, figsize=(3.5,3.2))
+# ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('L² / D [d]')
+ax.set_xlabel('R [mm/month]')
+# ax.set_ylabel('$A_{int}$ / $A_{per}$ [-]')
+ax.set_ylabel('$Q_{obs}$ [mm/month]')
+# ax.set_xlim(0.1,250)
+ax.set_xlim(-150, 150)
+ax.set_xticks([-150,-75,0,75,150])
+ax.set_ylim(0.07, 150)
+x_lim=[0.07,250]
+y_lim=[0.07,250]
+"""
+ax.set_xlim(0.1, 250)
+ax.set_ylim(0.1, 250)
+"""
+fig.tight_layout()
+# fig3.tight_layout()
+ax.set_axisbelow(True)
+# ax.grid(zorder=-1000)
+# ax.xaxis.grid(color='gray', zorder=-1)
+# ax.yaxis.grid(color='gray', zorder=-1)
+
+for watershed_name in watershed_names :
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    color = 'k'
+        
+    for mod in mod_list:
+        
+        for sce in sce_list:
+            
+            BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                          dem_path=dem_path, 
+                                          out_path=out_path,
+                                          load=True)
+            
+            simul_list = glob.glob(simulations_folder+typ+'*'+mod+'*'+sce+'*')
+            simul = simul_list[0]
+                
+            model_name = simul.split('\\')[-1]
+            Sy = float(model_name.split('_')[3].split('-')[0]) # %
+            K = float(model_name.split('_')[3].split('-')[1]) / 24 / 3600 # m/s
+            E = float(model_name.split('_')[3].split('-')[2]) # m
+            D = "{:.1e}".format((K * E) / (Sy/100)) # m2/s
+            params = 'K='+"{:.1e}".format(K)+'m/s - '+'Sy='+str(Sy)+'% - '+'D='+str(D)+'m²/s'
+            Smod_path = simul+'/_watershed/_simulated_results_bis.csv'     
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.surflow_areas
+            Smod['recharge'] = Smod['recharge'] * 1000 * 30
+            Smod['outflow_drain'] = Smod['outflow_drain'] * 1000 * 30
+            # Smod['groundwater_storage'] = Smod['groundwater_storage']/(Smod['groundwater_storage'].mean())
+            Smod['groundwater_storage'] = Smod['groundwater_storage']/1e6
+            Smod = select_period(Smod, 1960, 2019)
+            
+            area = BV.geographic.area
+            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+            Qobs_path = glob.glob(stable_folder+'hydrometry/'+'Hydrometric_'+'*')[0]
+            naming = Qobs_path.split('\\')[-1]
+            Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
+            # serie = series[series['<CdStationHydro>']==code_name+'01']
+            # Qobs = serie['<ResObsElaborHydro>'] / 1000 # L/s to m3/s
+            Qobs = Qobs.squeeze()
+            Qobs = Qobs.rename('Q')
+            # Qobs.to_csv(stable_folder+'hydrometry/'+naming,
+            #             sep=';')
+            Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/month
+            Qobs = select_period(Qobs, 1960, 2019) # Qobs.first_valid_index().year
+            
+            # Clim_path = stable_folder+'climatic/'+'_ALL_D.csv'
+            # Clim = pd.read_csv(Clim_path, sep=';', index_col=0, parse_dates=True)
+            Clim = surfex = pd.read_csv(out_path+'/'+'Frame'+'/'+'results_stable/'+
+                                        'climatic/'+'_ALL_D.csv', sep=';',
+                                  index_col=0, parse_dates=True)
+            Clim = select_period(Clim, 1990, 2019)
+            Cobs = Clim['EFF_REA_historic']
+
+            DFobs = pd.DataFrame(columns=['x','y'])
+            DFobs['x'] = Cobs
+            DFobs['y'] = Qobs
+            first_valid_loc = DFobs[DFobs.index.month==10].apply(lambda col: col.first_valid_index()).max().year
+            last_valid_loc = DFobs[DFobs.index.month==9].apply(lambda col: col.last_valid_index()).min().year
+            DFobs = select_period(DFobs, first_valid_loc, last_valid_loc)
+            for idx in range(len(DFobs)):
+                if DFobs.index[idx].month == 10:
+                    DFobs = DFobs[idx:]   
+                    break
+            DFobs = DFobs.sort_index(ascending=False)
+            for idx in range(len(DFobs)):
+                if DFobs.index[idx].month == 9:
+                    DFobs = DFobs[idx:]
+                    break
+            DFobs = DFobs.sort_index(ascending=True)
+            def very_resamp(array_like):
+                if any(pd.isnull(array_like)):
+                    return np.nan
+                else:
+                    return array_like.sum()
+            mask = DFobs.resample("M").count() >= 27
+            DFobs = DFobs.resample('M').apply(very_resamp)[mask]
+                        
+            hyst = Hysteresis(DFobs, watershed_name)
+            hyst.prepare_xy_raw()
+            temporal = False
+            spece = -0
+            norm = False
+            hyst.compute_xy_metrics(temporal=temporal, space=space, norm=norm)
+            
+            columns_x = hyst.xrecapl.columns
+            columns_y = hyst.yrecapl.columns
+            
+            Smod['effective'] = hyst.x
+            Smod['outflow_obs'] = hyst.y
+            
+            for xy in xy_list:
+                                
+                x = Smod['effective']
+                y = Smod['outflow_obs']
+                c = Smod.index.month
+                wy = pd.Series(x.index.month).replace([10,11,12,1,2,3,4,5,6,7,8,9],
+                                                        [1,2,3,4,5,6,7,8,9,10,11,12])
+                xi = x.groupby([lambda x: x.month]).mean()
+                yi = y.groupby([lambda y: y.month]).mean()
+                cmapping = mpl.colors.ListedColormap(dict_c[watershed_name])
+                cmapping = dict_cmap[watershed_name]
+                scat = ax.scatter(x, y, c=wy, cmap=cmapping, marker="o", 
+                                  s=5, vmin=1, vmax=12, alpha=0.75, ec='none', zorder=-1)
+                xiline = xi.append(xi.iloc[[0]])
+                xiline.index = np.arange(1,14,1)
+                yiline = yi.append(yi.iloc[[0]])
+                yiline.index = np.arange(1,14,1)
+                ax.plot(xiline, yiline, linestyle = '-', lw=1, 
+                        color='k', zorder=0)
+                wyi = np.arange(1,12+1,1)
+                compt = 2
+                for k in wyi:
+                    ax.annotate(k,(xi[k],yi[k]), family='sans-serif', fontsize=4, 
+                                 color=dict_c[watershed_name], weight="bold", ha='center', va='center',
+                                 zorder=compt)
+                    ax.plot(xi[k], yi[k], marker="o", lw=2, markersize=7, 
+                               markeredgecolor='k', 
+                               markerfacecolor='white', markeredgewidth=1,
+                               linestyle = 'None', zorder=compt)
+                    compt+=1
+                xe = pd.DataFrame()
+                xe['q25'] = (x.groupby(x.index.month).quantile(0.25))
+                xe['q75'] = (x.groupby(x.index.month).quantile(0.75))        
+                ye = pd.DataFrame()
+                ye['q25'] = (y.groupby(y.index.month).quantile(0.25))
+                ye['q75'] = (y.groupby(y.index.month).quantile(0.75))                
+                # ax.errorbar(xi, yi,
+                #               yerr=np.vstack([yi-ye.q25, ye.q75-yi]),
+                #               xerr=np.vstack([xi-xe.q25, xe.q75-xi]),
+                #               ecolor = 'black', fmt = 'none', capsize = 1, elinewidth=0.5, 
+                #               capthick=0.5, zorder=1)               
+                # ax.axvline(x.median(), c=dict_c[watershed_name], ls='--')
+                # ax.axhline(y.median(), c=dict_c[watershed_name], ls='--')
+
+                ax.plot(np.linspace(0.07,max(x_lim),50), np.linspace(0.07,max(x_lim),50), 
+                         linestyle='-', color='darkgray', linewidth=1, zorder=-1000)
+                
+figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/v5/'
+
+base_name = figsim_folder+'4_fig_tau_process/'
+spec_name = str(watershed_names)+'_R vs Qobs'
+fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+
+
 #%% ---- NOTES
 
