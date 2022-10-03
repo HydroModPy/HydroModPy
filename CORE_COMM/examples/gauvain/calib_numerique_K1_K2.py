@@ -35,7 +35,7 @@ elif user_path=="Ronan":
 else:
     print("Define a well-validated name of user")
 
-load = False#False to build and save python object
+ 
 watershed_name = 'Agon-Coutainville' #'Saint-Germain-sur-Ay'Agon-Coutainville'Barneville-Carteret'Baie-du-cotentin'
 watershed_shp = os.path.join(out_path, watershed_name, "results_stable", "geographic", 'watershed.shp')
 dem_path = os.path.join(root_path,"DEM","France","BDALTI_norm-manch_75m.tif")#'BDALTI_bzh_75m.tif' 
@@ -43,20 +43,26 @@ surfex_path =  os.path.join(root_path,'CLIMATE\France\SURFEX\All')
 geology_path = os.path.join(root_path,'GEOLOGY',"France","Layer")
 oceanic_path = os.path.join(root_path,root_path,'OCEAN')
 modflow_path = os.path.join(root_path,'MODFLOW')
-hydrology_path = os.path.join(root_path,'HYDROLOGY')
+hydrology_path = os.path.join(root_path,'HYDROLOGY','France', 'Hydrographic')
 types_obs = ['streams']
+
+
+load = True#False to build and save python object4
+
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
-BV.add_forcing()
-# BV.add_surfex(surfex_path) 
-BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
-BV.add_hydrodynamic()
-BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.1)
-BV.add_geology(geology_path)
-BV.add_oceanic(oceanic_path)
 
-BV.add_hydrology(hydrology_path,types_obs=types_obs)
+if load == False :  
+    BV.add_forcing()
+    # BV.add_surfex(surfex_path) 
+    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2018, last_year=2019, time_step = 'D', sim_state='steady')#
+    BV.add_hydrodynamic()
+    BV.hydrodynamic.update_thickness(30)
+    BV.hydrodynamic.update_porosity(0.1)
+    BV.add_geology(geology_path)
+    BV.add_oceanic(oceanic_path)
+    BV.add_piezometry()    
+    BV.add_hydrology(hydrology_path,types_obs=types_obs)
 
 params_file = "calib_params" # 'calib_explo_hom_2v_k1-k2'
 
@@ -95,7 +101,7 @@ name_file = list_path[0].split('\\')[-1]
 calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
 test = calib_analysis.CalibAnalysis(calib_file)
 
-test.display_objective_function(save='C:/Users/alexa/Dropbox/PhD/_Thèse/Figure/'+params_file+'.png',vmax=8)
+test.display_objective_function(save=os.path.join(root_path,params_file+'.png'),vmax=8)
 
 #%% 
 from calibration import calib_analysis
@@ -156,7 +162,7 @@ for i in range(len(typ_calib)):
         cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i])
         plt.colorbar(cmap,label=r'$RMSE$',ax=ax[i])
     if test.observations == ['streams']:
-        cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i],norm=matplotlib.colors.LogNorm())
+        cmap=ax[i].pcolor(X, Y, Z,cmap='jet', shading='auto',vmax=vmax[i], vmin=vmin[i])
         plt.colorbar(cmap,label=r'$log(D_{SO}/D_{OS})^{2}$',ax=ax[i])
 
 plt.tight_layout()
