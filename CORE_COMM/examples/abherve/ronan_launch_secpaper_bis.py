@@ -9886,7 +9886,7 @@ for watershed_name in watershed_names :
 
 base_name = figsim_folder+'fig12/'
 spec_name = str(watershed_names)+'_R vs Asat'
-fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+# fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
 #%% dGW vs dA
 
@@ -10507,12 +10507,20 @@ ax.set_axisbelow(True)
 # ax.grid(zorder=-1000)
 # ax.xaxis.grid(color='gray', zorder=-1)
 # ax.yaxis.grid(color='gray', zorder=-1)
-ax.set_xlim(0.1, 1000)
+ax.set_xlim(0.5, 5000)
 
 for watershed_name in watershed_names :
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
-        
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    
+    area = BV.geographic.area
+    
     for mod in mod_list:
         
         for sce in sce_list:
@@ -10537,8 +10545,8 @@ for watershed_name in watershed_names :
             
             for xy in xy_list:
                                 
-                x = Smod[xy[0]].diff() / Smod[xy[1]].diff()
-                y = Smod[xy[2]]
+                x = abs(Smod[xy[0]].diff() / Smod[xy[1]].diff())
+                y = abs(Smod[xy[2]])
                 c = Smod.index.month
                 wy = pd.Series(x.index.month).replace([10,11,12,1,2,3,4,5,6,7,8,9],
                                                         [1,2,3,4,5,6,7,8,9,10,11,12])
@@ -10552,8 +10560,8 @@ for watershed_name in watershed_names :
                 xiline.index = np.arange(1,14,1)
                 yiline = yi.append(yi.iloc[[0]])
                 yiline.index = np.arange(1,14,1)
-                # ax.plot(xiline, yiline, linestyle = '-', lw=1, 
-                #         color='k', zorder=0)
+                ax.plot(xiline, yiline, linestyle = '-', lw=1, 
+                        color='k', zorder=0)
                 wyi = np.arange(1,12+1,1)
                 compt = 2
                 for k in wyi:
