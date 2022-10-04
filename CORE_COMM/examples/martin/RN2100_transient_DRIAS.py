@@ -275,36 +275,152 @@ elif sim_state == 'transient' :
     R_DRIAS_26 = numpy.nanmean([numpy.nanmean(R_MPI_CCL_RCP26), numpy.nanmean(R_ECE_RCA_RCP26), numpy.nanmean(R_ECE_RAC_RCP26), numpy.nanmean(R_CNR_RAC_RCP26), numpy.nanmean(R_NOR_R15_RCP26), numpy.nanmean(R_CNR_ALA_RCP26), numpy.nanmean(R_HAD_REG_RCP26), numpy.nanmean(R_MPI_R09_RCP26)])
     R_DRIAS_85 = numpy.nanmean([numpy.nanmean(R_MPI_CCL_RCP85), numpy.nanmean(R_ECE_RCA_RCP85), numpy.nanmean(R_ECE_RAC_RCP85), numpy.nanmean(R_CNR_RAC_RCP85), numpy.nanmean(R_NOR_R15_RCP85), numpy.nanmean(R_CNR_ALA_RCP85), numpy.nanmean(R_HAD_REG_RCP85), numpy.nanmean(R_MPI_R09_RCP85)])
 
-#%% Calibration of K based on piezometry
+# #%% Climatic tests
 
-from calibration import calib_root, calib_dichotomy, calib_exploration, calib_basis
+# BV.add_forcing()
+# clim = BV.climatic.values
+
+
+# #%% Calibration of K based on piezometry
+
+# from calibration import calib_root, calib_dichotomy, calib_exploration, calib_basis
+
+# types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+# params_file = 'calib_dicot_hom_1v_k1'
+
+# BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
+# # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
+# #                                   first_year = start_date.year, last_year = end_date.year, time_step = 'D',
+# #                                   sim_state = 'transient')
+
+# BV.hydrodynamic.update_thickness(30)
+
+# params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+# params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
+# params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=',', index=None)
+
+# calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+# calib.exploration(10)
+# # dicot = calib.dichotomy(gap=1)
+
+# #%% Extraction and analysis of K calibration results
+
+# import glob
+# import os
+# import numpy as np
+# from calibration import calib_analysis
+
+# params_file = 'calib_dicot_hom_1v_k1'
+
+# #get last calibration result file
+# type_obs = 'piezometry'
+# typ_calib = 'piezometry_calibration'
+# list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+#                    key=os.path.getmtime)
+# name_file = list_path[-1].split('\\')[-1]
+# calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+# test = calib_analysis.CalibAnalysis(calib_file)
+# test.display_objective_function(save=None) #save='C:/.../'+params_file+'.png',vmax= 1.3,log=False
+
+# #get optimal K value
+# RMSE_list = [test.calib['params_values'][0][i][1] for i in range(len(test.calib['params_values'][0]))]
+# i_koptim = RMSE_list.index(min(RMSE_list))
+# koptim = test.calib['params_values'][0][i_koptim][0]
+# kr = koptim / np.nanmean(test.calib['recharge'])
+
+# #%% Calibration of n based on piezometry
+
+# from calibration import calib_root, calib_dichotomy, calib_exploration, calib_basis
+
+# types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+# params_file = 'calib_explo_hom_n1'
+
+# BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
+# BV.hydrodynamic.update_thickness(30)
+
+# params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+# params_df.loc[0] = ['n1',0.03,0.03,0.3,'-','log']
+# params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=',', index=None)
+
+# calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+# calib.exploration(10)
+
+# #%% Extraction and analysis of n calibration results
+
+# import glob
+# import os
+# from calibration import calib_analysis
+
+# params_file = 'calib_explo_hom_n1'
+
+# #get last calibration result file
+# type_obs = 'piezometry'
+# typ_calib = 'piezometry_calibration'
+# list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+#                    key=os.path.getmtime)
+# name_file = list_path[-1].split('\\')[-1]
+# calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+# test = calib_analysis.CalibAnalysis(calib_file)
+# test.display_objective_function(save=None) #save='C:/.../'+params_file+'.png',vmax= 1.3,log=False
+
+# #get optimal n value
+# RMSE_list = [test.calib['params_values'][0][i][1] for i in range(len(test.calib['params_values'][0]))]
+# i_n_optim = RMSE_list.index(min(RMSE_list))
+# n_optim = test.calib['params_values'][0][i_n_optim][0]
+
+#%% ESPERE recharge
+import pandas as pd
+
+#load recharge time serie from ESPERE
+with open(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_SGA_2021_2022.csv', newline='') as csvfile:
+    # rech_data = list(csv.reader(csvfile))
+    rech_data = pd.read_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_SGA_2021_2022.csv', sep=';')
+recharge_ESP = rech_data.iloc[:,3]
+rech_ESPERE = R_HAD_REG_RCP26
+for i in range(len(rech_ESPERE)):
+    rech_ESPERE.iloc[i] = float(recharge_ESP.iloc[i].replace(',','.'))
+
+#%% Calibration of K and n based on piezometry
+
+from calibration import calib_root
+import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_dicot_hom_1v_k1'
+params_file = 'calib_explo_MF_K1n1'
 
-BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
-# BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
-#                                   first_year = start_date.year, last_year = end_date.year, time_step = 'D',
-#                                   sim_state = 'transient')
-
+BV.forcing.update_recharge(rech_ESPERE, 'transient') #R_HAD_REG_RCP26
 BV.hydrodynamic.update_thickness(30)
 
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
 params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
-params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=',', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(10)
-# dicot = calib.dichotomy(gap=1)
+# calib.exploration(300)
 
-#%% Extraction and analysis of K calibration results
+# #Parallel processing
+import multiprocessing as mp
+import time
+
+# print("Number of processors: ", mp.cpu_count())
+
+t = time.time()
+pool = mp.Pool(mp.cpu_count())
+# pool.map(calib.exploration, [3])
+pool.apply(calib.exploration, args=3)
+pool.close()
+pool.join()
+et = time.time() - t
+print('Elapsed time = %f seconds.\n' %et)
+
+#%% Extraction and analysis of K-n calibration results
 
 import glob
 import os
-import numpy as np
 from calibration import calib_analysis
 
-params_file = 'calib_dicot_hom_1v_k1'
+params_file = 'calib_explo_hom_K1n1'
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -314,60 +430,28 @@ list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, ty
 name_file = list_path[-1].split('\\')[-1]
 calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
 test = calib_analysis.CalibAnalysis(calib_file)
-test.display_objective_function(save=None) #save='C:/.../'+params_file+'.png',vmax= 1.3,log=False
+obj_fc_path = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures', 'objective_function.png')
+test.display_objective_function(save=obj_fc_path) #,vmax= 1.3,log=False
 
-#get optimal K value
-RMSE_list = [test.calib['params_values'][0][i][1] for i in range(len(test.calib['params_values'][0]))]
-i_koptim = RMSE_list.index(min(RMSE_list))
-koptim = test.calib['params_values'][0][i_koptim][0]
-kr = koptim / np.nanmean(test.calib['recharge'])
+#get optimal K and n value
+calib_dict = test.calib
+K_values = calib_dict['params_values'][0]
+n_values = calib_dict['params_values'][1]
 
-#%% Calibration of n based on piezometry
+min_RMSE_idx_flat = np.argmin(calib_dict['objective_function'])
+i_min_RMSE = min_RMSE_idx_flat // n_values.size
+j_min_RMSE = min_RMSE_idx_flat % n_values.size    
+RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
+K_optim = K_values[j_min_RMSE]
+n_optim = n_values[i_min_RMSE]
 
-from calibration import calib_root, calib_dichotomy, calib_exploration, calib_basis
-
-types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_explo_hom_n1'
-
-BV.forcing.update_recharge(R_HAD_REG_RCP26, 'transient')
-BV.hydrodynamic.update_thickness(30)
-
-params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['n1',0.03,0.03,0.3,'-','log']
-params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-
-calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(10)
-
-#%% Extraction and analysis of n calibration results
-
-import glob
-import os
-from calibration import calib_analysis
-
-params_file = 'calib_explo_hom_n1'
-
-#get last calibration result file
-type_obs = 'piezometry'
-typ_calib = 'piezometry_calibration'
-list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                   key=os.path.getmtime)
-name_file = list_path[-1].split('\\')[-1]
-calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-test = calib_analysis.CalibAnalysis(calib_file)
-test.display_objective_function(save=None) #save='C:/.../'+params_file+'.png',vmax= 1.3,log=False
-
-#get optimal n value
-RMSE_list = [test.calib['params_values'][0][i][1] for i in range(len(test.calib['params_values'][0]))]
-i_n_optim = RMSE_list.index(min(RMSE_list))
-n_optim = test.calib['params_values'][0][i_n_optim][0]
 
 #%% Model Parameters
 
 # Hydraulic properties
 t = 30 # m
 n = n_optim # nondim
-K = koptim # m/j
+K = K_optim # m/j
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
@@ -379,7 +463,7 @@ cond_decay = 0 # exponential decay of K with depth
 first_only = False # if True generate results only for the first time_step
 box = False # if True generate a rectangular model
 sink_fill = False # permit to fill sinks
-modpath_sim = True # run modpath particle tracking if True
+modpath_sim = False # run modpath particle tracking if True
 verbose = True # add print of MODFLOW in console
 
 # Update properties
@@ -391,7 +475,14 @@ BV.hydrodynamic.update_bottom(bottom)
 BV.hydrodynamic.update_thick_exp(thick_exp)
 BV.hydrodynamic.update_cond_decay(cond_decay)
 
-#%% Launch test simulation
+#%% Launch simulations and save results
+
+import deepdish as dd
+from groundwater_flow import modflow_display
+import numpy as np
+import pandas as pd
+import multiprocessing as mp
+import time
 
 BV.add_forcing()
 sim_state = 'transient'
@@ -399,35 +490,205 @@ first_yr = 2023
 last_yr = 2025
 gcm = 'MPI'
 rcm = 'CCL'
-sce = 'RCP2.6'
-BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-                                  first_year = first_yr, last_year = last_yr,
-                                  sim_state = sim_state)
-R = BV.forcing.recharge
-sea_lev = BV.oceanic.MSL
 
-sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
-print(sim_name)
+list_sim_name = []
+list_success = []
+list_flow_model = []
+list_var_store = []
 
-# BV.oceanic.update_MSL(sea_lev)
-# BV.forcing.update_recharge(R, 'steady')
 
-success, flow_model = BV.run_modflow(ident=sim_name,
-                modpath_sim=modpath_sim,
-                first_only=first_only,
-                sink_fill=sink_fill,
-                box=box,
-                lay_number=lay_number,
-                bottom=bottom,
-                thick_exp=thick_exp,
-                cond_decay=cond_decay,
-                verbose=verbose)
-BV.matrix_modflow(success, flow_model)
+
+
+def runsim(sce):
+    sim_state = 'transient'
+    first_yr = 2023
+    last_yr = 2025
+    gcm = 'MPI'
+    rcm = 'CCL'
+    scen_list = ['RCP2.6', 'RCP8.5']
+    scen = scen_list[sce]
+    
+    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = scen,
+                                      first_year = first_yr, last_year = last_yr,
+                                      sim_state = sim_state)
+    # BV.oceanic.update_MSL()
+    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
+    print(sim_name)
+
+    success, flow_model = BV.run_modflow(ident=sim_name,
+                    modpath_sim=modpath_sim,
+                    first_only=first_only,
+                    sink_fill=sink_fill,
+                    box=box,
+                    lay_number=lay_number,
+                    bottom=bottom,
+                    thick_exp=thick_exp,
+                    cond_decay=cond_decay,
+                    verbose=verbose)
+    
+    list_sim_name.append(sim_name)
+    list_success.append(success)
+    list_flow_model.append(flow_model)
+    list_var_store.append(BV.forcing.runoff)
+
+idx_torun = [0,1]
+t = time.time()
+# with mp.Pool(mp.cpu_count()) as pool:
+#     pool.map(runsim, ['RCP2.6', 'RCP8.5'])
+#     # pool.apply(calib.exploration, args=3)
+
+pool = mp.Pool(mp.cpu_count())
+rr = pool.map(runsim, idx_torun)
+pool.close()
+et = time.time() - t
+print('Elapsed time = %f seconds.\n' %et)
+
+
+
+for sim in range(1):
+    
+    gcm = 'MPI'
+    rcm = 'CCL'
+    sce = 'RCP8.5'
+    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                      first_year = first_yr, last_year = last_yr,
+                                      sim_state = sim_state)
+    # BV.oceanic.update_MSL()
+    R = BV.forcing.recharge
+    sea_lev = BV.oceanic.MSL
+    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
+    print(sim_name)
+
+    success, flow_model = BV.run_modflow(ident=sim_name,
+                    modpath_sim=modpath_sim,
+                    first_only=first_only,
+                    sink_fill=sink_fill,
+                    box=box,
+                    lay_number=lay_number,
+                    bottom=bottom,
+                    thick_exp=thick_exp,
+                    cond_decay=cond_decay,
+                    verbose=verbose)
+    
+    list_sim_name.append(sim_name)
+    list_success.append(success)
+    list_flow_model.append(flow_model)
+    list_var_store.append(BV.forcing.runoff)
+
+sim_results_dict = {}
+sim_results_dict['list_sim_name'] = list_sim_name
+sim_results_dict['list_success'] = list_success
+sim_results_dict['list_flow_model'] = list_flow_model
+sim_results_dict['list_var_store'] = list_var_store
+
+h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
+dd.io.save(h5file, sim_results_dict)
+
+
+#%% Post processing 1: raster generation and storage
+
 time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
-start = str(first_yr) + '-01-01' # necessary to specify the first time_step date
-BV.results_modflow(ident=sim_name,
-                    actual_date=actual_date,
-                    start=start,
-                    time_step=time_step)
+types_obs = ['piezometry']
 
+h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
+d = dd.io.load(h5file)
+list_sim_name = d['list_sim_name'][:]
+list_success = d['list_success'][:]
+list_flow_model = d['list_flow_model'][:]
+list_var_store = d['list_var_store'][:]
+
+for model_name, success, flow_model, var_store in zip(list_sim_name,
+                                                     list_success,
+                                                     list_flow_model,
+                                                     list_var_store):
+
+    if success==True:
+            print(success)
+            
+            BV.matrix_modflow(success,
+                              flow_model,
+                              first_only = True,
+                              watertable_elevation = True,
+                              watertable_depth = True, 
+                              seepage_areas = True,
+                              outflow_drain = True,
+                              groundwater_flux = True,
+                              specific_discharge = False,
+                              accumulation_flux = False,
+                              perenn_intermit_shp = False,
+                              groundwater_storage = True,
+                              residence_times = False,
+                              verbose = True,
+                              export_tif = True)
+            
+            # Necessary for results_modflow
+            BV.forcing.update_recharge(flow_model.climatic, sim_state=sim_state)
+            recharge = BV.forcing.recharge
+            runoff = BV.forcing.recharge # warning: runoff is set at recharge value to debug
+            
+            # Extract results
+            BV.results_modflow(ident=model_name,
+                               recharge=recharge,
+                               runoff=runoff,
+                               actual_date=actual_date,
+                               time_step=time_step)
+            
+            ## Plot maps
+            surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
+                                                  model_name, types_obs,
+                                                  save_gif=False,
+                                                  first_only=True,
+                                                  sim_state=sim_state,
+                                                  outflow=True,
+                                                  accflux=True,
+                                                  intermittency=False,
+                                                  chronics=False)
+
+
+#%% Post-processing 2: watertable depth analysis
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+
+path = os.path.join(simulations_folder, sim_name, '_watershed', 'watertable_depth.npy')
+wt_depth = np.load(path, allow_pickle=True).item()
+
+for t in range(len(wt_depth)):
+    wt_depth[t][wt_depth[t]==-9999] = np.nan
+
+
+mapp = plt.imshow(wt_depth[600])
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.show()
+
+south = len(wt_depth[0]) #75m
+east = len(wt_depth[0][0]) #75m
+duration = len(wt_depth) #1d
+matrix_wtd = np.ones((south,east,duration))*np.nan
+
+for t in range(len(wt_depth)):
+    matrix_wtd[:,:,t] = wt_depth[t]
+    
+rast_min = np.amin(matrix_wtd,2)
+rast_max = np.amax(matrix_wtd,2)
+rast_mean = np.mean(matrix_wtd,2)
+
+rast_f30 = np.ones((south,east))*np.nan
+rast_f3 = np.ones((south,east))*np.nan
+for i in range(south):
+    for j in range(east):
+        c30 = c3 = 0
+        for t in range(duration):
+            if matrix_wtd[i,j,t] <= 0.3:
+                c30 += 1
+            if matrix_wtd[i,j,t] <= 0.03:
+                c3 += 1
+        rast_f30[i,j] = c30/duration
+        rast_f3[i,j] = c3/duration
+
+(rast_f3==0).all()
+plt.imshow(rast_f30)
+plt.imshow(rast_f3)
