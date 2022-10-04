@@ -38,9 +38,9 @@ class Calibration():
         if not os.path.exists(self.calibration_folder):
             toolbox.create_folder(self.calibration_folder)
     
-    def exploration(self, resolution=10):
+    def exploration(self, resolution=10, parallel=False):
         basis = calib_basis.CalibrationBasis(self.file_name, self.watershed, self.observations, self.calibration_folder)
-        exploration = calib_exploration.CalibrationExploration(basis, resolution=resolution)
+        exploration = calib_exploration.CalibrationExploration(basis, resolution=resolution, parallel=False)
         exploration.perform()
     
     def simplex(self, init_multiples_n=1):
