@@ -5,6 +5,10 @@ Created on Wed Mar 24 20:35:54 2021
 @author: dreuzy
 """
 
+import threading
+import multiprocessing as mp
+
+
 from math import ceil
                                      
 from calibration import global_parameters as gp
@@ -31,7 +35,9 @@ from calibration import calib_objective_function, calib_params, calib_exploratio
 
 class CalibrationExploration(calbas.CalibrationBasis):
     
-    def __init__(self, calib_basis=None, resolution=10):
+    def __init__(self, calib_basis=None, resolution=10, parallel=False):
+        
+        self.parallel = parallel
                 
         # Affectation of parent class 
         if(calib_basis!=None): 
@@ -39,7 +45,7 @@ class CalibrationExploration(calbas.CalibrationBasis):
             
         self.resolution = resolution
         
-    def update_calibbasis(self,calib_basis): 
+    def update_calibbasis(self, calib_basis): 
         """
         Updates parent class CalibrationBasis with calib_basis
         
@@ -125,10 +131,23 @@ class CalibrationExploration(calbas.CalibrationBasis):
             
             params_xyz = []
             # Use of proxy to avoid modification of self.lpm
+            cpt = 0
             for i in range(len(params)):
                 print(str(compt)+'/'+str(self.resolution))
-                temp = params[i]
-                temp.append(self.objective_function(params[i]))
+                temp = params[i]        
+                if self.parallel == True:
+                    # compt=0
+                    coeur=mp.cpu_count()
+                    # for var3 in range (0, len(fix)): # permit to fix recharge
+                    cpt += 1
+                    t = threading.Thread(target=self.objective_function, args=(params[i]))
+                    t.start()
+                    if int(cpt / coeur) == cpt / coeur:  # Si compt est multiple de 3
+                        t.join()  # alors on attend que les modèles soient terminées pour recommencer
+                        print(cpt)
+                    t.join() # On attend que les modèles soient finis pour terminer le calcul
+                else:
+                    temp.append(self.objective_function(params[i]))
                 obj_function.loc[i] = temp
                 params_xyz.append(temp)
                 compt += 1
