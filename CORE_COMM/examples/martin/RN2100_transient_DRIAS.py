@@ -386,7 +386,7 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_explo_MF_K1n1'
+params_file = 'calib_explo_test6piezos_K1n1'
 
 BV.forcing.update_recharge(rech_ESPERE, 'transient') #R_HAD_REG_RCP26
 BV.hydrodynamic.update_thickness(30)
@@ -397,22 +397,61 @@ params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=',', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-# calib.exploration(300)
+calib.exploration(3)
 
-# #Parallel processing
-import multiprocessing as mp
+#Parallel processing (integrated to hydromodpy codes)
 import time
+import threading
+import multiprocessing as mp
 
-# print("Number of processors: ", mp.cpu_count())
+t = threading.Thread(target=calib.exploration, args=(3))
+t.start()
+t.join()
+    
+    
+    
+    
+compt=0
+coeur=mp.cpu_count()
+compt += 1
+t = threading.Thread(target=calib.exploration, args=(3))
+t.start()
+# if int(compt / coeur) == compt / coeur:  # Si compt est multiple de 3
+#     t.join()  # alors on attend que les modèles soient terminées pour recommencer
+#     print(compt)
+t.join() # On attend que les modèles soient finis pour terminer le calcul
 
-t = time.time()
-pool = mp.Pool(mp.cpu_count())
-# pool.map(calib.exploration, [3])
-pool.apply(calib.exploration, args=3)
-pool.close()
-pool.join()
-et = time.time() - t
-print('Elapsed time = %f seconds.\n' %et)
+#%% RUN FOR ONE VARIABLE
+
+# # # For one parameter varying
+for var3 in range (0, len(k)):
+    print(k[var3])
+    settings(nlay, tdis, ep, k[var3], phi, rch, fix)
+
+#%% RUN ONLY ONE MODEL
+
+# # # For only one model
+settings(nlay, tdis, ep, k, phi, rch, fix)
+
+    
+    
+    
+    
+    
+# # #Parallel processing
+import multiprocessing as mp
+# import time
+mp.cpu_count()
+# # print("Number of processors: ", mp.cpu_count())
+
+# t = time.time()
+# pool = mp.Pool(mp.cpu_count())
+# # pool.map(calib.exploration, [3])
+# pool.apply(calib.exploration, args=3)
+# pool.close()
+# pool.join()
+# et = time.time() - t
+# print('Elapsed time = %f seconds.\n' %et)
 
 #%% Extraction and analysis of K-n calibration results
 
@@ -420,7 +459,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_explo_hom_K1n1'
+params_file = 'calib_explo_hom_K1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -586,6 +625,7 @@ dd.io.save(h5file, sim_results_dict)
 
 
 #%% Post processing 1: raster generation and storage
+import deepdish as dd
 
 time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
@@ -686,9 +726,42 @@ for i in range(south):
                 c30 += 1
             if matrix_wtd[i,j,t] <= 0.03:
                 c3 += 1
-        rast_f30[i,j] = c30/duration
-        rast_f3[i,j] = c3/duration
+        rast_f30[i,j] = c30/duration*100
+        rast_f3[i,j] = c3/duration*100
 
-(rast_f3==0).all()
-plt.imshow(rast_f30)
-plt.imshow(rast_f3)
+
+mapp = plt.imshow(rast_f30)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Occurency (%)")
+plt.axis('off')
+plt.title('Watertable depth < 30 cm ')
+plt.show()
+
+mapp = plt.imshow(rast_f3)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Occurency (%)")
+plt.axis('off')
+plt.title('Watertable depth < 3 cm ')
+plt.show()
+
+mapp = plt.imshow(rast_min)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.title('Minimum watertable depth')
+plt.show()
+
+mapp = plt.imshow(rast_max)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.title('Maximum watertable depth')
+plt.show()
+
+mapp = plt.imshow(rast_mean)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.title('Mean watertable depth')
+plt.show()
+
