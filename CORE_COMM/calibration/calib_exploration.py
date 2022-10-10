@@ -78,15 +78,21 @@ class CalibrationExploration(calbas.CalibrationBasis):
             """
             # Number of parameters to vary for the cartesian product
             np = len(pmin)
+            print('number of parameters: ' + str(np)) #martin
             # Resolution in each of the dimentions (parameters) to investigate
             n=ceil(nmodels**(1/np))
+            print('Resolution in each dimention: ' + str(n)) #martin
             # Cartesian Product for the different dimension cases 
             if np == 1:
                 p1 = gp.arange_n(pmin[0],pmax[0],n) 
                 return [[i] for i in p1]
             elif np == 2:
                 p1 = gp.arange_n(pmin[0],pmax[0],n)
+                print('p1: ') #martin
+                print(p1) #martin
                 p2 = gp.arange_n(pmin[1],pmax[1],n)
+                print('p2: ') #martin
+                print(p2) #martin
                 return [[i,j] for i in p1 for j in p2]
             elif np == 3:
                 p1 = gp.arange_n(pmin[0],pmax[0],n)
@@ -164,17 +170,28 @@ class CalibrationExploration(calbas.CalibrationBasis):
                         
             # 2 parameters            
             
-            n = int(np.ceil(self.resolution**(1/2)))     
+            n = int(np.ceil(self.resolution**(1/2)))
+            print('n = ' + str(n)) #martin
             # p1 = pmin[0] + (pmax[0] - pmin[0]) * np.arange(0,n+1) / n
             # p2 = pmin[1] + (pmax[1] - pmin[1]) * np.arange(0,n+1) / n
             if self.params.name[0][0]=='k':
                 p1 = np.geomspace(pmin[0], pmax[0], n)
+                print('p1: ') #martin
+                print(p1) #martin
             else:
                 p1 = np.linspace(pmin[0], pmax[0], n)
+                print('p1: ') #martin
+                print(p1) #martin
+
             if self.params.name[1][0]=='k':
                 p2 = np.geomspace(pmin[1], pmax[1], n)
+                print('p2: ') #martin
+                print(p2) #martin
+
             else:
                 p2 = np.linspace(pmin[1], pmax[1], n)
+                print('p2: ') #martin
+                print(p2) #martin
             p2 = p2[::-1]
             params_values.append(p1)
             params_values.append(p2)
@@ -187,6 +204,7 @@ class CalibrationExploration(calbas.CalibrationBasis):
                     temp = [p1[i],p2[j]]
                     params_xyz.append(temp)
                     obj_function[j][i] = self.objective_function(temp)
+                    print(obj_function) #martin
                     compt += 1
                     
             # colormap

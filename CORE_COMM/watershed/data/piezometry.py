@@ -22,6 +22,23 @@ from datetime import datetime
 from tools import toolbox
 
 class Piezometry:
+    
+    """ 
+        
+    Attributes
+    ----------
+    x_coord: list of float
+        Lambert 93 X coordinates of piezometers
+    y_coord: list of float
+        Lambert 93 Y coordinates of piezometers
+    x_iloc: list of int
+        list of x-index of model cells corresponding to piezometers
+    y_iloc: list of int
+        list of y-index of model cells corresponding to piezometers
+
+    Methods
+    
+    """
     def __init__(self, out_path, geographic):
         print('Extraction des données piézomètriques')
         data_folder = os.path.join(out_path,'results_stable','piezometric')
@@ -113,6 +130,7 @@ class Piezometry:
             self.y_coord = piezos['geometry'].y.tolist()
             for i in range(0, len(self.x_coord)):
                 idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
+                # index is determined by lowest difference between piezometer coordinate and model cell coordinate
                 idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
                 self.x_iloc.append(idx)
                 self.y_iloc.append(idy) 
