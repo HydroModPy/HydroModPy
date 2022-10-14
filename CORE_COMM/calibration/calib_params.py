@@ -12,6 +12,7 @@ import os
        
 
 class CalibParams(): 
+    
     def __init__(self, file_name, watershed):
         """ 
         Constructor
@@ -34,6 +35,7 @@ class CalibParams():
         #self.check_param_values(watershed) # desactivate to clibrate global porosity with n zones of K
         #Convert hydraulic conductivity values to log values
         self.convert_k_lin_to_log()
+
 
     def load_param_values(self, file_name, watershed):
         """ 
@@ -68,13 +70,16 @@ class CalibParams():
         self.p_scale = temp.scale.values
         self.num_zone = [int(re.search(r'\d+', name).group()) for name in self.name]
         
+        
     def linear_to_log(self, lin_values):
         log_values = np.log10(lin_values)
         return log_values
     
+    
     def log_to_linear(self, log_values):
         lin_values = 10**(log_values)
         return lin_values
+    
     
     def check_param_values(self, watershed):
         zones = np.intersect1d(self.num_zone,self.num_zone)
@@ -85,6 +90,7 @@ class CalibParams():
         else:
             sys.exit("watershed.hydrodynamic.calib_zones (ex: 1, 2) must be have the same number zones of calibrated parameters (ex: k1 , k2) in calib_params.csv")
         
+        
     def convert_k_lin_to_log(self):
         for i in range(0, len(self.name)):
             if self.name[i][0] == 'k':
@@ -93,6 +99,7 @@ class CalibParams():
                     self.p_min[i] =  self.linear_to_log(self.p_min[i])
                     self.p_max[i] =  self.linear_to_log(self.p_max[i])
                     self.u[i] = self.u[i] + str(' (log)')
+        
         
     def random_uniform(self,rng=None):
         """ 
