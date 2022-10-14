@@ -101,7 +101,9 @@ class Modpath:
         prow = 1
         pcol = 1
         #stldata = flopy.modpath.mpsim.StartingLocationsFile.get_empty_starting_locations_data(npt=ncol*nrow*prow*pcol)
+        # To apply particules only on the pixels of the catchment
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip != -99999)*pcol*prow)
+        # To apply particules for all pixels of the domain model
         '''
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip >= -99999)*pcol*prow)
         '''
