@@ -987,14 +987,14 @@ VERTICAL
                 # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
                 # pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
                 # pth_data = pthobj.get_alldata()
-                res_time = np.zeros(np.shape(self.dem))
+                res_time = np.zeros(np.shape(self.dem)) * np.nan
                 endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
                 e = endobj.get_alldata()
-                for j in range(len(e)):
+                for k in range(len(e)):
                     # time_out = pth_data[j].time[0] # explore pathlines
                     # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
                     # res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
-                    res_time[e[j].i,e[j].j] = (e[j].time) / 365 # where outputed in years
+                    res_time[e[k].i,e[k].j] = (e[k].time) / 365 # where outputed in years
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
@@ -1013,8 +1013,12 @@ VERTICAL
                 ### Accumulation flux
                 surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
-                self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
-        
+                try:
+                    self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
+                except:
+                    self.dict_accumulation_flux[item] = imageio.imread(output_path)
+                    pass
+                
             if perenn_intermit_shp == True:
                 surface_flow.trace_downslope()
         
