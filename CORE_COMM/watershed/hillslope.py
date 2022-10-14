@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec  2 14:38:37 2021
 
-@author: Nicolas Cornette
 """
+
+#%% LIBRAIRIES
 
 # Modules
 import os
@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
 from osgeo import gdal, osr
+
+#%% CLASS
 
 class Hillslope:
     """
@@ -29,7 +31,10 @@ class Hillslope:
         generate hillslopes from singular points (outlet, head and confluences) extract from stream network
     compute_1Dprofile()
         generate the hillslope 1D profile, i.e. width profile, distance to the river and elevation profile
+    
     """
+    
+    #%% INIT
     
     def __init__(self, geographic, 
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
@@ -185,4 +190,6 @@ class Hillslope:
         width = n_cellsize * cellsize
         
         return width
-    
+
+#%% NOTES
+

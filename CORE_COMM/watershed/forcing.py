@@ -1,11 +1,20 @@
 # coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
 
 import pandas as pd
 import numpy as np
 import os
+from scipy.optimize import curve_fit
+
+#%% CLASS
 
 class Forcing:
     """
+    
     class Forcing inputs the climate data forced to the model,
         - recharge (processed by the groundwater model) (m/day)
         - runoff (added to the outputs of the groundwater model) (m/day)
@@ -14,7 +23,6 @@ class Forcing:
         - loaded from data files issued by SURFEX
         - generated (inside this calss) synthetic scenarios (eg sinosoids)
         
-
     Attributes, public
     -------------------
     data_folder: string
@@ -38,8 +46,11 @@ class Forcing:
         
     """
     
+    #%% INIT
+    
     def __init__(self, out_path):
         """
+        
         Constructor
             Defines directories where data are stored
             Two types of data can be loaded 
@@ -54,16 +65,19 @@ class Forcing:
             root path in which are stored the data 
 
         """
+        
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
         self.drias_folder = os.path.join(out_path, 'results_stable/drias/')
         self.freq = None
         self.recharge = None
         self.runoff = None
         self.unit = None
-    
+
+    #%% UPDATE FROM OWN MANUAL DATA
     
     def update_recharge(self, values, sim_state):
         """
+        
         Main function to load the recharge
 
         Parameters
@@ -77,6 +91,7 @@ class Forcing:
             value = "transient"
             
         """
+        
         self.recharge = values # recharge
         if sim_state == 'steady':
             self.recharge = np.mean(self.recharge)
@@ -86,6 +101,7 @@ class Forcing:
             
     def update_runoff(self, values, sim_state):
         """
+        
         Main function to load the runoff
 
         Parameters
@@ -99,15 +115,18 @@ class Forcing:
             value = "transient"
             
         """
+        
         self.runoff = values # recharge
         if sim_state == 'steady':
             self.runoff = np.mean(self.runoff)
             if isinstance(self.runoff,(int,float))==False:
                 self.runoff = self.runoff[0]
     
+    #%% UPDATE FROM CREATED SYNTHETIC DATA
     
     def update_synthetic_recharge(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
         """
+        
         Generate synthetic recharge (inverse Gaussian, normal, uniform)
 
         Parameters
@@ -134,7 +153,9 @@ class Forcing:
                 D: dayly
                 M: monthly
                 Y: yearly
+                
         """
+        
         self.freq = freq
         days = years*365
         date = pd.date_range(start_date, periods=days)
@@ -154,9 +175,9 @@ class Forcing:
         if freq != None:
             self.recharge = self.recharge.resample(self.freq).mean()
         
-        
     def update_sinusoid_recharge(self, serie, period, amplitude, offset, omega, phase):
         """
+        
         SYnthetic Sinusiodal recharge 
 
         Parameters
@@ -180,7 +201,7 @@ class Forcing:
             modifies the phase of the sinusoid
 
         """
-        from scipy.optimize import curve_fit
+        
         def sinusoid(x, A , offset, omega, phase):
             return A*np.sin(omega*x+phase) + offset
         def get_p0(Y, T):
@@ -206,9 +227,15 @@ class Forcing:
         self.recharge = pd.Series(data = sinus, index=date)
         self.recharge[self.recharge < 0] = 0
     
+    #%% UPDATE FROM SURFEX DATA SET
+    
+    # Adpated for :
+    #       Historical reanalysis SAFRAN-SURFEX
+    #       DAYON-2015 : SURFEX projections
     
     def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
         """
+        
         Loads surfex data already processed externally 
             unit of the loaded data: mm/day
         Data have been processed by the file "climatic.py", same as SURFEX_PY (with figures) #RISK OF OUTDATING of SURFEX_PY
@@ -237,6 +264,7 @@ class Forcing:
             transient
 
         """
+        
         self.freq = time_step
         climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         climatic = climatic[clim_mod+'_'+clim_sce]
@@ -249,6 +277,7 @@ class Forcing:
 
     def update_runoff_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
         """
+        
         Loads surfex data already processed externally 
             unit of the loaded data: mm/day
         Data have been processed by the file "climatic.py", same as SURFEX_PY (with figures) #RISK OF OUTDATING of SURFEX_PY
@@ -277,6 +306,7 @@ class Forcing:
             transient
 
         """
+        
         self.freq = time_step
         climatic = pd.read_csv(self.data_folder+'_'+'RUN'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         climatic = climatic[clim_mod+'_'+clim_sce]
@@ -289,6 +319,7 @@ class Forcing:
         
     def update_effppt_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
         """
+        
         Same as update_recharge_surfex but forces groundwater model with Precipitation - Evapotranspiration
 
         Parameters
@@ -315,6 +346,7 @@ class Forcing:
             transient
 
         """
+        
         self.freq = time_step
         ppt = pd.read_csv(self.data_folder+'_'+'PPT'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
         ppt = ppt[clim_mod+'_'+clim_sce]
@@ -334,10 +366,15 @@ class Forcing:
             self.effppt = self.effppt.mean()
             self.pe_pos = self.pe_pos.clip(lower=0)
             self.pe_neg = self.pe_neg.clip(upper=0)
+
+    #%% UPDATE FROM DRIAS DATA SET
     
+    # Adpated for :
+    #       EXPLORE2-2021-SIM2 : SURFEX projections
     
     def update_recharge_drias(self, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
         """
+        
         Loads recharge from DRIAS files
 
         Parameters
@@ -367,15 +404,16 @@ class Forcing:
             transient
 
         """
+        
         data = pd.read_csv(self.drias_folder+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
-
     def update_runoff_drias(self, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
         """
+        
         Loads runoff from DRIAS files
 
         Parameters
@@ -405,9 +443,12 @@ class Forcing:
             transient
 
         """
+        
         data = pd.read_csv(self.drias_folder+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
             
+#%% NOTES
+
