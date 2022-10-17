@@ -11,8 +11,6 @@ import multiprocessing as mp
 
 from math import ceil
                                      
-from calibration import global_parameters as gp
-
 import copy as copy
 import numpy as np     
 import pandas as pd                            

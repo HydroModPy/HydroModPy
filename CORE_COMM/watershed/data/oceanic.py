@@ -21,7 +21,6 @@ from data import oceanic_display
 
 class Oceanic:
     
-    
     #%% INIT
     
     def __init__(self):

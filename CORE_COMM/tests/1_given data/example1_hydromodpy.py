@@ -4,7 +4,7 @@ Created on Mon Dec 20 08:05:41 2021
 
 @author: Ronan Abhervé
 
-Simple example for basic execution of HydroModPy (execution should be of the ordre of seconds)
+Simple example for basic execution of HydroModPy (execution should be of the order of seconds)
 - NW of Brittany (France), some km2 catchment
 - Extract watershed
 - Hydrological extraction of stream network
@@ -75,16 +75,25 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% NECESSARY PATHS
 
-####################################################3
+####################################################
+user = 'Ronan'
+
+# Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
+if user == 'Jean-Raynald':
+    out_path = "D:/results/HydroModPy/"
+if user == 'Alexandre':
+    out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
+if user == 'Martin':
+    out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
+if user == 'Ronan':
+    out_path = 'D:/Users/abherve/TEST/'
+
+####################################################
+
 # Path to the git repositoty home page
 git_path = DIR
 # Path to the test folder
-test_path = git_path + "/examples/_example/"
-# Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER) #JR: à sortir dans les paramètres
-out_path = "D:/results/HydroModPy/"          #JR:Parameters
-# out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
-# out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
-####################################################
+test_path = git_path + "/tests/1_given data/"
 
 # We suggest that data be stored in the following suite of specific folders
 # 1 folder for each of the type of data and "process" to be simulated
@@ -96,8 +105,7 @@ intermittency_path = test_path + 'intermittency/'
 hydrometry_path = test_path + 'hydrometry/'
 piezometry_path = None                      # add piezometry data or nothing for automatic download
 geology_path = None                         # add geologic layers
-#RONAN: uniformiser les notations pour oceanic_path
-oceanic_path = 'None'                       # add specific sea level files
+oceanic_path = 'None'                         # add specific sea level files
 
 # Specifically designed to process SURFEX data (France scale)
 surfex_path =  None # add surfex models in .h5 format
@@ -124,7 +132,6 @@ mysite = library[library['watershed_name'] == watershed_name] # specific row
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-
 #%% GENERATING WATERSHED
 
 # If watershed has already been generated, used the generated one instead of recreating it
@@ -149,8 +156,6 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_xy=from_xy,
                               cell_size=cell_size)
 
-print('##### '+watershed_name.upper()+' #####')
-
 #%% ADD SPECIFIC DATA
 
 # Specify the hydrologic layers to clip
@@ -165,9 +170,6 @@ BV.add_oceanic(oceanic_path)
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
-
-# except:
-#     print('There is a problem to generate the watershed object')
 
 #%% SET PARAMETERS
 
@@ -208,6 +210,7 @@ model_name = sim_state
 model_name = 'test'
 
 #%% RUN MODEL
+
 # Launch a model
 
 success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True,
@@ -245,7 +248,7 @@ print('Result chronics extraction completed')
 from tools import toolbox, vtk
 vtk.VTK(BV, model_name)
 visu = visualization.Visualization(BV, model_name)
-visu.visual3D(interactive=False,
+visu.visual3D(interactive=True,
               object_list=['grid','watertable', 'watertable_depth','pathlines', 'surface_flow', 'drain_flow'],
               view='south-west', lines=200, cloc=(0.7,0.1))
 

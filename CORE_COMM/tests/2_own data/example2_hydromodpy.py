@@ -31,20 +31,20 @@ warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", ca
 warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
                  
-# HYDROMODPY MODULES
-                    
+# Modules
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 from calibration import calib_root
 
-# LAYOUT PLOT
-
+# Layout
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-user = 'Martin'
+############################################
+user = 'Ronan'
+############################################
 
 if user == 'Alexandre':
     # # Path to the git repositoty home page
@@ -69,7 +69,15 @@ if user == 'Ronan':
     data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
     # Path where the results will be stored
     out_path = "D:/Users/abherve/TEST/"
-    
+
+if user == 'Jean-Raynald':
+    # Path to the git repositoty home page
+    git_path = ""
+    # Path to the data folder
+    data_path = ""
+    # Path where the results will be stored
+    out_path = "D:/results/HydroModPy/"
+
 if user == 'Clément':
     # Path to the git repositoty home page
     git_path = ""
@@ -149,10 +157,11 @@ dem_path = dems_path + dem_name
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'  # necessary for plots
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -176,6 +185,9 @@ if watershed_name != 'Conceptual':
             BV.add_piezometry()
         if subbasin_path == True:
             BV.add_subbasin()
+            
+BV.add_hydrodynamic()
+BV.add_forcing()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
@@ -279,16 +291,13 @@ success, flow_model = BV.run_modflow(ident=model_name,
                 cond_decay=cond_decay,
                 verbose=verbose)
 
-BV.matrix_modflow(success, flow_model)
+BV.matrix_modflow(success, flow_model,
+                  accumulation_flux=True)
 
 # Extract results
 BV.results_modflow(ident=model_name,
                    actual_date=actual_date,
-                   start=start,
                    time_step=time_step)
-
-# x = imageio.imread('D:/Users/abherve/TEST/Conceptual/results_stable/geographic/watershed_dem.tif')
-# plt.imshow(x)
 
 #%% 3D VISUALIZATION
 
@@ -296,7 +305,7 @@ from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 
 # 3D parameters
-list_view = ['pathlines','drain_flow'] # object to represent in 3D
+list_view = ['watertable_depth','surface_flow'] # object to represent in 3D
 interactive = True
 z_scale = 10
 view = 'south-west'
@@ -307,17 +316,17 @@ visu = visualization.Visualization(BV, model_name)
 visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, view=view,
               lines=lines, cloc=(0.7,0.1))
 
-#%% 2D MAP VIEW
+#%% 2D VISUALIZATION
 
-from groundwater_flow import visualization, modflow_display
-
-freq_interv = 12 # number of tim_step to take account in intermittency check
-save_gif = True # save a gif after plots
-
-# if sim_state=='transient':
-modflow_display.SurfaceOutputs(R, simulations_folder, stable_folder, model_name, 
-                               types_obs, save_gif=save_gif,
-                               outflow=True, intermittency=False, sim_state=sim_state)
+from tools import vtk
+from groundwater_flow import visualization
+#☻vtk.VTK(BV, 'modflow')
+visu = visualization.Visualization(BV, 'steady')
+visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth','drain_flow',
+                             'surface_flow','pathlines', 'residence_times'],
+              color_scale = [(None,None),(None,None),(None,None),(0,10),
+                             (None,None),(None,None),(None,None),(None,None)], 
+              lines=300)
 
 #%% 2D CROSS-SECTION
 
@@ -332,26 +341,7 @@ else:
 
 modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
-#%% CALIBRATION
-
-test_calib = True
-
-# Example of calibration from stream network
-if test_calib==True:
-    BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
-    BV.hydrodynamic.update_thickness(30)
-    BV.hydrodynamic.update_porosity(0.1)
-    BV.hydrodynamic.update_hyd_cond(4.26)
-    params_file = data_path + 'calib/calib_params.csv'
-    calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-    calib.exploration(resolution=50)
-
-#%% NOTES
-
-# library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
-# mysite = library[library['watershed_name'] == watershed_name] # specific row
-
-#%% PLOT 2D
+#%% PLOT RAW OUTFLOW
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -359,8 +349,9 @@ from matplotlib.colors import LightSource
 from matplotlib.colors import LogNorm
 
 lead_numb = '0'
-outflow = imageio.imread('C:/Users/Martin/Desktop/Travail/HydroModPy/output/Outlet/results_simulations/steady/_watershed/_tifs/outflow_drain_t(0).tif')
-demData = BV.geographic.dem_data
+outflow = imageio.imread(simulations_folder+'steady/_watershed/_tifs/accumulation_flux_t(0).tif')
+demData = imageio.imread(BV.geographic.watershed_dem)
+demData = np.ma.masked_array(demData, mask=demData<0)
 res = 100
 
 msk_outflow = (outflow<0)
@@ -376,8 +367,9 @@ rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=re
 fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
 ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)
-im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='jet_r', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+im = ax.imshow(demData, alpha=0.8, cmap=cmap)
+# im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+cf=ax.imshow(outflow, cmap='plasma_r', alpha=1, vmin=outflow.min(), vmax=outflow.max())
 # cf=ax.imshow(outflow, cmap='jet_r', alpha=1, norm = LogNorm(vmin=outflow.min(), vmax=outflow.max()))
 
 divider = make_axes_locatable(ax)
@@ -385,8 +377,8 @@ cax = divider.append_axes("right", size="1%", pad=0.05)
 fig.add_axes(cax)
 cbar = fig.colorbar(im, cax=cax, orientation="vertical")
 val = np.ma.masked_where(demData < 0, demData)
-minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+minVal =  int(round(np.nanmin(val[np.nonzero(val)],0)))
+maxVal =  int(round(np.nanmax(val[np.nonzero(val)],0)))
 meanVal = int(round(minVal+((maxVal-minVal)/2),0))
 cbar.set_ticks([minVal, meanVal, maxVal])
 cbar.set_ticklabels([minVal, meanVal, maxVal])
@@ -407,15 +399,31 @@ plt.tight_layout()
 
 # plt.savefig(self.pngdir + name_fig)
 
-#%% 2D VISUAL
+#%% EXPLORATION CALIBRATION TEST
 
-from tools import vtk
-from groundwater_flow import visualization
-#☻vtk.VTK(BV, 'modflow')
-visu = visualization.Visualization(BV, 'steady')
-visu.visual2D(object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow',
-                             'surface_flow','pathlines', 'residence_times'],
-              color_scale = [(None,None),(None,None),(0,35),(0,10),
-                             (None,None),(None,None),(None,None),(None,None)], 
-              lines=300)
+test_exploration = False
+test_dichotomy = True
+
+# Example of calibration from stream network
+    
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic', first_year = 2015, last_year=2019, time_step = 'D', sim_state='steady')#
+
+BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.1)
+
+# Necessary to put .csv parameter files of "params_file" in your "calibration_folder"
+
+if test_exploration == True:
+
+    params_file = calibration_folder + 'calib_explo_hom_1v_k1'
+    calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+    calib.exploration(resolution=10)
+
+if test_dichotomy == True:
+
+    params_file = calibration_folder + 'calib_dicot_hom_1v_k1'
+    calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+    calib.dichotomy(gap=1)
+
+#%% NOTES
 

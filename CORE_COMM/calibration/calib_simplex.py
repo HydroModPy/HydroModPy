@@ -10,7 +10,7 @@ import numpy as np
 from scipy.optimize import minimize, Bounds
 import time
 
-from calibration import global_parameters as gp                          
+# from calibration import global_parameters as gp                          
 from calibration import calib_basis as calbas
 
 #%% CLASS
