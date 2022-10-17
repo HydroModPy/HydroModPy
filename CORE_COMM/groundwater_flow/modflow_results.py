@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 18 10:06:46 2022
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 # Modules
 import flopy
@@ -26,9 +26,12 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 from tools import toolbox
 
-#%% Extract results
+#%% CLASS
 
 class Results:
+    
+    #%% INIT
+    
     def __init__(self, geographic, recharge=250, runoff=25, actual_date=True, model_name='modflow_model',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
@@ -127,6 +130,8 @@ class Results:
                   self.extract_results(dem_clip, time, recharge, runoff, save_file)
         except:
             pass
+    
+    #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
     
     def extract_results(self, dem_clip, time, recharge, runoff, save_file):
         
@@ -281,21 +286,5 @@ class Results:
         
         return self.mfdata
         
-#%% Notes
+#%% NOTES
 
-# def bla (self, npy_list, zones_list):
-#     for npy in npy_list:
-#         x = np.load(os.path.join(self.save_file, npy+'.npy'), allow_pickle=True).item()
-#         for key in x:
-#             for zone in zones_list:
-#                 toolbox.create_folder(os.path.join(self.simulations_folder, '_zones', zone)) 
-#                 dem_clip = imageio.imread(os.path.join(self.zones_folder, zone, 'watershed_dem.tif'))
-#                 masked = toolbox.mask_by_dem(x[key], dem_clip, '==', -99999)
-#                 calc = np.nanmean(masked)
-#                 return key, calc
-
-# if isinstance(self.recharge,(int,float)) == True:
-#     time = toolbox.date_range(self.start, 1, freq)
-# else:
-#     time = toolbox.date_range(self.start, len(self.recharge), freq)
-#     recharge = self.recharge.values

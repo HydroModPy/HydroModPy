@@ -1,44 +1,55 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 12 10:53:03 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
+
 import sys
 import pandas as pd
 import numpy as np
 import re
 import os
        
+#%% CLASS
 
 class CalibParams(): 
     
+    #%% INIT
+    
     def __init__(self, file_name, watershed):
         """ 
+        
         Constructor
         
         Arguments
         --------- 
+        
         """
+        
         # Parameter Values
         self.name = []
+        
         # Parameter Units 
         self.u = []
+        
         # Bounds of parameters
         self.p_init = []
         self.p_min = []
         self.p_max = []
         
-        #load param values
+        # Load param values
         self.load_param_values(file_name, watershed)
         #check if watershed.hydrodynamic.calib_zones matches with Parameter names
-        #self.check_param_values(watershed) # desactivate to clibrate global porosity with n zones of K
-        #Convert hydraulic conductivity values to log values
+        #self.check_param_values(watershed) # desactivate to calibrate global porosity with n zones of K
+        
+        #C onvert hydraulic conductivity values to log values
         self.convert_k_lin_to_log()
 
 
     def load_param_values(self, file_name, watershed):
-        """ 
+        """
+        
         Loads parameter file 
             From file called calib_params.csv
         File structure
@@ -52,14 +63,18 @@ class CalibParams():
             k : hydraulic conuctivity
             theta : porosity
             e : thickness
+            
         Argument
         --------
         file_name : str
             Name of the file
+            
         """
+        
         # Loads file in which parameters are stored
         file_path = os.path.join(watershed.calibration_folder, file_name+'.csv')
         temp = pd.read_csv(file_path, sep=',', header=0)
+        
         # Affects param_values to the distribution
         self.file_name = file_name
         self.name = temp.params.values
@@ -103,10 +118,13 @@ class CalibParams():
         
     def random_uniform(self,rng=None):
         """ 
+        
         Random uniform generation of lpm 
             Modifies self with unifom random generation of parameters 
             Parameters are drawn from get_param_interval()
+            
         """
+        
         # Gets parameter range
         res=(self.p_min, self.p_max); pmin = res[0]; pmax = res[1]
         # Generation of parameter within the range 
@@ -118,3 +136,5 @@ class CalibParams():
         # Loads parameters in self
         self.p_init = param
     
+#%% NOTES
+

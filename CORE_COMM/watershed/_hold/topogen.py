@@ -1,4 +1,9 @@
 # coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
 
 import numpy as np
 import xsimlab as xs
@@ -9,6 +14,8 @@ from fastscape.processes import (StreamPowerChannel, SurfaceToErode, UniformRect
 from osgeo import gdal
 
 import os
+
+#%% COMMENTS
 
 # Generates synthetic topographies using Fastscape library
 
@@ -40,11 +47,18 @@ import os
 #    out_steps    int    number of time steps that are kept in memory. Last step is always kept if out_steps > 0
 #    verbose      bool   whether to flood the terminal with a pretty progressbar and other superfluous stuff.
 
+#%% CLASS
+
 class Topo:
+    
+    #%% INIT
+
     def __init__(self, verbose=True, **kwargs):
         #self.parameters = kwargs
         self.setup(verbose=verbose, **kwargs)
         self.generate(verbose=verbose)
+
+    #%% FUNCTIONS
 
     def setup(self, uplift_rate=1e-3, k_coef=2e-6, area_exp=0.6, slope_exp=1.5, slope_limit=0.5, size=2.5e4, resolution=200, max_time=2e7, steps=500, out_steps=1, verbose=True): # Disabled: diffusivity=1e-1, uplift_target=500.
         
@@ -154,6 +168,8 @@ class Topo:
         self._make_raster(drainage_area, self.out_ds.drainage__area[step], type='drainage', time=time, dt=dt)
         self._make_raster(pointers, self.make_receiver_array(), type='receivers', time=time, dt=dt, dtype=gdal.GDT_Byte)
 
+#%% TREATMENTS
+
 def stabilize_slope(elev, slope_max):
     old_err = np.seterr(invalid='ignore') # Disable error for invalid square root
 
@@ -178,32 +194,6 @@ def stabilize_slope(elev, slope_max):
             np.seterr(**old_err) # Push old error settings back
             return elev
         elev = np.minimum(elev, elev_max)
-
-@xs.process
-class HillslopeLimit:
-    limit = xs.variable(description='maximal stable slope')
-
-    elevation = xs.foreign(SurfaceToErode, 'elevation')
-    dx = xs.foreign(UniformRectilinearGrid2D, 'dx')
-    #diff_erosion = xs.foreign(LinearDiffusion, 'erosion')
-    stream_erosion = xs.foreign(StreamPowerChannel, 'erosion')
-    erosion = xs.variable(
-        dims = ('y', 'x'),
-        intent='out',
-        groups='erosion',
-    )
-
-    def run_step(self):
-        elev = self.elevation - self.stream_erosion
-        hdiff_max = self.limit*self.dx
-        self.erosion = elev - stabilize_slope(elev, hdiff_max)
-
-model = basic_model
-model = model.drop_processes('diffusion')
-model = model.update_processes({
-    'slope': HillslopeLimit,
-    'flow': MultipleFlowRouter,
-})
 
 def make_pointer_array(pointers, weights, shape, multiple=True):
     X = shape[1]
@@ -244,3 +234,34 @@ def make_pointer_array(pointers, weights, shape, multiple=True):
                 pointer_bytes[i] = pointer_match[d]
 
     return pointer_bytes.reshape(shape)
+
+#%% CLASS 2
+
+@xs.process
+class HillslopeLimit:
+    limit = xs.variable(description='maximal stable slope')
+
+    elevation = xs.foreign(SurfaceToErode, 'elevation')
+    dx = xs.foreign(UniformRectilinearGrid2D, 'dx')
+    #diff_erosion = xs.foreign(LinearDiffusion, 'erosion')
+    stream_erosion = xs.foreign(StreamPowerChannel, 'erosion')
+    erosion = xs.variable(
+        dims = ('y', 'x'),
+        intent='out',
+        groups='erosion',
+    )
+
+    def run_step(self):
+        elev = self.elevation - self.stream_erosion
+        hdiff_max = self.limit*self.dx
+        self.erosion = elev - stabilize_slope(elev, hdiff_max)
+
+model = basic_model
+model = model.drop_processes('diffusion')
+model = model.update_processes({
+    'slope': HillslopeLimit,
+    'flow': MultipleFlowRouter,
+})
+
+#%% NOTES
+

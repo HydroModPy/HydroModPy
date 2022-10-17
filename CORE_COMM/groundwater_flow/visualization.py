@@ -1,3 +1,9 @@
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import vedo
 import numpy as np
 from datetime import datetime
@@ -15,11 +21,17 @@ import contextily as cx
 
 from tools import toolbox
 
+#%% CLASS
 
 class Visualization():
+    
+    #%% INIT
+    
     def __init__(self, watershed, modelname):
         self.watershed = watershed
         self.modelname = modelname
+    
+    #%% 3D
     
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', bg = 'lb',
                  interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1,
@@ -49,7 +61,7 @@ class Visualization():
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
                                           yzGrid=False), size=size)
 
-        # load files
+        # Load files
         contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_watershed_contour.vtk'))
         contour.scale([1,1,z_scale])
         contour.color('k').lw(2)
@@ -215,12 +227,13 @@ class Visualization():
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         
-        
         if interactive == True:
             plt.show(interactive=1,interactorStyle=6).close()
         else:
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed_fig','3Dvisual.png')).close()
-
+    
+    #%% 2D
+            
     def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines','residence_times'], 
                  color_scale = None, time_step = 0, lines=100, structure = 'v'):
        
@@ -469,6 +482,6 @@ class Visualization():
                             bbox_inches='tight', transparent=False)
         plt.show()
 
-        
+#%% NOTES        
         
         
