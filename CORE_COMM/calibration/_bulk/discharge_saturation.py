@@ -6,7 +6,7 @@ Created on Fri Jan 21 15:13:17 2022
 """
 
 #%% Compare obs
-"""
+
     def compar_discharge_chronic(self):
                 
         ### OBSERVED DISCHARGE
@@ -142,4 +142,3 @@ Created on Fri Jan 21 15:13:17 2022
                 ax.xaxis.set_major_formatter(yearsFmt)
                 
             return obs_data, sim_data, df_stats, mask_name
-"""

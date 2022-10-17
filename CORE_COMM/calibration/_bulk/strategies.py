@@ -48,7 +48,7 @@ class CalibStrategies:
         
         self.load_strategies()
         self.check_strategies(BV)
-        self.strategies = pd.read_csv('calib_strats.csv')
+        self.strategies = pd.read_csv('strategies.csv')
         
     def check_strategies(self, BV):
         """
