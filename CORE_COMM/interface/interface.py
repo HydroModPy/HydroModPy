@@ -40,7 +40,6 @@ class MyApp(QMainWindow):
         self._createToolBars()
         self._createStatusBar()
 
-
     def _createMenuBar(self):
         menuBar = self.menuBar()
         # Creating menus using a QMenu object
@@ -80,7 +79,6 @@ class MyApp(QMainWindow):
         self.statusbar = self.statusBar()
         # Adding a temporary message
         self.statusbar.showMessage("Ready", 3000)
-
 
     def _createToolBars(self):
         # Using a title
@@ -146,9 +144,6 @@ class MyApp(QMainWindow):
         m.save(data, close_file=False)
         self.view.setHtml(data.getvalue().decode())
 
-    
-
-
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     #app.setStyleSheet('''QWidget {font-size: 3px;}''')
@@ -160,25 +155,4 @@ if __name__ == '__main__':
         sys.exit(app.exec_())
     except SystemExit:
         print('Closing Window...')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

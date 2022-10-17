@@ -452,10 +452,11 @@ recharge = 2 / 365 # mm/s to m/j
 Sy = 0.1
 
 # Hydraulic cond.
-k1 = 2.4e-7
+k1 = 2.4e-7 / 10
 # k2 = 2.4e-7
-k2 = 2.4e-7 / 10
+# k2 = 2.4e-7 / 10
 # k2 = 2.4e-7 * 10
+k2 = 2.4e-7
 thick_k2 = 45
 Koptim = k1 # "k2"
 cond_decay = 0 # exponential decay of K with depth
@@ -465,11 +466,12 @@ cond_decay = 0 # exponential decay of K with depth
 verti_k = [ [k2 * 3600 * 24, [0, thick_k2]] ] # "k1", or None
 # verti_k = None # "k1", or None
 
-case_list = ['case1', 'case2', 'case3', 'case4']
+case_list = ['case1', 'case2', 'case3', 'case4', 'case5']
 
-typ = case_list[3]
+num_case = 5
+typ = case_list[num_case-1]
 
-typ = 'verif'
+# typ = 'verif'
 
 #%% RUN MODEL
 
@@ -577,7 +579,7 @@ dd.io.save(h5file, dictio)
                         
 #%% POSTPROCESS MODEL
 
-for typ in case_list:
+for typ in case_list[4:5]:
 
     for watershed_name in watershed_names[:] :
         
@@ -647,7 +649,7 @@ for typ in case_list:
 
 #%% STEADY 2D CROSS INTERAC
 
-for typ in case_list:
+for typ in case_list[4:5]:
 
     for watershed_name in watershed_names[:]:
         
@@ -672,7 +674,7 @@ for typ in case_list:
 
 #%% STEADY 2D MAP VIEW
 
-for typ in case_list:
+for typ in case_list[4:5]:
 
     for watershed_name in watershed_names[:]:
     
@@ -724,7 +726,7 @@ visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, v
 
 #%% CHOICE
 
-typ = 'case4'
+typ = 'case5'
 
 #%% ---- LOAD DATA
 

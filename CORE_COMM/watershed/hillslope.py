@@ -57,7 +57,10 @@ class Hillslope:
         
         # Equivalent hillslope
         self.equivalent_hillslope()
-        
+
+    
+    #%% FUNCTIONS
+    
     def extract_hillslopes(self, direc, stream, watershed, gis_path):
         
         # Generate hillslopes from regional stream network and flux direction
