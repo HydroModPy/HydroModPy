@@ -459,8 +459,7 @@ class Watershed :
         #MARTIN self.save_object()
         
     def add_hydrodynamic(self):
-        # self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
-        self.hydrodynamic = hydrodynamic.Hydrodynamic()
+        self.hydrodynamic = hydrodynamic.Hydrodynamic(nrow=self.geographic.y_pixel, ncol=self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
         #self.hillslope = hillslope() #1D Doesn't exist
         #MARTIN self.save_object()
