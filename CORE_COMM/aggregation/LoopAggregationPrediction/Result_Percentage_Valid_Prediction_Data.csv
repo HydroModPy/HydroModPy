@@ -1,0 +1,73 @@
+Scale;Number of Rates;Features;Number of Cases;Number of Replication;Percentage of Overestimation Predictions
+BVE;9;Geomorphology;5;100;26.4
+BVE;9;Geomorphology;10;100;26.6
+BVE;9;Geomorphology;15;100;25.6
+BVE;9;Geomorphology;20;100;23.25
+BVE;9;Geomorphology;25;100;22.48
+BVE;9;Geomorphology;30;100;
+BVE;9;Geomorphology;35;100;
+BVE;9;Geomorphology;40;100;
+BVE;9;Geomorphology;45;100;
+BVE;9;Geomorphology + Vulnerability;5;100;28.2
+BVE;9;Geomorphology + Vulnerability;10;100;24.0
+BVE;9;Geomorphology + Vulnerability;15;100;23.47
+BVE;9;Geomorphology + Vulnerability;20;100;20.95
+BVE;9;Geomorphology + Vulnerability;25;100;19.96
+BVE;9;Geomorphology + Vulnerability;30;100;
+BVE;9;Geomorphology + Vulnerability;35;100;
+BVE;9;Geomorphology + Vulnerability;40;100;
+BVE;9;Geomorphology + Vulnerability;45;100;
+BVE;30;Geomorphology;5;100;41.8
+BVE;30;Geomorphology;10;100;39.5
+BVE;30;Geomorphology;15;100;39.53
+BVE;30;Geomorphology;20;100;40.85
+BVE;30;Geomorphology;25;100;43.64
+BVE;30;Geomorphology;30;100;
+BVE;30;Geomorphology;35;100;
+BVE;30;Geomorphology;40;100;
+BVE;30;Geomorphology;45;100;
+BVE;30;Geomorphology + Vulnerability;5;100;42.4
+BVE;30;Geomorphology + Vulnerability;10;100;39.8
+BVE;30;Geomorphology + Vulnerability;15;100;40.13
+BVE;30;Geomorphology + Vulnerability;20;100;39.95
+BVE;30;Geomorphology + Vulnerability;25;100;37.08
+BVE;30;Geomorphology + Vulnerability;30;100;
+BVE;30;Geomorphology + Vulnerability;35;100;
+BVE;30;Geomorphology + Vulnerability;40;100;
+BVE;30;Geomorphology + Vulnerability;45;100;
+SUB;9;Geomorphology;5;100;29.8
+SUB;9;Geomorphology;10;100;24.1
+SUB;9;Geomorphology;15;100;23.73
+SUB;9;Geomorphology;20;100;21.45
+SUB;9;Geomorphology;25;100;20.88
+SUB;9;Geomorphology;30;100;18.93
+SUB;9;Geomorphology;35;100;17.57
+SUB;9;Geomorphology;40;100;16.53
+SUB;9;Geomorphology;45;100;14.93
+SUB;9;Geomorphology + Vulnerability;5;100;30.8
+SUB;9;Geomorphology + Vulnerability;10;100;24.1
+SUB;9;Geomorphology + Vulnerability;15;100;23.87
+SUB;9;Geomorphology + Vulnerability;20;100;22.55
+SUB;9;Geomorphology + Vulnerability;25;100;21.32
+SUB;9;Geomorphology + Vulnerability;30;100;19.87
+SUB;9;Geomorphology + Vulnerability;35;100;18.71
+SUB;9;Geomorphology + Vulnerability;40;100;18.93
+SUB;9;Geomorphology + Vulnerability;45;100;17.47
+SUB;30;Geomorphology;5;100;33.6
+SUB;30;Geomorphology;10;100;35.6
+SUB;30;Geomorphology;15;100;34.4
+SUB;30;Geomorphology;20;100;33.05
+SUB;30;Geomorphology;25;100;31.32
+SUB;30;Geomorphology;30;100;32.43
+SUB;30;Geomorphology;35;100;31.2
+SUB;30;Geomorphology;40;100;31.77
+SUB;30;Geomorphology;45;100;31.47
+SUB;30;Geomorphology + Vulnerability;5;100;34.0
+SUB;30;Geomorphology + Vulnerability;10;100;35.3
+SUB;30;Geomorphology + Vulnerability;15;100;33.87
+SUB;30;Geomorphology + Vulnerability;20;100;33.9
+SUB;30;Geomorphology + Vulnerability;25;100;31.28
+SUB;30;Geomorphology + Vulnerability;30;100;32.03
+SUB;30;Geomorphology + Vulnerability;35;100;30.91
+SUB;30;Geomorphology + Vulnerability;40;100;30.23
+SUB;30;Geomorphology + Vulnerability;45;100;29.76
