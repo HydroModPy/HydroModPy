@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep  9 20:10:52 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
 
 # Modules
 import geopandas as gpd
@@ -16,11 +16,12 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
 wbt.verbose = False
+import codecs
 
 # HydroModPy modules
 from tools import file_adds
 
-#%% Functions potentially 
+#%% POTENTIAL FUNCTIONS
 
 def aggregate_raster(dem_path, output_dem_path, new_xres, new_yres):
     inDs = gdal.Open(dem_path)
@@ -40,7 +41,7 @@ def coord_from_pixel(file,dx,dy):
     return x,y
 coord_from_pixel(500,1000)
 
-def pixel_from_coord(file,dx,dy):
+def pixel_from_coord(file,dx,dy,pix):
     px = file.GetGeoTransform()[0]
     py = file.GetGeoTransform()[3]
     rx = file.GetGeoTransform()[1]
@@ -66,8 +67,9 @@ def linregress(inx,iny):
     lenght_reg = [[xf.min(),xf.max()],[yf.min(),yf.max()]]
     return (center_x, center_y, slope, intercept, r_value, p_value, std_err, lenght_reg)
 
-#%%   
-    
+#%% PROBABILITY DENSITY FUNCTIONS
+
+"""
 qh = pdf[idx].flatten('F')
 LBINS = 50
 # No log
@@ -78,8 +80,9 @@ bins_lin_centers = 0.5*(bins_lin[1:]+bins_lin[:-1])
 logbins = np.logspace(np.log10(qh.max())-3,np.log10(qh.max()),LBINS)
 hist_log, bins_log = np.histogram(qh, bins=logbins, density=True)
 bins_log_centers = 10**(0.5*(np.log10(bins_log[1:])+np.log10(bins_log[:-1])))
+"""
 
-#%%
+#%% OPEN HTML AND EXTRACT DATA
 
 def data_html(path, html_object):
     html = codecs.open(path, 'r')
@@ -120,8 +123,9 @@ def data_html(path, html_object):
     
     return dataX, dataY, profil
 
-#%% 
-    
+#%% WHITEBOXTOOLS FUNCTIONS FOR HYDROGEOMORPHO
+
+"""
 ### Slope ###
 slope_path = path
 wbt.slope(dem_path, slope_path)
@@ -182,9 +186,11 @@ wbt.wetness_index(dinf_path, slope_path, wti_path)
 ##### Pennock #####
 pennock_path = path
 wbt.pennock_landform_class(fill_path, penok_path, slope=3.0, prof=0.1, plan=0.0, zfactor=1)
+"""
 
-#%%
+#%% CRETAE CROSS SECTION INTERACTIVE
 
+"""
 # Modules
 from IPython import get_ipython
 import matplitliv as plt
@@ -274,8 +280,9 @@ def on_move(event):
         h_prof.set_ydata(h_plot)
         fig.canvas.draw_idle()
 fig.canvas.mpl_connect('motion_notify_event', on_move)
+"""
 
-#%%
+#%% USING MAYAVI LIBRAY FOR 3D
 
 from mayavi import mlab
 
@@ -344,7 +351,7 @@ def mayavi_surf(topo_way, wt_way):
     surf_wt = mlab.surf(X, Y, dem_wt, colormap='binary', warp_scale=10, opacity=1)
     mlab.show(stop=True)
 
-#%%
+#%% FUNCTION USING MAYAVI LIBRARY
 
 def mayavi_create(path):
     # 1) opening maido geotiff as an array
@@ -394,7 +401,7 @@ def mayavi_plot(mode, output_save_path,
     if mode == 'show_fig':
         mlab.show(stop=True)
         
-#%%
+#%% TEST MAYAVI FOR 3D DISPLAY
         
 dem_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/calibration/analysis/Canut/gis/watershed_dem.tif"
 wt_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/calibration/analysis/Canut/dico_s_Canut_1_50_1165.473_0.001_0.688_0.01/watertable.tif"
@@ -402,6 +409,8 @@ wt_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/calibratio
 output_save_path = "D:/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/calibration/analysis/Canut/dico_s_Canut_1_50_1165.473_0.001_0.688_0.01"
 
 import matplotlib.pylab as pl
+import matplotlib.pyplot as plt
+
 dem, demX, demY = mayavi_create(dem_path)
 wt, wtX, wtY = mayavi_create(wt_path)
 # white = (1,1,1)
@@ -421,9 +430,5 @@ ax.axes.get_yaxis().set_visible(False)
 image3d = pl.imread(output_save_path)
 ax.imshow(image3d)
 
-#%%
-
-
-
-
+#%% NOTES
 

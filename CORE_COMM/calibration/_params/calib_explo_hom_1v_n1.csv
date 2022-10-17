@@ -1,0 +1,2 @@
+params;init_values;lower_bounds;higher_bounds;units;scale
+n1;0.01;0.001;0.30;m/j;lin

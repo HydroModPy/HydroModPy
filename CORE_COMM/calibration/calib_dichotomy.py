@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 18 14:22:05 2022
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 import copy as copy
 import numpy as np     
@@ -18,7 +18,11 @@ from calibration import calib_basis as calbas
 import matplotlib.pyplot as plt
 from calibration import tools_figures_additional as figadd        
 
+#%% CLASS
+
 class CalibrationDichotomy(calbas.CalibrationBasis):
+    
+    #%% INIT
     
     def __init__(self, calib_basis=None, gap=10):
         
@@ -31,7 +35,9 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         self.recharge = self.watershed.forcing.recharge
         
         # print(self.recharge)
-        
+    
+    #%% UPDATE
+    
     def update_calibbasis(self,calib_basis): 
         """
         Updates parent class CalibrationBasis with calib_basis
@@ -44,9 +50,13 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         """
         super(CalibrationDichotomy,self).__dict__.update(calib_basis.__dict__)
     
+    #%% PERFORM
+    
     def perform(self):
         dichotomy_results = self.__Dichotomy()
         return dichotomy_results
+    
+    #%% METHOD
     
     def __Dichotomy(self):
         
@@ -118,3 +128,5 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         
         return indicator
         
+#%% NOTES
+

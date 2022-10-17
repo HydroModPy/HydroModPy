@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar 24 20:35:54 2021
 
-@author: dreuzy
 """
+
+#%% LIBRAIRIES
 
 import pickle
 import numpy as np
@@ -17,8 +17,11 @@ from calibration import calib_objective_function, calib_params
 
 from tools import toolbox
 
+#%% CLASS
+
 class CalibrationBasis: 
     """ 
+    
     Class for the calibration of a LPM of type LPM_type on sampled concentrations in "concentration_sampled
         Only the formulation of the problem 
         Calibration methods are defined in daughter classes 
@@ -35,11 +38,15 @@ class CalibrationBasis:
         Tracers and Convolution method (affected by the constructor)
     
     Methods
+    -------
     
     """
 
+    #%% INIT
+
     def __init__(self, file_name, watershed, observations, calibration_folder):
         """ 
+        
         Constructor
         
         Parameters
@@ -52,7 +59,9 @@ class CalibrationBasis:
             Directory for the storage of results
         directory_lpm: str
             Directory of lpm details #JR 05/08: no longer used? Obsolete
+            
         """
+        
         self.params = calib_params.CalibParams(file_name, watershed)
         self.watershed = watershed
         self.observations = observations
@@ -84,9 +93,12 @@ class CalibrationBasis:
         
         self.dic_simulated_results = {}
         self.params_synt = []
-        
+
+    #%% CALL OBJECTIVE FUNCTIONS
+    
     def objective_function(self, params):
         """
+        
         Updates values of parameters according to params
             Should be separated from objective function 
 
@@ -103,11 +115,14 @@ class CalibrationBasis:
         """
         
         # self.parameters.append(params)
-        # print(params)
+
         # Heterogeneity of hydraulic conductivities: 
         # Updates the (hydraulic conductivies, porisities, thicknesses)
         #   of the grid according to the geological zones defined 
         # Would also be possible externally to calibration
+        
+        #%% MODEL PARAMS
+        
         for i in range(0,len(self.params.name)):
             if self.params.name[i][0] == 'k':
                 # Update hydrodynamic parameters
@@ -125,6 +140,8 @@ class CalibrationBasis:
                 # Update hydrodynamic parameters
                 self.watershed.hydrodynamic.update_thickness(params[i])
         
+        #%% RUN MODEL
+
         # Run model: seeks the parameters automatically in the elements of self.watershed
         succes, mf = self.watershed.run_modflow(self.ident, 
                                                 verbose=True, 
@@ -133,6 +150,9 @@ class CalibrationBasis:
         # Use objective function from the type of observation
         if succes == True:
             indicator = []
+            
+            #%% STREAMS
+
             if 'streams' in self.observations:
                 self.watershed.matrix_modflow(succes,
                        mf,
@@ -158,6 +178,8 @@ class CalibrationBasis:
                 self.data_obs['streams'].append(obs)
                 self.data_sim['streams'].append(sim)
             
+            #%% PIEZOMETRY
+
             if 'piezometry' in self.observations:
                 self.watershed.matrix_modflow(succes,
                        mf,
@@ -182,7 +204,9 @@ class CalibrationBasis:
                 self.data_ind['piezometry'].append(ind)
                 self.data_obs['piezometry'].append(obs)
                 self.data_sim['piezometry'].append(sim)
-                
+              
+            #%% HYDROMETRY
+
             if 'hydrometry' in self.observations:
                 self.watershed.matrix_modflow(succes,
                        mf,
@@ -219,6 +243,8 @@ class CalibrationBasis:
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
                 
+            #%% INTERMITTENCY  
+            
             if 'intermittency' in self.observations:
                 self.watershed.matrix_modflow(succes,
                        mf,
@@ -245,7 +271,9 @@ class CalibrationBasis:
                 self.data_sim['intermittency'].append(sim)
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
-            
+        
+        #%% INDICATORS SUM
+        
         if succes == False:
             indicator = np.inf
         try:
@@ -265,6 +293,8 @@ class CalibrationBasis:
             pass
         #Pondération entre les indicateurs à réaliser
         return np.sum(indicator)
+
+    #%% CREATE RESULTS CALIB FILE
 
     def write_results(self, name, obj_function, params_values, params_xyz):
         """ 
@@ -308,4 +338,6 @@ class CalibrationBasis:
             pickle.dump(store, config_dictionary_file)
         config_dictionary_file.close()
 
-        
+#%% NOTES
+
+

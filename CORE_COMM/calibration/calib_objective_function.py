@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 12 10:57:47 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
+
 #Modules
 import geopandas as gpd
 import pandas as pd
@@ -18,8 +19,11 @@ wbt.verbose = False
 #HydroModPy tools
 from tools import toolbox
 
+#%% CLASS 1
+
 class Streams:
     """ 
+    
     Class for the calibration based on river occurency
         
     Attributes
@@ -29,6 +33,8 @@ class Streams:
     ----------
     
     """
+
+    #%% INIT
 
     def __init__(self, 
                  watershed, 
@@ -48,7 +54,9 @@ class Streams:
         self.prepare_files()
         self.sim_to_obs()
         self.obs_to_sim()
-        
+    
+    #%% COMPARE SIMULATED TO OBSERVED
+    
     def prepare_files(self):
         #files are necessary for whiteboxtool
         # New folder results
@@ -113,8 +121,11 @@ class Streams:
         indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
         return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
+#%% CLASS 2
+
 class Piezometry:
     """    
+    
     Class for the model calibration based on piezometric data
     Attributes
     ----------
@@ -127,7 +138,9 @@ class Piezometry:
         returns mean value of store_indicator
     
     """
-
+    
+    #%% INIT
+    
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
@@ -135,6 +148,8 @@ class Piezometry:
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
+    
+    #%% COMPARE SIMULATED TO OBSERVED
     
     def load_modeling_data(self):
         #get piezometric data from model output
@@ -242,9 +257,12 @@ class Piezometry:
     def get_indicator(self):
         indicator = np.nanmean(self.store_indicator) #mean performance criterion value for all piezometers
         return indicator, self.y0, self.y1
-    
+
+#%% CLASS 3
+
 class Hydrometry:
     """ 
+    
     Class for the calibration based on river runoff data
         
     Attributes
@@ -255,6 +273,8 @@ class Hydrometry:
     
     """
 
+    #%% INIT
+
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
@@ -262,6 +282,8 @@ class Hydrometry:
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
+    
+    #%% COMPARE SIMULATED TO OBSERVED
     
     def load_modeling_data(self):
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
@@ -344,8 +366,11 @@ class Hydrometry:
         criteria = self.listing_indicator
         return indicator, self.y0, self.y1, criteria
     
+#%% CLASS 4
+
 class Intermittency:
-    """ 
+    """
+    
     Class for the calibration based on river intermittency
         
     Attributes
@@ -356,6 +381,8 @@ class Intermittency:
     
     """
 
+    #%% INIT
+
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
@@ -363,6 +390,8 @@ class Intermittency:
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
+    
+    #%% COMPARE SIMULATED TO OBSERVED
     
     def load_modeling_data(self):
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
@@ -379,3 +408,6 @@ class Intermittency:
 
     def get_indicator(self):
         return self.y1
+
+#%% NOTES
+

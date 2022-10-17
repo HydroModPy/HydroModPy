@@ -1,5 +1,9 @@
 # coding:utf-8
+"""
 
+"""
+
+#%% LIBRAIRIES
 
 import geopandas as gpd
 import pandas as pd
@@ -11,11 +15,22 @@ sys.path.append(df)
 
 from data import climatic_display
 
+#%% CLASS 1
+
 class Climatic:
+    
+    #%% INIT
     
     def __init__(self, out_path, surfex_path, watershed_shp):
         """
-
+        
+        Functions to clip .h5 SURFEX files at the model domain scale
+            Historical data from Quentin Courtois thesis ['OLD']
+            Historical reanalysis SAFRAN / SURFEX ['REA']
+            Climatic projection DAYON-2015 / SURFEX
+                ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+                 'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+            
         Parameters
         ----------
         out_path : TYPE
@@ -31,7 +46,6 @@ class Climatic:
 
         """
         
-
         data_folder = os.path.join(out_path, 'results_stable/climatic/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -42,10 +56,13 @@ class Climatic:
         print('Extraction des données climatiques')
         self.extract_cells_from_shapefile(surfex_path, watershed_shp)
         self.extract_values_from_h5file(data_folder, surfex_path)
-
+        
+    #%% CLIP DATA    
+    
     def extract_cells_from_shapefile(self, surfex_path, watershed_shp):
         """
-        extract cells
+        
+        Extract cells
 
         Parameters
         ----------
@@ -59,6 +76,7 @@ class Climatic:
         None.
 
         """
+        
         mesh_path = surfex_path + '/shapefile/maille_meteo_fr_pr93.shp'
         mask = gpd.read_file(watershed_shp , encoding="utf-8")
         mesh = gpd.read_file(mesh_path, encoding="utf-8") 
@@ -94,6 +112,8 @@ class Climatic:
                     except:
                         # print('None: '+sim)
                         pass
+
+    #%% DISPLAYS
 
     def display_all_variables(self, model=None, start='1960', end='2010'):
         mod_list = ['all','ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA','OLD']
@@ -137,9 +157,25 @@ class Climatic:
         else:
             climatic_display.display_anomaly(self.values,self.figure_folder, mod ,var, per_hist=per_hist, per_fut= per_fut)
 
+#%% CLASS 2
+
 class Merge:
     
+    #%% INIT
+    
     def __init__(self, out_path):
+        """
+    
+        Parameters
+        ----------
+        out_path : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
 
         self.variables = ['REC','RUN', 'ETP', 'PPT', 'TAS']
         self.scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
@@ -163,7 +199,9 @@ class Merge:
         self.base = pd.DataFrame(index=date, columns=columns)
         
         self.df_climate_bv()
-        
+    
+    #%% MERGE ALL DATA IN CSV
+    
     def df_climate_bv(self):
         for var in self.variables:
             df = self.base.copy()
@@ -214,3 +252,6 @@ class Merge:
         dfd = pd.concat([dfd, eff], join='inner', axis=1)
         dfd = dfd.apply(pd.to_numeric)
         dfd.to_csv(self.data_folder+'_ALL_D.csv', sep=';')
+
+#%% NOTES
+

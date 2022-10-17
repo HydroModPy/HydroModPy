@@ -1,4 +1,10 @@
 # coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import os
 import urllib
 import zipfile
@@ -21,8 +27,9 @@ from datetime import datetime
 # Hydromodpy
 from tools import toolbox
 
+#%% CLASS
+
 class Piezometry:
-    
     """ 
         
     Attributes
@@ -37,8 +44,12 @@ class Piezometry:
         list of y-index of model cells corresponding to piezometers
 
     Methods
+    -------
     
     """
+    
+    #%% INIT
+    
     def __init__(self, out_path, geographic):
         print('Extraction des données piézomètriques')
         data_folder = os.path.join(out_path,'results_stable','piezometric')
@@ -59,14 +70,16 @@ class Piezometry:
         self.depth_well = []
         self.elevation_well = []
         try:
-            self.exctract_piezos_from_watershed(data_folder, geographic)
+            self.extract_piezos_from_watershed(data_folder, geographic)
         except:
             pass
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
         if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
             self.extract_data_from_code_bss(data_folder)
         self.load_piezometric_data(data_folder)
-
+    
+    #%% DOWNLOAD PIEZOMETERS ID AT FRANCE SCALE
+    
     def download_init_data(self,data_folder, geographic):
         #ADES continue data
         filename = os.path.join(data_folder, 'piezometers.zip')
@@ -113,8 +126,9 @@ class Piezometry:
         gdf.to_file(os.path.join(folder,"BSS.shp"))
         os.remove(os.path.join(folder, bss_csv))
             
-            
-    def exctract_piezos_from_watershed(self,data_folder, geographic):
+    #%% CLIP DATA AT THE CATCHMENT SCALE
+    
+    def extract_piezos_from_watershed(self,data_folder, geographic):
         # ADES continue data
         watershed = gpd.read_file(geographic.watershed_box_shp)
         piezos_shp = os.path.join(data_folder, 'shapefile','point_eau_piezo.shp')
@@ -156,7 +170,9 @@ class Piezometry:
         bss.to_file(os.path.join(data_folder,'shapefile','piezos_discrete.shp'))
         
         return piezos
-        
+    
+    #%% DOWNLOAD PIEZOMETRY ON THE WEB 
+    
     def extract_data_from_code_bss(self,data_folder):
         for code in self.codes_bss:
             code_ = code.replace('_','/')
@@ -208,6 +224,8 @@ class Piezometry:
             elevation.columns = [code]
             self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
 
+    #%% ADD OWN MANUAL DATA
+
     def add_data(self):
         files = glob.glob(os.path.join(self.out_path, 'results_stable/add_data/piezometry_*.csv'))
         if len(files)>0:
@@ -231,7 +249,7 @@ class Piezometry:
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
             gdf.to_file(self.piezos_shp)
         
-    
+    #%% DISPLAY PLOT
     
     def display_data(self,value='elevation',start=None,end=None):
         fontprop = toolbox.plot_params(15,15,18,20)
@@ -256,10 +274,5 @@ class Piezometry:
         name_out = os.path.join(self.figure_folder,'plot')
         fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 
+#%% NOTES
 
-
-
-
-
-
-        

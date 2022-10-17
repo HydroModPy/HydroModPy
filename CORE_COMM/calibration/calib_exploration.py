@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar 24 20:35:54 2021
 
-@author: dreuzy
 """
+
+#%% LIBRAIRIES
 
 import threading
 import multiprocessing as mp
@@ -33,7 +33,11 @@ from datetime import datetime
 from calibration import tools_figures_additional as figadd                                     
 from calibration import calib_objective_function, calib_params, calib_exploration       
 
+#%% CLASS
+
 class CalibrationExploration(calbas.CalibrationBasis):
+    
+    #%% INIT
     
     def __init__(self, calib_basis=None, resolution=10, parallel=False):
         
@@ -44,7 +48,9 @@ class CalibrationExploration(calbas.CalibrationBasis):
             self.update_calibbasis(calib_basis)
             
         self.resolution = resolution
-        
+    
+    #%% UPDATE
+    
     def update_calibbasis(self, calib_basis): 
         """
         Updates parent class CalibrationBasis with calib_basis
@@ -57,25 +63,33 @@ class CalibrationExploration(calbas.CalibrationBasis):
         """
         super(CalibrationExploration,self).__dict__.update(calib_basis.__dict__)
     
+    #%% PERFORM
+    
     def perform(self):
         exploration_results = self.__Exploration()
         return exploration_results
 
+    #%% METHOD
 
     def __Exploration(self): 
         
         def systematic_sampling(pmin, pmax, nmodels):
-            """ Systematic sampling in the range of pmin-pmax
-                    Cartesian Product
-                Parameters
-                ----------
-                pmin: array of floats
-                    vector of min for each of the dimensions to investigate 
-                pmax: array of floats
-                    vector of max for each of the dimensions to investigate
-                nmodels: int
-                    total number of models to investigate
             """
+            
+            Systematic sampling in the range of pmin-pmax
+                Cartesian Product
+                
+            Parameters
+            ----------
+            pmin: array of floats
+                vector of min for each of the dimensions to investigate 
+            pmax: array of floats
+                vector of max for each of the dimensions to investigate
+            nmodels: int
+                total number of models to investigate
+                
+            """
+            
             # Number of parameters to vary for the cartesian product
             np = len(pmin)
             print('number of parameters: ' + str(np)) #martin
@@ -107,7 +121,6 @@ class CalibrationExploration(calbas.CalibrationBasis):
                 return [[i,j,k,l] for i in p1 for j in p2 for k in p3 for l in p4]
         
         """ 
-        A garder
         Build Objective Function 
         """
         
@@ -121,10 +134,11 @@ class CalibrationExploration(calbas.CalibrationBasis):
         
         for i in self.params.name:
             column_names.append(i)
+        
+        #%% PARAMETERS = 1
             
         if len(self.params.name) == 1 : 
                         
-            # 1 parameter
             # params = systematic_sampling(pmin, pmax, self.resolution)
             if self.params.name[0][0]=='k':
                 params = np.geomspace(pmin[0], pmax[0], self.resolution)
@@ -165,11 +179,11 @@ class CalibrationExploration(calbas.CalibrationBasis):
             # if self.params.name[0] == 'k':
             #     plt.xscale("log")
             # plt.savefig(os.path.join(self.directory_results,name),dpi=300)
-            
+           
+        #%% PARAMETERS = 2
+        
         elif len(self.params.name) == 2 : 
-                        
-            # 2 parameters            
-            
+                                    
             n = int(np.ceil(self.resolution**(1/2)))
             print('n = ' + str(n)) #martin
             # p1 = pmin[0] + (pmax[0] - pmin[0]) * np.arange(0,n+1) / n
@@ -215,11 +229,11 @@ class CalibrationExploration(calbas.CalibrationBasis):
             # plt.colorbar()            
             # Whatevert the dimension, saves figure
             # plt.savefig(os.path.join(self.directory_results,name),dpi=300)
-            
+        
+        #%% PARAMETERS > 2
+        
         elif len(self.params.name) > 2 : 
-            
-            # 3 parameters
-            
+                        
             for k in range(len(self.params.name)):
                 k1=(k+1)%len(self.params.name)
                 #k2=(k+2)%len(self.params.name)
@@ -246,6 +260,9 @@ class CalibrationExploration(calbas.CalibrationBasis):
                 # # Whatevert the dimension, saves figure
                 # plt.savefig(os.path.join(self.directory_results,name),dpi=300)
         
+        #%% WRITTING
+        
         self.write_results(name, obj_function, params_values, params_xyz)
 
+#%% NOTES
 

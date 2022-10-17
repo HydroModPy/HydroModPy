@@ -1,3 +1,10 @@
+# coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import os
 import numpy as np
 import pandas as pd
@@ -10,9 +17,17 @@ sys.path.append(df)
 
 from data import oceanic_display
 
+#%% CLASS
+
 class Oceanic:
+    
+    
+    #%% INIT
+    
     def __init__(self):
         self.MSL = None
+    
+    #%% FUNCTIONS
     
     def update_MSL(self, value):
         self.MSL = value
@@ -104,4 +119,6 @@ class Oceanic:
             oceanic_display.display_data(self.RMSL,self.figure_folder+'RMSL', values)
         if values =='RSL':
             oceanic_display.display_data(self.RSL,self.figure_folder+'RSL', values)
+
+#%% NOTES
 
