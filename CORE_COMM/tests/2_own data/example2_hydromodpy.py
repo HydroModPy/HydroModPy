@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 from osgeo import gdal, osr
 import matplotlib.pyplot as plt
+import glob
+import os
 
 # Gis
 import imageio
@@ -35,7 +37,7 @@ warnings.filterwarnings("ignore")
 from watershed import watershed_root, watershed_display
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
-from calibration import calib_root
+from calibration import calib_root, calib_analysis
 
 # Layout
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -424,6 +426,13 @@ if test_dichotomy == True:
     params_file = calibration_folder + 'calib_dicot_hom_1v_k1'
     calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
     calib.dichotomy(gap=1)
+    typ_calib = 'streams_calibration'
+    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                       key=os.path.getmtime)
+    name_file = list_path[-1].split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+    test = calib_analysis.CalibAnalysis(calib_file)
+    test.display_objective_function(save=None)
 
 #%% NOTES
 
