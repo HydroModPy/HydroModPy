@@ -168,10 +168,11 @@ class CalibrationBasis:
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
-                                               actual_date=True)
+                                               actual_date=True,
+                                               calib=self.param_folder)
                 obj_func = calib_objective_function.Streams(self.watershed, 
-                                   hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'),
-                                   calibration_folder=self.directory_results)
+                                                            hydrology_stable=os.path.join(self.watershed.stable_folder, 'hydrology'),
+                                                            calibration_folder=self.directory_results)
                 ind, obs, sim = obj_func.get_indicator()
                 indicator.append(ind)
                 self.data_ind['streams'].append(ind)

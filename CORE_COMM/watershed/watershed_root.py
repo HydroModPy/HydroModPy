@@ -747,7 +747,8 @@ class Watershed :
                                 model_name=ident,
                                 model_folder=model_folder)
         simulated_results = results.mfdata
-        return simulated_results
+        
+        # return simulated_results
 
     #%% MODEL HS1D                
     
