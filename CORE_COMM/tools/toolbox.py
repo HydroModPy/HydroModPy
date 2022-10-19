@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 18 09:16:58 2022
 
-@author: ronan
 """
+
+#%% Librairies
 
 import os
 import matplotlib.pyplot as plt
@@ -73,7 +73,7 @@ def date_range(start, periods, freq):
     time = pd.date_range(str(start), periods=periods, freq=freq)
     return time
 
-#%% Plot paramters
+#%% Plot parameters
 
 def plot_params(small,interm,medium,large):
     
@@ -154,7 +154,6 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     with rio.open(data_tif_path, 'w', **ras_meta) as dst:
         dst.write(data_to_tif, 1)
     
-      
 def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     raw_dem = gdal.Open(raw_dem_path)    
     warp = gdal.Warp(wgs_dem_path,raw_dem,dstSRS='EPSG:4326')
@@ -213,5 +212,6 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     # shp.to_crs(utm_crs)
     shp.to_file(out_shp_path)
     
-    
+#%% Notes
+
     
