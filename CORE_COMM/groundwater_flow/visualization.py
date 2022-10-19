@@ -264,19 +264,30 @@ class Visualization():
             pass
         
         # open the watertable elevation files
-        watertable_file = os.path.join(modelfolder,'_watershed','watertable_elevation.npy')
-        watertable_elevation = np.load(watertable_file, allow_pickle=True).item()
+        try:
+            watertable_file = os.path.join(modelfolder,'_watershed','watertable_elevation.npy')
+            watertable_elevation = np.load(watertable_file, allow_pickle=True).item()
+        except:
+            pass
         
-        watertable_depth_file = os.path.join(modelfolder,'_watershed','watertable_depth.npy')
-        watertable_depth= np.load(watertable_depth_file, allow_pickle=True).item()
-        
+        try:
+            watertable_depth_file = os.path.join(modelfolder,'_watershed','watertable_depth.npy')
+            watertable_depth= np.load(watertable_depth_file, allow_pickle=True).item()
+        except:
+            pass
         # open the drain flux files
-        drain_file = os.path.join(modelfolder,'_watershed','outflow_drain.npy')
-        drain_area = np.load(drain_file, allow_pickle=True).item()
+        try:
+            drain_file = os.path.join(modelfolder,'_watershed','outflow_drain.npy')
+            drain_area = np.load(drain_file, allow_pickle=True).item()
+        except:
+            pass
         
         # open the surface flux files
-        surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
-        surface_area = np.load(surface_file, allow_pickle=True).item()
+        try:
+            surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
+            surface_area = np.load(surface_file, allow_pickle=True).item()
+        except:
+            pass
         
         N = len(object_list)
         if structure == 'v':
