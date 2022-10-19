@@ -223,6 +223,8 @@ class CalibrationBasis:
                        verbose = True,
                        export_tif = True)
                 simulated_results = self.watershed.results_modflow(ident=self.ident,
+                                                                   recharge=self.watershed.forcing.recharge,
+                                                                   runoff=self.watershed.forcing.runoff,
                                                                    actual_date=True,
                                                                    calib=self.param_folder)
                 # print(simulated_results)

@@ -427,9 +427,7 @@ if test_exploration == True:
     test.display_objective_function(save=None)
 
 if test_dichotomy == True:
-
-#%%    
-
+   
     params_file = 'calib_dicot_hom_1v_k1'
     calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
     calib.dichotomy(gap=1)

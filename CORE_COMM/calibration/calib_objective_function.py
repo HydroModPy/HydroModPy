@@ -314,6 +314,7 @@ class Hydrometry:
             if codes != []:
                 for j in range(0,len(codes)):
                     code = codes[j].split('_')[1]
+                    
                     # area = float(codes[j].split('_')[4])
                     area=self.watershed.geographic.area
                     

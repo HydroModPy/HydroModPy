@@ -57,8 +57,9 @@ class Piezometry:
                 os.makedirs(data_folder)
         self.figure_folder = os.path.join(out_path,'results_stable','_figures','piezometric')
         if not os.path.exists(self.figure_folder):
-                os.makedirs(self.figure_folder)  
-        self.download_init_data(data_folder, geographic)
+            os.makedirs(self.figure_folder)  
+        if not os.path.exists(os.path.join(data_folder,'shapefile','BSS.shp')):
+            self.download_init_data(data_folder, geographic)
         self.out_path = out_path
         self.geo_x_coord = geographic.x_coord
         self.geo_y_coord = geographic.y_coord

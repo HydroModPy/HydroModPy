@@ -83,7 +83,7 @@ class CalibAnalysis:
         loc_data = np.where(self.obj_function == np.min(self.obj_function))
         self.best_data_obs = self.obj_function[loc_data[0][0]]
         self.best_data_sim = self.obj_function[loc_data[0][0]]
-        return(self.best_data_obs,self.best_data_sim)
+        return (self.best_data_obs,self.best_data_sim)
 
     #%% DISPLAY BEST
 
@@ -140,8 +140,11 @@ class CalibAnalysis:
                                figname=None)
             #plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             #plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-            self.find_best_2Dvalues()
-            plt.plot(self.p[0],self.p[1],'ow',markersize=10)
+            try:
+                self.find_best_2Dvalues()
+                plt.plot(self.p[0], self.p[1],'ow',markersize=10)
+            except:
+                pass
             levels = 1000
             #plt.contourf(X, Y, Z,levels,cmap='jet', shading='auto',vmax=vmax, vmin=vmin)
             if log == True:
