@@ -5,7 +5,8 @@ Created on Tue Sep 14 18:07:38 2021
 @author: Alexandre Gauvain
 """
 
-# Librairies
+#%% LIBRARIES
+
 import os
 import numpy as np
 import geopandas as gpd
@@ -16,7 +17,10 @@ import contextily as cx
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-# from colormap.colors import rgb2hex, hex2rgb
+try:
+    from colormap.colors import rgb2hex, hex2rgb
+except:
+    pass
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -27,6 +31,8 @@ from tools import toolbox
 # Parameters plot : v2.0 to classic customized
 # mpl.style.use('default')
 # mpl.rcParams.update(mpl.rcParamsDefault)
+
+#%% PLOT PRAMS
 
 # # # Classic
 mpl.style.use('classic')
@@ -76,6 +82,8 @@ plt.rcParams["font.family"] = "serif"
 fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
+
+#%% FUNCTIONS
 
 def watershed_local(regional_dem_path, BV):
     fontprop = toolbox.plot_params(8,15,18,20)
@@ -337,5 +345,5 @@ def watershed_zones(BV):
     fig.savefig(os.path.join(BV.figure_folder,'watershed_zones.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
 
-
+#%% NOTES
 

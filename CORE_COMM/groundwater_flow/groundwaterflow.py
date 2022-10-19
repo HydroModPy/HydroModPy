@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep 28 15:53:38 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
 
 import abc
 import os
@@ -12,7 +12,12 @@ import os
 import modflow
 import hs1d
 
+#%% CLASS
+
 class GroundwaterFlow(abc.ABC):
+    
+    #%% INIT
+    
     def __init__(self, geographic, program = 'modflow',
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom = None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
@@ -22,7 +27,6 @@ class GroundwaterFlow(abc.ABC):
                  exe = os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         """
         
-
         Parameters
         ----------
         geographic : TYPE
@@ -72,6 +76,8 @@ class GroundwaterFlow(abc.ABC):
                  exe = exe)
         if program == 'hs1d':
             hs1d
+
+    #%% Abstract Base Class
     
     @abc.abstractmethod
     def pre_processing(self):
@@ -95,4 +101,6 @@ class GroundwaterFlow(abc.ABC):
         generates output files
         
         """
-        pass 
+        pass
+    
+#%% NOTES

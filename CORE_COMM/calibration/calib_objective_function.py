@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 12 10:57:47 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
+
 #Modules
 import geopandas as gpd
 import pandas as pd
@@ -18,7 +19,23 @@ wbt.verbose = False
 #HydroModPy tools
 from tools import toolbox
 
+#%% CLASS 1
+
 class Streams:
+    """ 
+    
+    Class for the calibration based on river occurency
+        
+    Attributes
+    ----------
+    
+    Methods
+    ----------
+    
+    """
+
+    #%% INIT
+
     def __init__(self, 
                  watershed, 
                  hydrology_stable=None,
@@ -37,28 +54,32 @@ class Streams:
         self.prepare_files()
         self.sim_to_obs()
         self.obs_to_sim()
-        
+    
+    #%% COMPARE SIMULATED TO OBSERVED
+    
     def prepare_files(self):
+        #files are necessary for whiteboxtool
         # New folder results
         self.dichotomy_folder = os.path.join(self.calibration_folder, '_streams')
         toolbox.create_folder(self.dichotomy_folder)
         # Observed buff data
         self.buff_tif_obs = self.hydrology.tif_streams
         self.buff_pt_obs = self.hydrology.streams
-        # Mask observed
+        # Mask observed: raster of observed river occurency
         self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
         toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
-        # Obs to points
+        # Obs to points: vector (points) of river occurency from raster
         self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
         wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)  
-        # Mask seepage simulation
+        # Mask seepage simulation: raster of simulated river occurency
         tif_sim = os.path.join(self.results_folder,'_tifs', 'seepage_areas_t(0).tif')
         self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
         toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, True)
-        # Trace downslope obs
+        # Trace downslope obs: drawing of flow path from observed river to simulated ones with whitebox tool
         self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
         wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
        
+        # STREAMS: RONAN
     def sim_to_obs(self):
         # Distance of sim
         self.dist_sim_obs = os.path.join(self.dichotomy_folder, 'dist_sim_obs.tif')
@@ -100,7 +121,26 @@ class Streams:
         indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
         return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
+#%% CLASS 2
+
 class Piezometry:
+    """    
+    
+    Class for the model calibration based on piezometric data
+    Attributes
+    ----------
+    store_indocator: list of float
+        list of performance indicator for each piezometer
+        
+    Methods
+    ----------
+    get_indicator: float
+        returns mean value of store_indicator
+    
+    """
+    
+    #%% INIT
+    
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
@@ -109,37 +149,44 @@ class Piezometry:
         self.load_modeling_data()
         self.compare_sim_obs_data()
     
+    #%% COMPARE SIMULATED TO OBSERVED
+    
     def load_modeling_data(self):
+        #get piezometric data from model output
         self.watertable_elevation = np.load(os.path.join(self.param_folder, self.model ,'_watershed', 'watertable_elevation.npy'), allow_pickle=True).item()
         
     def compare_sim_obs_data(self):
         self.store_indicator = []
-        if isinstance(self.watershed.forcing.recharge, float) == False:
+        if isinstance(self.watershed.forcing.recharge, float) == False: #If recharge is not a float, simulation mode is transient
             try:
                 # df = self.watershed.piezometry.elevation.resample(self.watershed.forcing.freq).mean()
                 df = self.watershed.piezometry.elevation.resample(pd.infer_freq(self.watershed.forcing.recharge.index)).mean()
+                #Resampling of piezometric data where recharge data is available (mean piezometry is applied if piezometric frequency is higher than recharge one)
                 #df.index = df.index.to_period(self.watershed.forcing.freq)
             except:
                 sys.exit('watershed.forcing.recharge must be a chronicle Dataframe with date as index.')
             
             # Continue Data
-            for j in range(0,len(self.watershed.piezometry.codes_bss)):
+            for j in range(0,len(self.watershed.piezometry.codes_bss)): #loop on piezometers
                 sim=[]
-                for i in range(0,len(self.watertable_elevation)):
+                for i in range(0,len(self.watertable_elevation)): #loop on timesteps
                     sim.append(self.watertable_elevation[i][self.watershed.piezometry.y_iloc[j],self.watershed.piezometry.x_iloc[j]])
                 df_sim = pd.Series(sim, index=self.watershed.forcing.recharge.index, name='sim_' + self.watershed.piezometry.codes_bss[j])
                 df = df.merge(df_sim, left_index=True, right_index=True)
-                    
+                #Merging of simulated and observed piezometric data in a dataframe
                 y0 = df[self.watershed.piezometry.codes_bss[j]].values
                 y1 = df['sim_' + self.watershed.piezometry.codes_bss[j]].values
-                if j == 0:
-                    fig, ax = plt.subplots()
-                    df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
-                    df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
-                    #plt.plot(y0,y0-y1)
-                    plt.show()
+                #Test if can be deleted
                 
-                #modified
+                # if j == 0:
+                fig, ax = plt.subplots()
+                df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
+                #plt.plot(y0,y0-y1)
+                plt.legend()
+                plt.show()
+                
+                #Amplitude and mean level are computed for observed and simulated data time series
                 Aobs = (df.groupby(pd.Grouper(freq='1Y'))[self.watershed.piezometry.codes_bss[j]].max() - 
                      df.groupby(pd.Grouper(freq='1Y'))[self.watershed.piezometry.codes_bss[j]].min())
                 Asim = (df.groupby(pd.Grouper(freq='1Y'))['sim_' + self.watershed.piezometry.codes_bss[j]].max() - 
@@ -149,7 +196,8 @@ class Piezometry:
                 
                 y0 = np.asarray([hobs, Aobs.mean()])
                 y1 = np.asarray([hsim, Asim.mean()])
-                
+
+                # MARTIN: implementer un paramètre supplémentaire pour selectionner un critere de performance
                 ER = np.nansum(y0-y1)  # error 
                 ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
                 RELER = np.nansum(np.abs(y0-y1)/y0) # relative error 
@@ -158,7 +206,7 @@ class Piezometry:
                 BAL = (np.sum(y1)/np.sum(y0))*100 # balance
                 MSE = np.nanmean((y0-y1)**2) # mean square error 
                 RMSE = np.sqrt(np.nanmean((y0-y1)**2)) # root mean square error 
-                NSE = 1-( np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
+                NSE = 1-(np.sum((y1-y0)**2) / np.sum((y0-np.mean(y0))**2) ) # nash–sutcliffe efficiency                               
                 MARE = he.evaluator(he.mare, y1, y0)[0] # mean absolute relative error 
                 KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
                 PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
@@ -166,8 +214,8 @@ class Piezometry:
 
                 self.store_indicator.append(RMSE)
                             
-            self.y0 = df[[col for col in df if not col.startswith('sim_')]]
-            self.y1 = df[[col for col in df if col.startswith('sim_')]]
+            self.y0 = df[[col for col in df if not col.startswith('sim_')]] #storage of observed data
+            self.y1 = df[[col for col in df if col.startswith('sim_')]] #storage of simulated data
             
             #Discrete Data
             '''
@@ -186,7 +234,7 @@ class Piezometry:
             self.store_indicator.append(RMSE)
             '''
                 
-        if isinstance(self.watershed.forcing.recharge, float) == True:
+        if isinstance(self.watershed.forcing.recharge, float) == True: #if recharge data is a float, simulation is in permanent mode
             self.y0 = self.watershed.piezometry.elevation.mean().values.tolist()
             self.y1 = []
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
@@ -207,10 +255,26 @@ class Piezometry:
             self.store_indicator.append(RMSE)
             
     def get_indicator(self):
-        indicator = np.nanmean(self.store_indicator)
+        indicator = np.nanmean(self.store_indicator) #mean performance criterion value for all piezometers
         return indicator, self.y0, self.y1
-    
+
+#%% CLASS 3
+
 class Hydrometry:
+    """ 
+    
+    Class for the calibration based on river runoff data
+        
+    Attributes
+    ----------
+    
+    Methods
+    ----------
+    
+    """
+
+    #%% INIT
+
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
@@ -218,6 +282,8 @@ class Hydrometry:
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
+    
+    #%% COMPARE SIMULATED TO OBSERVED
     
     def load_modeling_data(self):
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
@@ -248,6 +314,7 @@ class Hydrometry:
             if codes != []:
                 for j in range(0,len(codes)):
                     code = codes[j].split('_')[1]
+                    
                     # area = float(codes[j].split('_')[4])
                     area=self.watershed.geographic.area
                     
@@ -300,7 +367,23 @@ class Hydrometry:
         criteria = self.listing_indicator
         return indicator, self.y0, self.y1, criteria
     
+#%% CLASS 4
+
 class Intermittency:
+    """
+    
+    Class for the calibration based on river intermittency
+        
+    Attributes
+    ----------
+    
+    Methods
+    ----------
+    
+    """
+
+    #%% INIT
+
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
         self.model = model
@@ -308,6 +391,8 @@ class Intermittency:
         
         self.load_modeling_data()
         self.compare_sim_obs_data()
+    
+    #%% COMPARE SIMULATED TO OBSERVED
     
     def load_modeling_data(self):
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
@@ -324,3 +409,6 @@ class Intermittency:
 
     def get_indicator(self):
         return self.y1
+
+#%% NOTES
+

@@ -1,3 +1,9 @@
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import vedo
 import numpy as np
 from datetime import datetime
@@ -15,14 +21,21 @@ import contextily as cx
 
 from tools import toolbox
 
+#%% CLASS
 
 class Visualization():
+    
+    #%% INIT
+    
     def __init__(self, watershed, modelname):
         self.watershed = watershed
         self.modelname = modelname
     
+    #%% 3D
+    
     def visual3D(self, object_list = ['grid', 'watertable'] , view = 'south-west', bg = 'lb',
-                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1, cloc=(0.65,0.75) , size=(1500,1080)):
+                 interactive = False, lines=100, z_scale=20, render=1, cscale = 'default', cmin = -1, cmax = 1,
+                 cloc=(0.65,0.75) , size=(1500,1080)):
         """
         3Dvisual shows the vtk objects from an interactive windows or a 
         screenshot.
@@ -48,7 +61,7 @@ class Visualization():
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
                                           yzGrid=False), size=size)
 
-        # load files
+        # Load files
         contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed', 'VTK','VTU_watershed_contour.vtk'))
         contour.scale([1,1,z_scale])
         contour.color('k').lw(2)
@@ -214,13 +227,14 @@ class Visualization():
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         
-        
         if interactive == True:
             plt.show(interactive=1,interactorStyle=6).close()
         else:
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname, '_watershed_fig','3Dvisual.png')).close()
-
-    def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines', 'residence_times'], 
+    
+    #%% 2D
+            
+    def visual2D(self, object_list = ['map','grid', 'watertable', 'watertable_depth','drain_flow','surface_flow','pathlines','residence_times'], 
                  color_scale = None, time_step = 0, lines=100, structure = 'v'):
        
         if len(object_list) == len(color_scale):
@@ -309,28 +323,42 @@ class Visualization():
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'drain_flow':
-                axs[i].set_title('Seepage rates, log(Q) [m/d]')
+                # axs[i].set_title('Seepage rates, log(Q) [m/d]')
+                axs[i].set_title('Seepage rates, Q [m/d]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
-                image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
-                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
+                #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, (drain)), 
+                              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(1)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
-                show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
+                #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
+                #      vmax=color_scale[i][1])
+                show(np.ma.masked_where(drain<= 0, (drain)), ax=axs[i], 
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
+                     vmax=color_scale[i][1])
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'surface_flow':
-                axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
+                # axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
+                axs[i].set_title('Cumulate seepage rates, Q [m/d]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
-                image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
-                             cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
+                #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, (surface)), 
+                              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
-                show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
-                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
+                #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], 
+                #      vmax=color_scale[i][1])
+                show(np.ma.masked_where(surface_area[time_step]<= 0, (surface)), ax=axs[i], 
+                     transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], 
+                     vmax=color_scale[i][1])
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'pathlines':
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
@@ -379,7 +407,7 @@ class Visualization():
                 basemap.append(0)
                 contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'residence_times':
-                axs[i].set_title('Residence times, log(t) [y]')
+                axs[i].set_title('Residence times [y]')
                 res_time = np.zeros(np.shape(dem))
                 endobj = flopy.utils.EndpointFile(os.path.join(modelfolder,self.modelname+'.mpend'))
                 e = endobj.get_alldata()
@@ -414,7 +442,7 @@ class Visualization():
             ylim = ([bounds[1], bounds[3]])
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
-            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right')
             ax.add_artist(scalebar)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
@@ -429,17 +457,31 @@ class Visualization():
                 cbar.ax.yaxis.set_ticks_position('right')
                 cbar.ax.tick_params(size=2)
             if basemap[compt] == 1:
-                cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+                try:
+                    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+                except:
+                    pass
             ax.legend(loc='best',framealpha=0.8)
             compt +=1
         
         fig.tight_layout()
         now = datetime.now()
         #name = now.strftime("%d_%m_%Y_%Hh%M")
-        name = self.modelname 
-        fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'.png'), dpi=300, bbox_inches='tight', transparent=False)
+        name = self.modelname
+        if not os.path.exists(os.path.join(modelfolder,'_figures',str(name)+'_0'+'.png')):
+            fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_0'+'.png'), dpi=300, 
+                        bbox_inches='tight', transparent=False)
+        else:
+            fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_1'+'.png'), dpi=300, 
+                        bbox_inches='tight', transparent=False)
+            if not os.path.exists(os.path.join(modelfolder,'_figures',str(name)+'_1'+'.png')):
+                fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_1'+'.png'), dpi=300, 
+                            bbox_inches='tight', transparent=False)
+            else:
+                fig.savefig(os.path.join(modelfolder,'_figures',str(name)+'_2'+'.png'), dpi=300, 
+                            bbox_inches='tight', transparent=False)
         plt.show()
 
-        
+#%% NOTES        
         
         
