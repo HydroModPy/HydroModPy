@@ -29,7 +29,7 @@ import scipy.stats as sp
 import shapely.geometry as SG
 import matplotlib.pylab as pl
 import math
-# import seaborn as sns
+# import seaborn as sns # disabled by Lucas |||||||||||||||||||||||||||||||||||
 from pyproj import Transformer
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
@@ -39,14 +39,13 @@ import rasterio
 import fnmatch
 import deepdish as dd
 import matplotlib.dates as mdates
-import seaborn as sns
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
-import earthpy.spatial as es
-import earthpy.plot as ep
+# import earthpy.spatial as es # disabled by Lucas|||||||||||||||||||||||||||||
+# import earthpy.plot as ep # disabled by Lucas||||||||||||||||||||||||||||||||
 
 # Gis
 import imageio
@@ -263,16 +262,16 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 #%% PATH WATERSHED
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+git_path = "C:/Users/Lucas/Documents/HydroModPy/CORE_COMM/"
 # Path to the data folder
-data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/USERS/Pelascini/"
+data_path = "C:/Users/Lucas/Desktop/HYDROMODPY/_data/Pelascini/"
 # Path where the results will be stored
-out_path = "D:/Users/abherve/TAIWAN/"
+out_path = "C:/Users/Lucas/Desktop/HYDROMODPY/TAIWAN/"
 # Figure folder outputs
 res_path = data_path + '_outputs/'
 
 dems_path = data_path # reginal DEM or conceptual DEM
-modflow_path = 'C:/Users/ronan/OneDrive/_HydroDataPy/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
+modflow_path = 'C:/Users/Lucas/Desktop/HYDROMODPY/_data/MODFLOW/' # add bin/ folder with necessary .exe
 
 hydrology_path = data_path # add hydrographic shapefiles
 
@@ -291,8 +290,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
-watershed_names = ['Morakot1',
-                   'Morakot2']
+watershed_names = ['test'] #['West1','West2','East1','East2','East3','East4','South1','South2','South3']
 
 types_obs = ['TW_rivers_1km2_reproj_dissolve'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid']
@@ -316,14 +314,14 @@ for watershed_name in watershed_names[:]:
                                   cell_size=cell_size)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
   
     print(BV.geographic.area.round(2))
     print(BV.geographic.slope.round(2))
     
     # watershed_display.watershed_dem(BV)
     # watershed_display.watershed_local(dem_path, BV)
-        
+
 #%% DATA WATERSHED
 
 for watershed_name in watershed_names[:]:
@@ -401,12 +399,15 @@ for watershed_name in watershed_names[:] :
         # params_file = 'calib_dicot_hom_2v_k1-n1'
         calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
         
+        
         dicot = calib.dichotomy(gap=1)
+
 
     for i, type_obs in enumerate(types_obs):
         
         typ_calib = 'streams_calibration'
-        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, 
+                                                  params_file, typ_calib, '*.calib')),
                            key=os.path.getmtime)
         name_file = list_path[i].split('\\')[-1]
         calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
@@ -432,13 +433,13 @@ for watershed_name in watershed_names[:] :
 
 #%% TYP SIM NAMING
 
-typ = 'transient-test-1'
-# typ = 'steady-test-1'
+# typ = 'transient-test-Morakot-watershed_mean'
+typ = 'steady-test-Morakot-watershed_mean'
 
 #%% RUN MODEL
 
-sim_state = 'transient' # 'steady' or 'transient'
-# sim_state = 'steady' # 'steady' or 'transient'
+# sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 
 if sim_state=='steady':
     modpath_sim = True # run modpath particle tracking if True
@@ -456,6 +457,10 @@ for watershed_name in watershed_names[:] :
                                   out_path=out_path,
                                   load=True,
                                   modflow_path=modflow_path)
+    BV.add_hydrodynamic()
+    BV.add_forcing()
+    BV.add_oceanic('none')
+
     
     # Input recharge
     time_step = 'D' # or 'D'
@@ -476,7 +481,7 @@ for watershed_name in watershed_names[:] :
     
     # Hydraulic properties
     Koptim = 5.5e-5 # koptim 1.4e-5 / 5.33e-5
-    Sy = 0.1
+    Sy = 0.15
 
     Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
     Sys = [Sy]
@@ -484,8 +489,9 @@ for watershed_name in watershed_names[:] :
     # Recharge
     init_rech = None
     
-    recharge = pd.read_csv(data_path+'mean_recharge.csv')
-    recharge = recharge.iloc[:] / 1000 * 3600 * 24 # mm/s to m/j
+    # recharge = pd.read_csv(stable_folder+'hydrology/mean_recharge_watershed.csv')
+    # recharge = recharge.iloc[:] / 1000 * 3600 * 24 # mm/s to m/j
+    recharge = 0.0165 # m/j
     BV.forcing.update_recharge(recharge, sim_state=sim_state) #
     plt.plot(BV.forcing.recharge)
     
@@ -578,7 +584,7 @@ for watershed_name in watershed_names[:] :
                 
                 BV.matrix_modflow(success,
                                   flow_model,
-                                  first_only = True,
+                                  first_only = False,
                                   watertable_elevation = True,
                                   watertable_depth = True, 
                                   seepage_areas = True,
@@ -608,7 +614,7 @@ for watershed_name in watershed_names[:] :
                                                       save_gif=False,
                                                       first_only=True,
                                                       sim_state=sim_state,
-                                                      outflow=False,
+                                                      outflow=True,
                                                       accflux=True,
                                                       intermittency=False,
                                                       chronics=False)
@@ -634,7 +640,8 @@ for watershed_name in watershed_names[:]:
     list_path = sorted(glob.glob(simulations_folder+typ+'*'),
                         key=os.path.getmtime, reverse=True)
     model_name = list_path[-1].split('\\')[-1]
-    wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
+    # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
+    wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(300).tif') # watertable data
     river_data = imageio.imread(stable_folder+'/hydrology/'+'TW_rivers_1km2_reproj_dissolve.tif') # river data
     modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
@@ -674,6 +681,7 @@ for watershed_name in watershed_names[:]:
 #%% TRANSIENT CHRONIC RESULTS
 
 typ = 'transient-test-1'
+# typ = 'transient-test-Morakot-watershed_mean'
 time_step = 'M'
 sim_state = 'transient'
 
