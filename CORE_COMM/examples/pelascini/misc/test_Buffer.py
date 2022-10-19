@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan 26 10:49:18 2022
+Created on Fri Oct 14 15:29:38 2022
 
-@author: ronan
+@author: Lucas
 """
-
 #%% LIBRARIES MODULES
 
 # General
@@ -290,7 +289,7 @@ library_path = data_path + 'watershed_library.csv' # each row is a study site wi
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
-watershed_names = ['test'] #['West1','West2','East1','East2','East3','East4','South1','South2','South3']
+watershed_names = ['BuffTest0','BuffTest1','BuffTest5','BuffTest10','BuffTest15','BuffTest20','BuffTest25','BuffTest30','BuffTest35','BuffTest40']
 
 types_obs = ['TW_rivers_1km2_reproj_dissolve'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid']
@@ -457,10 +456,6 @@ for watershed_name in watershed_names[:] :
                                   out_path=out_path,
                                   load=True,
                                   modflow_path=modflow_path)
-    BV.add_hydrodynamic()
-    BV.add_forcing()
-    BV.add_oceanic('none')
-
     
     # Input recharge
     time_step = 'D' # or 'D'
@@ -483,15 +478,15 @@ for watershed_name in watershed_names[:] :
     Koptim = 5.5e-5 # koptim 1.4e-5 / 5.33e-5
     Sy = 0.15
 
-    Ks = np.array([Koptim]) * 3600 * 24 # m/second to m/day
+    Ks = np.array([Koptim]) * 3600 # m/second to m/h
     Sys = [Sy]
     
     # Recharge
     init_rech = None
     
-    # recharge = pd.read_csv(stable_folder+'hydrology/mean_recharge_watershed.csv')
-    # recharge = recharge.iloc[:] / 1000 * 3600 * 24 # mm/s to m/j
-    recharge = 0.0165 # m/j
+    recharge = pd.read_csv(stable_folder+'hydrology/mean_recharge_watershed.csv')
+    recharge = recharge.iloc[:] / 1000 * 3600 # mm/s to m/h
+    # recharge = 3e-4 # m/h
     BV.forcing.update_recharge(recharge, sim_state=sim_state) #
     plt.plot(BV.forcing.recharge)
     
@@ -641,7 +636,7 @@ for watershed_name in watershed_names[:]:
                         key=os.path.getmtime, reverse=True)
     model_name = list_path[-1].split('\\')[-1]
     # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # watertable data
-    wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(300).tif') # watertable data
+    wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_depth_t(300).tif') # watertable data
     river_data = imageio.imread(stable_folder+'/hydrology/'+'TW_rivers_1km2_reproj_dissolve.tif') # river data
     modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=interactive)
 
