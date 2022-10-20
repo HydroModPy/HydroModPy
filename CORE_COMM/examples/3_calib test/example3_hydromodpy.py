@@ -23,7 +23,7 @@ from calibration import calib_root, calib_analysis, calib_basis
 
 #%% USERS
 
-user_path = "Ronan"
+user_path = "Martin"
 
 if user_path=="Alexandre":
     data_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
@@ -36,7 +36,11 @@ elif user_path=="Jean-Raynald":
 elif user_path=="Ronan":
     data_path= "C:/Users/ronan/OneDrive/_HydroDataPy/CALIB/"
     out_path = "D:/Users/abherve/TEST/"
-    
+  
+elif user_path=="Martin":
+    data_path= "C:/Users/Martin Le Mesnil/Travail/data/CALIB/"
+    out_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/"
+
 else:
     print("Define a well-validated name of user")
 
@@ -76,7 +80,6 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% LOAD WATERSHED
 
-load = False
 load = True
 # False to build and save python object4
 
@@ -297,7 +300,7 @@ if watershed_name == 'Paimpont':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    # calib.exploration(resolution=2)
+    calib.exploration(resolution=2)
     
     # Post-processing
     label_calib = data_calib[0] + '_calibration'

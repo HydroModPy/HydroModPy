@@ -76,7 +76,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% NECESSARY PATHS
 
 ####################################################
-user = 'Ronan'
+user = 'Martin'
 
 # Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
 if user == 'Jean-Raynald':
@@ -84,7 +84,7 @@ if user == 'Jean-Raynald':
 if user == 'Alexandre':
     out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
 if user == 'Martin':
-    out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output2/'
+    out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 if user == 'Ronan':
     out_path = 'D:/Users/abherve/TEST/'
 
@@ -135,7 +135,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 #%% GENERATING WATERSHED
 
 # If watershed has already been generated, used the generated one instead of recreating it
-load = True
+load = False
 
 print('##### '+watershed_name.upper()+' #####')
 
@@ -213,7 +213,7 @@ model_name = 'test'
 
 # Launch a model
 
-success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=True, first_only=True,
+success, flow_model= BV.run_modflow(ident=model_name, modpath_sim=False, first_only=True,
                                     sink_fill=False, box=False,
                                     lay_number=1, bottom=None, thick_exp=1., cond_decay=0., 
                                     verbose=True)
@@ -236,7 +236,7 @@ BV.matrix_modflow(success,
                   accumulation_flux = True,
                   perenn_intermit_shp = False,
                   groundwater_storage = True,
-                  residence_times = True,
+                  residence_times = False,
                   verbose = True,
                   export_tif = True)
 
