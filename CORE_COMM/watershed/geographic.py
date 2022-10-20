@@ -330,12 +330,13 @@ class Geographic:
             dem = gdal.Open(dem_path)
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            print(self.crs)
             # Copy tif
             self.watershed_raw = self.gis_path + 'watershed_raw.tif'
             shutil.copyfile(dem_path, self.watershed_raw)
             # Proj layer
             self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-            gdal.Warp(self.watershed_dem, self.watershed_raw , dstSRS='EPSG:2154')
+            ### gdal.Warp(self.watershed_dem, self.watershed_raw , dstSRS='EPSG:2154')
         # No data
         wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
@@ -353,9 +354,14 @@ class Geographic:
         # Flow accumulation
         self.watershed_acc = self.gis_path + 'watershed_acc.tif'
         wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
+        
+        """
         # Create shapefile
         self.watershed_shp = self.gis_path + 'watershed.shp'
         wbt.raster_to_vector_polygons(self.watershed_dem, self.watershed_shp)
+        """
+        
+        """
         # Area of shape
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
@@ -372,7 +378,8 @@ class Geographic:
         # Create box extent of the watershed
         self.watershed_box_shp = self.gis_path + 'watershed_box.shp'
         wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
-
+        """
+        
 #%% CLASS 2
 
 class Subbasin:
