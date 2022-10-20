@@ -45,7 +45,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 ############################################
-user = 'Ronan'
+user = 'Martin'
 ############################################
 
 if user == 'Alexandre':
@@ -58,11 +58,11 @@ if user == 'Alexandre':
 
 if user == 'Martin':
     # # Path to the git repositoty home page
-    git_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+    git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "C:/Users/Martin/Desktop/Travail/HydroModPy/TEST/"
+    data_path = "C:/Users/Martin Le Mesnil/Travail/data/TEST/"
     # # Path where the results will be stored
-    out_path = 'C:/Users/Martin/Desktop/Travail/HydroModPy/output/'
+    out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 
 if user == 'Ronan':
     # Path to the git repositoty home page
@@ -92,10 +92,8 @@ if user == 'Clément':
 
 # As an example, all data necessary for this test are stored in this OneDrive folder named 'TEST'
 
-# Hyperlink :
-'https://1drv.ms/f/s!ArPhnd6PZcHmjQg8qW15u2DWBR37'
-# Password :
-'osur-data-hydromodpy-2022'
+# Hyperlink : 'https://1drv.ms/f/s!ArPhnd6PZcHmjQg8qW15u2DWBR37'
+# Password : 'osur-data-hydromodpy-2022'
 
 #%% FOLDER DATA PATHS
 
@@ -162,7 +160,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -246,7 +244,7 @@ P = 0.01 # -
 first_only = False # if True generate results only for the first tim_step
 box = False # if True generate a rectangular model
 sink_fill = False # permit to fill sinks
-modpath_sim = True # run modpath particle tracking if True
+modpath_sim = False # run modpath particle tracking if True
 verbose = True # add print of MODFLOW in console
 
 # Update properties
@@ -307,7 +305,7 @@ from groundwater_flow import visualization, modflow_display
 
 # 3D parameters
 list_view = ['watertable_depth','surface_flow'] # object to represent in 3D
-interactive = True
+interactive = False
 z_scale = 10
 view = 'south-west'
 lines = 200
@@ -324,9 +322,13 @@ from groundwater_flow import visualization
 #☻vtk.VTK(BV, 'modflow')
 visu = visualization.Visualization(BV, 'steady')
 visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth','drain_flow',
-                             'surface_flow','pathlines', 'residence_times'],
+                             'surface_flow',
+                             #'pathlines', 'residence_times'
+                             ],
               color_scale = [(None,None),(None,None),(None,None),(0,10),
-                             (None,None),(None,None),(None,None),(None,None)], 
+                             (None,None),(None,None),
+                             #(None,None),(None,None)
+                             ], 
               lines=300)
 
 #%% 2D CROSS-SECTION
@@ -402,8 +404,8 @@ plt.tight_layout()
 
 #%% EXPLORATION CALIBRATION TEST
 
-test_exploration = False
-test_dichotomy = True
+test_exploration = True
+test_dichotomy = False
 
 # Example of calibration from stream network
     
