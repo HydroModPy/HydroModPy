@@ -18,7 +18,7 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 
 # Gis
-# import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -396,7 +396,7 @@ BV.hydrodynamic.update_thickness(30)
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
 params_df.loc[0] = ['k1',0.1,20,1e+02,'m/j','log'] #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
 params_df.loc[1] = ['n1',0.03,0.3,0.3,'-','lin'] #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
-params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=',', index=None)
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
 calib.exploration(1)
