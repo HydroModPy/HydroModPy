@@ -336,6 +336,7 @@ class Geographic:
             shutil.copyfile(dem_path, self.watershed_raw)
             # Proj layer
             self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            shutil.copyfile(self.watershed_raw, self.watershed_dem)
             ### gdal.Warp(self.watershed_dem, self.watershed_raw , dstSRS='EPSG:2154')
         # No data
         wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
