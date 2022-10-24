@@ -292,18 +292,18 @@ y = points.loc[0,'Y']
 from_xy = [x,y,500,25]
 from_shp = None # specify a path if process start from a given shapefile
 
-### 2
-watershed_names = ['Upstream']
-dem_name = 'DEM_Poschiavino.tif'
-subbasin_path = True # generate subbasins from stations or manual points
-from_shp = None # specify a path if process start from a given shapefile
-from_dem = True # True or False if the process start from a given DEM of xyz file
-cell_size = None # specify new resolution from a given DEM or None
-# x = 1242256.298
-# y = 6613054.622
-from_xy = []
-# from_shp = data_path + 'WATERSHED_FINAL.shp'
-from_shp = None
+# ### 2
+# watershed_names = ['Upstream']
+# dem_name = 'DEM_Poschiavino.tif'
+# subbasin_path = True # generate subbasins from stations or manual points
+# from_shp = None # specify a path if process start from a given shapefile
+# from_dem = True # True or False if the process start from a given DEM of xyz file
+# cell_size = None # specify new resolution from a given DEM or None
+# # x = 1242256.298
+# # y = 6613054.622
+# from_xy = []
+# # from_shp = data_path + 'WATERSHED_FINAL.shp'
+# from_shp = None
 
 # Depending on the choices
 dem_path = dems_path + dem_name
@@ -319,7 +319,7 @@ fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
 
-load = False
+load = True
 
 for watershed_name in watershed_names[:]:
         
@@ -925,6 +925,10 @@ else:
 
 #%% ELEVATION vs DISTANCE col ACCUMULATED
 
+dem_path = BV.geographic.watershed_dem
+dem_im = imageio.imread(dem_path)
+dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
+
 list_path = sorted(glob.glob(simulations_folder+typ+'*'),
                     # key=os.path.getmtime, 
                     # key=os.path.basename,
@@ -940,7 +944,7 @@ for it in range(len(list_path[:])):
     print(model_name)
     
     ax = axs[it]
-    
+
     drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
     acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
     down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
@@ -964,9 +968,9 @@ for it in range(len(list_path[:])):
     # ax2.get_yaxis().set_visible(False)  
     
     # fig, ax = plt.subplots(1,1, figsize=(6,3))
-    s = ax.scatter(down, dem_masked, marker='|', lw=1, c=acc_masked,
-                   s=10,
-                   vmin = 1e3, vmax = 1e8, 
+    s = ax.scatter(down_masked, dem_masked, marker='.', lw=0, c=acc_masked,
+                   s=1,
+                    vmin = 1e3, vmax = 1e8, 
                    norm=matplotlib.colors.LogNorm()
                    )
     ax.set_xlabel('Distance [m]')
@@ -988,6 +992,10 @@ plt.tight_layout()
 
 #%% ELEVATION vs DISTANCE col OUTFLOW
 
+dem_path = BV.geographic.watershed_dem
+dem_im = imageio.imread(dem_path)
+dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
+
 list_path = sorted(glob.glob(simulations_folder+typ+'*'),
                     # key=os.path.getmtime, 
                     # key=os.path.basename,
@@ -1012,9 +1020,9 @@ for it in range(len(list_path[:])):
     acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
     down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
 
-    drain_masked = np.ma.masked_where(drain <= drain.mean(), acc)
+    drain_masked = np.ma.masked_where(drain <= drain.mean(), drain)
     acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
-    down_masked = np.ma.masked_array(down, mask=acc_masked.mask)
+    down_masked = np.ma.masked_array(down, mask=drain_masked.mask)
 
     # fig, (ax1, ax2) = plt.subplots(1,2, figsize=(8,3))
     # ax1.imshow(acc_masked)
@@ -1027,9 +1035,9 @@ for it in range(len(list_path[:])):
     # ax2.get_yaxis().set_visible(False)  
     
     # fig, ax = plt.subplots(1,1, figsize=(6,3))
-    s = ax.scatter(down, dem_masked, marker='|', lw=1, c=drain_masked,
-                   s=10,
-                    vmin = 0.1, vmax = 1e8, 
+    s = ax.scatter(down_masked, dem_masked, marker='.', lw=0, c=drain_masked,
+                   s=1,
+                    vmin = 100, vmax = 1000, 
                     norm=matplotlib.colors.LogNorm()
                    )
     ax.set_xlabel('Distance [m]')
