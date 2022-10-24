@@ -11,7 +11,7 @@ import numpy as np
 import os
 import pandas as pd
 import sys
-import imageio
+import imageio.v2 as imageio
 from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
