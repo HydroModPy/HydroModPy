@@ -736,6 +736,7 @@ from_xy = []
 
 # Depending on the choices
 dem_path = dems_path + dem_name
+# dem_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/calibration/analysis/_data/bdalti5m_35.tif"
 
 library_path = res_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
@@ -783,6 +784,14 @@ code_names = ['J736422001',
               None,
               ]
 
+# watershed_names = [
+#                    'DamHR',
+#                    ]
+
+# code_names = [
+#               None,
+#               ]
+
 site_names = np.column_stack((watershed_names,code_names))
 
 types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
@@ -790,7 +799,7 @@ fields_obs = ['fid','persiatnc']
 
 #%% GENERATE WATERSHED
 
-load = True
+load = False
 
 # site_names = [['Nancon','J001401001']]
 # site_names = [['Cheze','x']]
