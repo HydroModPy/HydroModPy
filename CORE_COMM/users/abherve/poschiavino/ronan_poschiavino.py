@@ -275,26 +275,51 @@ out_path = "D:/Users/abherve/POSCHIAVINO/"
 res_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/POSCHIAVINO/_outputs/'
 
 dems_path = data_path # reginal DEM or conceptual DEM
-modflow_path = 'C:/Users/ronan/OneDrive/_HydroDataPy/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
+modflow_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
 hydrology_path = data_path # add hydrographic shapefiles
 
-### 1
-watershed_names = ['Poschiavino']
-dem_name = "copernicus_eu_dem_v11_E40_N20_clip_poschiavo_all2.tif" # name of dem
-subbasin_path = True # generate subbasins from stations or manual points
-from_dem = False # True or False if the process start from a given DEM of xyz file
-cell_size = None # specify new resolution from a given DEM or None
-path_points = data_path + 'poschiavino_outlet.shp'
-points = gpd.read_file(path_points)
-x = points.loc[0,'X']
-y = points.loc[0,'Y']
-from_xy = [x,y,500,25]
-from_shp = None # specify a path if process start from a given shapefile
 
-# ### 2
-# watershed_names = ['Upstream']
-# dem_name = 'DEM_Poschiavino.tif'
+
+### Resampling
+"""
+wbt.resample(
+    data_path+'DEM_2m.tif', 
+    data_path+'DEM_10m.tif', 
+    cell_size=10, 
+    base=None, 
+    method="cc")
+wbt.modify_no_data_value(
+    data_path+'DEM_10m.tif', 
+    new_value="-99999")
+
+with rasterio.open(data_path+'DEM_10m.tif') as src:
+    data = src.read()
+    ras_meta = src.profile
+    ras_meta['crs'] = 'EPSG:2056'
+with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
+    dest.write(data)
+"""
+
+### 1
+# watershed_names = ['Poschiavino']
+# dem_name = "copernicus_eu_dem_v11_E40_N20_clip_poschiavo_all2.tif" # name of dem
+# subbasin_path = True # generate subbasins from stations or manual points
+# from_dem = False # True or False if the process start from a given DEM of xyz file
+# cell_size = None # specify new resolution from a given DEM or None
+# path_points = data_path + 'poschiavino_outlet.shp'
+# points = gpd.read_file(path_points)
+# x = points.loc[0,'X']
+# y = points.loc[0,'Y']
+# from_xy = [x,y,500,25]
+# from_shp = None # specify a path if process start from a given shapefile
+
+### ==> (5/2)**2 = 5 ==> 6 times faster
+
+### 2
+# watershed_names = ['Upstream10']
+# # watershed_names = ['Pathlines10']
+# dem_name = 'DEM_10m.tif' # 'DEM_Poschiavino.tif'
 # subbasin_path = True # generate subbasins from stations or manual points
 # from_shp = None # specify a path if process start from a given shapefile
 # from_dem = True # True or False if the process start from a given DEM of xyz file
@@ -302,19 +327,39 @@ from_shp = None # specify a path if process start from a given shapefile
 # # x = 1242256.298
 # # y = 6613054.622
 # from_xy = []
-# # from_shp = data_path + 'WATERSHED_FINAL.shp'
+
+### 3
+# watershed_names = ['Ownoutlet10m']
+# dem_name = 'DEM_10m.tif' # 'DEM_Poschiavino.tif'
+# subbasin_path = True # generate subbasins from stations or manual points
+# from_shp = None # specify a path if process start from a given shapefile
+# from_dem = False # True or False if the process start from a given DEM of xyz file
+# cell_size = None # specify new resolution from a given DEM or None
+# x = 802122.384
+# y = 141971.022
+# from_xy = [x,y,25,10]
 # from_shp = None
+
+### 4
+watershed_names = ['Ownoutlet10m']
+dem_name = 'DEM_10m.tif' # 'DEM_Poschiavino.tif'
+subbasin_path = True # generate subbasins from stations or manual points
+from_dem = False # True or False if the process start from a given DEM of xyz file
+cell_size = None # specify new resolution from a given DEM or None
+from_xy = []
+from_shp = data_path + 'Catchment_Poschiavino_transf.shp' # specify a path if process start from a given shapefile
 
 # Depending on the choices
 dem_path = dems_path + dem_name
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
 dem_data = imageio.imread(dem_path)
+# dem_data = imageio.imread('D:/Users/abherve/PAPER/Nancon/results_stable/geographic/watershed_buff_dem.tif')
 
 # types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
 # fields_obs = ['fid','fid']
 
-types_obs = ['xxx']
+types_obs = ['poschiavino_streamnetwork_transf']
 fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
@@ -347,15 +392,16 @@ for watershed_name in watershed_names[:]:
 #%% DATA WATERSHED
 
 for watershed_name in watershed_names[:]:
-                   
+    
+    print('##### '+watershed_name.upper()+' #####')
+               
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
                                   out_path=out_path,
                                   load=True)
 
-    # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
-    print('##### '+watershed_name.upper()+' #####')
 
     BV.add_hydrodynamic()
     BV.add_forcing()
@@ -456,8 +502,9 @@ for watershed_name in watershed_names[:] :
 #%% CASES TO TYP
 
 # Aquifer
-thick = None # m
-bottom = 500 # aquifer flat or not
+thick = 50 # m
+# bottom = 500 # aquifer flat or not
+bottom = None
 
 # Discretization
 nlay = 1 # vertical discrtization
@@ -470,8 +517,11 @@ Sy = 0.1
 K = 1e-6 * 3600 * 24
 cond_decay = 0 # exponential decay of K with depth
 
+# Recharge
+recharge = 10 / 365
+
 # Typ name
-typ = 'test1'
+typ = 'constant_50m'
 
 #%% RUN MODEL
 
@@ -509,8 +559,14 @@ list_model_name = []
 list_of_success = []
 list_flow_model = []
 
-defKR = np.logspace(-1,1,9)
-defKR = [10]
+# defKR = np.logspace(-1,1,9)
+# defKR = [2.0,5.0,10.0]
+defKR = [10.0,100.0]
+
+# defKR = [10.0]
+# defKR = [0.1]
+
+# defKR = defKR[0:1]
 
 # Update properties
 compt = 1
@@ -519,13 +575,16 @@ for it in range(0,len(defKR)):
     
     KR = defKR[it]
     KR_name = round(KR, 2)
-    print(KR_name)
     
     model_name = typ + '_z500' + "_KR_"+str(KR_name)
 
     # Update recharge
     init_rech = None
-    recharge = K/KR
+    
+    # recharge = K/KR
+    # print(KR_name, recharge*1000*365)
+
+    recharge = 10 / 365
     BV.forcing.update_recharge(values = (recharge), sim_state=sim_state)
 
     BV.hydrodynamic.update_nlay(nlay) # 1
@@ -535,6 +594,10 @@ for it in range(0,len(defKR)):
     if bottom == None:
         BV.hydrodynamic.update_thickness(thick) # 30 / intervient pas si bottom != None
     
+    K = KR * recharge
+    
+    print(KR_name, K/3600/24)
+
     BV.hydrodynamic.update_hyd_cond(K) 
     BV.hydrodynamic.update_porosity(Sy)
       
@@ -582,7 +645,7 @@ h5file = simulations_folder+'/'+'list_'+typ
 
 dd.io.save(h5file, dictio)
                         
-#%% POSTPROCESS MODEL
+#### POSTPROCESS MODEL
 
 for watershed_name in watershed_names[:] :
     
@@ -644,7 +707,7 @@ for watershed_name in watershed_names[:] :
                                                       first_only=True,
                                                       sim_state=sim_state,
                                                       outflow=False,
-                                                      accflux=True,
+                                                      accflux=False,
                                                       intermittency=False,
                                                       chronics=False)
 
@@ -695,9 +758,13 @@ for watershed_name in watershed_names[:]:
         visu = visualization.Visualization(BV, model_name)
         
         visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
-                                      'drain_flow', 'surface_flow'],
-                      color_scale = [(None,None),(None,None),(None,None),(0,10),
-                                      (None,None),(None,None)])
+                                      'drain_flow', 
+                                       'surface_flow'
+                                      ],
+                      color_scale = [(None,None),(None,None),(1500,3000),(0,10),
+                                      (0,100),
+                                       (0,300000)
+                                      ])
         
         # visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
         #                               'drain_flow', 'surface_flow','pathlines','residence_times'],
@@ -728,11 +795,13 @@ visu.visual3D(interactive=interactive, object_list=list_view, z_scale=z_scale, v
 
 #%% CHOICE
 
-typ = 'test1'
+# typ = 'test1'
 
 #%% ---- LOAD DATA
 
 #%% GENERAL
+
+typ = 'constant_50m'
 
 ### GENERAL ###
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -753,19 +822,28 @@ for it in range(len(list_path)):
     ### SIG ###
     dem = rasterio.open(BV.geographic.watershed_dem)
     dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
-    bv = gpd.read_file(BV.geographic.watershed_shp)
-    ext_mod = bv.geometry.total_bounds
+    try:
+        bv = gpd.read_file(BV.geographic.watershed_shp)
+        ext_mod = bv.geometry.total_bounds
+    except:
+        pass
     wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
                                stable_folder+'geographic/'+'watershed_contour.tif',
                                base = stable_folder+'geographic/'+'watershed_dem.tif')
-    contour = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
-    contour = np.ma.masked_where(contour <= 0, contour)
-    # streams = imageio.imread(stable_folder+'hydrology/'+'L_Quiock_creek2.tif')
+    try:
+        contour = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+        contour = np.ma.masked_where(contour <= 0, contour)
+    except:
+        pass
+    # streams = imageio.imread(stable_folder+'hydrology/'+'poschiavino_streamnetwork.tif')
     dem_path = BV.geographic.watershed_dem
     dem_im = imageio.imread(dem_path)
     dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
     d8_path = stable_folder+'/geographic/watershed_buff_direc.tif'
-    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    # d8_path = stable_folder+'/geographic/watershed_direc.tif'
+    # try:
+    # acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
     down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
     wbt.downslope_flowpath_length(
         d8_path, 
@@ -775,6 +853,8 @@ for it in range(len(list_path)):
         esri_pntr=False)
     acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
     down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
+    # except:
+    #     pass
 
 #%% PLOT
 
@@ -990,7 +1070,9 @@ cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
 
 plt.tight_layout()
 
-#%% ELEVATION vs DISTANCE col OUTFLOW
+#%% OUTFLOW MAPS
+
+typ = 'constant_50m'
 
 dem_path = BV.geographic.watershed_dem
 dem_im = imageio.imread(dem_path)
@@ -1003,7 +1085,7 @@ list_path = sorted(glob.glob(simulations_folder+typ+'*'),
                     reverse=False,
                     )
 
-fig, axs = plt.subplots(3,3, figsize=(12,8))
+fig, axs = plt.subplots(1,2, figsize=(8,8))
 axs = axs.ravel()
 
 for it in range(len(list_path[:])):
@@ -1017,12 +1099,114 @@ for it in range(len(list_path[:])):
     down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
     
     drain = np.ma.masked_array(imageio.imread(drain_path), mask=dem_masked.mask)
-    acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
+    # acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
     down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
 
-    drain_masked = np.ma.masked_where(drain <= drain.mean(), drain)
-    acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
+    # drain_masked = ( np.log10(drain) - np.nanmean(np.log10(drain)) ) / np.std(np.log10(drain))
+    # drain_masked = ( (drain)  / np.nanmean((drain)) ) #/ np.std(np.log10(drain))
+    # drain_masked = ( np.log10(drain)  - np.nanmean(np.log10(drain)) ) / np.std(np.log10(drain))
+    drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.std((drain))
+    # drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.nanmean((drain))
+    drain_masked = np.ma.masked_where(drain_masked <= 0, drain_masked)
+    
+    drain_masked_path = simulations_folder+model_name+'/'+'_watershed/_tifs/drainmasked_flux_t(0).tif'
+    toolbox.export_tif(dem_path, drain_masked, -9999, drain_masked_path)
+    
+    
+    # drain_masked = np.ma.masked_where(drain <= drain.mean(), drain)
+    # acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
     down_masked = np.ma.masked_array(down, mask=drain_masked.mask)
+
+    vmin = None
+    vmax = None
+    s = ax.imshow(drain_masked, 
+                    vmin = 0.1, vmax = 20, 
+                    norm=matplotlib.colors.LogNorm()
+                  )
+    
+    # ax.get_xaxis().set_visible(False)
+    # ax.get_yaxis().set_visible(False)
+
+    # ax.set_xlabel('Distance [m]')
+    # ax.set_ylabel('Elevation [m]')
+
+    # ax.set_title(model_name)
+    # ax.set_ylim(1500, 3000)
+    # ax.set_xlim(0, 7000)
+    # ax.set_xticks(np.arange(0,7001,1500))
+    # ax.invert_xaxis()
+    
+    # contour_tif = imageio.imread(stable_folder+'geographic/watershed_contour.tif')
+    stream_tif = imageio.imread(stable_folder+'hydrology/poschiavino_streamnetwork_transf.tif')
+    ax.imshow(contour, cmap=mpl.colors.ListedColormap('k'), 
+              # extent=[0,dem_data.shape[1]*5,
+              #         0,dem_data.shape[0]*5],
+              zorder=4)
+    # ax.imshow(np.ma.masked_where(stream_tif<0, stream_tif), cmap=mpl.colors.ListedColormap('blue'), 
+    #           # extent=[0,dem_data.shape[1]*5,
+    #           #         0,dem_data.shape[0]*5],
+    #           zorder=4)
+    
+fig.subplots_adjust(right=0.8)
+cbar_ax = fig.add_axes([1.0, 0.35, 0.02, 0.3])
+cb = fig.colorbar(s, cax=cbar_ax,
+                  # ticks=np.arange(0.0,200,50)
+                  )    
+# cb = fig.colorbar(s, ax=axs.tolist())
+cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
+
+plt.tight_layout()
+
+#%% ELEVATION vs DISTANCE col OUTFLOW
+
+dem_path = BV.geographic.watershed_dem
+dem_im = imageio.imread(dem_path)
+dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    # key=os.path.getmtime, 
+                    # key=os.path.basename,
+                    key=lambda x:float(re.findall("\d+\.\d+",x)[0]),
+                    reverse=False,
+                    )
+
+fig, axs = plt.subplots(2,1, figsize=(5,6))
+axs = axs.ravel()
+
+for it in range(len(list_path[:])):
+    model_name = list_path[it].split('\\')[-1]
+    # print(model_name)
+    
+    ax = axs[it]
+    
+    drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
+    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
+    
+    drain = np.ma.masked_array(imageio.imread(drain_path), mask=dem_masked.mask)
+    # acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
+    down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
+
+    # drain_masked = ( np.log10(drain) - np.nanmean(np.log10(drain)) ) / np.std(np.log10(drain))
+    # drain_masked = ( (drain)  / np.nanmean((drain)) ) #/ np.std(np.log10(drain))
+    # drain_masked = ( np.log10(drain)  - np.nanmean(np.log10(drain)) ) / np.std(np.log10(drain))
+    drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.std((drain))
+    # drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.nanmean((drain))
+    drain_masked = np.ma.masked_where(drain_masked <= 0, drain_masked)
+    
+    
+    
+    # drain_masked = np.ma.masked_where(drain <= drain.mean(), drain)
+    # acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
+    down_masked = np.ma.masked_array(down, mask=drain_masked.mask)
+    
+    down_masked = np.ma.masked_where(stream_tif < 0, down_masked)
+    # dem_masked = np.ma.masked_where(stream_tif > 0, dem_masked)
+
+    print(model_name, drain_masked.min(), drain_masked.mean(), drain_masked.max())
+
+    # plt.imshow(drain_masked)
+    # plt.colorbar()
 
     # fig, (ax1, ax2) = plt.subplots(1,2, figsize=(8,3))
     # ax1.imshow(acc_masked)
@@ -1036,22 +1220,31 @@ for it in range(len(list_path[:])):
     
     # fig, ax = plt.subplots(1,1, figsize=(6,3))
     s = ax.scatter(down_masked, dem_masked, marker='.', lw=0, c=drain_masked,
-                   s=1,
-                    vmin = 100, vmax = 1000, 
+                   s=20,
+                    vmin = 1, vmax = 35, 
                     norm=matplotlib.colors.LogNorm()
                    )
     ax.set_xlabel('Distance [m]')
     ax.set_ylabel('Elevation [m]')
 
-    ax.set_title(model_name)
-    ax.set_ylim(900,4000)
-    ax.set_xlim(0, 30000)
-    ax.set_xticks(np.arange(0,30001,10000))
+    # ax.set_title(model_name)
+    
+    
+    ax.set_ylim(1900, 2100)
+    ax.set_xlim(2000, 4000)
+    
+    
+    # ax.set_ylim(1500, 3000)
+    # ax.set_xlim(0, 7000)
+    # ax.set_xticks(np.arange(0,7001,1500))
+    
     ax.invert_xaxis()
     
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([1.03, 0.35, 0.02, 0.3])
-cb = fig.colorbar(s, cax=cbar_ax)    
+cb = fig.colorbar(s, cax=cbar_ax,
+                  # ticks=np.arange(0.0,200,50)
+                  )    
 # cb = fig.colorbar(s, ax=axs.tolist())
 cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
 
