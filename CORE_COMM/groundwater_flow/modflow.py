@@ -1015,13 +1015,13 @@ class Modflow():
                     
                 
             # Surface flow activation
-            surface_flow = routing_accflux.RoutingAccflux(self.geographic,
-                                                          'outflow_drain_t('+lead_numb+').tif',
-                                                          'tracept_t('+lead_numb+').shp',
-                                                          'accumulation_flux_t('+lead_numb+').tif',
-                                                          extraction_folder=self.save_file)
-            
             if accumulation_flux == True:
+                surface_flow = routing_accflux.RoutingAccflux(self.geographic,
+                                                              'outflow_drain_t('+lead_numb+').tif',
+                                                              'tracept_t('+lead_numb+').shp',
+                                                              'accumulation_flux_t('+lead_numb+').tif',
+                                                              extraction_folder=self.save_file)
+            
                 ### Accumulation flux
                 surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
