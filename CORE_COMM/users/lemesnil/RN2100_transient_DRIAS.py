@@ -386,7 +386,7 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_explo_test6piezos_K1n1' #calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+params_file = 'calib_explo_MF_K1n1' #calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
 BV.forcing.update_recharge(rech_ESPERE, 'transient') #R_HAD_REG_RCP26
 BV.hydrodynamic.update_thickness(30)
@@ -394,78 +394,78 @@ BV.hydrodynamic.update_thickness(30)
 #init value is not used in exploration mode
 #lin or log probably not used
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',0.1,20,1e+02,'m/j','log'] #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
-params_df.loc[1] = ['n1',0.03,0.3,0.3,'-','lin'] #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
+params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin'] #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
+params_df.loc[1] = ['n1',0.03,0.03,0.4,'-','lin'] #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(1)
+calib.exploration(300)
 
-#Parallel tests
-import time
-import multiprocessing as mp
-
-def timing(periods):
-    t = time.time()
-    for p in range(periods):
-        e = periods**periods
-        time.sleep(5)
-    et = time.time() - t
-    print('Elapsed time = %f seconds.\n' %et)
-    return(e)
-    
-timing(3)
-
-pool = mp.Pool(mp.cpu_count())
-pool.map(timing, 3)
-pool.close()
-pool.join()
-
-# #Parallel processing (integrated to hydromodpy codes)
+# #Parallel tests
 # import time
-# import threading
 # import multiprocessing as mp
 
-# t = threading.Thread(target=calib.exploration, args=(3))
-# t.start()
-# t.join()   
+# def timing(periods):
+#     t = time.time()
+#     for p in range(periods):
+#         e = periods**periods
+#         time.sleep(5)
+#     et = time.time() - t
+#     print('Elapsed time = %f seconds.\n' %et)
+#     return(e)
     
-# compt=0
-# coeur=mp.cpu_count()
-# compt += 1
-# t = threading.Thread(target=calib.exploration, args=(3))
-# t.start()
-# # if int(compt / coeur) == compt / coeur:  # Si compt est multiple de 3
-# #     t.join()  # alors on attend que les modèles soient terminées pour recommencer
-# #     print(compt)
-# t.join() # On attend que les modèles soient finis pour terminer le calcul
+# timing(3)
 
-# #%% RUN FOR ONE VARIABLE
+# pool = mp.Pool(mp.cpu_count())
+# pool.map(timing, 3)
+# pool.close()
+# pool.join()
 
-# # # # For one parameter varying
-# for var3 in range (0, len(k)):
-#     print(k[var3])
-#     settings(nlay, tdis, ep, k[var3], phi, rch, fix)
-
-# #%% RUN ONLY ONE MODEL
-
-# # # # For only one model
-# settings(nlay, tdis, ep, k, phi, rch, fix)
-  
-# # # #Parallel processing
-# import multiprocessing as mp
+# # #Parallel processing (integrated to hydromodpy codes)
 # # import time
-# mp.cpu_count()
-# # # print("Number of processors: ", mp.cpu_count())
+# # import threading
+# # import multiprocessing as mp
 
-# # t = time.time()
-# # pool = mp.Pool(mp.cpu_count())
-# # # pool.map(calib.exploration, [3])
-# # pool.apply(calib.exploration, args=3)
-# # pool.close()
-# # pool.join()
-# # et = time.time() - t
-# # print('Elapsed time = %f seconds.\n' %et)
+# # t = threading.Thread(target=calib.exploration, args=(3))
+# # t.start()
+# # t.join()   
+    
+# # compt=0
+# # coeur=mp.cpu_count()
+# # compt += 1
+# # t = threading.Thread(target=calib.exploration, args=(3))
+# # t.start()
+# # # if int(compt / coeur) == compt / coeur:  # Si compt est multiple de 3
+# # #     t.join()  # alors on attend que les modèles soient terminées pour recommencer
+# # #     print(compt)
+# # t.join() # On attend que les modèles soient finis pour terminer le calcul
+
+# # #%% RUN FOR ONE VARIABLE
+
+# # # # # For one parameter varying
+# # for var3 in range (0, len(k)):
+# #     print(k[var3])
+# #     settings(nlay, tdis, ep, k[var3], phi, rch, fix)
+
+# # #%% RUN ONLY ONE MODEL
+
+# # # # # For only one model
+# # settings(nlay, tdis, ep, k, phi, rch, fix)
+  
+# # # # #Parallel processing
+# # import multiprocessing as mp
+# # # import time
+# # mp.cpu_count()
+# # # # print("Number of processors: ", mp.cpu_count())
+
+# # # t = time.time()
+# # # pool = mp.Pool(mp.cpu_count())
+# # # # pool.map(calib.exploration, [3])
+# # # pool.apply(calib.exploration, args=3)
+# # # pool.close()
+# # # pool.join()
+# # # et = time.time() - t
+# # # print('Elapsed time = %f seconds.\n' %et)
 
 #%% Extraction and analysis of K-n calibration results
 
@@ -473,7 +473,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_explo_test6piezos_K1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1
+params_file = 'calib_explo_MF_K1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -539,8 +539,8 @@ import time
 
 BV.add_forcing()
 sim_state = 'transient'
-first_yr = 2023
-last_yr = 2025
+first_yr = 2020
+last_yr = 2100
 gcm = 'MPI'
 rcm = 'CCL'
 
@@ -551,50 +551,50 @@ list_var_store = []
 
 
 
-
-def runsim(sce):
-    sim_state = 'transient'
-    first_yr = 2023
-    last_yr = 2025
-    gcm = 'MPI'
-    rcm = 'CCL'
-    scen_list = ['RCP2.6', 'RCP8.5']
-    scen = scen_list[sce]
+# Test parallel
+# def runsim(sce):
+#     sim_state = 'transient'
+#     first_yr = 2023
+#     last_yr = 2025
+#     gcm = 'MPI'
+#     rcm = 'CCL'
+#     scen_list = ['RCP2.6', 'RCP8.5']
+#     scen = scen_list[sce]
     
-    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = scen,
-                                      first_year = first_yr, last_year = last_yr,
-                                      sim_state = sim_state)
-    # BV.oceanic.update_MSL()
-    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
-    print(sim_name)
+#     BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = scen,
+#                                       first_year = first_yr, last_year = last_yr,
+#                                       sim_state = sim_state)
+#     # BV.oceanic.update_MSL()
+#     sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
+#     print(sim_name)
 
-    success, flow_model = BV.run_modflow(ident=sim_name,
-                    modpath_sim=modpath_sim,
-                    first_only=first_only,
-                    sink_fill=sink_fill,
-                    box=box,
-                    lay_number=lay_number,
-                    bottom=bottom,
-                    thick_exp=thick_exp,
-                    cond_decay=cond_decay,
-                    verbose=verbose)
+#     success, flow_model = BV.run_modflow(ident=sim_name,
+#                     modpath_sim=modpath_sim,
+#                     first_only=first_only,
+#                     sink_fill=sink_fill,
+#                     box=box,
+#                     lay_number=lay_number,
+#                     bottom=bottom,
+#                     thick_exp=thick_exp,
+#                     cond_decay=cond_decay,
+#                     verbose=verbose)
     
-    list_sim_name.append(sim_name)
-    list_success.append(success)
-    list_flow_model.append(flow_model)
-    list_var_store.append(BV.forcing.runoff)
+#     list_sim_name.append(sim_name)
+#     list_success.append(success)
+#     list_flow_model.append(flow_model)
+#     list_var_store.append(BV.forcing.runoff)
 
-idx_torun = [0,1]
-t = time.time()
-# with mp.Pool(mp.cpu_count()) as pool:
-#     pool.map(runsim, ['RCP2.6', 'RCP8.5'])
-#     # pool.apply(calib.exploration, args=3)
+# idx_torun = [0,1]
+# t = time.time()
+# # with mp.Pool(mp.cpu_count()) as pool:
+# #     pool.map(runsim, ['RCP2.6', 'RCP8.5'])
+# #     # pool.apply(calib.exploration, args=3)
 
-pool = mp.Pool(mp.cpu_count())
-rr = pool.map(runsim, idx_torun)
-pool.close()
-et = time.time() - t
-print('Elapsed time = %f seconds.\n' %et)
+# pool = mp.Pool(mp.cpu_count())
+# rr = pool.map(runsim, idx_torun)
+# pool.close()
+# et = time.time() - t
+# print('Elapsed time = %f seconds.\n' %et)
 
 
 
