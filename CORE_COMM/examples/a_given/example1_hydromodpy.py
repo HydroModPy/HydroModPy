@@ -13,16 +13,20 @@ Simple example for basic execution of HydroModPy (execution should be of the ord
 - Some visualization
 """
 
-#%% FUNCTION TEST
-
-def test_example_hydromodpy(DIR, outpath):
+def run_example(out_path, regression_test=False):
 
     #%% GENERAL LIBRARIES
     
     # General
     import sys
     import os
-    from os.path import dirname, abspath    
+    from os.path import dirname, abspath
+    # Current Directory stored in DIR 
+    DIR = dirname(dirname(dirname(abspath(__file__))))
+    sys.path.append(DIR)
+    #MARTIN: Add test to confirm that current folder is CORE_COMM
+    # If not, returns error message and stop running execution 
+    
     from glob import glob
     import numpy as np
     import pandas as pd
@@ -74,9 +78,9 @@ def test_example_hydromodpy(DIR, outpath):
     #%% NECESSARY PATHS
         
     # Path to the git repositoty home page
-    git_path = dirname(DIR)
+    git_path = DIR
     # Path to the test folder
-    test_path = git_path + "/examples/1_given data/"
+    test_path = git_path + "/examples/a_given/"
     
     # We suggest that data be stored in the following suite of specific folders
     # 1 folder for each of the type of data and "process" to be simulated
@@ -107,7 +111,7 @@ def test_example_hydromodpy(DIR, outpath):
     library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
     
     # Selection of the watershed to deal within from the just loaded library of watersheds
-    watershed_name = 'Test' # add manually study site information in map units  #JR:Parameters
+    watershed_name = 'Example' # add manually study site information in map units  #JR:Parameters
     #RONAN: Supprimer la ligne?
     mysite = library[library['watershed_name'] == watershed_name] # specific row
     
@@ -225,7 +229,22 @@ def test_example_hydromodpy(DIR, outpath):
     
     BV.results_modflow(ident=model_name, actual_date=True, time_step='M')
     print('Result chronics extraction completed')
-
+    
+    #%% VISUALIZATION 3D
+    
+    if regression_test == False:
+    
+        from tools import toolbox, vtk
+        vtk.VTK(BV, model_name)
+        visu = visualization.Visualization(BV, model_name)
+        visu.visual3D(interactive=True,
+                      object_list=['grid','watertable', 'watertable_depth',
+                                   # 'pathlines',
+                                   'surface_flow', 'drain_flow'],
+                      view='south-west', 
+                      # lines=200, cloc=(0.7,0.1)
+                      )
+    
     #%% PLOT SURFACE OUTPUTS
     
     if sim_state == 'transient':
@@ -237,18 +256,30 @@ def test_example_hydromodpy(DIR, outpath):
         x = x[0]
         x[x<=0] = np.nan
         plt.imshow(x, cmap='jet')
+    
+    #%% INTERACTIVE CROSS-SECTION
+    
+    if regression_test == False:
+    
+        # Dem data
+        dem_data = BV.geographic.dem_data
+        # dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif')
+        # dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
+        
+        # Wt data
+        wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif') # buffer size no masked
+        
+        # River data
+        river_data = imageio.imread(stable_folder+'/hydrology/'+'sections.tif')
+        
+        # Function
+        modflow_display.interactive_cross_section(dem_data, wt_data, river_data, interactive=True)
 
-#%% UPDATE RESULTS
-
-from os.path import dirname, abspath
-import os
-import sys
-import pandas as pd
-
-update_reference_results = False
+#%% LAUNCH
 
 ####################################################
 
+user = 'Martin'
 user = 'Ronan'
 
 # Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
@@ -259,52 +290,14 @@ if user == 'Alexandre':
 if user == 'Martin':
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 if user == 'Ronan':
-    out_path = 'D:/Users/abherve/TESTS/'
-    
+    out_path = 'D:/Users/abherve/TEST/'
+
 ####################################################
 
-#Launcch this code in the "tests" folder
-
-# Current Directory stored in DIR 
-DIR = dirname(abspath(__file__))
-sys.path.append(DIR)
-print(DIR)
-#MARTIN: Add test to confirm that current folder is CORE_COMM
-# If not, returns error message and stop running execution 
-
-if os.getcwd() != DIR:
-    os.chdir(DIR)
+if __name__ == "__main__":
+    print ("Executed when invoked directly")
+    run_example(out_path, regression_test=False)
+else:
+    print ("Executed when imported")
     
-if update_reference_results == True:
-    out_path = DIR
-    
-    test_example_hydromodpy(DIR, out_path)
 
-if update_reference_results == False:
-
-    test_example_hydromodpy(DIR, out_path)
-
-    ref_path_sim = os.path.join(DIR, 'Test/results_simulations/test/_watershed/_simulated_results.csv')
-    out_path_sim = os.path.join(out_path, 'Test/results_simulations/test/_watershed/_simulated_results.csv')
-    
-    r = pd.read_csv(ref_path_sim, sep=';')
-    o = pd.read_csv(out_path_sim, sep=';')
-
-    comp = r.compare(o, keep_shape=True, keep_equal=True)
-    
-    if all(r==o) == True:
-        print('The regression test is validated for the results simulation')
-
-#%% NOTES
-
-# import os
-# import glob
-# import filecmp
-
-# comparison = []
-# for each in glob.glob('D:/Users/abherve/TESTS/Test/**'):
-#     for each1 in glob.glob('D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/tests/Test/**'):
-#         if os.path.basename(each) == os.path.basename(each1):
-#             comparison.append(filecmp.cmp(each, each1))
-
-# print(comparison)
