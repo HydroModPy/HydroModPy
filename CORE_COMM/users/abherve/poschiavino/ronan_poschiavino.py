@@ -359,8 +359,8 @@ dem_data = imageio.imread(dem_path)
 # types_obs = ['perennial','perennial_intermittent'] # list of shapefile name layers for clip hydrology
 # fields_obs = ['fid','fid']
 
-types_obs = ['poschiavino_streamnetwork_transf']
-fields_obs = ['fid']
+types_obs = ['poschiavino_streamnetwork_transf_main','poschiavino_streamnetwork_transf']
+fields_obs = ['fid','fid']
 
 #%% GENERATE WATERSHED
 
@@ -411,6 +411,18 @@ for watershed_name in watershed_names[:]:
         watershed_display.watershed_local(dem_path, BV)
     except:
         pass
+    
+    # import imageio
+    # import whitebox
+    # wbt = whitebox.WhiteboxTools()
+    # wbt.verbose = True
+    
+    # wbt.find_main_stem(
+    #     stable_folder+'geographic/'+'watershed_buff_direc.tif', 
+    #     BV.hydrology.tif_streams, 
+    #     stable_folder+'hydrology/'+types_obs[0]+'_main'+'.tif', 
+    #     esri_pntr=False, 
+    #     zero_background=False)
         
 #%% ---- CALIB
 
@@ -856,6 +868,20 @@ for it in range(len(list_path)):
     # except:
     #     pass
 
+    springs = gpd.read_file(data_path+'Springs_Poschiavino_transf.shp')
+    
+    # import fiona
+    # with fiona.open(data_path+'Springs_Poschiavino_transf.shp', "r") as shapefile:
+    #     features = [feature["geometry"] for feature in shapefile]
+    
+    from rasterio.plot import show
+    
+    fig, ax = plt.subplots(1,1)
+    
+    show(dem_data, ax=ax, transform=dem.transform)
+    
+    springs.plot(ax=ax)
+
 #%% PLOT
 
 wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
@@ -1003,73 +1029,6 @@ else:
 
 #%% ---- FOR CLEMENT TESTS
 
-#%% ELEVATION vs DISTANCE col ACCUMULATED
-
-dem_path = BV.geographic.watershed_dem
-dem_im = imageio.imread(dem_path)
-dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
-
-list_path = sorted(glob.glob(simulations_folder+typ+'*'),
-                    # key=os.path.getmtime, 
-                    # key=os.path.basename,
-                    key=lambda x:float(re.findall("\d+\.\d+",x)[0]),
-                    reverse=False,
-                    )
-
-fig, axs = plt.subplots(3,3, figsize=(12,8))
-axs = axs.ravel()
-
-for it in range(len(list_path[:])):
-    model_name = list_path[it].split('\\')[-1]
-    print(model_name)
-    
-    ax = axs[it]
-
-    drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
-    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
-    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
-    
-    drain = np.ma.masked_array(imageio.imread(drain_path), mask=dem_masked.mask)
-    acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
-    down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
-
-    drain_masked = np.ma.masked_where(drain <= drain.mean(), acc)
-    acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
-    down_masked = np.ma.masked_array(down, mask=acc_masked.mask)
-
-    # fig, (ax1, ax2) = plt.subplots(1,2, figsize=(8,3))
-    # ax1.imshow(acc_masked)
-    # ax1.set_title('Cumulated flux')
-    # ax2.imshow(down_masked)
-    # ax2.set_title('Downslope lengths')
-    # ax1.get_xaxis().set_visible(False)
-    # ax1.get_yaxis().set_visible(False)
-    # ax2.get_xaxis().set_visible(False)
-    # ax2.get_yaxis().set_visible(False)  
-    
-    # fig, ax = plt.subplots(1,1, figsize=(6,3))
-    s = ax.scatter(down_masked, dem_masked, marker='.', lw=0, c=acc_masked,
-                   s=1,
-                    vmin = 1e3, vmax = 1e8, 
-                   norm=matplotlib.colors.LogNorm()
-                   )
-    ax.set_xlabel('Distance [m]')
-    ax.set_ylabel('Elevation [m]')
-
-    ax.set_title(model_name)
-    ax.set_ylim(900,4000)
-    ax.set_xlim(0, 30000)
-    ax.set_xticks(np.arange(0,30001,10000))
-    ax.invert_xaxis()
-    
-fig.subplots_adjust(right=0.8)
-cbar_ax = fig.add_axes([1.03, 0.35, 0.02, 0.3])
-cb = fig.colorbar(s, cax=cbar_ax)    
-# cb = fig.colorbar(s, ax=axs.tolist())
-cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
-
-plt.tight_layout()
-
 #%% OUTFLOW MAPS
 
 typ = 'constant_50m'
@@ -1137,7 +1096,8 @@ for it in range(len(list_path[:])):
     # ax.invert_xaxis()
     
     # contour_tif = imageio.imread(stable_folder+'geographic/watershed_contour.tif')
-    stream_tif = imageio.imread(stable_folder+'hydrology/poschiavino_streamnetwork_transf.tif')
+    # stream_tif = imageio.imread(stable_folder+'hydrology/poschiavino_streamnetwork_transf.tif')
+    stream_tif = imageio.imread(stable_folder+'hydrology/poschiavino_streamnetwork_transf_main.tif')
     ax.imshow(contour, cmap=mpl.colors.ListedColormap('k'), 
               # extent=[0,dem_data.shape[1]*5,
               #         0,dem_data.shape[0]*5],
@@ -1156,6 +1116,108 @@ cb = fig.colorbar(s, cax=cbar_ax,
 cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
 
 plt.tight_layout()
+
+#%% ELEVATION vs DISTANCE col ACCUMULATED
+
+dem_path = BV.geographic.watershed_dem
+dem_im = imageio.imread(dem_path)
+dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    # key=os.path.getmtime, 
+                    # key=os.path.basename,
+                    key=lambda x:float(re.findall("\d+\.\d+",x)[0]),
+                    reverse=False,
+                    )
+
+fig, axs = plt.subplots(2,1, figsize=(5,6))
+axs = axs.ravel()
+
+for it in range(len(list_path[:])):
+    model_name = list_path[it].split('\\')[-1]
+    # print(model_name)
+    
+    ax = axs[it]
+    
+    # drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
+    drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    # acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
+    
+    drain = np.ma.masked_array(imageio.imread(drain_path), mask=dem_masked.mask)
+    # acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
+    down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
+
+    # drain_masked = ( np.log10(drain) - np.nanmean(np.log10(drain)) ) / np.std(np.log10(drain))
+    # drain_masked = ( (drain)  / np.nanmean((drain)) ) #/ np.std(np.log10(drain))
+    # drain_masked = ( np.log10(drain)  - np.nanmean(np.log10(drain)) ) / np.std(np.log10(drain))
+    drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.std((drain))
+    # drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.nanmean((drain))
+    drain_masked = np.ma.masked_where(drain_masked <= 0, drain_masked)
+    
+    # drain_masked = np.ma.masked_where(drain <= drain.mean(), drain)
+    # acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
+    down_masked = np.ma.masked_array(down, mask=drain_masked.mask)
+    
+    down_masked = np.ma.masked_where(stream_tif < 0, down_masked)
+    drain_masked = np.ma.masked_where(stream_tif < 0, drain_masked)
+    # dem_masked = np.ma.masked_where(stream_tif < 0, dem_masked)
+    # dem_masked = np.ma.masked_where(stream_tif > 0, dem_masked)
+
+    print(model_name, drain_masked.min(), drain_masked.mean(), drain_masked.max())
+
+    # plt.imshow(drain_masked)
+    # plt.colorbar()
+
+    # fig, (ax1, ax2) = plt.subplots(1,2, figsize=(8,3))
+    # ax1.imshow(acc_masked)
+    # ax1.set_title('Cumulated flux')
+    # ax2.imshow(down_masked)
+    # ax2.set_title('Downslope lengths')
+    # ax1.get_xaxis().set_visible(False)
+    # ax1.get_yaxis().set_visible(False)
+    # ax2.get_xaxis().set_visible(False)
+    # ax2.get_yaxis().set_visible(False)  
+
+    
+    # fig, ax = plt.subplots(1,1, figsize=(6,3))
+    s = ax.scatter(down_masked, dem_masked, marker='.', lw=0, c=drain_masked,
+                   s=20,
+                    vmin = 1, vmax = 35, 
+                    norm=matplotlib.colors.LogNorm()
+                   )
+    ax.set_xlabel('Distance [m]')
+    ax.set_ylabel('Elevation [m]')
+
+    # ax.set_title(model_name)
+    
+    
+    # springs.plot(ax,ax)
+    
+    ax.set_ylim(1800, 2200)
+    ax.set_xlim(0, 5000)
+    
+    
+    
+    # ax.set_ylim(1500, 3000)
+    # ax.set_xlim(0, 7000)
+    # ax.set_xticks(np.arange(0,7001,1500))
+    
+    ax.invert_xaxis()
+    
+    
+    
+fig.subplots_adjust(right=0.8)
+cbar_ax = fig.add_axes([1.03, 0.35, 0.02, 0.3])
+cb = fig.colorbar(s, cax=cbar_ax,
+                  # ticks=np.arange(0.0,200,50)
+                  )    
+# cb = fig.colorbar(s, ax=axs.tolist())
+cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
+
+plt.tight_layout()
+
+
 
 #%% ELEVATION vs DISTANCE col OUTFLOW
 
@@ -1180,7 +1242,7 @@ for it in range(len(list_path[:])):
     ax = axs[it]
     
     drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
-    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    # acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
     down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
     
     drain = np.ma.masked_array(imageio.imread(drain_path), mask=dem_masked.mask)
@@ -1193,8 +1255,6 @@ for it in range(len(list_path[:])):
     drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.std((drain))
     # drain_masked = ( (drain)  - np.nanmean((drain)) ) / np.nanmean((drain))
     drain_masked = np.ma.masked_where(drain_masked <= 0, drain_masked)
-    
-    
     
     # drain_masked = np.ma.masked_where(drain <= drain.mean(), drain)
     # acc_masked = np.ma.masked_where(acc <= acc.mean(), acc)
@@ -1230,8 +1290,11 @@ for it in range(len(list_path[:])):
     # ax.set_title(model_name)
     
     
-    ax.set_ylim(1900, 2100)
-    ax.set_xlim(2000, 4000)
+    # springs.plot(ax,ax)
+    
+    ax.set_ylim(1800, 2200)
+    ax.set_xlim(0, 5000)
+    
     
     
     # ax.set_ylim(1500, 3000)
@@ -1239,6 +1302,8 @@ for it in range(len(list_path[:])):
     # ax.set_xticks(np.arange(0,7001,1500))
     
     ax.invert_xaxis()
+    
+    
     
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([1.03, 0.35, 0.02, 0.3])
