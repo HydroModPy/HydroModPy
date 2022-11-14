@@ -41,9 +41,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Caen' #Caen-la-Mer
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-load = False # loads previously generated basin if true
 
 # Path to the git repositoty home page
 git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
@@ -56,9 +55,10 @@ stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary fo
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 
 dems_path = data_path # reginal DEM or conceptual DEM
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
+shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
+# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
 # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
 
 modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
 
@@ -87,12 +87,12 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               out_path=out_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
-                              load=True,
-                              from_shp=None,
+                              load=False,
+                              from_shp=shp_file,
                               from_dem=False,
                               cell_size=cell_size)
 
-BV.load_object()
+# BV.load_object()
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
@@ -101,6 +101,7 @@ import os
 from datetime import datetime
 
 BV.add_forcing()
+BV.add_piezometry()
 BV.piezometry.add_data()
 BV.piezometry.display_data()
 

@@ -50,7 +50,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 watershed_name = 'Saint-Germain-sur-Ay'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-load = False # loads previously generated basin if true
+load = True # loads previously generated basin if true
 
 # Path to the git repositoty home page
 git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
@@ -125,7 +125,7 @@ if piezometry_path == True:
 # DRIAS climate data extraction
 BV.add_drias("C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/CLIMAT/Normandie/")
 
-BV.save_object()
+# BV.save_object()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
@@ -246,7 +246,7 @@ R_hist = BV.forcing.recharge
 
 sim_state = 'transient' # 'steady' or 'transient'
 first_yr = 2020
-last_yr = 2025
+last_yr = 2100
 BV.add_forcing()
 
 #MPI-CCL

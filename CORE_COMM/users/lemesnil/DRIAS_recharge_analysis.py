@@ -123,6 +123,7 @@ R_MPI_R09_RCP85_2030 = R_MPI_R09_RCP85.loc['2028-09-01':'2032-08-31'].sum()/4
 
 month_2030_4y_idx_list = [i for i in range(8*12, 12*12, 12)]
 
+#RCP 2.6 recharge nalysis
 R_DRIAS_26_2030_mean_list = [R_MPI_CCL_RCP26_2030, R_ECE_RCA_RCP26_2030, R_ECE_RAC_RCP26_2030,
                           R_CNR_RAC_RCP26_2030, R_NOR_R15_RCP26_2030, R_CNR_ALA_RCP26_2030,
                           R_HAD_REG_RCP26_2030, R_MPI_R09_RCP26_2030]
@@ -133,49 +134,70 @@ R_DRIAS_26_month_min = R_DRIAS_26_month_dict[index_min_R_26_2030]
 R_DRIAS_26_2030_max = max(R_DRIAS_26_2030_mean_list)
 index_max_R_26_2030 = max(range(len(R_DRIAS_26_2030_mean_list)), key=R_DRIAS_26_2030_mean_list.__getitem__)
 R_DRIAS_26_month_max = R_DRIAS_26_month_dict[index_max_R_26_2030]
-R_DRIAS_26_2030_med = statistics.median(R_DRIAS_26_2030_mean_list)
+# R_DRIAS_26_2030_med = statistics.median(R_DRIAS_26_2030_mean_list)
+
+R_DRIAS_26_2030_mean_list_temp = R_DRIAS_26_2030_mean_list
+for i in range(3):
+    idx_max_R_26_2030 = max(range(len(R_DRIAS_26_2030_mean_list_temp)), key=R_DRIAS_26_2030_mean_list_temp.__getitem__)
+    R_DRIAS_26_2030_mean_list_temp[idx_max_R_26_2030] = 0
+index_4th_R_26_2030 = max(range(len(R_DRIAS_26_2030_mean_list_temp)), key=R_DRIAS_26_2030_mean_list_temp.__getitem__)    
+R_DRIAS_26_month_4th = R_DRIAS_26_month_dict[index_4th_R_26_2030]
 
 R_DRIAS_26_month_mean_min = [
-    numpy.nanmean(R_DRIAS_26_month_min[month_2030_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+1 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+2 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+3 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+4 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+5 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+6 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+7 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+8 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+9 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+10 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+11 for i in month_2030_4y_idx_list]])]
+    1000*numpy.nanmean(R_DRIAS_26_month_min[month_2030_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+1 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+2 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+3 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+4 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+5 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+6 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+7 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+8 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+9 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+10 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+11 for i in month_2030_4y_idx_list]])]
 R_DRIAS_26_month_mean_max = [
-    numpy.nanmean(R_DRIAS_26_month_max[month_2030_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+1 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+2 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+3 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+4 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+5 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+6 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+7 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+8 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+9 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+10 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+11 for i in month_2030_4y_idx_list]])]
-R_DRIAS_26_month_mean_med = [
-    numpy.nanmean([R_DRIAS_26_month_med[x] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+1] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+2] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+3] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+4] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+5] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+6] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+7] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+8] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+9] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+10] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+11] for x in month_2030_4y_idx_list])]
+    1000*numpy.nanmean(R_DRIAS_26_month_max[month_2030_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+1 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+2 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+3 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+4 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+5 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+6 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+7 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+8 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+9 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+10 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+11 for i in month_2030_4y_idx_list]])]
+R_DRIAS_26_month_mean_4th = [
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[month_2030_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+1 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+2 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+3 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+4 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+5 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+6 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+7 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+8 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+9 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+10 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+11 for i in month_2030_4y_idx_list]])]
 
+# R_DRIAS_26_month_mean_med = [
+#     numpy.nanmean([R_DRIAS_26_month_med[x] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+1] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+2] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+3] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+4] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+5] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+6] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+7] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+8] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+9] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+10] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+11] for x in month_2030_4y_idx_list])]
 
+#RCP 8.5 recharge nalysis
 R_DRIAS_85_2030_mean_list = [R_MPI_CCL_RCP85_2030, R_ECE_RCA_RCP85_2030, R_ECE_RAC_RCP85_2030,
                           R_CNR_RAC_RCP85_2030, R_NOR_R15_RCP85_2030, R_CNR_ALA_RCP85_2030,
                           R_HAD_REG_RCP85_2030, R_MPI_R09_RCP85_2030]
@@ -186,65 +208,86 @@ R_DRIAS_85_month_min = R_DRIAS_85_month_dict[index_min_R_85_2030]
 R_DRIAS_85_2030_max = max(R_DRIAS_85_2030_mean_list)
 index_max_R_85_2030 = max(range(len(R_DRIAS_85_2030_mean_list)), key=R_DRIAS_85_2030_mean_list.__getitem__)
 R_DRIAS_85_month_max = R_DRIAS_85_month_dict[index_max_R_85_2030]
-R_DRIAS_85_2030_med = statistics.median(R_DRIAS_85_2030_mean_list)
+# R_DRIAS_85_2030_med = statistics.median(R_DRIAS_85_2030_mean_list)
+
+R_DRIAS_85_2030_mean_list_temp = R_DRIAS_85_2030_mean_list
+for i in range(3):
+    idx_max_R_85_2030 = max(range(len(R_DRIAS_85_2030_mean_list_temp)), key=R_DRIAS_85_2030_mean_list_temp.__getitem__)
+    R_DRIAS_85_2030_mean_list_temp[idx_max_R_85_2030] = 0
+index_4th_R_85_2030 = max(range(len(R_DRIAS_85_2030_mean_list_temp)), key=R_DRIAS_85_2030_mean_list_temp.__getitem__)    
+R_DRIAS_85_month_4th = R_DRIAS_85_month_dict[index_4th_R_85_2030]
 
 R_DRIAS_85_month_mean_min = [
-    numpy.nanmean(R_DRIAS_85_month_min[month_2030_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+1 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+2 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+3 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+4 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+5 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+6 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+7 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+8 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+9 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+10 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+11 for i in month_2030_4y_idx_list]])]
+    1000*numpy.nanmean(R_DRIAS_85_month_min[month_2030_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+1 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+2 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+3 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+4 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+5 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+6 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+7 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+8 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+9 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+10 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+11 for i in month_2030_4y_idx_list]])]
 R_DRIAS_85_month_mean_max = [
-    numpy.nanmean(R_DRIAS_85_month_max[month_2030_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+1 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+2 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+3 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+4 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+5 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+6 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+7 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+8 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+9 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+10 for i in month_2030_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+11 for i in month_2030_4y_idx_list]])]
-R_DRIAS_85_month_mean_med = [
-    numpy.nanmean([R_DRIAS_85_month_med[x] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+1] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+2] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+3] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+4] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+5] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+6] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+7] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+8] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+9] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+10] for x in month_2030_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+11] for x in month_2030_4y_idx_list])]
+    1000*numpy.nanmean(R_DRIAS_85_month_max[month_2030_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+1 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+2 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+3 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+4 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+5 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+6 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+7 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+8 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+9 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+10 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+11 for i in month_2030_4y_idx_list]])]
+R_DRIAS_85_month_mean_4th = [
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[month_2030_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+1 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+2 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+3 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+4 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+5 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+6 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+7 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+8 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+9 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+10 for i in month_2030_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+11 for i in month_2030_4y_idx_list]])]
+
+# R_DRIAS_85_month_mean_med = [
+#     numpy.nanmean([R_DRIAS_85_month_med[x] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+1] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+2] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+3] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+4] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+5] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+6] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+7] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+8] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+9] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+10] for x in month_2030_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+11] for x in month_2030_4y_idx_list])]
 
 
 # Plot
 import matplotlib.pyplot as plt
 
 fig, axs = plt.subplots(2, 1)
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_min, label = 'Min: ' + DRIAS_models_list[index_min_R_26_2030])
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_max, label = 'Max: ' + DRIAS_models_list[index_max_R_26_2030])
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_med, label = 'Median')
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_max, label = 'Humid: ' + DRIAS_models_list[index_max_R_26_2030])
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_4th, label = 'Interm: ' + DRIAS_models_list[index_4th_R_26_2030])
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_min, label = 'Dry: ' + DRIAS_models_list[index_min_R_26_2030])
 axs[0].set_title('RCP 2.6', fontsize=14)
 axs[0].legend(loc = 'upper center')
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_min, label = 'Min: ' + DRIAS_models_list[index_min_R_85_2030])
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_max, label = 'Max: ' + DRIAS_models_list[index_max_R_85_2030])
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_med, label = 'Median')
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_max, label = 'Humid: ' + DRIAS_models_list[index_max_R_85_2030])
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_4th, label = 'Interm: ' + DRIAS_models_list[index_4th_R_26_2030])
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_min, label = 'Dry: ' + DRIAS_models_list[index_min_R_85_2030])
 axs[1].set_title('RCP 8.5', fontsize=14)
 axs[1].legend(loc = 'upper center')
 
-fig.suptitle('2030 forecast recharges (m/month)', fontsize=18)
+fig.suptitle('2030 forecast recharges (mm/month)', fontsize=18)
 plt.setp(axs[-1], xlabel='Month')
 
 #%% Recharge values for 2050 horizon
@@ -269,6 +312,7 @@ R_MPI_R09_RCP85_2050 = R_MPI_R09_RCP85.loc['2048-09-01':'2052-08-31'].sum()/4
 
 month_2050_4y_idx_list = [i for i in range(28*12, 32*12, 12)]
 
+#RCP 2.6 recharge nalysis
 R_DRIAS_26_2050_mean_list = [R_MPI_CCL_RCP26_2050, R_ECE_RCA_RCP26_2050, R_ECE_RAC_RCP26_2050,
                           R_CNR_RAC_RCP26_2050, R_NOR_R15_RCP26_2050, R_CNR_ALA_RCP26_2050,
                           R_HAD_REG_RCP26_2050, R_MPI_R09_RCP26_2050]
@@ -279,49 +323,70 @@ R_DRIAS_26_month_min = R_DRIAS_26_month_dict[index_min_R_26_2050]
 R_DRIAS_26_2050_max = max(R_DRIAS_26_2050_mean_list)
 index_max_R_26_2050 = max(range(len(R_DRIAS_26_2050_mean_list)), key=R_DRIAS_26_2050_mean_list.__getitem__)
 R_DRIAS_26_month_max = R_DRIAS_26_month_dict[index_max_R_26_2050]
-R_DRIAS_26_2050_med = statistics.median(R_DRIAS_26_2050_mean_list)
+# R_DRIAS_26_2050_med = statistics.median(R_DRIAS_26_2050_mean_list)
+
+R_DRIAS_26_2050_mean_list_temp = R_DRIAS_26_2050_mean_list
+for i in range(3):
+    idx_max_R_26_2050 = max(range(len(R_DRIAS_26_2050_mean_list_temp)), key=R_DRIAS_26_2050_mean_list_temp.__getitem__)
+    R_DRIAS_26_2050_mean_list_temp[idx_max_R_26_2050] = 0
+index_4th_R_26_2050 = max(range(len(R_DRIAS_26_2050_mean_list_temp)), key=R_DRIAS_26_2050_mean_list_temp.__getitem__)    
+R_DRIAS_26_month_4th = R_DRIAS_26_month_dict[index_4th_R_26_2050]
 
 R_DRIAS_26_month_mean_min = [
-    numpy.nanmean(R_DRIAS_26_month_min[month_2050_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+1 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+2 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+3 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+4 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+5 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+6 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+7 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+8 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+9 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+10 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+11 for i in month_2050_4y_idx_list]])]
+    1000*numpy.nanmean(R_DRIAS_26_month_min[month_2050_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+1 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+2 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+3 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+4 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+5 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+6 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+7 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+8 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+9 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+10 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+11 for i in month_2050_4y_idx_list]])]
 R_DRIAS_26_month_mean_max = [
-    numpy.nanmean(R_DRIAS_26_month_max[month_2050_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+1 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+2 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+3 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+4 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+5 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+6 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+7 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+8 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+9 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+10 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+11 for i in month_2050_4y_idx_list]])]
-R_DRIAS_26_month_mean_med = [
-    numpy.nanmean([R_DRIAS_26_month_med[x] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+1] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+2] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+3] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+4] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+5] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+6] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+7] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+8] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+9] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+10] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+11] for x in month_2050_4y_idx_list])]
+    1000*numpy.nanmean(R_DRIAS_26_month_max[month_2050_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+1 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+2 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+3 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+4 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+5 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+6 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+7 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+8 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+9 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+10 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+11 for i in month_2050_4y_idx_list]])]
+R_DRIAS_26_month_mean_4th = [
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[month_2050_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+1 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+2 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+3 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+4 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+5 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+6 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+7 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+8 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+9 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+10 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+11 for i in month_2050_4y_idx_list]])]
 
+# R_DRIAS_26_month_mean_med = [
+#     numpy.nanmean([R_DRIAS_26_month_med[x] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+1] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+2] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+3] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+4] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+5] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+6] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+7] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+8] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+9] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+10] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+11] for x in month_2050_4y_idx_list])]
 
+#RCP 8.5 recharge nalysis
 R_DRIAS_85_2050_mean_list = [R_MPI_CCL_RCP85_2050, R_ECE_RCA_RCP85_2050, R_ECE_RAC_RCP85_2050,
                           R_CNR_RAC_RCP85_2050, R_NOR_R15_RCP85_2050, R_CNR_ALA_RCP85_2050,
                           R_HAD_REG_RCP85_2050, R_MPI_R09_RCP85_2050]
@@ -332,67 +397,86 @@ R_DRIAS_85_month_min = R_DRIAS_85_month_dict[index_min_R_85_2050]
 R_DRIAS_85_2050_max = max(R_DRIAS_85_2050_mean_list)
 index_max_R_85_2050 = max(range(len(R_DRIAS_85_2050_mean_list)), key=R_DRIAS_85_2050_mean_list.__getitem__)
 R_DRIAS_85_month_max = R_DRIAS_85_month_dict[index_max_R_85_2050]
-R_DRIAS_85_2050_med = statistics.median(R_DRIAS_85_2050_mean_list)
+# R_DRIAS_85_2050_med = statistics.median(R_DRIAS_85_2050_mean_list)
+
+R_DRIAS_85_2050_mean_list_temp = R_DRIAS_85_2050_mean_list
+for i in range(3):
+    idx_max_R_85_2050 = max(range(len(R_DRIAS_85_2050_mean_list_temp)), key=R_DRIAS_85_2050_mean_list_temp.__getitem__)
+    R_DRIAS_85_2050_mean_list_temp[idx_max_R_85_2050] = 0
+index_4th_R_85_2050 = max(range(len(R_DRIAS_85_2050_mean_list_temp)), key=R_DRIAS_85_2050_mean_list_temp.__getitem__)    
+R_DRIAS_85_month_4th = R_DRIAS_85_month_dict[index_4th_R_85_2050]
 
 R_DRIAS_85_month_mean_min = [
-    numpy.nanmean(R_DRIAS_85_month_min[month_2050_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+1 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+2 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+3 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+4 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+5 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+6 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+7 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+8 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+9 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+10 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+11 for i in month_2050_4y_idx_list]])]
+    1000*numpy.nanmean(R_DRIAS_85_month_min[month_2050_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+1 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+2 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+3 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+4 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+5 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+6 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+7 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+8 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+9 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+10 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+11 for i in month_2050_4y_idx_list]])]
 R_DRIAS_85_month_mean_max = [
-    numpy.nanmean(R_DRIAS_85_month_max[month_2050_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+1 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+2 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+3 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+4 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+5 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+6 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+7 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+8 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+9 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+10 for i in month_2050_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+11 for i in month_2050_4y_idx_list]])]
-R_DRIAS_85_month_mean_med = [
-    numpy.nanmean([R_DRIAS_85_month_med[x] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+1] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+2] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+3] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+4] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+5] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+6] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+7] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+8] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+9] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+10] for x in month_2050_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+11] for x in month_2050_4y_idx_list])]
+    1000*numpy.nanmean(R_DRIAS_85_month_max[month_2050_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+1 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+2 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+3 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+4 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+5 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+6 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+7 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+8 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+9 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+10 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+11 for i in month_2050_4y_idx_list]])]
+R_DRIAS_85_month_mean_4th = [
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[month_2050_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+1 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+2 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+3 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+4 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+5 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+6 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+7 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+8 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+9 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+10 for i in month_2050_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+11 for i in month_2050_4y_idx_list]])]
 
+# R_DRIAS_85_month_mean_med = [
+#     numpy.nanmean([R_DRIAS_85_month_med[x] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+1] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+2] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+3] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+4] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+5] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+6] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+7] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+8] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+9] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+10] for x in month_2050_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+11] for x in month_2050_4y_idx_list])]
 
 # Plot
 import matplotlib.pyplot as plt
 
 fig, axs = plt.subplots(2, 1)
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_min, label = 'Min: ' + DRIAS_models_list[index_min_R_26_2050])
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_max, label = 'Max: ' + DRIAS_models_list[index_max_R_26_2050])
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_med, label = 'Median')
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_max, label = 'Humid: ' + DRIAS_models_list[index_max_R_26_2050])
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_4th, label = 'Interm: ' + DRIAS_models_list[index_4th_R_26_2050])
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_min, label = 'Dry: ' + DRIAS_models_list[index_min_R_26_2050])
 axs[0].set_title('RCP 2.6', fontsize=14)
 axs[0].legend(loc = 'upper center')
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_min, label = 'Min: ' + DRIAS_models_list[index_min_R_85_2050])
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_max, label = 'Max: ' + DRIAS_models_list[index_max_R_85_2050])
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_med, label = 'Median')
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_max, label = 'Humid: ' + DRIAS_models_list[index_max_R_85_2050])
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_4th, label = 'Interm: ' + DRIAS_models_list[index_4th_R_26_2050])
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_min, label = 'Dry: ' + DRIAS_models_list[index_min_R_85_2050])
 axs[1].set_title('RCP 8.5', fontsize=14)
 axs[1].legend(loc = 'upper center')
 
-fig.suptitle('2050 forecast recharges (m/month)', fontsize=18)
+fig.suptitle('2050 forecast recharges (mm/month)', fontsize=18)
 plt.setp(axs[-1], xlabel='Month')
-
 
 #%% Recharge values for 2100 horizon
 
@@ -416,6 +500,7 @@ R_MPI_R09_RCP85_2100 = R_MPI_R09_RCP85.loc['2095-09-01':'2099-08-31'].sum()/4
 
 month_2100_4y_idx_list = [i for i in range(76*12, 80*12, 12)]
 
+#RCP 2.6 recharge nalysis
 R_DRIAS_26_2100_mean_list = [R_MPI_CCL_RCP26_2100, R_ECE_RCA_RCP26_2100, R_ECE_RAC_RCP26_2100,
                           R_CNR_RAC_RCP26_2100, R_NOR_R15_RCP26_2100, R_CNR_ALA_RCP26_2100,
                           R_HAD_REG_RCP26_2100, R_MPI_R09_RCP26_2100]
@@ -428,47 +513,69 @@ index_max_R_26_2100 = max(range(len(R_DRIAS_26_2100_mean_list)), key=R_DRIAS_26_
 R_DRIAS_26_month_max = R_DRIAS_26_month_dict[index_max_R_26_2100]
 R_DRIAS_26_2100_med = statistics.median(R_DRIAS_26_2100_mean_list)
 
+R_DRIAS_26_2100_mean_list_temp = R_DRIAS_26_2100_mean_list
+for i in range(3):
+    idx_max_R_26_2100 = max(range(len(R_DRIAS_26_2100_mean_list_temp)), key=R_DRIAS_26_2100_mean_list_temp.__getitem__)
+    R_DRIAS_26_2100_mean_list_temp[idx_max_R_26_2100] = 0
+index_4th_R_26_2100 = max(range(len(R_DRIAS_26_2100_mean_list_temp)), key=R_DRIAS_26_2100_mean_list_temp.__getitem__)    
+R_DRIAS_26_month_4th = R_DRIAS_26_month_dict[index_4th_R_26_2100]
+
 R_DRIAS_26_month_mean_min = [
-    numpy.nanmean(R_DRIAS_26_month_min[month_2100_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+1 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+2 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+3 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+4 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+5 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+6 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+7 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+8 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+9 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+10 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_min[[i+11 for i in month_2100_4y_idx_list]])]
+    1000*numpy.nanmean(R_DRIAS_26_month_min[month_2100_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+1 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+2 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+3 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+4 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+5 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+6 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+7 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+8 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+9 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+10 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_min[[i+11 for i in month_2100_4y_idx_list]])]
 R_DRIAS_26_month_mean_max = [
-    numpy.nanmean(R_DRIAS_26_month_max[month_2100_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+1 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+2 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+3 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+4 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+5 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+6 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+7 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+8 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+9 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+10 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_26_month_max[[i+11 for i in month_2100_4y_idx_list]])]
-R_DRIAS_26_month_mean_med = [
-    numpy.nanmean([R_DRIAS_26_month_med[x] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+1] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+2] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+3] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+4] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+5] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+6] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+7] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+8] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+9] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+10] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_26_month_med[x+11] for x in month_2100_4y_idx_list])]
+    1000*numpy.nanmean(R_DRIAS_26_month_max[month_2100_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+1 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+2 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+3 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+4 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+5 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+6 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+7 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+8 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+9 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+10 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_max[[i+11 for i in month_2100_4y_idx_list]])]
+R_DRIAS_26_month_mean_4th = [
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[month_2100_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+1 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+2 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+3 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+4 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+5 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+6 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+7 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+8 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+9 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+10 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_26_month_4th[[i+11 for i in month_2100_4y_idx_list]])]
+
+# R_DRIAS_26_month_mean_med = [
+#     numpy.nanmean([R_DRIAS_26_month_med[x] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+1] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+2] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+3] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+4] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+5] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+6] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+7] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+8] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+9] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+10] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_26_month_med[x+11] for x in month_2100_4y_idx_list])]
 
 
+#RCP 8.5 recharge nalysis
 R_DRIAS_85_2100_mean_list = [R_MPI_CCL_RCP85_2100, R_ECE_RCA_RCP85_2100, R_ECE_RAC_RCP85_2100,
                           R_CNR_RAC_RCP85_2100, R_NOR_R15_RCP85_2100, R_CNR_ALA_RCP85_2100,
                           R_HAD_REG_RCP85_2100, R_MPI_R09_RCP85_2100]
@@ -479,67 +586,104 @@ R_DRIAS_85_month_min = R_DRIAS_85_month_dict[index_min_R_85_2100]
 R_DRIAS_85_2100_max = max(R_DRIAS_85_2100_mean_list)
 index_max_R_85_2100 = max(range(len(R_DRIAS_85_2100_mean_list)), key=R_DRIAS_85_2100_mean_list.__getitem__)
 R_DRIAS_85_month_max = R_DRIAS_85_month_dict[index_max_R_85_2100]
-R_DRIAS_85_2100_med = statistics.median(R_DRIAS_85_2100_mean_list)
+# R_DRIAS_85_2100_med = statistics.median(R_DRIAS_85_2100_mean_list)
+
+R_DRIAS_85_2100_mean_list_temp = R_DRIAS_85_2100_mean_list
+for i in range(3):
+    idx_max_R_85_2100 = max(range(len(R_DRIAS_85_2100_mean_list_temp)), key=R_DRIAS_85_2100_mean_list_temp.__getitem__)
+    R_DRIAS_85_2100_mean_list_temp[idx_max_R_85_2100] = 0
+index_4th_R_85_2100 = max(range(len(R_DRIAS_85_2100_mean_list_temp)), key=R_DRIAS_85_2100_mean_list_temp.__getitem__)    
+R_DRIAS_85_month_4th = R_DRIAS_85_month_dict[index_4th_R_85_2100]
 
 R_DRIAS_85_month_mean_min = [
-    numpy.nanmean(R_DRIAS_85_month_min[month_2100_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+1 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+2 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+3 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+4 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+5 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+6 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+7 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+8 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+9 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+10 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_min[[i+11 for i in month_2100_4y_idx_list]])]
+    1000*numpy.nanmean(R_DRIAS_85_month_min[month_2100_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+1 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+2 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+3 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+4 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+5 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+6 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+7 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+8 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+9 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+10 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_min[[i+11 for i in month_2100_4y_idx_list]])]
 R_DRIAS_85_month_mean_max = [
-    numpy.nanmean(R_DRIAS_85_month_max[month_2100_4y_idx_list]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+1 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+2 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+3 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+4 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+5 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+6 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+7 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+8 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+9 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+10 for i in month_2100_4y_idx_list]]),
-    numpy.nanmean(R_DRIAS_85_month_max[[i+11 for i in month_2100_4y_idx_list]])]
-R_DRIAS_85_month_mean_med = [
-    numpy.nanmean([R_DRIAS_85_month_med[x] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+1] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+2] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+3] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+4] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+5] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+6] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+7] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+8] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+9] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+10] for x in month_2100_4y_idx_list]),
-    numpy.nanmean([R_DRIAS_85_month_med[x+11] for x in month_2100_4y_idx_list])]
+    1000*numpy.nanmean(R_DRIAS_85_month_max[month_2100_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+1 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+2 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+3 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+4 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+5 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+6 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+7 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+8 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+9 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+10 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_max[[i+11 for i in month_2100_4y_idx_list]])]
+R_DRIAS_85_month_mean_4th = [
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[month_2100_4y_idx_list]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+1 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+2 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+3 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+4 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+5 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+6 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+7 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+8 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+9 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+10 for i in month_2100_4y_idx_list]]),
+    1000*numpy.nanmean(R_DRIAS_85_month_4th[[i+11 for i in month_2100_4y_idx_list]])]
+
+# R_DRIAS_85_month_mean_med = [
+#     numpy.nanmean([R_DRIAS_85_month_med[x] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+1] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+2] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+3] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+4] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+5] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+6] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+7] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+8] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+9] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+10] for x in month_2100_4y_idx_list]),
+#     numpy.nanmean([R_DRIAS_85_month_med[x+11] for x in month_2100_4y_idx_list])]
 
 
 # Plot
 import matplotlib.pyplot as plt
 
 fig, axs = plt.subplots(2, 1)
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_max, label = 'Max: ' + DRIAS_models_list[index_max_R_26_2100], color = 'b')
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_med, label = 'Median', color = 'g')
-axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_min, label = 'Min: ' + DRIAS_models_list[index_min_R_26_2100], color = 'r')
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_max, label = 'Humid: ' + DRIAS_models_list[index_max_R_26_2100])
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_4th, label = 'Interm: ' + DRIAS_models_list[index_4th_R_26_2100])
+axs[0].plot(range(1, 12+1), R_DRIAS_26_month_mean_min, label = 'Dry: ' + DRIAS_models_list[index_min_R_26_2100])
 axs[0].set_title('RCP 2.6', fontsize=14)
 axs[0].legend(loc = 'upper center')
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_max, label = 'Max: ' + DRIAS_models_list[index_max_R_85_2100], color = 'b')
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_med, label = 'Median', color = 'g')
-axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_min, label = 'Min: ' + DRIAS_models_list[index_min_R_85_2100], color = 'r')
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_max, label = 'Humid: ' + DRIAS_models_list[index_max_R_85_2100])
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_4th, label = 'Interm: ' + DRIAS_models_list[index_4th_R_26_2100])
+axs[1].plot(range(1, 12+1), R_DRIAS_85_month_mean_min, label = 'Dry: ' + DRIAS_models_list[index_min_R_85_2100])
 axs[1].set_title('RCP 8.5', fontsize=14)
 axs[1].legend(loc = 'upper center')
 
-fig.suptitle('2100 forecast recharges (m/month)', fontsize=18)
+fig.suptitle('2100 forecast recharges (mm/month)', fontsize=18)
 plt.setp(axs[-1], xlabel='Month')
 
+
+#%% Synthesis table
+
+# pip install tabulate
+from tabulate import tabulate
+
+data = [["2030 (RCP2.6)", DRIAS_models_list[index_max_R_26_2030], DRIAS_models_list[index_4th_R_26_2030], DRIAS_models_list[index_min_R_26_2030]], 
+        ["2050 (RCP2.6)", DRIAS_models_list[index_max_R_26_2050], DRIAS_models_list[index_4th_R_26_2050], DRIAS_models_list[index_min_R_26_2050]], 
+        ["2100 (RCP2.6)", DRIAS_models_list[index_max_R_26_2100], DRIAS_models_list[index_4th_R_26_2100], DRIAS_models_list[index_min_R_26_2100]],
+        ["2030 (RCP8.5)", DRIAS_models_list[index_max_R_85_2030], DRIAS_models_list[index_4th_R_85_2030], DRIAS_models_list[index_min_R_85_2030]], 
+        ["2050 (RCP8.5)", DRIAS_models_list[index_max_R_85_2050], DRIAS_models_list[index_4th_R_85_2050], DRIAS_models_list[index_min_R_85_2050]], 
+        ["2100 (RCP8.5)", DRIAS_models_list[index_max_R_85_2100], DRIAS_models_list[index_4th_R_85_2100], DRIAS_models_list[index_min_R_85_2100]]]
+  
+col_names = ["Horizon", "Humid", "Interm.", "Dry"]
+  
+print(tabulate(data, headers=col_names, tablefmt="fancy_grid"))
 
 #%% PLOT Recharges
 
