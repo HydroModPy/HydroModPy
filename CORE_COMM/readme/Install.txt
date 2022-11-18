@@ -35,4 +35,23 @@ Add this package manually : conda install -c conda-forge rioxarray
 
 8-Data required (climate, DEM, geology, hydrology at an equivalent or superior size of your study site)
 HydroDataPy (OneDrive)
+https://1drv.ms/f/s!ArPhnd6PZcHmjQg8qW15u2DWBR37
+# Password : osur-data-hydromodpy-2022
 Avoid Delete functions that would remove files in all user folders (not only you)
+
+9-A distribution of Latex should have been installed on the computer for use of latex style in graphic comments and legends
+Miktex can be independently downloaded and installed
+
+10-Path too long with pull
+For anyone who is wondering how to fix this I found a way!
+Go to your 
+	GitHub Desktop Folder
+		-> app
+			-> resources
+				-> app
+					-> git 
+						-> mingw64	
+							-> etc
+								-> gitconfig ,
+								and there under [core] section add this field "longpaths = true" :)
+C:/.../GitHubDesktop/app-3.1.2/resources/app/git/etc

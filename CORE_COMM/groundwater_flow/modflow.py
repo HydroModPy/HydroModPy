@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jan 25 17:51:53 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
 
 # Modules
 import flopy
@@ -31,13 +31,14 @@ from tools import toolbox
 # Surface routing 
 from surface_flow import routing_accflux
 
-# VARIABLES GLOBALES
+#%% CLASS
 
 class Modflow():
     """
+    
     Preprocessing, processing and postprocessing of modflow (groundwater flow)
         Discretization: by default, the number of rows and columns is the DEM discretization
-    
+        
     Simulation on a model given by its DEM for close subsurface saturated flows
         Prepares and runs the model for conditions of significant interactions with the surface
         
@@ -67,13 +68,13 @@ class Modflow():
         - Laterally: Homogeneous or Heterogeneous (defined by zones)
         - Vertically: Homogeneous or Layered 
     
-    SOURCE TERMS: EVAPOTRANSPIRATION: Between the two possibilities (evt and rch, rch should rather be used)
+    Source terms
+        Between the two possibilities (evt and rch, rch should rather be used)
         - Negative recharge values (P-E): ETP managed as a pumping term 
         - Positive recharge values (P-E): Recharge to the aquifer
     
     Methods
     -------
-    
     Preprocessing: 
         Model construction from 
             - domain definition
@@ -100,7 +101,7 @@ class Modflow():
     Domain definition, hydraulic properties and discretization 
     ----------------------------------------------------------
 
-2D LATERAL
+    - 2D LATERAL
 
     geographic: class Geographic
         Model geometry (eg DEM path)
@@ -150,7 +151,7 @@ class Modflow():
         -- initial value: :data:`porosity_init`
         :vartype porosity: :class:`numpy.ndarray`
         
-VERTICAL
+    - VERTICAL
 
     thick: float
         aquifer thickness () 
@@ -181,25 +182,17 @@ VERTICAL
         
     laytype: 2D np array
         cells where water can seep (by default, all the domain)
-          
-        
+    
     Hydraulic properties (discretized)
     ----------------------------------
-    
     hK: 3D np array 
         hydraulic conductivity discretized on the grid
 
     hK: porosity
         hydraulic conductivity discretized on the grid 
-    
-    
-    Initial Conditions
-    ------------------
-    
-    
+        
     Boundary Conditions
     -------------------
-
     bc_left: flopy class
         Boundary conditions 
         
@@ -218,11 +211,9 @@ VERTICAL
     strtData: 3D np array
         Value affected to the boundary condition
         = Altitude 
-
     
     Sink/Source Terms
     -----------------
-
     init_rech: string of float 
         == "mean" : takes the mean value and applies it as the first value of forcing
         == "first": takes the first value and applies it as the first value of forcing
@@ -238,11 +229,8 @@ VERTICAL
     evt: class climatic
         Package to apply evapotranspiration directly to the saturation of the groundwater
         
-        
-    
     Time definition and discretization 
-    ----------------------------------
-    
+    ---------------------------------- 
     nper: vector of int
         Number of forcing periods (recharge)
         
@@ -259,7 +247,9 @@ VERTICAL
         First date of climatic recharge
         
     """
-    #%% Initialization
+
+    #%% INIT
+
     def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
@@ -269,6 +259,7 @@ VERTICAL
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
         """
+        
         Constructor
  
         Arguments
@@ -345,7 +336,10 @@ VERTICAL
         verti_k: vector of floats
             Applies different hydraulic conductivities with layers 
             Default: None
+            
         """
+        
+        #%% Initialization
 
         self.model_name = model_name
         self.model_folder = model_folder
@@ -353,12 +347,14 @@ VERTICAL
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
         
         #%% Domain definition 
+        
         self.thick = thick
         self.thick_exp = thick_exp
         self.geographic = geographic
         self.resolution = geographic.resolution
         self.sink_fill = sink_fill
         self.multip_cond = multip_cond
+        
         try : 
             self.sink = geographic.depressions_data
         except:
@@ -378,27 +374,32 @@ VERTICAL
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
         
-        #%% Initial conditions
-        self.init_rech = init_rech
-        
         #%% Boundary conditions
+        
         self.bc_left = bc_left
         self.bc_right = bc_right
         self.sea_level = sea_level 
         
-        #%% Source/Sink terms 
-        self.climatic = climatic.copy()
+        #%% Source/Sink terms
+        
+        self.init_rech = init_rech
+        if isinstance(climatic, float) == False :  
+            self.climatic = climatic.copy()
+        else: 
+            self.climatic = climatic
                 
         #%% Model parameters 
+        
         self.verti_k = verti_k
         self.hyd_cond = hyd_cond
         self.porosity = porosity
         self.cond_decay = cond_decay
 
+    #%% PRE-PROCESSING
 
-    #%% Pre-Processing
     def pre_processing(self, verbose=False):
         """
+        
         Prerpocessing
             - 3D Discretization by flopy of the domain according to the DEM and to the vertical discretization
  
@@ -406,9 +407,11 @@ VERTICAL
         ----------
         verbose: bool 
             Displays messages in command window
+            
         """
         
-        #%% Initialization of flopy model 
+        #%% Initialization
+        
         if verbose == True:
             print('Build model')
             
@@ -426,12 +429,17 @@ VERTICAL
         # Preprocess conductivity values 
         #ALEXANDRE
         try:
+            # For heterogeneous cases of hydraulic conducitivy, inactivation of part of the dem 
+            # Should still be checked: is it still used? Remove? 
             if len(self.hyd_cond)!=1:
                 self.dem[self.hyd_cond<0]=-9999
         except:
             pass
 
-        #%% Spatial and Temporal discreitzations (time step is driven by recharge)
+        #%% Discreitzation
+        
+        # Time step is driven by recharge
+        
         if isinstance(self.climatic,(int,float))==True:
             # Steady state
             self.nper = 1               # Number of forcing periods (recharge)
@@ -461,7 +469,7 @@ VERTICAL
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
         
-        # bottom definition for each of the layers 
+        # Bottom definition for each of the layers 
         self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
         if self.bottom is None:
             bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
@@ -475,10 +483,10 @@ VERTICAL
         # p: evoling proportions of bottom layer to surface values
         for i in range(1, self.nlay+1):
             if self.thick_exp == 1.:
-                p = i / self.nlay       # Uniform thicknesses
+                p = i / self.nlay    # Uniform thicknesses
             else:
                 p = (1-self.thick_exp**i) / exp_scale   # Increasing thicknesses with depth
-            # weighted formula to go from bottom_layer to surface (self.dem)
+            # Weighted formula to go from bottom_layer to surface (self.dem)
             self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
         
         '''
@@ -497,11 +505,18 @@ VERTICAL
             botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
             nstp=self.nstp, steady=self.steady, xul=self.xul, yul=self.yul,
             start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
-		#proj4_str=self.dem.crs)
+        # proj4_str=self.dem.crs)
     
-        #%% Boundary Conditions: Constant Head boundary conditions of No Flow (sides of domain)
-        # ALEXANDRE: no flow boundary conditions on the 4 sides (is all here)? 
+        #%% Boundary conditions
+        
+        ### Constant Head boundary conditions of No Flow (sides of domain)
+        
+        # iboundData=1: Should compute head in cells 
+        # iboundData=0: Nothing is calculated in celles (should not be really used)
+        # iboundData=-1: Values imposed at the value of strtData
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
+        
+        # Free surface level is set to the surface (altitude of DEM)
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
         
         # SYNTHETIC CASE: FIXED HEAD ON THE LEFT BORDER (square domain), no longer actively used
@@ -522,12 +537,13 @@ VERTICAL
             self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
 
         self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
-
-        #%% Boundary Conditions: Constant Head boundary conditions of No Flow (at sea level)
-        if self.sea_level != None:
+            
+        ### Constant Head boundary conditions of No Flow (at sea level)
+        
+        if isinstance(self.sea_level, (int,float,pd.Series)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             if isinstance(self.sea_level,(int,float)) == False:
-                self.chdData = {}
+                self.chData = {} #Martin on 15/11/2022: before was: self.chdData = {}
                 for kper in range(0, self.nper):
                     chdKper = []
                     for i in range (0,self.nrow):
@@ -535,15 +551,17 @@ VERTICAL
                             if self.dem[i,j] < self.sea_level[kper]:
                                 package[kper,i,j] = 1
                                 chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
-                            self.rchData[kper] = chdKper
+                            self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
+                                    
+        #%% Parametrization
         
-        #%% PARAMETERIZATION: Hydraulic Conductivity        
         # lpf package
         self.laywet = np.zeros(self.nlay)
         self.laytype = np.ones(self.nlay)
 
         # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
-        # Homogeneous hydraulic conductivity
+        # Homogeneous or heterogeneous hydraulic conductivity 
+        # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
         if self.cond_decay != 0.:
@@ -590,31 +608,16 @@ VERTICAL
                                             vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
         
         
-        #%% Source Term & Initial Conditions: Recharge on the top of the model 
+        #%% Source terms
         
-        # BOUNDARY CONDITIONS-SEA LEVEL: Constant Head boundary conditions (at sea level)
-        #ALEXANDRE: commenter avec Alexandre
-        if self.sea_level != None:
-            package = np.zeros((self.nper,self.nrow, self.ncol))
-            if isinstance(self.sea_level,(int,float)) == False:
-                self.chdData = {}
-                for kper in range(0, self.nper):
-                    chdKper = []
-                    for i in range (0,self.nrow):
-                        for j in range (0, self.ncol):
-                            if self.dem[i,j] < self.sea_level[kper]:
-                                package[kper,i,j] = 1
-                                chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
-                            self.rchData[kper] = chdKper
+        ### Source term & initial conditions: recharge (and evapotranspiration) on the top of the model 
         
-        # SOURCE TERMS: UNIFORM EVAPOTRANSPIRATION: Between the two possibilities (evt and rch, rch should rather be used)
-        #   - Negative recharge values (P-E): ETP managed as a pumping term 
-        #   - Positive recharge values (P-E): Recharge to the aquifer
-        if (self.climatic < 0).any().any() == True:
+        # EVAPOTRANSPIRATION FROM THE AQUIFER
+            # from the watertable: evt package (from negative value, should always be positive)
+        if isinstance(self.climatic,float)==False and (self.climatic < 0).any().any() == True:
             # self.climatic : recharge values (float in steady state or chronicles in transient state)
-            #evt package
             # Modifies ETP values (self.climatic): from negative to positive values (sink term)
-            #   package evt requires positive values (negative values are not allowed)
+            #      package evt requires positive values (negative values are not allowed)
             self.evt = self.climatic.copy() 
             # All positive values are set to 0 (no negative values)
             self.evt[self.evt>=0] = 0
@@ -634,7 +637,7 @@ VERTICAL
                     else:
                         self.evtData[kper] = self.evt[kper]
             if verbose == True:
-                print('ETR')
+                print('ETR activated')
                 # print(self.evt)
             # expd = self.thick : ETP can take water all over the aquifer thickness
             self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
@@ -645,7 +648,8 @@ VERTICAL
                 self.climatic[self.climatic<0] = 0
                 
                 
-        # RECHARGE TO THE AQUIFER (over the surface) rch package (should always be positive)
+        # RECHARGE TO THE AQUIFER
+            # over the surface: rch package (should always be positive)
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(int,float)):
@@ -677,7 +681,11 @@ VERTICAL
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
                 
-        #%% Drain package (DRN) applied to all the surface of the model : enables seepage on the top layer
+        #%% Drain package
+        
+        # (DRN)
+        # Applied to all the surface of the model : enables seepage on the top layer
+        
         self.drnData = np.zeros((self.nrow*self.ncol, 5))
         compt = 0
         # First value (0): layer number
@@ -708,7 +716,10 @@ VERTICAL
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
 
-        #%% OC (Output Control) package
+        #%% Output control
+        
+        # OC : output control
+        
         stress_period_data = {}
         for kper in range(self.nper):
             kstp = self.nstp[kper]
@@ -719,13 +730,16 @@ VERTICAL
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
+        """
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(1, 1, 1)
         modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
         linecollection = modelxsect.plot_grid()
         modelxsect.plot_array(self.hk)
+        """
         
-    #%% Processing
+    #%% PROCESSING
+    
     def processing(self, verbose=False):
         if verbose == True:
             print('Simulation d\'un modèle')
@@ -735,8 +749,8 @@ VERTICAL
         succes, buff = self.mf.run_model(silent=not verbose)# True without msg
         return succes
         
+    #%% POST-PROCESSING
     
-    #%% Post-Processing
     def post_processing(self, first_only = False,
                               watertable_elevation = True, watertable_depth=True, 
                               seepage_areas = True, outflow_drain = True,
@@ -769,6 +783,7 @@ VERTICAL
         toolbox.create_folder(self.tifs_file)
         
         #%% Model parameters
+        
         self.path_file = os.path.join(self.full_path, self.model_name)
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
@@ -784,7 +799,10 @@ VERTICAL
         self.params = params
         self.params.to_csv(self.full_path+'/_model_parameters.txt', sep=';', index=False)
 
-        #%% Import essential data of modflow specific files (written in the processing phase)
+        #%% Import essential data 
+        
+        # Modflow specific files (written in the processing phase)
+        
         # Files have been output in the processing phase and are re-read here
         self.dem_mask = (self.dem<-4000)  # 4000 meters (sure no DEM value below: equivalent to no data value)
         # heads
@@ -800,7 +818,10 @@ VERTICAL
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
              
-        #%% Gets aggregated results over times
+        #%% Aggregated results over times
+        
+        # Fill dictionnaries (save to .h5) over times and create .tifs 
+        
         # Create dictionnaries for each of the results to extract 
         # x[time]=matrix
         #   - x: type of output
@@ -978,14 +999,14 @@ VERTICAL
                 # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
                 # pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
                 # pth_data = pthobj.get_alldata()
-                res_time = np.zeros(np.shape(self.dem))
+                res_time = np.zeros(np.shape(self.dem)) * np.nan
                 endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
                 e = endobj.get_alldata()
-                for j in range(len(e)):
+                for k in range(len(e)):
                     # time_out = pth_data[j].time[0] # explore pathlines
                     # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
                     # res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
-                    res_time[e[j].i,e[j].j] = (e[j].time) / 365 # where outputed in years
+                    res_time[e[k].i,e[k].j] = (e[k].time) / 365 # where outputed in years
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
@@ -994,18 +1015,22 @@ VERTICAL
                     
                 
             # Surface flow activation
-            surface_flow = routing_accflux.RoutingAccflux(self.geographic,
-                                                          'outflow_drain_t('+lead_numb+').tif',
-                                                          'tracept_t('+lead_numb+').shp',
-                                                          'accumulation_flux_t('+lead_numb+').tif',
-                                                          extraction_folder=self.save_file)
-            
             if accumulation_flux == True:
+                surface_flow = routing_accflux.RoutingAccflux(self.geographic,
+                                                              'outflow_drain_t('+lead_numb+').tif',
+                                                              'tracept_t('+lead_numb+').shp',
+                                                              'accumulation_flux_t('+lead_numb+').tif',
+                                                              extraction_folder=self.save_file)
+            
                 ### Accumulation flux
                 surface_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
-                self.dict_accumulation_flux[item] = imageio.imread(output_path)
-        
+                try:
+                    self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
+                except:
+                    self.dict_accumulation_flux[item] = imageio.imread(output_path)
+                    pass
+                
             if perenn_intermit_shp == True:
                 surface_flow.trace_downslope()
         
@@ -1069,17 +1094,7 @@ VERTICAL
                 inf+=12
                 sup+=12
                 cpt+=1
-            
-#%% Old versions of codes
 
-# # Export
-# if self.calib == True:
-#     if item == 0:
-#         tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
-#                             self.save_file+'/watertable_depth_t('+lead_numb+').tif')
-# else:
-#     tif_adds.export_tif(self.dem_path, self.wt_depth, -9999,
-#                         self.save_file+'/watertable_depth_t('+lead_numb+').tif')
-# # print('export watertable_depth')
-        
-   
+#%% NOTES
+
+            

@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 29 17:26:41 2022
 
-@author: Alexandre Gauvain
 """
 
-#%%
+#%% LIBRAIRIES
 from PyQt5 import QtWidgets, QtWebEngineWidgets
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -22,12 +20,19 @@ import platform
 CORE_COMM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HydroModPy = os.path.dirname(CORE_COMM)
 
+#%% CLASS
+
 class MyApp(QMainWindow):
+    
+    #%% INIT
+    
     def __init__(self):
         super().__init__()
         self.initWindow()
         self.path = os.path.abspath(os.path.dirname(sys.argv[0]))
         self.pathOutput = os.path.join(self.path, "output")
+
+    #%% FUNCTIONS
 
     def initWindow(self):
         self.setWindowTitle('HydroModPy App')
@@ -39,7 +44,6 @@ class MyApp(QMainWindow):
         self._createMenuBar()
         self._createToolBars()
         self._createStatusBar()
-
 
     def _createMenuBar(self):
         menuBar = self.menuBar()
@@ -80,7 +84,6 @@ class MyApp(QMainWindow):
         self.statusbar = self.statusBar()
         # Adding a temporary message
         self.statusbar.showMessage("Ready", 3000)
-
 
     def _createToolBars(self):
         # Using a title
@@ -146,8 +149,7 @@ class MyApp(QMainWindow):
         m.save(data, close_file=False)
         self.view.setHtml(data.getvalue().decode())
 
-    
-
+#%% TEST
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -160,25 +162,4 @@ if __name__ == '__main__':
         sys.exit(app.exec_())
     except SystemExit:
         print('Closing Window...')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

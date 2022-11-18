@@ -1,6 +1,10 @@
 #coding:utf-8
+"""
 
-# Librairies
+"""
+
+#%% LIBRAIRIES
+
 import os
 import numpy as np
 from osgeo import gdal
@@ -8,30 +12,41 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
+#%% CLASS
+
 class Geology:
+    
+    #%% INIT
+    
     def __init__(self, out_path, geographic, geo_path, landsea, types_obs = 'GEO1M.shp', fields_obs = 'CODE_LEG'):
+        
         print('Extraction des données géologiques')
+        
         data_folder = os.path.join(out_path,'results_stable/geology/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
+                
+        watershed_shp = os.path.join(data_folder,'watershed.shp')
+
         self.geol_file =  os.path.join(geo_path, types_obs)
         self.field = fields_obs
         self.structure_dem_path =  os.path.join(data_folder,'GeoStructure.tif')
         self.structure_clip =  os.path.join(data_folder,'GeoStructure_clip.tif')
+        
         # Be careful, column T_M_num not exist in default self.geol_file
         self.landsea = landsea
         if self.landsea != None:
                 d_sea_dem_path =  os.path.join(data_folder,'Land_Sea.tif')
                 land_sea_clip = os.path.join(data_folder, 'Land_Sea_clip.tif')
-        watershed_shp = os.path.join(data_folder,'watershed.shp')
+                
         self.generate_structure_dem(data_folder, geographic)
         self.geology_array(data_folder)
         
-        """"""
         # Problem with this function (sizes of arrays)
         # self.geology_elevation(geographic)
-        """"""
-        
+    
+    #%% FUNCTIONS
+    
     def generate_structure_dem(self, data_folder, geographic):
         wbt.vector_polygons_to_raster(self.geol_file, self.structure_dem_path , field=self.field, nodata=None, base=geographic.watershed_buff_dem)
         wbt.clip_raster_to_polygon(self.structure_dem_path, geographic.watershed_shp, self.structure_clip)
@@ -65,33 +80,40 @@ class Geology:
         self.geology_code_clip = np.intersect1d(self.geology_array_clip, self.geology_array_clip)
         self.geology_code = self.geology_code_clip[self.geology_code_clip>=0]
 
-        '''
-        #Double geology
+        """
+        # Double geology
         self.geology_code = [int(1),int(2)]
         for i in self.geology_code:
             if i ==1:
                 self.geology_array[self.geology_array<=100] = int(i)
                 self.geology_array_clip[self.geology_array_clip<=100] = int(i)
-
-        '''
+        """
         return self
 
     def geology_elevation(self, geographic):
         self.geology_elevation = np.ones(len(self.geology_code))
         for i in range(0,len(self.geology_code)):
             self.geology_elevation[i]= np.min(geographic.dem_data[self.geology_array==self.geology_code[i]])
-        
+
         #idxs = self.geology_elevation.argsort()
         #self.geology_elevation = self.geology_elevation[idxs[:]]
         #self.geology_code = self.geology_code[idxs[:]]
+        
         return self
 
     def geo_to_K(self,K_geo_values):
-        '''
+        """
+        
         geology_array: 2D arrays - code of geology entities
-        K_geo_values: 1D array (same size that geology code variable) - correspondence between geology codes and hydraulique conductivity values 
-        '''
+        K_geo_values: 1D array (same size that geology code variable)
+            correspondence between geology codes and hydraulique conductivity values 
+        
+        """
+        
         self.K_array = self.geology_array
         for i in range(0,len(self.geology_code)):
             self.K_array[self.geology_array==self.geology_code[i]]=K_geo_values[i]
         return self
+
+#%% NOTES
+
