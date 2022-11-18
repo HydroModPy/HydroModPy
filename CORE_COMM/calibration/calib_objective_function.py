@@ -198,6 +198,9 @@ class Piezometry:
                 y0 = np.asarray([hobs, Aobs.mean()])
                 y1 = np.asarray([hsim, Asim.mean()])
 
+                y0_global = df[self.watershed.piezometry.codes_bss[j]]
+                y1_global = df['sim_' + self.watershed.piezometry.codes_bss[j]]
+
                 # MARTIN: implementer un paramètre supplémentaire pour selectionner un critere de performance
                 ER = np.nansum(y0-y1)  # error 
                 ABSER = np.nansum(np.abs(y0-y1))  # absolute error 
@@ -212,8 +215,9 @@ class Piezometry:
                 KGE = he.evaluator(he.kge, y1, y0)[0][0] # kling-gupta efficiency (r, α, β)
                 PBIAS  = he.evaluator(he.pbias, y1, y0)[0] # percent bias
                 NSElog = he.evaluator(he.nse, y1, y0, transform='log')[0] # nash–sutcliffe efficiency log
-
-                self.store_indicator.append(RMSE)
+                RMSE_global = np.sqrt(np.nanmean((y0_global-y1_global)**2)) # root mean square error
+                
+                self.store_indicator.append(RMSE_global)
                             
             self.y0 = df[[col for col in df if not col.startswith('sim_')]] #storage of observed data
             self.y1 = df[[col for col in df if col.startswith('sim_')]] #storage of simulated data
