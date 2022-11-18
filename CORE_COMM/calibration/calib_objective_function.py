@@ -183,7 +183,8 @@ class Piezometry:
                 df[self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
                 df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
                 #plt.plot(y0,y0-y1)
-                plt.legend()
+                plt.legend(fontsize='xx-large', loc='best')
+                plt.title(self.watershed.piezometry.codes_bss[j])
                 plt.show()
                 
                 #Amplitude and mean level are computed for observed and simulated data time series

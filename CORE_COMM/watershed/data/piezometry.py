@@ -51,7 +51,7 @@ class Piezometry:
     #%% INIT
     
     def __init__(self, out_path, geographic):
-        print('Extraction des données piézomètriques')
+        print('Extraction des données piézométriques')
         data_folder = os.path.join(out_path,'results_stable','piezometric')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)

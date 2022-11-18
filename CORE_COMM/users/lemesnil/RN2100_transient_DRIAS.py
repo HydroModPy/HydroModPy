@@ -41,8 +41,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Caen' #Caen-la-Mer
-# Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
+watershed_name = 'Caen-la-Mer'
+# Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 
 # Path to the git repositoty home page
 git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
@@ -70,18 +70,19 @@ hydrology_path = data_path + 'hydro/' # add hydrographic shapefiles
 # intermittency_path = data_path + 'intermittency/' # add intermittency data for automatic download
 piezometry_path = True # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
-
+drias_path = data_path + "CLIMAT/Normandie/"
 library_path = git_path + 'watershed/watershed_library.csv' # each row is a study site with outlet coordinates
 
 dem_name = "BDALTI_norm-manch_75m.tif"
 dem_path = dems_path + dem_name
 
 sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
-
+ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
+#r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
 cell_size = None # specify new resolution from a given DEM or None
 
-#%% Load BV object
-    
+#%% Watershed generation
+
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
@@ -92,7 +93,33 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=False,
                               cell_size=cell_size)
 
-# BV.load_object()
+
+BV.add_drias(drias_path)
+BV.add_surfex(surfex_path) 
+BV.add_hydrodynamic()
+BV.add_oceanic(oceanic_path)
+
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
+
+
+#%% Load BV object
+    
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              modflow_path=modflow_path,
+                              library_path=library_path,
+                              load=True,
+                              from_shp=None,
+                              from_dem=None,
+                              cell_size=cell_size)
+
+BV.load_object()
+BV.add_hydrodynamic()
+BV.add_oceanic(oceanic_path)
+BV.add_piezometry()
+
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
@@ -101,7 +128,6 @@ import os
 from datetime import datetime
 
 BV.add_forcing()
-BV.add_piezometry()
 BV.piezometry.add_data()
 BV.piezometry.display_data()
 
@@ -373,13 +399,19 @@ elif sim_state == 'transient' :
 import pandas as pd
 
 #load recharge time serie from ESPERE
-with open(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_SGA_2021_2022.csv', newline='') as csvfile:
+with open(ESPERE_recharge_path, newline='') as csvfile:
     # rech_data = list(csv.reader(csvfile))
-    rech_data = pd.read_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_SGA_2021_2022.csv', sep=';')
+    rech_data = pd.read_csv(ESPERE_recharge_path, sep=';')
 recharge_ESP = rech_data.iloc[:,3]
-rech_ESPERE = R_HAD_REG_RCP26
-for i in range(len(rech_ESPERE)):
-    rech_ESPERE.iloc[i] = float(recharge_ESP.iloc[i].replace(',','.'))
+
+r_ESP = rech_data.copy()
+r_ESP = r_ESP.drop(['P','Peff'], axis=1)
+r_ESP = r_ESP.rename(index = pd.to_datetime(r_ESP['Date'], dayfirst=True))
+r_ESP = r_ESP.drop('Date', axis=1)
+
+# rech_ESPERE = R_HAD_REG_RCP26 #canvas
+# for i in range(len(rech_ESPERE)):
+#     rech_ESPERE.iloc[i] = float(recharge_ESP.iloc[i].replace(',','.'))
 
 #%% Calibration of K and n based on piezometry
 
@@ -387,86 +419,22 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_explo_MF_K1n1' #calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+params_file = 'calib_1_synop_k1t1'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
-BV.forcing.update_recharge(rech_ESPERE, 'transient') #R_HAD_REG_RCP26
-BV.hydrodynamic.update_thickness(30)
-
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+# BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_porosity(0.97)
 #init value is not used in exploration mode
 #lin or log probably not used
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin'] #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
-params_df.loc[1] = ['n1',0.03,0.03,0.4,'-','lin'] #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
+params_df.loc[0] = ['k1',25,25,25,'m/j','lin']
+params_df.loc[1] = ['t1',215,215,215,'m','lin'] #params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin'] #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
+#params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(300)
-
-# #Parallel tests
-# import time
-# import multiprocessing as mp
-
-# def timing(periods):
-#     t = time.time()
-#     for p in range(periods):
-#         e = periods**periods
-#         time.sleep(5)
-#     et = time.time() - t
-#     print('Elapsed time = %f seconds.\n' %et)
-#     return(e)
-    
-# timing(3)
-
-# pool = mp.Pool(mp.cpu_count())
-# pool.map(timing, 3)
-# pool.close()
-# pool.join()
-
-# # #Parallel processing (integrated to hydromodpy codes)
-# # import time
-# # import threading
-# # import multiprocessing as mp
-
-# # t = threading.Thread(target=calib.exploration, args=(3))
-# # t.start()
-# # t.join()   
-    
-# # compt=0
-# # coeur=mp.cpu_count()
-# # compt += 1
-# # t = threading.Thread(target=calib.exploration, args=(3))
-# # t.start()
-# # # if int(compt / coeur) == compt / coeur:  # Si compt est multiple de 3
-# # #     t.join()  # alors on attend que les modèles soient terminées pour recommencer
-# # #     print(compt)
-# # t.join() # On attend que les modèles soient finis pour terminer le calcul
-
-# # #%% RUN FOR ONE VARIABLE
-
-# # # # # For one parameter varying
-# # for var3 in range (0, len(k)):
-# #     print(k[var3])
-# #     settings(nlay, tdis, ep, k[var3], phi, rch, fix)
-
-# # #%% RUN ONLY ONE MODEL
-
-# # # # # For only one model
-# # settings(nlay, tdis, ep, k, phi, rch, fix)
-  
-# # # # #Parallel processing
-# # import multiprocessing as mp
-# # # import time
-# # mp.cpu_count()
-# # # # print("Number of processors: ", mp.cpu_count())
-
-# # # t = time.time()
-# # # pool = mp.Pool(mp.cpu_count())
-# # # # pool.map(calib.exploration, [3])
-# # # pool.apply(calib.exploration, args=3)
-# # # pool.close()
-# # # pool.join()
-# # # et = time.time() - t
-# # # print('Elapsed time = %f seconds.\n' %et)
+calib.exploration(1)
 
 #%% Extraction and analysis of K-n calibration results
 
@@ -474,7 +442,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_explo_MF_K1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+params_file = 'calib_explo_synop_k1t1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -501,6 +469,9 @@ n_optim = n_values[i_min_RMSE]
 
 
 #%% Model Parameters
+
+K_optim = 13.1
+n_optim = 0.4
 
 # Hydraulic properties
 t = 30 # m
@@ -535,8 +506,7 @@ import deepdish as dd
 from groundwater_flow import modflow_display
 import numpy as np
 import pandas as pd
-import multiprocessing as mp
-import time
+from datetime import datetime
 
 BV.add_forcing()
 sim_state = 'transient'
@@ -545,59 +515,15 @@ last_yr = 2100
 gcm = 'MPI'
 rcm = 'CCL'
 
+RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
+md_rmsl_85 = RMSL_85.iloc[:,0]
+
 list_sim_name = []
 list_success = []
 list_flow_model = []
-list_var_store = []
-
-
-
-# Test parallel
-# def runsim(sce):
-#     sim_state = 'transient'
-#     first_yr = 2023
-#     last_yr = 2025
-#     gcm = 'MPI'
-#     rcm = 'CCL'
-#     scen_list = ['RCP2.6', 'RCP8.5']
-#     scen = scen_list[sce]
-    
-#     BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = scen,
-#                                       first_year = first_yr, last_year = last_yr,
-#                                       sim_state = sim_state)
-#     # BV.oceanic.update_MSL()
-#     sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
-#     print(sim_name)
-
-#     success, flow_model = BV.run_modflow(ident=sim_name,
-#                     modpath_sim=modpath_sim,
-#                     first_only=first_only,
-#                     sink_fill=sink_fill,
-#                     box=box,
-#                     lay_number=lay_number,
-#                     bottom=bottom,
-#                     thick_exp=thick_exp,
-#                     cond_decay=cond_decay,
-#                     verbose=verbose)
-    
-#     list_sim_name.append(sim_name)
-#     list_success.append(success)
-#     list_flow_model.append(flow_model)
-#     list_var_store.append(BV.forcing.runoff)
-
-# idx_torun = [0,1]
-# t = time.time()
-# # with mp.Pool(mp.cpu_count()) as pool:
-# #     pool.map(runsim, ['RCP2.6', 'RCP8.5'])
-# #     # pool.apply(calib.exploration, args=3)
-
-# pool = mp.Pool(mp.cpu_count())
-# rr = pool.map(runsim, idx_torun)
-# pool.close()
-# et = time.time() - t
-# print('Elapsed time = %f seconds.\n' %et)
-
-
+list_runoff = []
+list_recharge = []
+list_sealevel = []
 
 for sim in range(1):
     
@@ -607,10 +533,13 @@ for sim in range(1):
     BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
                                       first_year = first_yr, last_year = last_yr,
                                       sim_state = sim_state)
-    # BV.oceanic.update_MSL()
+    BV.oceanic.update_MSL(md_rmsl_85)
     R = BV.forcing.recharge
     sea_lev = BV.oceanic.MSL
-    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '')
+    
+    now = datetime.now()
+    now_str = now.strftime("%d%m%Y%H%M%S")
+    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
     print(sim_name)
 
     success, flow_model = BV.run_modflow(ident=sim_name,
@@ -627,16 +556,20 @@ for sim in range(1):
     list_sim_name.append(sim_name)
     list_success.append(success)
     list_flow_model.append(flow_model)
-    list_var_store.append(BV.forcing.runoff)
+    list_runoff.append(BV.forcing.runoff)
+    list_recharge.append(BV.forcing.recharge)
+    list_runoff.append(BV.oceanic.MSL)
 
 sim_results_dict = {}
-sim_results_dict['list_sim_name'] = list_sim_name
-sim_results_dict['list_success'] = list_success
-sim_results_dict['list_flow_model'] = list_flow_model
-sim_results_dict['list_var_store'] = list_var_store
+sim_results_dict['sim_name'] = list_sim_name
+sim_results_dict['success'] = list_success
+sim_results_dict['flow_model'] = list_flow_model
+sim_results_dict['runoff'] = list_runoff
+# sim_results_dict['recharge'] = list_recharge
+# sim_results_dict['sealevel'] = list_sealevel
 
 h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
-dd.io.save(h5file, sim_results_dict)
+# dd.io.save(h5file, sim_results_dict)
 
 
 #%% Post processing 1: raster generation and storage
@@ -648,15 +581,15 @@ types_obs = ['piezometry']
 
 h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
 d = dd.io.load(h5file)
-list_sim_name = d['list_sim_name'][:]
-list_success = d['list_success'][:]
-list_flow_model = d['list_flow_model'][:]
-list_var_store = d['list_var_store'][:]
+list_sim_name = d['sim_name'][:]
+list_success = d['success'][:]
+list_flow_model = d['flow_model'][:]
+list_runoff = d['runoff'][:]
 
 for model_name, success, flow_model, var_store in zip(list_sim_name,
                                                      list_success,
                                                      list_flow_model,
-                                                     list_var_store):
+                                                     list_runoff):
 
     if success==True:
             print(success)
@@ -700,83 +633,4 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
                                                   intermittency=False,
                                                   chronics=False)
 
-
-#%% Post-processing 2: watertable depth analysis
-import os
-import matplotlib.pyplot as plt
-import numpy as np
-
-path = os.path.join(simulations_folder, sim_name, '_watershed', 'watertable_depth.npy')
-wt_depth = np.load(path, allow_pickle=True).item()
-
-for t in range(len(wt_depth)):
-    wt_depth[t][wt_depth[t]==-9999] = np.nan
-
-
-mapp = plt.imshow(wt_depth[600])
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.show()
-
-south = len(wt_depth[0]) #75m
-east = len(wt_depth[0][0]) #75m
-duration = len(wt_depth) #1d
-matrix_wtd = np.ones((south,east,duration))*np.nan
-
-for t in range(len(wt_depth)):
-    matrix_wtd[:,:,t] = wt_depth[t]
-    
-rast_min = np.amin(matrix_wtd,2)
-rast_max = np.amax(matrix_wtd,2)
-rast_mean = np.mean(matrix_wtd,2)
-
-rast_f30 = np.ones((south,east))*np.nan
-rast_f3 = np.ones((south,east))*np.nan
-for i in range(south):
-    for j in range(east):
-        c30 = c3 = 0
-        for t in range(duration):
-            if matrix_wtd[i,j,t] <= 0.3:
-                c30 += 1
-            if matrix_wtd[i,j,t] <= 0.03:
-                c3 += 1
-        rast_f30[i,j] = c30/duration*100
-        rast_f3[i,j] = c3/duration*100
-
-
-mapp = plt.imshow(rast_f30)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Occurency (%)")
-plt.axis('off')
-plt.title('Watertable depth < 30 cm ')
-plt.show()
-
-mapp = plt.imshow(rast_f3)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Occurency (%)")
-plt.axis('off')
-plt.title('Watertable depth < 3 cm ')
-plt.show()
-
-mapp = plt.imshow(rast_min)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.title('Minimum watertable depth')
-plt.show()
-
-mapp = plt.imshow(rast_max)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.title('Maximum watertable depth')
-plt.show()
-
-mapp = plt.imshow(rast_mean)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.title('Mean watertable depth')
-plt.show()
 

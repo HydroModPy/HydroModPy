@@ -177,7 +177,7 @@ class CalibAnalysis:
             if self.observations == ['streams']:
                 plt.colorbar(label=r'$log(D_{SO}/D_{OS})^{2}$')
             
-            # Whatevert the dimension, saves figure
+            # Whatever the dimension, saves figure
             if save != None:
                 plt.savefig(save,dpi=300, bbox_inches = "tight")
         

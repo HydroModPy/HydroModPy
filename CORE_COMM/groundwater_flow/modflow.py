@@ -540,10 +540,10 @@ class Modflow():
             
         ### Constant Head boundary conditions of No Flow (at sea level)
         
-        if self.sea_level != None:
+        if isinstance(self.sea_level, (int,float,pd.Series)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             if isinstance(self.sea_level,(int,float)) == False:
-                self.chdData = {}
+                self.chData = {} #Martin on 15/11/2022: before was: self.chdData = {}
                 for kper in range(0, self.nper):
                     chdKper = []
                     for i in range (0,self.nrow):
@@ -551,7 +551,7 @@ class Modflow():
                             if self.dem[i,j] < self.sea_level[kper]:
                                 package[kper,i,j] = 1
                                 chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
-                            self.rchData[kper] = chdKper
+                            self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
                                     
         #%% Parametrization
         
