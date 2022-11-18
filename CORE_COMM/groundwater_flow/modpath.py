@@ -1,4 +1,10 @@
 # coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import os
 import sys
 import flopy
@@ -10,21 +16,12 @@ from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
+#%% CLASS
+
 class Modpath:
-    """
-    model_name
-    model_path
-    dem : path of dem file (.tif)
-    climatic : float or Dataframe Datatimeseries
-    lay_number: int - number of layer - default is 1
-    thickness_aquifer: float
-    cond_hyd :
-        - homogeneous : float
-        - heterogeneous : numpy array (same size as the dem)
-    porosity: :
-        - homogeneous : float
-        - heterogeneous : numpy array (same size as the dem)
-    """
+
+    #%% INIT
+    
     def __init__(self,geographic, model_name='modflow_model', 
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), 
@@ -37,7 +34,9 @@ class Modpath:
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
         self.exe = exe
-
+        
+    #%% PRE-PROCESSING
+    
     def pre_processing(self, verbose=True):
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
@@ -63,7 +62,7 @@ class Modpath:
         # cbb.list_records()
         rec_drn = cbb.get_data(kstpkper=(0, 0), text='DRAINS')
         rec_rch = cbb.get_data(kstpkper=(0, 0), text='RECHARGE')
-
+        
         drn = np.ones((nrow, ncol))
         compti = 0
         comptj = 0
@@ -88,23 +87,21 @@ class Modpath:
         self.mp.head_file = head_file
         self.mp.budget_file = bud_file
 
-
-        #ptcol = 1
-        #ptrow = 1
-        #ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
-
-        # self.mp.write_input()
-
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=[2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 1, 1],
                                    group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=szone)
+        
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
         prow = 1
         pcol = 1
-        #stldata = flopy.modpath.mpsim.StartingLocationsFile.get_empty_starting_locations_data(npt=ncol*nrow*prow*pcol)
+                
+        # To apply particules only on the pixels of the catchment
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip != -99999)*pcol*prow)
+        
+        # To apply particules for all pixels of the domain model
         '''
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip >= -99999)*pcol*prow)
         '''
+        
         hds_1c = fpu.HeadFile(head_file)
         # hds_1c = ff.FormattedHeadFile('model1.hds')
         head_1c = hds_1c.get_alldata(mflay=None)
@@ -145,6 +142,17 @@ class Modpath:
 										prsity=self.porosity, prsityCB=self.porosity, extension='mpbas', unitnumber=86)
         self.mp.write_input()
     
+    #%% PROCESSING
+    
     def processing(self, verbose=True):
         succes, buff = self.mp.run_model(silent=not verbose)
     
+#%% NOTES
+
+#stldata = flopy.modpath.mpsim.StartingLocationsFile.get_empty_starting_locations_data(npt=ncol*nrow*prow*pcol)
+
+#ptcol = 1
+#ptrow = 1
+#ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
+        
+        

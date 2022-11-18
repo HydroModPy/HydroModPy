@@ -1,4 +1,10 @@
 # coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,6 +15,8 @@ import matplotlib.dates as mdates
 from matplotlib.font_manager import FontProperties
 import matplotlib.ticker as ticker
 from IPython.core.debugger import set_trace as st
+
+#%% PARAMS PLOT
 
 # Parameters
 # Parameters plot : v2.0 to classic customized
@@ -64,6 +72,8 @@ fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
+#%% COLORS
+
 color_dict = {'ACC1':'dodgerblue',
 			  'BCC1':'darkorange',
 			  'BNU1':'forestgreen',
@@ -74,6 +84,8 @@ color_dict = {'ACC1':'dodgerblue',
 			  'MIR1':'salmon',
 			  'NOR1':'grey',
 			  'REA':'cyan'}
+
+#%% DISPLAY FUNCTIONS
 
 def display_all_variables(data, figure_folder, mod, start, end):
 	#mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5','CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','REA']
@@ -110,6 +122,8 @@ def display_all_variables(data, figure_folder, mod, start, end):
 		fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 		plt.close()
         
+
+
 def display_intermensual_scenarios(data, figure_folder, var):
 	mod_list = ['ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1','REA']
 	var_list = ['TAS','PPT','ETP','RUN','REC','SNOW']
@@ -167,7 +181,10 @@ def display_intermensual_scenarios(data, figure_folder, var):
 		fig.suptitle(var.upper() + ' - [mm/month]')
 	plt.tight_layout()
 	name_out = figure_folder + 'MULTIMODEL_INTM_' + var.upper()
+    
 	fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
+
+
 
 def display_annual_scenarios(data, figure_folder, var):
 	mod_list = ['ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1','REA']
@@ -232,6 +249,8 @@ def display_annual_scenarios(data, figure_folder, var):
 	
 	name_out = figure_folder + 'MULTIMODEL_YEARLY_' + var.upper()
 	fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')  
+
+
 
 def display_anomaly(data, figure_folder, mod ,var, per_hist, per_fut):
 	df = pd.DataFrame()
@@ -326,3 +345,6 @@ def display_anomaly(data, figure_folder, mod ,var, per_hist, per_fut):
 		
 	out = mod+'_'+var+'_'+'RCPs'+'_'+'I'
 	fig.savefig(figure_folder+out+'.jpg', dpi=300, bbox_inches='tight')
+    
+#%% NOTES
+

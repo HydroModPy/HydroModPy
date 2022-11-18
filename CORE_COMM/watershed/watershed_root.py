@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """
+
 Created on Thu Sep  9 14:52:56 2021
 
-@author: Alexandre Gauvain
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
+
+#%% LIBRAIRIES
 
 # Modules
 import os
@@ -24,15 +28,18 @@ from tools import toolbox
 from watershed import forcing, geographic, hydrodynamic, watershed_display
 from calibration import calib_dichotomy
 
-class Watershed:
+#%% CLASS
+
+class Watershed :
     """
+    
     class Watershed is used to extract watershed and its data from regional DEM
         Hub to all elements necessary or optional to construct watersheds (meaning catchements) and run modflow simulations
     
     Attributes, public
     -------------------
     watershed_name: str 
-        name of the watershed
+        Name of the watershed
         
     watershed_def_option: str
         Option for the definition of the Watershed 
@@ -41,11 +48,13 @@ class Watershed:
         Path to the shapefile that will be used as "Watershed"
         With such an option, Watershed is not generated but loaded from the file
     
-    from_dem: str #RONAN: from_dem_path
+    from_dem: boolean
         Uses DEM instead of shapefile
-        Cases where domain is georeferenced (e.g. synthetic geometry, erosion models)
-    cell_size: #RONAN Même racine de nom eg: from_dem_size
-        Modifies the resolution of the DEM
+        True if the process start from a given DEM of xyz file
+        Cases where domain is not georeferenced (e.g. synthetic geometry, erosion models)
+        
+    cell_size: float
+        Modifies the resolution of the DEM, a new value rather than the DEM resolution
 
     outlet_def_option: str #RONAN
         Method to define the watershed outlets 
@@ -102,6 +111,8 @@ class Watershed:
     drias: class Drias
         netCDF et h5 climatic data obtained from drias clipped to the defined watershed
     
+    Oceanic
+    -------
     oceanic: class Oceanic
         sea level chronicles (loaded from "maregraph" data)
         may be a direct input to the model
@@ -133,11 +144,9 @@ class Watershed:
     display
         Display watershed figure
     
-        
     METHODS PRIVATE
-    --------------
-        
-    load_watershed_csv: 
+    --------------       
+    define_watershed_charac: 
         Load watershed informations from watershed.csv file
     
     load_object:
@@ -149,9 +158,8 @@ class Watershed:
     save_object:
         Saves python object (using pickle)
     
-    
-    
-    
+    Read the docs
+    -------------
     :param str name: name of watershed.
     :param dem_path: folder of the regional DEM.
     :param out_path: root directory of results.
@@ -165,7 +173,6 @@ class Watershed:
     :param load: load the pickle file. Doesn't build the watershed object.
     :param types_obs: list of observations data. Only if hydrology_path is not None.
     :param fields_obs: list of observations fields. Only if hydrology_path is not None.
-    
     :ivar str watershed_folder: root directory of results of watershed class
     :ivar add_data_folder: folder if you want add data manually
     :vartype add_data_folder: :class:`str`
@@ -203,33 +210,34 @@ class Watershed:
     :vartype buff_percent: :class:`float`
     :ivar crs_proj: coordiante system of projection
     :vartype crs_proj: :class:`str`
-    
     :meta public:
+        
     """
+    
+    #%% INIT
+
     def __init__(self, watershed_name: str, dem_path: str, 
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
                  from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
                  from_xy: list = [], regio_out: bool = False):
         """  
+        
         Arguments
-        ----------
+        ---------
         load: boolean
             True: the watershed should be loaded from the one saved of a previous simulation
             False: the watershed will be generated (and not loaded)
             
-        
         """
-        
+
         self.watershed_name = watershed_name
         self.library_path = library_path
         
-        #RONAN: Expliciter les diffétentes options de génération
         self.from_shp = from_shp
         self.from_dem = from_dem
         self.from_xy = from_xy
         
-        #RONAN: comment 
         self.cell_size = cell_size
         
         self.dem_path = dem_path
@@ -262,7 +270,7 @@ class Watershed:
         
         self.elt_def = []
         
-        success = False  #RONAN: supprimer la ligne une fois testée
+        success = False
         if load==True:
              # Load from previously stored (saved) watershed
              success = self.load_object()
@@ -273,18 +281,19 @@ class Watershed:
         if load==False or success==False: 
             print("Create new object, will removed previousy stored object at the same place")
             # Definition of the watershed
-            self.load_watershed_csv()
+            self.define_watershed_charac()
             # Creation of the watershed defined at the previous line
             self.create_object()
             # Save object
             if save_object == True:
                 self.save_object()
         
-        
-    def load_watershed_csv(self):
+    #%% PYTHON OBJECT
+    
+    def define_watershed_charac(self):
         """
+        
         Load watershed informations from watershed.csv file
-        #RONAN: changer le nom de la fonction load_watershed_csv -> define_watershed_charac
         
         Modifies
         -------
@@ -292,8 +301,9 @@ class Watershed:
             x-outlet, y_outlet
             snap_dist, buff_percent
             crs_proj
-        
+            
         """
+        
         # Conditions that should all be fulfilled to generate watershed from watershed library outlet
         if (self.from_shp == None) & (self.from_dem == False) & (self.from_xy == []) :
             try:
@@ -321,6 +331,7 @@ class Watershed:
             
     def load_object(self):
         """
+        
         Loads python object
             Load watershed when it has already been generated
             Uses pickle library to store and load watershed
@@ -333,7 +344,9 @@ class Watershed:
         -------
             sucess: boolean
                 watershed has or has not been loaded
+                
         """
+        
         if os.path.exists(os.path.join(self.watershed_folder, 'python_object')):
             # Test the existence of the stored watershed within the default path name "python_object"
             with open(os.path.join(self.watershed_folder, 'python_object'), 'rb') as config_dictionary_file:
@@ -365,7 +378,7 @@ class Watershed:
             if ('intermittency' in BV.__dir__()) == True:
                 self.intermittency = BV.intermittency
                 self.elt_def.append('intermittency')
-            if ('subbasin' in BV.__dir__()) == True:      # Generates basin where there are hydrological stations
+            if ('subbasin' in BV.__dir__()) == True:   # Generates basin where there are hydrological stations
                 self.subbasin = BV.subbasin
                 self.elt_def.append('subbasin')
             # Atmospheric (compulsory: hydrodynamic)
@@ -389,6 +402,7 @@ class Watershed:
 
     def create_object(self):
         """
+        
         Creates watershed by defining geographic
         
         MODIFIES
@@ -396,7 +410,8 @@ class Watershed:
         geographic: creates it
         
         """
-        #STURCUTRE DATA
+        
+        # Structure data
         self.geographic = geographic.Geographic(dem_path=self.dem_path, x=self.x_outlet, y=self.y_outlet,
                                                 snap_dist=self.snap_dist, buff_percent=self.buff_percent,
                                                 out_path=self.watershed_folder,
@@ -404,21 +419,50 @@ class Watershed:
                                                 from_xy=self.from_xy, regio_path=self.regio_path,
                                                 cell_size=self.cell_size) #2D
         self.elt_def.append('geographic')
+
+    def save_object(self):
+        """
         
-    
+        Saves python object (using pickle)
+        
+        """
+        
+        # If folder already exists, removes it
+        if os.path.exists(os.path.join(self.watershed_folder,'python_object')):
+            os.remove(os.path.join(self.watershed_folder,'python_object'))
+        with open(os.path.join(self.watershed_folder,'python_object'), 'xb') as config_dictionary_file:
+            pickle.dump(self, config_dictionary_file)
+        config_dictionary_file.close()
+        # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
+
+    def display(self,dtype: str = 'watershed_dem'):
+        """
+        
+        Display watershed figure
+
+        :param dtype: type of figure. Can be 'watershed_dem' or 'watershed_geology'
+        
+        """
+        
+        if dtype == 'watershed_dem':
+            watershed_display.watershed_dem(self)
+        if dtype == 'watershed_geology':
+            watershed_display.watershed_geology(self)
+        if dtype == 'watershed_zones':
+            watershed_display.watershed_zones(self) 
+
+    #%% DATA OBJECT
+        
     def add_forcing(self):
         self.forcing = forcing.Forcing(out_path=self.watershed_folder)
         self.elt_def.append('forcing')
         #MARTIN self.save_object()
         
-        
     def add_hydrodynamic(self):
-        #RONAN: out of date
-        self.hydrodynamic = hydrodynamic.Hydrodynamic(self.geographic.y_pixel, self.geographic.x_pixel)
+        self.hydrodynamic = hydrodynamic.Hydrodynamic(nrow=self.geographic.y_pixel, ncol=self.geographic.x_pixel)
         self.elt_def.append('hydrodynamic')
         #self.hillslope = hillslope() #1D Doesn't exist
         #MARTIN self.save_object()
-        
         
     def add_hydrology(self, hydrology_path, types_obs = ['streams'], fields_obs = ['FID'], reset = False):
         self.hydrology_path = hydrology_path
@@ -428,13 +472,11 @@ class Watershed:
         self.elt_def.append('hydrology')
         self.save_object()
 
-            
     def add_geology(self, geology_path, types_obs = 'GEO1M.shp', fields_obs = 'CODE_LEG'):
         self.geology_path = geology_path
         self.geology =  geology.Geology(out_path=self.watershed_folder, geographic=self.geographic, geo_path = self.geology_path, landsea=None, types_obs=types_obs, fields_obs= fields_obs)
         self.elt_def.append('geology')
         self.save_object()
-
 
     def add_oceanic(self, oceanic_path):
         self.oceanic = oceanic.Oceanic()
@@ -445,15 +487,13 @@ class Watershed:
         self.elt_def.append('oceanic')
         self.save_object()
 
-
     def add_surfex(self, surfex_path):
         self.surfex_path = surfex_path
         self.climatic = climatic.Climatic(out_path=self.watershed_folder, surfex_path=self.surfex_path,watershed_shp=self.geographic.watershed_shp)
         climatic.Merge(out_path=self.watershed_folder)
         self.elt_def.append('surfex')
-        self.save_object()
-    
-    
+        #MARTIN self.save_object()
+        
     def add_drias(self, drias_path, list_models='all', list_vars='all'):
         self.drias_path = drias_path
         self.drias = drias.Drias(out_path=self.watershed_folder,
@@ -465,27 +505,23 @@ class Watershed:
         self.elt_def.append('drias')
         # self.save_object()
 
-
     def add_piezometry(self):
         self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,geographic=self.geographic)
         self.elt_def.append('piezometry')
         self.save_object()
 
-        
     def add_hydrometry(self, hydrometry_path):
         self.hydrometry_path = hydrometry_path
         self.hydrometry = hydrometry.Hydrometry(out_path=self.watershed_folder, hydrometry_path=self.hydrometry_path, geographic=self.geographic)
         self.elt_def.append('hydrometry')
         #MARTIN self.save_object()
-            
-        
+                    
     def add_intermittency(self, intermittency_path):
         self.intermittency_path = intermittency_path
         self.intermittency = intermittency.Intermittency(out_path=self.watershed_folder, intermittency_path=self.intermittency_path, geographic=self.geographic)
         self.elt_def.append('intermittency')
         #MARTIN self.save_object()
-            
-        
+                    
     def add_subbasin(self):
         if hasattr(self, 'hydrometry') == False:
             self.hydrometry=None
@@ -493,20 +529,8 @@ class Watershed:
         self.elt_def.append('subbasin')
         #MARTIN self.save_object()
 
+    #%% MODEL MODFLOW
 
-    def save_object(self):
-        """
-        Saves python object (using pickle)
-        """
-        # If folder already exists, removes it
-        if os.path.exists(os.path.join(self.watershed_folder,'python_object')):
-            os.remove(os.path.join(self.watershed_folder,'python_object'))
-        with open(os.path.join(self.watershed_folder,'python_object'), 'xb') as config_dictionary_file:
-            pickle.dump(self, config_dictionary_file)
-        config_dictionary_file.close()
-        # pickle.dump(self, open(self.watershed_folder + '/python_object', "wb"))
-       
-        
     def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
@@ -514,6 +538,7 @@ class Watershed:
                     time_step: str = 'M', calib: str = None, init_rech: str = 'mean', bc_left: (float) = None, bc_right: (float) = None,
                     verti_k: list = None):
         """ 
+        
         Build and run modflow model
         
         Arguments
@@ -529,7 +554,7 @@ class Watershed:
             run == True: should run the modflow model
             model is preprocessed for modflow but not processed
             
-        Returns: 
+        Returns
         --------
         success: boolean
             success = True : model has run correctly
@@ -538,20 +563,17 @@ class Watershed:
             Modflow model & attributes
             (not the results of the modflow model)
         
-        
+        Read the docs
+        -------------
         :param modpath_sim: run modapth model
         :param ident: identity name of the model (file that will be generated for this simulation (eg: steady_K.._teta...))
         :return succes: True if the simulation is succesfully
-
-
-        #RONAN: should be removed 
         :param lay_number: number of layer of the model
         :param bottom: if bottom is None, the model has a constant thickness.if bottom is float, the model has a flat bottom at the float elevation
         :param cond_decay: changes the hydraulic conductivity exponentially with the depth. lay_number must be >1.
         :param thick_exp: changes the thickness of the layers exponentially. lay_number must be >1.
-        
-        
         :meta public:
+            
         """
         
         # Type of run: classical simulation or calibration
@@ -616,7 +638,8 @@ class Watershed:
         # self.save_object()
         
         return success, flow_model
-    
+
+    #%% POSTPROCESS MODEL    
 
     def matrix_modflow(self,                       
                        success,
@@ -694,10 +717,10 @@ class Watershed:
                                        verbose = verbose,
                                        export_tif = export_tif)
 
-
     def results_modflow(self, ident='modflow', recharge=250, runoff=25,
                         actual_date=True, time_step='M', calib=None):
         """
+        
         Gets the results of Matrix Modflow (raster tiffs) and generates aggregated characteristics
             mean piezometry
             mean flows... 
@@ -708,7 +731,9 @@ class Watershed:
         -------
         simulated_results: Dataframe pandas
             Datafrome of temporal chronicles (first column: time)
+            
         """
+        
         if calib == None:
             model_folder = self.simulations_folder
         else:
@@ -722,30 +747,20 @@ class Watershed:
                                 model_name=ident,
                                 model_folder=model_folder)
         simulated_results = results.mfdata
-        return simulated_results
-                
+        
+        # return simulated_results
+
+    #%% MODEL HS1D                
     
     def run_hs1D(self):
         """
+        
         Coming soon !
+        
         """
+        
         return self
-    
-    
-    def display(self,dtype: str = 'watershed_dem'):
-        """
-        Display watershed figure
 
-        :param dtype: type of figure. Can be 'watershed_dem' or 'watershed_geology'
-        """
-        if dtype == 'watershed_dem':
-            watershed_display.watershed_dem(self)
-        if dtype == 'watershed_geology':
-            watershed_display.watershed_geology(self)
-        if dtype == 'watershed_zones':
-            watershed_display.watershed_zones(self) 
+#%% NOTES
 
-
-            
-            
-            
+          

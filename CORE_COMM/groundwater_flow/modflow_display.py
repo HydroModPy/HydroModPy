@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 21 14:43:47 2021
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 # General
 import sys
@@ -37,7 +37,12 @@ wbt.verbose = True
 # Modules                   
 from tools import toolbox
 
+#%% CLASS
+
 class SurfaceOutputs():
+    
+    #%% INIT
+    
     def __init__(self, recharge, simulations_folder, stable_folder, model_name, 
                  types_obs, save_gif=False, first_only = True,
                  outflow=False, accflux=False, intermittency=False,
@@ -111,7 +116,9 @@ class SurfaceOutputs():
                 self.make_a_gif('map_outflow_drain_')
             if accflux == True:
                 self.make_a_gif('map_accumulation_flux_')
-        
+       
+    #%% FUNCTIONS    
+    
     def plot_map_intermittency(self, iter_time):
         # Select file
         file = self.list_traces[iter_time]
@@ -414,7 +421,7 @@ class SurfaceOutputs():
             images.append(imageio.imread(filename))
         imageio.mimsave(self.gifdir+'/'+begin_by+'.gif', images, duration=0.5, loop=1)
 
-#%% Interactive cross-section head
+#%% INTERACTIVE CROSS-SECTION
 
 def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
     
@@ -574,7 +581,7 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
     
     fig.canvas.mpl_connect('close_event', on_close)
 
-#%% Notes
+#%% NOTES
 
 # fig = plt.figure(figsize=(11,6))
 # gs = fig.add_gridspec(3,3)
@@ -586,3 +593,4 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
 # fig.tight_layout()
 # fig.savefig(self.pngdir + name_fig)
 # plt.close()
+
