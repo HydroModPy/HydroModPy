@@ -552,7 +552,8 @@ class Modflow():
                                 package[kper,i,j] = 1
                                 chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
-                                    
+                print(self.chData)
+                chd = flopy.modflow.ModflowChd(m, stress_period_data=self.chData)                    
         #%% Parametrization
         
         # lpf package
