@@ -532,6 +532,7 @@ class Modflow():
         # NO FLOW BOUNDARY CONDITIONS 
         for i in range (self.nlay):
             if isinstance(self.sea_level,(int,float)) == True:
+                print('niv0')
                 self.iboundData[i][self.dem <= self.sea_level] = -1
                 self.strtData[self.iboundData == -1] = self.sea_level
             self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
@@ -542,18 +543,22 @@ class Modflow():
         
         if isinstance(self.sea_level, (int,float,pd.Series)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
+            print('niv1')
             if isinstance(self.sea_level,(int,float)) == False:
+                print('niv2')
                 self.chData = {} #Martin on 15/11/2022: before was: self.chdData = {}
                 for kper in range(0, self.nper):
+                    print(kper)
                     chdKper = []
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
                             if self.dem[i,j] < self.sea_level[kper]:
-                                package[kper,i,j] = 1
-                                chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
+                                if self.iboundData[0,i,j] != 0: #no-flow cells cannoyt be converted to specified head cells
+                                    package[kper,i,j] = 1
+                                    chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
-                print(self.chData)
-                chd = flopy.modflow.ModflowChd(m, stress_period_data=self.chData)                    
+                chd = flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+                    
         #%% Parametrization
         
         # lpf package
