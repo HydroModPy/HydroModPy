@@ -7,9 +7,9 @@ Created on Tue Nov 15 10:56:21 2022
 
 #%% Paths
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Caen-la-Mer'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-sim_name = '20202100_MPICCLRCP85_15112022190253'
+sim_name = '20202100_MPICCLRCP85_19112022025720'
 
 out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
