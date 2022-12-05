@@ -1,4 +1,10 @@
 # coding:utf-8
+"""
+
+"""
+
+#%% LIBRAIRIES
+
 import os
 import urllib
 import zipfile
@@ -21,16 +27,39 @@ from datetime import datetime
 # Hydromodpy
 from tools import toolbox
 
+#%% CLASS
+
 class Piezometry:
+    """ 
+        
+    Attributes
+    ----------
+    x_coord: list of float
+        Lambert 93 X coordinates of piezometers
+    y_coord: list of float
+        Lambert 93 Y coordinates of piezometers
+    x_iloc: list of int
+        list of x-index of model cells corresponding to piezometers
+    y_iloc: list of int
+        list of y-index of model cells corresponding to piezometers
+
+    Methods
+    -------
+    
+    """
+    
+    #%% INIT
+    
     def __init__(self, out_path, geographic):
-        print('Extraction des données piézomètriques')
+        print('Extraction des données piézométriques')
         data_folder = os.path.join(out_path,'results_stable','piezometric')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
         self.figure_folder = os.path.join(out_path,'results_stable','_figures','piezometric')
         if not os.path.exists(self.figure_folder):
-                os.makedirs(self.figure_folder)  
-        self.download_init_data(data_folder, geographic)
+            os.makedirs(self.figure_folder)  
+        if not os.path.exists(os.path.join(data_folder,'shapefile','BSS.shp')):
+            self.download_init_data(data_folder, geographic)
         self.out_path = out_path
         self.geo_x_coord = geographic.x_coord
         self.geo_y_coord = geographic.y_coord
@@ -42,14 +71,16 @@ class Piezometry:
         self.depth_well = []
         self.elevation_well = []
         try:
-            self.exctract_piezos_from_watershed(data_folder, geographic)
+            pass#self.extract_piezos_from_watershed(data_folder, geographic)
         except:
             pass
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
         if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
             self.extract_data_from_code_bss(data_folder)
         self.load_piezometric_data(data_folder)
-
+    
+    #%% DOWNLOAD PIEZOMETERS ID AT FRANCE SCALE
+    
     def download_init_data(self,data_folder, geographic):
         #ADES continue data
         filename = os.path.join(data_folder, 'piezometers.zip')
@@ -96,8 +127,9 @@ class Piezometry:
         gdf.to_file(os.path.join(folder,"BSS.shp"))
         os.remove(os.path.join(folder, bss_csv))
             
-            
-    def exctract_piezos_from_watershed(self,data_folder, geographic):
+    #%% CLIP DATA AT THE CATCHMENT SCALE
+    
+    def extract_piezos_from_watershed(self,data_folder, geographic):
         # ADES continue data
         watershed = gpd.read_file(geographic.watershed_box_shp)
         piezos_shp = os.path.join(data_folder, 'shapefile','point_eau_piezo.shp')
@@ -113,6 +145,7 @@ class Piezometry:
             self.y_coord = piezos['geometry'].y.tolist()
             for i in range(0, len(self.x_coord)):
                 idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
+                # index is determined by lowest difference between piezometer coordinate and model cell coordinate
                 idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
                 self.x_iloc.append(idx)
                 self.y_iloc.append(idy) 
@@ -138,7 +171,9 @@ class Piezometry:
         bss.to_file(os.path.join(data_folder,'shapefile','piezos_discrete.shp'))
         
         return piezos
-        
+    
+    #%% DOWNLOAD PIEZOMETRY ON THE WEB 
+    
     def extract_data_from_code_bss(self,data_folder):
         for code in self.codes_bss:
             code_ = code.replace('_','/')
@@ -190,6 +225,8 @@ class Piezometry:
             elevation.columns = [code]
             self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
 
+    #%% ADD OWN MANUAL DATA
+
     def add_data(self):
         files = glob.glob(os.path.join(self.out_path, 'results_stable/add_data/piezometry_*.csv'))
         if len(files)>0:
@@ -213,7 +250,7 @@ class Piezometry:
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
             gdf.to_file(self.piezos_shp)
         
-    
+    #%% DISPLAY PLOT
     
     def display_data(self,value='elevation',start=None,end=None):
         fontprop = toolbox.plot_params(15,15,18,20)
@@ -225,11 +262,12 @@ class Piezometry:
         if len(self.codes_bss) == 6:
             colors = ['r','m','y','g','k','b']
         if value =='elevation':
-            self.elevation[start:end].plot(ax=ax,color=colors,lw=2)
+            interp_elev = self.elevation[start:end].interpolate() #linear interpolation of NaN values (in case several piezometers are logging non synchronized)
+            interp_elev.plot(ax=ax,color=colors,lw=2)
             #df = pd.DataFrame({'Date': [datetime.strptime(date, '%d/%m/%Y')for date in self.date_discrete], 'elevation_discrete': self.elevation_discrete})
             #df = df.set_index('Date')
             #df.plot(ax=ax,style='ok')
-            plt.ylabel('Elevation [m]')
+            plt.ylabel('Elevation [m asl]')
         plt.legend(loc='best')
         plt.xlabel('Date')
     
@@ -237,10 +275,5 @@ class Piezometry:
         name_out = os.path.join(self.figure_folder,'plot')
         fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 
+#%% NOTES
 
-
-
-
-
-
-        

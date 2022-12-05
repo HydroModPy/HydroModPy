@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan 19 13:44:15 2022
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 import os
 import geopandas as gpd
@@ -15,7 +15,12 @@ import matplotlib.dates as mdates
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
+#%% CLASS
+
 class Intermittency:
+    
+    #%% INIT
+    
     def __init__(self, out_path, intermittency_path, geographic):
         print('Extraction des données d\'intermittence')
         data_folder = os.path.join(out_path,'results_stable','intermittency')
@@ -35,7 +40,9 @@ class Intermittency:
             self.load_intermittency_data(data_folder)
         except:
             pass
-        
+    
+    #%% CLIP DATA FROM A FRANCE SCALE SHAPEFILE
+    
     def extract_intermittency_from_watershed(self, data_folder, intermittency_path, geographic):
         onde_data = os.path.join(intermittency_path, 'onde.shp')
         self.onde_clip = os.path.join(data_folder,'onde.shp')
@@ -53,7 +60,9 @@ class Intermittency:
             # self.date_last.append(pd.to_datetime(raw.iloc[-1]['<DtRealObs'],format='%Y-%m-%d'))
             self.date_first.append(raw.iloc[0]['<DtRealObs'])
             self.date_last.append(raw.iloc[-1]['<DtRealObs'])
-            
+    
+    #%% PLOT INTERMITTENCY DATA        
+    
     def load_intermittency_data(self, data_folder):
         self.flowing = pd.DataFrame()
         shp = gpd.read_file(self.onde_clip)
@@ -81,37 +90,26 @@ class Intermittency:
             ax.scatter(append.index, append[code], c=append[code], cmap='jet_r',
                        vmin=1, vmax=5,
                        marker='|', s=50, lw=1.5)
-            # try:
-            #     lab = raw['<LbSiteHyd'][0]
-            # except:
             lab = raw.iloc[0]['<LbSiteHyd']
-                # pass
             ax.set_title(code+' - '+lab)
-            # ax.set_yticks([-1, 0, 1, 2, 3])
-            # try:
             ax.set_yticklabels(['-','Assec','Invisible','Faible','Acceptable','Visible'])
-            # except:
-            #     ax.set_yticks([1, 2, 3, 4, 5])
-            #     pass
-            # ax.set_xticks(zip([-1, 0, 1, 2, 3],
-            #                   ['-','Assec','Invisible','Faible','Acceptable','Visible']))
-            # ax.yaxis.set_ticks(['-','Assec','Invisible','Faible','Acceptable','Visible'])
             ax.set_ylim(0.5,5.5)
             ax.set_xlim(([pd.to_datetime('2012'), pd.to_datetime('2022')]))                  
-            years = mdates.YearLocator(2)   # every year
+            years = mdates.YearLocator(2)   # every 2 years
             ax.xaxis.set_major_locator(years)
             years_fmt = mdates.DateFormatter('%Y')
             ax.xaxis.set_major_formatter(years_fmt)
             yearsmin = mdates.YearLocator(1)
             ax.xaxis.set_minor_locator(yearsmin)
-            # months = mdates.MonthLocator(6)  # every month
-            # months_fmt = mdates.DateFormatter('%m') #b = name of month ? 
-            # ax.xaxis.set_minor_locator(months)
+            months = mdates.MonthLocator(6)  # every month
+            months_fmt = mdates.DateFormatter('%m') #b = name of month ? 
+                # ax.xaxis.set_minor_locator(months)
             ax.grid(True, axis='x', which='major')   
             plt.tight_layout()
             fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
                         bbox_inches='tight', transparent=False)
             print(code)
             # plt.close()
-            
-        
+       
+#%% NOTES
+

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 25 17:51:53 2021
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 import os
 import whitebox
@@ -13,7 +13,12 @@ wbt.verbose = False
 
 from tools import toolbox
 
+#%% CLASS
+
 class RoutingAccflux:
+    
+    #%% INIT
+
     def __init__(self, geographic,
                  raw_rast_name, trace_shp_name, mass_rast_name,
                  extraction_folder=None):
@@ -45,6 +50,8 @@ class RoutingAccflux:
         # self.trace_downslope()
         # self.trace_cumulated()
 
+    #%% MASS FLUX FROM OUTFLOW
+
     def trace_cumulated(self):
         ### Loading ###
         im = imageio.imread(self.raw_rast_path)
@@ -60,7 +67,9 @@ class RoutingAccflux:
         toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.abs_rast_path)
         ### d8massflux ###
         wbt.d8_mass_flux(self.watershed_buff_fill, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
-        
+
+    #%% TRACE DOWNSLOPE FLOWPATHS
+
     def trace_downslope(self):
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
@@ -75,3 +84,6 @@ class RoutingAccflux:
         # wbt.add_point_coordinates_to_table(self.out_pt_path)
         # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
         # print('extract_raster_values_at_points')
+        
+#%% NOTES
+
