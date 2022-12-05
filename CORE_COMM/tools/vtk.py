@@ -1,5 +1,7 @@
 # coding: utf-8
 
+#%% LIBRAIRIES
+
 import os
 import numpy as np
 import math
@@ -10,10 +12,17 @@ import flopy.utils.binaryfile as bf
 
 from tools import toolbox
 
+#%% CLASS 1
+
 class Functions:
+    
+    #%% INIT
+    
     def __init__(self, name):
         self.name = name
-        
+    
+    #%% GENERAL
+    
     def getListFromDEL(initbreaker,disLines,celldim):
         if 'CONSTANT' in disLines[initbreaker]:
             constElevation = float(disLines[initbreaker].split()[1])
@@ -63,8 +72,14 @@ class Functions:
             dictZVertex[lay]=grid_z
         return dictZVertex
 
+#%% CLASS 2
+
 class VTK():
+    
+    #%% INIT
+    
     def __init__(self, watershed, modelname = None):
+        
         if modelname != None:
             modelfolder= os.path.join(watershed.simulations_folder, modelname)
             save_file = os.path.join(modelfolder, '_watershed','VTK')
@@ -93,9 +108,12 @@ class VTK():
                 pass
         else:
             print('Need name of groundwater model: modelname (str)')
-
+            
+    #%% DIFFERENT OBJECTS TO BE PROCESSED
+    
     def grid(self, modelname, modelfolder, save_file, geographic):
         """
+        
         build vtk file of grid model
         Parameters
         ----------
@@ -107,7 +125,9 @@ class VTK():
             folder where the vtk file is save.
         geographic : Python object
             object geographic of watershed class.
+            
         """
+        
         def GetExtent(gt,geotx, geoty, cols, rows):
             ext = []
             xarr = [0, cols]
@@ -308,7 +328,7 @@ class VTK():
             for i in range(hk.shape[1]):
                 for j in range(hk.shape[2]):
                     listHk.append(hk.array[lay, i, j])
-    #                listFlow.append(sum_flow[lay, i, j])
+        #           listFlow.append(sum_flow[lay, i, j])
     
         # ### Definition of Cell Ibound List
     
@@ -470,9 +490,165 @@ class VTK():
         textoVtk.write('</VTKFile>\n')
     
         textoVtk.close()
+
+    def watershed_boundary(self,save_file, geographic):
+        """
+        
+        build vtk file of watershed boundary
+        
+        Parameters
+        ----------
+        save_file : str
+            folder where the vtk file is save.
+        geographic : Python object
+            object geographic of watershed class.
+            
+        """
+        
+        lineDf = gpd.read_file(geographic.watershed_contour_shp)
+        x_store = []
+        y_store = []
+        z_store = []
+        nb_points = 0
+        for index, values in lineDf.iterrows():
+            try:
+                for i in range (len(values.geometry[0].xy[0])):
+                    x = values.geometry[0].xy[0][i]
+                    y = values.geometry[0].xy[1][i]
+                    xidx = (np.abs(geographic.x_coord- x)).argmin()
+                    yidx = (np.abs(geographic.y_coord- y)).argmin()
+                    if geographic.dem_box_data[yidx,xidx] > 0:
+                        x_store.append(x)
+                        y_store.append(y)
+                        z_store.append(geographic.dem_box_data[yidx,xidx])
+                        nb_points += 1
+            except:
+                for i in range (len(values.geometry.xy[0])):
+                    x = values.geometry.xy[0][i]
+                    y = values.geometry.xy[1][i]
+                    xidx = (np.abs(geographic.x_coord- x)).argmin()
+                    yidx = (np.abs(geographic.y_coord- y)).argmin()
+                    if geographic.dem_box_data[yidx,xidx] > 0:
+                        x_store.append(x)
+                        y_store.append(y)
+                        z_store.append(geographic.dem_box_data[yidx,xidx])
+                        nb_points += 1
+            
+        textoVtk = open(os.path.join(save_file,'VTU_watershed_contour.vtk'), 'w')
+        # add header
+        textoVtk.write('# vtk DataFile Version 2.0\n')
+        textoVtk.write('Watershed boundary\n')
+        textoVtk.write('ASCII\n')
+        textoVtk.write('DATASET POLYDATA\n')
+        textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
+        for pt in range(0, len(x_store)):
+                textoVtk.write(
+                    str(x_store[pt]) + ' ' + str(y_store[pt]) + ' ' + str(z_store[pt]
+                        ) + '\n')
+        textoVtk.write('\n')
+        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(1 + len(x_store)) + '\n')
+        textoVtk.write(str(len(x_store)) + ' ')
+        for j in range(0, len(x_store)):
+            textoVtk.write(str(j) + ' ' )
+        textoVtk.write('\n')
+        textoVtk.close()
+
+    def streams(self,save_file, hydrology, geographic):
+        """
+        
+        build vtk file of watershed boundary
+        
+        Parameters
+        ----------
+        save_file : str
+            folder where the vtk file is save.
+        geographic : Python object
+            object geographic of watershed class.
+            
+        """
+        
+        lineDf = gpd.read_file(hydrology.streams)
+        x_store = []
+        y_store = []
+        z_store = []
+        nb_points = 0
+        for index, values in lineDf.iterrows():
+            xs = []
+            ys = []
+            zs = []
+            for i in range (len(values.geometry.xy[0])):   
+                x = values.geometry.xy[0][i]
+                y = values.geometry.xy[1][i]
+                xidx = (np.abs(geographic.x_coord- x)).argmin()
+                yidx = (np.abs(geographic.y_coord- y)).argmin()
+                z = geographic.dem_data[yidx,xidx]
+                if z > 0:
+                    xs.append(x)
+                    ys.append(y)
+                    zs.append(z)
+                    nb_points += 1
+            x_store.append(xs)
+            y_store.append(ys)
+            z_store.append(zs)
+                
+            
+        textoVtk = open(os.path.join(save_file,'VTU_streams.vtk'), 'w')
+        # add header
+        textoVtk.write('# vtk DataFile Version 2.0\n')
+        textoVtk.write('Watershed boundary\n')
+        textoVtk.write('ASCII\n')
+        textoVtk.write('DATASET POLYDATA\n')
+        textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
+        for line in range(len(x_store)): 
+            for pt in range(len(x_store[line])):
+                textoVtk.write(
+                    str(x_store[line][pt]) + ' ' + str(y_store[line][pt]) + ' ' + str(z_store[line][pt]
+                        ) + '\n')
+        textoVtk.write('\n')
+        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(nb_points + len(x_store)) + '\n')
+        
+        nb = 0
+        for line in range(len(x_store)):
+            textoVtk.write(str(len(x_store[line])) + ' ')
+            for j in range(0, len(x_store[line])):
+                textoVtk.write(str(nb) + ' ' )
+                nb += 1
+            textoVtk.write('\n')
+        textoVtk.close()
+
+    def piezometers(self,save_file,piezometry):
+        piezos = piezometry.codes_bss
+        textoVtk = open(os.path.join(save_file,'VTU_Piezometers.vtk'), 'w')
+        # add header
+        textoVtk.write('# vtk DataFile Version 2.0\n')
+        textoVtk.write('Particles Pathlines Modpath\n')
+        textoVtk.write('ASCII\n')
+        textoVtk.write('DATASET POLYDATA\n')
+        textoVtk.write('POINTS ' + '18' + ' float\n')
+        for i in range(0, len(piezos)):
+            x=piezometry.x_coord[i]
+            y=piezometry.y_coord[i]
+            z=piezometry.elevation_well[i]
+            d=piezometry.depth_well[i]
+            textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(z) + '\n')
+            textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(d) + '\n')
+        textoVtk.write('\n')
+        textoVtk.write('LINES ' + '9' + ' ' + '27' + '\n')
+        nb = 0
+        for i in range(0, len(piezos)):
+            textoVtk.write('2' + ' ')
+            textoVtk.write(str(nb) + ' ')
+            nb = nb + 1
+            textoVtk.write(str(nb) + ' ')
+            nb = nb + 1
+            textoVtk.write('\n')
+        
+        textoVtk.write('POINT_DATA ' + '18' + '\n')
+        textoVtk.close()
     
     def watertable(self,modelname, modelfolder,save_file, geographic):
         """
+        
         build vtk file of watertable
         
         Parameters
@@ -485,7 +661,9 @@ class VTK():
             folder where the vtk file is save.
         geographic : Python object
             object geographic of watershed class.
+            
         """
+        
         def GetExtent(gt,geotx, geoty, cols, rows):
             ext = []
             xarr = [0, cols]
@@ -912,6 +1090,7 @@ class VTK():
     
     def pathlines(self,modelname, modelfolder, save_file, geographic):
         """
+        
         build vtk file of pathlines
         
         Parameters
@@ -924,7 +1103,9 @@ class VTK():
             folder where the vtk file is save.
         geographic : Python object
             object geographic of watershed class.
+            
         """
+        
         geotx_p = geographic.x_coord
         geoty_p = geographic.y_coord
         geot_p = geographic.geodata
@@ -1019,152 +1200,6 @@ class VTK():
         #for i in range(0, len(v_store)):
         #   textoVtk.write(str(v_store[i]) + '\n')
         textoVtk.close()
-    
-    def piezometers(self,save_file,piezometry):
-        piezos = piezometry.codes_bss
-        textoVtk = open(os.path.join(save_file,'VTU_Piezometers.vtk'), 'w')
-        # add header
-        textoVtk.write('# vtk DataFile Version 2.0\n')
-        textoVtk.write('Particles Pathlines Modpath\n')
-        textoVtk.write('ASCII\n')
-        textoVtk.write('DATASET POLYDATA\n')
-        textoVtk.write('POINTS ' + '18' + ' float\n')
-        for i in range(0, len(piezos)):
-            x=piezometry.x_coord[i]
-            y=piezometry.y_coord[i]
-            z=piezometry.elevation_well[i]
-            d=piezometry.depth_well[i]
-            textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(z) + '\n')
-            textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(d) + '\n')
-        textoVtk.write('\n')
-        textoVtk.write('LINES ' + '9' + ' ' + '27' + '\n')
-        nb = 0
-        for i in range(0, len(piezos)):
-            textoVtk.write('2' + ' ')
-            textoVtk.write(str(nb) + ' ')
-            nb = nb + 1
-            textoVtk.write(str(nb) + ' ')
-            nb = nb + 1
-            textoVtk.write('\n')
-        
-        textoVtk.write('POINT_DATA ' + '18' + '\n')
-        textoVtk.close()
-    
-    def watershed_boundary(self,save_file, geographic):
-        """
-        build vtk file of watershed boundary
-        
-        Parameters
-        ----------
-        save_file : str
-            folder where the vtk file is save.
-        geographic : Python object
-            object geographic of watershed class.
-        """
-        lineDf = gpd.read_file(geographic.watershed_contour_shp)
-        x_store = []
-        y_store = []
-        z_store = []
-        nb_points = 0
-        for index, values in lineDf.iterrows():
-            try:
-                for i in range (len(values.geometry[0].xy[0])):
-                    x = values.geometry[0].xy[0][i]
-                    y = values.geometry[0].xy[1][i]
-                    xidx = (np.abs(geographic.x_coord- x)).argmin()
-                    yidx = (np.abs(geographic.y_coord- y)).argmin()
-                    if geographic.dem_box_data[yidx,xidx] > 0:
-                        x_store.append(x)
-                        y_store.append(y)
-                        z_store.append(geographic.dem_box_data[yidx,xidx])
-                        nb_points += 1
-            except:
-                for i in range (len(values.geometry.xy[0])):
-                    x = values.geometry.xy[0][i]
-                    y = values.geometry.xy[1][i]
-                    xidx = (np.abs(geographic.x_coord- x)).argmin()
-                    yidx = (np.abs(geographic.y_coord- y)).argmin()
-                    if geographic.dem_box_data[yidx,xidx] > 0:
-                        x_store.append(x)
-                        y_store.append(y)
-                        z_store.append(geographic.dem_box_data[yidx,xidx])
-                        nb_points += 1
-            
-        textoVtk = open(os.path.join(save_file,'VTU_watershed_contour.vtk'), 'w')
-        # add header
-        textoVtk.write('# vtk DataFile Version 2.0\n')
-        textoVtk.write('Watershed boundary\n')
-        textoVtk.write('ASCII\n')
-        textoVtk.write('DATASET POLYDATA\n')
-        textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
-        for pt in range(0, len(x_store)):
-                textoVtk.write(
-                    str(x_store[pt]) + ' ' + str(y_store[pt]) + ' ' + str(z_store[pt]
-                        ) + '\n')
-        textoVtk.write('\n')
-        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(1 + len(x_store)) + '\n')
-        textoVtk.write(str(len(x_store)) + ' ')
-        for j in range(0, len(x_store)):
-            textoVtk.write(str(j) + ' ' )
-        textoVtk.write('\n')
-        textoVtk.close()
-        
-    def streams(self,save_file, hydrology, geographic):
-        """
-        build vtk file of watershed boundary
-        
-        Parameters
-        ----------
-        save_file : str
-            folder where the vtk file is save.
-        geographic : Python object
-            object geographic of watershed class.
-        """
-        lineDf = gpd.read_file(hydrology.streams)
-        x_store = []
-        y_store = []
-        z_store = []
-        nb_points = 0
-        for index, values in lineDf.iterrows():
-            xs = []
-            ys = []
-            zs = []
-            for i in range (len(values.geometry.xy[0])):   
-                x = values.geometry.xy[0][i]
-                y = values.geometry.xy[1][i]
-                xidx = (np.abs(geographic.x_coord- x)).argmin()
-                yidx = (np.abs(geographic.y_coord- y)).argmin()
-                z = geographic.dem_data[yidx,xidx]
-                if z > 0:
-                    xs.append(x)
-                    ys.append(y)
-                    zs.append(z)
-                    nb_points += 1
-            x_store.append(xs)
-            y_store.append(ys)
-            z_store.append(zs)
                 
-            
-        textoVtk = open(os.path.join(save_file,'VTU_streams.vtk'), 'w')
-        # add header
-        textoVtk.write('# vtk DataFile Version 2.0\n')
-        textoVtk.write('Watershed boundary\n')
-        textoVtk.write('ASCII\n')
-        textoVtk.write('DATASET POLYDATA\n')
-        textoVtk.write('POINTS ' + str(nb_points) + ' float\n')
-        for line in range(len(x_store)): 
-            for pt in range(len(x_store[line])):
-                textoVtk.write(
-                    str(x_store[line][pt]) + ' ' + str(y_store[line][pt]) + ' ' + str(z_store[line][pt]
-                        ) + '\n')
-        textoVtk.write('\n')
-        textoVtk.write('LINES ' + str(len(x_store)) + ' ' + str(nb_points + len(x_store)) + '\n')
-        
-        nb = 0
-        for line in range(len(x_store)):
-            textoVtk.write(str(len(x_store[line])) + ' ')
-            for j in range(0, len(x_store[line])):
-                textoVtk.write(str(nb) + ' ' )
-                nb += 1
-            textoVtk.write('\n')
-        textoVtk.close()
+#%% NOTES
+

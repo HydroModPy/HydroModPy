@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 18 10:06:46 2022
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 # Modules
 import flopy
@@ -11,7 +11,10 @@ import numpy as np
 import os
 import pandas as pd
 import sys
-import imageio
+try:
+    import imageio.v2 as imageio
+except:
+    import imageio
 from os.path import dirname, abspath
 from osgeo import gdal
 import matplotlib.pyplot as plt
@@ -26,11 +29,13 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 from tools import toolbox
 
-#%% Extract results
+#%% CLASS
 
 class Results:
-    def __init__(self, geographic, recharge=250, actual_date=True, model_name='modflow_model',
-                 start='1960-01-01',
+    
+    #%% INIT
+    
+    def __init__(self, geographic, recharge=250, runoff=25, actual_date=True, model_name='modflow_model',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
         
@@ -38,9 +43,9 @@ class Results:
         self.model_name = model_name
         self.stable_folder = stable_folder
         self.model_folder = model_folder
-        self.start = start
         self.actual_date = actual_date
         self.recharge = recharge
+        self.runoff = runoff
        
         self.full_path = os.path.join(self.model_folder, self.model_name)
         self.save_file = os.path.join(self.full_path, '_watershed')
@@ -54,13 +59,16 @@ class Results:
             else:
                 time = self.recharge.index
                 recharge = self.recharge.squeeze().values
+                runoff = self.runoff.squeeze().values
         else:
             if isinstance(self.recharge,(int,float)) == True:
                 time=[0]
                 recharge = self.recharge
+                runoff = self.runoff
             else:
                 time = np.array(range(len(self.recharge)))
                 recharge = self.recharge.squeeze().values
+                runoff = self.runoff.squeeze().values
                
         npy_list = [] 
         for f in os.listdir(self.save_file):
@@ -111,7 +119,7 @@ class Results:
         bv = gdal.Open(self.geographic.watershed_dem)
         geodata = bv.GetGeoTransform()
         self.resolution = geodata[1]
-        self.extract_results(dem_clip, time, recharge, self.save_file)
+        self.extract_results(dem_clip, time, recharge, runoff, self.save_file)
        
         try:
             subbasin = True
@@ -122,11 +130,13 @@ class Results:
                   toolbox.create_folder(save_file) 
                   dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
                   self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
-                  self.extract_results(dem_clip, time, recharge, save_file)
+                  self.extract_results(dem_clip, time, recharge, runoff, save_file)
         except:
             pass
     
-    def extract_results(self, dem_clip, time, recharge, save_file):
+    #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
+    
+    def extract_results(self, dem_clip, time, recharge, runoff, save_file):
         
         def calc_max(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
@@ -151,7 +161,8 @@ class Results:
             calc = (count/cell) * 100
             return calc
         
-        self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, index=range(len(time)))
+        self.mfdata = pd.DataFrame({"date": time, "recharge": recharge, "runoff": runoff}, 
+                                   index=range(len(time)))
         
         if self.actual_date==True:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
@@ -278,21 +289,5 @@ class Results:
         
         return self.mfdata
         
-#%% Notes
+#%% NOTES
 
-# def bla (self, npy_list, zones_list):
-#     for npy in npy_list:
-#         x = np.load(os.path.join(self.save_file, npy+'.npy'), allow_pickle=True).item()
-#         for key in x:
-#             for zone in zones_list:
-#                 toolbox.create_folder(os.path.join(self.simulations_folder, '_zones', zone)) 
-#                 dem_clip = imageio.imread(os.path.join(self.zones_folder, zone, 'watershed_dem.tif'))
-#                 masked = toolbox.mask_by_dem(x[key], dem_clip, '==', -99999)
-#                 calc = np.nanmean(masked)
-#                 return key, calc
-
-# if isinstance(self.recharge,(int,float)) == True:
-#     time = toolbox.date_range(self.start, 1, freq)
-# else:
-#     time = toolbox.date_range(self.start, len(self.recharge), freq)
-#     recharge = self.recharge.values
