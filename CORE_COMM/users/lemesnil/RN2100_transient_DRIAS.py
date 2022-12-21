@@ -41,7 +41,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Caen-la-Mer'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 
 # Path to the git repositoty home page
@@ -55,7 +55,7 @@ stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary fo
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 
 dems_path = data_path # reginal DEM or conceptual DEM
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
+shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
 # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
 # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
 # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
@@ -63,7 +63,7 @@ shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
 modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
 
 surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
-# geology_path = data_path + 'geology/' # add geologic layers
+geology_path = data_path + 'geology/' # add geologic layers
 oceanic_path = data_path + 'OCEAN/' # add specific sea level files
 hydrology_path = data_path + 'hydro/' # add hydrographic shapefiles
 # hydrometry_path = data_path + 'hydrometry/' # add hydrometry data for automatic download
@@ -77,8 +77,10 @@ dem_name = "BDALTI_norm-manch_75m.tif"
 dem_path = dems_path + dem_name
 
 sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
-ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
+ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+# C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
 #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
+
 cell_size = None # specify new resolution from a given DEM or None
 
 #%% Watershed generation
@@ -98,6 +100,8 @@ BV.add_drias(drias_path)
 BV.add_surfex(surfex_path) 
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
+
+# BV.add_geology(geology_path)
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
@@ -151,7 +155,7 @@ end_date = min(end_date_list_datetime)
 
 BV.add_forcing()
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
-                                      first_year = start_date.year, last_year = end_date.year, 
+                                      first_year = 1965, last_year = 2014, 
                                       time_step = 'D', sim_state = 'transient')
 
 R_hist = BV.forcing.recharge
@@ -401,17 +405,16 @@ import pandas as pd
 #load recharge time serie from ESPERE
 with open(ESPERE_recharge_path, newline='') as csvfile:
     # rech_data = list(csv.reader(csvfile))
-    rech_data = pd.read_csv(ESPERE_recharge_path, sep=';')
-recharge_ESP = rech_data.iloc[:,3]
+    rech_data = pd.read_csv(ESPERE_recharge_path, sep=';', decimal=',')
 
 r_ESP = rech_data.copy()
-r_ESP = r_ESP.drop(['P','Peff'], axis=1)
+try:
+    r_ESP = r_ESP.drop(['P','Peff'], axis=1)
+except:
+    r_ESP = r_ESP.drop(['P (mm)','Pluie efficace (mm)'], axis=1)
 r_ESP = r_ESP.rename(index = pd.to_datetime(r_ESP['Date'], dayfirst=True))
 r_ESP = r_ESP.drop('Date', axis=1)
-
-# rech_ESPERE = R_HAD_REG_RCP26 #canvas
-# for i in range(len(rech_ESPERE)):
-#     rech_ESPERE.iloc[i] = float(recharge_ESP.iloc[i].replace(',','.'))
+r_ESP['Recharge'] = r_ESP['Recharge']/1000 #mm to m
 
 #%% Calibration of K and n based on piezometry
 
@@ -419,17 +422,19 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_1_synop_k1t1'
+params_file = 'calib_optim1_aut22_k1n1'
 # calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
 BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
-# BV.hydrodynamic.update_thickness(30)
-BV.hydrodynamic.update_porosity(0.97)
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_porosity(0.25)
 #init value is not used in exploration mode
 #lin or log probably not used
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',25,25,25,'m/j','lin']
-params_df.loc[1] = ['t1',215,215,215,'m','lin'] #params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin'] #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
+params_df.loc[0] = ['k1',0.387,0.387,0.387,'m/j','log']
+params_df.loc[1] = ['n1',0.0127,0.0127,0.0127,'-','lin']
+#params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin']
+#params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
 #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
@@ -442,7 +447,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_explo_synop_k1t1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+params_file = 'calib_explo_aut22_k1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -470,11 +475,11 @@ n_optim = n_values[i_min_RMSE]
 
 #%% Model Parameters
 
-K_optim = 13.1
-n_optim = 0.4
+# K_optim = 0.3
+# n_optim = 0.001
 
 # Hydraulic properties
-t = 30 # m
+t = 29 # m
 n = n_optim # nondim
 K = K_optim # m/j
 
@@ -510,13 +515,14 @@ from datetime import datetime
 
 BV.add_forcing()
 sim_state = 'transient'
-first_yr = 2020
-last_yr = 2100
-gcm = 'MPI'
-rcm = 'CCL'
+first_yr = 2010
+last_yr = 2014
+# gcm = 'MPI'
+# rcm = 'CCL'
 
 RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
 md_rmsl_85 = RMSL_85.iloc[:,0]
+# md_rmsl_85_cut = ...
 
 list_sim_name = []
 list_success = []
@@ -527,19 +533,21 @@ list_sealevel = []
 
 for sim in range(1):
     
-    gcm = 'MPI'
-    rcm = 'CCL'
-    sce = 'RCP8.5'
-    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-                                      first_year = first_yr, last_year = last_yr,
-                                      sim_state = sim_state)
+    # gcm = 'MPI'
+    # rcm = 'CCL'
+    # sce = 'RCP8.5'
+    # BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+    #                                   first_year = first_yr, last_year = last_yr,
+    #                                   sim_state = sim_state)
+    BV.forcing.update_recharge(R_hist, 'transient')
     BV.oceanic.update_MSL(md_rmsl_85)
     R = BV.forcing.recharge
     sea_lev = BV.oceanic.MSL
     
     now = datetime.now()
     now_str = now.strftime("%d%m%Y%H%M%S")
-    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+    # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+    sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
     print(sim_name)
 
     success, flow_model = BV.run_modflow(ident=sim_name,
@@ -560,31 +568,31 @@ for sim in range(1):
     list_recharge.append(BV.forcing.recharge)
     list_runoff.append(BV.oceanic.MSL)
 
-sim_results_dict = {}
-sim_results_dict['sim_name'] = list_sim_name
-sim_results_dict['success'] = list_success
-sim_results_dict['flow_model'] = list_flow_model
-sim_results_dict['runoff'] = list_runoff
+# sim_results_dict = {}
+# sim_results_dict['sim_name'] = list_sim_name
+# sim_results_dict['success'] = list_success
+# sim_results_dict['flow_model'] = list_flow_model
+# sim_results_dict['runoff'] = list_runoff
 # sim_results_dict['recharge'] = list_recharge
 # sim_results_dict['sealevel'] = list_sealevel
 
-h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
+# h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
 # dd.io.save(h5file, sim_results_dict)
 
 
-#%% Post processing 1: raster generation and storage
-import deepdish as dd
+##%% Post processing 1: raster generation and storage
+# import deepdish as dd
 
 time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
 types_obs = ['piezometry']
 
-h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
-d = dd.io.load(h5file)
-list_sim_name = d['sim_name'][:]
-list_success = d['success'][:]
-list_flow_model = d['flow_model'][:]
-list_runoff = d['runoff'][:]
+# h5file = simulations_folder+'/'+sim_name+'/sim_results.h5'
+# d = dd.io.load(h5file)
+# list_sim_name = d['sim_name'][:]
+# list_success = d['success'][:]
+# list_flow_model = d['flow_model'][:]
+# list_runoff = d['runoff'][:]
 
 for model_name, success, flow_model, var_store in zip(list_sim_name,
                                                      list_success,
@@ -600,12 +608,12 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
                               watertable_elevation = True,
                               watertable_depth = True, 
                               seepage_areas = True,
-                              outflow_drain = True,
-                              groundwater_flux = True,
+                              outflow_drain = False,
+                              groundwater_flux = False,
                               specific_discharge = False,
                               accumulation_flux = False,
                               perenn_intermit_shp = False,
-                              groundwater_storage = True,
+                              groundwater_storage = False,
                               residence_times = False,
                               verbose = True,
                               export_tif = True)
@@ -623,14 +631,14 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
                                time_step=time_step)
             
             ## Plot maps
-            surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
-                                                  model_name, types_obs,
-                                                  save_gif=False,
-                                                  first_only=True,
-                                                  sim_state=sim_state,
-                                                  outflow=True,
-                                                  accflux=True,
-                                                  intermittency=False,
-                                                  chronics=False)
+            # surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
+            #                                       model_name, types_obs,
+            #                                       save_gif=False,
+            #                                       first_only=True,
+            #                                       sim_state=sim_state,
+            #                                       outflow=True,
+            #                                       accflux=True,
+            #                                       intermittency=False,
+            #                                       chronics=False)
 
 
