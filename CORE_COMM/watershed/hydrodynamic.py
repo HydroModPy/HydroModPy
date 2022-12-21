@@ -7,6 +7,7 @@
 
 # Modules
 import numpy as np
+import geopandas as gpd
 
 #%% CLASS
 
@@ -202,6 +203,16 @@ class Hydrodynamic:
         """
         
         self.calib_zones = zones
+
+    def update_calib_zones_from_shp(self, shp_path, default_zone = 1):
+        """
+        shapefile must be with different features.
+        Field must be "CALIB_ZONE" = 1,2,3,4
+        """
+        # Load shapefile
+        gpd.read_file(shp_path)
+        # 
+
 
     #%% UPDATE HETEROGENEOUS
         
