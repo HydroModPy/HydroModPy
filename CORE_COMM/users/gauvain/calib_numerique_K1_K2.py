@@ -47,7 +47,7 @@ hydrology_path = os.path.join(root_path,'HYDROLOGY','France', 'Hydrographic')
 types_obs = ['streams']
 
 
-load = True#False to build and save python object4
+load = True #False to build and save python object4
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, 
                               out_path=out_path, modflow_path=modflow_path, load=load, from_shp= watershed_shp)
