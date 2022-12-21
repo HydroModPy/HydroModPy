@@ -47,7 +47,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Caen-la-Mer'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 load = False # loads previously generated basin if true
 
@@ -90,7 +90,7 @@ cell_size = None # specify new resolution from a given DEM or None
 
 import os
 
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
+shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
 # os.path.join('C', 'Users', 'Martin Le Mesnil', 'Travail', 'SIG', 'BV_RN2100', 'SGA_2_sea_2.shp')
 # shp_file = r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Baie-du-cotentin/Carentan_2_sea.shp'
 # 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
@@ -214,10 +214,12 @@ plt.plot(x,y)
 plt.xlabel('P (mm/yr)')
 plt.ylabel('Rech. (mm/yr)')
 plt.title('Surfex Rech. vs. P (1960-2020)')
+plt.text(x[0],y[0], 'y = ' + str("{:.2f}".format(reg_coef[0]))
+         + 'x + (' + str("{:.1f}".format(reg_intercept)) + ')',
+         size = 17, ha = 'left')
 plt.text(x[1],y[1], 'R='+str("{:.2f}".format(R)), size = 20, ha = 'right')
 plt.show()
-
-  
+ 
           
 #plot mean doy ETP against 2000-2020 daily ETP time series
 plt.plot(piv)
@@ -230,21 +232,14 @@ plt.plot(doy_ETP)
 plt.plot(doy_ETP_smooth)
 plt.show()
 
-#save smoothed doy_ETP as csv
-doy_ETP_smooth = pd.DataFrame(doy_ETP_smooth) 
-doy_ETP_smooth.to_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\ETP_doy_' + watershed_name + '.csv',
-                      sep = ';', header = False)
+# save smoothed doy_ETP as csv
+# doy_ETP_smooth = pd.DataFrame(doy_ETP_smooth) 
+# doy_ETP_smooth.to_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\ETP_doy_' + watershed_name + '.csv',
+#                       sep = ';', header = False)
 
 #plot doy_ETP gainst recharge
 plt.plot(doy_ETP_smooth)
 plt.plot(doy_REC)
 plt.show()
 
-
-#%% ETR estimation from ESPERE
-
-#plot 2010-2020 daily ETP time series
-plt.plot(piv)
-plt.plot(doy_ETP)
-plt.show()
 
