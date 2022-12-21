@@ -48,7 +48,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Caen-la-Mer'
 # Caen Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 load = True # loads previously generated basin if true
 
@@ -230,7 +230,7 @@ BV.add_forcing()
 
 # Historic recharge
 sim_state = 'transient' # 'steady' or 'transient'
-period = [2015, 2019] # rehcarge period
+period = [2000, 2019] # rehcarge period
 time_step = 'D' # DMY
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
