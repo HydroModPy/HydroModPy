@@ -2916,7 +2916,7 @@ col_list_b = ['navy','darkred']
 dict_c = dict(zip(sce_list, col_list))
 dict_c_b = dict(zip(sce_list, col_list_b))
 
-fig, ax = plt.subplots(1,1, figsize=(4.5,3.5))
+fig, ax = plt.subplots(1,1, figsize=(4,3.5))
 
 # dft = pd.DataFrame(columns=np.arange(1,13,1))
 dft = pd.DataFrame()
@@ -2996,8 +2996,8 @@ for sce in sce_list:
     freq['target'] = 5
     
     # ax.plot(bins_log)
-    ax.plot(freq['retour'], freq['x'], ls='-', c='grey', linewidth=2)
-    ax.plot(freq['retour'], freq['x'], ls='-', c='k', marker='+',
+    ax.plot(freq['retour'], freq['x']-2, ls='-', c='grey', linewidth=2)
+    ax.plot(freq['retour'], freq['x']-2, ls='-', c='k', marker='+',
             ms=6, mew=2, linewidth=0)
     # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
 
@@ -3038,8 +3038,8 @@ for sce in sce_list:
     freq['target'] = 5
     
     # ax.plot(bins_log)
-    ax.plot(freq['retour'], freq['x'], ls='-', c=dict_c[sce], linewidth=2)
-    ax.plot(freq['retour'], freq['x'], ls='-', c=dict_c_b[sce], marker='+',
+    ax.plot(freq['retour'], freq['x']-2, ls='-', c=dict_c[sce], linewidth=2)
+    ax.plot(freq['retour'], freq['x']-2, ls='-', c=dict_c_b[sce], marker='+',
             ms=6, mew=2, linewidth=0)
     # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
     
@@ -3060,8 +3060,8 @@ for sce in sce_list:
     ax.xaxis.grid(color='gray', alpha=0.5, zorder=-20)
     ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='both')
         
-fig.savefig(fig_path + watershed_name +
-            '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
+# fig.savefig(fig_path + watershed_name +
+#             '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
 
 #%% PERSISTENCY
 
