@@ -45,7 +45,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 ############################################
-user = 'Martin'
+# user = 'Martin'
+user = 'Ronan'
 ############################################
 
 if user == 'Alexandre':
@@ -68,7 +69,7 @@ if user == 'Ronan':
     # Path to the git repositoty home page
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
-    data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
+    data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/TEST/"
     # Path where the results will be stored
     out_path = "D:/Users/abherve/TEST/"
 
