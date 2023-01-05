@@ -9,6 +9,12 @@
 import numpy as np
 import geopandas as gpd
 
+import whitebox
+wbt = whitebox.WhiteboxTools()
+#wbt.set_compress_rasters(True)
+wbt.verbose = False
+
+
 #%% CLASS
 
 class Hydrodynamic:
@@ -81,7 +87,7 @@ class Hydrodynamic:
     
     #%% INIT
     
-    def __init__(self, nrow: int, ncol: int, nlay_init: int = 1, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
+    def __init__(self, nrow: int, ncol: int, box_dem: str, nlay_init: int = 1, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
                  thickness_init: float = 50., bottom_init: float = None, cond_decay_init: float = 0.,
                  thick_exp_init: float = 1.):
         """
@@ -113,6 +119,7 @@ class Hydrodynamic:
         self.bottom = bottom_init
         self.cond_decay = cond_decay_init
         self.thick_exp = thick_exp_init
+        self.box_dem = box_dem
     
     #%% UPDATE HOMOGENEOUS
     
@@ -209,10 +216,26 @@ class Hydrodynamic:
         shapefile must be with different features.
         Field must be "CALIB_ZONE" = 1,2,3,4
         """
-        # Load shapefile
-        gpd.read_file(shp_path)
-        # 
+        
+        from os.path import dirname
+        import os
+        import imageio
 
+        output = os.path.join(dirname(self.box_dem), 'out_raster_zones.tif')
+        print(output)
+        
+        wbt.vector_polygons_to_raster(
+        shp_path, 
+        output, 
+        field="FID", #Field name should be changed , error : thread 'main' panicked at 'Error: Specified field is greater than the number of fields.'
+        nodata=default_zone, 
+        cell_size=None, 
+        base=self.box_dem
+    )
+        raster_load = imageio.imread(output)
+        raster_load[raster_load==-99999] = default_zone
+
+        self.calib_zone = raster_load
 
     #%% UPDATE HETEROGENEOUS
         
