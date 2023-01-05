@@ -71,7 +71,7 @@ if user == 'Ronan':
     # Path to the data folder
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/TEST/"
     # Path where the results will be stored
-    out_path = "D:/Users/abherve/TEST/"
+    out_path = "D:/Users/abherve/EXAMPLES/"
 
 if user == 'Jean-Raynald':
     # Path to the git repositoty home page
@@ -151,7 +151,7 @@ if watershed_name == 'Conceptual':
     cell_size = 100
 
 types_obs = ['streams','sections'] # list of shapefile name layers for clip hydrology
-fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
+fields_obs = ['fid', 'Persistanc'] # list of shapefile name columns to translate as a tif
 
 # Depending on the choices
 dem_path = dems_path + dem_name
@@ -222,7 +222,7 @@ if crs == 4326:
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
-sim_state = 'steady' # 'steady' or 'transient'
+sim_state = 'transient' # 'steady' or 'transient'
 period = [2017, 2019] # rehcarge period
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
@@ -237,9 +237,9 @@ thick_exp = 1 # exponential decay of K with nlay
 cond_decay = 0 # exponential decay of K with depth
 
 # Hydraulic properties
-K = 1e-7 * 3600 * 24 # m/second to m/day
-E = 100 # m
-P = 0.01 # -
+K = 1e-6 * 3600 * 24 # m/second to m/day
+E = 30 # m
+P = 0.001 # -
 
 # Active of not modules
 first_only = False # if True generate results only for the first tim_step
@@ -292,12 +292,37 @@ success, flow_model = BV.run_modflow(ident=model_name,
                 verbose=verbose)
 
 BV.matrix_modflow(success, flow_model,
-                  accumulation_flux=True)
+                      first_only = False,
+                       watertable_elevation = True,
+                       watertable_depth= False, 
+                       seepage_areas = True,
+                       outflow_drain = True,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = True,
+                       perenn_intermit_shp = True,
+                       verbose = True,
+                       export_tif = True)
 
 # Extract results
 BV.results_modflow(ident=model_name,
                    actual_date=actual_date,
                    time_step=time_step)
+
+#%% 2D INTERMITTENCY
+
+modflow_display.SurfaceOutputs(flow_model.climatic, 
+                               simulations_folder, 
+                               stable_folder, 
+                               model_name, 
+                               types_obs,
+                               save_gif=True,
+                               first_only = True,
+                               outflow=True,
+                               accflux=True,
+                               intermittency=True,
+                               chronics=False,
+                               sim_state='transient')
 
 #%% 3D VISUALIZATION
 
