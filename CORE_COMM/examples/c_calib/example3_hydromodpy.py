@@ -23,7 +23,8 @@ from calibration import calib_root, calib_analysis, calib_basis
 
 #%% USERS
 
-user_path = "Martin"
+# user_path = "Martin"
+user_path = "Ronan"
 
 if user_path=="Alexandre":
     data_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
@@ -34,7 +35,7 @@ elif user_path=="Jean-Raynald":
     out_path = "D:/results/HydroModPy/"
     
 elif user_path=="Ronan":
-    data_path= "C:/Users/ronan/OneDrive/_HydroDataPy/CALIB/"
+    data_path= "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/CALIB/"
     out_path = "D:/Users/abherve/TEST/"
   
 elif user_path=="Martin":
@@ -46,7 +47,7 @@ else:
 
 #%% ASSIGNED PATHS
 
-watershed_name = 'Agon-Coutainville'
+# watershed_name = 'Agon-Coutainville'
 watershed_name = 'Paimpont'
 
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
@@ -131,7 +132,7 @@ BV.forcing.update_recharge_surfex(clim_mod='REA', clim_sce='historic',
                                   time_step='D', sim_state='transient')
 plt.plot(BV.forcing.recharge)
 
-#%% CALIBRATION CHOICE
+#%% CALIB CHOICE
 
 # .csv in the results_calibration folder
 
@@ -143,7 +144,7 @@ params_files = [
                 "calib_explo_het_1v_k1-k2"    # exploration on piezometers, heterogeneous, for k1 and k2
                 ]
 
-#%% CALIBRATION : STREAMS - DICHOTOMY - HOMOGENEOUS - 1 VARIABLE - STEADY
+#%% CALIB : STREAMS - 1 VARIABLE - HOMOGENEOUS - DICHOTOMY - STEADY
 
 if watershed_name == 'Agon-Coutainville':
     
@@ -168,7 +169,7 @@ if watershed_name == 'Agon-Coutainville':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None)
 
-#%% CALIBRATION : STREAMS - EXPLORATION - HOMOGENEOUS - 1 VARIABLE -  STEADY
+#%% CALIB : STREAMS - 1 VARIABLE - HOMOGENEOUS - EXPLORATION - STEADY
 
 if watershed_name == 'Agon-Coutainville':
 
@@ -194,7 +195,7 @@ if watershed_name == 'Agon-Coutainville':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None, vmax=None)
 
-#%% CALIBRATION : PIEZOMETRY - EXPLORATION - HOMOGENEOUS - 1 VARIABLE -  STEADY
+#%% CALIB : PIEZOMETRY - 1 VARIABLE - HOMOGENEOUS - EXPLORATION - STEADY
 
 if watershed_name == 'Agon-Coutainville':
 
@@ -220,7 +221,7 @@ if watershed_name == 'Agon-Coutainville':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None, vmax=None)
 
-#%% CALIBRATION : PIEZOMETRY - 1 VARIABLE - HOMOGENEOUS - EXPLORATION - TRANSIENT
+#%% CALIB : PIEZOMETRY - 1 VARIABLE - HOMOGENEOUS - EXPLORATION - TRANSIENT
 
 if watershed_name == 'Agon-Coutainville':
     
@@ -246,7 +247,7 @@ if watershed_name == 'Agon-Coutainville':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None, vmax=None)
 
-#%% CALIBRATION : PIEZOMETRY - 2 VARIABLES - HOMOGENEOUS - EXPLORATION - STEADY
+#%% CALIB : PIEZOMETRY - 2 VARIABLES - HOMOGENEOUS - EXPLORATION - STEADY
 
 if watershed_name == 'Agon-Coutainville':
 
@@ -272,7 +273,7 @@ if watershed_name == 'Agon-Coutainville':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None, vmax=None)
 
-#%% CALIBRATION : HYDROMETRY - 2 VARIABLES - HOMOGENEOUS - EXPLORATION - TRANSIENT
+#%% CALIB : HYDROMETRY - 2 VARIABLES - HOMOGENEOUS - EXPLORATION - TRANSIENT
 
 # Observed streamflow data :
 # Named for example : 
@@ -514,7 +515,7 @@ if watershed_name == 'Paimpont':
     ax.set_title(watershed_name, pad=10)
     plt.tight_layout()
 
-#%% CALIBRATION : PIEZOMETRY - 1 VARIABLE - HETEROGENEOUS - EXPLORATION - STEADY
+#%% CALIB : PIEZOMETRY - 1 VARIABLE - HETEROGENEOUS - EXPLORATION - STEADY
 
 if watershed_name == 'Agon-Coutainville':
     
@@ -554,7 +555,7 @@ if watershed_name == 'Agon-Coutainville':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None, vmax=None)
 
-#%% CALIBRATION : SIMPLEX
+#%% CALIB : SIMPLEX
 
 # Coming soon !
 
