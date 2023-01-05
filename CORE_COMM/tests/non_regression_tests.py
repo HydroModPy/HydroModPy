@@ -41,7 +41,7 @@ if user == 'Alexandre':
 if user == 'Martin':
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 if user == 'Ronan':
-    out_path = 'D:/Users/abherve/TESTS/'
+    out_path = 'D:/Users/abherve/TEST/'
     
 ####################################################
 

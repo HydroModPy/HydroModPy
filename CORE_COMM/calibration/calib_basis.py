@@ -164,7 +164,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit_shp=False,
+                       perenn_intermit_shp = False,
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -252,26 +252,27 @@ class CalibrationBasis:
                 self.watershed.matrix_modflow(succes,
                        mf,
                        first_only = True,
-                       watertable_elevation = False,
+                       watertable_elevation = True,
                        watertable_depth= False, 
                        seepage_areas = True,
-                       outflow_drain = False,
+                       outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
-                       accumulation_flux = False,
-                       perenn_intermit_shp = False,
+                       accumulation_flux = True,
+                       perenn_intermit_shp = True,
                        verbose = True,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
                                                actual_date=True,
                                                calib=self.param_folder)
-                obj_func = calib_objective_function.Hydrometry(self.watershed,
+                obj_func = calib_objective_function.Intermittency(self.watershed,
                                                                self.ident,
                                                                self.param_folder)
-                sim = obj_func.get_indicator()
-                self.data_ind['intermittency'].append(np.nan)
-                self.data_obs['intermittency'].append(np.nan)
+                ind, sim, obs = obj_func.get_indicator()
+                self.data_ind['intermittency'].append(ind)
                 self.data_sim['intermittency'].append(sim)
+                self.data_obs['intermittency'].append(obs)
+                
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
         
