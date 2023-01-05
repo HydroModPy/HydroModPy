@@ -441,6 +441,34 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
 calib.exploration(1)
 
+#%% Heterogeneous calibration of K and n based on piezometry
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_optim1_aut22_k1n1n2'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_porosity(0.25)
+#init value is not used in exploration mode
+#lin or log probably not used
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['k1',0.287,0.287,0.387,'m/j','log']
+params_df.loc[1] = ['n1',0.01,0.01,0.1,'-','lin']
+params_df.loc[2] = ['n2',0.01,0.01,0.1,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(16)
+
+
 #%% Extraction and analysis of K-n calibration results
 
 import glob
