@@ -707,6 +707,7 @@ class Hysteresis:
 git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
 # Path to the data folder
 data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
+data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
 # Path where the results will be stored
 out_path = "D:/Users/abherve/PAPER/"
 # Figure folder outputs
@@ -4586,7 +4587,7 @@ for watershed_name in watershed_names[:]:
     
     base_name = figsim_folder+'fig03/'
     spec_name = watershed_name+'_explosaturation'
-    fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% 4 - CALIBRATION CHRONICS
 
