@@ -441,33 +441,6 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
 calib.exploration(1)
 
-#%% Heterogeneous calibration of K and n based on piezometry
-
-shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
-
-
-from calibration import calib_root
-import pandas as pd
-
-types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_optim1_aut22_k1n1n2'
-# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
-
-BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
-BV.hydrodynamic.update_thickness(29)
-# BV.hydrodynamic.update_porosity(0.25)
-#init value is not used in exploration mode
-#lin or log probably not used
-params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',0.287,0.287,0.387,'m/j','log']
-params_df.loc[1] = ['n1',0.01,0.01,0.1,'-','lin']
-params_df.loc[2] = ['n2',0.01,0.01,0.1,'-','lin']
-
-params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-
-calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(16)
-
 
 #%% Extraction and analysis of K-n calibration results
 
@@ -475,7 +448,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_explo_aut22_k1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+params_file = 'calib_hetero_perm_k1k2' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -500,6 +473,70 @@ RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
 K_optim = K_values[j_min_RMSE]
 n_optim = n_values[i_min_RMSE]
 
+#%% Heterogeneous calibration of K based on piezometry - steady state
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_perm_k1k2'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'steady') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_hyd_cond(0.3)
+# BV.hydrodynamic.update_porosity(0.25)
+#init value is not used in exploration mode
+#lin or log probably not used
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+# params_df.loc[0] = ['k1',0.287,0.287,0.387,'m/j','log']
+params_df.loc[0] = ['k1',0.01,0.01,100,'m/j','log']
+params_df.loc[1] = ['k2',0.01,0.01,100,'m/j','log']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(300)
+
+
+#%% Extraction and analysis of heterogeneous K calibration results - steady
+
+import glob
+import os
+from calibration import calib_analysis
+
+params_file = 'calib_hetero_perm_k1k2' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+
+#get last calibration result file
+type_obs = 'piezometry'
+typ_calib = 'piezometry_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[-1].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+obj_fc_path = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures', 'objective_function.png')
+test.display_objective_function(save=obj_fc_path) #,vmax= 1.3,log=False
+
+#get optimal K and n value
+calib_dict = test.calib
+K1_values = calib_dict['params_values'][0]
+K2_values = calib_dict['params_values'][1]
+
+min_RMSE_idx_flat = np.argmin(calib_dict['objective_function'])
+i_min_RMSE = min_RMSE_idx_flat // K2_values.size
+j_min_RMSE = min_RMSE_idx_flat % K2_values.size    
+RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
+K1_optim = K1_values[j_min_RMSE]
+K2_optim = K2_values[i_min_RMSE]
+
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
+
+# tt = BV.hydrodynamic.hyd_cond
 
 #%% Model Parameters
 
