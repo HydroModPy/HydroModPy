@@ -14,6 +14,7 @@ import os, sys
 import glob
 import hydroeval as he
 import whitebox
+import imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 #HydroModPy tools
@@ -403,17 +404,27 @@ class Intermittency:
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
         sim = pd.read_csv(sim_path, sep=';', parse_dates=True, index_col=0)
         self.seepage_areas = sim.seepage_areas
+        self.intermit_areas = sim.intermit_areas
         # add successive subbasins
-        
+    
     def compare_sim_obs_data(self):
-        code = 'CODE'
-        df = self.seepage_areas.copy()
-        df = df.rename('sim_' + code)
-        y1 = df['sim_' + code].values
-        self.y1 = df[[col for col in df if col.startswith('sim_')]]
+        shp_layer = gpd.read_file(os.path.join(self.watershed.stable_folder, 'hydrology', 'sections.shp'))
+        dem_clip = imageio.imread(self.geographic.watershed_dem)
+        self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
+        self.intermit_areas_obs = ((shp_layer['Persistanc'] == 3).sum() / self.cell) * 100
+        
+        self.int_sim_obs = np.nanmax(self.intermit_areas) / self.intermit_areas_obs
+        
+    # def compare_sim_obs_data(self):
+    #     code = 'CODE'
+    #     df = self.seepage_areas.copy()
+    #     df = df.rename('sim_' + code)
+    #     y1 = df['sim_' + code].values
+    #     self.y1 = df[[col for col in df if col.startswith('sim_')]]
 
     def get_indicator(self):
-        return self.y1
+        indicator = self.int_sim_obs 
+        return indicator, np.nanmax(self.intermit_areas), self.intermit_areas_obs
 
 #%% NOTES
 
