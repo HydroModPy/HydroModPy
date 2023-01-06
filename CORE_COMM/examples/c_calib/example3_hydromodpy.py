@@ -36,7 +36,7 @@ elif user_path=="Jean-Raynald":
     
 elif user_path=="Ronan":
     data_path= "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/CALIB/"
-    out_path = "D:/Users/abherve/TEST/"
+    out_path = "D:/Users/abherve/EXAMPLES/"
   
 elif user_path=="Martin":
     data_path= "C:/Users/Martin Le Mesnil/Travail/data/CALIB/"
@@ -47,7 +47,7 @@ else:
 
 #%% ASSIGNED PATHS
 
-# watershed_name = 'Agon-Coutainville'
+watershed_name = 'Agon-Coutainville'
 watershed_name = 'Paimpont'
 
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
@@ -56,9 +56,13 @@ if watershed_name == 'Agon-Coutainville':
     dem_name = "BDALTI_norm-manch_75m.tif"
     from_shp = os.path.join(data_path,'bounds','bounds_agon.shp')
     from_shp = None
+    types_obs = ['streams']
+    fields_obs = ['fid']
 if watershed_name == 'Paimpont':
     dem_name = 'BDALTI_bzh_75m.tif'
     from_shp = None
+    types_obs = ['streams', 'sections']
+    fields_obs = ['fid', 'Persistanc']
 
 from_dem = False
 cell_size = None
@@ -73,8 +77,6 @@ modflow_path = os.path.join(data_path,'modflow')
 oceanic_path = os.path.join(data_path,'oceanic')
 piezometry_path = True # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
-
-types_obs = ['streams']
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -100,7 +102,7 @@ if not os.path.exists(os.path.join(stable_folder, 'climatic', 'REA.h5')):
     BV.add_surfex(climate_path) 
 BV.add_geology(geology_path)
 # if not os.path.exists(os.path.join(stable_folder, 'hydrology', 'streams.shp')):
-BV.add_hydrology(hydrology_path, types_obs=types_obs)
+BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 BV.add_oceanic(oceanic_path)
 BV.add_hydrometry(hydrometry_path)
 BV.add_intermittency(intermittency_path)
@@ -141,7 +143,8 @@ params_files = [
                 "calib_dicot_hom_1v_k1",      # dichotomy on streams, homogeneous, for k1
                 "calib_explo_hom_1v_k1",      # exploration on streams or piezometers or hydrometry, homogeneous, for k1
                 "calib_explo_hom_2v_k1-n1",   # exploration on streams or piezometers or hydrometry, homogeneous, for k1 and n1
-                "calib_explo_het_1v_k1-k2"    # exploration on piezometers, heterogeneous, for k1 and k2
+                "calib_explo_het_1v_k1-k2",   # exploration on piezometers, heterogeneous, for k1 and k2
+                "calib_explo_hom_1v_n1"
                 ]
 
 #%% CALIB : STREAMS - 1 VARIABLE - HOMOGENEOUS - DICHOTOMY - STEADY
@@ -159,7 +162,7 @@ if watershed_name == 'Agon-Coutainville':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.dichotomy(gap=1)
+    # calib.dichotomy(gap=1)
     
     # Post-processing
     label_calib = data_calib[0] + '_calibration'
@@ -184,7 +187,7 @@ if watershed_name == 'Agon-Coutainville':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=10)
+    # calib.exploration(resolution=10)
     
     # Pre-processing
     label_calib = data_calib[0] + '_calibration'
@@ -210,7 +213,7 @@ if watershed_name == 'Agon-Coutainville':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=10)
+    # calib.exploration(resolution=10)
     
     # Pre-processing
     label_calib = data_calib[0] + '_calibration'
@@ -236,7 +239,7 @@ if watershed_name == 'Agon-Coutainville':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=2)
+    # calib.exploration(resolution=2)
     
     # Pre-processing
     label_calib = data_calib[0] + '_calibration'
@@ -262,7 +265,7 @@ if watershed_name == 'Agon-Coutainville':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=10)
+    # calib.exploration(resolution=10)
     
     # Pre-processing
     label_calib = data_calib[0] + '_calibration'
@@ -301,7 +304,7 @@ if watershed_name == 'Paimpont':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=2)
+    # calib.exploration(resolution=2)
     
     # Post-processing
     label_calib = data_calib[0] + '_calibration'
@@ -544,7 +547,33 @@ if watershed_name == 'Agon-Coutainville':
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=10)
+    # calib.exploration(resolution=10)
+    
+    # Pre-processing
+    label_calib = data_calib[0] + '_calibration'
+    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, label_calib, '*.calib')),
+    key=os.path.getmtime, reverse=True)
+    name_file = list_path[0].split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, label_calib, name_file)
+    analy = calib_analysis.CalibAnalysis(calib_file)
+    analy.display_objective_function(save=None, vmax=None)
+
+#%% CALIB : INTERMITTENCY - 1 VARIABLE - HOMOGENEOUS - EXPLORATION - TRANSIENT
+
+if watershed_name == 'Paimpont':
+    
+    params_file = "calib_explo_hom_1v_n1_trans" # exploration on streams or piezometers or hydrometry, homogeneous, for k1
+    sim_state = 'transient'
+    data_calib = ['intermittency']
+    
+    # Pre-processing
+    BV.forcing.update_recharge_surfex(clim_mod='REA', clim_sce='historic', 
+                                      first_year=2018, last_year=2019,
+                                      time_step='M', sim_state=sim_state)
+    calib = calib_root.Calibration(params_file, BV, observations = data_calib)
+    
+    # Processing
+    calib.exploration(resolution=1)
     
     # Pre-processing
     label_calib = data_calib[0] + '_calibration'
