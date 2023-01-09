@@ -65,7 +65,6 @@ class Streams:
         toolbox.create_folder(self.dichotomy_folder)
         # Observed buff data
         self.buff_tif_obs = self.hydrology.tif_streams
-        self.buff_pt_obs = self.hydrology.streams
         # Mask observed: raster of observed river occurency
         self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
         toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
@@ -392,6 +391,7 @@ class Intermittency:
 
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
+        self.geographic = watershed.geographic
         self.model = model
         self.param_folder = param_folder
         
@@ -403,17 +403,31 @@ class Intermittency:
     def load_modeling_data(self):
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
         sim = pd.read_csv(sim_path, sep=';', parse_dates=True, index_col=0)
+        sim = sim.reset_index()
         self.seepage_areas = sim.seepage_areas
         self.intermit_areas = sim.intermit_areas
+        self.max_val = np.nanmax(self.intermit_areas)
+        self.max_loc = self.intermit_areas.idxmax()
+        shp_sim = gpd.read_file(os.path.join(self.param_folder, self.model, '_watershed',
+                                             '_surfaceflow', 'tracept_t('+str(self.max_loc)+').shp'))
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        shp_sim.plot(ax=ax, column='id_persist',
+                     lw=0, alpha=0.5)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_title(str(self.max_loc)+'   '+str(round(self.max_val,2)))
+        
         # add successive subbasins
     
     def compare_sim_obs_data(self):
-        shp_layer = gpd.read_file(os.path.join(self.watershed.stable_folder, 'hydrology', 'sections.shp'))
+        shp_obs = gpd.read_file(os.path.join(self.watershed.stable_folder, 'hydrology',
+                                               'complete_single_pt.shp'))
+        shp_obs['VALUE'] = shp_obs['VALUE'].astype(int)
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
-        self.intermit_areas_obs = ((shp_layer['Persistanc'] == 3).sum() / self.cell) * 100
+        self.intermit_areas_obs = ((shp_obs['VALUE'] == 2).sum() / self.cell) * 100
         
-        self.int_sim_obs = np.nanmax(self.intermit_areas) / self.intermit_areas_obs
+        self.int_sim_obs = self.max_val / self.intermit_areas_obs
         
     # def compare_sim_obs_data(self):
     #     code = 'CODE'
@@ -424,7 +438,8 @@ class Intermittency:
 
     def get_indicator(self):
         indicator = self.int_sim_obs 
-        return indicator, np.nanmax(self.intermit_areas), self.intermit_areas_obs
+        print(indicator, self.max_val, self.intermit_areas_obs)
+        return indicator, self.max_val, self.intermit_areas_obs
 
 #%% NOTES
 
