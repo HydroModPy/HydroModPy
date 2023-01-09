@@ -220,7 +220,9 @@ class Hydrodynamic:
         from os.path import dirname
         import os
         import imageio
-
+        # import rasterio
+        # import matplotlib.pyplot as plt
+        
         output = os.path.join(dirname(self.box_dem), 'out_raster_zones.tif')
         print(output)
         
@@ -235,7 +237,11 @@ class Hydrodynamic:
         raster_load = imageio.imread(output)
         raster_load[raster_load==-99999] = default_zone
 
-        self.calib_zone = raster_load
+        # src = rasterio.open(output)
+        # plt.imshow(src.read(1), cmap='pink')
+        # plt.show()
+        
+        self.calib_zones = raster_load
 
     #%% UPDATE HETEROGENEOUS
         
