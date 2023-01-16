@@ -8,32 +8,16 @@
 				<description>position of the node in the border meshes (in all other meshes the node is always at the center)</description>
 				<possible_values>0: CENTER_MESH; 1: BORDER_MESH</possible_values>
 				<type>short</type>
-				<value>0</value>
+				<value>1</value>
 				<default_value>0</default_value>
 			</Parameter>
 			<Parameter name="grid_definition">
 				<description>type of grid construction (FROM_FILE and MULTIPARTS not implemented)</description>
 				<possible_values>REGULAR; FROM_FILE; BIPARTS; MULTIPARTS</possible_values>
 				<type>string</type>
-				<value></value>
+				<value>BIPARTS</value>
 				<default_value>REGULAR</default_value>
 			</Parameter>
-			<ParametersGroup name="output">
-				<Parameter name="lines_position">
-					<description>no_description</description>
-					<possible_values>0: not saved; 1: saved</possible_values>
-					<type>bool</type>
-					<value>0</value>
-					<default_value>0</default_value>
-				</Parameter>
-				<Parameter name="nodes_position">
-					<description>no_description</description>
-					<possible_values>0: not saved; 1: saved</possible_values>
-					<type>bool</type>
-					<value>0</value>
-					<default_value>0</default_value>
-				</Parameter>
-			</ParametersGroup>
 		</ParametersGroup>
 		<ParametersGroup name="tracker">
 			<Parameter name="analysis_and_outputs">
@@ -43,25 +27,18 @@
 				<value>tracker_vectors#tracker_distributions#tracker_asymptotic#tracker_paths#tracker_lagrangian_correlation_time# tracker_lagrangian_correlation_space</value>
 				<default_value>tracker_vectors#tracker_distributions#tracker_channeling#tracker_asymptotic#tracker_paths</default_value>
 			</Parameter>
-			<Parameter name="method_type">
-				<description>Type of method used for the random walk computation: Continuous Time Random Walk (0), Discrete Time Random Walk (1)</description>
-				<possible_values>0;1</possible_values>
-				<type>short</type>
-				<value>0</value>
-				<default_value>0</default_value>
-			</Parameter>
 			<Parameter name="nb_step_by_mesh">
 				<description>Average number of steps taken by a particle within a single mesh</description>
 				<possible_values>&gt;=1</possible_values>
 				<type>int</type>
-				<value></value>
+				<value>20</value>
 				<default_value>10</default_value>
 			</Parameter>
 			<Parameter name="parallel_communication_type">
 				<description>Communication type between processors: Cascade (0), Pairwise (1)</description>
 				<possible_values>0;1</possible_values>
 				<type>short</type>
-				<value>0</value>
+				<value>1</value>
 				<default_value>0</default_value>
 			</Parameter>
 			<Parameter name="particle_storage">
@@ -75,7 +52,7 @@
 				<description>Type of particle: LV=Lagrangian volume, RW=Random Walk, RW_history=Random Walk with history about path</description>
 				<possible_values>LV;RW;RW_history</possible_values>
 				<type>string</type>
-				<value></value>
+				<value>LV</value>
 				<default_value>RW_history</default_value>
 			</Parameter>
 			<Parameter name="path_format">
@@ -85,19 +62,12 @@
 				<value>none</value>
 				<default_value>none</default_value>
 			</Parameter>
-			<Parameter name="ref_file">
+			<Parameter name="ref_fil">
 				<description>Reference file for output of particles paths in case of gocad_geo</description>
 				<possible_values/>
 				<type>string</type>
-				<value></value>
+				<value>NO_FILE</value>
 				<default_value>NO_FILE</default_value>
-			</Parameter>
-			<Parameter name="tracker_paths_options">
-				<description>Indicates options for tracker_paths results to store for each particle: travel_time, partial_travel_time, injection_zone_id, injection_position, exit_position, extrema_position (in each direction, the maximum and minimum point reached along the path)</description>
-				<possible_values>travel_time#partial_travel_time#travel_distance#injection_zone_id#injection_position#exit_position#extrema_position</possible_values>
-				<type>string</type>
-				<value>travel_time#exit_position</value>
-				<default_value>travel_time#exit_position</default_value>
 			</Parameter>
 		</ParametersGroup>
 	</ParametersGroup>

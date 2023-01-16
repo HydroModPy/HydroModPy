@@ -10,7 +10,7 @@
           <description>description of the box</description>
           <possible_values>NO; FRAC_2D; FRAC_2D_FLOW; FRAC_3D; FRAC_3D_FLOW; MSFRAC; GRID; POROUS; POROUS_TRACKER</possible_values>
           <type>string</type>
-          <value>NO</value>
+          <value></value>
           <default_value>NO</default_value>
         </Parameter>
         <Parameter name="function">
@@ -27,7 +27,7 @@
         <description>indicates to continue after already performed simulations, until simulations_number be achieved ; if activated, continue_directory must be indicated</description>
         <possible_values>0: desactivated; 1: activated</possible_values>
         <type>bool</type>
-        <value>0</value>
+        <value></value>
         <default_value>0</default_value>
       </Parameter>
       <Parameter name="continue_directory">
@@ -206,7 +206,7 @@
           <description>performs preprocessing</description>
           <possible_values>1: yes; 0: no</possible_values>
           <type>bool</type>
-          <value>1</value>
+          <value></value>
           <default_value>1</default_value>
         </Parameter>
       </ParametersGroup>
@@ -250,7 +250,7 @@
               <description>no_description</description>
               <possible_values></possible_values>
               <type>double</type>
-              <value>10</value>
+              <value></value>
               <default_value>10</default_value>
             </Parameter>
             <Parameter name="coeff_1">
