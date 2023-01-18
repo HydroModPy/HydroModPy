@@ -422,7 +422,7 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_optim1_aut22_k1n1'
+params_file = 'calib_optim1_aut22_k1n1' #calib_optim1_aut22_k1n1
 # calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
 BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
@@ -448,7 +448,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_hetero_perm_k1k2' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+params_file = 'calib_explo_aut22_k1n1' # calib_optim1_aut22_k1n1 calib_explo_aut22_k1n1 calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -482,24 +482,19 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_hetero_perm_k1k2'
-# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+params_file = 'calib_hetero_steady_P1P3_k1k2' #'calib_hetero_perm_k1k2' calib_hetero_steady_P4P6_k1k2
+# calib_hetero_steady_P1P3_k1k2 calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
 BV.forcing.update_recharge(r_ESP, 'steady') #R_HAD_REG_RCP26
 BV.hydrodynamic.update_thickness(29)
-# BV.hydrodynamic.update_hyd_cond(0.3)
-# BV.hydrodynamic.update_porosity(0.25)
-#init value is not used in exploration mode
-#lin or log probably not used
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-# params_df.loc[0] = ['k1',0.287,0.287,0.387,'m/j','log']
-params_df.loc[0] = ['k1',0.01,0.01,100,'m/j','log']
-params_df.loc[1] = ['k2',0.01,0.01,100,'m/j','log']
+params_df.loc[0] = ['k1',0.001,0.001,100,'m/j','log']
+params_df.loc[1] = ['k2',0.001,0.001,100,'m/j','log']
 
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(300)
+calib.exploration(400)
 
 
 #%% Extraction and analysis of heterogeneous K calibration results - steady
@@ -508,7 +503,7 @@ import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_hetero_perm_k1k2' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+params_file = 'calib_hetero_steady_P1P3_k1k2' # calib_hetero_perm_k1k2 calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -533,12 +528,157 @@ RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
 K1_optim = K1_values[j_min_RMSE]
 K2_optim = K2_values[i_min_RMSE]
 
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
 BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
 BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
 
-# tt = BV.hydrodynamic.hyd_cond
+hyd_cond_zones = BV.hydrodynamic.hyd_cond
+
+#%% Heterogeneous calibration of n based on piezometry - transient state
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_transient_n1n2_P1P3_halfk' #calib_hetero_transient_n1n2_P4P6_t28
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_hyd_cond(0.387)
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = 2.64/2)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = 0.428/2)
+
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['n1',0.001,0.001,0.3,'-','lin']
+params_df.loc[1] = ['n2',0.001,0.001,0.3,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(300)
+
+#%% Heterogeneous calibration of K based on piezometry - transient state
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_transient_k1k2_nhomo'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
+# BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
+# BV.hydrodynamic.update_hyd_cond(0.387)
+BV.hydrodynamic.update_porosity(0.0127)
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['k1',0.001,0.001,10,'m/j','log']
+params_df.loc[1] = ['k2',0.001,0.001,10,'m/j','log']
+# params_df.loc[0] = ['k1',0.001,0.001,0.4,'-','lin']
+# params_df.loc[1] = ['n2',0.001,0.001,0.4,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(250)
+
+#%% Extraction and analysis of heterogeneous n calibration results - transient
+
+import glob
+import os
+from calibration import calib_analysis
+
+params_file = 'calib_hetero_transient_n1n2_P1P3_halfk' # calib_hetero_transient_n1n2_P4P6_t28 calib_hetero_transient_n1n2_P4P6 calib_hetero_transient_n1n2_Khomo calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+# calib_hetero_transient_n1n2_P1P3_halfk
+#get last calibration result file
+type_obs = 'piezometry'
+typ_calib = 'piezometry_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[-1].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+obj_fc_path = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures', 'objective_function.png')
+test.display_objective_function(save=obj_fc_path) #,vmax= 1.3,log=False
+
+#get optimal K and n value
+calib_dict = test.calib
+n1_values = calib_dict['params_values'][0]
+n2_values = calib_dict['params_values'][1]
+
+min_RMSE_idx_flat = np.argmin(calib_dict['objective_function'])
+i_min_RMSE = min_RMSE_idx_flat // n1_values.size
+j_min_RMSE = min_RMSE_idx_flat % n2_values.size    
+RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
+n1_optim = n1_values[j_min_RMSE]
+n2_optim = n2_values[i_min_RMSE]
+
+# shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1_optim)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 2, porosity_value = n2_optim)
+
+# porosity_zones = BV.hydrodynamic.porosity
+
+#%% Visualization of calibration - hetero
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_test' #'calib_hetero_perm_k1k2' calib_hetero_transient_n1n2_P4P6_t28
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = 2.01)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = 0.267)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1_optim)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 2, porosity_value = n2_optim)
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+# params_df.loc[0] = ['k1',3.875,3.875,3.875,'m/j','log']
+# params_df.loc[1] = ['k2',0.444,0.444,0.444,'m/j','log']
+params_df.loc[0] = ['n1',0.138,0.138,0.138,'-','lin']
+params_df.loc[1] = ['n2',0.0393,0.0393,0.0393,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(1)
+
+#%% Visualization of calibration - homo
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_test' #'calib_hetero_perm_k1k2'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+BV.hydrodynamic.update_hyd_cond(1.7)
+BV.hydrodynamic.update_porosity(0.13)
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['k1',0.02,0.02,0.02,'m/j','log']
+params_df.loc[1] = ['n1',0.001,0.001,0.001,'m/j','log']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(1)
 
 #%% Model Parameters
+
+hetero = 1
 
 # K_optim = 0.3
 # n_optim = 0.001
@@ -562,7 +702,13 @@ modpath_sim = False # run modpath particle tracking if True
 verbose = True # add print of MODFLOW in console
 
 # Update properties
-BV.hydrodynamic.update_hyd_cond(K)
+if hetero==0:
+    BV.hydrodynamic.update_hyd_cond(K)
+elif hetero==1:
+    shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
+
 BV.hydrodynamic.update_thickness(t)
 BV.hydrodynamic.update_porosity(n)
 BV.hydrodynamic.update_nlay(lay_number)
