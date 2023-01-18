@@ -14,6 +14,7 @@ from datetime import datetime
                     
 # from calibration import tools_figures_additional as figadd                                     
 from calibration import calib_objective_function, calib_params
+from groundwater_flow import visualization, modflow_display
 
 from tools import toolbox
 
@@ -265,6 +266,9 @@ class CalibrationBasis:
                 self.watershed.results_modflow(ident=self.ident,
                                                actual_date=True,
                                                calib=self.param_folder)
+                
+                
+                
                 obj_func = calib_objective_function.Intermittency(self.watershed,
                                                                self.ident,
                                                                self.param_folder)

@@ -1092,10 +1092,10 @@ class Modflow():
                     outflow['y'] = outflow.geometry.y
                     outflow['z'] = outflow['x'].astype(str) + outflow['y'].astype(str)
                     val = 0
-                    outflow['Persistanc'] = val
+                    outflow['id_persist'] = val
                     for xy in values.index:
                         val = 1
-                        outflow.loc[outflow['z']==xy,'Persistanc'] = val
+                        outflow.loc[outflow['z']==xy,'id_persist'] = val
                     outflow.to_file(bis)
                 inf+=12
                 sup+=12

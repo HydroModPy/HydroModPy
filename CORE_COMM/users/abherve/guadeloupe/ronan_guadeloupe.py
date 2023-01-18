@@ -890,7 +890,6 @@ for idx, pline in enumerate(pth_data):
         # print(compt)
         superf_p.append(pline)
         superf_id.append(pline['particleid'][0])
-        
     else:
         profon_p.append(pline)
         profon_id.append(pline['particleid'][0])

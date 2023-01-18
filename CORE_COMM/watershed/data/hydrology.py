@@ -73,13 +73,13 @@ class Hydrology:
         file_clipped.to_file(self.streams)
         
         # Transforms shapefile to raster file (.tif format)
-        self.tif_streams = data_folder + type_obs + '.tif'
         shp_base = gpd.read_file(self.streams)
-        shp_type = gpd.read_file(self.streams).geometry.type[0] # forma = forma.geom_type[0]
-        # if shp_base[field_obs].dtype == 'object':
-        #     print(shp_base[field_obs].dtype)
-        shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
+        shp_type = shp_base.geometry.type[0] # forma = forma.geom_type[0]
+        print(shp_type)
+        self.tif_streams = data_folder + type_obs + '.tif'
+        # shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
         shp_base.to_file(self.streams)
+        
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
             # print(shp_type)
             # e.g. wetlands and ponds
@@ -88,7 +88,9 @@ class Hydrology:
         if (shp_type == 'MultiLineString') | (shp_type == 'LineString') | (shp_type == 'Line'):
             # print(shp_type)
             # e.g. streams
-            wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
+            wbt.vector_lines_to_raster(self.streams, self.tif_streams,
+                                       # field=field_obs,
+                                       base=watershed_dem)
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
             # e.g. landslides, sources, wells
             # print(shp_type)
