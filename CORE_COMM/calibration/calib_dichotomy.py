@@ -38,7 +38,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
     
     #%% UPDATE
     
-    def update_calibbasis(self,calib_basis): 
+    def update_calibbasis(self, calib_basis): 
         """
         Updates parent class CalibrationBasis with calib_basis
         

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="browser_view.xslt"?>
+<?xmlspysps authentic_view.sps?>
+<ParametersGroup name="PARADIS_inputs">
+	<ParametersGroup name="simulation">
+		<ParametersGroup name="grid">
+			<Parameter name="border_node_position">
+				<description>position of the node in the border meshes (in all other meshes the node is always at the center)</description>
+				<possible_values>0: CENTER_MESH; 1: BORDER_MESH</possible_values>
+				<type>short</type>
+				<value>1</value>
+				<default_value>0</default_value>
+			</Parameter>
+			<Parameter name="grid_definition">
+				<description>type of grid construction (FROM_FILE and MULTIPARTS not implemented)</description>
+				<possible_values>REGULAR; FROM_FILE; BIPARTS; MULTIPARTS</possible_values>
+				<type>string</type>
+				<value>BIPARTS</value>
+				<default_value>REGULAR</default_value>
+			</Parameter>
+		</ParametersGroup>
+		<ParametersGroup name="tracker">
+			<Parameter name="analysis_and_outputs">
+				<description>Categories of results to fill and output separated by #: tracker_vectors, tracker_distributions, tracker_concentrations, tracker_concentrations_correlation, tracker_asymptotic, tracker_channeling, tracker_paths, , tracker_paths, tracker_lagrangian_correlation_time, tracker_lagrangian_correlation_space</description>
+				<possible_values/>
+				<type>string</type>
+				<value>tracker_vectors#tracker_distributions#tracker_asymptotic#tracker_paths#tracker_lagrangian_correlation_time# tracker_lagrangian_correlation_space</value>
+				<default_value>tracker_vectors#tracker_distributions#tracker_channeling#tracker_asymptotic#tracker_paths</default_value>
+			</Parameter>
+			<Parameter name="nb_step_by_mesh">
+				<description>Average number of steps taken by a particle within a single mesh</description>
+				<possible_values>&gt;=1</possible_values>
+				<type>int</type>
+				<value>20</value>
+				<default_value>10</default_value>
+			</Parameter>
+			<Parameter name="parallel_communication_type">
+				<description>Communication type between processors: Cascade (0), Pairwise (1)</description>
+				<possible_values>0;1</possible_values>
+				<type>short</type>
+				<value>1</value>
+				<default_value>0</default_value>
+			</Parameter>
+			<Parameter name="particle_storage">
+				<description>Activates (1) or desactivates (0) the storage of characteristics of particles path</description>
+				<possible_values>0;1</possible_values>
+				<type>bool</type>
+				<value>0</value>
+				<default_value>0</default_value>
+			</Parameter>
+			<Parameter name="particle_type">
+				<description>Type of particle: LV=Lagrangian volume, RW=Random Walk, RW_history=Random Walk with history about path</description>
+				<possible_values>LV;RW;RW_history</possible_values>
+				<type>string</type>
+				<value>LV</value>
+				<default_value>RW_history</default_value>
+			</Parameter>
+			<Parameter name="path_format">
+				<description>Format of the output of particles paths: none=does not export particles path, gocad=export for reading in gocad, gocad_geo=export for reading in gocad with a georeferenced system detailed in ref_file, vtk=export for reading in vtk</description>
+				<possible_values>none;gocad;gocad_geo;vtk;vtk_flow_line</possible_values>
+				<type>string</type>
+				<value>none</value>
+				<default_value>none</default_value>
+			</Parameter>
+			<Parameter name="ref_fil">
+				<description>Reference file for output of particles paths in case of gocad_geo</description>
+				<possible_values/>
+				<type>string</type>
+				<value>NO_FILE</value>
+				<default_value>NO_FILE</default_value>
+			</Parameter>
+		</ParametersGroup>
+	</ParametersGroup>
+</ParametersGroup>

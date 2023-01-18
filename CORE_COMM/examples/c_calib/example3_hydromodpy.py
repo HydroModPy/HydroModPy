@@ -12,11 +12,15 @@ import matplotlib.pyplot as plt
 import glob
 from os.path import dirname, abspath
 import pandas as pd
+import geopandas as gpd
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
 
 from watershed import watershed_root, watershed_display
 from calibration import calib_root, calib_analysis, calib_basis
@@ -61,8 +65,8 @@ if watershed_name == 'Agon-Coutainville':
 if watershed_name == 'Paimpont':
     dem_name = 'BDALTI_bzh_75m.tif'
     from_shp = None
-    types_obs = ['streams', 'sections']
-    fields_obs = ['fid', 'Persistanc']
+    types_obs = ['streams', 'perennial_single']
+    fields_obs = ['fid', 'fid']
 
 from_dem = False
 cell_size = None
@@ -83,7 +87,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% LOAD WATERSHED
 
-load = True
+load = False
 # False to build and save python object4
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -149,7 +153,7 @@ params_files = [
 
 #%% CALIB : STREAMS - 1 VARIABLE - HOMOGENEOUS - DICHOTOMY - STEADY
 
-if watershed_name == 'Agon-Coutainville':
+if watershed_name == 'Paimpont':
     
     params_file = "calib_dicot_hom_1v_k1_stead" # dichotomy on streams, homogeneous, for k1
     sim_state = 'steady'
@@ -157,8 +161,8 @@ if watershed_name == 'Agon-Coutainville':
     
     # Pre-processing
     BV.forcing.update_recharge_surfex(clim_mod='REA', clim_sce='historic', 
-                                      first_year=2017, last_year=2019,
-                                      time_step='D', sim_state=sim_state)
+                                      first_year=2019, last_year=2019,
+                                      time_step='M', sim_state=sim_state)
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
@@ -171,7 +175,9 @@ if watershed_name == 'Agon-Coutainville':
     calib_file = os.path.join(BV.calibration_folder, params_file, label_calib, name_file)
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None)
-
+    
+    best_K = analy.params_xyz[-1]
+    
 #%% CALIB : STREAMS - 1 VARIABLE - HOMOGENEOUS - EXPLORATION - STEADY
 
 if watershed_name == 'Agon-Coutainville':
@@ -562,18 +568,47 @@ if watershed_name == 'Agon-Coutainville':
 
 if watershed_name == 'Paimpont':
     
+    """
+    wbt.single_part_to_multi_part(
+        "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/HYDROLOGY/France/Hydrographic/D035/complete.shp", 
+        "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/HYDROLOGY/France/Hydrographic/D035/complete_single.shp", 
+        field='persistanc'
+    )
+    """
+    
+    obs_intermit = gpd.read_file(data_path+'/hydrology/'+'complete_single.shp')
+    obs_intermit.loc[obs_intermit['persistanc']=='Inconnue', 'id_persist'] = 0
+    obs_intermit.loc[obs_intermit['persistanc']=='Permanent', 'id_persist'] = 1
+    obs_intermit.loc[obs_intermit['persistanc']=='Intermittent', 'id_persist'] = 2
+    obs_intermit['id_persist'] = obs_intermit['id_persist'].astype(int)
+    obs_intermit.to_file(data_path+'/hydrology/'+'complete_single.shp')
+    
+    BV.add_hydrology(hydrology_path, types_obs=['complete_single'], fields_obs=['id_persist'])
+    
+    """
+    x = gpd.read_file("D:/Users/abherve/EXAMPLES/Paimpont/results_stable/hydrology/complete_single.shp")
+    wbt.vector_lines_to_raster("D:/Users/abherve/EXAMPLES/Paimpont/results_stable/hydrology/complete_single.shp",
+                                "D:/Users/abherve/EXAMPLES/Paimpont/results_stable/hydrology/complete_single.tif",
+                                field='id_persist',
+                                base=BV.geographic.watershed_dem)
+    """
+
     params_file = "calib_explo_hom_1v_n1_trans" # exploration on streams or piezometers or hydrometry, homogeneous, for k1
     sim_state = 'transient'
     data_calib = ['intermittency']
-    
+
+    # Best K steady    
+    BV.hydrodynamic.update_hyd_cond(best_K) # m/j
+
     # Pre-processing
     BV.forcing.update_recharge_surfex(clim_mod='REA', clim_sce='historic', 
-                                      first_year=2018, last_year=2019,
+                                      first_year=2019, last_year=2019,
                                       time_step='M', sim_state=sim_state)
     calib = calib_root.Calibration(params_file, BV, observations = data_calib)
     
     # Processing
-    calib.exploration(resolution=1)
+    calib.exploration(resolution=10)
+    calib.dichotomy(gap=10)
     
     # Pre-processing
     label_calib = data_calib[0] + '_calibration'
@@ -584,6 +619,11 @@ if watershed_name == 'Paimpont':
     analy = calib_analysis.CalibAnalysis(calib_file)
     analy.display_objective_function(save=None, vmax=None)
 
+    # plt.plot(analy.obj_function['n1'], analy.data_obs['intermittency'])
+    # plt.plot(analy.obj_function['n1'], analy.data_sim['intermittency'])
+    fig, ax = plt.subplots(1,1, figsize=(5,5))
+    ax.plot(analy.obj_function['n1'], analy.data_ind['intermittency'])
+        
 #%% CALIB : SIMPLEX
 
 # Coming soon !
@@ -684,4 +724,10 @@ save='.../Figure/2param_K.png'
 # ax.axvline(df.perennial[0], color='k', lw=2)
 # ax.axvline(df.complete[0], color='k', lw=2, ls='--')
 
+# y = pd.read_csv("D:/Users/abherve/EXAMPLES/Paimpont/results_calibration/calib_explo_hom_1v_n1_trans/intermittency_calibration/_watershed/_simulated_results.csv",
+#                 sep=';', parse_dates=True, index_col=0)
+# y = y.reset_index()
 
+fig, ax = plt.subplots(1,1, figsize=(5,5))
+z = gpd.read_file("D:/Users/abherve/EXAMPLES/Paimpont/results_calibration/calib_explo_hom_1v_n1_trans/intermittency_calibration/_watershed/_surfaceflow/tracept_t(0).shp")
+z.plot(ax=ax, column='id_persist', lw=0, marker='s', alpha=0.5)
