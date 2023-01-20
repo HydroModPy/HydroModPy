@@ -43,25 +43,34 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
+dem_name = "BDALTI_norm-manch_75m.tif"
+# sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
 
-# Path to the git repositoty home page
-git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = "C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
-# Path where the results will be stored
-out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
+if DIR[0] == 'd': #server
+    shp_file = 'D:\mlemesnil\Data\BV_RN2100\SGA\SGA_2_sea.shp'
+    # Path to the git repositoty home page
+    git_path = "D:\mlemesnil\HydroModPy\HydroModPy\CORE_COMM/"
+    # Path to the data folder
+    data_path = "D:\mlemesnil\Data\HydroModPy/"
+    # Path where the results will be stored
+    out_path = 'D:\mlemesnil\HydroModPy\Output/'
+    modflow_path = 'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
+    ESPERE_recharge_path = 'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+elif DIR[0] == 'c': #local
+    shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+    data_path = "C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
+    out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
+    modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
+    ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+    # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
+    #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-
-dems_path = data_path # reginal DEM or conceptual DEM
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-
-modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
-
 surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
 geology_path = data_path + 'geology/' # add geologic layers
 oceanic_path = data_path + 'OCEAN/' # add specific sea level files
@@ -72,15 +81,8 @@ piezometry_path = True # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 drias_path = data_path + "CLIMAT/Normandie/"
 library_path = git_path + 'watershed/watershed_library.csv' # each row is a study site with outlet coordinates
-
-dem_name = "BDALTI_norm-manch_75m.tif"
+dems_path = data_path # reginal DEM or conceptual DEM
 dem_path = dems_path + dem_name
-
-sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
-ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
-# C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
-#r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
-
 cell_size = None # specify new resolution from a given DEM or None
 
 #%% Watershed generation
@@ -122,7 +124,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 BV.load_object()
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
-BV.add_piezometry()
+# BV.add_piezometry()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
