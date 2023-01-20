@@ -685,8 +685,6 @@ hetero = 1
 
 # Hydraulic properties
 t = 29 # m
-n = n_optim # nondim
-K = K_optim # m/j
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
@@ -703,14 +701,22 @@ verbose = True # add print of MODFLOW in console
 
 # Update properties
 if hetero==0:
+    n = n_optim # nondim
+    K = K_optim # m/j
     BV.hydrodynamic.update_hyd_cond(K)
+    BV.hydrodynamic.update_porosity(n)
 elif hetero==1:
+    K1 = 2.01
+    K2 = 0.267
+    n1 = 0.138
+    n2 = 0.0393
     shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
-    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
-    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1)
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2)
+    BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1)
+    BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 2, porosity_value = n2)
 
 BV.hydrodynamic.update_thickness(t)
-BV.hydrodynamic.update_porosity(n)
 BV.hydrodynamic.update_nlay(lay_number)
 BV.hydrodynamic.update_bottom(bottom)
 BV.hydrodynamic.update_thick_exp(thick_exp)
@@ -726,8 +732,8 @@ from datetime import datetime
 
 BV.add_forcing()
 sim_state = 'transient'
-first_yr = 2010
-last_yr = 2014
+first_yr = 2020
+last_yr = 2100
 # gcm = 'MPI'
 # rcm = 'CCL'
 
@@ -744,13 +750,13 @@ list_sealevel = []
 
 for sim in range(1):
     
-    # gcm = 'MPI'
-    # rcm = 'CCL'
-    # sce = 'RCP8.5'
-    # BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-    #                                   first_year = first_yr, last_year = last_yr,
-    #                                   sim_state = sim_state)
-    BV.forcing.update_recharge(R_hist, 'transient')
+    gcm = 'MPI'
+    rcm = 'CCL'
+    sce = 'RCP8.5'
+    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                      first_year = first_yr, last_year = last_yr,
+                                      sim_state = sim_state)
+    # BV.forcing.update_recharge(R_hist, 'transient')
     BV.oceanic.update_MSL(md_rmsl_85)
     R = BV.forcing.recharge
     sea_lev = BV.oceanic.MSL
