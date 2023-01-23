@@ -419,13 +419,13 @@ class Subbasin:
         except:
             pass
         
-        try:
-            code_sub, x_coord, y_coord = self.add_coord_manual()
-            for i in range(len(code_sub)):
-                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
-        except:
-            pass
+        # try:
+        code_sub, x_coord, y_coord = self.add_coord_manual()
+        for i in range(len(code_sub)):
+            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        # except:
+        #     pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
@@ -473,6 +473,7 @@ class Subbasin:
     
     def add_coord_manual(self):
         sub_list = pd.read_csv(os.path.join(self.adddata_path, 'add_coord_manual.txt'), sep=';')
+        print(sub_list)
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()
         y_coord = sub_list['y_outlet'].to_list()

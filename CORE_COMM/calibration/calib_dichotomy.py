@@ -64,7 +64,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         
         p_min =  self.params.p_min[0]
         p_max =  self.params.p_max[0]
-        print(p_min, p_max)
+        # print(p_min, p_max)
         
         diff = p_max - p_min
         half = (p_min + p_max) / 2
@@ -90,6 +90,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
             params_xyz.append(hyd_cond)
             indicator = self.objective_function([hyd_cond])
             
+            print(self.data_obs)
             obs = self.data_obs['streams'][-1]
             sim = self.data_sim['streams'][-1]
             

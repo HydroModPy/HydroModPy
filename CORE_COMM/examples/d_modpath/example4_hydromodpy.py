@@ -102,8 +102,8 @@ climate_path =  None
 dem_path = os.path.join(data_path,dem_name)
 geology_path = None
 hydrology_path = os.path.join(data_path)
-hydrometry_path = None # add hydrometry data for automatic download
-intermittency_path = None # add intermittency data for automatic download
+hydrometry_path = 'None' # add hydrometry data for automatic download
+intermittency_path = 'None' # add intermittency data for automatic download
 modflow_path = os.path.join(data_path,'modflow')
 oceanic_path = None
 piezometry_path = True # add piezometry data for automatic download
@@ -127,6 +127,10 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
+BV.add_hydrometry(hydrometry_path)
+BV.add_intermittency(intermittency_path)
+BV.add_subbasin()
+
 #%% DATA
 
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
@@ -138,7 +142,7 @@ BV.add_forcing()
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
-#%% CALIBRATION
+#%% DICHOTOMY
 
 df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
 
@@ -167,7 +171,7 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 
-dicot = calib.dichotomy(gap=1)
+# dicot = calib.dichotomy(gap=1)
 
 typ_calib = 'streams_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
@@ -194,7 +198,8 @@ df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_st
 Koptim = float('{:.1e}'.format(df.loc[0][1]))
 
 ######################
-case = 1
+case = 'k0k1'
+# case = 1
 ######################
 
 # Aquifer
@@ -217,7 +222,7 @@ if case == 1:
     thick_k0 = 50 # thickness of the upper layer
     cond_decay = 0 # exponential decay of K with depth : 0.02
     # Vertical
-    k1 = Koptim * 3600 * 24 # lower layer
+    k1s = [Koptim * 3600 * 24] # lower layer
     verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
     # Name
     typ = 'case1'
@@ -228,7 +233,7 @@ if case == 2:
     thick_k0 = 50 # thickness of the upper layer
     cond_decay = 0 # exponential decay of K with depth : 0.02
     # Vertical
-    k1 = Koptim * 3600 * 24 * 10 # lower layer
+    k1s = [Koptim * 3600 * 24 * 10] # lower layer
     verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
     # Name
     typ = 'case2'
@@ -239,7 +244,7 @@ if case == 3:
     thick_k0 = 50 # thickness of the upper layer
     cond_decay = 0 # exponential decay of K with depth : 0.02
     # Vertical
-    k1 = Koptim / 10 * 3600 * 24 # lower layer
+    k1s = [Koptim / 10 * 3600 * 24] # lower layer
     verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
     # Name
     typ = 'case3'
@@ -250,16 +255,35 @@ if case == 4:
     thick_k0 = 50 # thickness of the upper layer
     cond_decay = 0.02 # exponential decay of K with depth : 0.02
     # Vertical
-    k1 = None # lower layer
+    k1s = [None] # lower layer
     verti_k = None # "k1", or None
     # Name
     typ = 'case4'
+    
+if case == 'k0k1':
+    k0 = Koptim * 3600 * 24 # upper layer
+    thick_k0 = 50 # thickness of the upper layer
+    cond_decay = 0 # exponential decay of K with depth : 0.02
+    # Vertical
+    k1s =[
+          # Koptim * 3600 * 24 / 1000,
+          Koptim * 3600 * 24 / 100,
+          Koptim * 3600 * 24 / 10,
+          Koptim * 3600 * 24,
+          Koptim * 3600 * 24 * 10,
+          Koptim * 3600 * 24 * 100,
+          # Koptim * 3600 * 24 * 1000
+          ]
+    verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
+    # Name
+    typ = 'casek0k1'
 
 #%% OPTIONS
 
 # Option
 sim_state = 'steady' # 'steady' or 'transient'
 modpath_sim = True # run modpath particle tracking if True
+modpath_sim = False # run modpath particle tracking if True
 run = True
 
 # Input recharge
@@ -292,7 +316,6 @@ BV.hydrodynamic.update_cond_decay(cond_decay) # 0
 BV.hydrodynamic.update_thick_exp(thick_exp) # 1
 BV.hydrodynamic.update_thickness(thick) # 30 / intervient pas si bottom != None
 
-BV.hydrodynamic.update_hyd_cond(k1) 
 BV.hydrodynamic.update_porosity(Sy)
   
 date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
@@ -300,30 +323,35 @@ date_today = date_today.replace('/','-')
 date_today = date_today.replace(':','-')
 date_today = date_today.replace(' ','_')
 
-model_name = typ+'_'+str(compt)+'_'+\
-                 str(Sy*100)+'-'+str(round(k1,2))+'-'+str(thick)+'_'+str(nlay)
+for k1 in k1s:
+    BV.hydrodynamic.update_hyd_cond(k1) 
 
-if run == True:
-    # try:
-    print('SIM - ' + model_name)
-    success, flow_model = BV.run_modflow(ident=model_name,
-                                         modpath_sim=modpath_sim,
-                                         sink_fill=sink_fill,
-                                         box=box,
-                                         verbose=verbose,
-                                         post_process=post_process, 
-                                         init_rech=init_rech,
-                                         verti_k=verti_k)
-if success == True:
-    print(     'Success')
-else:
-    print(     'Error')
-# except:
-#     pass
-list_model_name.append(model_name)
-list_of_success.append(success)
-list_flow_model.append(flow_model)
-compt+=1
+    model_name = typ+'_'+str(compt)+'_'+\
+                     str(Sy*100)+'-'+str(round(k0/k1,3))+'-'+str(thick)+'_'+str(nlay)
+
+    if run == True:
+        # try:
+        print('SIM - ' + model_name)
+        
+        success, flow_model = BV.run_modflow(ident=model_name,
+                                             modpath_sim=modpath_sim,
+                                             sink_fill=sink_fill,
+                                             box=box,
+                                             verbose=verbose,
+                                             post_process=post_process, 
+                                             init_rech=init_rech,
+                                             verti_k=verti_k)
+                
+    if success == True:
+        print(     'Success')
+    else:
+        print(     'Error')
+    # except:
+    #     pass
+    list_model_name.append(model_name)
+    list_of_success.append(success)
+    list_flow_model.append(flow_model)
+    compt+=1
         
 print(list_of_success)
 
@@ -344,7 +372,11 @@ d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_of_success = d['list_of_success'][:]
 list_flow_model = d['list_flow_model'][:]
-        
+
+data_explo = pd.DataFrame(columns=['k0','k1','k0k1','obs','sim','ind']) 
+
+cp = 0
+
 for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
         
     if success==True:
@@ -390,6 +422,121 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                                   accflux=True,
                                                   intermittency=False,
                                                   chronics=False)
+            
+            ### Calib
+            from calibration import calib_objective_function
+            obj_func = calib_objective_function.Streams(BV, 
+                                                        hydrology_stable=os.path.join(BV.stable_folder, 'hydrology'),
+                                                        calibration_folder=os.path.join(BV.simulations_folder, model_name))
+            ind, obs, sim = obj_func.get_indicator()
+            
+            # Stream calib
+            data_explo.loc[cp,'k0k1'] = model_name.split('_')[2].split('-')[1]
+            data_explo.loc[cp,'Dos'] = obs
+            data_explo.loc[cp,'Dso'] = sim
+            data_explo.loc[cp,'Dind'] = ind
+            
+            # Discharge calib
+            sub_res_path = os.path.join(BV.simulations_folder, model_name, '_subbasins', 'subbasin_Flowrate')
+            sub_res = pd.read_csv(os.path.join(sub_res_path, '_simulated_results.csv'), ';',
+                                  index_col='date', parse_dates=True)
+            data_explo.loc[cp,'Qsim'] = sub_res['accumulation_flux'].values[0]
+            
+            # Residence times
+            res_path = os.path.join(BV.simulations_folder, model_name, '_watershed')
+            res = pd.read_csv(os.path.join(res_path, '_simulated_results.csv'), ';',
+                              index_col='date', parse_dates=True)
+            data_explo.loc[cp,'ts'] = res['residence_times'].values[0]
+            
+            cp+=1
+
+#%% CLASS
+
+class Streams:
+
+    def __init__(self, 
+                 watershed, 
+                 hydrology_stable=None,
+                 simulation_folder=None):
+        
+        self.geographic = watershed.geographic
+        self.hydrology = watershed.hydrology
+        self.simulation_folder = simulation_folder
+        
+        self.results_folder=os.path.join(self.simulation_folder, '_watershed')
+        
+        self.watershed_shp = watershed.geographic.watershed_shp
+        self.watershed_fill = watershed.geographic.watershed_fill
+        self.watershed_direc = watershed.geographic.watershed_direc
+              
+        self.prepare_files()
+        self.sim_to_obs()
+        self.obs_to_sim()
+    
+    #%% COMPARE SIMULATED TO OBSERVED
+    
+    def prepare_files(self):
+        #files are necessary for whiteboxtool
+        # New folder results
+        self.dichotomy_folder = os.path.join(self.calibration_folder, '_streams')
+        toolbox.create_folder(self.dichotomy_folder)
+        # Observed buff data
+        self.buff_tif_obs = self.hydrology.tif_streams
+        # Mask observed: raster of observed river occurency
+        self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
+        toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
+        # Obs to points: vector (points) of river occurency from raster
+        self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
+        wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)  
+        # Mask seepage simulation: raster of simulated river occurency
+        tif_sim = os.path.join(self.results_folder,'_tifs', 'seepage_areas_t(0).tif')
+        self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
+        toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, True)
+        # Trace downslope obs: drawing of flow path from observed river to simulated ones with whitebox tool
+        self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
+        wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
+       
+        # STREAMS: RONAN
+    def sim_to_obs(self):
+        # Distance of sim
+        self.dist_sim_obs = os.path.join(self.dichotomy_folder, 'dist_sim_obs.tif')
+        wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_sim_obs)        
+        # Sim to points
+        self.pt_sim = os.path.join(self.dichotomy_folder, 'sim_pt.shp')
+        wbt.raster_to_vector_points(self.tif_sim, self.pt_sim)        
+        # Trace downslope sim
+        self.sim_flow = os.path.join(self.dichotomy_folder, 'simflow.tif')
+        wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)        
+        # Simflow to points
+        self.pt_sim_flow = os.path.join(self.dichotomy_folder, 'simflow.shp')
+        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)       
+        # Extra
+        wbt.add_point_coordinates_to_table(self.pt_sim_flow)
+        wbt.extract_raster_values_at_points(self.dist_sim_obs, self.pt_sim_flow)
+    
+    def obs_to_sim(self):
+        # Distance of sim
+        self.dist_obs_sim = os.path.join(self.dichotomy_folder, 'dist_obs_sim.tif')
+        wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_obs_sim)   
+        # Obsflow to points
+        self.pt_obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.shp')
+        wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
+        # Extra
+        wbt.add_point_coordinates_to_table(self.pt_obs_flow)
+        wbt.extract_raster_values_at_points(self.dist_obs_sim, self.pt_obs_flow)
+
+    def get_indicator(self):
+        obs_to_sim = gpd.read_file(self.pt_obs_flow)
+        obs_to_sim = obs_to_sim.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
+        obs_to_sim = obs_to_sim[obs_to_sim['distance'] >= 0]
+        self.mean_obs_to_sim = np.nanmean(obs_to_sim['distance'])
+        sim_to_obs = gpd.read_file(self.pt_sim_flow)
+        sim_to_obs = sim_to_obs.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
+        sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
+        self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
+        
+        indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
+        return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
 
 #%% ---- LOAD DATA
 
