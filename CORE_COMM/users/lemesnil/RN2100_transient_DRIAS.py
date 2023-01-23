@@ -751,8 +751,8 @@ list_flow_model = []
 list_recharge = []
 list_sealevel = []
 
-DRIAS_model_list = ['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
-sce_list = ['RCP2.6', 'RCP8.5']
+DRIAS_model_list = ['MPI-R09'] #['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
+sce_list = ['RCP2.6'] #[['RCP2.6', 'RCP8.5']
 
 for DRIAS_model in DRIAS_model_list:
     for scenario in sce_list:
