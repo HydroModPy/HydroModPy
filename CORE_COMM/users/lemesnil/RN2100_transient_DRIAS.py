@@ -751,25 +751,6 @@ list_flow_model = []
 list_recharge = []
 list_sealevel = []
 
-for sim in range(1):
-    
-    gcm = 'MPI'
-    rcm = 'CCL'
-    sce = 'RCP2.6'
-    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-                                      first_year = first_yr, last_year = last_yr,
-                                      sim_state = sim_state)
-    # BV.forcing.update_recharge(R_hist, 'transient')
-    BV.oceanic.update_MSL(md_rmsl_85)
-    R = BV.forcing.recharge
-    sea_lev = BV.oceanic.MSL
-    
-    now = datetime.now()
-    now_str = now.strftime("%d%m%Y%H%M%S")
-    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
-    # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
-    print(sim_name)
-
 DRIAS_model_list = ['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
 sce_list = ['RCP2.6', 'RCP8.5']
 
