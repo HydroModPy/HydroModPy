@@ -28,17 +28,18 @@ class EXPLOPT(Enum):
     FIND = 1
     REPLACE = 2
     DIFF = 3 
+    DIFF_FLOAT = 4
 
 
-def list_to_string(path): 
+def list_to_string(path, sep='::'): 
     """ 
     translates list to string with '::'
     """
     res = ''
     for p in path : 
-        res = res + p + '::' 
+        res = res + p + sep 
     # Removes the last '::' and returns 
-    return res[:-2]
+    return res[:-len(sep)]
 
 
 def string_to_list(path): 
@@ -55,7 +56,26 @@ def file_exist(file_name):
     except IOError:
         print ('Erreur! Le fichier ', file_name, ' n\'a pas pu être ouvert')
         return False
+    
+    
+def xml_pre_adder(filename):
+    line1 = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
+    line2 = '<?xml-stylesheet type="text/xsl" href="browser_view.xslt"?>\n'
+    line3 = '<?xmlspysps authentic_view.sps?>\n'
+    
+    with open(filename, 'r+') as file:
+       content = file.read()
+       file.seek(0)
+       file.write(line1 + line2 + line3 + content)
         
+       
+def test_floatable(type_): 
+    """ Tests is type_ is amenable to operation '-'"""
+    if type_ == 'float' or type_ == 'double' or type_ == 'int' or type_ == 'short' or type_ == 'bool' : 
+       return True 
+    else : 
+       return False
+
 
 class Parameter: 
     """  
@@ -134,9 +154,54 @@ class Parameter:
         
         """
         print(list_to_string(self.path)+'::'+self.name, '\t', self.get_value()) 
-    
         
         
+
+    @staticmethod
+    def comparison(param,value,option): 
+        """
+        Replaces parameter
+            compares param.value with value
+
+        Parameters
+        ----------
+        param : XML (Parameter)
+            XML structure that will be modified
+        value : 'string'
+            value to which pgroup[param.name] will be compared 
+        options : enum ('explot')
+            options of function 
+            1: only finds
+            2: finds and replaces
+            3: puts the two values
+            4: finds, takes the difference and replaces value by the difference (floats)
+
+        Returns
+        -------
+        success : bool 
+            True  : Parameter has been found and is modified 
+            False : Parameter has not been found or cannot be modified 
+        
+        """
+        
+        if option == EXPLOPT.REPLACE : 
+                param.find('value').text = value 
+        elif option == EXPLOPT.DIFF : 
+            # Reports both values if differences 
+            if param.find('value').text != value :
+                param.find('value').text = 'USR=' + param.find('value').text + ' # REF=' + value
+            else : 
+                param.find('value').text = 'Identical'
+        elif option == EXPLOPT.DIFF_FLOAT : 
+            # Takes the difference of the values 
+            if test_floatable(param.find('type')): 
+                if bool(param.find('value').text) and bool(param.find('value').text):
+                    param.find('value').text = str(float(param.find('value').text) - float(value))
+                else :
+                    param.find('value').text = 'DIFF Ref empty'
+            else : 
+                param.find('value').text = 'NOT COMPARABLE'
+
 
 class ParametersGroup: 
     """
@@ -180,6 +245,8 @@ class ParametersGroup:
             self.root = xml.getroot()
             # Sets current path to the name of the ParametersGroup
             self.current_path = [self.root.get('name')]
+            # Complements XML file
+            self.set_default_value()
         else: 
             self.root = None
             self.current_path = None 
@@ -294,7 +361,7 @@ class ParametersGroup:
                 undefined.append(param.attrib['name'])
                 # Sets Parameter Value 
                 param.find('value').text = param.find('default_value').text
-        print('List of not defined values replaced by their default values\n', undefined, '\n')
+        # print('List of not defined values replaced by their default values\n', undefined, '\n')
         # print(i.tag, '\t', i.text)
 
 
@@ -310,96 +377,32 @@ class ParametersGroup:
         """
         et=lxml.etree.ElementTree(self.root)
         et.write(file_name,pretty_print=True)
-        
-    
-    @staticmethod
-    def exploration_recursive(usr, ref, func, func_param1=None, func_param2=None, level=0, path=''):
+        xml_pre_adder(file_name)
+
+            
+    def find_param(self,path): 
         """
-        Template recursive exploration of XML structure
-            function 'func' to apply to each of the Parameter
-            All Parameter are explored as terminal nodes of the ParameterGroup    
-            usr is not modified (in no case)
-            ref will be modified    
-
-        Parameters
-        ----------
-        usr : XML derived structure
-            Structure over which structure is explored
-            usr will be recursively modified to point to all parts of the xml (ParametersGroup & Parameters)
-        ref : ParametersGroup (instance of class)
-            Structure that will be modified to give the merged structure
-        func : function 
-            Function that should be applied to modify ref 
-        level : int
-            Depth of the reccurence
-            The default starting value is 0.
-        path : string
-            name of the path within the xml structure of the current location
-            The default strating value is ''.
-        func_param1 : to be defined by 'func'
-            First parameter of function 'func'
-        func_param2 : to be defined by 'func' 
-            Second parameter of function 'func'
-
-        Modifies
-        -------
-        ref : PatrametersGroup
-            Reference ParametersGroup is modified with the values of usr 
-
-        """
-        # Updates path name to the current location within the xml structure
-        if(usr.get('name') != None):
-            path.append(usr.get('name'))
-        # Recursive exploration of the Subgroups of current node 
-        if(usr.tag == 'ParametersGroup'): 
-            for child in list(usr):
-                ParametersGroup.exploration_recursive(child, ref, func, func_param1, func_param2, level+1, path)
-        # Application of function 'func' to the parameters
-        if(usr.tag == 'Parameter'): 
-            func(ref,usr,path,func_param1,func_param2)  
-        # Updates path name when getting up (echo of the first instruction)
-        #   Placed here, it ensures that we have as much removes as appends
-        del path[-1]
-        # print(level, '\t', list_to_string(path))
-
-        
-    @staticmethod
-    def find_and_replace_param(pgroup,param,path,option,not_in_ref): 
-        """
-        Finds Parameters of name param.name in pggroup and performs function given by 'explot' options
-            replaces its value with the param value
-            "pgroup[param.name].value=param.value"
+        Finds Parameters of path in pggroup 
 
         Parameters
         ----------
         pgroup : ParametersGroup
-            XML structure that will be modified
-        param : XML node
-            value of parameter that will be used to modify pggroup
-        param_path : string (---::---::----)
+            XML structure where param should be found
+        path : list of strings
             path of parameter within the XML structure
-        options : enum ('explot')
-            options of function 
-            1: only finds
-            2: finds and replaces
-            3: finds, takes the difference and replaces value by the difference 
 
         Returns
         -------
-        success : bool 
+        exists : bool 
             True  : Parameter has been found and is modified 
             False : Parameter has not been found or cannot be modified 
-        Modified pg_group 
-        
         """
-        # print(list_to_string(path),'\n')
-        
         # FIND: Gets adress of parameter 
-        if path[0] != pgroup.get('name') : 
+        if path[0] != self.root.get('name') : 
             exists = False
         else: 
             # root : pointer to the current location of the xml structure within the exploration to the Parameter location
-            root = pgroup
+            root = self.root
             # iterative exploration of ParametersGroup in pgroup along path
             for count, level in enumerate(path[1:]): 
                 if(count==len(path)-2) : tag = 'Parameter' 
@@ -411,20 +414,67 @@ class ParametersGroup:
                     root = temp[0]
                 else: 
                     break
-        
-        # PROCESS: find report (if negative), replace, difference, 
-        if exists :
-            if option == EXPLOPT.REPLACE : 
-                # Replaces value of pgroup at the right position pointed by root by the value of param
-                root.find('value').text = param.find('value').text
-            elif option == EXPLOPT.DIFF : 
-                # Takes the difference of the values 
-                root.find('value').text = param.find('value').text - root.find('value').text
+        if exists: 
+            return exists, root.find('value').text
         else : 
-            # Whatever the option, this 'error' structure will be filled and reported
-            not_in_ref.append(list_to_string(path))
+            return exists, ''
+        
 
+    @staticmethod
+    def exploration_recursive(ref, usr, func, options=EXPLOPT.FIND, not_in_ref=[], level=0, path=[]):
+        """
+        Template recursive exploration of XML structure
+            function 'func' to apply to each of the Parameter
+            All Parameter are explored as terminal nodes of the ParameterGroup    
+            usr is not modified (in no case)
+            ref will be modified    
+
+        Parameters
+        ----------
+        ref : XML derived structure 
+            Structure that will be modified to give the merged structure
+            XML file with all parameters 
+            XML that will be modified with the resulting value
+        usr : ParametersGroup
+            Structure which is explored to point to all parts of the xml (ParametersGroup & Parameters)
+            usr will not be modified 
+        func : function 
+            Function that should be applied to modify ref 
+        options : OPT
+            First parameter of function 'func'
+        not_in_ref : list of strings 
+            Parameters which are in ust but not in ref
+        level : int
+            Depth of the reccurence
+            The default starting value is 0.
+        path : list of strings
+            name of the path within the xml structure of the current location
+            The default strating value is [].
+
+        Modifies
+        -------
+        ref : PatrametersGroup
+            Reference ParametersGroup is modified with the values of usr 
+
+        """
+        
+        path.append(ref.get('name'))
+        # Recursive exploration of the Subgroups of current node 
+        if(ref.tag == 'ParametersGroup'): 
+            for child in list(ref):
+                ParametersGroup.exploration_recursive(child, usr, func, options, not_in_ref, level+1, path)
+        # Application of function 'func' to the parameters
+        if(ref.tag == 'Parameter'): 
+            exists, value = usr.find_param(path)
+            if exists : 
+                func(ref,value,options)
+                # ref.find('value').text = value 
+            else : 
+                not_in_ref.append(list_to_string(path))
+        del path[-1]
             
+
+
     @staticmethod
     def explore_and_process(file_ref, file_user, option): 
         """
@@ -456,19 +506,64 @@ class ParametersGroup:
         # Elements in user file but not in reference file
         not_in_ref = []
         # Compares the two ParametersGroup, pg_res may be modified with the values of the 'usr' (REPLACE) or with the difference between both (DIFF)
-        ParametersGroup.exploration_recursive(pg_res.root, pg_usr.root, ParametersGroup.find_and_replace_param, option, not_in_ref, level=0, path=[])
+        ParametersGroup.exploration_recursive(pg_res.root, pg_usr, Parameter.comparison, option, not_in_ref, level=0, path=[])
         
         # Output report 
         return pg_res, not_in_ref
 
 
     @staticmethod
+    def merge_diff(file_ref,file_usr,options): 
+        """
+        Loads xml files and choose valus of file_usr first, 
+                               and values of file_ref by default  
+
+        Parameters
+        ----------
+        file_ref : str
+            File of reference data 
+        file_usr : str
+            File of user data, chosen first 
+        options : EXPLOPT
+            merge, diff or diff_float
+
+        Returns
+        -------
+        pgroup : ParametersGroup
+            Results of merged ParametersGroup 
+        ref_not_usr : list of str
+            Elements in reference file and not in user file
+        usr_not_ref : list of str
+            Elements in user file and not in reference file
+        success : str
+            Message on the error or success of the function 
+        """
+
+        # Replace user Parameters in reference Parameters to get fully functional Parameter file
+        pg_res, usr_not_ref = ParametersGroup.explore_and_process(file_ref, file_usr, options)
+        # Replace user Parameters in reference Parameters to get fully functional Parameter file
+        ref_not_usr = ParametersGroup.explore_and_process(file_usr, file_ref, EXPLOPT.FIND)[1]
+        
+        # Outputs in file 
+        if   options == EXPLOPT.REPLACE : append = 'merge'
+        elif options == EXPLOPT.DIFF  : append = 'diff_report'
+        elif options == EXPLOPT.DIFF_FLOAT  : append = 'diff_float'
+        file_name = file_ref[:-4] + '_' + append 
+        pg_res.write(file_name + '.xml')
+        with open(file_name + '.txt', 'w') as fp: 
+            fp.write('usr_not_ref\n'); fp.write('\n'.join(usr_not_ref)); fp.write('\n') 
+            fp.write('ref_not_usr\n'); fp.write('\n'.join(ref_not_usr))
+        # Returns
+        return pg_res, ref_not_usr, usr_not_ref
+    
+    
+    @staticmethod
     def test_load_and_get():
         # Tests Load ParametersGroup
         success = True 
-        file_short = 'test_short(PARADIS).xml'
+        file_short = 'test_short_ref(PARADIS).xml'
         paramgroup_short = ParametersGroup(file_short)
-        file_extensive = 'test_extensive(PARADIS).xml'
+        file_extensive = 'test_extensive_ref(PARADIS).xml'
         paramgroup_extensive = ParametersGroup(file_extensive)
         if not paramgroup_short.exists() or not paramgroup_extensive.exists() : 
             success = False 
@@ -516,22 +611,27 @@ class ParametersGroup:
             
             if(success): 
                 print('SUCCESS Test Loads and Gets Parameter and ParametersGroup')
-            
-        
+
     
+
     @staticmethod
     def test_merge_and_diff(): 
-        file_ref = 'PARADIS_reference.xml'
-        file_usr = 'PARADIS_user.xml'
+        file_ref = ['test_short_ref(PARADIS).xml', 'test_extensive_ref(PARADIS).xml']
+        file_usr = ['test_short_usr(PARADIS).xml', 'test_extensive_usr(PARADIS).xml']
         
-        # Replace user Parameters in reference Parameters to get fully functional Parameter file
-        option = EXPLOPT.REPLACE
-        pg_res, not_in_ref = ParametersGroup.explore_and_process(file_ref, file_usr, option)
-        # Outputs in file 
-        pg_res.write('PARADIS_merged.xml')
-        # Elements in reference but not in user file 
-    
-    
+        # Assesses performances 
+        
+        for (ref, usr) in zip(file_ref, file_usr): 
+            # Merge the same file: no differences 
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(usr,usr,EXPLOPT.REPLACE)
+            if bool(ref_not_usr) or bool(usr_not_ref): print('ERROR merge: should not have any difference for the same file')
+            # Merge different files
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.REPLACE)
+            # Difference between the samle files (report differences)
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.DIFF)
+            # Difference between the samle files (calculates differences)
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.DIFF_FLOAT)
+            
     
 if __name__ == "__main__":
     
@@ -542,3 +642,132 @@ if __name__ == "__main__":
     ParametersGroup.test_merge_and_diff()
     
     
+    
+    # @staticmethod
+    # def exploration_recursive(pgroup, usr, ref, func, func_param1=None, func_param2=None, level=0, path=''):
+    #     """
+    #     Template recursive exploration of XML structure
+    #         function 'func' to apply to each of the Parameter
+    #         All Parameter are explored as terminal nodes of the ParameterGroup    
+    #         usr is not modified (in no case)
+    #         ref will be modified    
+
+    #     Parameters
+    #     ----------
+    #     usr : XML derived structure
+    #         Structure over which structure is explored
+    #         usr will be recursively modified to point to all parts of the xml (ParametersGroup & Parameters)
+    #     ref : ParametersGroup (instance of class)
+    #         Structure that will be modified to give the merged structure
+    #     func : function 
+    #         Function that should be applied to modify ref 
+    #     level : int
+    #         Depth of the reccurence
+    #         The default starting value is 0.
+    #     path : string
+    #         name of the path within the xml structure of the current location
+    #         The default strating value is ''.
+    #     func_param1 : to be defined by 'func'
+    #         First parameter of function 'func'
+    #     func_param2 : to be defined by 'func' 
+    #         Second parameter of function 'func'
+
+    #     Modifies
+    #     -------
+    #     ref : PatrametersGroup
+    #         Reference ParametersGroup is modified with the values of usr 
+
+    #     """
+    #     # Updates path name to the current location within the xml structure
+    #     if(usr.get('name') != None):
+    #         path.append(usr.get('name'))
+    #     # Recursive exploration of the Subgroups of current node 
+    #     if(usr.tag == 'ParametersGroup'): 
+    #         for child in list(usr):
+    #             ParametersGroup.exploration_recursive(pgroup, child, ref, func, func_param1, func_param2, level+1, path)
+    #     # Application of function 'func' to the parameters
+    #     if(usr.tag == 'Parameter'): 
+    #         func(pgroup,ref,usr,path,func_param1,func_param2)  
+    #     # Updates path name when getting up (echo of the first instruction)
+    #     #   Placed here, it ensures that we have as much removes as appends
+    #     del path[-1]
+    #     # print(level, '\t', list_to_string(path))
+
+
+    # @staticmethod
+    # def find_and_replace_param(pg,pgroup,param,path,option,not_in_ref): 
+    #     """
+    #     Finds Parameters of name param.name in pggroup and performs function given by 'explot' options
+    #         replaces its value with the param value
+    #         "pgroup[param.name].value=param.value"
+
+    #     Parameters
+    #     ----------
+    #     pgroup : ParametersGroup
+    #         XML structure that will be modified
+    #     param : XML node
+    #         value of parameter that will be used to modify pggroup
+    #     param_path : string (---::---::----)
+    #         path of parameter within the XML structure
+    #     options : enum ('explot')
+    #         options of function 
+    #         1: only finds
+    #         2: finds and replaces
+    #         3: finds, takes the difference and replaces value by the difference 
+
+    #     Returns
+    #     -------
+    #     success : bool 
+    #         True  : Parameter has been found and is modified 
+    #         False : Parameter has not been found or cannot be modified 
+    #     Modified pg_group 
+        
+    #     """
+    #     # print(list_to_string(path),'\n')
+        
+    #     # FIND: Gets adress of parameter 
+    #     if path[0] != pgroup.get('name') : 
+    #         exists = False
+    #     else: 
+    #         # root : pointer to the current location of the xml structure within the exploration to the Parameter location
+    #         root = pgroup
+    #         # iterative exploration of ParametersGroup in pgroup along path
+    #         for count, level in enumerate(path[1:]): 
+    #             if(count==len(path)-2) : tag = 'Parameter' 
+    #             else : tag = 'ParametersGroup'
+    #             # Gets child of current node identified by its name "level"
+    #             temp = root.xpath(tag+'[@name="'+level+'"]')
+    #             exists = bool(temp)
+    #             if(exists): 
+    #                 root = temp[0]
+    #             else: 
+    #                 break
+        
+    #     # PROCESS: find report (if negative), replace, difference, 
+    #     if exists :
+    #         if option == EXPLOPT.REPLACE : 
+    #             # Replaces value of pgroup at the right position pointed by root by the value of param
+    #             for ind in root.iter('value'): 
+    #                 ind.text = 'TOTO'
+    #             root.find('value').text = 'TUTU'# param.find('value').text
+    #             temp = pg.getgroup(list_to_string(path[1:-1]))[1]
+    #             parame = temp.getparam(path[-1])[1]
+    #         elif option == EXPLOPT.DIFF : 
+    #             # Takes the difference of the values 
+    #             if param.find('value').text != root.find('value').text : 
+    #                 root.find('value').text = 'USR=' + param.find('value').text + ' # REF=' + root.find('value').text
+    #             else : 
+    #                 root.find('value').text = 'Id'
+    #         elif option == EXPLOPT.DIFF_FLOAT : 
+    #             # Takes the difference of the values 
+    #             if root.find('type').text == 'float' or root.find('type').text == 'double' or root.find('type').text == 'int' or root.find('type').text == 'bool': 
+    #                 if bool(param.find('value').text) and bool(root.find('value').text):
+    #                     root.find('value').text = str(float(param.find('value').text) - float(root.find('value').text))
+    #                 else :
+    #                     root.find('value').text = 'DIFF One field empty'
+    #             else : 
+    #                 root.find('value').text = 'NOT COMPARABLE'
+    #     else : 
+    #         # Whatever the option, this 'error' structure will be filled and reported
+    #         not_in_ref.append(list_to_string(path))
+
