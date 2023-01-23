@@ -752,7 +752,7 @@ for sim in range(1):
     
     gcm = 'MPI'
     rcm = 'CCL'
-    sce = 'RCP8.5'
+    sce = 'RCP2.6'
     BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
                                       first_year = first_yr, last_year = last_yr,
                                       sim_state = sim_state)
@@ -763,8 +763,8 @@ for sim in range(1):
     
     now = datetime.now()
     now_str = now.strftime("%d%m%Y%H%M%S")
-    # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
-    sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
+    sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+    # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
     print(sim_name)
 
     success, flow_model = BV.run_modflow(ident=sim_name,
