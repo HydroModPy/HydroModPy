@@ -56,6 +56,7 @@ if DIR[0] == 'd': #server
     out_path = 'D:\mlemesnil\HydroModPy\Output/'
     modflow_path = 'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
     ESPERE_recharge_path = 'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+    shape_calib_zones_path = 'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
 elif DIR[0] == 'c': #local
     shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
     # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
@@ -68,7 +69,8 @@ elif DIR[0] == 'c': #local
     ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
     # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
     #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
-
+    shape_calib_zones_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
+    
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
@@ -712,7 +714,7 @@ elif hetero==1:
     K2 = 0.267
     n1 = 0.138
     n2 = 0.0393
-    shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+    shape = BV.hydrodynamic.update_calib_zones_from_shp(shape_calib_zones_path)
     BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1)
     BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2)
     BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1)
@@ -736,62 +738,63 @@ BV.add_forcing()
 sim_state = 'transient'
 first_yr = 2020
 last_yr = 2100
-# gcm = 'MPI'
-# rcm = 'CCL'
 
 RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
 md_rmsl_85 = RMSL_85.iloc[:,0]
+RMSL_26 = BV.oceanic.RMSL["RCP2.6"]
+md_rmsl_26 = RMSL_26.iloc[:,0]
 # md_rmsl_85_cut = ...
 
 list_sim_name = []
 list_success = []
 list_flow_model = []
-list_runoff = []
 list_recharge = []
 list_sealevel = []
 
-for sim in range(1):
-    
-    gcm = 'MPI'
-    rcm = 'CCL'
-    sce = 'RCP8.5'
-    BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-                                      first_year = first_yr, last_year = last_yr,
-                                      sim_state = sim_state)
-    # BV.forcing.update_recharge(R_hist, 'transient')
-    BV.oceanic.update_MSL(md_rmsl_85)
-    R = BV.forcing.recharge
-    sea_lev = BV.oceanic.MSL
-    
-    now = datetime.now()
-    now_str = now.strftime("%d%m%Y%H%M%S")
-    # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
-    sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
-    print(sim_name)
+DRIAS_model_list = ['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
+sce_list = ['RCP2.6', 'RCP8.5']
 
-    success, flow_model = BV.run_modflow(ident=sim_name,
-                    modpath_sim=modpath_sim,
-                    first_only=first_only,
-                    sink_fill=sink_fill,
-                    box=box,
-                    lay_number=lay_number,
-                    bottom=bottom,
-                    thick_exp=thick_exp,
-                    cond_decay=cond_decay,
-                    verbose=verbose)
+for DRIAS_model in DRIAS_model_list:
+    for scenario in sce_list:
     
-    list_sim_name.append(sim_name)
-    list_success.append(success)
-    list_flow_model.append(flow_model)
-    list_runoff.append(BV.forcing.runoff)
-    list_recharge.append(BV.forcing.recharge)
-    list_runoff.append(BV.oceanic.MSL)
+        gcm = DRIAS_model[:3] #'MPI'
+        rcm = DRIAS_model[-3:] #'CCL'
+        sce = scenario #'RCP8.5'
+        BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                          first_year = first_yr, last_year = last_yr,
+                                          sim_state = sim_state)
+        # BV.forcing.update_recharge(R_hist, 'transient')
+        if scenario == 'RCP2.6':
+            BV.oceanic.update_MSL(md_rmsl_26)
+        elif scenario == 'RCP8.5':
+            BV.oceanic.update_MSL(md_rmsl_85)
+        
+        now = datetime.now()
+        now_str = now.strftime("%d%m%Y%H%M%S")
+        sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+        # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
+        print(sim_name)
+    
+        success, flow_model = BV.run_modflow(ident=sim_name,
+                        modpath_sim=modpath_sim,
+                        first_only=first_only,
+                        sink_fill=sink_fill,
+                        box=box,
+                        lay_number=lay_number,
+                        bottom=bottom,
+                        thick_exp=thick_exp,
+                        cond_decay=cond_decay,
+                        verbose=verbose)
+        
+        list_sim_name.append(sim_name)
+        list_success.append(success)
+        list_flow_model.append(flow_model)
+        list_recharge.append(BV.forcing.recharge)
+        list_sealevel.append(BV.oceanic.MSL)
 
 # sim_results_dict = {}
 # sim_results_dict['sim_name'] = list_sim_name
 # sim_results_dict['success'] = list_success
-# sim_results_dict['flow_model'] = list_flow_model
-# sim_results_dict['runoff'] = list_runoff
 # sim_results_dict['recharge'] = list_recharge
 # sim_results_dict['sealevel'] = list_sealevel
 
@@ -813,12 +816,13 @@ types_obs = ['piezometry']
 # list_flow_model = d['flow_model'][:]
 # list_runoff = d['runoff'][:]
 
-for model_name, success, flow_model, var_store in zip(list_sim_name,
+for sim_name, success, flow_model, recharge, sealevel in zip(list_sim_name,
                                                      list_success,
                                                      list_flow_model,
-                                                     list_runoff):
+                                                     list_recharge,
+                                                     list_sealevel):
 
-    if success==True:
+    if success == True:
             print(success)
             
             BV.matrix_modflow(success,
@@ -838,12 +842,10 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
                               export_tif = True)
             
             # Necessary for results_modflow
-            BV.forcing.update_recharge(flow_model.climatic, sim_state=sim_state)
-            recharge = BV.forcing.recharge
-            runoff = BV.forcing.recharge # warning: runoff is set at recharge value to debug
+            runoff = recharge # warning: runoff is set at recharge value to debug
             
             # Extract results
-            BV.results_modflow(ident=model_name,
+            BV.results_modflow(ident=sim_name,
                                recharge=recharge,
                                runoff=runoff,
                                actual_date=actual_date,
@@ -851,7 +853,7 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
             
             ## Plot maps
             # surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
-            #                                       model_name, types_obs,
+            #                                       sim_name, types_obs,
             #                                       save_gif=False,
             #                                       first_only=True,
             #                                       sim_state=sim_state,
