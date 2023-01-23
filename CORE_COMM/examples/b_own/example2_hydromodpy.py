@@ -161,7 +161,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -223,6 +223,7 @@ if crs == 4326:
 
 # Choice temporal of the simulation
 sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 period = [2017, 2019] # rehcarge period
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
@@ -294,7 +295,7 @@ success, flow_model = BV.run_modflow(ident=model_name,
 BV.matrix_modflow(success, flow_model,
                       first_only = False,
                        watertable_elevation = True,
-                       watertable_depth= False, 
+                       watertable_depth= True, 
                        seepage_areas = True,
                        outflow_drain = True,
                        groundwater_flux = False,
@@ -331,7 +332,7 @@ from groundwater_flow import visualization, modflow_display
 
 # 3D parameters
 list_view = ['watertable_depth','surface_flow'] # object to represent in 3D
-interactive = False
+interactive = True
 z_scale = 10
 view = 'south-west'
 lines = 200

@@ -67,7 +67,7 @@ from watershed import watershed_root, watershed_display, forcing
 from watershed.data import climatic
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
-from calibration import calib_root
+from calibration import calib_root, calib_analysis, calib_basis
 
 # LAYOUT PLOT
 
@@ -111,8 +111,8 @@ if user == 'Ronan':
     #############################################################
 
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
-#shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
-modflow_path = git_path + 'examples/_example/modflow/' # add bin/ folder with necessary .exe
+# shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
+modflow_path = data_path + '/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
 surfex_path =  os.path.join(data_path,"SURFEX") # add surfex models in .h5 format (France scale, else, specify None)
 drias_path = data_path + 'DRIAS/Lasset/from_ronan/'
@@ -166,7 +166,8 @@ for watershed_name in watershed_names[:]:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     
-#%% ADD AND CLIP SPECIFIC DATA
+#%% DATA WATERSHED
+
 #% Merger les points shp
 # pt_streams = hydrology_path + 'stream_digit_pt.shp'
 # pt_zh = hydrology_path + 'zh_digit_pt.shp'
@@ -184,6 +185,7 @@ if user == 'Clement':
 
 if user=='Ronan':
     types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+    # types_obs = ["lasset_stream_perennialv2"]
 
 if user=='Clement':
     #types_obs = ["lasset_stream_perennialv2"]
@@ -207,290 +209,344 @@ BV.add_oceanic(oceanic_path)
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
+area = BV.geographic.area
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 1960, last_year=2019, time_step = 'D',
+                                  sim_state='steady') #
+R_rea = BV.forcing.recharge
+
 #%% ----
 
-#%% PLOT RECHARGE DRIAS
+#%% K0 - OPTIONS
 
-gcm_list = ['CNR','MPI','HAD','ECE','IPS','NOR']
-rcm_list = ['ALA','CCL','REG','RCA','WRF','R15','RAC','R09','HIR']
-mix_list = ['MPI-CCL','ECE-RCA','ECE-RAC','IPS-RCA','CNR-RAC','NOR-R15',
-            'CNR-ALA','NOR-HIR','HAD-CCL','IPS-WRF','HAD-REG','MPI-R09'] #GCM - RCM format
+# Option
+sim_state = 'steady' # 'steady' or 'transient'
+modpath_sim = False # run modpath particle tracking if True
+run = True
 
-# for gcm in gcm_list:
-# for rcm in rcm_list:
-    
-for mix in mix_list:
-    gcm = mix.split('-')[0]
-    rcm = mix.split('-')[1]
-    BV.forcing.update_recharge_drias(gcm, rcm, 'historic', 1990, 1990, sim_state='transient')
-    BV.forcing.update_runoff_drias(gcm, rcm, 'historic', 1990, 1990, sim_state='transient')
-    recharge = BV.forcing.recharge
-    runoff = BV.forcing.runoff
-    plt.plot(recharge)
-    plt.yscale('log')
+# Input recharge
+time_step = 'D' # or 'D'
+actual_date = False # False if date is conceptual
 
-#%% PLOT OBSERVED DISCHARGE
-'''
-figsim_folder = 'folder path for output figures'
+# Active of not modules
+box = True # if True generate a rectangular model
+sink_fill = False # permit to fill sinks
+verbose = True # add print of MODFLOW in console
+post_process = False # necessary to decompose post process of process
 
-watershed_names = ['Lasset']
+# Recharge
+init_rech = None
+recharge = 500 / 1000 / 365
+BV.forcing.update_recharge(recharge, sim_state=sim_state) #
 
-first = 1990
-last = 2023
-one = 2001
+# Aquifer
+thick = 50 # m
+bottom = 1000 # aquifer flat or not
 
-for watershed_name in watershed_names[:] :
-    
-    print('##### '+watershed_name.upper()+' #####')
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True)
-    
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    
-    ### AJOUTER LA CHRONIQUE DE DEBIT OBSERVE DANS LE DOSSIER HYDROMETRY 
-    Qobs_path = glob.glob(stable_folder+'hydrometry/'+'Hydrometric_'+'*')[0] # path du csv
-    
-    Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
-    Qobs = Qobs.squeeze()
-    Qobs = Qobs.rename('Q')
-    area = BV.geographic.area
-    Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
-    Qobs = select_period(Qobs, first, last)
-    data_index = Qobs.copy()
+# Discretization
+nlay = 10 # vertical diSscrtization
+thick_exp = 1.25 # exponential decay of nlay with depth
 
-    mean_mensual = data_index.resample('M').mean() # mensual mean
-    mean_annual = data_index.resample('Y').mean() # annual mean
-    Mean = round(data_index.mean(),2)
-    Mean = data_index.mean()
-    Min = data_index.resample('Y').min()
-    Q10 = data_index.resample('Y').quantile(0.10)
-    Q25 = data_index.resample('Y').quantile(0.25)
-    Q50 = data_index.resample('Y').quantile(0.50)
-    Q75 = data_index.resample('Y').quantile(0.75)
-    Q90 = data_index.resample('Y').quantile(0.90)
-    Max = data_index.resample('Y').max()
-    mean_interan_days = data_index.groupby([data_index.index.month,
-                                    data_index.index.day], as_index=True).mean().to_frame()
-    std_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).std()
-    q10_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.10)
-    q90_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.90)
-    q50_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.50)
-    mean_interan_days['std'] = std_interan_days
-    mean_interan_days['q10'] = q10_interan_days
-    mean_interan_days['q90'] = q90_interan_days
-    mean_interan_days['q50'] = q50_interan_days
-    mean_interan_days.index.names = ['months','days']
-    mean_interan_days = mean_interan_days.reset_index()
-    # mean_interan_days.months = mean_interan_days.months.replace(
-    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
-    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
-    mean_interan_days = mean_interan_days.sort_values(['months','days'])
-    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
-    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
-    fig, ax = plt.subplots(figsize=(5,4))
-    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
-    #         lw=1, color='red', label='Mean')
-    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
-            lw=2, color='darkred', label='Median')
-    yerrmax = mean_interan_days.q90
-    yerrmin = mean_interan_days.q10
-    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-                      color='cyan',edgecolor='grey',
-                      alpha = 0.5, label='10-90th')
-    plt.yscale('log')
-    # ax.yaxis.set_major_formatter(ScalarFormatter())
-    ax.set_xlim(0,366)
-    ax.set_ylim(0.01,100)
-    ax.tick_params(axis='both', which='major', pad=10)
-    x1 = np.linspace(0,366,13)
-    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
-    ax.set_xticks(x1)
-    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
-    ax.set_xlabel('Months', labelpad=+10)
-    ax.set_ylabel('Q / A [mm/day]',labelpad=+10)
-    ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
-    ax.grid(color='grey', lw=0.5, zorder=0)
-    dates = np.array([one],dtype=np.int64)
-    colors = ['blue']
-    for z in np.array(range(len(dates))):
-        onlyone = data_index[(data_index.index.year==dates[z])].to_frame()
-        onlyone = onlyone.groupby([onlyone.index.month,
-                                    onlyone.index.day], as_index=True).mean()
-        onlyone['counts'] = np.array(range(1,len(onlyone)+1))
-        ax.plot(onlyone.counts, onlyone['Q'],
-                color=colors[z], lw=1, label = str(dates[z]))
-    ax.legend(loc='upper left')
-    plt.tight_layout()
-    # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
-    # fig.savefig(path_fig+'/'+watershed_name+'_intermensual_'+name_file+'.png', dpi=300, bbox_inches='tight')
-    # fig.savefig(figsim_folder+'/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
-'''
-#%% PLOT OBSERVED HYDROGRAPHIC
+# HK
+KR = 3
+K0 = KR * recharge
+print(K0/24/3600)
 
-################ A REFAIRE AVEC DATA
-'''
-types_obs = ['lasset_stream_perennial'] # list of shapefile name layers for clip hydrology
-fields_obs = ['fid']
+# Porosity
+Sy = 0.01 # Default
 
-df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+# Vertical
+verti_k = None # "k1", or None
+    
+######################
+case = 'k0'
+typ = case
+dicot_name = '_test2'
+######################
 
-for watershed_name in watershed_names[:] :
-       
-    print('##### '+watershed_name.upper()+' #####')
+# list_cond_decay = [1/2, 1/20, 1/200] # exponential decay of K with depth : 0.02
+list_cond_decay = list(np.geomspace(1/1, 1/1000, 20))
+list_cond_decay.append(0)
+
+# list_cond_decay = [1/100]
+
+#%% K0 - INIT
     
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
+BV.hydrodynamic.update_nlay(nlay) # 1
+BV.hydrodynamic.update_bottom(bottom) # None
+BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+BV.hydrodynamic.update_thickness(thick) # 30 / intervient pas si bottom != None
+BV.hydrodynamic.update_porosity(Sy)
+BV.hydrodynamic.update_hyd_cond(K0) 
+
+params_df = pd.DataFrame(columns=['params',
+                                  'init_values',
+                                  'lower_bounds',
+                                  'higher_bounds',
+                                  'units','scale'])
+params_df.loc[0] = ['k1',
+                    '?',
+                    1e-10 * 24 * 3600,
+                    1e-6 * 24 * 3600,                    
+                    'm/j',
+                    'lin']
+params_file = 'calib_dicot_hom_1v_k1'+dicot_name
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+
+#%% K0 - DICHOTOMY
+
+for cond_decay in list_cond_decay[:]:
     
-    bv = gpd.read_file(BV.geographic.watershed_shp)
-    area = BV.geographic.area
-    area = round(area, 1)
+    print(cond_decay)
+
+    BV.hydrodynamic.update_cond_decay(cond_decay) # 0
+
+    # BV.hydrodynamic.update_porosity(0.01)
+    # BV.hydrodynamic.update_hyd_cond(2)
+    # BV.hydrodynamic.update_nlay(1)
+    # BV.hydrodynamic.update_thickness(300)
+    # BV.hydrodynamic.update_bottom(-100)
+    # BV.hydrodynamic.update_cond_decay(0)
+    # BV.hydrodynamic.update_thick_exp(1.25)
+
+    dicot = calib.dichotomy(gap=1)
+
+#%% K0 - RESULTS
+
+df = pd.DataFrame(np.nan, index=range(1), columns=['cond_decay',
+                                                   'k',
+                                                   'kr',
+                                                   'ind'])
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)[:]
+compt = 0
+for path_value, cond_decay_value in zip(list_path, list_cond_decay):
+    name_file = path_value.split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+    test = calib_analysis.CalibAnalysis(calib_file)
+    test.display_objective_function(save=None)
+    koptim = test.calib['params_values'][-1]
+    kr = koptim / test.calib['recharge']
+    obj_func = test.calib['objective_function'][-1]
+    df.loc[compt,'cond_decay'] = cond_decay_value
+    df.loc[compt,'k'] = koptim / 24 / 3600
+    df.loc[compt,'kr'] = kr
+    df.loc[compt,'ind'] = obj_func
+    # (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
+    df.loc[compt,'Dos'] = test.data_obs['streams'][-1]
+    df.loc[compt,'Dso'] = test.data_sim['streams'][-1]
+    compt += 1
+df.to_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
+
+#%% K0 - LOAD
+
+# Import K calibrated
+df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
+# Koptim = float('{:.1e}'.format(df.loc[0][1]))
+df['1/cond_decay'] = 1/df['cond_decay']
+df['Doptim'] = (df.Dso + df.Dos)/2
+df['Dabs'] = abs(df.Dso - df.Dos)
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+# im = ax.scatter(df.cond_decay, (df.Dso+ df.Dos)/2, c=df.cond_decay, s=100, cmap='jet',
+#                 norm=mpl.colors.LogNorm())
+im = ax.scatter(df.k, df['1/cond_decay'], c=df.ind, s=100, cmap='jet',
+                norm=mpl.colors.LogNorm(vmin=1e-7, vmax=1)
+                )
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_ylabel('1 / Decay ratio [m]')
+cb = plt.colorbar(im, ax=ax)
+cb.ax.set_ylabel('(log(Dso/Dos))^2', rotation=270, labelpad=25)
+ax.axhline(y=60, ls='--', c='k')
+ax.axhline(y=50, ls='--', c='k')
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+# im = ax.scatter(df.cond_decay, (df.Dso+ df.Dos)/2, c=df.cond_decay, s=100, cmap='jet',
+#                 norm=mpl.colors.LogNorm())
+im = ax.scatter(df.k, df['1/cond_decay'], c=df.Doptim, s=100, cmap='jet',
+                # norm=mpl.colors.LogNorm(vmin=10, vmax=100)
+                )
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_ylabel('1 / Decay ratio [m]')
+cb = plt.colorbar(im, ax=ax)
+cb.ax.set_ylabel('Doptim', rotation=270, labelpad=25)
+# ax.axhline(y=60, ls='--', c='k')
+# ax.axhline(y=50, ls='--', c='k')
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+# im = ax.scatter(df.cond_decay, (df.Dso+ df.Dos)/2, c=df.cond_decay, s=100, cmap='jet',
+#                 norm=mpl.colors.LogNorm())
+im = ax.scatter(df.k, df['1/cond_decay'], c=df['Dabs'], s=100, cmap='jet',
+                norm=mpl.colors.LogNorm(),
+                )
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_ylabel('1 / Decay ratio [m]')
+cb = plt.colorbar(im, ax=ax)
+cb.ax.set_ylabel('Dabs', rotation=270, labelpad=25)
+ax.axhline(y=60, ls='--', c='k')
+ax.axhline(y=50, ls='--', c='k')
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+im = ax.scatter(df.k, df['Doptim'], c=df.cond_decay, s=100, cmap='jet',
+                norm=mpl.colors.LogNorm())
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_ylabel('(Dso+Dos)/2')
+cb = plt.colorbar(im, ax=ax)
+cb.ax.set_ylabel('Decay ratio', rotation=270, labelpad=25)
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+im = ax.scatter(df.k, df.ind, c=df.cond_decay, s=100, cmap='jet',
+                norm=mpl.colors.LogNorm())
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_ylabel('(log(Dso/Dos))^2')
+cb = plt.colorbar(im, ax=ax)
+cb.ax.set_ylabel('Decay ratio', rotation=270, labelpad=25)
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+im = ax.scatter(df.k, df.Dabs, c=df.cond_decay, s=100, cmap='jet',
+                norm=mpl.colors.LogNorm())
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_ylabel('Dabs')
+cb = plt.colorbar(im, ax=ax)
+cb.ax.set_ylabel('Decay ratio', rotation=270, labelpad=25)
+
+#%% K0 - RUNTEST
+
+K_cal = df.loc[df['Dabs'].idxmin()].k * 24 * 3600
+cond_decay_cal = df.loc[df['Dabs'].idxmin()].cond_decay
+
+# Label
+list_model_name = []
+list_of_success = []
+list_flow_model = []
+
+# Update properties
+compt = 1
+
+BV.hydrodynamic.update_nlay(10) # 1
+BV.hydrodynamic.update_bottom(1000) # None
+BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+BV.hydrodynamic.update_thickness(thick) # 30 / intervient pas si bottom != None
+BV.hydrodynamic.update_porosity(Sy)
+BV.hydrodynamic.update_hyd_cond(K_cal)
+BV.hydrodynamic.update_cond_decay(cond_decay_cal) # 0
+  
+date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
+date_today = date_today.replace('/','-')
+date_today = date_today.replace(':','-')
+date_today = date_today.replace(' ','_')
+
+model_name = typ+'_'+str(compt)+'_'+\
+                 str(Sy*100)+'-'+str(round(K0,3))+'-'+str(thick)+'_'+str(nlay)
+
+if run == True:
+    # try:
+    print('SIM - ' + model_name)
     
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    
-    path_hydro = stable_folder + 'hydrology/'
-    complete = gpd.read_file(path_hydro+'complete.shp')
-    intermittent = gpd.read_file(path_hydro+'intermittent.shp')
-    perennial = gpd.read_file(path_hydro+'perennial.shp')
-    river = gpd.read_file(path_hydro+'river.shp')
-    
-    if watershed_name == 'Canut':
-        zh = gpd.read_file(path_hydro+'zh_meuchezecanut.shp')
-        zh_tif = imageio.imread(path_hydro+'zh_meuchezecanut.tif')
-    if watershed_name == 'Nancon':
-        zh = gpd.read_file(path_hydro+'zh_couesnon.shp')
-        zh_tif = imageio.imread(path_hydro+'zh_couesnon.tif')
+    success, flow_model = BV.run_modflow(ident=model_name,
+                                         modpath_sim=modpath_sim,
+                                         sink_fill=sink_fill,
+                                         box=box,
+                                         verbose=verbose,
+                                         post_process=post_process, 
+                                         init_rech=init_rech,
+                                         verti_k=verti_k)
+            
+if success == True:
+    print(     'Success')
+else:
+    print(     'Error')
+# except:
+#     pass
+list_model_name.append(model_name)
+list_of_success.append(success)
+list_flow_model.append(flow_model)
         
-    perennial_tif = imageio.imread(path_hydro+'perennial.tif')
-    intermittent_tif = imageio.imread(path_hydro+'intermittent.tif')
-    river_tif = imageio.imread(path_hydro+'river.tif')
-    complete_tif = imageio.imread(path_hydro+'complete.tif')
-    
-    area_complete = round((np.sum(complete_tif > 0) * 75**2) / 1000000 / area *100, 1)
-    area_zh = round((np.sum(zh_tif > 0) * 75**2) / 1000000 / area *100, 1)
-    area_intermittent = round((np.sum(intermittent_tif > 0) * 75**2) / 1000000 / area*100, 1)
-    area_perennial = round((np.sum(perennial_tif > 0) * 75**2) / 1000000 / area*100, 1)
-    area_river = round((np.sum(river_tif > 0) * 75**2) / 1000000 / area *100, 1)
-    area_all = round(area_complete + area_zh, 1)
-    drainage = round(area_all / area, 2)
-    
-    fig, ax = plt.subplots(1,1, figsize=(5,5))
+print(list_of_success)
 
-    polyg = gpd.read_file(BV.geographic.watershed_shp)
-    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
-    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dictio = {}
+dictio['list_model_name'] = list_model_name
+dictio['list_of_success'] = list_of_success
+dictio['list_flow_model'] = list_flow_model
+h5file = simulations_folder+'/'+'list_'+typ
 
-    bounds = dem.bounds
-    xlim = ([bounds[0], bounds[2]])
-    ylim = ([bounds[1], bounds[3]])
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'bottom', location='upper left')
-    ax.add_artist(scalebar)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    ax.set_title(watershed_name, fontproperties=fontprop)
-    ax.set(aspect='equal')
-    
-    cmap = 'gist_earth' # 'Greys'
-    cmap = 'Greys'
-    wbt.hillshade(BV.geographic.watershed_box_buff_dem,
-                  stable_folder+'geographic/'+'watershed_box_buff_dem_hill.tif',
-                  azimuth=315.0, 
-                  altitude=30.0, 
-                  zfactor=10)
-    hill = rasterio.open(stable_folder+'geographic/'+'watershed_box_buff_dem_hill.tif')
-    show(hill.read(1), ax=ax, transform=dem.transform, cmap='Greys_r', alpha=0.5, zorder=2, aspect="auto")
-    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
-                             cmap=cmap, alpha=0.75)
-    show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
-          cmap=cmap, alpha=0.55, zorder=2, aspect="auto")
-    
-    zh.plot(ax=ax, lw=0, color='navy', alpha=1, zorder=4, legend=True, label='Wetlands')
+dd.io.save(h5file, dictio)
 
-    streams = complete.copy()
-    streams[streams.persistanc=='Permanent'].plot(ax=ax, lw=2, color='dodgerblue',
-                                                  zorder=6,legend=True, label='Streams')
-    streams[streams.persistanc=='Intermittent'].plot(ax=ax, lw=2, color='darkorange', ls='-',
-                                                  zorder=5,legend=True, label='Streams')
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
-    try:
-        if os.path.exists(BV.piezometry.piezos_shp):
-            piezos = gpd.read_file(BV.piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
-                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
-    except:
-        pass
-    try:
-        if len(BV.piezometry.x_coord_discrete)>0:
-            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,
-                       c='forestgreen',
-                       marker='^', zorder=5, label='Piezometers: discrete')
-    except:
-        pass   
-    try:
-        if os.path.exists(BV.hydrometry.hydrometric_clip):
-            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
-            hydromet.plot(ax=ax, color='yellow', zorder=7, marker='o', markersize=70,
-                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
-    except:
-        pass 
-    try:
-        if os.path.exists(BV.intermittency.onde_clip):
-            intermit = gpd.read_file(BV.intermittency.onde_clip)
-            intermit.plot(ax=ax, color='yellow', zorder=8, marker='s',markersize=50,
-                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
-    except:
-        pass
-    
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes(size="2%",position='right', pad=0.05)
-    fig.add_axes(cax)
-    cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
-    cbar.ax.get_ymajorticklabels()
-    list(cbar.get_ticks())
-    val = np.ma.masked_where(BV.geographic.dem_box_data < 0, BV.geographic.dem_box_data)
-    minVal =  int(round(np.min(val[np.nonzero(val)],0)))
-    maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
-    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-    cbar.set_ticks([minVal, meanVal, maxVal])
-    cbar.set_ticklabels([minVal, meanVal, maxVal])
-    cbar.mappable.set_clim(minVal, maxVal)
-    cbar.ax.tick_params(labelsize=10)
-    cbar.ax.yaxis.set_ticks_position('right')
-    cbar.ax.tick_params(size=2)
-    #cbar.set_label('Elevation (m)', size=12)
-    
-    ax.text(0.015, 0.14, 
-            'BV = ' +str(area) + ' [km²]' + '\n'
-            'All = '+str(area_all) + ' [%]' + '\n'
-            'Wetlands = '+str(area_zh) + ' [%]' + '\n'
-            'Network = '+str(area_complete) + ' [%]' + '\n'
-            'Standard = '+str(area_river) + ' [%]' + '\n'
-            'Intermit. = '+str(area_intermittent) + ' [%]' + '\n'
-            'Perenn. = '+str(area_perennial) + ' [%]',
-            horizontalalignment='left',
-            verticalalignment='center', 
-            transform=ax.transAxes,
-            fontsize = 6, zorder=10)
-    
-    path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed.shp'
-    sub = gpd.read_file(path_sub)
-    sub.plot(ax=ax, facecolor='none', edgecolor='k', lw=1, zorder=6)
-    
-    fig.tight_layout()
-    
-    # fig.savefig(out_path+'/_figures/'+watershed_name+'_hydromapping2'+'.png', dpi=300, bbox_inches='tight')
-'''
+h5file = simulations_folder+'/'+'list_'+typ
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name'][:]
+list_of_success = d['list_of_success'][:]
+list_flow_model = d['list_flow_model'][:]
+
+cp = 0
+
+for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+        
+    if success==True:
+            print(success)
+            
+            if modpath_sim == True:
+                residence_times=True
+            else:
+                residence_times=False
+            
+            BV.matrix_modflow(success,
+                              flow_model,
+                              first_only = True,
+                              watertable_elevation = True,
+                              watertable_depth = True, 
+                              seepage_areas = True,
+                              outflow_drain = True,
+                              groundwater_flux = False,
+                              specific_discharge = False,
+                              accumulation_flux = True,
+                              perenn_intermit_shp = False,
+                              groundwater_storage = True,
+                              residence_times = residence_times,
+                              verbose = True,
+                              export_tif = True)
+            
+            # Necessary for results_modflow
+            BV.forcing.update_recharge(flow_model.climatic,
+                                       sim_state=sim_state)
+            
+            # # Extract results
+            BV.results_modflow(ident=model_name,
+                               actual_date=actual_date,
+                               time_step=time_step)
+            
+            ## Plot maps
+            surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
+                                                  model_name, types_obs,
+                                                  save_gif=False,
+                                                  first_only=True,
+                                                  sim_state=sim_state,
+                                                  outflow=True,
+                                                  accflux=True,
+                                                  intermittency=False,
+                                                  chronics=False)
+
 #%% ----
 
 #%% TESTS
@@ -512,7 +568,6 @@ porosity_list = np.linspace(0.1, 0.3, 9)
 #prop_list = [[50, 1000, 1/20]]
 
 #porosity_list = [0.15]
-
 
 #%% INIT CALIB DICHOTOMY STREAMS
 

@@ -63,25 +63,10 @@ from groundwater_flow import visualization, modflow_display
 
 # user_path = "Martin"
 user_path = "Ronan"
-
-if user_path=="Alexandre":
-    data_path= "C:/Users/alexa/Dropbox/HydroModPy/_data/"
-    out_path = 'C:/Users/alexa/Dropbox/HydroModPy/'
-    
-elif user_path=="Jean-Raynald":
-    data_path= "D:/codes-data/HydroModPy_Data/"
-    out_path = "D:/results/HydroModPy/"
-    
-elif user_path=="Ronan":
-    data_path= "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/QUIOCK/"
-    out_path = "D:/Users/abherve/EXAMPLES/"
+data_path= "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/QUIOCK/"
+out_path = "D:/Users/abherve/GUADELOUPE/"
   
-elif user_path=="Martin":
-    data_path= "C:/Users/Martin Le Mesnil/Travail/data/CALIB/"
-    out_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/"
-
-else:
-    print("Define a well-validated name of user")
+print("Define a well-validated name of user")
 
 #%% PATHS
 
@@ -171,7 +156,7 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 
-# dicot = calib.dichotomy(gap=1)
+dicot = calib.dichotomy(gap=1)
 
 typ_calib = 'streams_calibration'
 list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
@@ -197,11 +182,6 @@ df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.c
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 Koptim = float('{:.1e}'.format(df.loc[0][1]))
 
-######################
-case = 'k0k1'
-# case = 1
-######################
-
 # Aquifer
 thick = 300 # m
 bottom = -100 # aquifer flat or not
@@ -214,76 +194,43 @@ thick_exp = 1.2 # exponential decay of nlay with depth
 recharge = 2 / 365 # mm/s to m/j
 
 # Porosity
-Sy = 0.1
+Sy = 0.1 # Charlotte ==> 10%
 
-if case == 1:
-    # Hydraulic cond.
-    k0 = Koptim * 3600 * 24 # upper layer
-    thick_k0 = 50 # thickness of the upper layer
-    cond_decay = 0 # exponential decay of K with depth : 0.02
-    # Vertical
-    k1s = [Koptim * 3600 * 24] # lower layer
-    verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
-    # Name
-    typ = 'case1'
+######################
+case = 'k0k1'
+case = 'calib'
+######################
 
-if case == 2:
-    # Hydraulic cond.
-    k0 = Koptim * 3600 * 24 # upper layer
-    thick_k0 = 50 # thickness of the upper layer
-    cond_decay = 0 # exponential decay of K with depth : 0.02
-    # Vertical
-    k1s = [Koptim * 3600 * 24 * 10] # lower layer
-    verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
-    # Name
-    typ = 'case2'
-
-if case == 3:
-    # Hydraulic cond.
-    k0 = Koptim * 3600 * 24 # upper layer
-    thick_k0 = 50 # thickness of the upper layer
-    cond_decay = 0 # exponential decay of K with depth : 0.02
-    # Vertical
-    k1s = [Koptim / 10 * 3600 * 24] # lower layer
-    verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
-    # Name
-    typ = 'case3'
-
-if case == 4:
-    # Hydraulic cond.
-    k0 = Koptim * 3600 * 24 # upper layer
-    thick_k0 = 50 # thickness of the upper layer
-    cond_decay = 0.02 # exponential decay of K with depth : 0.02
-    # Vertical
-    k1s = [None] # lower layer
-    verti_k = None # "k1", or None
-    # Name
-    typ = 'case4'
-    
 if case == 'k0k1':
     k0 = Koptim * 3600 * 24 # upper layer
     thick_k0 = 50 # thickness of the upper layer
     cond_decay = 0 # exponential decay of K with depth : 0.02
     # Vertical
-    k1s =[
-          # Koptim * 3600 * 24 / 1000,
-          Koptim * 3600 * 24 / 100,
-          Koptim * 3600 * 24 / 10,
-          Koptim * 3600 * 24,
-          Koptim * 3600 * 24 * 10,
-          Koptim * 3600 * 24 * 100,
-          # Koptim * 3600 * 24 * 1000
-          ]
+    k_minus = list(np.geomspace(Koptim * 3600 * 24 / 100, Koptim * 3600 * 24, 20)[:-1])
+    k_plus = list(np.geomspace(Koptim * 3600 * 24, Koptim * 3600 * 24 * 100, 20))
+    k1s = k_minus.copy()
+    k1s.extend(k_plus)
     verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
     # Name
     typ = 'casek0k1'
 
+if case == 'calib':
+    k0 = Koptim * 3600 * 24 # upper layer
+    thick_k0 = 50 # thickness of the upper layer
+    cond_decay = 0 # exponential decay of K with depth : 0.02
+    # Vertical
+    k1s = [Koptim * 3600 * 24 / 0.6]
+    verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
+    # Name
+    typ = 'casecalib'
+    
 #%% OPTIONS
 
 # Option
 sim_state = 'steady' # 'steady' or 'transient'
 modpath_sim = True # run modpath particle tracking if True
-modpath_sim = False # run modpath particle tracking if True
+# modpath_sim = False # run modpath particle tracking if True
+
 run = True
 
 # Input recharge
@@ -432,115 +379,118 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
             
             # Stream calib
             data_explo.loc[cp,'k0k1'] = model_name.split('_')[2].split('-')[1]
-            data_explo.loc[cp,'Dos'] = obs
-            data_explo.loc[cp,'Dso'] = sim
-            data_explo.loc[cp,'Dind'] = ind
+            data_explo.loc[cp,'D_os'] = obs
+            data_explo.loc[cp,'D_so'] = sim
+            data_explo.loc[cp,'D_ind'] = ind
             
             # Discharge calib
-            sub_res_path = os.path.join(BV.simulations_folder, model_name, '_subbasins', 'subbasin_Flowrate')
+            sub_res_path = os.path.join(BV.simulations_folder, model_name, 
+                                        '_subbasins', 'subbasin_Flowrate')
             sub_res = pd.read_csv(os.path.join(sub_res_path, '_simulated_results.csv'), ';',
                                   index_col='date', parse_dates=True)
-            data_explo.loc[cp,'Qsim'] = sub_res['accumulation_flux'].values[0]
-            
+            data_explo.loc[cp,'Qacc_sim'] = sub_res['accumulation_flux'].values[0]
+            sub_area = gpd.read_file(BV.subbasin.subbasin_path+"subbasin_Flowrate/"+
+                                     'watershed.shp')
+            sub_area = sub_area.area # / 1e6
+            data_explo.loc[cp,'Qout_sim'] = sub_res['outflow_drain'].values[0] * sub_area[0]
+            data_explo.loc[cp,'R'] = BV.forcing.recharge * sub_area[0]
+            data_explo.loc[cp,'Qsub_obs'] =  2.8 / 1000 * 3600 * 24 # L/s to m3/j            
+
             # Residence times
-            res_path = os.path.join(BV.simulations_folder, model_name, '_watershed')
-            res = pd.read_csv(os.path.join(res_path, '_simulated_results.csv'), ';',
-                              index_col='date', parse_dates=True)
-            data_explo.loc[cp,'ts'] = res['residence_times'].values[0]
+            if modpath_sim == True:
+                res_path = os.path.join(BV.simulations_folder, model_name, 
+                                            '_watershed')
+                res = pd.read_csv(os.path.join(res_path, '_simulated_results.csv'), ';',
+                                      index_col='date', parse_dates=True)
+                data_explo.loc[cp,'t_sim'] = res['residence_times'].values[0]
             
             cp+=1
+           
+data_explo.to_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
+print(data_explo)
 
-#%% CLASS
+#%% MULTIOBJECTIVE FUNCTIONS
 
-class Streams:
+data_explo = pd.read_csv(BV.simulations_folder+'/results_'+'casek0k1'+'.csv', sep=';')
 
-    def __init__(self, 
-                 watershed, 
-                 hydrology_stable=None,
-                 simulation_folder=None):
-        
-        self.geographic = watershed.geographic
-        self.hydrology = watershed.hydrology
-        self.simulation_folder = simulation_folder
-        
-        self.results_folder=os.path.join(self.simulation_folder, '_watershed')
-        
-        self.watershed_shp = watershed.geographic.watershed_shp
-        self.watershed_fill = watershed.geographic.watershed_fill
-        self.watershed_direc = watershed.geographic.watershed_direc
-              
-        self.prepare_files()
-        self.sim_to_obs()
-        self.obs_to_sim()
-    
-    #%% COMPARE SIMULATED TO OBSERVED
-    
-    def prepare_files(self):
-        #files are necessary for whiteboxtool
-        # New folder results
-        self.dichotomy_folder = os.path.join(self.calibration_folder, '_streams')
-        toolbox.create_folder(self.dichotomy_folder)
-        # Observed buff data
-        self.buff_tif_obs = self.hydrology.tif_streams
-        # Mask observed: raster of observed river occurency
-        self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
-        toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
-        # Obs to points: vector (points) of river occurency from raster
-        self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
-        wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)  
-        # Mask seepage simulation: raster of simulated river occurency
-        tif_sim = os.path.join(self.results_folder,'_tifs', 'seepage_areas_t(0).tif')
-        self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
-        toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, True)
-        # Trace downslope obs: drawing of flow path from observed river to simulated ones with whitebox tool
-        self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
-        wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
-       
-        # STREAMS: RONAN
-    def sim_to_obs(self):
-        # Distance of sim
-        self.dist_sim_obs = os.path.join(self.dichotomy_folder, 'dist_sim_obs.tif')
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_sim_obs)        
-        # Sim to points
-        self.pt_sim = os.path.join(self.dichotomy_folder, 'sim_pt.shp')
-        wbt.raster_to_vector_points(self.tif_sim, self.pt_sim)        
-        # Trace downslope sim
-        self.sim_flow = os.path.join(self.dichotomy_folder, 'simflow.tif')
-        wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)        
-        # Simflow to points
-        self.pt_sim_flow = os.path.join(self.dichotomy_folder, 'simflow.shp')
-        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)       
-        # Extra
-        wbt.add_point_coordinates_to_table(self.pt_sim_flow)
-        wbt.extract_raster_values_at_points(self.dist_sim_obs, self.pt_sim_flow)
-    
-    def obs_to_sim(self):
-        # Distance of sim
-        self.dist_obs_sim = os.path.join(self.dichotomy_folder, 'dist_obs_sim.tif')
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_obs_sim)   
-        # Obsflow to points
-        self.pt_obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.shp')
-        wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
-        # Extra
-        wbt.add_point_coordinates_to_table(self.pt_obs_flow)
-        wbt.extract_raster_values_at_points(self.dist_obs_sim, self.pt_obs_flow)
+fig, ax_l0 = plt.subplots(1,1, figsize=(6,5))
+ax_r0 = ax_l0.twinx()
 
-    def get_indicator(self):
-        obs_to_sim = gpd.read_file(self.pt_obs_flow)
-        obs_to_sim = obs_to_sim.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
-        obs_to_sim = obs_to_sim[obs_to_sim['distance'] >= 0]
-        self.mean_obs_to_sim = np.nanmean(obs_to_sim['distance'])
-        sim_to_obs = gpd.read_file(self.pt_sim_flow)
-        sim_to_obs = sim_to_obs.rename(columns={'VALUE':'count', 'VALUE1':'distance'})
-        sim_to_obs = sim_to_obs[sim_to_obs['distance'] >= 0]
-        self.mean_sim_to_obs = np.nanmean(sim_to_obs['distance'])
-        
-        indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
-        return indicator, self.mean_obs_to_sim, self.mean_sim_to_obs
+# ax_l1 = ax_l0.twinx()
+# ax_l2 = ax_l0.twinx()
+# ax_l3 = ax_l0.twinx()
 
-#%% ---- LOAD DATA
+# ax_r1 = ax_l0.twinx()
+# ax_r2 = ax_l0.twinx()
+# ax_r3 = ax_l0.twinx()
 
-#%% GENERAL
+# ax_l1.spines["left"].set_position(("axes", -0.2)) # red one
+# ax_l2.spines["left"].set_position(("axes", -0.4)) # green one
+# ax_l3.spines["left"].set_position(("axes", -0.6)) # red one
+
+# ax_r1.spines["right"].set_position(("axes", 1.2)) # green one
+# ax_r2.spines["right"].set_position(("axes", 1.5)) # red one
+# ax_r3.spines["right"].set_position(("axes", 1.7)) # green one
+
+def make_patch_spines_invisible(ax):
+    ax.set_frame_on(True)
+    ax.patch.set_visible(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+
+# make_patch_spines_invisible(ax_l1)
+# make_patch_spines_invisible(ax_l2)
+# make_patch_spines_invisible(ax_l3)
+# make_patch_spines_invisible(ax_r1)
+# make_patch_spines_invisible(ax_r2)
+# make_patch_spines_invisible(ax_r3)
+
+# ax_l1.spines["left"].set_visible(True)
+# ax_l1.yaxis.set_label_position('left')
+# ax_l1.yaxis.set_ticks_position('left')
+
+# ax_l2.spines["left"].set_visible(True)
+# ax_l2.yaxis.set_label_position('left')
+# ax_l2.yaxis.set_ticks_position('left')
+
+# ax_l3.spines["left"].set_visible(True)
+# ax_l3.yaxis.set_label_position('left')
+# ax_l3.yaxis.set_ticks_position('left')
+
+# ax_r1.spines["right"].set_visible(True)
+# ax_r1.yaxis.set_label_position('right')
+# ax_r1.yaxis.set_ticks_position('right')
+
+# ax_r2.spines["right"].set_visible(True)
+# ax_r2.yaxis.set_label_position('right')
+# ax_r2.yaxis.set_ticks_position('right')
+
+# ax_r3.spines["right"].set_visible(True)
+# ax_r3.yaxis.set_label_position('right')
+# ax_r3.yaxis.set_ticks_position('right')
+
+ax_l0.plot(data_explo['k0k1'], data_explo['D_so']/data_explo['D_os'],
+           color='forestgreen', marker='o', lw=3)
+ax_l0.set_xscale('log')
+ax_l0.set_yscale('log')
+ax_l0.axhline(y=1, c='k', ls='--')
+ax_l0.set_ylim(1e-2, 1e4)
+ax_l0.set_xlabel('K upper layer / K lower layer')
+ax_l0.set_ylabel('Stream network indicator', c='forestgreen')
+ax_l0.set_title('Calibration criteria')
+ax_l0.axvline(x=6e-1, c='k', ls='--')
+
+ax_r0.plot(data_explo['k0k1'], ((data_explo['Q_sim']/(2.8/1000*3600*24))),
+           color='dodgerblue', marker='o', lw=3)
+ax_r0.set_yscale('log')
+ax_r0.set_ylim(1e-2, 1e4)
+ax_r0.set_ylabel('Streamflow indicator', c='dodgerblue', rotation=270, labelpad=+25,)
+
+# ax_r1.plot(data_explo['k0k1'], (data_explo['t_sim']),
+#            color='red', marker='o', lw=3)
+# ax_r0.set_yscale('log')
+
+#%% GENERAL DATA PLOT
 
 ### SIG ###
 dem = rasterio.open(BV.geographic.watershed_dem)
@@ -566,8 +516,6 @@ wbt.downslope_flowpath_length(
     esri_pntr=False)
 acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
 down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
-
-#%% PLOT
 
 wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
                           'watertable_elevation_t(0).tif') 
@@ -615,7 +563,7 @@ ax_l.imshow(np.ma.masked_where(streams<0, streams), cmap=mpl.colors.ListedColorm
 ax_l.imshow(contour, cmap=mpl.colors.ListedColormap('k'))
 # ax_l.invert_yaxis()
 
-#%% MODPATH
+#%% CREATE SAPEFILE MODPATH
 
 ### MODEL ###
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
@@ -689,52 +637,96 @@ pthobj.write_shapefile(pathline_data=pth_data,
                         direction='ending',
                         mg=grid_model, epsg=32620, sr=None)
 
-#%% SELECT
+#%% OPEN SAPEFILE MODPATH
 
-cond_lay = 50 # ==> tickness of the first layer
+shp_starting = gpd.read_file(simulations_folder+
+                    model_name+'/'+'_pathlines/'+
+                    'starting.shp')
+shp_ending = gpd.read_file(simulations_folder+
+                    model_name+'/'+'_pathlines/'+
+                    'ending.shp')
+shp_pathlines = gpd.read_file(simulations_folder+
+                    model_name+'/'+'_pathlines/'+
+                    'pathlines.shp')
+shp_particules = gpd.read_file(simulations_folder+
+                    model_name+'/'+'_pathlines/'+
+                    'particlues.shp')
 
-compt = 0
-indices_layers = []
-shal_p = []
-shal_id = []
-deep_p = []
-deep_id = []
-for idx, pline in enumerate(pth_data):
-    if all(x < cond_lay for x in pline.k):
-        compt += 1
-        # print(compt)
-        shal_p.append(pline)
-        shal_id.append(pline['particleid'][0])
-    else:
-        deep_p.append(pline)
-        deep_id.append(pline['particleid'][0])
-        
-if len(shal_id) == 0:
-    shal_id = [np.nan]
-if len(deep_id) == 0:
-    deep_id = [np.nan]
-    
-indices_layers = [shal_id, deep_id]
+#%% DISTINCTION OF PARTICULES
 
-rdm_id = True
-if rdm_id == True:
-    num_rdm = [100, 100]
-    if num_rdm[0]>len(shal_id):
-        num_rdm[0] = len(shal_id)
-    if num_rdm[1]>len(deep_id):
-        num_rdm[1] = len(deep_id)
+particleid = shp_particules['particleid'].unique()
+shalid = []
+# bothid = []
+deepid = []
+
+for pid in particleid :
+    print(pid, len(particleid))
+    mask = shp_particules.loc[shp_particules['particleid']==pid]
+    if all(x < 40 for x in mask.k):
+        shalid.append(pid)
+    if any(x >= 40 for x in mask.k):
+        deepid.append(pid)
+
+#%% SELECTION BETWEEN LAYERS
+
+if not os.path.exists(simulations_folder+'id_layers_random.data'):
+    id_layers_random = [random.sample(shalid, 500),
+                        random.sample(deepid, 500)]
+    with open(simulations_folder+'id_layers_random.data', 'wb') as f:
+        pickle.dump(id_layers_random, f)
 else:
-    num_rdm = [len(shal_id), len(deep_id)]
+    with open(simulations_folder+'id_layers_random.data', 'rb') as f:
+        id_layers_random = pickle.load(f)
 
-indices_layers_select = [random.sample(indices_layers[0], num_rdm[0]),
-                         random.sample(indices_layers[1], num_rdm[1])]
-with open(simulations_folder+'indices_layers_select.data', 'wb') as f:
-    pickle.dump(indices_layers_select, f)
+#%% SHAPEFILES TREATMENT
 
-#%% INDICE
+shp_starting['time_year'] = shp_starting['time'] / 365
+shp_ending['time_year'] = shp_ending['time'] / 365
+shp_particules['time_year'] = shp_particules['time'] / 365
+shp_pathlines['time_year'] = shp_pathlines['time'] / 365
 
-with open(simulations_folder+'indices_layers_select.data', 'rb') as f:
-    indices_layers_select = pickle.load(f)
+particleid = shp_particules['particleid'].unique()
+
+for pid in particleid[:] :
+    mask = shp_particules.loc[shp_particules['particleid']==pid, shp_particules.columns]
+    print(pid, len(particleid), len(mask))
+    shp_particules.loc[shp_particules['particleid']==pid, 'd'] = ((mask.x.diff())**2 +
+                                                                  (mask.y.diff())**2 +
+                                                                  (mask.z.diff())**2)**(1/2)
+    shp_particules.loc[shp_particules['particleid']==pid, 'dt'] = mask.time_year.diff()
+    # mask['d'] = ((mask.x.diff())**2 + (mask.y.diff())**2 + (mask.z.diff())**2)**(1/2)
+    # pd.concat([shp_particules, mask])
+
+shp_particules['V'] = shp_particules['d'] / shp_particules['dt']
+
+shp_particules_shal = shp_particules[np.isin(shp_particules.particleid, id_layers_random[0])]
+shp_particules_deep = shp_particules[np.isin(shp_particules.particleid, id_layers_random[1])]
+
+#%% PLOT PATHLINES
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax = ax
+# ax.set_title('Pathlines deep vs. shallow', fontsize=10)
+
+shp_particules_deep.plot(ax=ax, column='time_year', cmap='jet', lw=0.5,
+                         norm=mpl.colors.LogNorm(vmin=1, vmax=100))
+
+ax.imshow(np.ma.masked_where(streams<=0, streams), cmap=mpl.colors.ListedColormap('navy'), 
+          extent=[bv_box.bounds.minx[0],bv_box.bounds.maxx[0],
+                  bv_box.bounds.miny[0],bv_box.bounds.maxy[0]], zorder=4)
+ax.imshow(contour, cmap=mpl.colors.ListedColormap('k'), 
+          extent=[bv_box.bounds.minx[0],bv_box.bounds.maxx[0],
+                  bv_box.bounds.miny[0],bv_box.bounds.maxy[0]], zorder=5)
+
+shp_ending[shp_ending.time_year>0].plot(ax=ax, column='time_year', lw=0, zorder=1000,
+                                        markersize=1,
+                                        norm=mpl.colors.LogNorm(vmin=1, vmax=100))
+
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)  
+fig.tight_layout()
+
+#%% ----- BULK
     
 #%% RESIDENCE
 
@@ -841,49 +833,6 @@ all_dat[model_name] = res_dat['RES_TIME']
 
 # fig.savefig(simulations_folder + '/' + model_name + '/' +'_figures/' + 
 #             'map_residence_time_all'+'.png', dpi=300, bbox_inches='tight')
-
-#%% PATHLINES
-
-shp_pathlines = gpd.read_file(simulations_folder+
-                    model_name+'/'+'_pathlines/'+
-                    'pathlines.shp')
-shp_pathlines['time'] = shp_pathlines['time'] / 365
-
-keep_shal = np.isin(shp_pathlines.particleid, indices_layers_select[0])
-shp_shal = shp_pathlines[keep_shal]
-keep_deep = np.isin(shp_pathlines.particleid, indices_layers_select[1])
-shp_deep = shp_pathlines[keep_deep]
-
-color_layers = ['red', 'dodgerblue']
-
-fig, ax = plt.subplots(1,1, figsize=(3,3))    
-ax = ax
-ax.set_title('Pathlines deep vs. shallow', fontsize=10)
-
-# shp_deep.plot(ax=ax, color=color_layers[0], lw=1, alpha=0.5, zorder=2)
-# shp_shal.plot(ax=ax, color=color_layers[1], lw=1, alpha=0.5, zorder=3)
-
-shp_pathlines.plot(ax=ax, column='time', cmap='jet', lw=0.1, alpha=1, zorder=0)
-
-# ax.imshow(np.ma.masked_where(streams<=0, streams), cmap=mpl.colors.ListedColormap('navy'), 
-#           extent=[0,dem_data.shape[1]*5,
-#                   0,dem_data.shape[0]*5], zorder=4)
-# ax.imshow(contour, cmap=mpl.colors.ListedColormap('k'), 
-#           extent=[0,dem_data.shape[1]*5,
-#                   0,dem_data.shape[0]*5], zorder=5)
-
-ax.imshow(np.ma.masked_where(streams<=0, streams), cmap=mpl.colors.ListedColormap('navy'), 
-          extent=[bv_box.bounds.minx[0],bv_box.bounds.maxx[0],
-                  bv_box.bounds.miny[0],bv_box.bounds.maxy[0]], zorder=4)
-ax.imshow(contour, cmap=mpl.colors.ListedColormap('k'), 
-          extent=[bv_box.bounds.minx[0],bv_box.bounds.maxx[0],
-                  bv_box.bounds.miny[0],bv_box.bounds.maxy[0]], zorder=5)
-
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)  
-fig.tight_layout()
-# fig.savefig(simulations_folder + '/' + model_name + '/' +'_figures/' + 
-#             'Pathlines in shallow layer from starting points'+'.png', dpi=300, bbox_inches='tight')
 
 #%% VTK
 
