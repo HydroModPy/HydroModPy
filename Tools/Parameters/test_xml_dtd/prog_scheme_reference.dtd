@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Definition of elements -->
+<!ELEMENT ParametersGroup (ParametersGroup* | Parameter*)*>
+<!ATTLIST ParametersGroup
+	name CDATA #REQUIRED
+>
+<!ELEMENT Parameter (description? | type? | value? | default_value? | possible_values?)*>
+<!ATTLIST Parameter
+	name CDATA #REQUIRED
+>
+<!ELEMENT description (#PCDATA)>
+<!ELEMENT type (#PCDATA)>
+<!ELEMENT value (#PCDATA)>
+<!ELEMENT default_value (#PCDATA)>
+<!ELEMENT possible_values (#PCDATA)>
+<!ENTITY launcher SYSTEM "Launcher/Parameters_Reference/launcher_inputs.xml">
+<!ENTITY library1 SYSTEM "Libraries/Library1/Parameters_Reference/library1_inputs.xml">
+<!ENTITY library2 SYSTEM "Libraries/Library2/Parameters_Reference/library2_inputs.xml">

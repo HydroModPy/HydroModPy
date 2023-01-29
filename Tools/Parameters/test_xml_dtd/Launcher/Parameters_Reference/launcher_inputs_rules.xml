@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rules>
+  <!--boundary_conditions_domain/boundary_condition_description-->
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/boundary_condition_description' parameterName='boundary_condition_description' logicalOperator='different' value='0' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='' logicalOperator='disableGroup' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/boundary_condition_description' parameterName='boundary_condition_description' logicalOperator='different' value='1' />
+    <action parametersGroup='boundary_conditions_domain/borders_description' parameterName='' logicalOperator='disableGroup' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/boundary_condition_description' parameterName='rotation' logicalOperator='equal' value='0' />
+    <action parametersGroup='boundary_conditions_domain/boundary_condition_description' parameterName='rotation_angle' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/boundary_condition_description' parameterName='perturbation' logicalOperator='equal' value='0' />
+    <action parametersGroup='boundary_conditions_domain/boundary_condition_description' parameterName='perturbation_amplitude' logicalOperator='disableParameter' />
+  </constraint>
+  <!--boundary_conditions_domain/simple_description-->
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='0' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='2' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='4' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='6' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='7' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='h_min' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='0' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='2' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='3' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='4' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='6' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='7' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='h_max' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='0' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='2' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='3' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='4' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='6' />
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='1' />
+    <action parametersGroup='boundary_conditions_domain/head_imposed_location' parameterName='' logicalOperator='disableGroup' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='equal' value='7' />
+    <action parametersGroup='boundary_conditions_domain/borders_description' parameterName='' logicalOperator='disableGroup' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='4' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='flow_imposed' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/simple_description' parameterName='boundary_conditions_type' logicalOperator='different' value='1' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='alpha1' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='alpha2' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='beta1' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='beta2' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='gamma1' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/simple_description' parameterName='gamma2' logicalOperator='disableParameter' />
+  </constraint>
+  <!--boundary_conditions_domain/borders_description-->
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='data_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/x_plus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/x_plus/gamma_function' parameterName='data_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/y_minus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/y_minus/gamma_function' parameterName='data_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/y_plus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/y_plus/gamma_function' parameterName='data_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/z_minus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/z_minus/gamma_function' parameterName='data_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/z_plus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/z_plus/gamma_function' parameterName='data_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='function_type' logicalOperator='equal' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='coeff_nb' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='coeff_0' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='coeff_1' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='coeff_2' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description/x_minus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/borders_description/x_plus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/borders_description/y_minus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/borders_description/y_plus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/borders_description/z_minus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <condition parametersGroup='boundary_conditions_domain/borders_description/z_plus/gamma_function' parameterName='function_type' logicalOperator='different' value='5' />
+    <action parametersGroup='boundary_conditions_domain/borders_description' parameterName='file_type' logicalOperator='disableParameter' />
+    <action parametersGroup='boundary_conditions_domain/borders_description' parameterName='ref_file' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='boundary_conditions_domain/borders_description' parameterName='file_type' logicalOperator='different' value='GOCAD' />
+    <action parametersGroup='boundary_conditions_domain/borders_description' parameterName='ref_file' logicalOperator='disableParameter' />
+  </constraint>
+</rules>
