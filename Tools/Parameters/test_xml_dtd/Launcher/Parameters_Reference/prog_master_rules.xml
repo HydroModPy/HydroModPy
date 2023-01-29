@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rules SYSTEM "../../prog_scheme_rules_reference.dtd">
+
+<ParametersGroup name="inputs">
+	&launcher;
+	<ParametersGroup name="libraries">
+		&library1;
+		&library2;
+	</ParametersGroup>
+</ParametersGroup>

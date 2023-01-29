@@ -70,7 +70,7 @@ def xml_pre_adder(filename):
         
        
 def test_floatable(type_): 
-    """ Tests is type_ is amenable to operation '-'"""
+    """ Tests if type_ is amenable to operation '-'"""
     if type_ == 'float' or type_ == 'double' or type_ == 'int' or type_ == 'short' or type_ == 'bool' : 
        return True 
     else : 
@@ -123,7 +123,7 @@ class Parameter:
         self.default_value = parameter_xml.find('default_value').text
         
         
-    def get_value(self): 
+    def getvalue(self): 
         """ 
         Gets parameter value 
         
@@ -140,7 +140,7 @@ class Parameter:
         else: 
             return eval(self.type) (self.value)
     
-    def set_value(self,value):
+    def setvalue(self,value):
         """ 
         Sets parameter value 
         
@@ -153,7 +153,7 @@ class Parameter:
         Displays the parameter 
         
         """
-        print(list_to_string(self.path)+'::'+self.name, '\t', self.get_value()) 
+        print(list_to_string(self.path)+'::'+self.name, '\t', self.getvalue()) 
         
         
 
@@ -239,7 +239,8 @@ class ParametersGroup:
         self.file_name = file_name
         if (file_exist(file_name)):
             # Loads file 
-            xml = lxml.etree.parse(file_name)
+            parser = lxml.etree.XMLParser(attribute_defaults=True)
+            xml = lxml.etree.parse(file_name,parser)
             #JR:TODO Should check the format of the XML with the corresponding DTD
             # Gets the root of the tree structure 
             self.root = xml.getroot()
@@ -263,7 +264,7 @@ class ParametersGroup:
         return self.root != None 
     
     
-    def getgroup(self,group_name,option_copy=False):
+    def getgroup_safe(self,group_name,option_copy=False):
         """
         Gets the subgroup of name "group_name" as a direct descendant
         
@@ -289,7 +290,7 @@ class ParametersGroup:
             exists = False
         else :
             root = self.root
-            current_path = self.current_path
+            current_path = deepcopy(self.current_path)
             for level in path_temp: 
                 # Gets child of ParametersGroup identified by its name
                 temp = root.xpath('ParametersGroup[@name="'+level+'"]')
@@ -312,12 +313,37 @@ class ParametersGroup:
             # print(subgroup.root.tag, '\t', subgroup.root.get('name')) 
         else: 
             subgroup = None 
-            print('ParametersGroup ', group_name, ' not found')
+            print('ParametersGroup not found : ', group_name, 'in ', list_to_string(self.current_path))
 
         return exists, subgroup
+
+
+    def getgroup(self,group_name):
+        """
+        Gets the subgroup of name "group_name" as a direct descendant
+        
+        Args: 
+        ----------
+        group_name : string
+            Name of the Group
+   
+        Returns
+        -------
+        exists : bool 
+            existence of the subgroup
+        subgroup : ParametersGroup
+            the subgroup 
+        option_copy : string
+            True : deep copy of the result
+            False : address (pointer) to the result
+   
+        """
+        exists, subgroup = self.getgroup_safe(group_name,option_copy=True)
+        return subgroup
+
     
     
-    def getparam(self,param_name): 
+    def getparam_safe(self,param_name): 
         """
         Gets the parameter of name "param_name" as a direct descendant
         
@@ -343,9 +369,37 @@ class ParametersGroup:
             # param.display()
         else: 
             param = None
-            print('Parameter ', param_name, ' not found in direct descendants')
+            print('Parameter not found : ', param_name, ' in ', list_to_string(self.current_path))
         
         return exists, param
+    
+    
+    def getparam(self,param_name): 
+        """
+        Gets the parameter of name "param_name" as a direct descendant
+        
+        Args: 
+        ----------
+        param_name : string
+            Name of the Parameters
+   
+        Returns
+        -------
+        exists : bool 
+            existence of the subgroup
+        param : Parameter
+            the parameter 
+        """
+        
+        if param_name.find('::') == -1: 
+            exists, param = self.getparam_safe(param_name)
+        else: 
+            groups_param = string_to_list(param_name)
+            pg = self
+            for i in groups_param[:-1]: 
+                pg = pg.getgroup(i)
+            exists, param = pg.getparam_safe(groups_param[-1])
+        return param
     
     
     def set_default_value(self): 
@@ -561,9 +615,9 @@ class ParametersGroup:
     def test_load_and_get():
         # Tests Load ParametersGroup
         success = True 
-        file_short = 'test_short_ref(PARADIS).xml'
+        file_short = '../test_parameters/test_short_ref(PARADIS).xml'
         paramgroup_short = ParametersGroup(file_short)
-        file_extensive = 'test_extensive_ref(PARADIS).xml'
+        file_extensive = '../test_parameters/test_extensive_ref(PARADIS).xml'
         paramgroup_extensive = ParametersGroup(file_extensive)
         if not paramgroup_short.exists() or not paramgroup_extensive.exists() : 
             success = False 
@@ -580,17 +634,17 @@ class ParametersGroup:
             paramgroup_short.set_default_value()
             
             # Test gets subgroup
-            exists, subgroup = paramgroup_short.getgroup('simulation')
-            if exists : exists, subgroup = subgroup.getgroup('grid')
-            if exists : exists, subgroup = subgroup.getgroup('output')
+            exists, subgroup = paramgroup_short.getgroup_safe('simulation')
+            if exists : exists, subgroup = subgroup.getgroup_safe('grid')
+            if exists : exists, subgroup = subgroup.getgroup_safe('output')
             
             if not exists : 
                 print('ERROR for ParametersGroup::get on test_extensive(PARADIS).xml file processing')
             else: 
                 # Test gets parameter
-                if exists : exists, param = subgroup.getparam("nodes_position")
+                if exists : exists, param = subgroup.getparam_safe("nodes_position")
                     
-                if not exists or param.get_value()!=False : 
+                if not exists or param.getvalue()!=False : 
                     success = False
                     print('ERROR for Parameter::get or Parameter::get on test_short(PARADIS).xml file processing')
 
@@ -599,13 +653,13 @@ class ParametersGroup:
             # --------------------------------
 
             # Test gets subgroup
-            exists, subgroup = paramgroup_extensive.getgroup('run_global::run_general::outputs')
+            exists, subgroup = paramgroup_extensive.getgroup_safe('run_global::run_general::outputs')
             # Test gets parameter
             if not exists : 
                 print('ERROR for ParametersGroup::get on test_extensive(PARADIS).xml file processing')
             else : 
-                exists, param = subgroup.getparam("directory_prefix")
-                if param.get_value() != 'RUN1001': 
+                exists, param = subgroup.getparam_safe("directory_prefix")
+                if param.getvalue() != 'RUN1001': 
                     success = False 
                     print('ERROR for Parameter::get on test_extensive(PARADIS).xml file processing')
             
@@ -616,8 +670,8 @@ class ParametersGroup:
 
     @staticmethod
     def test_merge_and_diff(): 
-        file_ref = ['test_short_ref(PARADIS).xml', 'test_extensive_ref(PARADIS).xml']
-        file_usr = ['test_short_usr(PARADIS).xml', 'test_extensive_usr(PARADIS).xml']
+        file_ref = ['../test_parameters/test_short_ref(PARADIS).xml', '../test_parameters/test_extensive_ref(PARADIS).xml']
+        file_usr = ['../test_parameters/test_short_usr(PARADIS).xml', '../test_parameters/test_extensive_usr(PARADIS).xml']
         
         # Assesses performances 
         
@@ -642,132 +696,3 @@ if __name__ == "__main__":
     ParametersGroup.test_merge_and_diff()
     
     
-    
-    # @staticmethod
-    # def exploration_recursive(pgroup, usr, ref, func, func_param1=None, func_param2=None, level=0, path=''):
-    #     """
-    #     Template recursive exploration of XML structure
-    #         function 'func' to apply to each of the Parameter
-    #         All Parameter are explored as terminal nodes of the ParameterGroup    
-    #         usr is not modified (in no case)
-    #         ref will be modified    
-
-    #     Parameters
-    #     ----------
-    #     usr : XML derived structure
-    #         Structure over which structure is explored
-    #         usr will be recursively modified to point to all parts of the xml (ParametersGroup & Parameters)
-    #     ref : ParametersGroup (instance of class)
-    #         Structure that will be modified to give the merged structure
-    #     func : function 
-    #         Function that should be applied to modify ref 
-    #     level : int
-    #         Depth of the reccurence
-    #         The default starting value is 0.
-    #     path : string
-    #         name of the path within the xml structure of the current location
-    #         The default strating value is ''.
-    #     func_param1 : to be defined by 'func'
-    #         First parameter of function 'func'
-    #     func_param2 : to be defined by 'func' 
-    #         Second parameter of function 'func'
-
-    #     Modifies
-    #     -------
-    #     ref : PatrametersGroup
-    #         Reference ParametersGroup is modified with the values of usr 
-
-    #     """
-    #     # Updates path name to the current location within the xml structure
-    #     if(usr.get('name') != None):
-    #         path.append(usr.get('name'))
-    #     # Recursive exploration of the Subgroups of current node 
-    #     if(usr.tag == 'ParametersGroup'): 
-    #         for child in list(usr):
-    #             ParametersGroup.exploration_recursive(pgroup, child, ref, func, func_param1, func_param2, level+1, path)
-    #     # Application of function 'func' to the parameters
-    #     if(usr.tag == 'Parameter'): 
-    #         func(pgroup,ref,usr,path,func_param1,func_param2)  
-    #     # Updates path name when getting up (echo of the first instruction)
-    #     #   Placed here, it ensures that we have as much removes as appends
-    #     del path[-1]
-    #     # print(level, '\t', list_to_string(path))
-
-
-    # @staticmethod
-    # def find_and_replace_param(pg,pgroup,param,path,option,not_in_ref): 
-    #     """
-    #     Finds Parameters of name param.name in pggroup and performs function given by 'explot' options
-    #         replaces its value with the param value
-    #         "pgroup[param.name].value=param.value"
-
-    #     Parameters
-    #     ----------
-    #     pgroup : ParametersGroup
-    #         XML structure that will be modified
-    #     param : XML node
-    #         value of parameter that will be used to modify pggroup
-    #     param_path : string (---::---::----)
-    #         path of parameter within the XML structure
-    #     options : enum ('explot')
-    #         options of function 
-    #         1: only finds
-    #         2: finds and replaces
-    #         3: finds, takes the difference and replaces value by the difference 
-
-    #     Returns
-    #     -------
-    #     success : bool 
-    #         True  : Parameter has been found and is modified 
-    #         False : Parameter has not been found or cannot be modified 
-    #     Modified pg_group 
-        
-    #     """
-    #     # print(list_to_string(path),'\n')
-        
-    #     # FIND: Gets adress of parameter 
-    #     if path[0] != pgroup.get('name') : 
-    #         exists = False
-    #     else: 
-    #         # root : pointer to the current location of the xml structure within the exploration to the Parameter location
-    #         root = pgroup
-    #         # iterative exploration of ParametersGroup in pgroup along path
-    #         for count, level in enumerate(path[1:]): 
-    #             if(count==len(path)-2) : tag = 'Parameter' 
-    #             else : tag = 'ParametersGroup'
-    #             # Gets child of current node identified by its name "level"
-    #             temp = root.xpath(tag+'[@name="'+level+'"]')
-    #             exists = bool(temp)
-    #             if(exists): 
-    #                 root = temp[0]
-    #             else: 
-    #                 break
-        
-    #     # PROCESS: find report (if negative), replace, difference, 
-    #     if exists :
-    #         if option == EXPLOPT.REPLACE : 
-    #             # Replaces value of pgroup at the right position pointed by root by the value of param
-    #             for ind in root.iter('value'): 
-    #                 ind.text = 'TOTO'
-    #             root.find('value').text = 'TUTU'# param.find('value').text
-    #             temp = pg.getgroup(list_to_string(path[1:-1]))[1]
-    #             parame = temp.getparam(path[-1])[1]
-    #         elif option == EXPLOPT.DIFF : 
-    #             # Takes the difference of the values 
-    #             if param.find('value').text != root.find('value').text : 
-    #                 root.find('value').text = 'USR=' + param.find('value').text + ' # REF=' + root.find('value').text
-    #             else : 
-    #                 root.find('value').text = 'Id'
-    #         elif option == EXPLOPT.DIFF_FLOAT : 
-    #             # Takes the difference of the values 
-    #             if root.find('type').text == 'float' or root.find('type').text == 'double' or root.find('type').text == 'int' or root.find('type').text == 'bool': 
-    #                 if bool(param.find('value').text) and bool(root.find('value').text):
-    #                     root.find('value').text = str(float(param.find('value').text) - float(root.find('value').text))
-    #                 else :
-    #                     root.find('value').text = 'DIFF One field empty'
-    #             else : 
-    #                 root.find('value').text = 'NOT COMPARABLE'
-    #     else : 
-    #         # Whatever the option, this 'error' structure will be filled and reported
-    #         not_in_ref.append(list_to_string(path))
-
