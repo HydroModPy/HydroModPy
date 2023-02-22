@@ -39,14 +39,22 @@ import rasterio
 import fnmatch
 import deepdish as dd
 import matplotlib.dates as mdates
-import seaborn as sns
+
+try:
+    import seaborn as sns
+except:
+    pass
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
-import earthpy.spatial as es
-import earthpy.plot as ep
+
+try:
+    import earthpy.spatial as es
+    import earthpy.plot as ep
+except:
+    pass
 
 # Gis
 import imageio
@@ -711,12 +719,21 @@ out_path = "D:/Users/abherve/EBR/"
 # Figure folder outputs
 res_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/15_results/EBR_v1/'
 
+git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "D:/abherve/HYDRODATAPY/"
+# Path where the results will be stored
+out_path = "D:/abherve/EBR/"
+# Figure folder outputs
+res_path = 'D:/abherve/EBR/_output_figures/'
+
+
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
-# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/'
-surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/' # add surfex models in .h5 format (France scale, else, specify None)
+surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/'
+# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/' # add surfex models in .h5 format (France scale, else, specify None)
 drias_path = data_path + 'CLIMATE/France/DRIAS/Bretagne/'
 geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
 oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
@@ -727,6 +744,7 @@ piezometry_path = False # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 
 dem_name = "BDALTI_75m_EBR.tif" # name of dem
+dem_name = "BDALTI_bzh_75m.tif" # name of dem
 from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
@@ -736,7 +754,8 @@ from_xy = []
 # Depending on the choices
 dem_path = dems_path + dem_name
 
-library_path = res_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+# library_path = res_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+library_path = out_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
@@ -789,7 +808,7 @@ fields_obs = ['fid','persiatnc']
 
 #%% GENERATE WATERSHED
 
-load = True
+load = False
 
 for site_name in site_names[:]:
 
@@ -817,10 +836,10 @@ for site_name in site_names[:]:
                                       modflow_path=modflow_path,
                                       library_path=library_path,
                                       load=load,
-                                      from_shp=res_path+'sig/'+watershed_name+'.shp',
+                                      from_shp=out_path+'_sig/'+watershed_name+'.shp',
                                       from_dem=from_dem,
                                       from_xy=from_xy,
-                                      cell_size=cell_size)
+                                      cell_size=cell_size) # res_path+'sig/'+watershed_name+'.shp'
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
@@ -843,14 +862,14 @@ for site_name in site_names[:]:
                                   out_path=out_path,
                                   load=True)
 
-    # BV.add_geology(geology_path)
-    # BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-    # BV.add_oceanic(oceanic_path)
-    # BV.add_hydrometry(hydrometry_path)
-    # BV.add_intermittency(intermittency_path)
-    # BV.add_subbasin()
-    # BV.add_surfex(surfex_path)
-    BV.add_drias(drias_path)
+    BV.add_geology(geology_path)
+    BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    BV.add_oceanic(oceanic_path)
+    BV.add_hydrometry(hydrometry_path)
+    BV.add_intermittency(intermittency_path)
+    BV.add_subbasin()
+    BV.add_surfex(surfex_path)
+    # BV.add_drias(drias_path)
     # try:
     #     if (watershed_name == 'Monfort') | (watershed_name == 'Roche'):
     #         BV.add_piezometry()
@@ -867,7 +886,8 @@ for site_name in site_names[:]:
     
 #%% HYDROPORTAIL SERIES
 
-series_path = res_path + '_data/hydrometric/' +'export_hydro_series.csv'
+# series_path = res_path + '_data/hydrometric/' +'export_hydro_series.csv'
+series_path = out_path + '_data/hydrometric/' +'export_hydro_series.csv'
 series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
 series = series.iloc[1:]
 series.index.name = None
@@ -1313,7 +1333,23 @@ watershed_names = [
                    'Moulin',
                    ]
 
-# watershed_names = ['Monfort']
+watershed_names = [
+                   'Cheze',
+                   ]
+
+watershed_names = [
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
+
+watershed_names = ['Jouan']
 
 modflow_path = data_path + 'SOFTWARE/MODFLOW/'
 
@@ -1332,6 +1368,7 @@ for watershed_name in watershed_names[:] :
     
     BV.add_forcing()
     BV.add_hydrodynamic()
+    print(BV.geographic.area)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     
@@ -1417,7 +1454,7 @@ for watershed_name in watershed_names[:] :
 # EXPLORATION LAUNCH
 
     calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=100)
+    calib.exploration(resolution=225)
 
 #%% EXPLORATION PLOT
 
@@ -1436,6 +1473,10 @@ watershed_names = [
                    'Moulin',
                    ]
 
+watershed_names = [
+                   'Moulin',
+                   ]
+
 params_file = 'calib_explo_hom_2v_k1-n1'
 
 wish = 0
@@ -1445,6 +1486,10 @@ sat_typ = 'seepage_areas'
 for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
+    
+    min_nse = 50
+    min_sat = 0
+    max_sat = 50
     
     if watershed_name == 'Canut':
         min_nse = 70
@@ -1529,7 +1574,8 @@ for watershed_name in watershed_names[:]:
                 # for h in range(len(ind[typ_name])):
                 #     d = ind[typ_name][h][0]
                 #     c.append(d)
-                c = np.linspace(0,1,len(obs[typ_name]))
+        
+        c = np.linspace(0,1,len(obs[typ_name]))
 
         cmap = mpl.cm.get_cmap('viridis_r')
         color_gradients = cmap(c)
