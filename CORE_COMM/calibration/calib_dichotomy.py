@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 18 14:22:05 2022
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 import copy as copy
 import numpy as np     
@@ -12,13 +12,17 @@ from scipy.optimize import minimize, Bounds
 import time
 import datetime
 
-from calibration import global_parameters as gp                          
+# from calibration import global_parameters as gp                          
 from calibration import calib_basis as calbas
 
 import matplotlib.pyplot as plt
-from calibration import tools_figures_additional as figadd        
+# from calibration import tools_figures_additional as figadd        
+
+#%% CLASS
 
 class CalibrationDichotomy(calbas.CalibrationBasis):
+    
+    #%% INIT
     
     def __init__(self, calib_basis=None, gap=10):
         
@@ -31,8 +35,10 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         self.recharge = self.watershed.forcing.recharge
         
         # print(self.recharge)
-        
-    def update_calibbasis(self,calib_basis): 
+    
+    #%% UPDATE
+    
+    def update_calibbasis(self, calib_basis): 
         """
         Updates parent class CalibrationBasis with calib_basis
         
@@ -44,9 +50,13 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         """
         super(CalibrationDichotomy,self).__dict__.update(calib_basis.__dict__)
     
+    #%% PERFORM
+    
     def perform(self):
         dichotomy_results = self.__Dichotomy()
         return dichotomy_results
+    
+    #%% METHOD
     
     def __Dichotomy(self):
         
@@ -54,7 +64,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         
         p_min =  self.params.p_min[0]
         p_max =  self.params.p_max[0]
-        print(p_min, p_max)
+        # print(p_min, p_max)
         
         diff = p_max - p_min
         half = (p_min + p_max) / 2
@@ -80,6 +90,7 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
             params_xyz.append(hyd_cond)
             indicator = self.objective_function([hyd_cond])
             
+            print(self.data_obs)
             obs = self.data_obs['streams'][-1]
             sim = self.data_sim['streams'][-1]
             
@@ -118,3 +129,5 @@ class CalibrationDichotomy(calbas.CalibrationBasis):
         
         return indicator
         
+#%% NOTES
+

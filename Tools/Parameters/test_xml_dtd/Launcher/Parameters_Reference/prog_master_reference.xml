@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSPY v5 rel. 3 U (http://www.xmlspy.com) by Jean-Raynald de Dreuzy (Géosciences Rennes) -->
+<!DOCTYPE ParametersGroup SYSTEM "../../prog_scheme_reference.dtd">
+<?xml-stylesheet type="text/xsl" href="browser_view.xslt"?>
+<?xmlspysps authentic_view.sps?>
+
+<ParametersGroup name="inputs">
+	&launcher;
+	<ParametersGroup name="libraries">
+		&library1;
+		&library2;
+	</ParametersGroup>
+</ParametersGroup>
