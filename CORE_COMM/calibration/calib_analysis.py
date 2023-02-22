@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Dec 20 17:55:02 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
+
 import os
 import pickle
 from calibration import tools_figures_additional as figadd
@@ -15,11 +16,17 @@ import numpy as np
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)
 
+#%% CLASS
+
 class CalibAnalysis:
+    
+    #%% INIT
     
     def __init__(self, calib_file):
         self.load_file(calib_file)
-        
+    
+    #%% LOADING
+    
     def load_file(self, calib_file):
         with open(calib_file, 'rb') as file:
             self.calib = pickle.load(file)
@@ -55,6 +62,8 @@ class CalibAnalysis:
         except:
             pass
     
+    #%% FIND BEST 1D
+    
     def find_best_1Dvalues(self):
         self.p = []
         loc = np.where(self.obj_function == np.min(self.obj_function['diff']))
@@ -62,7 +71,9 @@ class CalibAnalysis:
         loc_data = np.where(self.obj_function['diff'] == np.min(self.obj_function['diff']))
         self.best_data_obs = self.obj_function['diff'][loc_data[0][0]]
         self.best_data_sim = self.obj_function['diff'][loc_data[0][0]]
-    
+
+    #%% FIND BEST 2D
+
     def find_best_2Dvalues(self):
         self.p = []
         loc = np.where(self.obj_function == np.min(self.obj_function))
@@ -72,25 +83,29 @@ class CalibAnalysis:
         loc_data = np.where(self.obj_function == np.min(self.obj_function))
         self.best_data_obs = self.obj_function[loc_data[0][0]]
         self.best_data_sim = self.obj_function[loc_data[0][0]]
-        return(self.best_data_obs,self.best_data_sim)
-    
+        return (self.best_data_obs,self.best_data_sim)
+
+    #%% DISPLAY BEST
+
     def display_best_data(self):
         fig, (ax1, ax2) = plt.subplots(1, 2)
         ax1.plot(self.best_data_obs, self.best_data_sim,'ok')
         ax1.plot([min(self.best_data_obs),max(self.best_data_obs)],[min(self.best_data_obs),max(self.best_data_obs)],'-k')
         ax2.plot(self.best_data_obs, self.best_data_obs - self.best_data_sim,'ok')
         ax2.plot([min(self.best_data_obs),max(self.best_data_obs)],[0,0],'-k')
-            
+        
+    #%% DISPLAY OBJ FUNCTION
+    
     def display_objective_function(self, save = None,vmin= None, vmax=None, log=False):
         # plt.rcParams.update({
         #     "text.usetex": True,
         #     "font.family": "Helvetica"
         #     })
-
+        
+        #%% PARAMETERS = 1
+        
         if len(self.names) == 1 : 
-            
-            # 1 parameter
-            
+                        
             figadd.figure_init(xlab=self.names[0],
                                ylab="",)
             if type(self.obj_function) == list:
@@ -113,7 +128,9 @@ class CalibAnalysis:
                 plt.xlabel(r'$K$ $[m.j^{-1}]$')
             if save != None:
                 plt.savefig(save,dpi=300, bbox_inches = "tight")
-                
+             
+        #%% PARAMETERS = 2
+        
         elif len(self.names) == 2 : 
             
             X,Y = np.meshgrid(self.params_values[0], self.params_values[1])
@@ -123,8 +140,11 @@ class CalibAnalysis:
                                figname=None)
             #plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
             #plt.pcolor(X,Y,Z,cmap='jet')#figadd.cmap_white_jet()
-            self.find_best_2Dvalues()
-            plt.plot(self.p[0],self.p[1],'ow',markersize=10)
+            try:
+                self.find_best_2Dvalues()
+                plt.plot(self.p[0], self.p[1],'ow',markersize=10)
+            except:
+                pass
             levels = 1000
             #plt.contourf(X, Y, Z,levels,cmap='jet', shading='auto',vmax=vmax, vmin=vmin)
             if log == True:
@@ -157,14 +177,14 @@ class CalibAnalysis:
             if self.observations == ['streams']:
                 plt.colorbar(label=r'$log(D_{SO}/D_{OS})^{2}$')
             
-            # Whatevert the dimension, saves figure
+            # Whatever the dimension, saves figure
             if save != None:
                 plt.savefig(save,dpi=300, bbox_inches = "tight")
-                
+        
+        #%% PARAMETERS = 3
+        
         elif len(self.names) >= 3 : 
-            
-            # 3 parameters
-            
+                        
             for k in range(len(self.names)):
                 k1=(k+1)%len(self.names)
                 #k2=(k+2)%len(self.names)
@@ -182,3 +202,6 @@ class CalibAnalysis:
                 
                 # Whatevert the dimension, saves figure
                 plt.savefig(save,dpi=300, bbox_inches = "tight")
+                
+#%% NOTES
+

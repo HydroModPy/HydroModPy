@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 21 14:43:47 2021
 
-@author: ronan
 """
+
+#%% LIBRAIRIES
 
 # General
 import sys
@@ -37,7 +37,12 @@ wbt.verbose = True
 # Modules                   
 from tools import toolbox
 
+#%% CLASS
+
 class SurfaceOutputs():
+    
+    #%% INIT
+    
     def __init__(self, recharge, simulations_folder, stable_folder, model_name, 
                  types_obs, save_gif=False, first_only = True,
                  outflow=False, accflux=False, intermittency=False,
@@ -111,7 +116,9 @@ class SurfaceOutputs():
                 self.make_a_gif('map_outflow_drain_')
             if accflux == True:
                 self.make_a_gif('map_accumulation_flux_')
-        
+       
+    #%% FUNCTIONS    
+    
     def plot_map_intermittency(self, iter_time):
         # Select file
         file = self.list_traces[iter_time]
@@ -166,10 +173,10 @@ class SurfaceOutputs():
         cbar.mappable.set_clim(minVal, maxVal)
         cbar.ax.tick_params(labelsize=10)
         # Plot simulated
-        outflow[outflow.Persistanc==0].plot(ax=ax, alpha=1, column='Persistanc', color='darkorange', 
+        outflow[outflow['id_persist']==0].plot(ax=ax, alpha=1, column='id_persist', color='darkorange', 
                             marker='s', markersize=30, lw=0.1, edgecolor='none',
                             zorder=4, label='Temporary - Sim.')
-        outflow[outflow.Persistanc==1].plot(ax=ax, alpha=1, column='Persistanc', color='dodgerblue', 
+        outflow[outflow['id_persist']==1].plot(ax=ax, alpha=1, column='id_persist', color='dodgerblue', 
                             marker='s', markersize=30, lw=0.1, edgecolor='none',
                             zorder=4, label='Perennial - Sim.')
         scalebar = AnchoredSizeBar(ax.transData, 1000, '1 km', 'lower left', 
@@ -198,12 +205,14 @@ class SurfaceOutputs():
         # Open data
         self.df = pd.read_csv(os.path.join(self.dir_to_analyse,'_simulated_results.csv'), sep=';',
                          index_col='date', parse_dates=True)
+        print(self.df)
         try:
             self.first = self.df.first_valid_index().year
             self.last = self.df.last_valid_index().year    
         except:
             pass
-        self.df['spe'] = (self.df.outflow_drain) * 1000 # m/j to mm/j
+        
+        self.df['spe'] = (self.df['outflow_drain']) * 1000 # m/j to mm/j
         self.df['rec'] = self.recharge * 1000 # m/j to mm/j
         self.maxrec = self.df['rec'].max()
         # Dem to watershed scale
@@ -412,7 +421,7 @@ class SurfaceOutputs():
             images.append(imageio.imread(filename))
         imageio.mimsave(self.gifdir+'/'+begin_by+'.gif', images, duration=0.5, loop=1)
 
-#%% Interactive cross-section head
+#%% INTERACTIVE CROSS-SECTION
 
 def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
     
@@ -572,7 +581,7 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
     
     fig.canvas.mpl_connect('close_event', on_close)
 
-#%% Notes
+#%% NOTES
 
 # fig = plt.figure(figsize=(11,6))
 # gs = fig.add_gridspec(3,3)
@@ -584,3 +593,4 @@ def interactive_cross_section(dem_data, wt_data, river_data, interactive=True):
 # fig.tight_layout()
 # fig.savefig(self.pngdir + name_fig)
 # plt.close()
+

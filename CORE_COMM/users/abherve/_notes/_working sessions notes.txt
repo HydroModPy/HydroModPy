@@ -1,0 +1,34 @@
+20/09/2021
+	OK - waterhed to waterhed_name
+	OK - results and results_stable, 2 fois Canut
+	OK - pour extraction : ouverture et ecriture
+	- créer une class "chronic ou forçage de préparation des inpus (en privé) dans tools
+	- ajouter start et end de la simul modflow
+	- cond et thick dans hydrodynamic
+	- bin : VARIABLE GLOBALES au début, cherher utilisateur (install modflow dans environnement .yml ?, voir avec des experts)
+	- check des données d'entrée dans modflow
+	- model_update ? Refaire tout à chaque fois ? build invariable ?
+	- profiler pour voir le temps des fonctions du code
+	- création de la grille ==> generate_grid() (créer des méthodes privées)
+	- créer une focntion de passage avec la géologie
+	- calssique : 1 create grid, 2 fill grid, 3 initial cond, 4 boundary, 5 forcing
+
+27/09/2021
+	OK - 2 branch
+	- return pour la fonction dochotomy ==> dans "calib" on appellera l'objet watershed
+	- de model pre_processing à dicot_mean_distances ==> bloc dans une "fonction objectif"
+	- faire tendre la dicotmy vers 0 (log(condition))
+	- classes virtuelles
+	- class Groundwaterflow() ==> classe mère
+		class modflow
+		class hs1D
+	- virtuelle class : héritage de classe avec "import abc"
+	- méthode abstraite : déclarer une fonction sans la définir (définie dans classe fille => vérification/validation de : si existe?)
+	- virtuelle != virtuelle pure
+	- class hérite d'une autre : connait attributs et méthodes
+	- __moment_ k ==> privé
+
+11/10/2021
+	- Function objective à travailler, le reste généralisable
+	- Normlisation par l'erreur des données (pondération)
+	- Faire la class forçage climatique + discharge banque hydro

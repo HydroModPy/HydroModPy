@@ -1,5 +1,9 @@
 # coding:utf-8
+"""
 
+"""
+
+#%% LIBRAIRIES
 
 import geopandas as gpd
 import pandas as pd
@@ -22,9 +26,13 @@ import gc
 # df = dirname(dirname(abspath(__file__)))
 # sys.path.append(df)
 
+#%% CLASS
+
 class Drias:
     
-    def __init__(self, out_path, drias_path, watershed_shp):
+    #%% INIT
+    
+    def __init__(self, out_path, drias_path, watershed_shp, list_models='all', list_vars = 'all'):
         """
 
         Parameters
@@ -35,7 +43,12 @@ class Drias:
             DESCRIPTION.
         watershed_shp : TYPE
             DESCRIPTION.
-
+        
+        list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+                       'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+        
+        list_vars = ['DRAINC','RUNOFF','EVAPC','tasAdjust','prtotAdjust']
+        
         Returns
         -------
         None.
@@ -46,19 +59,21 @@ class Drias:
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
                 
-        # self.figure_folder = os.path.join(out_path, 'results_stable/_figures/drias/')
-        # if not os.path.exists(self.figure_folder):
-        #         os.makedirs(self.figure_folder)
-                
         print('Extraction des données explore2')
         
         df = pd.DataFrame()
         df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
         
-        list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
-                       'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+
+        if list_models == 'all':
+            list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+                           'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
         
-        # list_models = ['Model_01','Model_02','Model_03']
+        if list_vars == 'all':
+            list_vars = ['DRAINC','RUNOFF','EVAPC','tasAdjust','prtotAdjust']
+            
+        print(list_models)
+        print(list_vars)
         
         for model in list_models:
             models_path = glob.glob(os.path.join(drias_path, model +'*'))
@@ -66,34 +81,28 @@ class Drias:
             for model in models_path:
                 print('     '+model)
                                 
-                # for var in ['DRAINC','RUNOFF']:
-                for var in ['DRAINC', 'RUNOFF']:
-                    files_path = glob.glob(model + '/' + var + '*' + 'QGIS.nc')
+                for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
+                    files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
                     for en, file_path in enumerate(files_path):
-                        # print('    ' + str(file_path))
-                        self.clip_netcdf(data_folder, file_path, watershed_shp)
-                    
+                        if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
+                            self.clip_netcdf(data_folder, file_path, watershed_shp, var)
+    
         self.extract_values(data_folder, df)
-        
+    
+    #%% TIME FUNCTION
+    
     def select_period(df, first, last):
         df = df[(df.index.year>=first) & (df.index.year<=last)]
         return df
     
-    def clip_netcdf(self, data_folder, path_qgis, shp_path):
+    #%% CLIP DATA
+    
+    def clip_netcdf(self, data_folder, path_qgis, shp_path, var):
         
-        # path_qgis = 'C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/All/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731_QGIS.nc'
-    
-        """
-        problem with file path
-        """
-    
         with xr.open_dataset(path_qgis, decode_coords = 'all') as ds:
             ds.load()
         # ds.sel(x = 76000, y = 2273000)
-
-        # val = ds.DRAINC.values[0]
-        # val = val[::-1]
-        
+   
         geodf = gpd.read_file(shp_path)
         geom = geodf.geometry.apply(mapping)
         clipped_ds = ds.rio.clip(geom, geodf.crs, all_touched = True, drop = True)
@@ -102,16 +111,22 @@ class Drias:
         del ds
                 
         outfile_path = os.path.join(data_folder, path_qgis.split('\\')[-1])
+        
+        if (var == 'tasAdjust') | (var == 'prtotAdjust') :
+            clipped_ds.lat.attrs['missing_value'] = np.nan
+            clipped_ds.lon.attrs['missing_value'] = np.nan
+            # del clipped_ds.lat.attrs['_FillValue']
+            clipped_ds['lat'] = clipped_ds['lat'].where(pd.notnull(clipped_ds['lat']), -9999).astype('int32')
+            clipped_ds['lon'] = clipped_ds['lon'].where(pd.notnull(clipped_ds['lon']), -9999).astype('int32')
+            # del clipped_ds.lon.attrs['_FillValue']
+        
         clipped_ds.to_netcdf(outfile_path)
         
         del clipped_ds
         
         gc.collect()
-
-        # geotif = 'D:/Users/abherve/DYNAMIC/Gael/results_stable/geographic/watershed.tif'
-        # with xr.open_dataset(geotif) as mask_ds:
-        #     mask_ds.load()
-        # clipped_ds = ds.where(mask_ds, drop = True)
+    
+    #%% CSV DATA
     
     def extract_values(self, data_folder, df):
         
@@ -122,18 +137,33 @@ class Drias:
             print(str(idx+1)+'/'+str(len(paths_netcdf)))
             
             var_raw = path_netcdf.split('\\')[-1].split('_')[0]
-            gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
-            rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
-            
-            sce = path_netcdf.split('\\')[-1].split('_')[-4]
-            if sce == 'Historique':
-                sce = 'historic'
             
             if var_raw =='DRAINC':
                 var = 'REC'
             if var_raw =='RUNOFFC':
                 var = 'RUN'
+            if var_raw =='EVAPC':
+                var = 'ETP'
+            if var_raw == 'tasAdjust':
+                var = 'TAS'
+            if var_raw == 'prtotAdjust':
+                var = 'PPT'
             
+            if (var == 'REC') | (var == 'RUN') | (var == 'ETP'):
+                sce = path_netcdf.split('\\')[-1].split('_')[-4]
+                gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
+                rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
+                
+            if (var == 'PPT') | (var == 'TAS'):
+                sce = path_netcdf.split('\\')[-1].split('_')[-7]
+                gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
+                rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
+            
+            if (sce == 'Historique') | (sce == 'Historical'):
+                sce = 'historic'
+            else:
+                sce = sce.upper()
+                        
             if 'CNRM' in gcm_raw :
                 gcm = 'CNR'
             if 'MPI' in gcm_raw :
@@ -165,26 +195,12 @@ class Drias:
                 rcm = 'R09'
             if 'HIRH' in rcm_raw :
                 rcm = 'HIR'
-        
+                            
             with xr.open_dataset(path_netcdf, decode_coords = 'all') as clipped_ds:
                 clipped_ds.load()
-            
-            # leng = clipped_ds.DRAINC.shape[0]
-            # for i in range(leng):
-            #     print(str(i)+'/'+str(leng))
-            #     val = clipped_ds.DRAINC.values[i]
-            #     val = val[::-1]
-            #     val = val[:,~np.all(np.isnan(val), axis=0)]
-            #     try:
-            #         val = val[:,~np.all(np.isnan(val), axis=1)]
-            #     except:
-            #         pass
-            #     mean = np.nanmean(val)
-            #     mean = float(clipped_ds['DRAINC'][i].mean().values)
-            
-            # res = var_ds.mean(dim = 'time', skipna = True, keep_attrs = True)
-    
+                
             name_col = var+'_'+gcm+'-'+rcm+'_'+sce
+            print(name_col)
             if name_col not in df:
                 df[name_col] = ""
                 
@@ -197,13 +213,19 @@ class Drias:
             serie = pd.Series(( x_mean + y_mean ) / 2 )
             serie.index = dates
             
+            if (var == 'PPT') :
+                serie = serie * 3600 * 24
+                
+            if (var == 'TAS') :
+                serie = serie - 273.15
+                
             df[name_col] = serie
-        
+            
         df.to_csv(data_folder+'/'+'_ALL_D.csv', sep=';')
         # df.to_csv('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/results_stable/drias/'+
         #           '_ALL_D.csv', sep=';')
 
-#%% NOTES
+#%% KEEP
 
 def time_series(*, input_file, epsg = None,
                 coords = None, mask = None, 
@@ -260,24 +282,59 @@ def time_series(*, input_file, epsg = None,
 
 #%% TEST
 
-# list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
-#                'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+'''
+list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+               'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+list_vars = ['prtotAdjust']
 
-# Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/',
-#       'G:/DRIAS/georeferenced/',
-#       'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp')
+Drias('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/', # INPUT
+      'G:/DRIAS/georeferenced/', # OUTPUT
+      'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp', # CLIP
+      list_models,
+      list_vars)
+'''
 
-# import matplotlib as mpl
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots(1,1)
-# ax.imshow(val, aspect='auto', norm = mpl.colors.Normalize(vmin=0, vmax=0.1), cmap='Spectral')
+#%% NOTES
 
-# x = pd.read_csv('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/_ALL_D.csv',
-#                 sep=';', index_col=0, parse_dates=True)
-# var='REC'
-# gcm='NOR'
-# rcm='HIR'
-# sce='RCP8.5'
-# plt.plot(x[var+'_'+gcm+'-'+rcm+'_'+sce])
-# plt.yscale('log')
+'''
+
+path_qgis = 'G:/DRIAS/georeferenced/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731_QGIS.nc'
+# path_qgis = 'G:/DRIAS/georeferenced/Model_01/tasAdjust_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_Historical_METEO-FRANCE_ADAMONT-France_SAFRAN_day_1950-2005_QGIS.nc'
+shp_path = 'C:/Users/ronan/OneDrive/_HydroDataPy/MISCELLANEOUS/France/bzh.shp'
+
+with xr.open_dataset(path_qgis, decode_coords = 'all') as ds:
+    ds.load()
+# ds.sel(x = 76000, y = 2273000)
+
+# val = ds.DRAINC.values[0]
+# val = val[::-1]
+
+geodf = gpd.read_file(shp_path)
+geom = geodf.geometry.apply(mapping)
+clipped_ds = ds.rio.clip(geom, geodf.crs, all_touched = True, drop = True)
+
+clip_drain = clipped_ds.copy()
+
+# geotif = './watershed.tif'
+# with xr.open_dataset(geotif) as mask_ds:
+#     mask_ds.load()
+# clipped_ds = ds.where(mask_ds, drop = True)
+
+### Treatment data
+# leng = clipped_ds.DRAINC.shape[0]
+# for i in range(leng):
+#     print(str(i)+'/'+str(leng))
+#     val = clipped_ds.DRAINC.values[i]
+#     val = val[::-1]
+#     val = val[:,~np.all(np.isnan(val), axis=0)]
+#     try:
+#         val = val[:,~np.all(np.isnan(val), axis=1)]
+#     except:
+#         pass
+#     mean = np.nanmean(val)
+#     mean = float(clipped_ds['DRAINC'][i].mean().values)
+
+# res = var_ds.mean(dim = 'time', skipna = True, keep_attrs = True)
+
+'''
 

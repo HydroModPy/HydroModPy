@@ -11,10 +11,10 @@ Limitations
 -----------
 
 Example Codes
-=============
+-------------
 
-Installation/Usage:
--------------------
+Installation/Usage
+------------------
 
 Search for device, connect and read characteristic
 --------------------------------------------------

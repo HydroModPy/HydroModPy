@@ -1,21 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar 24 20:35:54 2021
 
-@author: Alexandre Gauvain
 """
+
+#%% LIBRAIRIES
 
 import copy as copy
 import numpy as np                                 
 from scipy.optimize import minimize, Bounds
 import time
 
-from calibration import global_parameters as gp                          
+# from calibration import global_parameters as gp                          
 from calibration import calib_basis as calbas
 
+#%% CLASS
 
 class CalibrationSimplex(calbas.CalibrationBasis): 
     """ 
+    
     Simplex calibration method
     
     Inheritance
@@ -42,16 +44,21 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         Updates parent class CalibrationBasis with calib_basis
     perform(self): 
         Performs calibration with the selected method
+        
     """
+    
+    #%% INIT
     
     def __init__(self,calibration_method,calib_basis=None,init_multiples_n=2,fuq_n=10):
         """ 
+        
         Constructor
         
         Parameters 
         ----------
         calibration_method: str
             Precise calibration method (simplex, simplex_init_multiples)        
+        
         """
         
         self.method = calibration_method
@@ -69,9 +76,11 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         if(calib_basis!=None): 
             self.update_calibbasis(calib_basis)
     
+    #%% UPDATE
     
     def update_calibbasis(self,calib_basis): 
         """
+        
         Updates parent class CalibrationBasis with calib_basis
         
         Arguments
@@ -80,11 +89,14 @@ class CalibrationSimplex(calbas.CalibrationBasis):
             Base Class Calibration Problem
         
         """
+        
         super(CalibrationSimplex,self).__dict__.update(calib_basis.__dict__)
     
+    #%% PERFORM
     
     def perform(self):
         """
+        
         Performs calibration with the selected method
             Monitor run time necessary
         
@@ -107,10 +119,12 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         end = time.time()
         self.time_perform = end - start
         return lpm_results
-        
+     
+    #%% METHOD 1
         
     def __Simplex(self,param=None):
         """ 
+        
         Simplex calibration method
             Values and Errors stored in self.concentration_sampled.cv.values
             Tracer parameters 
@@ -125,6 +139,7 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         -------
         lpm_results (modification of lpm attribute)
             Optimal model found
+            
         """
 
         # -----------------INITIALIZATION -------------------------
@@ -156,10 +171,12 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         
         # returns objective function 
         return res
-     
-        
+      
+    #%% METHOD 2
+      
     def __Simplex_init_multipes(self):
         """ 
+        
         Simplex with multiple initiation points 
             Runs the Simplex method with multiple initial points 
         
@@ -170,6 +187,7 @@ class CalibrationSimplex(calbas.CalibrationBasis):
         -------
         lpm_results: LPMDist
             Optimal models found
+            
         """
         
         # Random Number Generator
@@ -182,12 +200,16 @@ class CalibrationSimplex(calbas.CalibrationBasis):
             # Performs optimization 
             store.append(self.__Simplex())
         return store
-        
+    
+    #%% WRITTING
 
     def write_parameters(self,file_name):
         """ 
+        
         Writes parameters of calibration
+        
         """
+        
         data={}
         data['method']=self.method
         if self.method == "Simplex" or self.method == "Simplex_init_multipes" or self.method == "forward_uncertainty_quantification":
@@ -202,9 +224,10 @@ class CalibrationSimplex(calbas.CalibrationBasis):
             file.write(key+'\t'+str(val)+'\n')
         file.close()
         
-        
+    
     def write_results_spec(self,data):
         """
+        
         Specific contribution of the daughter class to the calibration results
         
         Argumments
@@ -213,4 +236,8 @@ class CalibrationSimplex(calbas.CalibrationBasis):
             results to be stored
         
         """
+        
         pass
+
+#%% NOTES
+

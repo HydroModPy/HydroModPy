@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep  9 20:10:52 2021
 
-@author: Alexandre Gauvain
 """
 
-# Modules
+#%% LIBRAIRIES
+
 import geopandas as gpd
 import numpy as np
 import os
@@ -25,8 +24,11 @@ import imageio
 # HydroModPy modules
 from tools import toolbox
 
+#%% CLASS 1
+
 class Geographic:
     """
+    
     class Geographic used to clip the watershed from regional DEM
 
     Attributes
@@ -46,7 +48,10 @@ class Geographic:
         creates files to extract watershed from regional DEM
     post_processing_dem(dem_path)
         loads files to 
+        
     """
+    
+    #%% INIT
     
     def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
@@ -72,8 +77,11 @@ class Geographic:
 
         # if self.from_shp == None: # ADD FOR CLIMATE !!!
         self.post_processing_dem()
-            
+    
+    #%% GENERATE FILES
+    
     def processing(self, dem_path, x, y, snap_dist, buff_percent, out_path):
+        
         # Generate folder where processing files are stored
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
@@ -231,7 +239,9 @@ class Geographic:
             wbt.sink(self.watershed_box_buff_dem, self.depressions)
         except:
             pass
-        
+    
+    #%% DEM FEATURES
+    
     def post_processing_dem(self):
 
         # Open DEM used for modeling
@@ -288,7 +298,11 @@ class Geographic:
             self.dep_code = int(location.address.split(',')[-2][0:3])
         except:
             pass
-
+        
+    #%% XYZ FILE TO DEM
+    
+    # In the case of .txt files with x, y, z coordinates 
+    
     def model_from_dem(self, dem_path, out_path, cell_size):
         # Paths
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
@@ -316,12 +330,14 @@ class Geographic:
             dem = gdal.Open(dem_path)
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            print(self.crs)
             # Copy tif
             self.watershed_raw = self.gis_path + 'watershed_raw.tif'
             shutil.copyfile(dem_path, self.watershed_raw)
             # Proj layer
             self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-            gdal.Warp(self.watershed_dem, self.watershed_raw , dstSRS='EPSG:2154')
+            shutil.copyfile(self.watershed_raw, self.watershed_dem)
+            ### gdal.Warp(self.watershed_dem, self.watershed_raw , dstSRS='EPSG:2154')
         # No data
         wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
@@ -339,9 +355,14 @@ class Geographic:
         # Flow accumulation
         self.watershed_acc = self.gis_path + 'watershed_acc.tif'
         wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
+        
+        """
         # Create shapefile
         self.watershed_shp = self.gis_path + 'watershed.shp'
         wbt.raster_to_vector_polygons(self.watershed_dem, self.watershed_shp)
+        """
+        
+        """
         # Area of shape
         wbt.polygon_area(self.watershed_shp)
         area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
@@ -358,8 +379,13 @@ class Geographic:
         # Create box extent of the watershed
         self.watershed_box_shp = self.gis_path + 'watershed_box.shp'
         wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
+        """
+        
+#%% CLASS 2
 
 class Subbasin:
+    
+    #%% INIT
     
     def __init__(self, geographic, hydrometry, intermittency,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):        
@@ -393,14 +419,18 @@ class Subbasin:
         except:
             pass
         
-        try:
-            code_sub, x_coord, y_coord = self.add_coord_manual()
-            for i in range(len(code_sub)):
-                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
-        except:
-            pass
-        
+        # try:
+        code_sub, x_coord, y_coord = self.add_coord_manual()
+        for i in range(len(code_sub)):
+            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        # except:
+        #     pass
+    
+    #%% SUB-CATCHMENT FROM STATIONS
+    
+    # Extract sub-catchment from existing stations : hydrometry or intermittency
+    
     def extract_interest_zones(self, geographic, X, Y, outpath):
         # Path of subbasin
         if os.path.exists(outpath):
@@ -437,8 +467,13 @@ class Subbasin:
         watershed_dem = outpath + 'watershed_dem.tif'
         wbt.clip_raster_to_polygon(geographic.watershed_buff_dem, watershed_shp, watershed_dem, maintain_dimensions=True)        
     
+    #%% SUB-CATCHMENT FROM XY POINT
+    
+    # .csv file with x, y coordinates representing the outlet desired sub-catchments
+    
     def add_coord_manual(self):
         sub_list = pd.read_csv(os.path.join(self.adddata_path, 'add_coord_manual.txt'), sep=';')
+        print(sub_list)
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()
         y_coord = sub_list['y_outlet'].to_list()
@@ -446,9 +481,9 @@ class Subbasin:
         
 # x = Subbasins(BV.geographic, BV.hydrometry, BV.intermittency, BV.watershed_folder)
 
-#%% Notes
+#%% NOTES
 
-#### ADD IF NECESSARY FOR MODEL FROM A CONCEPTUAL DEM ####
+### ADD IF NECESSARY FOR MODEL FROM A CONCEPTUAL DEM ###
     # Correction
 # self.watershed_fill = self.gis_path + 'watershed_fill.tif'
 # wbt.fill_depressions(self.watershed_dem, self.watershed_fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
@@ -496,6 +531,3 @@ for i in range(len(clip_hydrometric_shp)):
     df.loc[i,'end'] = pd.to_datetime(clip_hydrometric_shp['DtFermetur'].values[0][0:10],format='%Y-%m-%d')
 """
 
-        
-        
-        
