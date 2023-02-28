@@ -98,7 +98,8 @@ class Geographic:
         # Correction
         fill =  os.path.join(self.reg_path, 'region_fill.tif')
         if not os.path.exists(fill):
-            wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
+            # wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
+            wbt.breach_depressions(dem_path, fill)
         # Flow direction
         direc =  os.path.join(self.reg_path, 'region_direc.tif')
         if not os.path.exists(direc):
@@ -107,6 +108,15 @@ class Geographic:
         acc =  os.path.join(self.reg_path, 'region_acc.tif')
         if not os.path.exists(acc):
             wbt.d8_flow_accumulation(fill, acc, log=True)
+        # Flow accumulation
+        down =  os.path.join(self.reg_path, 'region_down.tif')
+        if not os.path.exists(down):
+            wbt.downslope_flowpath_length(
+                direc, 
+                down, 
+                watersheds=None, 
+                weights=None, 
+                esri_pntr=False)
         
         # Correct no data
         wbt.modify_no_data_value(dem_path, new_value='-99999.0')
