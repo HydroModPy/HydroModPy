@@ -269,7 +269,7 @@ thick_exp = 1.25 # exponential decay of nlay with depth
 # HK
 KR = 3
 K0 = KR * recharge
-print(K0/24/3600)
+# print(K0/24/3600)
     
 # Aquifer bottom
 list_bottom = [None, 0] # aquifer flat or not
@@ -299,6 +299,7 @@ params_df.loc[0] = ['k1',
                     'm/j',
                     'lin']
 params_file = 'calib_dicot_hom_1v_k1'+'/'+dicot_name
+params_file = 'calib_dicot_hom_1v_k1'+dicot_name
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 
@@ -538,9 +539,9 @@ dd.io.save(h5file, dictio)
         
 h5file = simulations_folder+'/'+'list_'+typ
 d = dd.io.load(h5file)
-list_model_name = d['list_model_name'][6:]
-list_of_success = d['list_of_success'][6:]
-list_flow_model = d['list_flow_model'][6:]
+list_model_name = d['list_model_name'][:]
+list_of_success = d['list_of_success'][:]
+list_flow_model = d['list_flow_model'][:]
 
 #%% POROSITY POSTPROCESS
 
@@ -697,7 +698,7 @@ for model_name in list_model_name[:]:
                         'particlues.shp')
     """
     
-#%% POROSITY COMPARISON
+#%% POROSITY CAMPAR
 
 if user == 'Ronan':
     path_obs = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/" # add hydrographic shapefiles
@@ -707,7 +708,7 @@ if user == 'Clement':
 
 path_obs = path_obs+'age_apparent_obs_C2.shp'
 
-for model_name in list_model_name[:]:
+for model_name in list_model_name[8:]:
     print(model_name)
 
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
@@ -781,7 +782,7 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[7:], list_bott
 
 df_explo.to_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
-#%% POROSITY PLOT
+#%% POROSITY CHECK
 
 import hydroeval as he
 
@@ -791,7 +792,7 @@ dem_data = dem.read(1)
 vmin = 0
 vmax = 100
 
-for model_name in list_model_name[:]:
+for model_name in list_model_name[10:]:
     print(model_name)
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
     shp_sim = gpd.read_file(path_pathlines+'ending.shp')

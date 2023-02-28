@@ -139,13 +139,15 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
-BV.add_surfex(climate_path)
+if load == False:
+    BV.add_surfex(climate_path)
+    
 BV.add_geology(geology_path) 
 BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
 BV.add_oceanic(oceanic_path)
 BV.add_hydrometry(hydrometry_path)
 BV.add_intermittency(intermittency_path)
-BV.add_piezometry()
+# BV.add_piezometry()
 BV.add_subbasin()
 BV.add_hydrodynamic()
 BV.add_forcing()
@@ -158,8 +160,8 @@ watershed_display.watershed_local(dem_path, BV)
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
-sim_state = 'steady' # 'steady' or 'transient'
-period = [2016, 2016] # rehcarge period
+sim_state = 'transient' # 'steady' or 'transient'
+period = [2012, 2016] # rehcarge period
 time_step = 'D' # or 'M'
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
