@@ -139,6 +139,11 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
+
+#%% DATA CATCHMENT
+
 if load == False:
     BV.add_surfex(climate_path)
     
@@ -151,9 +156,6 @@ BV.add_intermittency(intermittency_path)
 BV.add_subbasin()
 BV.add_hydrodynamic()
 BV.add_forcing()
-
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
 
 #%% -----
 
@@ -402,4 +404,11 @@ if test_dichotomy == True:
 #%% -----
 
 #%% NOTES
+
+dem_path = "D:/Users/abherve/SIMULATIONS/TRANSFERT/_data/topography/BDALTI_bzhext_75m.tif"
+buff_path = "D:/Users/abherve/SIMULATIONS/TRANSFERT/Cheze/results_stable/geographic/buff.shp"
+
+watershed_buff_dem = "D:/Users/abherve/SIMULATIONS/TRANSFERT/test_dem.tif"
+wbt.clip_raster_to_polygon(dem_path, buff_path, watershed_buff_dem,
+                           maintain_dimensions=False)
 
