@@ -289,7 +289,7 @@ class Results:
                     compt+=1
                     
                 inf+=12
-                sup+=12                    
+                sup+=12     
         except:
             pass
 

@@ -341,7 +341,7 @@ with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
 # from_shp = None
 
 ### 4
-watershed_names = ['Ownoutlet10m_v3']
+watershed_names = ['Ownoutlet10m_v4']
 dem_name = 'DEM_10m.tif' # 'DEM_Poschiavino.tif'
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = False # True or False if the process start from a given DEM of xyz file
@@ -531,7 +531,7 @@ K = 1e-6 * 3600 * 24
 cond_decay = 0 # exponential decay of K with depth
 
 # Recharge
-recharge = 10 / 365
+recharge = 1 / 365
 
 # Typ name
 typ = 'constant_50m'
@@ -574,7 +574,7 @@ list_flow_model = []
 
 # defKR = np.logspace(-1,1,9)
 # defKR = [2.0,5.0,10.0]
-defKR = [10.0,100.0]
+defKR = [1.0,10.0,100.0,1000.0]
 
 # defKR = [10.0]
 # defKR = [0.1]
@@ -594,10 +594,9 @@ for it in range(0,len(defKR)):
     # Update recharge
     init_rech = None
     
-    # recharge = K/KR
     # print(KR_name, recharge*1000*365)
 
-    recharge = 10 / 365
+    # recharge = 1 / 365 # 10
     BV.forcing.update_recharge(values = (recharge), sim_state=sim_state)
 
     BV.hydrodynamic.update_nlay(nlay) # 1
@@ -1284,10 +1283,368 @@ for it in range(len(list_path)):
     ax.set_xlim(0, 5000)
     ax.set_ylim(1800, 2200)
     ax.invert_xaxis()
+    
 
 #%% ---- CLEMENT V3
 
 #%% COMPUTING
 
+typ = 'constant_50m'
 
+### GENERAL ###
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
 
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=False)
+
+for it in range(len(list_path)):
+    model_name = list_path[it].split('\\')[-1]
+    print(model_name)
+    
+    dem_path = BV.geographic.watershed_dem
+    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
+    wt_path = simulations_folder+model_name+'/'+'_watershed/_tifs/watertable_elevation_t(0).tif'
+    drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
+    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    vector_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_points_t(0).shp'
+    
+    wbt.raster_to_vector_points(acc_path, vector_path)
+    # d8_path = stable_folder+'/geographic/watershed_buff_direc.tif'
+    if not os.path.exists(down_path):
+        wbt.clip_raster_to_polygon(stable_folder+'/geographic/regional/region_down.tif', 
+                                   BV.geographic.watershed_shp, 
+                                   down_path)
+    # wbt.downslope_flowpath_length(
+    #     d8_path,
+    #     down_path, 
+    #     watersheds=None, # None
+    #     weights=None, 
+    #     esri_pntr=False)
+    
+    pts = gpd.read_file(vector_path)
+    pts.index = range(len(pts))
+    coords = [(x,y) for x, y in zip(pts.geometry.x, pts.geometry.y)]
+    src = rasterio.open(wt_path)
+    pts['wt_value'] = [x[0] for x in src.sample(coords)]
+    src = rasterio.open(drain_path)
+    pts['drain_value'] = [x[0] for x in src.sample(coords)]
+    src = rasterio.open(dem_path)
+    pts['dem_value'] = [x[0] for x in src.sample(coords)]
+    src = rasterio.open(down_path)
+    pts['down_value'] = [x[0] for x in src.sample(coords)]
+    src = rasterio.open(acc_path)
+    pts['acc_value'] = [x[0] for x in src.sample(coords)]
+    # pts['VALUE'] = ( (pts['VALUE'])  - np.nanmean((pts['VALUE'])) ) / np.std((pts['VALUE']))
+    pts = pts.drop('VALUE', axis=1)
+    values_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_values_t(0).shp'
+    pts.to_file(values_path)
+    
+#%% VECTOR VALUES
+
+typ = 'constant_50m'
+
+### GENERAL ###
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=False)
+
+for it in range(len(list_path)):
+    model_name = list_path[it].split('\\')[-1]
+    print(model_name)
+    
+    dem_path = BV.geographic.watershed_dem
+    dem_path = BV.geographic.watershed_dem
+    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
+    wt_path = simulations_folder+model_name+'/'+'_watershed/_tifs/watertable_elevation_t(0).tif'
+    drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
+    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    vector_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_points_t(0).shp'
+    values_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_values_t(0).shp'
+
+    pts = gpd.read_file(values_path)
+    
+    if model_name.split('_')[-1] == str(float(1)):
+        pts[pts.acc_value<1600] = np.nan
+    if model_name.split('_')[-1] == str(float(10)):
+        pts[pts.acc_value<1600] = np.nan
+    if model_name.split('_')[-1] == str(float(100)):
+        pts[pts.acc_value<1600] = np.nan
+    # if model_name.split('_')[-1] == str(float(1000)):
+    #     pts[pts.acc_value<1600] = np.nan
+    
+    main_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_main_t(0).shp'
+    pts.to_file(main_path)
+    
+#%% ONE AFTER QGIS
+
+typ = 'constant_50m'
+
+### GENERAL ###
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=False)
+
+for it in range(len(list_path)):
+    model_name = list_path[it].split('\\')[-1]
+    print(model_name)    
+    
+    # =============================================================================
+    #     AT THIS STEP : DELETE SOME STREAM POINTS ON QGIS
+    # =============================================================================
+    
+    one_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_one_t(0).shp'
+    shp_id = gpd.read_file(one_path)
+    if model_name.split('_')[-1] == str(float(1)):
+        one_id_1 = shp_id.FID
+    if model_name.split('_')[-1] == str(float(10)):
+        one_id_10 = shp_id.FID
+    if model_name.split('_')[-1] == str(float(100)):
+        one_id_100 = shp_id.FID
+    if model_name.split('_')[-1] == str(float(1000)):
+        one_id_1000 = shp_id.FID
+
+#%% FINAL SHP
+
+typ = 'constant_50m'
+
+### GENERAL ###
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=False)
+
+for it in range(len(list_path[:])):
+    model_name = list_path[it].split('\\')[-1]
+    print(model_name)
+    
+    if model_name.split('_')[-1] == str(float(1)):
+        one_id = one_id_1
+    if model_name.split('_')[-1] == str(float(10)):
+        one_id = one_id_10
+    if model_name.split('_')[-1] == str(float(100)):
+        one_id = one_id_100
+    if model_name.split('_')[-1] == str(float(1000)):
+        one_id = one_id_1000
+        
+    one_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_one_t(0).shp'
+    final_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_final_t(0).shp'
+
+    # vector = gpd.read_file(vector_path)
+    # values = gpd.read_file(values_path)
+    # main = gpd.read_file(main_path)
+
+    one = gpd.read_file(one_path)
+    one = one.dropna(how='all')
+    # one = gpd.read_file(main_path)
+    # one = one[one['FID'].isin(one_id)]
+    one['acc_norm'] = ( (one['acc_value'])  - np.nanmean((one['acc_value'])) ) / np.std((one['acc_value']))
+    one['acc_diff'] = one['acc_value'].diff(periods=10) # rolling
+    # one['acc_rol'] = one['acc_value'].rolling(window=10).diff() # rolling
+    print(one['acc_diff'].min(), one['acc_diff'].mean(), one['acc_diff'].max())
+    print(one['acc_value'].min(), one['acc_value'].mean(), one['acc_value'].max())
+    one.to_file(final_path)
+
+#%% FIGURES
+
+typ = 'constant_50m'
+
+### GENERAL ###
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True,
+                              modflow_path=modflow_path)
+
+list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                    key=os.path.getmtime, reverse=False)
+
+for it in range(len(list_path[:])):
+    model_name = list_path[it].split('\\')[-1]
+    print(model_name)
+    
+    dem_rast = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = np.ma.masked_where(dem_rast.read(1) < -100, dem_rast.read(1)) # dem data
+    dem_masked = np.ma.masked_where(dem_data < 0, dem_data)
+    
+    hill_rast = rasterio.open(data_path+"hillshade_z1_dem10m.tif")
+    hill_data = hill_rast.read(1)
+    hill_path = stable_folder+'/geographic/hillshade.tif'
+    toolbox.export_tif(BV.geographic.watershed_dem, 
+                       hill_data, -9999, hill_path)
+    hill_rast = rasterio.open(hill_path)
+    hill_data = np.ma.masked_where(hill_rast.read(1) < 0, hill_rast.read(1)) # dem data
+    hill_masked = np.ma.masked_where(dem_data.mask, hill_data)
+    
+    bv = gpd.read_file(BV.geographic.watershed_shp)
+    ext_mod = bv.geometry.total_bounds
+    
+    springs_path = data_path+'Springs_Poschiavino_transf.shp'
+    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
+    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
+    drain_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
+    vector_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_points_t(0).shp'
+    values_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_values_t(0).shp'
+    main_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_main_t(0).shp'
+    one_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_one_t(0).shp'
+    final_path = simulations_folder+model_name+'/'+'_watershed/_tifs/vector_final_t(0).shp'
+
+    springs = gpd.read_file(springs_path)
+    coords = [(x,y) for x, y in zip(springs.geometry.x, springs.geometry.y)]
+    src = rasterio.open(dem_path)
+    springs['dem_value'] = [x[0] for x in src.sample(coords)]
+    src = rasterio.open(down_path)
+    springs['down_value'] = [x[0] for x in src.sample(coords)]
+
+    # acc = np.ma.masked_array(imageio.imread(acc_path), mask=dem_masked.mask)
+    # down = np.ma.masked_array(imageio.imread(down_path), mask=dem_masked.mask)
+    # drain = np.ma.masked_array(imageio.imread(drain_path), mask=dem_masked.mask)
+    acc_rast = rasterio.open(acc_path)
+    acc_data = acc_rast.read(1) # dem data
+    acc_masked = np.ma.masked_where((dem_data.mask)|(acc_data<=0), acc_data)
+    
+    one = gpd.read_file(final_path)
+    one[['acc_value','acc_diff']] = one[['acc_value','acc_diff']] / 1000
+    
+    print(one['acc_diff'].min(), one['acc_diff'].mean(), one['acc_diff'].max())
+    print(one['acc_value'].min(), one['acc_value'].mean(), one['acc_value'].max())
+    
+    one[one['acc_value']<0] = np.nan
+    
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    
+    # fig, ax = plt.subplots(1,1, figsize=(6,3))
+    axb = ax.twinx()
+    axb.bar(one['down_value'], one['acc_diff'],
+            width=20, lw=0, color='dimgray', zorder=-1000)
+    axb.set_ylim(0, 8)
+    axb.spines[['top']].set_visible(False)
+    axb.tick_params(top=False)
+    axb.yaxis.label.set_color('dimgray')
+    axb.tick_params(axis='y', colors='dimgray')
+    # axb.tick_params(right=False)
+    
+    # axbb = ax.twinx()
+    # ax.plot(one['down_value'], one['dem_value'], color='saddlebrown')
+    # ax.plot(one['down_value'], one['wt_value'], color='navy')
+
+    # ax.scatter(values['down_value'], values['dem_value'], c=values['acc_value'], ec='None',
+    #            marker='.', lw=0, s=20,
+    #            norm=matplotlib.colors.LogNorm(vmin = 1, vmax = 15000))
+    s = ax.scatter(one['down_value'], one['dem_value'], 
+               c=one['acc_value'],
+               cmap='jet',
+               marker="|", lw=2, s=25,
+                vmin=0, 
+                vmax=25,
+                # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
+               )
+    ax.scatter(springs['down_value'], springs['dem_value'], ec='k', 
+                lw= 1, marker='.', s=10,
+                facecolor='None')
+    ax.set_xlim(2000, 6000)
+    ax.set_ylim(1850, 2250)
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([1.03, 0.30, 0.02, 0.5])
+    cb = fig.colorbar(s, cax=cbar_ax,
+                      # ticks=np.arange(0.0,200,50)
+                      )    
+    # cb = fig.colorbar(s, ax=axs.tolist())
+    cb.set_label('Discharge [L/j]', rotation= 270, labelpad=25)
+    
+    # ax.spines[['right', 'top']].set_visible(False)
+    # ax.tick_params(top=False)
+    # ax.tick_params(right=False)
+        
+    ax.invert_xaxis()
+    # axb.invert_xaxis()
+    
+    # fig.set_zorder(ax.get_zorder()+1)
+    # fig.patch.set_visible(False)
+    
+    ax.zorder = 2 # fills in back
+    axb.zorder = 1 # then the line
+    # ax2.zorder = 3 # then the points
+    ax.patch.set_visible(False)
+    
+    plt.tight_layout()
+
+    fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/POSCHIAVINO/_results/"+
+                "v4/"+"profile_"+model_name+'.png', dpi=300, bbox_inches='tight')
+
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    bv.plot(ax=ax, facecolor='None')
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    
+    show(hill_masked, ax=ax, transform=dem_rast.transform, cmap='Greys_r', alpha=0.5)
+    show(dem_data, ax=ax, transform=dem_rast.transform, cmap='Greys', alpha=0.5)
+    
+    show(acc_masked, ax=ax, transform=dem_rast.transform, cmap=mpl.colors.ListedColormap('k'), alpha=1)
+    
+    one.plot(ax=ax, column='acc_diff', ec='None',
+             marker="o", lw=0.5, s=5,
+              vmin=0, vmax=1,
+             # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
+             )
+    springs.plot(ax=ax, ec='k', 
+                lw=0.5, marker='.',
+                facecolor='None')
+    
+    plt.axis('off')
+    
+    fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/POSCHIAVINO/_results/"+
+                "v4/"+"map_"+model_name+'.png', dpi=300, bbox_inches='tight')
+    
+    """
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    ax.plot(one['down_value'], one['dem_value'], color='saddlebrown')
+    ax.plot(one['down_value'], one['wt_value'], color='navy')
+    ax.set_xlim(2000, 6000)
+    ax.set_ylim(1850, 2250)
+    ax.invert_xaxis()
+    """
+    
+#%% NOTES
+
+# acc_catchment_path = simulations_folder+model_name+'/'+'_watershed/_tifs/acc_catchment_t(0).tif'
+# toolbox.export_tif(BV.geographic.watershed_fill, acc, -9999, acc_catchment_path)
+# main_path = simulations_folder+model_name+'/'+'_watershed/_tifs/main_stream_t(0).tif'
+# wbt.find_main_stem(
+#     d8_path, 
+#     acc_catchment_path, 
+#     main_path, 
+#     esri_pntr=False, 
+#     zero_background=False)
+
+# from rasterio.plot import show    
+# fig, ax = plt.subplots(1,1)
+# show(dem_data, ax=ax, transform=dem.transform)
+# springs.plot(ax=ax)
