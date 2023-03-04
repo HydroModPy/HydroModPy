@@ -202,26 +202,32 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem)
+        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem,
+                                   maintain_dimensions=False)
         # Clip corrected regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill)
+        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill,
+                                   maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer watershed shapefile polygon
         watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc)
+        wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc,
+                                   maintain_dimensions=False)
         
         """
         Clip to reach watershed size
         """
         # Clip buffer watershed DEM from watershed shapefile polygon
         self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, maintain_dimensions=True)
+        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, 
+                                   maintain_dimensions=True)
         # Clip corrected regional DEM from watershed shapefile polygon
         self.watershed_fill = self.gis_path + 'watershed_fill.tif'
-        wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill)
+        wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill,
+                                   maintain_dimensions=False)
         # Clip flow direction regional DEM from watershed shapefile polygon
         self.watershed_direc = self.gis_path + 'watershed_direc.tif'
-        wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc)
+        wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc,
+                                   maintain_dimensions=False)
         wbt.slope(self.watershed_dem,
                   self.gis_path + 'watershed_slope.tif',
                   units="percent")
@@ -233,13 +239,16 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem)
+        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem,
+                                   maintain_dimensions=False)
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
         watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill)
+        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill,
+                                   maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
         watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
+        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc,
+                                   maintain_dimensions=False)
         
         """
         Create depressions raster
