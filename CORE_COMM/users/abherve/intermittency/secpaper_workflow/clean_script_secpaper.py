@@ -272,8 +272,8 @@ for watershed_name in watershed_names[:] :
     # plt.plot(r_norm)
     plt.yscale('log')
     
-    R_norm = select_period(R_norm, 1990, 2019)
-    r_norm = select_period(r_norm, 1990, 2019)
+    R_norm = select_period(R_norm, 2019, 2019)
+    r_norm = select_period(r_norm, 2019, 2019)
     
     dict_recharge[watershed_name] = R_norm
     dict_runoff[watershed_name] = r_norm
@@ -351,7 +351,7 @@ for watershed_name in watershed_names :
 
 modflow_path = data_path + 'SOFTWARE/MODFLOW/'
 
-for watershed_name in watershed_names[:] :
+for watershed_name in watershed_names[:1] :
     print('##### '+watershed_name.upper()+' #####')
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -365,23 +365,33 @@ for watershed_name in watershed_names[:] :
     BV.forcing.update_recharge(dict_recharge[watershed_name], sim_state='transient')
     BV.forcing.update_runoff(dict_runoff[watershed_name], sim_state='transient')
     
-    BV.hydrodynamic.update_thickness(30)
+    nlay = 1
+    bottom = None
+    cond_decay = 0
+    thick_exp = 1
+    thickness = 30
+        
+    BV.hydrodynamic.update_nlay(nlay) # 1
+    BV.hydrodynamic.update_bottom(bottom) # None
+    BV.hydrodynamic.update_cond_decay(cond_decay) # 0
+    BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+    BV.hydrodynamic.update_thickness(thickness) # 30 / intervient pas si bottom != None
 
     params_df = pd.DataFrame(columns=['params',
                                       'init_values','lower_bounds','higher_bounds',
                                       'units','scale'])
     if watershed_name == 'Canut':
-        params_df.loc[0] = ['k1', None, 1e-8*86400, 1e-2*86400, 'm/j', 'lin']
-        params_df.loc[1] = ['n1', None, 0.1/100, 10/100, 'm/j', 'lin']
+        params_df.loc[0] = ['k1', 0, 1e-8*86400, 1e-2*86400, 'm/j', 'lin']
+        params_df.loc[1] = ['n1', 0, 0.1/100, 10/100, 'm/j', 'lin']
     if watershed_name == 'Nancon':
-        params_df.loc[0] = ['k1', None, 1e-8*86400, 1e-2*86400, 'm/j', 'lin']
-        params_df.loc[1] = ['n1', None, 0.1/100, 10/100, 'm/j', 'lin']
+        params_df.loc[0] = ['k1', 0, 1e-8*86400, 1e-2*86400, 'm/j', 'lin']
+        params_df.loc[1] = ['n1', 0, 0.1/100, 10/100, 'm/j', 'lin']
         
-    params_file = 'calib_explo_hom_2v_k1-n1' 
+    params_file = 'calib_explo_hom_2v_k1-n1'
     params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
     
     calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=400)
+    calib.exploration(resolution=1)
     
 #%% ---- MODEL
     
@@ -516,24 +526,21 @@ for watershed_name in watershed_names[:1] :
         if success==True:
                 print(success)
                                 
-                # BV.matrix_modflow(success,
-                #                   flow_model,
-                #                   first_only = True,
-                #                   watertable_elevation = True,
-                #                   watertable_depth = True, 
-                #                   seepage_areas = True,
-                #                   outflow_drain = True,
-                #                   groundwater_flux = False,
-                #                   specific_discharge = False,
-                #                   accumulation_flux = True,
-                #                   perenn_intermit_shp = False,
-                #                   groundwater_storage = True,
-                #                   residence_times = False,
-                #                   verbose = True,
-                #                   export_tif = True)
-                
-                # Necessary for results_modflow
-                # BV.forcing.update_recharge(flow_model.climatic, sim_state='transient')
+                BV.matrix_modflow(success,
+                                  flow_model,
+                                  first_only = True,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = False,
+                                  specific_discharge = False,
+                                  accumulation_flux = True,
+                                  perenn_intermit_shp = False,
+                                  groundwater_storage = True,
+                                  residence_times = False,
+                                  verbose = True,
+                                  export_tif = True)
                 
                 # # Extract results
                 BV.results_modflow(ident=model_name,
@@ -553,6 +560,267 @@ for watershed_name in watershed_names[:1] :
 #%% ---- PLOT
 
 #%% MATRIX DISCHARGE
+
+sat_typ = 'seepage_areas'
+
+params_file = 'calib_explo_hom_2v_k1-n1'
+
+wish = 0
+
+for watershed_name in watershed_names[:1]:
+    
+    print('##### '+watershed_name.upper()+' #####')
+
+    min_nse = 50
+    mean_meansat = 3 # sup
+    min_maxsat = 8
+    max_maxsat = 25
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+
+    typ_calib = 'hydrometry_calibration'
+    list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                        key=os.path.getmtime, reverse=True)
+    name_file = list_path[wish].split('\\')[-1]
+    calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+    test = calib_analysis.CalibAnalysis(calib_file)
+    
+    df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+    # test.display_objective_function(save=None)
+    # test.find_best_values()
+    # test.display_best_data()
+    
+    sim_res=test.sim_results
+    print(sim_res)
+    
+    typ_name = typ_calib.split('_')[0]
+    
+    obs = test.data_obs
+    sim = test.data_sim
+    ind = test.data_ind
+    obj = test.calib['objective_function']
+    xyz = test.params_xyz
+    
+    synt = test.params_synt
+        
+    p1 = []
+    for p in synt:
+        p1.append(p.split(';')[0])
+    p2 = []
+    for p in synt:
+        p2.append(p.split(';')[1])
+    rout = []
+    for r in sim[typ_name]:
+        rout.append((r*1000*30).mean()[0])
+    rsat = []
+    for t in range(len(synt)):     
+        sat = test.sim_results[synt[t]][sat_typ]
+        sat = pd.to_numeric(sat, errors='coerce').isnull()
+        rsat.append(sat.mean())
+    
+    nse_good = []
+    sat_good = []
+    
+    numb = 0
+    for i in range(len(obs[typ_name])):
+        o = obs[typ_name][i] * 1000 * 30 # m/j to mm/month
+        s = sim[typ_name][i] * 1000 * 30 # m/j to mm/month
+        nd = ind[typ_name][i]
+        sat = test.sim_results[synt[i]][sat_typ]
+        sat = pd.to_numeric(sat)
+        
+        k = '{:.1e}'.format(float(synt[i].split(';')[0])/24/3600)
+        sy = float(synt[i].split(';')[1]) * 100
+        title = 'Discharge [mm/month]'
+        nselog = round(((nd[0]))*100,1)
+        label = 'K = '+k+' m/s'+' ; '+'ɸ = '+str(round(sy,1))+'% ; '+\
+                '$NSE_{log}$ = '+str(nselog)+'%'
+        nse_good.append(str(k)+'_'+str(sy)+'_'+str(nselog))
+        if nselog > min_nse:
+            # if all(i <= 50 for i in sat):
+            if sat.max() < max_maxsat:
+                if sat.max() > min_maxsat:
+                    numb += 1
+                # c = []
+                # for h in range(len(ind[typ_name])):
+                #     d = ind[typ_name][h][0]
+                #     c.append(d)
+        
+        c = np.linspace(0,1,len(obs[typ_name]))
+
+        # cmap = mpl.cm.get_cmap('viridis_r')
+        # color_gradients = cmap(c)
+        # vmin = min(c)
+        # vmax = max(c)
+        # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z=test.obj_function.copy()
+    Z[Z<0] = 0
+    from numpy import inf
+    Z[Z == inf] = 0
+    bounds = np.arange(0,1.1,0.1)
+    norm = mpl.colors.Normalize(vmin=-1, vmax=1.0)
+    # pc = ax.pcolormesh(X,Y,Z, cmap='jet', shading='gouraud', vmin=0, vmax=1) #figadd.cmap_white_jet()
+    pc = ax.contourf(X/3600/24, Y*100, Z, levels=np.arange(0,1.1,0.1), alpha=0.5, ec='none')    
+    
+    # divider = make_axes_locatable(ax)
+    # cax = divider.append_axes('right', size='5%', pad=0.05)
+    
+    
+    # position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+    # cb = fig.colorbar(pc, cax=position, orientation='vertical')
+    # cb.set_ticks(np.arange(0,1.1,0.2))
+    # cb.set_ticklabels(np.arange(0,101,20)) 
+    # cb.set_label('$NSE_{log}$', rotation=270, labelpad=40)
+    # cb.ax.tick_params(top=True,
+    #             bottom=True,
+    #             left=False,
+    #             right=False,
+    #             labelleft=False,
+    #             labelbottom=True)
+    
+    
+    ax.set_xscale('log')
+    ax.set_ylabel('θ [%]')
+    ax.set_xlabel('K [m/s]')
+    # ax.set_yticks(np.arange(0,11,2))
+    # ax.set_yticklabels(np.arange(0,11,2))
+    # ax.tick_params(direction='in')
+    ax.tick_params(top=True,
+               bottom=True,
+               left=True,
+               right=False,
+               labelleft=True,
+               labelbottom=True)
+    
+    plt.tight_layout()
+
+    X,Y = np.meshgrid(test.params_values[0], test.params_values[1])
+    Z = np.empty((3,3,))
+    Z[:] = np.nan
+    p1 = test.params_values[0]
+    p2= test.params_values[1]
+    sim_sat = np.zeros((len(p1),len(p2)))
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).min()
+            except:
+                sim_sat[j][i] = np.nan
+                pass
+            compt += 1
+    Zmin = sim_sat
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).mean()
+            except:
+                sim_sat[j][i] = np.nan
+                pass 
+            compt += 1
+    Zmean = sim_sat
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).median()
+            except:
+                sim_sat[j][i] = np.nan
+                pass 
+            compt += 1
+    Zmed = sim_sat
+    
+    compt=0
+    for i in range(len(p1)):
+        for j in range(len(p2)):
+            temp = [p1[i],p2[j]]
+            string = str(p1[i])+';'+str(+p2[j])
+            try:
+                sim_sat[j][i] = pd.to_numeric(sim_res[string][sat_typ]).max()
+            except:
+                sim_sat[j][i] = np.nan
+                pass
+            compt += 1
+    Zmax = sim_sat
+    
+    Z = Zmax.copy()
+    Z[Zmax<min_maxsat] = np.nan
+    Z[Zmax>max_maxsat] = np.nan
+    Z[Zmean<mean_meansat] = np.nan
+    
+    Xclip = np.ma.masked_array(X, mask=np.isnan(Z)) /3600/24 # y = y.compress() # y without nan where x has nan's
+    Yclip = np.ma.masked_array(Y, mask=np.isnan(Z)) *100    
+    
+    '''
+    ax.scatter(Xclip, Yclip, c=Z, s=20, marker='s', edgecolor='k',
+                cmap=mpl.colors.ListedColormap('white'))
+    '''
+    
+    # pc = ax.pcolormesh(X/3600/24, Y*100, Z,
+    #                  cmap = mpl.colors.ListedColormap('Grey'),
+    #                  alpha=0.5, linewidths=1)
+    # pc = ax.contour(X/3600/24, Y*100, Z, levels=np.arange(0,100,5),
+    #                  cmap =  mpl.colors.ListedColormap('Grey'),
+    #                  alpha=0.75, linewidths=1)
+    
+    # fig2, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    # pc = ax.contourf(X/3600/24, Y*100, Zmax, cmap='seismic',
+    #                   levels=np.arange(0,100,5), alpha=0.75) # mpl.colors.ListedColormap('Grey')
+    # ax.set_xscale('log')
+    # ax.set_ylabel('Φ [%]')
+    # ax.set_xlabel('K [m/s]')
+    # ax.tick_params(top=True,
+    #            bottom=True,
+    #            left=True,
+    #            right=False,
+    #            labelleft=True,
+    #            labelbottom=True)
+    # # ax.tick_params(direction='out', axis='both', which='both')
+    # # position=fig2.add_axes([1.05,0.2,0.02,0.7])  ## the parameters are the specified position you set 
+    # # fig2.colorbar(pc,cax=position)
+    
+    ax.axvline(df.perennial[0], color='k', lw=2, ls='--')
+    ax.axvline(df.river[0], color='k', lw=2, ls='--')
+    ax.axvline(df.complete[0], color='k', lw=2, ls='--')
+    try:
+        ax.axvline(df.zh_couesnon[0], color='k', lw=2, ls='--')
+    except:
+        ax.axvline(df.zh_meuchezecanut[0], color='k', lw=2, ls='--')
+        pass
+    
+    # ax.set_ylim(0.1,10)
+    # ax.set_yticks(np.arange(0.1,11,2))
+    # ax.set_yticklabels(np.arange(0,10,2))
+    
+    ax.set_title(watershed_name, pad=10)
+    plt.tight_layout()
+    
+    # fig.savefig(figsim_folder+watershed_name+'_calib2D_map'+'.png', dpi=300, bbox_inches='tight')
+    # fig.savefig(fig_path + 'Qmap_NSElog_' +
+    #             watershed_name + '.png', dpi=300, bbox_inches='tight')
+
+    base_name = figsim_folder+'fig03/'
+    spec_name = watershed_name+'_explodischarge'
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
 
 #%% MATRIX SATURATION
@@ -1401,3 +1669,6 @@ for watershed_name in watershed_names[:1]:
 
 #%% NOTES
 
+plt.plot(test.data_obs['hydrometry'][0])
+plt.plot(x['hydrometry'][0])
+plt.yscale('log')
