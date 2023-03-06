@@ -76,15 +76,25 @@ def select_period(df, first, last):
 
 #%% PATH
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
-data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
-# Path where the results will be stored
-out_path = "D:/Users/abherve/SECPAPER/"
-# Figure folder outputs
-figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/_vf/'
+pc = 'local'
 
+if pc == 'local':
+    git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+    # Path to the data folder
+    data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
+    # Path where the results will be stored
+    out_path = "D:/Users/abherve/SECPAPER/"
+    # Figure folder outputs
+    figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/_vf/'
+if pc == 'serv':
+    git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+    # Path to the data folder
+    data_path = "D:/abherve/HYDRODATAPY/"
+    # Path where the results will be stored
+    out_path = "D:/Users/abherve/SECPAPERONELAY/"
+    # Figure folder outputs
+    figsim_folder = "D:/Users/abherve/SECPAPERONELAY/Figures/"
+    
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
@@ -272,8 +282,8 @@ for watershed_name in watershed_names[:] :
     # plt.plot(r_norm)
     plt.yscale('log')
     
-    R_norm = select_period(R_norm, 2019, 2019)
-    r_norm = select_period(r_norm, 2019, 2019)
+    R_norm = select_period(R_norm, 1990, 2019)
+    r_norm = select_period(r_norm, 1990, 2019)
     
     dict_recharge[watershed_name] = R_norm
     dict_runoff[watershed_name] = r_norm
