@@ -29,13 +29,13 @@ dependencies:
 
     # H5 files
     - pytables
-    - deepdish
+    - deepdish=0.3.7
     - netCDF4
 
     # Data reading/writing and conversion
     - pandas
     - geopandas # rtree failled the import of geopandas: 'conda install pygeos --channel conda-forge' and 'pip uninstall rtree'
-    - imageio
+    - imageio=2.9.0
     - rasterio # 
     - pyshp # corresponds to 'shapefile' library in the code
     - selenium

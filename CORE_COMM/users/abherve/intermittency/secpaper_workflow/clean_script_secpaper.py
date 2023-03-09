@@ -809,12 +809,12 @@ for watershed_name in watershed_names[:1]:
     # # fig2.colorbar(pc,cax=position)
     
     ax.axvline(df.perennial[0], color='k', lw=2, ls='--')
-    ax.axvline(df.river[0], color='k', lw=2, ls='--')
+    # ax.axvline(df.river[0], color='k', lw=2, ls='--')
     ax.axvline(df.complete[0], color='k', lw=2, ls='--')
     try:
         ax.axvline(df.zh_couesnon[0], color='k', lw=2, ls='--')
-    except:
         ax.axvline(df.zh_meuchezecanut[0], color='k', lw=2, ls='--')
+    except:
         pass
     
     # ax.set_ylim(0.1,10)
@@ -839,9 +839,10 @@ params_file = 'calib_explo_hom_2v_k1-n1'
 
 wish = 0
 
-sat_typ = 'seepage_areas'
+sat_typ = 'surflow_areas'
+# sat_typ = 'seepage_areas'
 
-for watershed_name in watershed_names[:]:
+for watershed_name in watershed_names[:1]:
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -908,6 +909,7 @@ for watershed_name in watershed_names[:]:
     sim_sat_min = np.zeros((len(p1),len(p2)))
     sim_sat_mean = np.zeros((len(p1),len(p2)))
     sim_sat_max = np.zeros((len(p1),len(p2)))
+    sim_sat_std = np.zeros((len(p1),len(p2)))
     compt=0
     for i in range(len(p1)):
         for j in range(len(p2)):
@@ -915,35 +917,50 @@ for watershed_name in watershed_names[:]:
             string = str(p1[i])+';'+str(+p2[j])
             try:
                 # ax.set_title('SAT MIN [%]')
-                sim_sat_min[j][i] = pd.to_numeric(sim_res[string][sat_typ]).min()
+                sim_sat_min[j][i] = np.nanmin(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
             try:
                 # ax.set_title('SAT MEAN [%]')
-                sim_sat_mean[j][i] = pd.to_numeric(sim_res[string][sat_typ]).median()
+                sim_sat_mean[j][i] = np.nanmedian(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
             try:
                 # ax.set_title('SAT MAX [%]')
-                sim_sat_max[j][i] = pd.to_numeric(sim_res[string][sat_typ]).max()
+                sim_sat_max[j][i] = np.nanmax(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
+            except:
+                pass
+            try:
+                # ax.set_title('SAT MAX [%]')
+                sim_sat_std[j][i] = np.nanvar(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
             compt += 1
     
+    sim_sat_max[np.isnan(sim_sat_max)] = 0
+    sim_sat_min[np.isnan(sim_sat_min)] = 0
+    
     # sim_sat_min[sim_sat_min==0] = 1/1e6
     # sim_sat_max[sim_sat_max==0] = 1/100
-    Z = (sim_sat_max/sim_sat_min)
+    # Z = (sim_sat_max / sim_sat_min) # / sim_sat_mean
+    Z = (sim_sat_max - sim_sat_min) / sim_sat_mean
+    # Z = sim_sat_mean
     # Z = np.log10(Z)
+    # plt.imshow(sim_sat_max)
+    # plt.colorbar()
+    
+    # Z = sim_sat_std
     
     # Z[sim_sat_max==0] = 0
     # Z[sim_sat_min==0] = 0
     # Z[sim_sat_max==0] = 0
     # from numpy import inf
-    Z[Z == np.inf] = 100
+    # Z[np.isnan(Z)] = 0
+    # Z[Z == np.inf] = 100
     # Z[Z == 0] = 0.1
-    Z[Z>100] = 100
+    # Z[Z>100] = 100
     print(np.nanmin(Z), np.nanmax(Z))
-    # Z[Z == np.nan] = np.inf
+    
     # pc = ax.contour(X/24/3600,Y*100,Z, cmap='jet', alpha=1, lw=2,
     #                  levels=np.arange(0,101,10)) #figadd.cmap_white_jet()    
     
@@ -955,22 +972,25 @@ for watershed_name in watershed_names[:]:
     # pc = plt.pcolormesh(X/24/3600,Y*100,Z, cmap='jet', alpha=0.6) #figadd.cmap_white_jet()     levels=np.arange(0,101,10)
     # plt.xscale('log')
     # Z[(sim_sat_max==0)&(sim_sat_min==0)] = np.nan
-    # pcinf = ax.pcolormesh(X/24/3600,
-    #                       Y*100,
-    #                       (Z==np.inf), cmap=mpl.colors.ListedColormap('grey'), alpha=0.6,
-    #                     # levels=np.arange(0,101,10),
-    #                     norm=mpl.colors.LogNorm(vmin=1, vmax=101),
-    #                   linewidths=2) #figadd.cmap_white_jet()     levels=np.arange(0,101,10)    
-    pc = plt.contourf(X/24/3600,Y*100,Z, cmap='jet', alpha=0.5,
-                        levels=np.around(np.geomspace(1, 100, 10)).astype(int),
-                        norm=mpl.colors.LogNorm(),
+    pcinf = ax.pcolormesh(X/24/3600,
+                          Y*100,
+                          (np.isnan(Z)), cmap=mpl.colors.ListedColormap('lightgrey'), alpha=0.6,
+                        # levels=np.arange(0,101,10),
+                        # norm=mpl.colors.LogNorm(vmin=1, vmax=101),
+                      linewidths=2) #figadd.cmap_white_jet()     levels=np.arange(0,101,10)    
+    pc = plt.contourf(X/24/3600,Y*100, Z, cmap='jet', alpha=0.5,
+                        # levels=np.around(np.geomspace(1, 100, 10)).astype(int),
+                        # levels=np.around(np.arange(0, 10, 1)).astype(int),
+                        levels=np.arange(0, 11, 1).astype(int),
+                        # norm=mpl.colors.LogNorm(),
                       linewidths=2)
-    
+
     Z2 = (sim_sat_mean)
     # pc2 = ax.contourf(X/24/3600,Y*100,Z2, cmap=mpl.colors.ListedColormap('white'), 
     #                   alpha=0.25, linewidths=0,
     #                   levels=np.linspace(0.5,10,2),
     #                   ) #figadd.cmap_white_jet()
+    """
     pc2 = ax.contourf(X/24/3600,Y*100,Z2, cmap=mpl.colors.ListedColormap('grey'), 
                       alpha=0.25, linewidths=0,
                       levels=np.linspace(0,0.5,2),
@@ -982,6 +1002,7 @@ for watershed_name in watershed_names[:]:
     pc2 = ax.contour(X/24/3600,Y*100,Z2, cmap=mpl.colors.ListedColormap('k'), alpha=1, linewidths=2,
                       levels=np.linspace(0.5,10,2)
                       ) #figadd.cmap_white_jet()    
+    """
     # ax.contourf(X/24/3600,Y*100, Z2/4, cmap='jet', alpha=0.5,
     #                    norm=mpl.colors.LogNorm(vmin=0.1, vmax=101),
     #                   linewidths=2) #♠mpl.colors.ListedColormap('k')
