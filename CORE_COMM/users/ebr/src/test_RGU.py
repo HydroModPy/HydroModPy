@@ -60,11 +60,11 @@ if user == 'Abherve':
 
 if user == 'Cimpaye':
     # # Path to the git repositoty home page
-    git_path = "C:/Users/admin/Desktop/Gitub/HydroModPy/CORE_COMM/"
+    git_path = "xxx"
     # # Path to the data folder
-    data_path = "D:/SimulationHydro/_data/"
+    data_path = "xxx"
     # # Path where the results will be stored
-    out_path = 'D:/SimulationHydro/'
+    out_path = 'xxx'
 
 if user == 'Guillossou':
     # # Path to the git repositoty home page
@@ -142,11 +142,10 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
-#%% DATA CATCHMENT
+#%% Data watershed
 
-if load == False:
-    BV.add_surfex(climate_path)
-    
+
+BV.add_surfex(climate_path)
 BV.add_geology(geology_path) 
 BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
 BV.add_oceanic(oceanic_path)
@@ -157,14 +156,17 @@ BV.add_subbasin()
 BV.add_hydrodynamic()
 BV.add_forcing()
 
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
+
 #%% -----
 
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
 sim_state = 'transient' # 'steady' or 'transient'
-period = [2012, 2016] # rehcarge period
-time_step = 'D' # or 'M'
+period = [2015, 2019] # rehcarge period
+time_step = 'M' # or 'M'
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 
@@ -276,7 +278,7 @@ from groundwater_flow import visualization, modflow_display
 
 # 3D parameters
 list_view = ['watertable_depth','surface_flow'] # object to represent in 3D
-interactive = True
+interactive = False
 z_scale = 10
 view = 'south-west'
 lines = 200
@@ -404,11 +406,4 @@ if test_dichotomy == True:
 #%% -----
 
 #%% NOTES
-
-dem_path = "D:/Users/abherve/SIMULATIONS/TRANSFERT/_data/topography/BDALTI_bzhext_75m.tif"
-buff_path = "D:/Users/abherve/SIMULATIONS/TRANSFERT/Cheze/results_stable/geographic/buff.shp"
-
-watershed_buff_dem = "D:/Users/abherve/SIMULATIONS/TRANSFERT/test_dem.tif"
-wbt.clip_raster_to_polygon(dem_path, buff_path, watershed_buff_dem,
-                           maintain_dimensions=False)
 
