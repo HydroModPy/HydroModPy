@@ -145,7 +145,7 @@ class CalibrationBasis:
 
         # Run model: seeks the parameters automatically in the elements of self.watershed
         succes, mf = self.watershed.run_modflow(self.ident, 
-                                                verbose=True, 
+                                                verbose=True,
                                                 calib=self.param_folder)
         
         # Use objective function from the type of observation
@@ -219,7 +219,7 @@ class CalibrationBasis:
                        outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
-                       accumulation_flux = False,
+                       accumulation_flux = True,
                        perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
@@ -228,10 +228,13 @@ class CalibrationBasis:
                                                                    runoff=self.watershed.forcing.runoff,
                                                                    actual_date=True,
                                                                    calib=self.param_folder)
+                print(self.watershed.forcing.recharge)
+                print(self.watershed.forcing.runoff)
                 # print(simulated_results)
                 # print(params)
                 params_synt = ";".join(str(x) for x in params)
                 self.dic_simulated_results[params_synt] = simulated_results
+                print(simulated_results)
                 
                 obj_func = calib_objective_function.Hydrometry(self.watershed,
                                                                self.ident,
