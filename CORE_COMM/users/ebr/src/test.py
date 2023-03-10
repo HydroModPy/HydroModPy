@@ -47,7 +47,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 ############################################
-user = 'Abherve'
+user = 'Cimpaye'
 ############################################
 
 if user == 'Abherve':
@@ -60,11 +60,11 @@ if user == 'Abherve':
 
 if user == 'Cimpaye':
     # # Path to the git repositoty home page
-    git_path = "xxx"
+    git_path = "C:/Users/admin/Desktop/Gitub/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "xxx"
+    data_path = "D:/SimulationHydro/_data/"
     # # Path where the results will be stored
-    out_path = 'xxx'
+    out_path = 'D:/SimulationHydro/'
 
 if user == 'Guillossou':
     # # Path to the git repositoty home page
@@ -127,7 +127,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -145,7 +145,7 @@ BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
 BV.add_oceanic(oceanic_path)
 BV.add_hydrometry(hydrometry_path)
 BV.add_intermittency(intermittency_path)
-BV.add_piezometry()
+# BV.add_piezometry()
 BV.add_subbasin()
 BV.add_hydrodynamic()
 BV.add_forcing()
