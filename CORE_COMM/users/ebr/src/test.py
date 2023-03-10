@@ -47,7 +47,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 ############################################
-user = 'Cimpaye'
+user = 'Guillossou'
 ############################################
 
 if user == 'Abherve':
@@ -68,11 +68,11 @@ if user == 'Cimpaye':
 
 if user == 'Guillossou':
     # # Path to the git repositoty home page
-    git_path = "xxx"
+    git_path = "C:/Users/r.guillossou/Documents/GitHub/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "xxx"
+    data_path = "C:/Users/r.guillossou/Documents/Data Hydromodpy/_data/"
     # # Path where the results will be stored
-    out_path = 'xxx'
+    out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
 
 #%% DATABASE ACCESS FOR THIS TESTS
 

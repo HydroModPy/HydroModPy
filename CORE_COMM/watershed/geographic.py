@@ -232,7 +232,7 @@ class Geographic:
         wbt.slope(self.watershed_dem,
                   self.gis_path + 'watershed_slope.tif',
                   units="percent")
-        slope = imageio.imread(self.gis_path + 'watershed_slope.tif')
+        slope = imageio.v2.imread(self.gis_path + 'watershed_slope.tif')
         self.slope = np.nanmean(slope[slope>=0])
         
         """
