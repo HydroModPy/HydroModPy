@@ -47,7 +47,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # %% PATHS + watershed options
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Baie-du-Cotentin'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 load = False # loads previously generated basin if true
 
@@ -90,7 +90,7 @@ cell_size = None # specify new resolution from a given DEM or None
 
 import os
 
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+shp_file = r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Baie-du-cotentin/Carentan_2_sea.shp'
 # os.path.join('C', 'Users', 'Martin Le Mesnil', 'Travail', 'SIG', 'BV_RN2100', 'SGA_2_sea_2.shp')
 # shp_file = r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Baie-du-cotentin/Carentan_2_sea.shp'
 # 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
@@ -135,7 +135,7 @@ watershed_display.watershed_local(dem_path, BV)
 #%% Historic recharge & ETP (for ET estimation)
 
 start_year = 1960 #start year for shortened time series, complete series start at 1958
-minimum_yearly_rainfall = 400 # remove outliers
+minimum_yearly_rainfall = 600 # remove outliers
 
 import matplotlib.pyplot as plt
 from scipy.ndimage import uniform_filter1d
@@ -224,12 +224,16 @@ plt.show()
 #plot mean doy ETP against 2000-2020 daily ETP time series
 plt.plot(piv)
 plt.plot(doy_ETP)
+plt.xlabel('Day of Year')
+plt.ylabel('ETP (mm/d)')
 plt.show()
 
 #plot smoothed doy_ETP against mean doy_ETP
 doy_ETP_smooth = uniform_filter1d(doy_ETP, size=30)
 plt.plot(doy_ETP)
 plt.plot(doy_ETP_smooth)
+plt.xlabel('Day of Year')
+plt.ylabel('ETP (mm/d)')
 plt.show()
 
 # save smoothed doy_ETP as csv
@@ -240,6 +244,9 @@ plt.show()
 #plot doy_ETP gainst recharge
 plt.plot(doy_ETP_smooth)
 plt.plot(doy_REC)
+plt.xlabel('Day of Year')
+plt.ylabel('mm/day')
+plt.legend(['ETP','Recharge'])
 plt.show()
 
 
