@@ -60,11 +60,11 @@ if user == 'Abherve':
 
 if user == 'Cimpaye':
     # # Path to the git repositoty home page
-    git_path = "xxx"
+    git_path = "C:/Users/admin/Desktop/Gitub/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "xxx"
+    data_path = "D:/SimulationHydro/_data/"
     # # Path where the results will be stored
-    out_path = 'xxx'
+    out_path = 'D:/SimulationHydro/'
 
 if user == 'Guillossou':
     # # Path to the git repositoty home page
