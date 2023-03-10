@@ -800,7 +800,7 @@ for watershed_name in watershed_names[:] :
                                   dem_path=dem_path, 
                                   out_path=out_path,
                                   load=True)
-
+    if not os.path
     BV.add_surfex(surfex_path)
     BV.add_drias(drias_path)
     BV.add_geology(geology_path)

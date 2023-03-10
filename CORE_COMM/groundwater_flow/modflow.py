@@ -7,6 +7,8 @@
 
 # Modules
 import flopy
+
+
 import numpy as np
 import os
 import pandas as pd
@@ -841,6 +843,7 @@ class Modflow():
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
         self.dict_groundwater_storage = {}
+        self.dict_residence_times = {}
         self.list_traces = []
         
         # self.dict_watertable_elevation = (self.save_file+'/watertable_elevation'+'.h5')
@@ -1016,10 +1019,10 @@ class Modflow():
                 if export_tif==True:
                     output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
                     toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
-            
+                self.dict_residence_times[item] = res_time
+                
                 # if zone_bud == True:...
                     
-                
             # Surface flow activation
             if accumulation_flux == True:
                 surface_flow = routing_accflux.RoutingAccflux(self.geographic,
@@ -1065,6 +1068,12 @@ class Modflow():
         except:
             pass
         
+        try:
+            if residence_times == True:
+                np.save(self.save_file+'/residence_times', self.dict_residence_times)
+        except:
+            pass
+        
         if perenn_intermit_shp == True:
             self.list_traces = sorted(glob.glob(self.surfaceflow_file+'/'+'tracept_t*.shp'), key=os.path.getmtime)
             # print(self.list_traces)
@@ -1103,4 +1112,18 @@ class Modflow():
 
 #%% NOTES
 
-            
+"""
+d = np.array([0,10,20,30,40,50,100,200,500])
+d = np.array([0,10,20,30,40,50,100,200,500])
+K0 = 2e-7
+
+for i in [2,20,200]:
+    k = np.exp(-(1/i)*d)*K0
+
+    plt.plot(k, d, label=str(i))
+    plt.xscale('log')
+    plt.legend(loc='upper left')
+
+plt.gca().invert_yaxis()
+"""
+
