@@ -158,9 +158,9 @@ watershed_display.watershed_local(dem_path, BV)
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
-sim_state = 'steady' # 'steady' or 'transient'
-period = [2016, 2016] # rehcarge period
-time_step = 'D' # or 'M'
+sim_state = 'transient' # 'steady' or 'transient'
+period = [2015, 2019] # rehcarge period
+time_step = 'M' # or 'M'
 actual_date = True # False if date is conceptual
 start = str(period[0])+'-01-01' # necessary to specify the first time_step date
 
@@ -272,7 +272,7 @@ from groundwater_flow import visualization, modflow_display
 
 # 3D parameters
 list_view = ['watertable_depth','surface_flow'] # object to represent in 3D
-interactive = True
+interactive = False
 z_scale = 10
 view = 'south-west'
 lines = 200
