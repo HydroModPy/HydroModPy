@@ -14,7 +14,8 @@ Simple example for basic execution of HydroModPy (execution should be of the ord
 """
 
 def run_example(out_path, regression_test=False):
-
+    print('Function ready !')
+    
     #%% GENERAL LIBRARIES
     
     # General
@@ -244,7 +245,7 @@ def run_example(out_path, regression_test=False):
                       view='south-west', 
                       # lines=200, cloc=(0.7,0.1)
                       )
-    
+
     #%% PLOT SURFACE OUTPUTS
     
     if sim_state == 'transient':
@@ -279,7 +280,7 @@ def run_example(out_path, regression_test=False):
 
 ####################################################
 
-user = 'Martin'
+# user = 'Martin'
 user = 'Ronan'
 
 # Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
@@ -290,7 +291,7 @@ if user == 'Alexandre':
 if user == 'Martin':
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 if user == 'Ronan':
-    out_path = 'D:/Users/abherve/TEST/'
+    out_path = 'D:/Users/abherve/TESTS/'
 
 ####################################################
 

@@ -75,7 +75,7 @@ class Hydrology:
         # Transforms shapefile to raster file (.tif format)
         shp_base = gpd.read_file(self.streams)
         shp_type = shp_base.geometry.type[0] # forma = forma.geom_type[0]
-        print(shp_type)
+        # print(shp_type)
         self.tif_streams = data_folder + type_obs + '.tif'
         # shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
         shp_base.to_file(self.streams)

@@ -81,8 +81,8 @@ def select_period(df, first, last):
 
 #%% PATH WATERSHED
 
-user = 'Clement'
-# user = 'Ronan'
+# user = 'Clement'
+user = 'Ronan'
 
 if user == 'Clement':
     dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
@@ -103,14 +103,14 @@ if user == 'Ronan':
     #############################################################
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
-    data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/"
+    data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
     # Path where the results will be stored
     out_path = "D:/Users/abherve/DYNAMIC/"
     # Figure folder outputs
     figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
     #############################################################
 
-dems_path = data_path + 'DEM/' # reginal DEM or conceptual DEM
+dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 #shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = git_path + 'examples/_example/modflow/' # add bin/ folder with necessary .exe
 
@@ -184,6 +184,7 @@ if user == 'Clement':
 
 if user=='Ronan':
     types_obs = ["lasset_stream_wetland_perennial_pt_gpd"] # shapefile cours d'eau
+
 if user=='Clement':
     #types_obs = ["lasset_stream_perennialv2"]
     types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
@@ -198,7 +199,7 @@ BV.add_oceanic(oceanic_path)
 # # Measurements
 # BV.add_hydrometry(hydrometry_path)
 # BV.add_intermittency(intermittency_path)
-# # BV.add_piezometry()
+# BV.add_piezometry()
 
 # # Zones
 # BV.add_subbasin()

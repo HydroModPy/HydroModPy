@@ -1,0 +1,9 @@
+<ParametersGroup name="library2">
+	<Parameter name="param2">
+		<description>parameter of library 2</description>
+		<type>int</type>
+		<possible_values>&gt;=0</possible_values>
+		<value/>
+		<default_value>2</default_value>
+	</Parameter>
+</ParametersGroup>

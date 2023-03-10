@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ENTITY library1 SYSTEM "Launcher/Parameters_Reference/launcher_inputs_rules.xml">
+<!ENTITY library1 SYSTEM "Libraries/Library1/Parameters_Reference/library1_inputs_rules.xml">
+<!ENTITY library2 SYSTEM "Libraries/Library2/Parameters_Reference/library2_inputs_rules.xml">

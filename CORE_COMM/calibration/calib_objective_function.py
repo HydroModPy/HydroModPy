@@ -331,7 +331,7 @@ class Hydrometry:
                     df = df.resample('M').mean()
                     df = df * 24 * 3600 # m3/j
                     # area = 
-                    df = df / (area * 1000000) # m/j
+                    df = df / (int(round(area)) * 1000000) # m/j
                     df.columns = [code]
                     
                     df_runoff = self.watershed.forcing.runoff.values

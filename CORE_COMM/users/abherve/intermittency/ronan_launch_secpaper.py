@@ -39,14 +39,22 @@ import rasterio
 import fnmatch
 import deepdish as dd
 import matplotlib.dates as mdates
-import seaborn as sns
+
+try:
+    import seaborn as sns
+except:
+    pass
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
-import earthpy.spatial as es
-import earthpy.plot as ep
+
+try:
+    import earthpy.spatial as es
+    import earthpy.plot as ep
+except:
+    pass
 
 # Gis
 import imageio
@@ -718,12 +726,21 @@ figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PH
 # out_path = "D:/abherve/DYNAMIC/"
 # out_path = "D:/abherve/INTERMITTENCY/"
 
+git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
+# Path to the data folder
+data_path = "D:/abherve/HYDRODATAPY/"
+# Path where the results will be stored
+out_path = "D:/abherve/EBR/"
+# Figure folder outputs
+res_path = 'D:/abherve/EBR/_output_figures/'
+
+
 dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
 shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
 modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
-# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/'
-surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/' # add surfex models in .h5 format (France scale, else, specify None)
+surfex_path =  data_path + 'CLIMATE/France/SURFEX/Brittany/'
+# surfex_path =  data_path + 'CLIMATE/France/SURFEX/Rennes/' # add surfex models in .h5 format (France scale, else, specify None)
 drias_path = data_path + 'CLIMATE/France/DRIAS/Bretagne/'
 geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
 oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
@@ -733,6 +750,7 @@ intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermi
 piezometry_path = False # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 
+dem_name = "BDALTI_75m_EBR.tif" # name of dem
 dem_name = "BDALTI_bzh_75m.tif" # name of dem
 from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
@@ -743,6 +761,8 @@ from_xy = []
 # Depending on the choices
 dem_path = dems_path + dem_name
 
+# library_path = res_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+library_path = out_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
@@ -756,11 +776,40 @@ fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
 
+load = False
 # watershed_names = ['Gael']
-
 load = True
 
 for watershed_name in watershed_names:
+
+    watershed_name = site_name[0]
+    code_name = site_name[1]
+        
+    if (watershed_name != 'Chanut') & (watershed_name != 'Drains') & (watershed_name != 'Frame'):
+        print('##### '+watershed_name.upper()+' #####')
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dem_path, 
+                                      out_path=out_path,
+                                      modflow_path=modflow_path,
+                                      library_path=library_path,
+                                      load=load,
+                                      from_shp=from_shp,
+                                      from_dem=from_dem,
+                                      from_xy=from_xy,
+                                      cell_size=cell_size)
+    
+    if (watershed_name == 'Chanut') & (watershed_name == 'Drains') & (watershed_name == 'Frame'):
+        print('##### '+watershed_name.upper()+' #####')
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dem_path, 
+                                      out_path=out_path,
+                                      modflow_path=modflow_path,
+                                      library_path=library_path,
+                                      load=load,
+                                      from_shp=out_path+'_sig/'+watershed_name+'.shp',
+                                      from_dem=from_dem,
+                                      from_xy=from_xy,
+                                      cell_size=cell_size) # res_path+'sig/'+watershed_name+'.shp'
 
     print('##### '+watershed_name.upper()+' #####')
 
@@ -793,6 +842,7 @@ for watershed_name in watershed_names[:] :
                                   out_path=out_path,
                                   load=True)
 
+
     BV.add_surfex(surfex_path)
     BV.add_drias(drias_path)
     BV.add_geology(geology_path)
@@ -800,6 +850,19 @@ for watershed_name in watershed_names[:] :
     BV.add_oceanic(oceanic_path)
     BV.add_hydrometry(hydrometry_path)
     BV.add_intermittency(intermittency_path)
+    BV.add_surfex(surfex_path)
+    # BV.add_drias(drias_path)
+    # try:
+    #     if (watershed_name == 'Monfort') | (watershed_name == 'Roche'):
+    #         BV.add_piezometry()
+    # except:
+    #     pass
+        
+    print('##### '+watershed_name.upper()+' #####')
+
+    BV.add_hydrodynamic()
+    BV.add_forcing()
+
     try:
         BV.add_piezometry()
     except:
@@ -809,6 +872,321 @@ for watershed_name in watershed_names[:] :
     watershed_display.watershed_dem(BV)
     watershed_display.watershed_local(dem_path, BV)
 
+# series_path = res_path + '_data/hydrometric/' +'export_hydro_series.csv'
+series_path = out_path + '_data/hydrometric/' +'export_hydro_series.csv'
+series = pd.read_csv(series_path, sep=';', index_col = 4, parse_dates= True)
+series = series.iloc[1:]
+series.index.name = None
+series.index = pd.to_datetime(series.index)
+series['<ResObsElaborHydro>'] = pd.to_numeric(series['<ResObsElaborHydro>'])
+
+for site_name in site_names[:]:
+
+    watershed_name = site_name[0]
+    code_name = site_name[1]
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
+  
+    # print('##### '+watershed_name.upper()+' #####')
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+    area = BV.geographic.area
+    
+    if code_name != None:
+        print('##### '+watershed_name.upper()+' #####')
+        serie = series[series['<CdStationHydro>']==code_name]
+        serie = serie['<ResObsElaborHydro>']
+        serie = serie.rename('Q')
+        serie = ( serie / 1000 ) # L/s to m3/s
+
+        # fig, ax = plt.subplots(1,1, figsize=(10,5), dpi=300)
+        # ax.scatter(serie.index, serie)
+        # ax.set_title(watershed_name)
+        # ax.set_yscale('log')
+        
+        if watershed_name == 'Gael':
+            serie = select_period(serie, 2008, 2022)
+        
+        if watershed_name != 'Vaunoise':
+            serie.to_csv(stable_folder+'hydrometry/'+'Hydrometric_'+code_name+'.csv', sep=';')
+        
+        plt.plot(serie)
+        
+#%% PLOT SERIES
+
+for site_name in site_names[:]:
+
+    watershed_name = site_name[0]
+    code_name = site_name[1]
+    
+    if code_name != None:
+
+        print('##### '+watershed_name.upper()+' #####')
+        
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dem_path, 
+                                      out_path=out_path,
+                                      load=True)
+        area = BV.geographic.area
+        print(area)
+        
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+        Qobs_path = glob.glob(stable_folder+'hydrometry/'+'Hydrometric_'+'*'+'.csv')[0]
+        naming = Qobs_path.split('\\')[-1]
+        
+        Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
+        # area = float(Qobs_path.split('_')[-3])
+        Qobs = Qobs.squeeze()
+        Qobs = Qobs.rename('Q')
+        
+        first = Qobs.first_valid_index().year+1
+        last = Qobs.last_valid_index().year-1
+        
+        if watershed_name == 'Gael':
+            first=2009
+        
+        ones = [1990,2001]
+        Qobs = select_period(Qobs, first, last)
+        Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/d
+
+        data_index = Qobs.copy()
+    
+        mean_mensual = data_index.resample('M').mean() # mensual mean
+        mean_annual = data_index.resample('Y').mean() # annual mean
+        Mean = round(data_index.mean(),2)
+        Mean = data_index.mean()
+        Min = data_index.resample('Y').min()
+        Q10 = data_index.resample('Y').quantile(0.10)
+        Q25 = data_index.resample('Y').quantile(0.25)
+        Q50 = data_index.resample('Y').quantile(0.50)
+        Q75 = data_index.resample('Y').quantile(0.75)
+        Q90 = data_index.resample('Y').quantile(0.90)
+        print(Q10.min())
+        print(Q90.max())
+        Max = data_index.resample('Y').max()
+        mean_interan_days = data_index.groupby([data_index.index.month,
+                                        data_index.index.day], as_index=True).mean().to_frame()
+        std_interan_days = data_index.groupby([data_index.index.month,
+                            data_index.index.day], as_index=True).std()
+        q10_interan_days = data_index.groupby([data_index.index.month,
+                            data_index.index.day], as_index=True).quantile(0.10)
+        q90_interan_days = data_index.groupby([data_index.index.month,
+                            data_index.index.day], as_index=True).quantile(0.90)
+        q50_interan_days = data_index.groupby([data_index.index.month,
+                            data_index.index.day], as_index=True).quantile(0.50)
+        mean_interan_days['std'] = std_interan_days
+        mean_interan_days['q10'] = q10_interan_days
+        mean_interan_days['q90'] = q90_interan_days
+        mean_interan_days['q50'] = q50_interan_days
+        mean_interan_days.index.names = ['months','days']
+        mean_interan_days = mean_interan_days.reset_index()
+        # mean_interan_days.months = mean_interan_days.months.replace(
+        #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
+        #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
+        mean_interan_days = mean_interan_days.sort_values(['months','days'])
+        mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+        # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
+        fig, ax = plt.subplots(figsize=(5,4))
+        # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
+        #         lw=1, color='red', label='Mean')
+        ax.plot(mean_interan_days.counts, mean_interan_days.q50,
+                lw=2, color='k', label='Median')
+        yerrmax = mean_interan_days.q90
+        yerrmin = mean_interan_days.q10
+        ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+                          color='grey',edgecolor='grey',
+                          alpha = 0.5, label='10-90th')
+        ax.set_yscale('log')
+        # ax.yaxis.set_major_formatter(ScalarFormatter())
+        ax.set_xlim(0,366)
+        ax.set_ylim(0.01,100)
+        ax.tick_params(axis='both', which='major', pad=10)
+        x1 = np.linspace(0,366,13)
+        squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
+        ax.set_xticks(x1)
+        ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+        ax.set_xlabel('Months', labelpad=+10)
+        ax.set_ylabel('Q / A [mm/day]',labelpad=+10)
+        ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
+        # ax.grid(color='grey', lw=0.5, zorder=0)
+        dates = ones
+        colors = ['red','blue','darkorange']
+        
+        for z in range(len(dates)):
+            onlyone = data_index[(data_index.index.year==dates[z])].to_frame()
+            onlyone = onlyone.groupby([onlyone.index.month,
+                                        onlyone.index.day], as_index=True).mean()
+            onlyone['counts'] = np.array(range(1,len(onlyone)+1))
+            ax.plot(onlyone.counts, onlyone['Q'],
+                    color=colors[z], lw=1, label = str(dates[z]))
+            ax.legend(loc='upper left')
+            
+        plt.tight_layout()
+        # fig.savefig(path + 'plot_figures/' + site + '/' + 'regime' + '.png', dpi=300, bbox_inches='tight')
+        
+        # fig.savefig(figsim_folder+'/'+watershed_name+'_intermensual'+'.png', dpi=300, bbox_inches='tight')
+
+#%% ---- DATA
+
+#%% BASE DATA
+
+sta_hydr = gpd.read_file(res_path + 'sig/' + 'hydrometric_calib.shp', engine='python')
+sta_onde = gpd.read_file(res_path + 'sig/' + 'onde_calib.shp', engine='python')
+sta_piez = gpd.read_file(res_path + 'sig/' + 'piezometry_calib.shp', engine='python')
+sta_pomp = gpd.read_file(res_path + 'sig/' + 'ouvrages_approvis.shp', engine='python')
+sta_reje = gpd.read_file(res_path + 'sig/' + 'rejets_vaunoise.shp', engine='python')
+limit_cebr = gpd.read_file(res_path + 'sig/' + 'limit_cebr.shp', engine='python')
+cours_eau = gpd.read_file(res_path + 'sig/' + 'cours_eau_clip.shp', engine='python')
+plan_eau = gpd.read_file(res_path + 'sig/' + 'plan_eau_clip.shp', engine='python')
+ville_rennes = gpd.read_file(res_path + 'sig/' + 'ville_rennes.shp', engine='python')
+admin_dpmt = gpd.read_file(res_path + 'sig/' + 'admin_departement.shp', engine='python')
+cont_frame = gpd.read_file(res_path + 'sig/' + 'Frame.shp', engine='python')
+dem = rasterio.open(dem_path)
+geol_f = gpd.read_file(data_path+'/GEOLOGY/France/Layer/'+'GEO001M_CART_FR_S_FGEOL_2154_CMYK.shp')
+geol_s = gpd.read_file(data_path+'/GEOLOGY/France/Layer/'+'GEO001M_CART_FR_L_STRUCT_2154_CMYK.shp')
+
+#%% BASE MAP
+
+fig, ax = plt.subplots(1,1, figsize=(8,8), dpi=300)
+bounds = cours_eau.geometry.total_bounds
+xlim = ([bounds[0], bounds[2]])
+ylim = ([bounds[1], bounds[3]])
+ax.axis('on')
+ax.ticklabel_format(style='plain')
+ax.tick_params(which='both',
+                right= False, top= False, left= False, bottom= False,
+                labelright= False, labeltop= False, labelleft= False, labelbottom= False)
+ax.set_xlim(xlim)
+ax.set_ylim(ylim)
+cours_eau[cours_eau.Classe<4].plot(ax=ax, lw=0.75, color='darkblue', alpha=1, zorder=1)
+for watershed_name in ['Mordelles','Rophemel','Roche','Dam','Canut','Vaunoise','Drains']:
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    bv_cont = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+    bv_cont.plot(ax=ax, facecolor='none', edgecolor='k', lw=2, alpha=1, zorder=2)
+limit_cebr.plot(ax=ax, lw=1.5, facecolor='none', edgecolor='white', alpha=1, zorder=1)
+ville_rennes.plot(ax=ax, lw=0.2, facecolor='k', edgecolor='k', alpha=1, zorder=4)
+plan_eau.plot(ax=ax, facecolor='darkblue', edgecolor='none', alpha=1, zorder=1)
+sta_hydr.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=5)
+sta_onde.plot(ax=ax, lw=1, facecolor='white', marker='s', edgecolor='k', alpha=1, zorder=5)
+sta_piez.plot(ax=ax, lw=1, facecolor='white', marker='^', edgecolor='k', alpha=1, zorder=5)
+sta_reje.plot(ax=ax, lw=1, facecolor='darkorange', marker='d', edgecolor='k', alpha=1, zorder=5)
+sta_pomp.plot(ax=ax, lw=1, facecolor='yellow', marker='d', edgecolor='k', alpha=1, zorder=5)
+wbt.hillshade(dem_path,
+              'C:/Users/ronan/OneDrive/_HydroDataPy/DEM/France/'+'BDALTI_75m_EBR_HILL'+'.tif',
+              azimuth=315.0, 
+              altitude=45, 
+              zfactor=10)
+hill = rasterio.open('C:/Users/ronan/OneDrive/_HydroDataPy/DEM/France/'+'BDALTI_75m_EBR_HILL'+'.tif')
+show(hill.read(1), ax=ax, transform=dem.transform, cmap='Greys_r', alpha=0.5, zorder=0)
+image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), cmap='terrain')
+mnt = rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+                          ax=ax, transform=dem.transform, cmap='terrain', alpha=0.5, zorder=0)
+# divider = make_axes_locatable(ax)
+# cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+# fig.add_axes(cax)
+# cbar = fig.colorbar(image_hidden, cax=cax, orientation="horizontal")
+# ticklabels = cbar.ax.get_ymajorticklabels()
+# ticks = list(cbar.get_ticks())
+# val = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+# minVal =  int(round(np.min(val[np.nonzero(val)],0)))
+# maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
+# meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+# cbar.set_ticks([minVal, meanVal, maxVal])
+# cbar.set_ticklabels([minVal, meanVal, maxVal])
+# cbar.mappable.set_clim(minVal, maxVal)
+# cbar.ax.tick_params(labelsize=10)
+# cbar.ax.yaxis.set_ticks_position('left')
+# cbar.ax.tick_params(size=0)
+
+# ls = LightSource(azdeg=315, altdeg=45)
+# rgb = ls.shade(imageio.imread(dem_path),
+#                 cmap=plt.cm.gist_earth, blend_mode='soft', vert_exag=10, dx=75, dy=75)
+# plt.imshow(rgb)
+
+# geol_f.plot(ax=ax, color=list(geol_f['hex']), alpha=0.5, edgecolor='none', zorder=0)
+# geol_s.plot(ax=ax, color='dimgrey', alpha=0.5, edgecolor='dimgrey', zorder=0)
+
+#%% BASE METEO
+
+mesh = gpd.read_file(res_path+'sig/'+'maille_meteo_fr_pr93.shp')
+mesh = mesh.set_index('num_id')
+variables = ['TAS','PPT','ETP','RUN','REC']
+for watershed_name in ['Frame']:
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+for var in variables:
+    raw = pd.read_hdf(stable_folder+'climatic/'+'REA.h5', var+'/'+'historic')
+    num_id = list(raw.columns.values)
+    raw = raw.loc[:, raw.columns.isin(num_id)]
+    raw = raw[raw.index.notnull()]
+    first = 1960
+    last = 2019
+    mask = (raw.index.year >= first) & (raw.index.year <= last)
+    raw = raw[mask]
+    raw = raw.mean(axis=0)
+    raw = raw.rename(var)
+    for i in num_id:
+        mesh.loc[i,var] = raw.loc[i]
+mesh['PPT'] = mesh['PPT'] * 365
+mesh['ETP'] = mesh['ETP'] * 365
+mesh['EFF'] = mesh['PPT'] - mesh['ETP']
+mesh['RUN'] = mesh['RUN'] * 365
+mesh['REC'] = mesh['REC'] * 365
+new_vars = ['TAS','PPT','ETP','EFF','RUN','REC']
+color_map = ['Reds','Blues','Greens','Greys','Oranges','Purples']
+dic_color = dict(zip(new_vars,color_map))
+for var in new_vars : 
+    fig, ax = plt.subplots(1,1, figsize=(8,8), dpi=300)
+    bounds = cours_eau.geometry.total_bounds
+    xlim = ([bounds[0], bounds[2]])
+    ylim = ([bounds[1], bounds[3]])
+    ax.axis('on')
+    ax.ticklabel_format(style='plain')
+    ax.tick_params(which='both',
+                    right= False, top= False, left= False, bottom= False,
+                    labelright= False, labeltop= False, labelleft= False, labelbottom= False)
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    for watershed_name in ['Mordelles','Rophemel','Roche','Dam','Canut','Vaunoise','Drains']:
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+        bv_cont = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+        bv_cont.plot(ax=ax, facecolor='none', edgecolor='k', lw=2, alpha=1, zorder=2)
+        clipped = gpd.clip(cours_eau, bv_cont)
+        clipped[clipped.Classe<4].plot(ax=ax, lw=0.75, color='darkblue', alpha=1, zorder=1)
+        clipped = gpd.clip(plan_eau, bv_cont)
+        clipped.plot(ax=ax, facecolor='darkblue', edgecolor='none', alpha=1, zorder=1)
+    limit_cebr.plot(ax=ax, lw=1.5, facecolor='none', edgecolor='white', alpha=1, zorder=1)
+    ville_rennes.plot(ax=ax, lw=0.2, facecolor='k', edgecolor='k', alpha=1, zorder=4)
+    sta_hydr.plot(ax=ax, lw=1, facecolor='white', marker='o', edgecolor='k', alpha=1, zorder=5)
+    sta_onde.plot(ax=ax, lw=1, facecolor='white', marker='s', edgecolor='k', alpha=1, zorder=5)
+    sta_piez.plot(ax=ax, lw=1, facecolor='white', marker='^', edgecolor='k', alpha=1, zorder=5)
+    sta_reje.plot(ax=ax, lw=1, facecolor='darkorange', marker='d', edgecolor='k', alpha=1, zorder=5)
+    sta_pomp.plot(ax=ax, lw=1, facecolor='yellow', marker='d', edgecolor='k', alpha=1, zorder=5)
+    mesh.plot(ax=ax, column=var, 
+              cmap=dic_color[var], lw=0.5, edgecolor='grey', alpha=1,
+              vmin=None, vmax=None, zorder=-1)
+    divider = make_axes_locatable(ax)
+    sm = plt.cm.ScalarMappable(cmap=dic_color[var]) # norm=plt.Normalize(vmin=vmin, vmax=vmax)
+    divider = make_axes_locatable(ax)
+    cax = divider.new_vertical(size="3%", pad=0.05, pack_start=True)
+    fig.add_axes(cax)
+    cbar = fig.colorbar(sm, cax=cax, orientation="horizontal")
+    ticklabels = cbar.ax.get_ymajorticklabels()
+    ticks = list(cbar.get_ticks())
+    val = mesh[var]
+    minVal =  int(round(np.nanmin(val),0))
+    maxVal =  int(round(np.nanmax(val,0)))
+    meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+    cbar.set_ticks([minVal, meanVal, maxVal])
+    cbar.set_ticklabels([minVal, meanVal, maxVal])
+    cbar.mappable.set_clim(minVal, maxVal)
+    cbar.ax.tick_params(labelsize=10)
+    cbar.ax.yaxis.set_ticks_position('left')
+    cbar.ax.tick_params(size=0)
+        
 #%% ---- CALIB
 
 #%% DICHOTOMY STREAMS
@@ -905,7 +1283,23 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
 code_names = ['J7513010','J0014010']
 watershed_names = ['Canut','Nancon']
 
-# watershed_names = ['Monfort']
+watershed_names = [
+                   'Cheze',
+                   ]
+
+watershed_names = [
+                   'Canut',
+                   'Gael',
+                   'Monfort',
+                   'Vaunoise',
+                   'Jouan',
+                   'Neal',
+                   'Rophemel',
+                   'Nancon',
+                   'Moulin',
+                   ]
+
+watershed_names = ['Jouan']
 
 modflow_path = data_path + 'SOFTWARE/MODFLOW/'
 
@@ -924,6 +1318,7 @@ for watershed_name in watershed_names[:] :
     
     BV.add_forcing()
     BV.add_hydrodynamic()
+    print(BV.geographic.area)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 
@@ -1018,7 +1413,7 @@ for watershed_name in watershed_names[:] :
 # EXPLORATION LAUNCH
 
     calib = calib_root.Calibration(params_file, BV, observations = ['hydrometry'])
-    # calib.exploration(resolution=100)
+    calib.exploration(resolution=225)
 
 #%% EXPLORATION PLOT
 
@@ -1026,6 +1421,10 @@ from calibration import calib_root, calib_dichotomy, calib_analysis, calib_explo
 
 code_names = ['J7513010','J0014010']
 watershed_names = ['Canut','Nancon']
+
+watershed_names = [
+                   'Moulin',
+                   ]
 
 params_file = 'calib_explo_hom_2v_k1-n1'
 
@@ -1036,6 +1435,10 @@ sat_typ = 'seepage_areas'
 for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
+    
+    min_nse = 50
+    min_sat = 0
+    max_sat = 50
     
     if watershed_name == 'Canut':
         min_nse = 70
@@ -1120,6 +1523,8 @@ for watershed_name in watershed_names[:]:
                 # for h in range(len(ind[typ_name])):
                 #     d = ind[typ_name][h][0]
                 #     c.append(d)
+        
+
         c = np.linspace(0,1,len(obs[typ_name]))
 
         cmap = mpl.cm.get_cmap('viridis_r')
