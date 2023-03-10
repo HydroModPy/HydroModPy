@@ -47,7 +47,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 ############################################
-user = 'Abherve'
+user = 'Guillossou'
 ############################################
 
 if user == 'Abherve':
@@ -68,11 +68,11 @@ if user == 'Cimpaye':
 
 if user == 'Guillossou':
     # # Path to the git repositoty home page
-    git_path = "xxx"
+    git_path = "C:/Users/r.guillossou/Documents/GitHub/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "xxx"
+    data_path = "C:/Users/r.guillossou/Documents/Data Hydromodpy/_data/"
     # # Path where the results will be stored
-    out_path = 'xxx'
+    out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
 
 #%% DATABASE ACCESS FOR THIS TESTS
 
@@ -127,7 +127,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = True
+load = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -139,13 +139,19 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=from_dem,
                               cell_size=cell_size)
 
+watershed_display.watershed_dem(BV)
+watershed_display.watershed_local(dem_path, BV)
+
+#%% Data watershed
+
+
 BV.add_surfex(climate_path)
 BV.add_geology(geology_path) 
 BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
 BV.add_oceanic(oceanic_path)
 BV.add_hydrometry(hydrometry_path)
 BV.add_intermittency(intermittency_path)
-BV.add_piezometry()
+# BV.add_piezometry()
 BV.add_subbasin()
 BV.add_hydrodynamic()
 BV.add_forcing()
