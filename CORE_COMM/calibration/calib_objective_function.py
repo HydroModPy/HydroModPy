@@ -14,6 +14,7 @@ import os, sys
 import glob
 import hydroeval as he
 import whitebox
+import imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 #HydroModPy tools
@@ -64,7 +65,6 @@ class Streams:
         toolbox.create_folder(self.dichotomy_folder)
         # Observed buff data
         self.buff_tif_obs = self.hydrology.tif_streams
-        self.buff_pt_obs = self.hydrology.streams
         # Mask observed: raster of observed river occurency
         self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
         toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, True)
@@ -244,9 +244,12 @@ class Piezometry:
             self.y1 = []
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
                 self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc[j],self.watershed.piezometry.x_iloc[j]])
-            for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
-                self.y0.append(self.watershed.piezometry.elevation_discrete[j])
-                self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
+            try:
+                for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
+                    self.y0.append(self.watershed.piezometry.elevation_discrete[j])
+                    self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
+            except:
+                pass
             self.y0 = np.array(self.y0)
             self.y1 = np.array(self.y1)
             '''
@@ -258,6 +261,7 @@ class Piezometry:
             MSE = np.nanmean((self.y0-self.y1)**2) ;    #Mean square error '''
             RMSE = np.sqrt(np.nanmean((self.y0-self.y1)**2))  #Root mean square error 
             self.store_indicator.append(RMSE)
+            print('y0='+str(self.y0)+' ; y1='+str(self.y1)+' ; RMSE='+str(RMSE))
             
     def get_indicator(self):
         indicator = np.nanmean(self.store_indicator) #mean performance criterion value for all piezometers
@@ -327,7 +331,7 @@ class Hydrometry:
                     df = df.resample('M').mean()
                     df = df * 24 * 3600 # m3/j
                     # area = 
-                    df = df / (area * 1000000) # m/j
+                    df = df / (int(round(area)) * 1000000) # m/j
                     df.columns = [code]
                     
                     df_runoff = self.watershed.forcing.runoff.values
@@ -391,6 +395,7 @@ class Intermittency:
 
     def __init__(self, watershed, model, param_folder):
         self.watershed = watershed
+        self.geographic = watershed.geographic
         self.model = model
         self.param_folder = param_folder
         
@@ -402,18 +407,43 @@ class Intermittency:
     def load_modeling_data(self):
         sim_path = os.path.join(self.param_folder, self.model, '_watershed', '_simulated_results.csv')
         sim = pd.read_csv(sim_path, sep=';', parse_dates=True, index_col=0)
+        sim = sim.reset_index()
         self.seepage_areas = sim.seepage_areas
-        # add successive subbasins
+        self.intermit_areas = sim.intermit_areas
+        self.max_val = np.nanmax(self.intermit_areas)
+        self.max_loc = self.intermit_areas.idxmax()
+        shp_sim = gpd.read_file(os.path.join(self.param_folder, self.model, '_watershed',
+                                             '_surfaceflow', 'tracept_t('+str(self.max_loc)+').shp'))
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        shp_sim.plot(ax=ax, column='id_persist',
+                     lw=0, alpha=0.5)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_title(str(self.max_loc)+'   '+str(round(self.max_val,2)))
         
+        # add successive subbasins
+    
     def compare_sim_obs_data(self):
-        code = 'CODE'
-        df = self.seepage_areas.copy()
-        df = df.rename('sim_' + code)
-        y1 = df['sim_' + code].values
-        self.y1 = df[[col for col in df if col.startswith('sim_')]]
+        shp_obs = gpd.read_file(os.path.join(self.watershed.stable_folder, 'hydrology',
+                                               'complete_single_pt.shp'))
+        shp_obs['VALUE'] = shp_obs['VALUE'].astype(int)
+        dem_clip = imageio.imread(self.geographic.watershed_dem)
+        self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
+        self.intermit_areas_obs = ((shp_obs['VALUE'] == 2).sum() / self.cell) * 100
+        
+        self.int_sim_obs = self.max_val / self.intermit_areas_obs
+        
+    # def compare_sim_obs_data(self):
+    #     code = 'CODE'
+    #     df = self.seepage_areas.copy()
+    #     df = df.rename('sim_' + code)
+    #     y1 = df['sim_' + code].values
+    #     self.y1 = df[[col for col in df if col.startswith('sim_')]]
 
     def get_indicator(self):
-        return self.y1
+        indicator = self.int_sim_obs 
+        print(indicator, self.max_val, self.intermit_areas_obs)
+        return indicator, self.max_val, self.intermit_areas_obs
 
 #%% NOTES
 

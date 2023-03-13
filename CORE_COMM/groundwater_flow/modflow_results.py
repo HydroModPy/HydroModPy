@@ -112,6 +112,10 @@ class Results:
             self.groundwater_storage = np.load(os.path.join(self.save_file, 'groundwater_storage'+'.npy'), allow_pickle=True).item()
         except:
             pass 
+        try:
+            self.residence_times = np.load(os.path.join(self.save_file, 'residence_times'+'.npy'), allow_pickle=True).item()
+        except:
+            pass 
         
         subbasin = False
         dem_clip = imageio.imread(self.geographic.watershed_dem)
@@ -218,8 +222,15 @@ class Results:
         
         try:
             for key in self.groundwater_storage:
-                calc = np.nansum(self.groundwater_storage[key])
+                calc = calc_max(self.groundwater_storage[key])
                 self.mfdata.loc[key,'groundwater_storage'] = calc
+        except:
+            pass
+        
+        try:
+            for key in self.residence_times:
+                calc = calc_max(key, 'residence_times', self.residence_times, dem_clip, '==', -99999)  
+                self.mfdata.loc[key,'residence_times'] = calc
         except:
             pass
         
@@ -278,7 +289,7 @@ class Results:
                     compt+=1
                     
                 inf+=12
-                sup+=12                    
+                sup+=12     
         except:
             pass
 

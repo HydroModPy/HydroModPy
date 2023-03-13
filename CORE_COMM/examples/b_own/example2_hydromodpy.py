@@ -45,7 +45,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 ############################################
-user = 'Martin'
+# user = 'Martin'
+user = 'Ronan'
 ############################################
 
 if user == 'Alexandre':
@@ -68,9 +69,9 @@ if user == 'Ronan':
     # Path to the git repositoty home page
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
-    data_path = "C:/Users/ronan/OneDrive/_HydroDataPy/TEST/"
+    data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/TEST/"
     # Path where the results will be stored
-    out_path = "D:/Users/abherve/TEST/"
+    out_path = "D:/Users/abherve/EXAMPLES/"
 
 if user == 'Jean-Raynald':
     # Path to the git repositoty home page
@@ -92,8 +93,8 @@ if user == 'Clément':
 
 # As an example, all data necessary for this test are stored in this OneDrive folder named 'TEST'
 
-# Hyperlink : 'https://1drv.ms/f/s!ArPhnd6PZcHmjQg8qW15u2DWBR37'
-# Password : 'osur-data-hydromodpy-2022'
+# Hyperlink : 'https://uniren1-my.sharepoint.com/:f:/g/personal/ronan_abherve_univ-rennes1_fr/Enx89cnAYelOo2M6Y7WF3gkBRCB3g2tKlvNJdSn6DfwyaA?e=zV3toD'
+# Password : 'HydroDataPy-007'
 
 #%% FOLDER DATA PATHS
 
@@ -150,7 +151,7 @@ if watershed_name == 'Conceptual':
     cell_size = 100
 
 types_obs = ['streams','sections'] # list of shapefile name layers for clip hydrology
-fields_obs = ['FID', 'Persistanc'] # list of shapefile name columns to translate as a tif
+fields_obs = ['fid', 'Persistanc'] # list of shapefile name columns to translate as a tif
 
 # Depending on the choices
 dem_path = dems_path + dem_name
@@ -160,7 +161,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% GENERATING WATERSHED
 
-load = False
+load = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
@@ -221,6 +222,7 @@ if crs == 4326:
 #%% SET MODEL PARAMETERS
 
 # Choice temporal of the simulation
+sim_state = 'transient' # 'steady' or 'transient'
 sim_state = 'steady' # 'steady' or 'transient'
 period = [2017, 2019] # rehcarge period
 time_step = 'M' # or 'D'
@@ -236,9 +238,9 @@ thick_exp = 1 # exponential decay of K with nlay
 cond_decay = 0 # exponential decay of K with depth
 
 # Hydraulic properties
-K = 1e-7 * 3600 * 24 # m/second to m/day
-E = 100 # m
-P = 0.01 # -
+K = 1e-6 * 3600 * 24 # m/second to m/day
+E = 30 # m
+P = 0.001 # -
 
 # Active of not modules
 first_only = False # if True generate results only for the first tim_step
@@ -291,12 +293,37 @@ success, flow_model = BV.run_modflow(ident=model_name,
                 verbose=verbose)
 
 BV.matrix_modflow(success, flow_model,
-                  accumulation_flux=True)
+                      first_only = False,
+                       watertable_elevation = True,
+                       watertable_depth= True, 
+                       seepage_areas = True,
+                       outflow_drain = True,
+                       groundwater_flux = False,
+                       specific_discharge = False,
+                       accumulation_flux = True,
+                       perenn_intermit_shp = True,
+                       verbose = True,
+                       export_tif = True)
 
 # Extract results
 BV.results_modflow(ident=model_name,
                    actual_date=actual_date,
                    time_step=time_step)
+
+#%% 2D INTERMITTENCY
+
+modflow_display.SurfaceOutputs(flow_model.climatic, 
+                               simulations_folder, 
+                               stable_folder, 
+                               model_name, 
+                               types_obs,
+                               save_gif=True,
+                               first_only = True,
+                               outflow=True,
+                               accflux=True,
+                               intermittency=True,
+                               chronics=False,
+                               sim_state='transient')
 
 #%% 3D VISUALIZATION
 
@@ -305,7 +332,7 @@ from groundwater_flow import visualization, modflow_display
 
 # 3D parameters
 list_view = ['watertable_depth','surface_flow'] # object to represent in 3D
-interactive = False
+interactive = True
 z_scale = 10
 view = 'south-west'
 lines = 200

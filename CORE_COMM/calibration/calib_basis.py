@@ -14,6 +14,7 @@ from datetime import datetime
                     
 # from calibration import tools_figures_additional as figadd                                     
 from calibration import calib_objective_function, calib_params
+from groundwater_flow import visualization, modflow_display
 
 from tools import toolbox
 
@@ -144,7 +145,7 @@ class CalibrationBasis:
 
         # Run model: seeks the parameters automatically in the elements of self.watershed
         succes, mf = self.watershed.run_modflow(self.ident, 
-                                                verbose=True, 
+                                                verbose=True,
                                                 calib=self.param_folder)
         
         # Use objective function from the type of observation
@@ -164,7 +165,7 @@ class CalibrationBasis:
                        groundwater_flux = False,
                        specific_discharge = False,
                        accumulation_flux = False,
-                       perenn_intermit_shp=False,
+                       perenn_intermit_shp = False,
                        verbose = False,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
@@ -218,7 +219,7 @@ class CalibrationBasis:
                        outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
-                       accumulation_flux = False,
+                       accumulation_flux = True,
                        perenn_intermit_shp = False,
                        verbose = True,
                        export_tif = True)
@@ -227,10 +228,13 @@ class CalibrationBasis:
                                                                    runoff=self.watershed.forcing.runoff,
                                                                    actual_date=True,
                                                                    calib=self.param_folder)
+                print(self.watershed.forcing.recharge)
+                print(self.watershed.forcing.runoff)
                 # print(simulated_results)
                 # print(params)
                 params_synt = ";".join(str(x) for x in params)
                 self.dic_simulated_results[params_synt] = simulated_results
+                print(simulated_results)
                 
                 obj_func = calib_objective_function.Hydrometry(self.watershed,
                                                                self.ident,
@@ -252,26 +256,30 @@ class CalibrationBasis:
                 self.watershed.matrix_modflow(succes,
                        mf,
                        first_only = True,
-                       watertable_elevation = False,
+                       watertable_elevation = True,
                        watertable_depth= False, 
                        seepage_areas = True,
-                       outflow_drain = False,
+                       outflow_drain = True,
                        groundwater_flux = False,
                        specific_discharge = False,
-                       accumulation_flux = False,
-                       perenn_intermit_shp = False,
+                       accumulation_flux = True,
+                       perenn_intermit_shp = True,
                        verbose = True,
                        export_tif = True)
                 self.watershed.results_modflow(ident=self.ident,
                                                actual_date=True,
                                                calib=self.param_folder)
-                obj_func = calib_objective_function.Hydrometry(self.watershed,
+                
+                
+                
+                obj_func = calib_objective_function.Intermittency(self.watershed,
                                                                self.ident,
                                                                self.param_folder)
-                sim = obj_func.get_indicator()
-                self.data_ind['intermittency'].append(np.nan)
-                self.data_obs['intermittency'].append(np.nan)
+                ind, sim, obs = obj_func.get_indicator()
+                self.data_ind['intermittency'].append(ind)
                 self.data_sim['intermittency'].append(sim)
+                self.data_obs['intermittency'].append(obs)
+                
                 # plt.plot(obs, color='b')
                 # plt.plot(sim, color='r')
         

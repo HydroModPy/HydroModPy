@@ -5,6 +5,7 @@ Installation procedure
 2-Create conda environment
 Open conda command window through anaconda navigator, for example
 Go to this directory so that the following command finds the environment.yml file
+example: cd /d D:\...\HydroModPy\CORE_COMM\readme
 Execute the command: conda env create -f environment.yml -n hydromodpy 
 Check that environment exists: conda env list
 
@@ -35,8 +36,8 @@ Add this package manually : conda install -c conda-forge rioxarray
 
 8-Data required (climate, DEM, geology, hydrology at an equivalent or superior size of your study site)
 HydroDataPy (OneDrive)
-https://1drv.ms/f/s!ArPhnd6PZcHmjQg8qW15u2DWBR37
-# Password : osur-data-hydromodpy-2022
+# Link :
+# Password : 
 Avoid Delete functions that would remove files in all user folders (not only you)
 
 9-A distribution of Latex should have been installed on the computer for use of latex style in graphic comments and legends
