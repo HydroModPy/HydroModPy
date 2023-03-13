@@ -43,25 +43,36 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
+dem_name = "BDALTI_norm-manch_75m.tif"
+# sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
 
-# Path to the git repositoty home page
-git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
-# Path to the data folder
-data_path = "C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
-# Path where the results will be stored
-out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
-
+if DIR[0] == 'd': #server
+    shp_file = r'D:\mlemesnil\Data\BV_RN2100\SGA\SGA_2_sea.shp'
+    # Path to the git repositoty home page
+    git_path = r"D:\mlemesnil\HydroModPy\HydroModPy\CORE_COMM/"
+    # Path to the data folder
+    data_path = r"D:\mlemesnil\Data\HydroModPy/"
+    # Path where the results will be stored
+    out_path = r'D:\mlemesnil\HydroModPy\Output/'
+    modflow_path = r'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
+    ESPERE_recharge_path = r'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+    shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
+elif DIR[0] == 'c': #local
+    shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+    data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
+    out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
+    modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
+    ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+    # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
+    #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
+    shape_calib_zones_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
+    
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-
-dems_path = data_path # reginal DEM or conceptual DEM
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
-# 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-
-modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
-
 surfex_path =  data_path # add surfex models in .h5 format (France scale, else, specify None)
 geology_path = data_path + 'geology/' # add geologic layers
 oceanic_path = data_path + 'OCEAN/' # add specific sea level files
@@ -72,15 +83,8 @@ piezometry_path = True # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 drias_path = data_path + "CLIMAT/Normandie/"
 library_path = git_path + 'watershed/watershed_library.csv' # each row is a study site with outlet coordinates
-
-dem_name = "BDALTI_norm-manch_75m.tif"
+dems_path = data_path # reginal DEM or conceptual DEM
 dem_path = dems_path + dem_name
-
-sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
-ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
-# C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
-#r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
-
 cell_size = None # specify new resolution from a given DEM or None
 
 #%% Watershed generation
@@ -122,7 +126,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 BV.load_object()
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
-BV.add_piezometry()
+# BV.add_piezometry()
 
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
@@ -422,7 +426,7 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_optim1_aut22_k1n1'
+params_file = 'calib_optim1_aut22_k1n1' #calib_optim1_aut22_k1n1
 # calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
 BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
@@ -441,13 +445,14 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
 calib.exploration(1)
 
+
 #%% Extraction and analysis of K-n calibration results
 
 import glob
 import os
 from calibration import calib_analysis
 
-params_file = 'calib_explo_aut22_k1n1' #calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+params_file = 'calib_explo_aut22_k1n1' # calib_optim1_aut22_k1n1 calib_explo_aut22_k1n1 calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
 
 #get last calibration result file
 type_obs = 'piezometry'
@@ -472,16 +477,218 @@ RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
 K_optim = K_values[j_min_RMSE]
 n_optim = n_values[i_min_RMSE]
 
+#%% Heterogeneous calibration of K based on piezometry - steady state
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_steady_P1P3_k1k2' #'calib_hetero_perm_k1k2' calib_hetero_steady_P4P6_k1k2
+# calib_hetero_steady_P1P3_k1k2 calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'steady') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['k1',0.001,0.001,100,'m/j','log']
+params_df.loc[1] = ['k2',0.001,0.001,100,'m/j','log']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(400)
+
+
+#%% Extraction and analysis of heterogeneous K calibration results - steady
+
+import glob
+import os
+from calibration import calib_analysis
+
+params_file = 'calib_hetero_steady_P1P3_k1k2' # calib_hetero_perm_k1k2 calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+
+#get last calibration result file
+type_obs = 'piezometry'
+typ_calib = 'piezometry_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[-1].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+obj_fc_path = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures', 'objective_function.png')
+test.display_objective_function(save=obj_fc_path) #,vmax= 1.3,log=False
+
+#get optimal K and n value
+calib_dict = test.calib
+K1_values = calib_dict['params_values'][0]
+K2_values = calib_dict['params_values'][1]
+
+min_RMSE_idx_flat = np.argmin(calib_dict['objective_function'])
+i_min_RMSE = min_RMSE_idx_flat // K2_values.size
+j_min_RMSE = min_RMSE_idx_flat % K2_values.size    
+RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
+K1_optim = K1_values[j_min_RMSE]
+K2_optim = K2_values[i_min_RMSE]
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
+
+hyd_cond_zones = BV.hydrodynamic.hyd_cond
+
+#%% Heterogeneous calibration of n based on piezometry - transient state
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_transient_n1n2_P1P3_halfk' #calib_hetero_transient_n1n2_P4P6_t28
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_hyd_cond(0.387)
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = 2.64/2)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = 0.428/2)
+
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['n1',0.001,0.001,0.3,'-','lin']
+params_df.loc[1] = ['n2',0.001,0.001,0.3,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(300)
+
+#%% Heterogeneous calibration of K based on piezometry - transient state
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_transient_k1k2_nhomo'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+# BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1_optim)
+# BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2_optim)
+# BV.hydrodynamic.update_hyd_cond(0.387)
+BV.hydrodynamic.update_porosity(0.0127)
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['k1',0.001,0.001,10,'m/j','log']
+params_df.loc[1] = ['k2',0.001,0.001,10,'m/j','log']
+# params_df.loc[0] = ['k1',0.001,0.001,0.4,'-','lin']
+# params_df.loc[1] = ['n2',0.001,0.001,0.4,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(250)
+
+#%% Extraction and analysis of heterogeneous n calibration results - transient
+
+import glob
+import os
+from calibration import calib_analysis
+
+params_file = 'calib_hetero_transient_n1n2_P1P3_halfk' # calib_hetero_transient_n1n2_P4P6_t28 calib_hetero_transient_n1n2_P4P6 calib_hetero_transient_n1n2_Khomo calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+# calib_hetero_transient_n1n2_P1P3_halfk
+#get last calibration result file
+type_obs = 'piezometry'
+typ_calib = 'piezometry_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[-1].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+obj_fc_path = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures', 'objective_function.png')
+test.display_objective_function(save=obj_fc_path) #,vmax= 1.3,log=False
+
+#get optimal K and n value
+calib_dict = test.calib
+n1_values = calib_dict['params_values'][0]
+n2_values = calib_dict['params_values'][1]
+
+min_RMSE_idx_flat = np.argmin(calib_dict['objective_function'])
+i_min_RMSE = min_RMSE_idx_flat // n1_values.size
+j_min_RMSE = min_RMSE_idx_flat % n2_values.size    
+RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
+n1_optim = n1_values[j_min_RMSE]
+n2_optim = n2_values[i_min_RMSE]
+
+# shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1_optim)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 2, porosity_value = n2_optim)
+
+# porosity_zones = BV.hydrodynamic.porosity
+
+#%% Visualization of calibration - hetero
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_test' #'calib_hetero_perm_k1k2' calib_hetero_transient_n1n2_P4P6_t28
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+shape = BV.hydrodynamic.update_calib_zones_from_shp(r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp')
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = 2.01)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = 0.267)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1_optim)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 2, porosity_value = n2_optim)
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+# params_df.loc[0] = ['k1',3.875,3.875,3.875,'m/j','log']
+# params_df.loc[1] = ['k2',0.444,0.444,0.444,'m/j','log']
+params_df.loc[0] = ['n1',0.138,0.138,0.138,'-','lin']
+params_df.loc[1] = ['n2',0.0393,0.0393,0.0393,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(1)
+
+#%% Visualization of calibration - homo
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_test' #'calib_hetero_perm_k1k2'
+# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+
+BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(29)
+BV.hydrodynamic.update_hyd_cond(1.7)
+BV.hydrodynamic.update_porosity(0.13)
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['k1',0.02,0.02,0.02,'m/j','log']
+params_df.loc[1] = ['n1',0.001,0.001,0.001,'m/j','log']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(1)
 
 #%% Model Parameters
+
+hetero = 1
 
 # K_optim = 0.3
 # n_optim = 0.001
 
 # Hydraulic properties
 t = 29 # m
-n = n_optim # nondim
-K = K_optim # m/j
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
@@ -497,9 +704,23 @@ modpath_sim = False # run modpath particle tracking if True
 verbose = True # add print of MODFLOW in console
 
 # Update properties
-BV.hydrodynamic.update_hyd_cond(K)
+if hetero==0:
+    n = n_optim # nondim
+    K = K_optim # m/j
+    BV.hydrodynamic.update_hyd_cond(K)
+    BV.hydrodynamic.update_porosity(n)
+elif hetero==1:
+    K1 = 2.01
+    K2 = 0.267
+    n1 = 0.138
+    n2 = 0.0393
+    shape = BV.hydrodynamic.update_calib_zones_from_shp(shape_calib_zones_path)
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1)
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2)
+    BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = n1)
+    BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 2, porosity_value = n2)
+
 BV.hydrodynamic.update_thickness(t)
-BV.hydrodynamic.update_porosity(n)
 BV.hydrodynamic.update_nlay(lay_number)
 BV.hydrodynamic.update_bottom(bottom)
 BV.hydrodynamic.update_thick_exp(thick_exp)
@@ -515,64 +736,65 @@ from datetime import datetime
 
 BV.add_forcing()
 sim_state = 'transient'
-first_yr = 2010
-last_yr = 2014
-# gcm = 'MPI'
-# rcm = 'CCL'
+first_yr = 2020
+last_yr = 2100
 
 RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
 md_rmsl_85 = RMSL_85.iloc[:,0]
+RMSL_26 = BV.oceanic.RMSL["RCP2.6"]
+md_rmsl_26 = RMSL_26.iloc[:,0]
 # md_rmsl_85_cut = ...
 
 list_sim_name = []
 list_success = []
 list_flow_model = []
-list_runoff = []
 list_recharge = []
 list_sealevel = []
 
-for sim in range(1):
-    
-    # gcm = 'MPI'
-    # rcm = 'CCL'
-    # sce = 'RCP8.5'
-    # BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-    #                                   first_year = first_yr, last_year = last_yr,
-    #                                   sim_state = sim_state)
-    BV.forcing.update_recharge(R_hist, 'transient')
-    BV.oceanic.update_MSL(md_rmsl_85)
-    R = BV.forcing.recharge
-    sea_lev = BV.oceanic.MSL
-    
-    now = datetime.now()
-    now_str = now.strftime("%d%m%Y%H%M%S")
-    # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
-    sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
-    print(sim_name)
+DRIAS_model_list = ['MPI-R09'] #['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
+sce_list = ['RCP2.6'] #[['RCP2.6', 'RCP8.5']
 
-    success, flow_model = BV.run_modflow(ident=sim_name,
-                    modpath_sim=modpath_sim,
-                    first_only=first_only,
-                    sink_fill=sink_fill,
-                    box=box,
-                    lay_number=lay_number,
-                    bottom=bottom,
-                    thick_exp=thick_exp,
-                    cond_decay=cond_decay,
-                    verbose=verbose)
+for DRIAS_model in DRIAS_model_list:
+    for scenario in sce_list:
     
-    list_sim_name.append(sim_name)
-    list_success.append(success)
-    list_flow_model.append(flow_model)
-    list_runoff.append(BV.forcing.runoff)
-    list_recharge.append(BV.forcing.recharge)
-    list_runoff.append(BV.oceanic.MSL)
+        gcm = DRIAS_model[:3] #'MPI'
+        rcm = DRIAS_model[-3:] #'CCL'
+        sce = scenario #'RCP8.5'
+        BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                          first_year = first_yr, last_year = last_yr,
+                                          sim_state = sim_state)
+        # BV.forcing.update_recharge(R_hist, 'transient')
+        if scenario == 'RCP2.6':
+            BV.oceanic.update_MSL(md_rmsl_26)
+        elif scenario == 'RCP8.5':
+            BV.oceanic.update_MSL(md_rmsl_85)
+        
+        now = datetime.now()
+        now_str = now.strftime("%d%m%Y%H%M%S")
+        sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+        # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
+        print(sim_name)
+    
+        success, flow_model = BV.run_modflow(ident=sim_name,
+                        modpath_sim=modpath_sim,
+                        first_only=first_only,
+                        sink_fill=sink_fill,
+                        box=box,
+                        lay_number=lay_number,
+                        bottom=bottom,
+                        thick_exp=thick_exp,
+                        cond_decay=cond_decay,
+                        verbose=verbose)
+        
+        list_sim_name.append(sim_name)
+        list_success.append(success)
+        list_flow_model.append(flow_model)
+        list_recharge.append(BV.forcing.recharge)
+        list_sealevel.append(BV.oceanic.MSL)
 
 # sim_results_dict = {}
 # sim_results_dict['sim_name'] = list_sim_name
 # sim_results_dict['success'] = list_success
-# sim_results_dict['flow_model'] = list_flow_model
-# sim_results_dict['runoff'] = list_runoff
 # sim_results_dict['recharge'] = list_recharge
 # sim_results_dict['sealevel'] = list_sealevel
 
@@ -594,12 +816,13 @@ types_obs = ['piezometry']
 # list_flow_model = d['flow_model'][:]
 # list_runoff = d['runoff'][:]
 
-for model_name, success, flow_model, var_store in zip(list_sim_name,
+for sim_name, success, flow_model, recharge, sealevel in zip(list_sim_name,
                                                      list_success,
                                                      list_flow_model,
-                                                     list_runoff):
+                                                     list_recharge,
+                                                     list_sealevel):
 
-    if success==True:
+    if success == True:
             print(success)
             
             BV.matrix_modflow(success,
@@ -619,12 +842,10 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
                               export_tif = True)
             
             # Necessary for results_modflow
-            BV.forcing.update_recharge(flow_model.climatic, sim_state=sim_state)
-            recharge = BV.forcing.recharge
-            runoff = BV.forcing.recharge # warning: runoff is set at recharge value to debug
+            runoff = recharge # warning: runoff is set at recharge value to debug
             
             # Extract results
-            BV.results_modflow(ident=model_name,
+            BV.results_modflow(ident=sim_name,
                                recharge=recharge,
                                runoff=runoff,
                                actual_date=actual_date,
@@ -632,7 +853,7 @@ for model_name, success, flow_model, var_store in zip(list_sim_name,
             
             ## Plot maps
             # surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
-            #                                       model_name, types_obs,
+            #                                       sim_name, types_obs,
             #                                       save_gif=False,
             #                                       first_only=True,
             #                                       sim_state=sim_state,

@@ -173,10 +173,10 @@ class SurfaceOutputs():
         cbar.mappable.set_clim(minVal, maxVal)
         cbar.ax.tick_params(labelsize=10)
         # Plot simulated
-        outflow[outflow.Persistanc==0].plot(ax=ax, alpha=1, column='Persistanc', color='darkorange', 
+        outflow[outflow['id_persist']==0].plot(ax=ax, alpha=1, column='id_persist', color='darkorange', 
                             marker='s', markersize=30, lw=0.1, edgecolor='none',
                             zorder=4, label='Temporary - Sim.')
-        outflow[outflow.Persistanc==1].plot(ax=ax, alpha=1, column='Persistanc', color='dodgerblue', 
+        outflow[outflow['id_persist']==1].plot(ax=ax, alpha=1, column='id_persist', color='dodgerblue', 
                             marker='s', markersize=30, lw=0.1, edgecolor='none',
                             zorder=4, label='Perennial - Sim.')
         scalebar = AnchoredSizeBar(ax.transData, 1000, '1 km', 'lower left', 

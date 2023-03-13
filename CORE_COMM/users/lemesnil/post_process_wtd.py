@@ -9,8 +9,8 @@ Created on Tue Nov 15 10:56:21 2022
 
 watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-sim_name = '20202100_MPICCLRCP85_08122022095605'
-# 20202100_MPICCLRCP85_08122022095605 20102014_REA_14122022115903
+sim_name = '20202100_MPICCLRCP26_22012023202032'
+# 20202100_MPICCLRCP85_08122022095605 20202100_MPICCLRCP85_19012023173740
 out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
@@ -49,70 +49,9 @@ matrix_wtd = np.ones((south,east,duration))*np.nan
 for t in range(duration):
     matrix_wtd[:,:,t] = wt_depth[t]
 
-#%% Spatial indicators 2020-2100
-
-rast_min = np.amin(matrix_wtd,2)
-rast_max = np.amax(matrix_wtd,2)
-rast_mean = np.mean(matrix_wtd,2)
-
-rast_f30 = np.ones((south,east))*np.nan
-rast_f3 = np.ones((south,east))*np.nan
-for i in range(south):
-    for j in range(east):
-        c30 = c3 = 0
-        for t in range(duration):
-            if matrix_wtd[i,j,t] <= 0.3:
-                c30 += 1
-            if matrix_wtd[i,j,t] <= 0.03:
-                c3 += 1
-        rast_f30[i,j] = c30/duration*100
-        rast_f3[i,j] = c3/duration*100
-
-
-plt.figure(dpi=300)
-mapp = plt.imshow(rast_f30)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Occurency (%)")
-plt.axis('off')
-plt.title('Watertable depth < 30 cm ')
-plt.show()
-
-plt.figure(dpi=300)
-mapp = plt.imshow(rast_f3)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Occurency (%)")
-plt.axis('off')
-plt.title('Watertable depth < 3 cm ')
-plt.show()
-
-plt.figure(dpi=300)
-mapp = plt.imshow(rast_min)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.title('Minimum watertable depth')
-plt.show()
-
-plt.figure(dpi=300)
-mapp = plt.imshow(rast_max)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.title('Maximum watertable depth')
-plt.show()
-
-plt.figure(dpi=300)
-mapp = plt.imshow(rast_mean)
-cbar = plt.colorbar(mapp)
-cbar.set_label("Watertable depth (m)")
-plt.axis('off')
-plt.title('Mean watertable depth')
-plt.show()
-
-
 #%% Spatial indicators function
 
-def spatial_indic_surfex(yr_min, yr_max, start_yr, save_fig=False, save_rast=False):
+def wtd_spat_indic(yr_min, yr_max, start_yr, save_fig=False, save_rast=False, rast_dir = None):
     import datetime
     
     days_per =  datetime.datetime(yr_max, 12, 31) - datetime.datetime(yr_min, 1, 1)
@@ -230,13 +169,11 @@ def spatial_indic_surfex(yr_min, yr_max, start_yr, save_fig=False, save_rast=Fal
         import rasterio as rio
         import os
 
-        watershed_name = 'Saint-Germain-sur-Ay'
-        # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
-        sim_name = '20102014_REA_14122022115903'
-        # 20202100_MPICCLRCP85_08122022095605 
-
         dem_path = out_path+'/'+watershed_name+'/'+'results_stable/geographic/watershed_dem.tif'
-        tif_dir_path = 'C:/Users/Martin Le Mesnil/Travail/Modélisation/' + watershed_name + '/' + sim_name + '/rasters_img_2014/'
+        if rast_dir == None:
+            tif_dir_path = 'C:/Users/Martin Le Mesnil/Travail/Modélisation/' + watershed_name + '/' + sim_name + '/rasters_wtd/'
+        else:
+            tif_dir_path = rast_dir
         data_nodata_val = -9999
 
         data_to_tif_list = [rast_f250, rast_f50, rast_f30, rast_f3,
@@ -270,8 +207,71 @@ def spatial_indic_surfex(yr_min, yr_max, start_yr, save_fig=False, save_rast=Fal
 
 #%% Print indicators
 
-spatial_indic_surfex(1965, 1975, 1965)
-spatial_indic_surfex(2010, 2014, 1965, save_rast=True)
+wtd_spat_indic(1965, 1975, 1965)
+wtd_spat_indic(2010, 2014, 1965, save_rast=True)
+wtd_spat_indic(2047, 2053, 2020, save_rast=True)
+
+
+#%% Spatial indicators 2020-2100
+
+rast_min = np.amin(matrix_wtd,2)
+rast_max = np.amax(matrix_wtd,2)
+rast_mean = np.mean(matrix_wtd,2)
+
+rast_f30 = np.ones((south,east))*np.nan
+rast_f3 = np.ones((south,east))*np.nan
+for i in range(south):
+    for j in range(east):
+        c30 = c3 = 0
+        for t in range(duration):
+            if matrix_wtd[i,j,t] <= 0.3:
+                c30 += 1
+            if matrix_wtd[i,j,t] <= 0.03:
+                c3 += 1
+        rast_f30[i,j] = c30/duration*100
+        rast_f3[i,j] = c3/duration*100
+
+
+plt.figure(dpi=300)
+mapp = plt.imshow(rast_f30)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Occurency (%)")
+plt.axis('off')
+plt.title('Watertable depth < 30 cm ')
+plt.show()
+
+plt.figure(dpi=300)
+mapp = plt.imshow(rast_f3)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Occurency (%)")
+plt.axis('off')
+plt.title('Watertable depth < 3 cm ')
+plt.show()
+
+plt.figure(dpi=300)
+mapp = plt.imshow(rast_min)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.title('Minimum watertable depth')
+plt.show()
+
+plt.figure(dpi=300)
+mapp = plt.imshow(rast_max)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.title('Maximum watertable depth')
+plt.show()
+
+plt.figure(dpi=300)
+mapp = plt.imshow(rast_mean)
+cbar = plt.colorbar(mapp)
+cbar.set_label("Watertable depth (m)")
+plt.axis('off')
+plt.title('Mean watertable depth')
+plt.show()
+
 
 
 #%% Spatial indicators 1970 (1965-1975)
