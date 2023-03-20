@@ -814,7 +814,8 @@ for watershed_name in watershed_names[:1] :
 #%% MODELING CALIBRATED
 
 # iD = 'test'
-iD = 'calibrated1'
+# iD = 'calibrated1'
+iD = 'calibrated2'
 
 # Options
 sim_state = 'transient' # 'steady' or 'transient'
@@ -866,7 +867,8 @@ for watershed_name in watershed_names[:]:
     print('{:.2e}'.format(calib_dicot.perennial[0]))
     
     if watershed_name=='Canut':
-        Sy_optim = 0.2
+        # Sy_optim = 0.2
+        Sy_optim = 0.1
     if watershed_name=='Nancon':
         Sy_optim = 2.0
     
@@ -928,7 +930,7 @@ for watershed_name in watershed_names[:]:
 
 #%% POSTPROCESS CALIBRATED
 
-iD = 'calibrated1'
+iD = 'calibrated2'
 
 for watershed_name in watershed_names[:] :
     
@@ -953,21 +955,21 @@ for watershed_name in watershed_names[:] :
         if success==True:
                 print(success)
                                 
-                # BV.matrix_modflow(success,
-                #                   flow_model,
-                #                   first_only = True,
-                #                   watertable_elevation = True,
-                #                   watertable_depth = True, 
-                #                   seepage_areas = True,
-                #                   outflow_drain = True,
-                #                   groundwater_flux = False,
-                #                   specific_discharge = False,
-                #                   accumulation_flux = True,
-                #                   perenn_intermit_shp = True,
-                #                   groundwater_storage = True,
-                #                   residence_times = False,
-                #                   verbose = True,
-                #                   export_tif = True)
+                BV.matrix_modflow(success,
+                                  flow_model,
+                                  first_only = True,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = False,
+                                  specific_discharge = False,
+                                  accumulation_flux = True,
+                                  perenn_intermit_shp = True,
+                                  groundwater_storage = True,
+                                  residence_times = False,
+                                  verbose = True,
+                                  export_tif = True)
                 
                 # # Extract results
                 BV.results_modflow(ident=model_name,
@@ -978,9 +980,175 @@ for watershed_name in watershed_names[:] :
                 
 #%% MODELING SENSITIVITY
 
+# iD = 'test'
+iD = 'matrix1'
+
+# Options
+sim_state = 'transient' # 'steady' or 'transient'
+modpath_sim = False # run modpath particle tracking if True
+run = True
+time_step = 'M' # or 'D'
+actual_date = True # False if date is conceptual
+box = False # if True generate a rectangular model
+sink_fill = False # permit to fill sinks
+verbose = True # add print of MODFLOW in console
+post_process = False # necessary to decompose post process of process    
+init_rech = 'mean'
+
+for watershed_name in watershed_names[:1]:
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    BV.add_forcing()
+    BV.add_hydrodynamic()
+    BV.add_oceanic('None')
+    
+    # Recharge and runoff
+    mod = 'REA'
+    sce = 'historic'
+    recharge = dict_recharge[watershed_name]
+    runoff = dict_runoff[watershed_name]
+    BV.forcing.update_recharge(recharge, sim_state='transient')
+    BV.forcing.update_runoff(runoff, sim_state='transient')
+    
+    # Store results
+    list_model_name = []
+    list_of_success = []
+    list_flow_model = []
+
+    nlay = 6
+    bottom = None
+    cond_decay = 0
+    thick_exp = 1
+    thickness = 30
+    
+    calib_dicot = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+    print('{:.2e}'.format(calib_dicot.perennial[0]))
+    
+    # if watershed_name=='Canut':
+    #     Sy_optim = 0.2
+    # if watershed_name=='Nancon':
+    #     Sy_optim = 2.0
+    
+    hyd_cond = [4e-6 * 86400,
+                4e-5 * 86400,
+                4e-4 * 86400]
+    porosity = [0.1 / 100,
+                1.0 / 100,
+                10.0 / 100]
+    print(watershed_name, porosity)
+
+    compt = 0
+
+    for K in hyd_cond:
+        
+        for Sy in porosity:
+    
+            BV.hydrodynamic.update_nlay(nlay) # 1
+            BV.hydrodynamic.update_bottom(bottom) # None
+            BV.hydrodynamic.update_cond_decay(cond_decay) # 0
+            BV.hydrodynamic.update_thick_exp(thick_exp) # 1
+            BV.hydrodynamic.update_thickness(thickness) # 30 / intervient pas si bottom != None
+            BV.hydrodynamic.update_hyd_cond(K) 
+            BV.hydrodynamic.update_porosity(Sy)
+              
+            date_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S") # just a string
+            date_today = date_today.replace('/','-')
+            date_today = date_today.replace(':','-')
+            date_today = date_today.replace(' ','_')
+            
+            model_name = iD+'_'+str(compt)+'_'+\
+                         mod+'-'+sce+'_'+\
+                         str(nlay)+'-'+str(thickness)+'_'+\
+                         str(round(K,2))+'-'+str(Sy)+'_'+\
+                         str(recharge.first_valid_index().year)+'-'+str(recharge.last_valid_index().year)
+            
+            print(model_name)
+
+            success, flow_model = BV.run_modflow(ident=model_name,
+                                                  modpath_sim=modpath_sim,
+                                                  sink_fill=sink_fill,
+                                                  box=box,
+                                                  verbose=verbose,
+                                                  post_process=post_process, 
+                                                  init_rech=init_rech,
+                                                  verti_k=None)
+            
+            if success == True:
+                print(     'Success')
+            else:
+                print(     'Error')
+    
+            list_model_name.append(model_name)
+            list_of_success.append(success)
+            list_flow_model.append(flow_model)
+        
+            compt+=1
+        
+    print(list_of_success)
+    
+    dictio = {}
+    dictio['list_model_name'] = list_model_name
+    dictio['list_of_success'] = list_of_success
+    dictio['list_flow_model'] = list_flow_model
+    h5file = simulations_folder+'/'+'list_'+iD
+    
+    dd.io.save(h5file, dictio)
 
 #%% POSTPROCESS SENSITIVITY
 
+iD = 'matrix1'
+
+for watershed_name in watershed_names[:1] :
+    
+    print('##### '+watershed_name.upper()+' #####')
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+
+    h5file = simulations_folder+'/'+'list_'+iD
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_of_success = d['list_of_success'][:]
+    list_flow_model = d['list_flow_model'][:]
+    
+    for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+            
+        if success==True:
+                print(success)
+                                
+                BV.matrix_modflow(success,
+                                  flow_model,
+                                  first_only = True,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = False,
+                                  specific_discharge = False,
+                                  accumulation_flux = True,
+                                  perenn_intermit_shp = True,
+                                  groundwater_storage = True,
+                                  residence_times = False,
+                                  verbose = True,
+                                  export_tif = True)
+                
+                # # Extract results
+                BV.results_modflow(ident=model_name,
+                                   recharge=dict_recharge[watershed_name],
+                                   runoff=dict_runoff[watershed_name],
+                                   actual_date=True,
+                                   time_step='M')
 
 #%% ---- PLOT
 
@@ -1411,6 +1579,7 @@ wish = 0
 
 sat_typ = 'surflow_areas'
 # sat_typ = 'seepage_areas'
+# sat_typ = 'prop_ratio'
 
 for watershed_name in watershed_names[:]:
     
@@ -1439,6 +1608,9 @@ for watershed_name in watershed_names[:]:
     # test.display_best_data()
     
     sim_res=test.sim_results
+    for i in sim_res:
+        # print(i)
+        sim_res[i]['prop_ratio'] = np.nan
     
     typ_name = typ_calib.split('_')[0]
     
@@ -1478,6 +1650,7 @@ for watershed_name in watershed_names[:]:
     p2= test.params_values[1]
     sim_sat_min = np.zeros((len(p1),len(p2)))
     sim_sat_mean = np.zeros((len(p1),len(p2)))
+    sim_sat_median = np.zeros((len(p1),len(p2)))
     sim_sat_max = np.zeros((len(p1),len(p2)))
     sim_sat_std = np.zeros((len(p1),len(p2)))
     compt=0
@@ -1487,21 +1660,36 @@ for watershed_name in watershed_names[:]:
             string = str(p1[i])+';'+str(+p2[j])
             try:
                 # ax.set_title('SAT MIN [%]')
+                if sat_typ == 'prop_ratio':
+                    sim_res[string][sat_typ] = pd.to_numeric(sim_res[string]['intermit_areas'], errors='coerce') / pd.to_numeric(sim_res[string]['surflow_areas'], errors='coerce')
                 sim_sat_min[j][i] = np.nanmin(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
             try:
                 # ax.set_title('SAT MEAN [%]')
-                sim_sat_mean[j][i] = np.nanmedian(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
+                if sat_typ == 'prop_ratio':
+                    sim_res[string][sat_typ] = pd.to_numeric(sim_res[string]['intermit_areas'], errors='coerce') / pd.to_numeric(sim_res[string]['surflow_areas'], errors='coerce')
+                sim_sat_mean[j][i] = np.nanmean(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
+            except:
+                pass
+            try:
+                # ax.set_title('SAT MEAN [%]')
+                if sat_typ == 'prop_ratio':
+                    sim_res[string][sat_typ] = pd.to_numeric(sim_res[string]['intermit_areas'], errors='coerce') / pd.to_numeric(sim_res[string]['surflow_areas'], errors='coerce')
+                sim_sat_median[j][i] = np.nanmedian(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
             try:
                 # ax.set_title('SAT MAX [%]')
+                if sat_typ == 'prop_ratio':
+                    sim_res[string][sat_typ] = pd.to_numeric(sim_res[string]['intermit_areas'], errors='coerce') / pd.to_numeric(sim_res[string]['surflow_areas'], errors='coerce')
                 sim_sat_max[j][i] = np.nanmax(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
             try:
                 # ax.set_title('SAT MAX [%]')
+                if sat_typ == 'prop_ratio':
+                    sim_res[string][sat_typ] = pd.to_numeric(sim_res[string]['intermit_areas'], errors='coerce') / pd.to_numeric(sim_res[string]['surflow_areas'], errors='coerce')
                 sim_sat_std[j][i] = np.nanvar(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
@@ -1513,19 +1701,25 @@ for watershed_name in watershed_names[:]:
     # sim_sat_min[sim_sat_min==0] = 1/1e6
     # sim_sat_max[sim_sat_max==0] = 1/100
     # Z = (sim_sat_max / sim_sat_min) # / sim_sat_mean
-    Z = (sim_sat_max - sim_sat_min) / sim_sat_mean 
+    Z = (sim_sat_max - sim_sat_min) / sim_sat_mean
+    # Z = (sim_sat_median) #/ sim_sat_mean
+    # Z = (sim_sat_max - sim_sat_min) / (sim_sat_min)
+    # Z = (sim_sat_max) #/ sim_sat_mean
+    # Z = (sim_sat_mean)
     # Z = sim_sat_mean
     # Z = np.log10(Z)
     # plt.imshow(sim_sat_max)
     # plt.colorbar()
     
-    if watershed_name == 'Canut':
-        Zobs = (18 - 0) / (5)
-        Z[11,16] = 0
-    if watershed_name == 'Nancon':
-        Zobs = (23 - 5) / (10)
-    Z[Z>10] = 10
-    # Z = sim_sat_std
+    
+    # if watershed_name == 'Canut':
+    #     Zobs = (18 - 0) / (5)
+    #     Z[11,16] = 0
+    # if watershed_name == 'Nancon':
+    #     Zobs = (23 - 5) / (10)
+    # Z[Z>10] = 10
+    # # Z = sim_sat_std
+    
     
     # Z[sim_sat_max==0] = 0
     # Z[sim_sat_min==0] = 0
@@ -1568,10 +1762,12 @@ for watershed_name in watershed_names[:]:
                         # levels=np.arange(0, 1.1, 0.1),
                         # levels=[0,0.5,1,1.5,2],
                         # norm=mpl.colors.CenteredNorm(),
-                        norm=mpl.colors.LogNorm(),
+                            # norm=mpl.colors.LogNorm(),
                         # norm = divnorm,
-                        levels=np.arange(0, 10.5, 1),
+                            # levels=np.arange(0, 10.5, 1),
+                        # levels=np.arange(0, 1.1, 0.1),
                       linewidths=0, ec='none', ls=None)
+    
     
     ax.contour(X/24/3600,Y*100, Z, cmap=cmap, alpha=0.5,
                         # levels=np.around(np.geomspace(1, 100, 10)).astype(int),
@@ -1579,9 +1775,10 @@ for watershed_name in watershed_names[:]:
                         # levels=np.arange(0, 1.1, 0.1),
                         # levels=[0,0.5,1,1.5,2],
                         # norm=mpl.colors.CenteredNorm(),
-                        norm=mpl.colors.LogNorm(),
+                            # norm=mpl.colors.LogNorm(),
                         # norm = divnorm,
-                        levels=np.arange(0, 10.5, 1),
+                            # levels=np.arange(0, 10.5, 1),
+                        # levels=np.arange(0, 1.1, 0.1),
                       linewidths=1)
     
 
@@ -1612,7 +1809,7 @@ for watershed_name in watershed_names[:]:
     plt.xscale('log')
     
     ax.set_xscale('log')
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
     ax.set_ylabel('θ [%]')
     ax.set_xlabel('K [m/s]')
     
@@ -1634,8 +1831,10 @@ for watershed_name in watershed_names[:]:
     
     position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
     cb = fig.colorbar(pc, cax=position, orientation='vertical')
-    cb.set_ticks(np.arange(0, 11, 1))
-    cb.set_ticklabels(np.round(np.arange(0,11,1),1)) 
+    # cb.set_ticks(np.arange(0, 11, 1))
+    # cb.set_ticklabels(np.round(np.arange(0,11,1),1)) 
+        # cb.set_ticks(np.arange(0, 1.1, 0.1))
+        # cb.set_ticklabels(np.arange(0, 1.1, 0.1)) 
     cb.set_label('$A_{diff}$ [-]', rotation=270, labelpad=40)
     cb.ax.tick_params(top=True,
                 bottom=True,
@@ -1694,12 +1893,12 @@ for watershed_name in watershed_names[:]:
     plt.tight_layout()    
     
     base_name = figsim_folder+'02_exploration/'
-    spec_name = watershed_name+'_explosaturation'
-    fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+    spec_name = watershed_name+'_explosaturation_median'
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% STREAMFLOW
 
-iD = 'calibrated1'
+iD = 'calibrated2'
 
 for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
@@ -1855,7 +2054,7 @@ for watershed_name in watershed_names[:]:
         
         Sonde_path = glob.glob(simul+'/_subbasins/intermittency_*')[0]+'/_simulated_results.csv'
         Sonde = pd.read_csv(Sonde_path, sep=';', index_col=0, parse_dates=True)
-        Smod = Sonde.copy()-0.6
+        # Smod = Sonde.copy()-0.6
         # Smod['perenn_areas'] = Smod['perenn_areas']-0.5
         
         d = BV.intermittency.flowing
@@ -1959,7 +2158,7 @@ for watershed_name in watershed_names[:]:
         
         base_name = figsim_folder+'04_calibrated/'
         spec_name = watershed_name+'_onde_chronic'
-        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
                 
 #%% MMINMAP
 
@@ -2110,17 +2309,57 @@ for watershed_name in watershed_names[:]:
     import itertools            
     
     watertable_elevation = np.load(simulations_folder+model_name+'/_watershed/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
-
+    
+    c = 0
+    cp = 0
+    dict_min_wt = {}
+    dict_res_both = {}
     for key in dict(itertools.islice(watertable_elevation.items(),
                                      len(watertable_elevation)-12*8, # ONDE 8 years
                                      len(watertable_elevation))):
-        print(key)
+        dem_data = imageio.imread(BV.geographic.watershed_dem)
+        # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
+        wt_data = watertable_elevation[key]
+        wt_data = np.ma.masked_where(wt_data < 0, wt_data)
+        river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
+        # print(key)
+        # print(c)
+        dict_min_wt[c] = wt_data.mean()
+        c+=1
+        if c == 12:
+            c=0
+            minval = min(dict_min_wt.values())
+            res = [k for k, v in dict_min_wt.items() if v==minval]
+            res = list(filter(lambda x: dict_min_wt[x]==minval, dict_min_wt))
+            res_both = min(dict_min_wt.items(), key=lambda x: x[1])
+            # print(res_both)
+            dict_res_both[cp] = res_both
+            cp+=1
+            
+    cb = 0
+    cpb = 0
+    cpy = 0
+    for key in dict(itertools.islice(watertable_elevation.items(),
+                                     len(watertable_elevation)-12*8, # ONDE 8 years
+                                     len(watertable_elevation))):
 
         dem_data = imageio.imread(BV.geographic.watershed_dem)
         # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
         wt_data = watertable_elevation[key]
+        wt_data = np.ma.masked_where(wt_data < 0, wt_data)
         river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
-    
+        
+        # print(cpb)
+        cb+=1
+        if cpb == 12:
+            cb=0
+            cpb=0
+            # print(cpy)
+            cpy+=1
+        res_both = dict_res_both[cpy]
+        print(cpb, cpy, res_both)
+        cpb+=1
+
         xvalues = np.linspace(-1,1,dem_data.shape[1])
         yvalues = np.linspace(-1,1,dem_data.shape[0])
         xx, yy = np.meshgrid(xvalues,yvalues)
@@ -2134,6 +2373,7 @@ for watershed_name in watershed_names[:]:
         dem_max = dem_data.max()
         dem_prof = dem_data.astype(float)
         dem_prof[dem_prof<0] = np.nan
+        
         wt_prof = wt_data.astype(float)
         wt_prof[wt_prof<0] = np.nan
         
@@ -2142,26 +2382,40 @@ for watershed_name in watershed_names[:]:
             dem_h_plot[dem_h_plot == 0] = np.nan
             wt_h_plot = wt_prof[int(cur_y),:]
             wt_h_plot[wt_h_plot == 0] = np.nan
+
+            wt_prof_min = watertable_elevation[res_both[0]].astype(float)
+            wt_prof_min[wt_prof_min<0] = np.nan
+            wt_h_plot_min = wt_prof_min[int(cur_y),:]
+            wt_h_plot_min[wt_h_plot_min == 0] = np.nan
+                
         if watershed_name == 'Canut':
             dem_v_plot = dem_prof[:,int(cur_x)]
             dem_v_plot[dem_v_plot == 0] = np.nan
             wt_v_plot = wt_prof[:,int(cur_x)]
             wt_v_plot[wt_v_plot == 0] = np.nan
-            
+
+            wt_prof_min = watertable_elevation[res_both[0]].astype(float)
+            wt_prof_min[wt_prof_min<0] = np.nan
+            wt_v_plot_min = wt_prof_min[:,int(cur_x)]
+            wt_v_plot_min[wt_v_plot_min == 0] = np.nan
+                 
         dem_max = dem_data.max()
         dem_prof = dem_data.astype(float)
         dem_prof[dem_prof<0] = np.nan
         dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
-        
-        wt_prof = wt_data.astype(float)
-        wt_prof[wt_prof<0] = np.nan
-                        
+    
         fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
     
         if watershed_name == 'Nancon':
+            wt_v_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-30, wt_h_plot_min,
+                                                color='navy', alpha=0.5, lw=0)
+            w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot_min, color='navy', lw=1)
+            store_w_c_plot = wt_h_plot_min.copy()
+            # store_w_c_plot = wt_h_plot.copy()
+            
             wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-30, wt_h_plot,
                                             color='dodgerblue', alpha=0.5, lw=0)
-            w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='navy', lw=2)
+            w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='dodgerblue', lw=1)
             wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
                                             color='saddlebrown', alpha=0.5, lw=0)
             d_prof = ax.plot(np.arange(xx.shape[1])*75, dem_h_plot, 'saddlebrown', lw=1.5)
@@ -2173,9 +2427,15 @@ for watershed_name in watershed_names[:]:
             ax.set_yticks([130,140,150,160,170])
                    
         if watershed_name == 'Canut':
+            wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot_min,
+                                                color='navy', alpha=0.5, lw=0)
+            w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot_min, color='navy', lw=1)
+            store_w_c_plot = wt_v_plot_min.copy()
+            # store_w_c_plot = wt_v_plot.copy()
+            
             wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
                                                 color='dodgerblue', alpha=0.5, lw=0)
-            w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=2)
+            w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='dodgerblue', lw=1)
             wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot,
                                             color='saddlebrown', alpha=0.5, lw=0)
             d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
@@ -2185,7 +2445,7 @@ for watershed_name in watershed_names[:]:
             ax.set_xlim(1000, 4000)
             ax.set_ylim(85, 130)
             ax.set_yticks([90,100,110,120,130])
-            
+                          
         ax.set_title(str(dates[key])[:7])
         
         plt.tight_layout()
@@ -2194,7 +2454,7 @@ for watershed_name in watershed_names[:]:
         spec_name = 'anim_'+watershed_name+'/'+'cross_anim_'+str(key)
         fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
         
-        plt.close()
+        # plt.close()
 
 for watershed_name in watershed_names[:]:    
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -2358,6 +2618,101 @@ for watershed_name in watershed_names[:]:
         imageio.mimsave(base_name+gif_name+'.gif', images,
                         duration=0.25, loop=0)
 
+#%% MAPANIM SHP
+
+iD = 'calibrated1'
+
+typ_intermit = 'monthly' # yearly or persistency or monthly
+# typ_intermit = 'yearly' # yearly or persistency or monthly
+
+gif = True
+
+for watershed_name in watershed_names[:]:
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+        
+    simul_list = sorted(glob.glob(simulations_folder+iD+'*'),
+                       key=os.path.getmtime)
+    
+    wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                               stable_folder+'geographic/'+'watershed_contour.tif',
+                               base = stable_folder+'geographic/'+'watershed_dem.tif')
+    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+    # line = np.ma.masked_where(line <= 0, line)
+    
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+
+    # plt.imshow(dem_data)
+
+    for simul in simul_list:
+
+        Smod_path = simul+'/_watershed/_simulated_results.csv'  
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        Smod = Smod.reset_index()
+        Smod['iloc'] = Smod.index
+        Smod = Smod.set_index('date')
+        years = np.arange(2012,2019+1,1)
+        Smod = select_period(Smod, years[0], years[-1])
+        
+        for dt, i in zip(Smod.index, Smod['iloc']):
+            
+            fig, ax = plt.subplots(1,1, figsize=(7,6))
+            
+            show(dem_data, ax=ax, transform=dem.transform,
+                  cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
+            
+            if watershed_name == 'Nancon':
+                ms=7
+            if watershed_name == 'Canut':
+                ms=10
+                
+            shp = gpd.read_file(simul+'/_watershed/_surfaceflow/'+
+                                'tracept_t('+str(i)+').shp')
+            shp[shp['id_persist']==0].plot(ax=ax, column='id_persist', lw=0,
+                                           marker='s', color='dodgerblue',
+                                           markersize=ms, zorder=1)
+            shp[shp['id_persist']==1].plot(ax=ax, column='id_persist', lw=0,
+                                           marker='s', color='navy',
+                                           markersize=ms, zorder=1)
+            line.plot(ax=ax, color='k', lw=2)
+    
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            plt.axis('off')
+            
+            # month_print = "{:02d}".format(k+1)
+            ax.set_title(str(dt)[:7])
+    
+            compt_print = "{:02d}".format(compt)
+            # print(compt_print)
+
+            base_name = figsim_folder+'05_crossmapping/'
+            spec_name = 'mapanim_'+watershed_name+'/'+'map_anim_'+str(i)+'_'+str(dt)[:7]
+            fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+            
+            # plt.close()
+        
+        compt += 1
+
+    if gif == True:
+        begin_by = figsim_folder+'05_crossmapping/'+'mapanim_'+watershed_name+'/'+'map_anim_'
+        filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+        images = []
+        for filename in filenames:
+            images.append(imageio.imread(filename))
+        base_name = figsim_folder+'05_crossmapping/'
+        gif_name = 'mapanim_'+watershed_name+'/'+'_map_anim_monthly'
+        imageio.mimsave(base_name+gif_name+'.gif', images,
+                        duration=0.25, loop=0)
+
 #%% CROSSFIX
 
 iD = 'calibrated1'
@@ -2386,128 +2741,132 @@ for watershed_name in watershed_names[:]:
                         key=os.path.getmtime, reverse=True)
     model_name = list_path[-1].split('\\')[-1]
     
-    Smod_path = simul+'/_watershed/_simulated_results.csv'
-    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-    Smod = Smod.reset_index()
-    argmin = Smod['surflow_areas'].argmin()
-    argmax = Smod['surflow_areas'].argmax()
+    simul_list = sorted(glob.glob(simulations_folder+iD+'*'), key=os.path.getmtime)
     
-    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+    for simul in simul_list:
     
-    import itertools            
-    
-    watertable_elevation = np.load(simulations_folder+model_name+'/_watershed/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
-    
-    min_wt = dict()
-    
-    cp = 0
-    # for key in dict(itertools.islice(watertable_elevation.items(),
-    #                                  len(watertable_elevation), # ONDE 8 years
-    #                                  len(watertable_elevation))):
-    for i, key in enumerate([argmin, argmax]):
-        print(key)
-
-        dem_data = imageio.imread(BV.geographic.watershed_dem)
-        # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
-        wt_data = watertable_elevation[key]
-        river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
-    
-        xvalues = np.linspace(-1,1,dem_data.shape[1])
-        yvalues = np.linspace(-1,1,dem_data.shape[0])
-        xx, yy = np.meshgrid(xvalues,yvalues)
+        Smod_path = simul+'/_watershed/_simulated_results.csv'
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        Smod = Smod.reset_index()
+        argmin = Smod['surflow_areas'].argmin()
+        argmax = Smod['surflow_areas'].argmax()
         
-        cur_x = dem_data.shape[1] /2
-        cur_y = dem_data.shape[0] /2
+        mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
         
-        cur_x = 65
-        cur_y = 39 # 40
+        import itertools            
         
-        dem_max = dem_data.max()
-        dem_prof = dem_data.astype(float)
-        dem_prof[dem_prof<0] = np.nan
-        wt_prof = wt_data.astype(float)
-        wt_prof[wt_prof<0] = np.nan
+        watertable_elevation = np.load(simulations_folder+model_name+'/_watershed/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
         
-        if watershed_name == 'Nancon':
-            dem_h_plot = dem_prof[int(cur_y),:]
-            dem_h_plot[dem_h_plot == 0] = np.nan
-            wt_h_plot = wt_prof[int(cur_y),:]
-            wt_h_plot[wt_h_plot == 0] = np.nan
+        min_wt = dict()
+        
+        cp = 0
+        # for key in dict(itertools.islice(watertable_elevation.items(),
+        #                                  len(watertable_elevation), # ONDE 8 years
+        #                                  len(watertable_elevation))):
+        for i, key in enumerate([argmin, argmax]):
+            print(key)
+    
+            dem_data = imageio.imread(BV.geographic.watershed_dem)
+            # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
+            wt_data = watertable_elevation[key]
+            river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
+        
+            xvalues = np.linspace(-1,1,dem_data.shape[1])
+            yvalues = np.linspace(-1,1,dem_data.shape[0])
+            xx, yy = np.meshgrid(xvalues,yvalues)
             
-            # list_h_wt[cp] = wt_h_plot
+            cur_x = dem_data.shape[1] /2
+            cur_y = dem_data.shape[0] /2
             
-        if watershed_name == 'Canut':
-            dem_v_plot = dem_prof[:,int(cur_x)]
-            dem_v_plot[dem_v_plot == 0] = np.nan
-            wt_v_plot = wt_prof[:,int(cur_x)]
-            wt_v_plot[wt_v_plot == 0] = np.nan
+            cur_x = 65
+            cur_y = 39 # 40
             
-            # list_v_wt[cp] = wt_v_plot
+            dem_max = dem_data.max()
+            dem_prof = dem_data.astype(float)
+            dem_prof[dem_prof<0] = np.nan
+            wt_prof = wt_data.astype(float)
+            wt_prof[wt_prof<0] = np.nan
             
-        dem_max = dem_data.max()
-        dem_prof = dem_data.astype(float)
-        dem_prof[dem_prof<0] = np.nan
-        dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
-        
-        wt_prof = wt_data.astype(float)
-        wt_prof[wt_prof<0] = np.nan
-        
-        cp+=1
+            if watershed_name == 'Nancon':
+                dem_h_plot = dem_prof[int(cur_y),:]
+                dem_h_plot[dem_h_plot == 0] = np.nan
+                wt_h_plot = wt_prof[int(cur_y),:]
+                wt_h_plot[wt_h_plot == 0] = np.nan
+                
+                # list_h_wt[cp] = wt_h_plot
+                
+            if watershed_name == 'Canut':
+                dem_v_plot = dem_prof[:,int(cur_x)]
+                dem_v_plot[dem_v_plot == 0] = np.nan
+                wt_v_plot = wt_prof[:,int(cur_x)]
+                wt_v_plot[wt_v_plot == 0] = np.nan
+                
+                # list_v_wt[cp] = wt_v_plot
+                
+            dem_max = dem_data.max()
+            dem_prof = dem_data.astype(float)
+            dem_prof[dem_prof<0] = np.nan
+            dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
             
-        if watershed_name == 'Nancon':
-            # dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
-            # wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
-            if i == 0:
-                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
-                                                color='navy', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='navy', lw=1)
-            if i == 1:
-                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-30, wt_h_plot,
-                                                color='dodgerblue', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='dodgerblue', lw=1)
-                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
-                                                color='saddlebrown', alpha=0.5, lw=0)
-                d_prof = ax.plot(np.arange(xx.shape[1])*75, dem_h_plot, 'saddlebrown', lw=1.5)
-            ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-30,
-                                            color='lightgrey', alpha=0.7, lw=0)
-            ax.plot(np.arange(xx.shape[1])*75, dem_h_plot-30, color='dimgray', lw=1.5)
-            ax.set_xlim(5500, 8500)
-            ax.set_ylim(125, 170)
-            ax.set_yticks([130,140,150,160,170])
-                   
-        if watershed_name == 'Canut':
-            # dem_v_prof, = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, c='saddlebrown', lw=2)
-            # wt_v_prof, = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, c='dodgerblue', lw=2)
-            if i == 0:
-                wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
+            wt_prof = wt_data.astype(float)
+            wt_prof[wt_prof<0] = np.nan
+            
+            cp+=1
+                
+            if watershed_name == 'Nancon':
+                # dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
+                # wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
+                if i == 0:
+                    wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-30, wt_h_plot,
                                                     color='navy', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1)
-                store_w_c_plot = wt_v_plot.copy()
-                # store_w_c_plot = wt_v_plot.copy()
-            if i == 1:
-                wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
+                    w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='navy', lw=1)
+                if i == 1:
+                    wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-30, wt_h_plot,
                                                     color='dodgerblue', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='dodgerblue', lw=1)
-                wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot,
-                                                color='saddlebrown', alpha=0.5, lw=0)
-                d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
-            ax.fill_between(np.arange(xx.shape[0])*75, 0, dem_v_plot-30,
-                                            color='lightgrey', alpha=0.7, lw=0)
-            ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-30, color='dimgray', lw=1.5)
-            ax.set_xlim(1000, 4000)
-            ax.set_ylim(85, 130)
-            ax.set_yticks([90,100,110,120,130])
+                    w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='dodgerblue', lw=1)
+                    wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
+                                                    color='saddlebrown', alpha=0.5, lw=0)
+                    d_prof = ax.plot(np.arange(xx.shape[1])*75, dem_h_plot, 'saddlebrown', lw=1.5)
+                ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-30,
+                                                color='lightgrey', alpha=0.5, lw=0)
+                ax.plot(np.arange(xx.shape[1])*75, dem_h_plot-30, color='dimgray', lw=1.5)
+                ax.set_xlim(5500, 8500)
+                ax.set_ylim(125, 170)
+                ax.set_yticks([130,140,150,160,170])
+                       
+            if watershed_name == 'Canut':
+                # dem_v_prof, = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, c='saddlebrown', lw=2)
+                # wt_v_prof, = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, c='dodgerblue', lw=2)
+                if i == 0:
+                    wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
+                                                        color='navy', alpha=0.5, lw=0)
+                    w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1)
+                    store_w_c_plot = wt_v_plot.copy()
+                    # store_w_c_plot = wt_v_plot.copy()
+                if i == 1:
+                    wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
+                                                        color='dodgerblue', alpha=0.5, lw=0)
+                    w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='dodgerblue', lw=1)
+                    wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot,
+                                                    color='saddlebrown', alpha=0.5, lw=0)
+                    d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
+                ax.fill_between(np.arange(xx.shape[0])*75, 0, dem_v_plot-30,
+                                                color='lightgrey', alpha=0.5, lw=0)
+                ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-30, color='dimgray', lw=1.5)
+                ax.set_xlim(1000, 4000)
+                ax.set_ylim(85, 130)
+                ax.set_yticks([90,100,110,120,130])
+                
+            # ax.set_title(str(dates[key])[:7])
+            print((str(dates[key])[:7]))
             
-        # ax.set_title(str(dates[key])[:7])
-        print((str(dates[key])[:7]))
-        
-        plt.tight_layout()
-        
-        # fig.savefig(simulations_folder+model_name+'/_figures/png/'+'cross_'+str(key)+'.png', dpi=300, bbox_inches='tight')
-
-        base_name = figsim_folder+'05_crossmapping/'
-        spec_name = watershed_name+'_cross map fixed'
-        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+            plt.tight_layout()
+            
+            # fig.savefig(simulations_folder+model_name+'/_figures/png/'+'cross_'+str(key)+'.png', dpi=300, bbox_inches='tight')
+    
+            base_name = figsim_folder+'05_crossmapping/'
+            spec_name = watershed_name+'_cross map fixed'
+            # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% PI
 
