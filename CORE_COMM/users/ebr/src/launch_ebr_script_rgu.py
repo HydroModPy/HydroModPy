@@ -70,7 +70,7 @@ def select_period(df, first, last):
 
 #%% PERSONAL PATHS
 
-user = 'Abherve'
+user = 'Guillossou'
 
 if user == 'Abherve':
 
@@ -85,7 +85,7 @@ if user == 'Guillossou':
     # # Path to the git repositoty home page
     git_path = "C:/Users/r.guillossou/Documents/GitHub/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "C:/Users/r.guillossou/Documents/Data Hydromodpy/_data/"
+    data_path = "E:/_data/"
     # # Path where the results will be stored
     out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
 
@@ -194,8 +194,8 @@ for watershed_name in watershed_names[:]:
     
     if update_data == True:
         
-        BV.add_surfex(reanalysis_dayon_path)
-        BV.add_drias(explore2_path)
+        # BV.add_surfex(reanalysis_dayon_path)
+        # BV.add_drias(explore2_path)
         BV.add_geology(geology_path)
         BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
         BV.add_oceanic(oceanic_path)
@@ -317,6 +317,8 @@ mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
             'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
             'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
 
+mod_list = ['NOR1']
+
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['blue','red']
 dict_scecol = dict(zip(sce_list, col_list))
@@ -430,12 +432,12 @@ watershed_names = [
                    ]
 
 # type_simulation = 'analysis_past'
-type_simulation = 'analysis_future'
+type_simulation = 'analysis_past'
 
 if type_simulation == 'analysis_past':
     ### To chnage
     iD = 'checkpast'
-    periods = [2015, 2019]
+    periods = [2010, 2019]
     time_step = 'M' # or 'D'
     ### Not change
     mod_list = ['REA']
@@ -466,7 +468,7 @@ if type_simulation == 'analysis_past':
 if type_simulation == 'analysis_future':
     ### To change
     iD = 'projfuture'
-    periods = [1975, 2099]
+    periods = [2030, 2050]
     time_step = 'M' # or 'D'
     mod_list = ['NOR1']
     ### Not change
@@ -1361,7 +1363,7 @@ for watershed_name in watershed_names[:]:
         ax.set_axisbelow(True)
         ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.set_xlim(pd.to_datetime('1976'), pd.to_datetime('2100'))
+        ax.set_xlim(pd.to_datetime('2030'), pd.to_datetime('2050'))
                 
         ax.set_ylim(100, 600)
         
@@ -1804,7 +1806,7 @@ for watershed_name in watershed_names[:]:
     
 #%% PLOT RETURN QMNA
 
-mod_list = ['IPS1','CNR-ALA']
+mod_list = ['NOR1']
 sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
