@@ -71,15 +71,32 @@ def select_period(df, first, last):
 
 #%% PERSONAL PATHS
 
-user = 'Ronan'
+user = 'Abherve'
 
-if user == 'Ronan':
+if user == 'Abherve':
 
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
-    data_path = "H:/EBR/_data/"
+    # data_path = "H:/EBR/_data/"
+    data_path = "C:/Users/ronan/Documents/EBRTRANSFERT/_data/"
     # Path where the results will be stored
     out_path = "C:/Users/ronan/Documents/EBRTRANSFERT/"
+    
+if user == 'Guillossou':
+    # # Path to the git repositoty home page
+    git_path = "C:/Users/r.guillossou/Documents/GitHub/HydroModPy/CORE_COMM/"
+    # # Path to the data folder
+    data_path = "C:/Users/r.guillossou/Documents/Data Hydromodpy/_data/"
+    # # Path where the results will be stored
+    out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
+
+if user == 'Cimpaye':
+    # # Path to the git repositoty home page
+    git_path = "C:/Users/admin/Desktop/Gitub/HydroModPy/CORE_COMM/"
+    # # Path to the data folder
+    data_path = "D:/SimulationHydro/_data/"
+    # # Path where the results will be stored
+    out_path = 'D:/SimulationHydro/'
 
 #%% DEFAULT PATHS
 
@@ -109,6 +126,7 @@ from_xy = []
 dem_path = topography_path + dem_name
 library_path = watershed_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
+"""
 watershed_names = [
                    'Cheze',
                    'Canut',
@@ -117,13 +135,18 @@ watershed_names = [
                    'Rophemel',
                    'Mordelles',
                    ]
+"""
+
+watershed_names = [
+                   'Cheze',
+                   ]
 
 types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid','persitanc']
 
 #%% EXTRACT CATCHMENT
 
-load = True
+load = False
 
 for watershed_name in watershed_names[:]:
     
@@ -159,9 +182,9 @@ for watershed_name in watershed_names[:]:
       
 #%% DATA CATCHMENT
 
-update_data = False
+update_data = True
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -287,7 +310,14 @@ explore2_list = ['ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
                  'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
                  'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
 
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
+            'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
+            'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
+            'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
+
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['blue','red']
 dict_scecol = dict(zip(sce_list, col_list))
@@ -295,85 +325,88 @@ dict_scecol = dict(zip(sce_list, col_list))
 all_proj = pd.DataFrame()
 all_proj.index = pd.date_range(start='01/01/1975', end='31/12/2099', freq=time_step)
 
-for watershed_name in watershed_names[:1] :
+for watershed_name in watershed_names[:] :
     
     print(watershed_name)
     
     for mod in mod_list:
         
-        if len(mod.split('-')) == 1:
-            BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                              first_year = 1975, last_year = 2019,
-                                              time_step = time_step, sim_state='transient')
-            BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = 'historic',
-                                            first_year = 1975, last_year = 2019,
-                                            time_step = time_step, sim_state='transient')
-        if len(mod.split('-')) == 2:
-            GCM = mod.split('-')[0]
-            RCM = mod.split('-')[1]
-            BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
-                                             first_year = 1975, last_year = 2019, sim_state='transient')
-            BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
-                                             first_year = 1975, last_year = 2019, sim_state='transient')
-        
-        if time_step == 'M':
-            R_mod = BV.forcing.recharge.resample('M').mean()
-            r_mod = BV.forcing.runoff.resample('M').mean()
-
-        R_rea = select_period(dict_recharge[watershed_name].copy(), 1975, 2019)
-        r_rea = select_period(dict_runoff[watershed_name].copy(), 1975, 2019)
-        
-        tmin_Rea = R_rea.first_valid_index().year+1
-        tmax_Rea = R_rea.last_valid_index().year+1
-        tmin_Mod = R_mod.first_valid_index().year+1
-        tmax_Mod = R_mod.last_valid_index().year-1
-        
-        year_min = max(tmin_Rea, tmin_Mod)
-        year_max = min(tmax_Rea, tmax_Mod)
-        print(year_min, year_max)
-        
-        R_rea_sel = select_period(R_rea, year_min, year_max)
-        r_rea_sel = select_period(r_rea, year_min, year_max)
-        R_mod_sel = select_period(R_mod, year_min, year_max)
-        r_mod_sel = select_period(r_mod, year_min, year_max)
-        
-        Fnorm = ( R_rea_sel.mean() + r_rea_sel.mean() )  / ( R_mod_sel.mean() + r_mod_sel.mean() )
-        print(Fnorm)
-        
-        R_mod_norm = (Fnorm * R_mod)
-        R_mod_norm = R_mod_norm[(R_mod_norm.index.strftime("%Y-%m")<='2005-07')]
-        r_mod_norm = Fnorm * r_mod
-        r_mod_norm = r_mod_norm[(r_mod_norm.index.strftime("%Y-%m")<='2005-07')]
-        
-        # all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+'historic'] = R_mod_norm
-        # all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+'historic'] = r_mod_norm
-
-        for sce in sce_list:
-        
+        try:
             if len(mod.split('-')) == 1:
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
-                                                  first_year = 1975, last_year = 2100,
+                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                  first_year = 1975, last_year = 2019,
                                                   time_step = time_step, sim_state='transient')
-                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = sce,
-                                                first_year = 1975, last_year = 2100,
+                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                first_year = 1975, last_year = 2019,
                                                 time_step = time_step, sim_state='transient')
             if len(mod.split('-')) == 2:
                 GCM = mod.split('-')[0]
                 RCM = mod.split('-')[1]
-                BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
-                                                 first_year = 1975, last_year = 2100, sim_state='transient')
-                BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
-                                                 first_year = 1975, last_year = 2100, sim_state='transient')
+                BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
+                                                 first_year = 1975, last_year = 2019, sim_state='transient')
+                BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
+                                                 first_year = 1975, last_year = 2019, sim_state='transient')
             
-            R_proj_norm = BV.forcing.recharge * Fnorm
-            r_proj_norm = BV.forcing.runoff * Fnorm
-            
-            all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce] = pd.concat((R_proj_norm, R_mod_norm), axis=1).mean(axis=1)
-            all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+sce] = pd.concat((r_proj_norm, r_mod_norm), axis=1).mean(axis=1)
-
-        all_proj[watershed_name+'_'+'REC'+'_'+'REA'+'_'+'historic'] = R_rea
-        all_proj[watershed_name+'_'+'RUN'+'_'+'REA'+'_'+'historic'] = r_rea
+            if time_step == 'M':
+                R_mod = BV.forcing.recharge.resample('M').mean()
+                r_mod = BV.forcing.runoff.resample('M').mean()
     
+            R_rea = select_period(dict_recharge[watershed_name].copy(), 1975, 2019)
+            r_rea = select_period(dict_runoff[watershed_name].copy(), 1975, 2019)
+            
+            tmin_Rea = R_rea.first_valid_index().year+1
+            tmax_Rea = R_rea.last_valid_index().year+1
+            tmin_Mod = R_mod.first_valid_index().year+1
+            tmax_Mod = R_mod.last_valid_index().year-1
+            
+            year_min = max(tmin_Rea, tmin_Mod)
+            year_max = min(tmax_Rea, tmax_Mod)
+            print(year_min, year_max)
+            
+            R_rea_sel = select_period(R_rea, year_min, year_max)
+            r_rea_sel = select_period(r_rea, year_min, year_max)
+            R_mod_sel = select_period(R_mod, year_min, year_max)
+            r_mod_sel = select_period(r_mod, year_min, year_max)
+            
+            Fnorm = ( R_rea_sel.mean() + r_rea_sel.mean() )  / ( R_mod_sel.mean() + r_mod_sel.mean() )
+            print(Fnorm)
+            
+            R_mod_norm = (Fnorm * R_mod)
+            R_mod_norm = R_mod_norm[(R_mod_norm.index.strftime("%Y-%m")<='2005-07')]
+            r_mod_norm = Fnorm * r_mod
+            r_mod_norm = r_mod_norm[(r_mod_norm.index.strftime("%Y-%m")<='2005-07')]
+            
+            # all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+'historic'] = R_mod_norm
+            # all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+'historic'] = r_mod_norm
+    
+            for sce in sce_list:
+            
+                if len(mod.split('-')) == 1:
+                    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                                                      first_year = 1975, last_year = 2100,
+                                                      time_step = time_step, sim_state='transient')
+                    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = sce,
+                                                    first_year = 1975, last_year = 2100,
+                                                    time_step = time_step, sim_state='transient')
+                if len(mod.split('-')) == 2:
+                    GCM = mod.split('-')[0]
+                    RCM = mod.split('-')[1]
+                    BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
+                                                     first_year = 1975, last_year = 2100, sim_state='transient')
+                    BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
+                                                     first_year = 1975, last_year = 2100, sim_state='transient')
+                
+                R_proj_norm = BV.forcing.recharge * Fnorm
+                r_proj_norm = BV.forcing.runoff * Fnorm
+                
+                all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce] = pd.concat((R_proj_norm, R_mod_norm), axis=1).mean(axis=1)
+                all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+sce] = pd.concat((r_proj_norm, r_mod_norm), axis=1).mean(axis=1)
+    
+            all_proj[watershed_name+'_'+'REC'+'_'+'REA'+'_'+'historic'] = R_rea
+            all_proj[watershed_name+'_'+'RUN'+'_'+'REA'+'_'+'historic'] = r_rea
+        except:
+            pass
+        
     if not os.path.exists(stable_folder+'recharge_runoff/'):
         toolbox.create_folder(stable_folder+'recharge_runoff/')
     all_proj.to_csv(stable_folder+'recharge_runoff/'+'_Climate_Time_Series_'+time_step+'.csv', sep=';')
@@ -382,6 +415,7 @@ for watershed_name in watershed_names[:1] :
 
 #%% PARAM SIMULATION
 
+"""
 watershed_names = [
                    'Cheze',
                    'Canut',
@@ -390,21 +424,27 @@ watershed_names = [
                    'Rophemel',
                    'Mordelles',
                    ]
+"""
+
+watershed_names = [
+                   'Cheze',
+                   ]
 
 # type_simulation = 'analysis_past'
 type_simulation = 'analysis_future'
 
 if type_simulation == 'analysis_past':
-    ### Choice 1
+    ### To chnage
     iD = 'checkpast'
+    periods = [2015, 2019]
+    time_step = 'M' # or 'D'
+    ### Not change
     mod_list = ['REA']
     sce_list = ['historic']
     col_list = ['k']
     dict_scecol = dict(zip(sce_list, col_list))
     init_rech = 'mean' # or 'mean'
-    time_step = 'M' # or 'D'
-    periods = [2015, 2019]
-    for watershed_name in watershed_names[:1]:
+    for watershed_name in watershed_names[:]:
         print('##### '+watershed_name.upper()+' #####')
         stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
         simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -425,17 +465,17 @@ if type_simulation == 'analysis_past':
                 ax.set_yscale('log')
 
 if type_simulation == 'analysis_future':
-    ### Choice 2
+    ### To change
     iD = 'projfuture'
-    # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-    mod_list = ['IPS1','CNR-ALA']
+    periods = [1975, 2099]
+    time_step = 'M' # or 'D'
+    mod_list = ['NOR1']
+    ### Not change
     sce_list = ['RCP2.6','RCP8.5']
     col_list = ['blue','red']
     dict_scecol = dict(zip(sce_list, col_list))
-    init_rech = 'first' # or 'mean'
-    time_step = 'M' # or 'D'
-    periods = [1975, 2099]
-    for watershed_name in watershed_names[:1]:
+    init_rech = 'first' # or 'mean'  
+    for watershed_name in watershed_names[:]:
         print('##### '+watershed_name.upper()+' #####')
         stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
         simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -451,7 +491,8 @@ if type_simulation == 'analysis_future':
             for sce in sce_list:
                 c = dict_scecol[sce]
                 toplot = all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce].resample('Y').sum()*1000
-                ax.plot(toplot, color=c)
+                ax.plot(select_period(toplot,2005,2100), color=c)
+                ax.plot(select_period(toplot,1975,2005), color='k')
                 ax.set_title(watershed_name+'_'+mod)
                 ax.set_yscale('log')
 
@@ -476,7 +517,7 @@ sink_fill = False # permit to fill sinks
 verbose = True # add print of MODFLOW in console
 post_process = False # necessary to decompose post process of process    
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -570,7 +611,7 @@ for watershed_name in watershed_names[:1]:
 
 #%% POST-PROCESS
 
-for watershed_name in watershed_names[:1] :
+for watershed_name in watershed_names[:] :
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -633,11 +674,12 @@ for watershed_name in watershed_names[:1] :
 
 #%% ---- REANALYSIS
 
+### To change
 iD = 'checkpast'
 
 #%% PLOT CHRONIC SREAMFLOW
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -650,7 +692,6 @@ for watershed_name in watershed_names[:1]:
     BV.add_forcing()
     BV.forcing.update_recharge(dict_recharge[watershed_name], sim_state='transient')
     BV.forcing.update_runoff(dict_runoff[watershed_name], sim_state='transient')
-    # BV.add_intermittency(intermittency_path)
     
     station_hydro = fnmatch.filter(os.listdir(data_path+'hydrometry/'), 'Hydrometric_'+watershed_name+'*')[0].split('\\')[-1] \
                         .split('_')[-2][:-2]
@@ -700,13 +741,13 @@ for watershed_name in watershed_names[:1]:
         ax.set_yscale('log')
         ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
         ax.set_xlim(0.1,1000)
-        ax.set_ylim(0.1,1000)
-        # ax.set_xlim(0.1,300)
-        # ax.set_ylim(0.1,300)    
+        ax.set_ylim(0.1,1000) 
         ax.set_xlabel('$Q_{obs}$ / A [mm/month]')
         ax.set_ylabel('$Q_{sim}$ / A [mm/month]')
         
-        # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        base_name = simul+'/_figures/'
+        spec_name = 'PLOT CHRONIC SREAMFLOW 1'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
         
         ###########################################
         fig, ax = plt.subplots(1,1, figsize=(7,3))
@@ -733,10 +774,11 @@ for watershed_name in watershed_names[:1]:
         ax.set_yscale('log')
         ax.plot(Qmix.Qmod, color='red', lw=2, label='modeled')
         ax.set_ylim(0.1,200)
-        # ax.grid('grey')
-        # ax.set_title('Discharge')
-        # ax.set_xlim(pd.to_datetime('1986'))
         # ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2019'))
+        
+        base_name = simul+'/_figures/'
+        spec_name = 'PLOT CHRONIC SREAMFLOW 2'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
  
         import hydroeval as he
         Qmix = Qmix.dropna(how='any')
@@ -747,7 +789,7 @@ for watershed_name in watershed_names[:1]:
 
 #%% PLOT CHRONIC SATURATION
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -760,7 +802,6 @@ for watershed_name in watershed_names[:1]:
     BV.add_forcing()
     BV.forcing.update_recharge(dict_recharge[watershed_name], sim_state='transient')
     BV.forcing.update_runoff(dict_runoff[watershed_name], sim_state='transient')
-    # BV.add_intermittency(intermittency_path)
     
     simul_list = sorted(glob.glob(simulations_folder+iD+'*'), key=os.path.getmtime)
     
@@ -794,6 +835,10 @@ for watershed_name in watershed_names[:1]:
         ax.set_title(watershed_name)
         
         plt.tight_layout()
+        
+        base_name = simul+'/_figures/'
+        spec_name = 'PLOT CHRONIC SATURATION'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% PLOT MAP HYDROGRAPHY
 
@@ -805,7 +850,7 @@ sim_state = 'transient'
 # watershed_names = ['Canut']
 
 types_obs = ['complete'] # list of shapefile name layers for clip hydrology
-for watershed_name in watershed_names[:1] :
+for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -903,12 +948,16 @@ for watershed_name in watershed_names[:1] :
                 # ax.imshow(line_sub, cmap=mpl.colors.ListedColormap('gold'))
             except:
                 pass
+        
+            base_name = simul+'/_figures/'
+            spec_name = 'PLOT MAP HYDROGRAPHY '+str(k)
+            fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
-#%% PLOT CROSSECTIO NMINMAX 
+#%% PLOT CROSSECTION MINMAX 
 
 dates = pd.date_range(start='01/01/1975', end='31/12/2019', freq='M')
 
-for watershed_name in watershed_names[:1]:    
+for watershed_name in watershed_names[:]:    
     
     fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
 
@@ -943,14 +992,10 @@ for watershed_name in watershed_names[:1]:
     min_wt = dict()
     
     cp = 0
-    # for key in dict(itertools.islice(watertable_elevation.items(),
-    #                                  len(watertable_elevation), # ONDE 8 years
-    #                                  len(watertable_elevation))):
     for i, key in enumerate([argmin, argmax]):
         print(key)
 
         dem_data = imageio.imread(BV.geographic.watershed_dem)
-        # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
         wt_data = watertable_elevation[key]
         river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
     
@@ -972,9 +1017,7 @@ for watershed_name in watershed_names[:1]:
             dem_h_plot[dem_h_plot == 0] = np.nan
             wt_h_plot = wt_prof[int(cur_y),:]
             wt_h_plot[wt_h_plot == 0] = np.nan
-            
-            # list_h_wt[cp] = wt_h_plot
-            
+                        
         if (watershed_name == 'Canut') | (watershed_name == 'Cheze') | \
             (watershed_name == 'Drains') | (watershed_name == 'Couesnon') | \
              (watershed_name == 'Rophemel') | (watershed_name == 'Mordelles'):
@@ -982,9 +1025,7 @@ for watershed_name in watershed_names[:1]:
             dem_v_plot[dem_v_plot == 0] = np.nan
             wt_v_plot = wt_prof[:,int(cur_x)]
             wt_v_plot[wt_v_plot == 0] = np.nan
-            
-            # list_v_wt[cp] = wt_v_plot
-            
+                        
         dem_max = dem_data.max()
         dem_prof = dem_data.astype(float)
         dem_prof[dem_prof<0] = np.nan
@@ -996,8 +1037,6 @@ for watershed_name in watershed_names[:1]:
         cp+=1
             
         if watershed_name == 'xxx':
-            # dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
-            # wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
             if i == 0:
                 wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
                                                 color='dodgerblue', alpha=0.5, lw=0)
@@ -1009,14 +1048,10 @@ for watershed_name in watershed_names[:1]:
                 wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
                                                 color='saddlebrown', alpha=0.5, lw=0)
                 d_prof = ax.plot(np.arange(xx.shape[1])*75, dem_h_plot, 'saddlebrown', lw=2)
-            # ax.set_xlim(4000, 7000)
-            # ax.set_ylim(130, 170)
-            # ax.set_yticks([140,160])
                    
         if (watershed_name == 'Canut') | (watershed_name == 'Cheze') | \
             (watershed_name == 'Drains') | (watershed_name == 'Couesnon') | \
-             (watershed_name == 'Rophemel') | (watershed_name == 'Mordelles'):            # dem_v_prof, = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, c='saddlebrown', lw=2)
-            # wt_v_prof, = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, c='dodgerblue', lw=2)
+             (watershed_name == 'Rophemel') | (watershed_name == 'Mordelles'):
             if i == 0:
                 wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, 0, wt_v_plot,
                                                     color='dodgerblue', alpha=0.5, lw=0)
@@ -1065,8 +1100,10 @@ for watershed_name in watershed_names[:1]:
         
         plt.tight_layout()
         
-        # fig.savefig(simulations_folder+model_name+'/_figures/png/'+'cross_'+str(key)+'.png', dpi=300, bbox_inches='tight')
-
+        base_name = simul+'/_figures/'
+        spec_name = 'PLOT CROSSECTION MINMAX'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        
 #%% PLOT MAP PERSISTENCY
 
 var = 'REC'
@@ -1074,7 +1111,7 @@ sce_list = ['historic']
 
 y_name = 'surflow_areas'
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -1127,35 +1164,6 @@ for watershed_name in watershed_names[:1]:
         ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
         plt.subplots_adjust(hspace = -0.6)
         
-        '''        
-        ### Classic histogram
-        # masked = days_flux[days_flux >= 0]
-        # Z = masked.flatten()
-        # from scipy.stats import norm
-        # pdf = norm.pdf(Z, Z.mean(), Z.std())
-        # ax.hist(Z, bins = 100, density=True,
-        #         color = color, edgecolor = 'none', alpha = 0.5)
-        # ax.set_yscale('log')
-    
-        Smod_path = simul+'/_watershed/_simulated_results.csv'            
-        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-        Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
-        
-        ### Normalized cumulative evolution of areas in time
-        X2 = np.sort(Smod[y_name])
-        N = len(Smod[y_name])
-        # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
-        #         color=color, lw=2)
-        ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
-                color=color, lw=2)
-        ax.set_xlabel('percent_time [%]')
-        ax.set_ylabel(y_name)
-        # ax.set_xlim(-5,100)
-        # ax.set_ylim(-5,100)
-        # ax.set_xscale('log')
-        # ax.set_yscale('log')
-        '''
-     
         days_flux = np.ma.masked_where(days_flux == 0, days_flux)
     
         count_inf = np.ma.masked_where(days_flux > 0.1, days_flux).count()
@@ -1170,9 +1178,10 @@ for watershed_name in watershed_names[:1]:
         position.set_ylabel('Persistency index [-]', rotation=270, labelpad=40)
         cb.ax.tick_params(axis='y', direction='out')
         
-        # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
-        # fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
-        
+        base_name = simul+'/_figures/'
+        spec_name = 'PLOT MAP PERSISTENCY'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+
         pi_path = os.path.join(simul, '_watershed', 'persistency_index.tif')
         toolbox.export_tif(BV.geographic.watershed_dem, pi, -99999, pi_path)
 
@@ -1182,8 +1191,97 @@ for watershed_name in watershed_names[:1]:
         pi_shp['VALUE'][pi_shp['VALUE']>1] = 1
         pi_shp.to_file(pi_shp_path)
 
+#%% PLOT MAP INTERMITTENCY
+
+typ_intermit = 'monthly' # yearly or persistency or monthly
+# typ_intermit = 'yearly' # yearly or persistency or monthly
+
+gif = True
+
+for watershed_name in watershed_names[:]:
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+        
+    simul_list = sorted(glob.glob(simulations_folder+iD+'*'),
+                       key=os.path.getmtime)
+    
+    wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                               stable_folder+'geographic/'+'watershed_contour.tif',
+                               base = stable_folder+'geographic/'+'watershed_dem.tif')
+    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+    
+    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+    dem = rasterio.open(BV.geographic.watershed_dem)
+    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+
+    for simul in simul_list:
+        
+        years = np.arange(2019,2019+1,1)
+        
+        Smod_path = simul+'/_watershed/_simulated_results.csv'  
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        Smod = Smod.reset_index()
+        Smod['iloc'] = Smod.index
+        Smod = Smod.set_index('date')
+        Smod = select_period(Smod, years[0], years[-1])
+        
+        for dt, i in zip(Smod.index, Smod['iloc']):
+            
+            fig, ax = plt.subplots(1,1, figsize=(7,6))
+            
+            show(dem_data, ax=ax, transform=dem.transform,
+                  cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
+            
+            ms=20
+
+            shp = gpd.read_file(simul+'/_watershed/_surfaceflow/'+
+                                'tracept_t('+str(i)+').shp')
+            shp[shp['id_persist']==0].plot(ax=ax, column='id_persist', lw=0,
+                                           marker='s', color='dodgerblue',
+                                           markersize=ms, zorder=1)
+            shp[shp['id_persist']==1].plot(ax=ax, column='id_persist', lw=0,
+                                           marker='s', color='navy',
+                                           markersize=ms, zorder=1)
+            line.plot(ax=ax, color='k', lw=2)
+    
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            plt.axis('off')
+            
+            ax.set_title(str(dt)[:7])
+            fig.suptitle(simul.split('\\')[-1], fontsize=5)
+    
+            compt_print = "{:02d}".format(compt)
+
+            base_name = simul+'/_figures/_intermittency/'
+            if not os.path.exists(base_name):
+                toolbox.create_folder(base_name)            
+            spec_name = 'map_anim_'+str(i)+'_'+str(dt)[:7]
+            fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+            
+            plt.close()
+        
+        compt += 1
+
+        if gif == True:
+            begin_by = base_name+'map_anim_'
+            filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+            images = []
+            for filename in filenames:
+                images.append(imageio.imread(filename))
+            gif_name = '_map_anim_monthly'
+            imageio.mimsave(base_name+gif_name+'.gif', images,
+                            duration=0.25, loop=0)
+
 #%% ---- PROJECTION
 
+### To change
 iD = 'projfuture'
 
 #%% PLOT CHRONIC STREAMFLOW
@@ -1192,7 +1290,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1265,11 +1363,7 @@ for watershed_name in watershed_names[:1]:
         ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.set_xlim(pd.to_datetime('1976'), pd.to_datetime('2100'))
-        
-        # ax.axvline(pd.to_datetime('1980'), c='k', ls='--')
-        # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
-        # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
-        
+                
         ax.set_ylim(100, 600)
         
         yearsmaj = mdates.YearLocator(10)   # every year
@@ -1278,19 +1372,20 @@ for watershed_name in watershed_names[:1]:
         ax.xaxis.set_major_locator(yearsmaj)
         ax.xaxis.set_minor_locator(monthsmaj)
         ax.xaxis.set_major_formatter(years_fmt)
-    
-        # ax.set_yscale('log')
         
-        # fig.savefig(fig_path + watershed_name +
-        #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
-
+        """
+        base_name = simul+'/_figures/'
+        spec_name = 'xxx'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        """
+        
 #%% PLOT MODEL COMPARISON
  
 sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1332,9 +1427,6 @@ for watershed_name in watershed_names[:1]:
     
         for mod in mod_list:
     
-            # d = select_period(df, per[0], per[1])
-            
-            # if typ_climate == 'DRIAS' :
             d = df.copy()
             d = d.filter(regex=sce).filter(regex=mod)
             d = d.resample('Y').mean() * 1000 * 365
@@ -1355,16 +1447,19 @@ for watershed_name in watershed_names[:1]:
         
             # ax.set_yscale('log')
             
-            # fig.savefig(fig_path + watershed_name +
-            #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
-
+            """
+            base_name = simul+'/_figures/'
+            spec_name = 'xxx'
+            fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+            """
+            
 #%% PLOT BOXPLOT STREAMFLOW
 
 sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1416,8 +1511,6 @@ for watershed_name in watershed_names[:1]:
                 d = select_period(d, per[0], per[1])
                 d = d.resample('Y').mean()
                 d = pd.Series(d.values.ravel('F'))
-                # d = d * 1000 * 365
-                # d = d * 12
                 
                 if (per[0] == 1980) & (sce == 'RCP8.5'):
                     store = d.copy()
@@ -1470,43 +1563,37 @@ for watershed_name in watershed_names[:1]:
                         mfc='k', mew=1,
                         color='k', zorder=1000)
                 
-                # ax.plot(i+1+ps, d.median(), marker='_', mec='k', ms=3, lw=0,
-                #         mfc='k', mew=1,
-                #         color='k', zorder=1000)
-                
-                # ax.get_xaxis().set_visible(False)
                 ax.set_yscale('log')
                 ax.set_ylim(2, 200)
                 ax.set_ylim(150, 700)
                 ax.set_yticks([150,300,400,500,600,700])
-                # ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
                 ax.set_yticklabels([150,300,400,500,600,700])
                 ax.set_xlim(0.5,4.5)
                      
                 ax.set_axisbelow(True)
-                # ax.grid(zorder=-1000)
                 ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
                 ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
                 
                 i += 1
-                
-                # print(sce, per, d.median().round(2))
-                # print(sce, per, d.quantile(0.10).round(2))
-                
+      
             else:
                 continue
     
     ax.set_xticklabels(['','2010 \n 2040','2040 \n 2070','2070 \n 2100','1980 \n 2010','','',''])
-    # fig.savefig(fig_path + watershed_name +
-    #             '_boxplot_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
-
+    
+    """
+    base_name = simul+'/_figures/'
+    spec_name = 'xxx'
+    fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+    """
+    
 #%% PLOT INTERMENSUAL STREAMOFLOW
 
 sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1531,19 +1618,12 @@ for watershed_name in watershed_names[:1]:
             Smod_path = simul+'/_watershed/_simulated_results.csv'            
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
             
-            # df['Q_'+mod+'_'+sce] = Smod['recharge'] * 1000
-
             df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+Smod['runoff']) * 1000 * 30 # + (Smod['runoff']*1)) 
-            # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
 
     # per_list = [[2010,2040],[2040,2070],[2070,2100],[1980,2005]]
     per_list = [[2030,2100],[1980,2005]]
-    
-    # per_list = [[1980,1990]]
-    
+        
     sce_list = ['RCP8.5','RCP2.6']
-    # sce_list = ['RCP2.6']
-    # sce_list = ['RCP8.5']
     col_list = ['red','dodgerblue']
     col_list_b = ['darkred','navy']
     dict_c = dict(zip(sce_list, col_list))
@@ -1595,42 +1675,14 @@ for watershed_name in watershed_names[:1]:
             dg['Q90'] = d.groupby([(d.index.month)]).quantile(0.90)
             dg['Q95'] = d.groupby([(d.index.month)]).quantile(0.95)
             dg['MAX'] = d.groupby([(d.index.month)]).max()
-            
-            '''
-            d['MIN'] = d.filter(regex=sce).min(axis=1)
-            d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
-            d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
-            d['Q25'] = d.filter(regex=sce).quantile(0.25, axis=1)
-            d['MEAN'] = d.filter(regex=sce).mean(axis=1)
-            d['MED'] = d.filter(regex=sce).median(axis=1)
-            d['Q75'] = d.filter(regex=sce).quantile(0.75, axis=1)
-            d['Q90'] = d.filter(regex=sce).quantile(0.90, axis=1)
-            d['Q95'] = d.filter(regex=sce).quantile(0.95, axis=1)
-            d['MAX'] = d.filter(regex=sce).max(axis=1)
-            '''
-    
-            # dfb = d.groupby([(d.index.month)]).mean()
-            # dfb = dfb.rename_axis(["year", "month"])
-            
+
             coul = dict_c[sce]
-            
-            # if sce == 'RCP2.6':
-            # if sce == 'RCP8.5':
+
             if per[0] == 1980:
                 coul = 'k'
             
-            '''
-            # ax.plot(d['MED'], c=coul, lw=3)
-            ax.plot(d['MED'], c=list_c_b[i], lw=2)
-            # for idx in d.index:
-            #     ax.vlines(idx, d.loc[idx,'Q25'], d.loc[idx,'Q75'], color=coul)
-            ax.fill_between(d.index, d['Q10'], d['Q90'], color=coul, alpha=0.5, ec='none')
-            '''
-            
-            # ax.plot(d['MED'], c=coul, lw=3)
             ax.plot(dg['MED'], c=list_c_b[i], lw=3)
-            # for idx in d.index:
-            #     ax.vlines(idx, d.loc[idx,'Q25'], d.loc[idx,'Q75'], color=coul)
+
             ax.fill_between(dg.index, dg['Q10'], dg['Q90'], color=coul, alpha=0.25, ec='none')
             
             squad = ['J','F','M','A','M','J','J','A','S','O','N','D']
@@ -1643,24 +1695,24 @@ for watershed_name in watershed_names[:1]:
             ax.set_ylim(1, 500)
             
             ax.set_axisbelow(True)
-            # ax.grid(zorder=-1000)
             ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
             ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
     
             i += 1
             
-        # fig.savefig(fig_path + watershed_name +
-        #             '_intermensual_' + str(mod_list[0]) + '_' + sce + '.png', dpi=300, bbox_inches='tight')
-
+        """
+        base_name = simul+'/_figures/'
+        spec_name = 'xxx'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        """
+        
 #%% EXPORT ANOMALY STREAMFLOW
 
 sce_list = ['historic','RCP2.6','RCP8.5']
 
-# mod_list = ['ACC1','BCC1','BNU1','CAN1','CNR1','CSI1','IPS1','MIR1','NOR1']
-
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1684,7 +1736,6 @@ for watershed_name in watershed_names[:1]:
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
                         
             df['Q_'+mod+'_'+sce] = Smod['outflow_drain'] * 1000 * 30
-            # df['Q_'+mod+'_'+sce] = Smod['surflow_areas']
     
     dtemp = pd.DataFrame()
     for sce in sce_list:
@@ -1705,15 +1756,12 @@ for watershed_name in watershed_names[:1]:
     
     fig, ax = plt.subplots(1,1, figsize=(4,3))
     
-    # dft = pd.DataFrame(columns=np.arange(1,13,1))
     dft = pd.DataFrame()
     
     for sce in sce_list:
         
         i = 0
-        
-        # if typ_climate == 'DRIAS':
-            
+                    
         hist = df.copy()
         hist = hist.filter(regex='historic')
         hist = select_period(hist, 1980, 2005)
@@ -1721,7 +1769,6 @@ for watershed_name in watershed_names[:1]:
         hist = hist.set_index('date')
         hist = hist[0]
         dft['Past'] = hist.groupby([(hist.index.month)]).mean()
-        # hist = hist.T
         
         fut = df.copy()
         fut = fut.filter(regex=sce)
@@ -1743,54 +1790,19 @@ for watershed_name in watershed_names[:1]:
         dft['d_max_'+sce] = ((fut.groupby([(fut.index.month)]).max()-
                               hist.groupby([(hist.index.month)]).max())/
                               hist.groupby([(hist.index.month)]).max())*100
-    
-        '''
-        dft['Past'] = hist.mean(axis=1)
-        dft['Future_'+sce] = fut.mean(axis=1)
-    
-        dft['d_min_'+sce] = ((fut.min(axis=1)-hist.min(axis=1))/hist.min(axis=1))*100
-        dft['d_mean_'+sce] = ((fut.mean(axis=1)-hist.mean(axis=1))/hist.mean(axis=1))*100
-        dft['d_med_'+sce] = ((fut.median(axis=1)-hist.median(axis=1))/hist.median(axis=1))*100
-        dft['d_max_'+sce] = ((fut.max(axis=1)-hist.max(axis=1))/hist.max(axis=1))*100
-        '''   
         
-        # if typ_climate == 'SURFEX':
-            
-        #     hist = df.copy()
-        #     hist = hist.filter(regex=sce)
-        #     hist = select_period(hist, 1980, 2005)
-        #     hist_min = hist.groupby([(hist.index.month)]).min()
-        #     hist_mean = hist.groupby([(hist.index.month)]).mean()
-        #     hist_med = hist.groupby([(hist.index.month)]).median()
-        #     hist_max = hist.groupby([(hist.index.month)]).max()
-        #     # hist = hist.T
-            
-        #     fut = df.copy()
-        #     fut = fut.filter(regex=sce)
-        #     fut = select_period(fut, per[0], per[1])
-        #     fut_min = fut.groupby([(fut.index.month)]).min()
-        #     fut_mean = fut.groupby([(fut.index.month)]).mean()
-        #     fut_med = fut.groupby([(fut.index.month)]).median()
-        #     fut_max = fut.groupby([(fut.index.month)]).max()
-        
-        #     dft['Past'] = hist.groupby([(hist.index.month)]).mean()
-        #     dft['Future_'+sce] = fut.groupby([(fut.index.month)]).mean()
-            
-        #     dft['d_min_'+sce] = ((fut_min-hist_min)/hist_min)*100
-        #     dft['d_mean_'+sce] = ((fut_mean-hist_mean)/hist_mean)*100
-        #     dft['d_med_'+sce] = ((fut_med-hist_med)/hist_med)*100
-        #     dft['d_max_'+sce] = ((fut_max-hist_max)/hist_max)*100
-    
     dft[dft>100] = 100
     dft.boxplot(rot=-270)   
     
-    # dft = dft[['Past','Future_RCP','b','f','d','a']]
     
     dft = dft.T
     
-    # dft.to_csv(fig_path + watershed_name +
-    #             '_table_' + str(mod_list) + '.csv', sep=';')
-
+    """
+    base_name = simul+'/_figures/'
+    spec_name = 'xxx/'
+    dft.to_csv(base_name + spec_name + '_table_' + str(mod_list) + '.csv', sep=';')
+    """
+    
 #%% PLOT RETURN QMNA
 
 mod_list = ['IPS1','CNR-ALA']
@@ -1798,7 +1810,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1846,31 +1858,11 @@ for watershed_name in watershed_names[:1]:
     
     fig, ax = plt.subplots(1,1, figsize=(4,3.5))
     
-    # dft = pd.DataFrame(columns=np.arange(1,13,1))
     dft = pd.DataFrame()
-    
-    # for mod in mod_list:
-    
+        
     for sce in sce_list:
         
         i = 0
-        
-        '''
-        hist = df.copy()
-        hist = hist.filter(regex=sce) #* 365
-        hist = select_period(hist, 1980, 2004)
-        hist = hist.median(axis=1)
-        # hist = hist.groupby([(hist.index.month)]).mean()
-        # hist = hist.T
-        # hist = hist.groupby([(hist.index.year)]).min()
-        
-        fut = df.copy()
-        fut = fut.filter(regex=sce) #* 365
-        fut = select_period(fut, per[0], per[1])
-        fut = fut.median(axis=1)
-        # fut = fut.groupby([(fut.index.month)]).mean()
-        # fut = hist.groupby([(hist.index.year)]).min()
-        '''
         
         hist = df.copy()
         hist = hist.filter(regex='historic')
@@ -1915,19 +1907,15 @@ for watershed_name in watershed_names[:1]:
         hist_log, bins_log = np.histogram(qh, bins=logbins, density=True)
         bins_log_centers = 10**(0.5*(np.log10(bins_log[1:]) + np.log10(bins_log[:-1])))
         
-        # freq = pd.DataFrame(bins_log.copy(), columns=['x']).round(1)
         freq = qmna_sort.groupby('x').size().reset_index(name='counts')
-        # freq = freq.groupby('x').size().reset_index(name='counts')
         freq['frequency'] = freq.counts/freq.counts.sum() #freq
         freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
         freq['retour'] = 1/(freq['cumulative_frequency'])
         freq['target'] = 5
         
-        # ax.plot(bins_log)
         ax.plot(freq['retour'], freq['x']-2, ls='-', c='grey', linewidth=2)
         ax.plot(freq['retour'], freq['x']-2, ls='-', c='k', marker='+',
                 ms=6, mew=2, linewidth=0)
-        # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
     
         ################################################
     
@@ -1957,41 +1945,36 @@ for watershed_name in watershed_names[:1]:
         
         freq = qmna_sort.groupby('x').size().reset_index(name='counts')
         
-        # freq = pd.DataFrame(bins_log.copy(), columns=['x']).round(1)
-        # freq = freq.groupby('x').size().reset_index(name='counts')
-        
         freq['frequency'] = freq.counts/freq.counts.sum() #freq
         freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
         freq['retour'] = 1/(freq['cumulative_frequency'])
         freq['target'] = 5
         
-        # ax.plot(bins_log)
         print(sce)
         ax.plot(freq['retour'], freq['x']-2, ls='-', c=dict_c[sce], linewidth=2)
         ax.plot(freq['retour'], freq['x']-2, ls='-', c=dict_c_b[sce], marker='+',
                 ms=6, mew=2, linewidth=0)
-        # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
         
         ################################################
         
-        # ax.set_yscale('log')
-        ax.set_xlim(1, 20)
         # ax.set_ylim(2, 7)
         # ax.set_yticks([1, 2, 3, 4])
-        ax.set_xscale('log')
         # ax.set_yscale('log')
-        # ax.set_xticks([2, 5, 10, 20])
+        ax.set_xlim(1, 20)
+        ax.set_xscale('log')
         ax.set_xticks([2, 5, 10, 20])
         ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
         
         ax.set_axisbelow(True)
-        # ax.grid(zorder=-1000)
         ax.xaxis.grid(color='gray', alpha=0.5, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='both')
             
-    # fig.savefig(fig_path + watershed_name +
-    #             '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
-            
+    """
+    base_name = simul+'/_figures/'
+    spec_name = 'xxx'
+    fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+    """
+        
 #%% PLOT MAP PERSISTENCY
 
 var = 'REC'
@@ -1999,7 +1982,7 @@ sce_list = ['historic']
 
 y_name = 'surflow_areas'
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
 
     if watershed_name == 'Canut':
         color = 'green'
@@ -2038,12 +2021,9 @@ for watershed_name in watershed_names[:1]:
         vmin = 0
         vmax = 1
         
-        # cmap = plt.cm.jet_r  # define the colormap
         cmap = plt.cm.YlGnBu
-        # cmap = parula_map
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmaplist = ['skyblue','dodgerblue','navy']
-        # cmaplist[0] = (.5, .5, .5, 1.0)
         cmap = mpl.colors.LinearSegmentedColormap.from_list(
             'Custom cmap', cmaplist, cmap.N)
         bounds = np.arange(0, 1.1, 0.1)
@@ -2052,8 +2032,6 @@ for watershed_name in watershed_names[:1]:
         pi = np.ma.masked_where(days_flux <= 0, days_flux)
         pc = ax.imshow(pi,
                        cmap=cmap, norm=norm, alpha=1)
-        # pc = ax.imshow(np.ma.masked_where(pi != 1, pi),
-        #                cmap=mpl.colors.ListedColormap('k'), norm=norm, alpha=1)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         ax.axis('off')
@@ -2066,35 +2044,6 @@ for watershed_name in watershed_names[:1]:
         import matplotlib as mpl
         ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
         plt.subplots_adjust(hspace = -0.6)
-        
-        '''        
-        ### Classic histogram
-        # masked = days_flux[days_flux >= 0]
-        # Z = masked.flatten()
-        # from scipy.stats import norm
-        # pdf = norm.pdf(Z, Z.mean(), Z.std())
-        # ax.hist(Z, bins = 100, density=True,
-        #         color = color, edgecolor = 'none', alpha = 0.5)
-        # ax.set_yscale('log')
-    
-        Smod_path = simul+'/_watershed/_simulated_results.csv'            
-        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-        Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
-        
-        ### Normalized cumulative evolution of areas in time
-        X2 = np.sort(Smod[y_name])
-        N = len(Smod[y_name])
-        # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
-        #         color=color, lw=2)
-        ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
-                color=color, lw=2)
-        ax.set_xlabel('percent_time [%]')
-        ax.set_ylabel(y_name)
-        # ax.set_xlim(-5,100)
-        # ax.set_ylim(-5,100)
-        # ax.set_xscale('log')
-        # ax.set_yscale('log')
-        '''
      
         days_flux = np.ma.masked_where(days_flux == 0, days_flux)
     
@@ -2110,7 +2059,11 @@ for watershed_name in watershed_names[:1]:
         position.set_ylabel('Persistency index [-]', rotation=270, labelpad=40)
         cb.ax.tick_params(axis='y', direction='out')
         
-        # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
+        """
+        base_name = simul+'/_figures/'
+        spec_name = 'xxx'
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        """
         
         pi_path = os.path.join(simul, '_watershed', 'persistency_index.tif')
         toolbox.export_tif(BV.geographic.watershed_dem, pi, -99999, pi_path)
@@ -2128,7 +2081,7 @@ typ_intermit = 'monthly' # yearly or persistency or monthly
 
 gif = True
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -2145,22 +2098,20 @@ for watershed_name in watershed_names[:1]:
                                stable_folder+'geographic/'+'watershed_contour.tif',
                                base = stable_folder+'geographic/'+'watershed_dem.tif')
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
-    # line = np.ma.masked_where(line <= 0, line)
     
     mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
     dem = rasterio.open(BV.geographic.watershed_dem)
     dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
 
-    # plt.imshow(dem_data)
-
     for simul in simul_list:
-
+        
+        years = np.arange(2025,2030+1,1)
+        
         Smod_path = simul+'/_watershed/_simulated_results.csv'  
         Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
         Smod = Smod.reset_index()
         Smod['iloc'] = Smod.index
         Smod = Smod.set_index('date')
-        years = np.arange(2022,2022+1,1)
         Smod = select_period(Smod, years[0], years[-1])
         
         for dt, i in zip(Smod.index, Smod['iloc']):
@@ -2186,12 +2137,10 @@ for watershed_name in watershed_names[:1]:
             ax.get_yaxis().set_visible(False)
             plt.axis('off')
             
-            # month_print = "{:02d}".format(k+1)
             ax.set_title(str(dt)[:7])
             fig.suptitle(simul.split('\\')[-1], fontsize=5)
     
             compt_print = "{:02d}".format(compt)
-            # print(compt_print)
 
             base_name = simul+'/_figures/_intermittency/'
             if not os.path.exists(base_name):
