@@ -42,7 +42,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 # print(abspath(__file__))
 # %% PATHS + watershed options
 
-watershed_name = 'Baie-du-Cotentin'
+watershed_name = 'Blainville-Havre'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 dem_name = "BDALTI_norm-manch_75m.tif"
 # sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
@@ -103,7 +103,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=False,
-                              from_shp=shp_file,
+                              from_shp=None,
                               from_dem=False,
                               cell_size=cell_size)
 
