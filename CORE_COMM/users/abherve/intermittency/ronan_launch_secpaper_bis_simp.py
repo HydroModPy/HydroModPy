@@ -10099,7 +10099,7 @@ for watershed_name in watershed_names :
 
 base_name = figsim_folder+'fig12/'
 spec_name = str(watershed_names)+'_dGWnorm vs dA'
-fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+# fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
 
 #%% Q vs Aint
 
