@@ -194,7 +194,7 @@ for watershed_name in watershed_names[:]:
     
     if update_data == True:
         
-        # BV.add_surfex(reanalysis_dayon_path)
+        BV.add_surfex(reanalysis_dayon_path)
         # BV.add_drias(explore2_path)
         BV.add_geology(geology_path)
         BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
@@ -317,8 +317,6 @@ mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
             'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
             'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
 
-mod_list = ['NOR1']
-
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['blue','red']
 dict_scecol = dict(zip(sce_list, col_list))
@@ -432,12 +430,12 @@ watershed_names = [
                    ]
 
 # type_simulation = 'analysis_past'
-type_simulation = 'analysis_past'
+type_simulation = 'analysis_future'
 
 if type_simulation == 'analysis_past':
     ### To chnage
     iD = 'checkpast'
-    periods = [2010, 2019]
+    periods = [1975, 2019]
     time_step = 'M' # or 'D'
     ### Not change
     mod_list = ['REA']
@@ -468,9 +466,13 @@ if type_simulation == 'analysis_past':
 if type_simulation == 'analysis_future':
     ### To change
     iD = 'projfuture'
-    periods = [2030, 2050]
+    periods = [2020, 2099]
     time_step = 'M' # or 'D'
-    mod_list = ['NOR1']
+    mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+                'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
+                'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
+                'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
+                'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
     ### Not change
     sce_list = ['RCP2.6','RCP8.5']
     col_list = ['blue','red']
