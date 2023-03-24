@@ -468,11 +468,12 @@ if type_simulation == 'analysis_future':
     iD = 'projfuture'
     periods = [2020, 2099]
     time_step = 'M' # or 'D'
-    mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-                'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
-                'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
-                'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
-                'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
+    #mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+    #            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
+    #            'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
+    #            'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
+    #            'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
+    mod_list = ['CAN3','CAN4','CAN5','IPS1','NOR1']
     ### Not change
     sce_list = ['RCP2.6','RCP8.5']
     col_list = ['blue','red']
@@ -1365,7 +1366,7 @@ for watershed_name in watershed_names[:]:
         ax.set_axisbelow(True)
         ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.set_xlim(pd.to_datetime('2030'), pd.to_datetime('2050'))
+        ax.set_xlim(pd.to_datetime('2020'), pd.to_datetime('2100'))
                 
         ax.set_ylim(100, 600)
         
