@@ -137,7 +137,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Cheze',
+                   'Canut',
                    ]
 
 types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
@@ -426,7 +426,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Cheze',
+                   'Canut',
                    ]
 
 # type_simulation = 'analysis_past'
@@ -435,7 +435,7 @@ type_simulation = 'analysis_future'
 if type_simulation == 'analysis_past':
     ### To chnage
     iD = 'checkpast'
-    periods = [1975, 2019]
+    periods = [1960, 2019]
     time_step = 'M' # or 'D'
     ### Not change
     mod_list = ['REA']
@@ -496,7 +496,7 @@ if type_simulation == 'analysis_future':
                 c = dict_scecol[sce]
                 toplot = all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce].resample('Y').sum()*1000
                 ax.plot(select_period(toplot,2005,2100), color=c)
-                ax.plot(select_period(toplot,1975,2005), color='k')
+                ax.plot(select_period(toplot,1960,2005), color='k')
                 ax.set_title(watershed_name+'_'+mod)
                 ax.set_yscale('log')
 
