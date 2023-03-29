@@ -50,21 +50,22 @@ if DIR[0] == 'd': #server
     ESPERE_recharge_path = r'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
     shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
 elif DIR[0] == 'c': #local
-    shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-cotentin/Carentan_2_sea.shp'
+    shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
     # C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Agon-Coutainville\Agon_2_sea_extended.shp
     # 'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Barneville-Carteret\Barneville_2_sea_extended.shp'
     # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
+    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-cotentin/Carentan_2_sea.shp'
     # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
     git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
     data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
     modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
-    ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\LC\rech_LC_aut2022.csv'
+    ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv'
     #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
     # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
     #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
-    shape_calib_zones_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_BDC_3.shp'
+    #C:\Users\Martin Le Mesnil\Travail\data\estim_ET\LC\rech_LC_aut2022.csv
+    shape_calib_zones_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
     # 'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_LC.shp'
     # r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
     # C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CLM.shp
@@ -163,10 +164,10 @@ if hetero == 0:
     BV.hydrodynamic.update_porosity(n)
 elif hetero == 1:
     print('heterogeneous model')
-    K1 = 0.21
-    K2 = 2.3
-    n1 = 0.01
-    n2 = 0.015
+    K1 = 2.01
+    K2 = 0.267
+    n1 = 0.138
+    n2 = 0.0393
     shape = BV.hydrodynamic.update_calib_zones_from_shp(shape_calib_zones_path)
     BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1)
     BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2)
@@ -188,8 +189,8 @@ disk_save = True
 # /!\ Activate to save rasters of watertable depth threshold frequency
 edit_raster = True
 
-first_yr = 2061
-last_yr = 2100
+first_yr = 2005
+last_yr = 2014
 
 BV.add_forcing()
 RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
@@ -208,16 +209,18 @@ for DRIAS_model in DRIAS_model_list:
         gcm = DRIAS_model[:3] #'MPI'
         rcm = DRIAS_model[-3:] #'CCL'
         sce = scenario #'RCP8.5'
-        BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-                                          first_year = first_yr, last_year = last_yr,
-                                          sim_state = 'transient')
-        # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
-        #                                       first_year = 1965, last_year = 2014, 
-        #                                       time_step = 'D', sim_state = 'transient')
+        # BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+        #                                   first_year = first_yr, last_year = last_yr,
+        #                                   sim_state = 'transient')
+        BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
+                                              first_year = 2005, last_year = 2014, 
+                                              time_step = 'D', sim_state = 'transient')
         if scenario == 'RCP2.6':
-            BV.oceanic.update_MSL(md_rmsl_26)
+            pass
+            # BV.oceanic.update_MSL(md_rmsl_26)
         elif scenario == 'RCP8.5':
-            BV.oceanic.update_MSL(md_rmsl_85)
+            pass
+            # BV.oceanic.update_MSL(md_rmsl_85)
         
         now = datetime.now()
         now_str = now.strftime("%d%m%Y%H%M%S")
@@ -280,14 +283,15 @@ if disk_save:
     simulation_results_new_path_dir = os.path.join(r'E:\PostDoc\Modélisation', site_dict[watershed_name], r'Heterogeneous\simulation_results')
     BV.simulations_folder = simulation_results_new_path_dir
 
-sim_name_list = ['20202100_MPICCLRCP85_26012023235924']
+sim_name_list = ['20052014_MPICCLRCP85_14032023153149']
 # Edit raster for GIS
 for sim_name in sim_name_list:
     rast_path = os.path.join(dirname(BV.simulations_folder), 'rasters_wtd', sim_name)  
     os.makedirs(rast_path, exist_ok = True)
-    wtd_spat_indic(BV, sim_name, 2020, 2024, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path)
-    # wtd_spat_indic(BV, sim_name, 2027, 2033, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path)
-    # wtd_spat_indic(BV, sim_name, 2047, 2053, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path)
-    # wtd_spat_indic(BV, sim_name, 2094, 2099, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path)
+    # wtd_spat_indic(BV, sim_name, 2020, 2024, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    # wtd_spat_indic(BV, sim_name, 2027, 2033, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    # wtd_spat_indic(BV, sim_name, 2047, 2053, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    # wtd_spat_indic(BV, sim_name, 2094, 2099, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
+    wtd_spat_indic(BV, sim_name, 2005, 2014, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
 
 

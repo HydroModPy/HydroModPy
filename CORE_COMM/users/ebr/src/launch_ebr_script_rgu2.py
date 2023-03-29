@@ -39,6 +39,7 @@ import rasterio
 import fnmatch
 import deepdish as dd
 import matplotlib.dates as mdates
+import seaborn as sns
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
@@ -70,7 +71,7 @@ def select_period(df, first, last):
 
 #%% PERSONAL PATHS
 
-user = 'Guillossou'
+user = 'Abherve'
 
 if user == 'Abherve':
 
@@ -85,7 +86,7 @@ if user == 'Guillossou':
     # # Path to the git repositoty home page
     git_path = "C:/Users/r.guillossou/Documents/GitHub/HydroModPy/CORE_COMM/"
     # # Path to the data folder
-    data_path = "E:/_data/"
+    data_path = "C:/Users/r.guillossou/Documents/Data Hydromodpy/_data/"
     # # Path where the results will be stored
     out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
 
@@ -137,7 +138,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Canut',
+                   'Cheze',
                    ]
 
 types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
@@ -195,7 +196,7 @@ for watershed_name in watershed_names[:]:
     if update_data == True:
         
         BV.add_surfex(reanalysis_dayon_path)
-        # BV.add_drias(explore2_path)
+        BV.add_drias(explore2_path)
         BV.add_geology(geology_path)
         BV.add_hydrology(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
         BV.add_oceanic(oceanic_path)
@@ -426,7 +427,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Canut',
+                   'Cheze',
                    ]
 
 # type_simulation = 'analysis_past'
@@ -435,7 +436,7 @@ type_simulation = 'analysis_future'
 if type_simulation == 'analysis_past':
     ### To chnage
     iD = 'checkpast'
-    periods = [1960, 2019]
+    periods = [2015, 2019]
     time_step = 'M' # or 'D'
     ### Not change
     mod_list = ['REA']
@@ -466,14 +467,9 @@ if type_simulation == 'analysis_past':
 if type_simulation == 'analysis_future':
     ### To change
     iD = 'projfuture'
-    periods = [2020, 2099]
+    periods = [1975, 2099]
     time_step = 'M' # or 'D'
-    #mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-    #            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
-    #            'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
-    #            'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
-    #            'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
-    mod_list = ['CAN3','CAN4','CAN5','IPS1','NOR1']
+    mod_list = ['NOR1']
     ### Not change
     sce_list = ['RCP2.6','RCP8.5']
     col_list = ['blue','red']
@@ -496,7 +492,7 @@ if type_simulation == 'analysis_future':
                 c = dict_scecol[sce]
                 toplot = all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce].resample('Y').sum()*1000
                 ax.plot(select_period(toplot,2005,2100), color=c)
-                ax.plot(select_period(toplot,1960,2005), color='k')
+                ax.plot(select_period(toplot,1975,2005), color='k')
                 ax.set_title(watershed_name+'_'+mod)
                 ax.set_yscale('log')
 
@@ -1366,7 +1362,7 @@ for watershed_name in watershed_names[:]:
         ax.set_axisbelow(True)
         ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.set_xlim(pd.to_datetime('2020'), pd.to_datetime('2100'))
+        ax.set_xlim(pd.to_datetime('1976'), pd.to_datetime('2100'))
                 
         ax.set_ylim(100, 600)
         
@@ -1809,7 +1805,7 @@ for watershed_name in watershed_names[:]:
     
 #%% PLOT RETURN QMNA
 
-mod_list = ['NOR1']
+mod_list = ['IPS1','CNR-ALA']
 sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
