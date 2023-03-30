@@ -653,7 +653,7 @@ class Watershed :
                        specific_discharge = False,
                        accumulation_flux = True,
                        perenn_intermit_shp=True,
-                       groundwater_storage = False,
+                       groundwater_storage = True,
                        residence_times = False,
                        verbose = True,
                        export_tif = True,
