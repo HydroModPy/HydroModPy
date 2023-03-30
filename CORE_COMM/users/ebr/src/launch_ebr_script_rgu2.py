@@ -39,7 +39,7 @@ import rasterio
 import fnmatch
 import deepdish as dd
 import matplotlib.dates as mdates
-# import seaborn as sns
+import seaborn as sns
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
@@ -146,7 +146,7 @@ fields_obs = ['fid','persitanc']
 
 #%% EXTRACT CATCHMENT
 
-load = True
+load = False
 
 for watershed_name in watershed_names[:]:
     
@@ -219,7 +219,7 @@ for watershed_name in watershed_names[:]:
 
 #%% REANALYSIS NORMALIZE
 
-time_step = 'D'
+time_step = 'M'
 
 fig = plt.subplots(1,1, figsize=(6,3))
 
@@ -301,7 +301,7 @@ for watershed_name in watershed_names[:1]:
 
 #%% PROJECTIONS NORMALIZE
 
-time_step = 'D'
+time_step = 'M'
 
 dayon_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
               'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
@@ -312,13 +312,11 @@ explore2_list = ['ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
 
 # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
 
-# mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-#             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
-#             'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
-#             'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
-#             'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
-
-mod_list = ['NOR1']
+mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
+            'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
+            'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
+            'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
 
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['blue','red']
@@ -333,83 +331,81 @@ for watershed_name in watershed_names[:] :
     
     for mod in mod_list:
         
-        # try:
-        if len(mod.split('-')) == 1:
-            BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
-                                              first_year = 1975, last_year = 2019,
-                                              time_step = time_step, sim_state='transient')
-            BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = 'historic',
-                                            first_year = 1975, last_year = 2019,
-                                            time_step = time_step, sim_state='transient')
-        if len(mod.split('-')) == 2:
-            GCM = mod.split('-')[0]
-            RCM = mod.split('-')[1]
-            BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
-                                             first_year = 1975, last_year = 2019, sim_state='transient')
-            BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
-                                             first_year = 1975, last_year = 2019, sim_state='transient')
-        
-        if time_step == 'D':
-            R_mod = BV.forcing.recharge
-            r_mod = BV.forcing.runoff
-        
-        if time_step == 'M':
-            R_mod = BV.forcing.recharge.resample('M').mean()
-            r_mod = BV.forcing.runoff.resample('M').mean()
-
-        R_rea = select_period(dict_recharge[watershed_name].copy(), 1975, 2019)
-        r_rea = select_period(dict_runoff[watershed_name].copy(), 1975, 2019)
-        
-        tmin_Rea = R_rea.first_valid_index().year+1
-        tmax_Rea = R_rea.last_valid_index().year+1
-        tmin_Mod = R_mod.first_valid_index().year+1
-        tmax_Mod = R_mod.last_valid_index().year-1
-        
-        year_min = max(tmin_Rea, tmin_Mod)
-        year_max = min(tmax_Rea, tmax_Mod)
-        print(year_min, year_max)
-        
-        R_rea_sel = select_period(R_rea, year_min, year_max)
-        r_rea_sel = select_period(r_rea, year_min, year_max)
-        R_mod_sel = select_period(R_mod, year_min, year_max)
-        r_mod_sel = select_period(r_mod, year_min, year_max)
-        
-        Fnorm = ( R_rea_sel.mean() + r_rea_sel.mean() )  / ( R_mod_sel.mean() + r_mod_sel.mean() )
-        print(Fnorm)
-        
-        R_mod_norm = (Fnorm * R_mod)
-        R_mod_norm = R_mod_norm[(R_mod_norm.index.strftime("%Y-%m")<='2005-07')]
-        r_mod_norm = Fnorm * r_mod
-        r_mod_norm = r_mod_norm[(r_mod_norm.index.strftime("%Y-%m")<='2005-07')]
-        
-        # all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+'historic'] = R_mod_norm
-        # all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+'historic'] = r_mod_norm
-
-        for sce in sce_list:
-        
+        try:
             if len(mod.split('-')) == 1:
-                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
-                                                  first_year = 1975, last_year = 2100,
+                BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                  first_year = 1975, last_year = 2019,
                                                   time_step = time_step, sim_state='transient')
-                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = sce,
-                                                first_year = 1975, last_year = 2100,
+                BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = 'historic',
+                                                first_year = 1975, last_year = 2019,
                                                 time_step = time_step, sim_state='transient')
             if len(mod.split('-')) == 2:
                 GCM = mod.split('-')[0]
                 RCM = mod.split('-')[1]
-                BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
-                                                 first_year = 1975, last_year = 2100, sim_state='transient')
-                BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
-                                                 first_year = 1975, last_year = 2100, sim_state='transient')
+                BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
+                                                 first_year = 1975, last_year = 2019, sim_state='transient')
+                BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
+                                                 first_year = 1975, last_year = 2019, sim_state='transient')
             
-            R_proj_norm = BV.forcing.recharge * Fnorm
-            r_proj_norm = BV.forcing.runoff * Fnorm
+            if time_step == 'M':
+                R_mod = BV.forcing.recharge.resample('M').mean()
+                r_mod = BV.forcing.runoff.resample('M').mean()
+    
+            R_rea = select_period(dict_recharge[watershed_name].copy(), 1975, 2019)
+            r_rea = select_period(dict_runoff[watershed_name].copy(), 1975, 2019)
             
-            all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce] = pd.concat((R_proj_norm, R_mod_norm), axis=1).mean(axis=1)
-            all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+sce] = pd.concat((r_proj_norm, r_mod_norm), axis=1).mean(axis=1)
-
-        all_proj[watershed_name+'_'+'REC'+'_'+'REA'+'_'+'historic'] = R_rea
-        all_proj[watershed_name+'_'+'RUN'+'_'+'REA'+'_'+'historic'] = r_rea
+            tmin_Rea = R_rea.first_valid_index().year+1
+            tmax_Rea = R_rea.last_valid_index().year+1
+            tmin_Mod = R_mod.first_valid_index().year+1
+            tmax_Mod = R_mod.last_valid_index().year-1
+            
+            year_min = max(tmin_Rea, tmin_Mod)
+            year_max = min(tmax_Rea, tmax_Mod)
+            print(year_min, year_max)
+            
+            R_rea_sel = select_period(R_rea, year_min, year_max)
+            r_rea_sel = select_period(r_rea, year_min, year_max)
+            R_mod_sel = select_period(R_mod, year_min, year_max)
+            r_mod_sel = select_period(r_mod, year_min, year_max)
+            
+            Fnorm = ( R_rea_sel.mean() + r_rea_sel.mean() )  / ( R_mod_sel.mean() + r_mod_sel.mean() )
+            print(Fnorm)
+            
+            R_mod_norm = (Fnorm * R_mod)
+            R_mod_norm = R_mod_norm[(R_mod_norm.index.strftime("%Y-%m")<='2005-07')]
+            r_mod_norm = Fnorm * r_mod
+            r_mod_norm = r_mod_norm[(r_mod_norm.index.strftime("%Y-%m")<='2005-07')]
+            
+            # all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+'historic'] = R_mod_norm
+            # all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+'historic'] = r_mod_norm
+    
+            for sce in sce_list:
+            
+                if len(mod.split('-')) == 1:
+                    BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
+                                                      first_year = 1975, last_year = 2100,
+                                                      time_step = time_step, sim_state='transient')
+                    BV.forcing.update_runoff_surfex(clim_mod = mod, clim_sce = sce,
+                                                    first_year = 1975, last_year = 2100,
+                                                    time_step = time_step, sim_state='transient')
+                if len(mod.split('-')) == 2:
+                    GCM = mod.split('-')[0]
+                    RCM = mod.split('-')[1]
+                    BV.forcing.update_recharge_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
+                                                     first_year = 1975, last_year = 2100, sim_state='transient')
+                    BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
+                                                     first_year = 1975, last_year = 2100, sim_state='transient')
+                
+                R_proj_norm = BV.forcing.recharge * Fnorm
+                r_proj_norm = BV.forcing.runoff * Fnorm
+                
+                all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+sce] = pd.concat((R_proj_norm, R_mod_norm), axis=1).mean(axis=1)
+                all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+sce] = pd.concat((r_proj_norm, r_mod_norm), axis=1).mean(axis=1)
+    
+            all_proj[watershed_name+'_'+'REC'+'_'+'REA'+'_'+'historic'] = R_rea
+            all_proj[watershed_name+'_'+'RUN'+'_'+'REA'+'_'+'historic'] = r_rea
+        except:
+            pass
         
     if not os.path.exists(stable_folder+'recharge_runoff/'):
         toolbox.create_folder(stable_folder+'recharge_runoff/')
@@ -472,7 +468,7 @@ if type_simulation == 'analysis_future':
     ### To change
     iD = 'projfuture'
     periods = [1975, 2099]
-    time_step = 'D' # or 'D'
+    time_step = 'M' # or 'D'
     mod_list = ['NOR1']
     ### Not change
     sce_list = ['RCP2.6','RCP8.5']
