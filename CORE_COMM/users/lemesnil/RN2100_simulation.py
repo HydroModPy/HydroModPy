@@ -126,13 +126,14 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=True,
-                              from_shp=shp_file,
+                              from_shp=None,
                               from_dem=None,
                               cell_size=cell_size)
 
 BV.load_object()
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
+# BV.add_drias(drias_path)
 # BV.add_piezometry()
 
 watershed_display.watershed_dem(BV)
@@ -182,15 +183,16 @@ BV.hydrodynamic.update_cond_decay(cond_decay)
 
 #%% Launch simulations and save results
 from datetime import datetime
+import pandas as pd
 
 # /!\ Activate to save results on external disk
-disk_save = True
+disk_save = False
 
 # /!\ Activate to save rasters of watertable depth threshold frequency
 edit_raster = True
 
-first_yr = 2005
-last_yr = 2014
+first_yr = 2022
+last_yr = 2022
 
 BV.add_forcing()
 RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
@@ -200,31 +202,49 @@ md_rmsl_26 = RMSL_26.iloc[:,0]
 # md_rmsl_85_cut = ...
 
 DRIAS_model_list = ['MPI-CCL'] #['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
-sce_list = ['RCP8.5']
+sce_list = ['RCP8.5'] #['RCP2.6', 'RCP8.5']
 
 sim_name_list = []
+c=0
 for DRIAS_model in DRIAS_model_list:
     for scenario in sce_list:
     
+        # c+=1
         gcm = DRIAS_model[:3] #'MPI'
         rcm = DRIAS_model[-3:] #'CCL'
         sce = scenario #'RCP8.5'
-        # BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
-        #                                   first_year = first_yr, last_year = last_yr,
-        #                                   sim_state = 'transient')
+        BV.forcing.update_recharge_drias(gcm_mod = gcm, rcm_mod = rcm, sce_mod = sce,
+                                          first_year = first_yr, last_year = last_yr,
+                                          sim_state = 'transient')
+        
+        # rech = BV.forcing.recharge
+        # if c == 1:
+        #     rech_df = rech.to_frame()
+        # else:
+        #     rech_df = rech_df.join(rech)
+        
         BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
                                               first_year = 2005, last_year = 2014, 
                                               time_step = 'D', sim_state = 'transient')
+        
+        rech_CLM_MF = pd.read_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\CLM\rech_CLM_2022.csv', sep=';', index_col='Date')
+        rech_CLM_MF.index = pd.to_datetime(rech_CLM_MF.index, dayfirst=True)
+        rech_CLM_MF = rech_CLM_MF['Recharge']/1000
+        rech_CLM_MF_35 = rech_CLM_MF*3.5
+        
+        BV.forcing.update_recharge(rech_CLM_MF_35, sim_state='transient')
+        
         if scenario == 'RCP2.6':
-            pass
-            # BV.oceanic.update_MSL(md_rmsl_26)
+            # pass
+            BV.oceanic.update_MSL(md_rmsl_26)
         elif scenario == 'RCP8.5':
-            pass
-            # BV.oceanic.update_MSL(md_rmsl_85)
+            # pass
+            BV.oceanic.update_MSL(md_rmsl_85)
         
         now = datetime.now()
         now_str = now.strftime("%d%m%Y%H%M%S")
-        sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+        # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
+        sim_name = str(first_yr)+str(last_yr) + '_rech_CLM_MF35_' + now_str
         # # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
         print(sim_name)
         sim_name_list.append(sim_name)
@@ -263,7 +283,7 @@ for DRIAS_model in DRIAS_model_list:
                               specific_discharge = False,
                               accumulation_flux = False,
                               perenn_intermit_shp = False,
-                              groundwater_storage = False,
+                              groundwater_storage = True,
                               residence_times = False,
                               verbose = True,
                               export_tif = True)
@@ -292,6 +312,6 @@ for sim_name in sim_name_list:
     # wtd_spat_indic(BV, sim_name, 2027, 2033, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
     # wtd_spat_indic(BV, sim_name, 2047, 2053, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
     # wtd_spat_indic(BV, sim_name, 2094, 2099, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
-    wtd_spat_indic(BV, sim_name, 2005, 2014, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
+    wtd_spat_indic(BV, sim_name, 2022, 2022, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
 
 

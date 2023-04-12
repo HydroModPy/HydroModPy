@@ -82,7 +82,7 @@ class Forcing:
 
         Parameters
         ----------
-        values : fload or panda matrix
+        values : float or panda matrix
             values assigned to the recharge 
             Loading or generation of the recharge values is made elsewhere
 
