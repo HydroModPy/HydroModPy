@@ -226,12 +226,12 @@ class Results:
         except:
             pass
         
-        # try:
-        for key in self.groundwater_storage:
-            calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', -99999, self.resolution)
-            self.mfdata.loc[key,'groundwater_storage'] = calc
-        # except:
-        #     pass
+        try:
+            for key in self.groundwater_storage:
+                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', -99999, self.resolution)
+                self.mfdata.loc[key,'groundwater_storage'] = calc
+        except:
+            pass
         
         try:
             for key in self.residence_times:
