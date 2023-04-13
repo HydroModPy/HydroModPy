@@ -623,7 +623,8 @@ class Watershed :
                                             exe=self.modflow_path + '/bin/mp6.exe',
                                             porosity=self.hydrodynamic.porosity)  
                 transport_model.pre_processing(verbose = verbose)
-                transport_model.processing(verbose = verbose)
+                if run == True:
+                    transport_model.processing(verbose = verbose)
                 # transport_model.post_processing()
         
         #RONAN: removes these lines
