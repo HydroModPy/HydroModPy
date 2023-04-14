@@ -244,9 +244,12 @@ class Piezometry:
             self.y1 = []
             for j in range(0,len(self.watershed.piezometry.codes_bss)):
                 self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc[j],self.watershed.piezometry.x_iloc[j]])
-            for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
-                self.y0.append(self.watershed.piezometry.elevation_discrete[j])
-                self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
+            try:
+                for j in range(0,len(self.watershed.piezometry.elevation_discrete)):
+                    self.y0.append(self.watershed.piezometry.elevation_discrete[j])
+                    self.y1.append(self.watertable_elevation[0][self.watershed.piezometry.y_iloc_discrete[j],self.watershed.piezometry.x_iloc_discrete[j]])
+            except:
+                pass
             self.y0 = np.array(self.y0)
             self.y1 = np.array(self.y1)
             '''
@@ -258,6 +261,7 @@ class Piezometry:
             MSE = np.nanmean((self.y0-self.y1)**2) ;    #Mean square error '''
             RMSE = np.sqrt(np.nanmean((self.y0-self.y1)**2))  #Root mean square error 
             self.store_indicator.append(RMSE)
+            print('y0='+str(self.y0)+' ; y1='+str(self.y1)+' ; RMSE='+str(RMSE))
             
     def get_indicator(self):
         indicator = np.nanmean(self.store_indicator) #mean performance criterion value for all piezometers
@@ -327,7 +331,7 @@ class Hydrometry:
                     df = df.resample('M').mean()
                     df = df * 24 * 3600 # m3/j
                     # area = 
-                    df = df / (area * 1000000) # m/j
+                    df = df / (int(round(area)) * 1000000) # m/j
                     df.columns = [code]
                     
                     df_runoff = self.watershed.forcing.runoff.values

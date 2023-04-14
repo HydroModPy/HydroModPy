@@ -71,7 +71,7 @@ class Piezometry:
         self.depth_well = []
         self.elevation_well = []
         try:
-            self.extract_piezos_from_watershed(data_folder, geographic)
+            pass#self.extract_piezos_from_watershed(data_folder, geographic)
         except:
             pass
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')

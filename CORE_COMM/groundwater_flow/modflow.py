@@ -709,7 +709,7 @@ class Modflow():
                         #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
                         self.drnData[compt, 4] = self.multip_cond 
                     else:
-                        self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2
+                        self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
                 else:
                     if self.sink[i,j]>0:
                         #ALEXANDRE: when filled, no possible drains, why?
@@ -738,6 +738,7 @@ class Modflow():
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
+        
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(1, 1, 1)
         modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
