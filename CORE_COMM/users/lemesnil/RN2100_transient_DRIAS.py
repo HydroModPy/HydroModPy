@@ -47,25 +47,25 @@ dem_name = "BDALTI_norm-manch_75m.tif"
 # sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
 
 if DIR[0] == 'd': #server
-    shp_file = 'D:\mlemesnil\Data\BV_RN2100\SGA\SGA_2_sea.shp'
+    shp_file = r'D:\mlemesnil\Data\BV_RN2100\SGA\SGA_2_sea.shp'
     # Path to the git repositoty home page
-    git_path = "D:\mlemesnil\HydroModPy\HydroModPy\CORE_COMM/"
+    git_path = r"D:\mlemesnil\HydroModPy\HydroModPy\CORE_COMM/"
     # Path to the data folder
-    data_path = "D:\mlemesnil\Data\HydroModPy/"
+    data_path = r"D:\mlemesnil\Data\HydroModPy/"
     # Path where the results will be stored
-    out_path = 'D:\mlemesnil\HydroModPy\Output/'
-    modflow_path = 'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
-    ESPERE_recharge_path = 'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
-    shape_calib_zones_path = 'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
+    out_path = r'D:\mlemesnil\HydroModPy\Output/'
+    modflow_path = r'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
+    ESPERE_recharge_path = r'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
+    shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
 elif DIR[0] == 'c': #local
-    shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
     # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
     # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-Cotentin/watershed_clip_carentan.shp'
     # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-    git_path = "C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
-    data_path = "C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
-    out_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
-    modflow_path = 'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
+    git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+    data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
+    out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
+    modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
     ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
     # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
     #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'

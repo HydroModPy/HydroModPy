@@ -152,10 +152,16 @@ class Results:
             calc = np.nanmean(masked)
             return calc
         
-        def calc_sum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+        def calc_sumnorm(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             calc = (np.nansum(masked) / (cell * resolution**2))
+            return calc
+        
+        def calc_sum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+            masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
+            cell = masked.count()
+            calc = (np.nansum(masked))
             return calc
         
         def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):            
@@ -194,7 +200,7 @@ class Results:
         
         try:
             for key in self.outflow_drain:
-                calc = calc_sum(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', -99999, self.resolution)
+                calc = calc_sumnorm(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', -99999, self.resolution)
                 self.mfdata.loc[key,'outflow_drain'] = calc
         except:
             pass
@@ -222,7 +228,7 @@ class Results:
         
         try:
             for key in self.groundwater_storage:
-                calc = calc_max(self.groundwater_storage[key])
+                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', -99999, self.resolution)
                 self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
@@ -289,7 +295,7 @@ class Results:
                     compt+=1
                     
                 inf+=12
-                sup+=12                    
+                sup+=12     
         except:
             pass
 

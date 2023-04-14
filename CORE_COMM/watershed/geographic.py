@@ -20,6 +20,7 @@ wbt.verbose = False
 from geopy.geocoders import Nominatim
 import shutil
 import imageio
+import glob
 
 # HydroModPy modules
 from tools import toolbox
@@ -98,7 +99,8 @@ class Geographic:
         # Correction
         fill =  os.path.join(self.reg_path, 'region_fill.tif')
         if not os.path.exists(fill):
-            wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
+            # wbt.fill_depressions(dem_path, fill) # or # wbt.breach_depressions(dem_path, fill, 2, 75*8)
+            wbt.breach_depressions(dem_path, fill)
         # Flow direction
         direc =  os.path.join(self.reg_path, 'region_direc.tif')
         if not os.path.exists(direc):
@@ -107,6 +109,15 @@ class Geographic:
         acc =  os.path.join(self.reg_path, 'region_acc.tif')
         if not os.path.exists(acc):
             wbt.d8_flow_accumulation(fill, acc, log=True)
+        # Flow accumulation
+        down =  os.path.join(self.reg_path, 'region_down.tif')
+        if not os.path.exists(down):
+            wbt.downslope_flowpath_length(
+                direc, 
+                down, 
+                watersheds=None, 
+                weights=None, 
+                esri_pntr=False)
         
         # Correct no data
         wbt.modify_no_data_value(dem_path, new_value='-99999.0')
@@ -192,26 +203,32 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem)
+        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem,
+                                   maintain_dimensions=False)
         # Clip corrected regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill)
+        wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill,
+                                   maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer watershed shapefile polygon
         watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc)
+        wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc,
+                                   maintain_dimensions=False)
         
         """
         Clip to reach watershed size
         """
         # Clip buffer watershed DEM from watershed shapefile polygon
         self.watershed_dem = self.gis_path + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, maintain_dimensions=True)
+        wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, 
+                                   maintain_dimensions=True)
         # Clip corrected regional DEM from watershed shapefile polygon
         self.watershed_fill = self.gis_path + 'watershed_fill.tif'
-        wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill)
+        wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill,
+                                   maintain_dimensions=False)
         # Clip flow direction regional DEM from watershed shapefile polygon
         self.watershed_direc = self.gis_path + 'watershed_direc.tif'
-        wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc)
+        wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc,
+                                   maintain_dimensions=False)
         wbt.slope(self.watershed_dem,
                   self.gis_path + 'watershed_slope.tif',
                   units="percent")
@@ -223,13 +240,16 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
-        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem)
+        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem,
+                                   maintain_dimensions=False)
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
         watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill)
+        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill,
+                                   maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
         watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc)
+        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc,
+                                   maintain_dimensions=False)
         
         """
         Create depressions raster
@@ -419,13 +439,13 @@ class Subbasin:
         except:
             pass
         
-        # try:
-        code_sub, x_coord, y_coord = self.add_coord_manual()
-        for i in range(len(code_sub)):
-            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
-        # except:
-        #     pass
+        try:
+            code_sub, x_coord, y_coord = self.add_coord_manual()
+            for i in range(len(code_sub)):
+                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+        except:
+            pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
@@ -472,7 +492,8 @@ class Subbasin:
     # .csv file with x, y coordinates representing the outlet desired sub-catchments
     
     def add_coord_manual(self):
-        sub_list = pd.read_csv(os.path.join(self.adddata_path, 'add_coord_manual.txt'), sep=';')
+        path_coord = glob.glob(self.adddata_path+'/'+'add_coord_manual_*')[0]
+        sub_list = pd.read_csv(path_coord, sep=';')
         print(sub_list)
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()

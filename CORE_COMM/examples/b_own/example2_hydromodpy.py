@@ -93,8 +93,8 @@ if user == 'Clément':
 
 # As an example, all data necessary for this test are stored in this OneDrive folder named 'TEST'
 
-# Hyperlink : 'https://1drv.ms/f/s!ArPhnd6PZcHmjQg8qW15u2DWBR37'
-# Password : 'osur-data-hydromodpy-2022'
+# Hyperlink : 'https://uniren1-my.sharepoint.com/:f:/g/personal/ronan_abherve_univ-rennes1_fr/Enx89cnAYelOo2M6Y7WF3gkBRCB3g2tKlvNJdSn6DfwyaA?e=zV3toD'
+# Password : 'HydroDataPy-007'
 
 #%% FOLDER DATA PATHS
 

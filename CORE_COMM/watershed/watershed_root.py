@@ -623,7 +623,8 @@ class Watershed :
                                             exe=self.modflow_path + '/bin/mp6.exe',
                                             porosity=self.hydrodynamic.porosity)  
                 transport_model.pre_processing(verbose = verbose)
-                transport_model.processing(verbose = verbose)
+                if run == True:
+                    transport_model.processing(verbose = verbose)
                 # transport_model.post_processing()
         
         #RONAN: removes these lines
@@ -653,7 +654,7 @@ class Watershed :
                        specific_discharge = False,
                        accumulation_flux = True,
                        perenn_intermit_shp=True,
-                       groundwater_storage = False,
+                       groundwater_storage = True,
                        residence_times = False,
                        verbose = True,
                        export_tif = True,
@@ -748,7 +749,7 @@ class Watershed :
                                 model_folder=model_folder)
         simulated_results = results.mfdata
         
-        # return simulated_results
+        return simulated_results
 
     #%% MODEL HS1D                
     

@@ -90,7 +90,7 @@ cell_size = None # specify new resolution from a given DEM or None
 
 import os
 
-shp_file = 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
 # os.path.join('C', 'Users', 'Martin Le Mesnil', 'Travail', 'SIG', 'BV_RN2100', 'SGA_2_sea_2.shp')
 # shp_file = r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Baie-du-cotentin/Carentan_2_sea.shp'
 # 'C:/Users/Martin/Desktop/Travail/SIG/BV_RN2100/Caen/watershed_clip_caen_2.shp'
@@ -103,7 +103,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               modflow_path=modflow_path,
                               library_path=library_path,
                               load=True,
-                              from_shp=shp_file,
+                              from_shp=None,
                               from_dem=False,
                               cell_size=None)
 
@@ -135,7 +135,8 @@ watershed_display.watershed_local(dem_path, BV)
 #%% Historic recharge & ETP (for ET estimation)
 
 start_year = 1960 #start year for shortened time series, complete series start at 1958
-minimum_yearly_rainfall = 400 # remove outliers
+end_year = 2020 #end year for shortened time series, complete series end at 2020
+minimum_yearly_rainfall = 100 # remove outliers
 
 import matplotlib.pyplot as plt
 from scipy.ndimage import uniform_filter1d
@@ -154,6 +155,7 @@ REC_list = REC_df.loc[:,'MEAN'].tolist()
 ETP_df['doy'] = ETP_df.index.dayofyear
 ETP_df['year'] = ETP_df.index.year
 ETP_df_recent = ETP_df[ETP_df['year']>=start_year]
+ETP_df_recent = ETP_df_recent[ETP_df_recent['year']<=end_year]
 piv = pd.pivot_table(ETP_df_recent, index=['doy'],columns=['year'], values=['MEAN'])
 
 doy_ETP = []
@@ -165,6 +167,7 @@ doy_ETP = pd.Series(doy_ETP)
 REC_df['doy'] = REC_df.index.dayofyear
 REC_df['year'] = REC_df.index.year
 REC_df_recent = REC_df[REC_df['year']>=start_year]
+REC_df_recent = REC_df_recent[REC_df_recent['year']<=end_year]
 piv_rec = pd.pivot_table(REC_df_recent, index=['doy'],columns=['year'], values=['MEAN'])
 
 doy_REC = []
@@ -176,6 +179,7 @@ doy_REC = pd.Series(doy_REC)
 PPT_df['doy'] = PPT_df.index.dayofyear
 PPT_df['year'] = PPT_df.index.year
 PPT_df_recent = PPT_df[PPT_df['year']>=start_year]
+PPT_df_recent = PPT_df_recent[PPT_df_recent['year']<=end_year]
 piv_ppt = pd.pivot_table(PPT_df_recent, index=['doy'],columns=['year'], values=['MEAN'])
 
 doy_PPT = []
@@ -213,7 +217,7 @@ plt.scatter(ppt_yr_list, rec_yr_list)
 plt.plot(x,y)
 plt.xlabel('P (mm/yr)')
 plt.ylabel('Rech. (mm/yr)')
-plt.title('Surfex Rech. vs. P (1960-2020)')
+plt.title('Surfex Rech. vs. P (' + str(start_year) + '-' + str(end_year) + ')')
 plt.text(x[0],y[0], 'y = ' + str("{:.2f}".format(reg_coef[0]))
          + 'x + (' + str("{:.1f}".format(reg_intercept)) + ')',
          size = 17, ha = 'left')
@@ -224,12 +228,16 @@ plt.show()
 #plot mean doy ETP against 2000-2020 daily ETP time series
 plt.plot(piv)
 plt.plot(doy_ETP)
+plt.xlabel('Day of Year')
+plt.ylabel('ETP (mm/d)')
 plt.show()
 
 #plot smoothed doy_ETP against mean doy_ETP
 doy_ETP_smooth = uniform_filter1d(doy_ETP, size=30)
 plt.plot(doy_ETP)
 plt.plot(doy_ETP_smooth)
+plt.xlabel('Day of Year')
+plt.ylabel('ETP (mm/d)')
 plt.show()
 
 # save smoothed doy_ETP as csv
@@ -240,6 +248,24 @@ plt.show()
 #plot doy_ETP gainst recharge
 plt.plot(doy_ETP_smooth)
 plt.plot(doy_REC)
+plt.xlabel('Day of Year')
+plt.ylabel('mm/day')
+plt.legend(['ETP','Recharge'])
 plt.show()
 
+
+#%% Comparison with meteofrance pluviometer (Caen)
+
+import pandas as pd
+
+rainfall_caen = pd.read_csv(r'C:\Users\Martin Le Mesnil\Travail\data\MeteoFrance\SYNOP\synop_yearly_rainfall_Caen_2000_2019.csv', sep=';')
+P_MF = rainfall_caen['Rainfall'].values.tolist()
+
+plt.scatter(P_MF, ppt_yr_list)
+plt.xlabel('P_MeteoFrance (mm/yr)')
+plt.ylabel('P_Surfex (mm/yr)')
+axes = plt.gca()
+xlim = axes.get_xlim()
+plt.plot(xlim,xlim)
+plt.show()
 

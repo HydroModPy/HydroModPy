@@ -224,7 +224,6 @@ class Hydrodynamic:
         # import matplotlib.pyplot as plt
         
         output = os.path.join(dirname(self.box_dem), 'out_raster_zones.tif')
-        print(output)
         
         wbt.vector_polygons_to_raster(
         shp_path, 
@@ -232,8 +231,8 @@ class Hydrodynamic:
         field="FID", #Field name should be changed , error : thread 'main' panicked at 'Error: Specified field is greater than the number of fields.'
         nodata=default_zone, 
         cell_size=None, 
-        base=self.box_dem
-    )
+        base=self.box_dem)
+        
         raster_load = imageio.imread(output)
         raster_load[raster_load==-99999] = default_zone
 
