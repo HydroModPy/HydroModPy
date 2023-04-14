@@ -220,7 +220,7 @@ class Watershed :
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
                  from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
-                 from_xy: list = [], regio_out: bool = False):
+                 from_xy: list = [], regio_out: bool = False, parameters = None):
         """  
         
         Arguments

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Definition of elements -->
+<!ELEMENT ParametersGroup (ParametersGroup* | Parameter*)*>
+<!ATTLIST ParametersGroup
+	name CDATA #REQUIRED
+>
+<!ELEMENT Parameter (description? | type? | value? | default_value? | possible_values?)*>
+<!ATTLIST Parameter
+	name CDATA #REQUIRED
+>
+<!ELEMENT description (#PCDATA)>
+<!ELEMENT type (#PCDATA)>
+<!ELEMENT value (#PCDATA)>
+<!ELEMENT default_value (#PCDATA)>
+<!ELEMENT possible_values (#PCDATA)>
+<!-- Files that can be included -->
+<!ENTITY Arbre SYSTEM "Arbre.xml">
+<!ENTITY boundary_condition_inputs SYSTEM "boundary_conditions_domain.xml">
+<!ENTITY boundary_conditions_domain SYSTEM "boundary_conditions_domain.xml">
+<!ENTITY boundary_conditions_subnetwork SYSTEM "boundary_conditions_subnetwork.xml">
+<!ENTITY chemistry_sorption_inputs SYSTEM "chemistry_sorption_inputs.xml">
+<!ENTITY d2flow_inputs SYSTEM "d2flow_inputs.xml">
+<!ENTITY d3flow_inputs SYSTEM "d3flow_inputs.xml">
+<!ENTITY display_inputs SYSTEM "display_inputs.xml">
+<!ENTITY flow_inputs SYSTEM "flow_inputs.xml">
+<!ENTITY flow_semi_transient SYSTEM "flow_semi_transient.xml">
+<!ENTITY flow_transient_inputs SYSTEM "flow_transient_inputs.xml">
+<!ENTITY fractal_inputs SYSTEM "fractal_inputs.xml">
+<!ENTITY free_surface_inputs SYSTEM "free_surface_inputs.xml">
+<!ENTITY generation_inputs SYSTEM "generation_inputs.xml">
+<!ENTITY generation_hydraulic_apertures_transmissivity SYSTEM "generation_hydraulic_apertures_transmissivity.xml">
+<!ENTITY grid_property_permeability SYSTEM "grid_property_permeability.xml">
+<!ENTITY grid_property_porosity SYSTEM "grid_property_porosity.xml">
+<!ENTITY grid_property_velocity_x SYSTEM "grid_property_velocity_x.xml">
+<!ENTITY grid_property_velocity_y SYSTEM "grid_property_velocity_y.xml">
+<!ENTITY grid_property_velocity_z SYSTEM "grid_property_velocity_z.xml">
+<!ENTITY grid_property_velocity_norm SYSTEM "grid_property_velocity_norm.xml">
+<!ENTITY grid SYSTEM "grid.xml">
+<!ENTITY heterogeneity_deterministic SYSTEM "heterogeneity_deterministic.xml">
+<!ENTITY heterogeneity_patch SYSTEM "heterogeneity_patch.xml">
+<!ENTITY isthmus_inputs SYSTEM "isthmus_inputs.xml">
+<!ENTITY Isthmus_Preconditionning_general_inputs SYSTEM "Isthmus_Preconditionning_general_inputs.xml">
+<!ENTITY Isthmus_Preconditionning_inputs SYSTEM "Isthmus_Preconditionning_inputs.xml">
+<!ENTITY isthmus_ra SYSTEM "isthmus_RA_inputs.xml">
+<!ENTITY isthmus_simulation_inputs SYSTEM "Isthmus_simulation_inputs.xml">
+<!ENTITY Lagrangian_Volumes_inputs SYSTEM "Lagrangian_Volumes_inputs.xml">
+<!ENTITY mapping_inputs SYSTEM "mapping_inputs.xml">
+<!ENTITY MecaFrac3D_inputs SYSTEM "MecaFrac3D_inputs.xml">
+<!ENTITY frac_mechanic_inputs SYSTEM "frac_mechanic_inputs.xml">
+<!ENTITY monte_carlo_inputs SYSTEM "monte_carlo_inputs.xml">
+<!ENTITY monte_carlo_results_names SYSTEM "monte_carlo_results_names.xml">
+<!ENTITY MP_Frac_simulation_general_inputs SYSTEM "MP_Frac_simulation_general_inputs.xml">
+<!ENTITY MS_Frac_inputs SYSTEM "MS_Frac_inputs.xml">
+<!ENTITY MS_Frac_results_name SYSTEM "MS_Frac_results_name.xml">
+<!ENTITY MS_Frac_simulation_general_inputs SYSTEM "MS_Frac_simulation_general_inputs.xml">
+<!ENTITY multi_isthmus_inputs SYSTEM "multi_isthmus_inputs.xml">
+<!ENTITY multi_isthmus_simulation_inputs SYSTEM "Multi_Isthmus_simulation_inputs.xml">
+<!ENTITY npole_postprocessing SYSTEM "npole_postprocessing.xml">
+<!ENTITY PERCOLATION SYSTEM "PERCOLATION.xml">
+<!ENTITY piezos SYSTEM "piezos.xml">
+<!ENTITY porous_simulation_general_inputs SYSTEM "porous_simulation_general_inputs.xml">
+<!ENTITY run_general_inputs SYSTEM "run_general_inputs.xml">
+<!ENTITY run_general_results_names SYSTEM "run_general_results_names.xml">
+<!ENTITY seeds_inputs SYSTEM "seeds_inputs.xml">
+<!ENTITY time_fluctuations SYSTEM "time_fluctuations.xml">
+<!ENTITY topography_inputs SYSTEM "topography_inputs.xml">
+<!ENTITY tracker_inputs SYSTEM "tracker_inputs.xml">
+<!ENTITY tracker_RW_inputs SYSTEM "tracker_RW_inputs.xml">
+<!ENTITY transport_inputs SYSTEM "transport_inputs.xml">
+<!ENTITY no_statistics SYSTEM "no_statistics.xml">
+

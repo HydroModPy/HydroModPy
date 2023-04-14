@@ -13,13 +13,19 @@ Simple example for basic execution of HydroModPy (execution should be of the ord
 - Some visualization
 """
 
-def run_example(out_path, regression_test=False):
+
+# General
+import sys
+
+
+import ParametersGroup as pg
+
+
+
+def run_example(out_path, regression_test=False, parameters=None):
     print('Function ready !')
     
     #%% GENERAL LIBRARIES
-    
-    # General
-    import sys
     import os
     from os.path import dirname, abspath
     # Current Directory stored in DIR 
@@ -27,13 +33,13 @@ def run_example(out_path, regression_test=False):
     sys.path.append(DIR)
     #MARTIN: Add test to confirm that current folder is CORE_COMM
     # If not, returns error message and stop running execution 
-    
+
     from glob import glob
     import numpy as np
     import pandas as pd
     from osgeo import gdal, osr
     from IPython import get_ipython
-    
+
     get_ipython().run_line_magic('matplotlib', 'inline')
     # Plot
     import matplotlib.pyplot as plt
@@ -50,12 +56,21 @@ def run_example(out_path, regression_test=False):
     import rasterio
     import geopandas as gpd
     import whitebox
+    import logging
+    import warnings  
+
+                     
+    # HYDROMODPY MODULES
+             
+    from watershed import watershed_root, forcing, watershed_display
+    from tools import toolbox, vtk
+    from watershed.data import hydrology, climatic, oceanic, piezometry
+    from groundwater_flow import modflow_display, visualization
     # Creation of basis whitebox class (wbt)
     wbt = whitebox.WhiteboxTools()
     wbt.verbose = True
     # Warnings: Mask error messages and captures them (logging)
-    import logging
-    import warnings  
+    
     # warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
     # warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
     # warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
@@ -64,13 +79,7 @@ def run_example(out_path, regression_test=False):
     # warnings.simplefilter("ignore", category=DeprecationWarning) # not working
     # warnings.warn("You won't see this warning", category=DeprecationWarning) # to modify warnings
     logging.captureWarnings(True)
-                     
-    # HYDROMODPY MODULES
-             
-    from watershed import watershed_root, forcing, watershed_display
-    from tools import toolbox, vtk
-    from watershed.data import hydrology, climatic, oceanic, piezometry
-    from groundwater_flow import modflow_display, visualization
+
     
     #%% LAYOUT PLOT
     
@@ -142,7 +151,8 @@ def run_example(out_path, regression_test=False):
                                   from_shp=from_shp,
                                   from_dem=from_dem,
                                   from_xy=from_xy,
-                                  cell_size=cell_size)
+                                  cell_size=cell_size,
+                                  parameters=parameters)
     
     #%% ADD SPECIFIC DATA
     
@@ -295,9 +305,25 @@ if user == 'Ronan':
 
 ####################################################
 
+
+def xml_parameters(): 
+    # Initialization of Reference ParametersGroup
+    file_ref = "Parameters_Reference/prog_master_reference.xml"
+    # ref = pg.ParametersGroup(file_ref)   
+    # Loads User ParametersGroup
+    file_usr = "Parameters_Reference/prog_master_user.xml"
+    # usr = pg.ParametersGroup(file_usr)   
+    # Results folder
+    folder_res = "../../../../../results/xml_parameters"
+    # Merges the two structures and affects default_values to values when necessary
+    paramgroup = pg.ParametersGroup.merge_diff(file_ref,file_usr,pg.EXPLOPT.REPLACE,folder_res)[0]
+    return paramgroup
+
+
 if __name__ == "__main__":
-    print ("Executed when invoked directly")
-    run_example(out_path, regression_test=False)
+    print ("Executed when invoked directly")    
+    xml_parameters()
+    run_example(out_path, regression_test=False, parameters=xml_parameters())
 else:
     print ("Executed when imported")
     

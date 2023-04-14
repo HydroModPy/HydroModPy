@@ -13,6 +13,8 @@ Created on Sat Jan  7 16:08:40 2023
 
 from copy import deepcopy
 from enum import Enum 
+import sys
+import os
 
 
 # lxml :  more efficient and convenient (implements XPath), 
@@ -57,6 +59,35 @@ def file_exist(file_name):
         print ('Erreur! Le fichier ', file_name, ' n\'a pas pu être ouvert')
         return False
     
+    
+def folder_of_file_new(file_name,folder_new): 
+    """
+    Parameters
+    ----------
+    file_name : str
+        full file name including folder '../../test/parameter.xml'
+    folder_new : str
+        new folder for file name 
+
+    Returns
+    -------
+    str : 'folder_new/parameter.xml'
+
+    """
+    # Gets file_name without the folder
+    pos = file_name.rfind('/')
+    if pos != -1 : 
+        file_name = file_name[pos+1:]
+    # Creates folder if it does not exsit
+    make_dir(folder_new)
+    return os.path.join(folder_new,file_name)
+
+
+def make_dir(folder): 
+    "Creates folder if does not exist"
+    if os.path.exists(folder) == False : 
+        os.makedirs(folder)
+
     
 def xml_pre_adder(filename):
     line1 = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
@@ -338,7 +369,14 @@ class ParametersGroup:
             False : address (pointer) to the result
    
         """
-        exists, subgroup = self.getgroup_safe(group_name,option_copy=True)
+        if group_name.find('::') == -1: 
+            exists, subgroup = self.getgroup_safe(group_name,option_copy=True)
+        else: 
+            groups = string_to_list(group_name)
+            subgroup = self
+            for i in groups[:-1]: 
+                subgroup = subgroup.getgroup(i)
+                
         return subgroup
 
     
@@ -556,18 +594,21 @@ class ParametersGroup:
         pg_usr = ParametersGroup(file_user)
         # Resulting ParamemetersGroup is separated from the reference ParametersGroup
         pg_res = deepcopy(pg_ref)
-        
         # Elements in user file but not in reference file
         not_in_ref = []
-        # Compares the two ParametersGroup, pg_res may be modified with the values of the 'usr' (REPLACE) or with the difference between both (DIFF)
-        ParametersGroup.exploration_recursive(pg_res.root, pg_usr, Parameter.comparison, option, not_in_ref, level=0, path=[])
+        
+        if pg_usr.root==None or pg_ref.root==None: 
+            print('User parameter not well defined : ', file_user)
+        else: 
+            # Compares the two ParametersGroup, pg_res may be modified with the values of the 'usr' (REPLACE) or with the difference between both (DIFF)
+            ParametersGroup.exploration_recursive(pg_res.root, pg_usr, Parameter.comparison, option, not_in_ref, level=0, path=[])
         
         # Output report 
         return pg_res, not_in_ref
 
 
     @staticmethod
-    def merge_diff(file_ref,file_usr,options): 
+    def merge_diff(file_ref,file_usr,options,folder_res=''): 
         """
         Loads xml files and choose valus of file_usr first, 
                                and values of file_ref by default  
@@ -598,11 +639,17 @@ class ParametersGroup:
         # Replace user Parameters in reference Parameters to get fully functional Parameter file
         ref_not_usr = ParametersGroup.explore_and_process(file_usr, file_ref, EXPLOPT.FIND)[1]
         
-        # Outputs in file 
+        if pg_res.root == None : 
+            print('Reference ParametersGroup not loaded, Application cannot go further')
+            sys.exit()
+        
+        # Outputs in file
         if   options == EXPLOPT.REPLACE : append = 'merge'
         elif options == EXPLOPT.DIFF  : append = 'diff_report'
         elif options == EXPLOPT.DIFF_FLOAT  : append = 'diff_float'
-        file_name = file_ref[:-4] + '_' + append 
+    
+        # Outputs 
+        file_name = folder_of_file_new(file_ref[:-4] + '_' + append,folder_res)
         pg_res.write(file_name + '.xml')
         with open(file_name + '.txt', 'w') as fp: 
             fp.write('usr_not_ref\n'); fp.write('\n'.join(usr_not_ref)); fp.write('\n') 
@@ -672,19 +719,19 @@ class ParametersGroup:
     def test_merge_and_diff(): 
         file_ref = ['../test_parameters/test_short_ref(PARADIS).xml', '../test_parameters/test_extensive_ref(PARADIS).xml']
         file_usr = ['../test_parameters/test_short_usr(PARADIS).xml', '../test_parameters/test_extensive_usr(PARADIS).xml']
-        
+        folder_res = '../../../../results/test_parameters/'
         # Assesses performances 
         
         for (ref, usr) in zip(file_ref, file_usr): 
             # Merge the same file: no differences 
-            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(usr,usr,EXPLOPT.REPLACE)
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(usr,usr,EXPLOPT.REPLACE,folder_res)
             if bool(ref_not_usr) or bool(usr_not_ref): print('ERROR merge: should not have any difference for the same file')
             # Merge different files
-            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.REPLACE)
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.REPLACE,folder_res)
             # Difference between the samle files (report differences)
-            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.DIFF)
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.DIFF,folder_res)
             # Difference between the samle files (calculates differences)
-            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.DIFF_FLOAT)
+            pg_res, ref_not_usr, usr_not_ref = ParametersGroup.merge_diff(ref,usr,EXPLOPT.DIFF_FLOAT,folder_res)
             
     
 if __name__ == "__main__":
