@@ -243,12 +243,12 @@ class Geographic:
         wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem,
                                    maintain_dimensions=False)
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
-        watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
-        wbt.clip_raster_to_polygon(fill, box_buffer, watershed_box_buff_fill,
+        self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
+        wbt.clip_raster_to_polygon(fill, box_buffer, self.watershed_box_buff_fill,
                                    maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
-        watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, box_buffer, watershed_box_buff_direc,
+        self.watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
+        wbt.clip_raster_to_polygon(direc, box_buffer, self.watershed_box_buff_direc,
                                    maintain_dimensions=False)
         
         """

@@ -52,7 +52,7 @@ import earthpy.plot as ep
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+wbt.verbose = True
 
 # Warnings
 import warnings
@@ -181,16 +181,31 @@ from watershed import watershed_root, watershed_display, forcing
 
 if user == 'Ronan':
     hydrology_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/" # add hydrographic shapefiles
+    
+    wbt.vector_lines_to_raster(hydrology_path+'lasset_stream_perennial_update_april23_cut.shp',
+                               hydrology_path+'lasset_stream_perennial_update_april23_cut.tif',
+                               base = stable_folder+'geographic/'+'watershed_dem.tif')
+    wbt.raster_to_vector_points(hydrology_path+'lasset_stream_perennial_update_april23_cut.tif',
+                                hydrology_path+'lasset_stream_perennial_update_april23_cut_topt.shp')
+    wbt.vector_polygons_to_raster(hydrology_path+'lasset_wetlands_perennial_cut.shp',
+                                  hydrology_path+'lasset_wetlands_perennial_cut.tif',
+                                  base = stable_folder+'geographic/'+'watershed_dem.tif')
+    wbt.raster_to_vector_points(hydrology_path+'lasset_wetlands_perennial_cut.tif',
+                                hydrology_path+'lasset_wetlands_perennial_cut_topt.shp')
 
-if user == 'Clement':
-    hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
-
-if user=='Ronan':
-    types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
+    merge_path = hydrology_path+'lasset_stream_perennial_update_april23_cut_topt.shp'+\
+                 ';'+\
+                 hydrology_path+'lasset_wetlands_perennial_cut_topt.shp'
+    wbt.merge_vectors(merge_path, hydrology_path+'lasset_stream_update_april23_wetlands_perennial_cut_topt.shp')
+    
+    # types_obs = ["lasset_stream_perennial_update_april23"] # shapefile cours d'eau
+    # types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
     # types_obs = ["lasset_stream_perennialv2"]
-
+    types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
+    
 if user=='Clement':
     #types_obs = ["lasset_stream_perennialv2"]
+    hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
     types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
 
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
@@ -276,8 +291,16 @@ list_bottom = [None, 0] # aquifer flat or not
 list_bottom.extend([0] * 10)
 
 # Hk decay # exponential decay of K with depth : 0.02
-list_cond_decay = [0, 0]
-list_cond_decay.extend(np.geomspace(1/10, 1/500, 10))
+# list_cond_decay = [0, 0]
+# list_cond_decay.extend(np.geomspace(1/10, 1/300, 10))
+
+list_d_values = [0, 0]
+list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
+print(list_d_values)
+list_d_values = [0, 0, 10, 15, 20, 30, 45, 65, 100, 140, 205, 300]
+list_cond_decay = list(1/np.array(list_d_values))
+list_cond_decay[0] = 0
+list_cond_decay[1] = 0
 
 ### PARAMETER INITIALIZATION DICHOTOMY
 
@@ -287,26 +310,46 @@ BV.hydrodynamic.update_thickness(thick) # 30 / intervient pas si bottom != None
 BV.hydrodynamic.update_porosity(Sy)
 BV.hydrodynamic.update_hyd_cond(K0) 
 
-params_df = pd.DataFrame(columns=['params',
-                                  'init_values',
-                                  'lower_bounds',
-                                  'higher_bounds',
-                                  'units','scale'])
-params_df.loc[0] = ['k1',
-                    '?',
-                    1e-10 * 24 * 3600,
-                    1e-6 * 24 * 3600,                    
-                    'm/j',
-                    'lin']
-params_file = 'calib_dicot_hom_1v_k1'+'/'+dicot_name
+# params_file = 'calib_dicot_hom_1v_k1'+'/'+dicot_name
 params_file = 'calib_dicot_hom_1v_k1'+dicot_name
-params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
 
 #%% DICHOTOMY LAUCNH
 
+cp = 0
+
 for cond_decay, bottom in zip(list_cond_decay[:], list_bottom[:]):
     
+    if np.isin(cp, range(10)):
+        params_df = pd.DataFrame(columns=['params',
+                                          'init_values',
+                                          'lower_bounds',
+                                          'higher_bounds',
+                                          'units','scale'])
+        params_df.loc[0] = ['k1',
+                            '?',
+                            1e-9 * 24 * 3600, # 1e-9
+                            1e-5 * 24 * 3600,  # 1e-5                  
+                            'm/j',
+                            'lin']
+        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])    
+    
+    if np.isin(cp, [10,11]):
+        params_df = pd.DataFrame(columns=['params',
+                                          'init_values',
+                                          'lower_bounds',
+                                          'higher_bounds',
+                                          'units','scale'])
+        params_df.loc[0] = ['k1',
+                            '?',
+                            1e-10 * 24 * 3600, # 1e-9
+                            1e-6 * 24 * 3600,  # 1e-5                  
+                            'm/j',
+                            'lin']
+        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])    
+    
+    print(cp)
     print(cond_decay, bottom)
 
     BV.hydrodynamic.update_cond_decay(cond_decay) # 0
@@ -320,8 +363,10 @@ for cond_decay, bottom in zip(list_cond_decay[:], list_bottom[:]):
     # BV.hydrodynamic.update_cond_decay(0)
     # BV.hydrodynamic.update_thick_exp(1.25)
 
-    dicot = calib.dichotomy(gap=1)
-
+    # dicot = calib.dichotomy(gap=1)
+    
+    cp +=1
+    
 #%% DICHOTOMY POSTPROCESS
 
 df = pd.DataFrame(np.nan, index=range(1), columns=['cond_decay',
@@ -336,6 +381,7 @@ list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, ty
                    key=os.path.getmtime)[:]
 compt = 0
 for path_value, cond_decay_value, bottom_value in zip(list_path, list_cond_decay, list_bottom):
+    print(path_value)
     name_file = path_value.split('\\')[-1]
     calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
     test = calib_analysis.CalibAnalysis(calib_file)
@@ -370,9 +416,12 @@ df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv',
 typ = 'egu1'
 ######################
 
-modpath_sim = True
-sink_fill=False
 box=True
+modpath_sim = True
+zone_partic = 'watershed_box_buff' # watershed or watershed_buff
+zone_partic = 'watershed' # watershed or watershed_buff
+zone_partic = 'domain' # watershed or watershed_buff
+sink_fill=False
 verbose=True,
 post_process=False,
 init_rech=None
@@ -390,7 +439,7 @@ list_koptim = list(df['k'].values)
 
 # list_porosity = np.logspace(np.log10(0.001), np.log10(0.3), 10)
 # list_porosity = np.geomspace((0.001), (0.3), 10)
-list_porosity = np.linspace((0.002), (0.2), 10)
+list_porosity = np.geomspace((0.003), (0.3), 10).round(3)
 
 # Label
 list_model_name = []
@@ -404,6 +453,12 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
 
+run = True
+
+# list_cond_decay = [0.002]
+# list_bottom[0] = 0
+
+# c = 0
 compt_model = 0
 
 for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_bottom[:], list_koptim[:]):
@@ -422,10 +477,11 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_botto
                      
         print('SIM - ' + model_name)
         
-        success, flow_model = BV.run_modflow(run=False,
+        success, flow_model = BV.run_modflow(run=run,
                                              ident=model_name,
-                                             modpath_sim=modpath_sim,
                                              sink_fill=sink_fill,
+                                             modpath_sim=modpath_sim,
+                                             zone_partic=zone_partic,
                                              box=box,
                                              verbose=verbose,
                                              post_process=post_process, 
@@ -440,7 +496,10 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_botto
         list_model_name.append(model_name)
         list_of_success.append(success)
         list_flow_model.append(flow_model)
-         
+    
+    # c += 1
+    
+    # if c>1:
     compt_model += 1
     
 print(list_of_success)
@@ -462,7 +521,8 @@ residence_times = True
 time_step = 'D' # or 'D'
 actual_date = False # False if date is conceptual
 
-types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"]
+# types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"]
+types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
 
 for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
     print(success)
@@ -506,8 +566,134 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
 
 #%% ENDPOINT MODELS
 
+# model_name = 'egu1_1_10.0-0.0-0.0857-26.68'
+# model_name = 'egu1_0_500.0-0-0.0058-30.0'
+
 for model_name in list_model_name[:]:
-    try:        
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+    try:
+        
+        id_model = int(model_name.split('_')[1])
+        
+        if id_model >= 4:
+        
+            ### MODEL ###
+            # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+            # model_name = list_path[-1].split('\\')[-1]
+            mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+            
+            fname = simulations_folder+model_name+'/'+model_name+'.hds'
+            gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+            # grid_model = flopy.discretization.grid.Grid(mf)
+            grid_model = mf.modelgrid
+            hk_grid = mf.upw.hk
+            # sr_model = flopy.utils.reference.SpatialReference()
+            fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+            # ax = fig.add_subplot(1, 1, 1)
+            axs = axs.ravel()
+            modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+            linecollection = modelxsect.plot_grid()
+            hdobj = flopy.utils.HeadFile(fname)
+            head_data = hdobj.get_data()
+            modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='Spectral_r')
+            pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+                                        cmap='Blues', alpha=0.5, ax=axs[1])
+            axs[0].set_title('Hydraulic conductivity')
+            axs[1].set_title('Watertable and hydraulic gradient')
+            fig.suptitle(model_name, y=1.05)
+            
+            bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
+            ext_mod = bv_box.geometry.total_bounds
+            
+            crs_code = 2154
+            
+            """
+            def reproj_approx_points(shp_name, crs_code):
+                shp = gpd.read_file(simulations_folder+
+                                    model_name+'/'+'_pathlines/'+
+                                    shp_name+'.shp')
+                ext_shp = shp.geometry.total_bounds
+                shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
+                # shp.to_crs(utm_crs)
+                print(ext_shp)
+                x = (shp.geometry.x) + ext_mod[0] # - ext_shp[0] # 6.39e5 
+                y = (shp.geometry.y) + ext_mod[1] # - ext_shp[3] # 1.78e6 
+                gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
+                gdf.to_file(simulations_folder+
+                            model_name+'/'+'_pathlines/'+
+                            shp_name+'.shp')
+            """
+            
+            ### POINTS ###
+            print('Create shapefile ending and starting points')
+            endobj = flopy.utils.EndpointFile(simulations_folder+
+                                              model_name+'/'+model_name+'.mpend')
+            e = endobj.get_alldata()
+            
+            endobj.write_shapefile(endpoint_data=e,
+                                    shpname=simulations_folder+
+                                            model_name+'/'+'_pathlines/'+
+                                            'ending.shp',
+                                    direction='ending',
+                                    mg=grid_model, epsg=crs_code, sr=None)
+            path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
+            shp_sim = gpd.read_file(path_pathlines+'ending.shp')
+            shp_sim.time = shp_sim.time / 365
+            shp_sim.to_file(simulations_folder+
+                                 model_name+'/'+'_pathlines/'+
+                                 'ending_years.shp') # time in years !
+            masked = shp_sim.copy()
+            masked = masked[masked.time > 0.1] # ONLY SUP ONE MONTH APPROX
+            masked = masked[masked.k == 1] # ONLY OUT FIRST CELL
+            masked = masked[masked.zloc != 1] # NOT IN AND OUT SAME CELL
+            if not masked[masked.time > 1000].empty:
+                print('THERE IS CELL > 1000y')
+                if len(masked[masked.time > 1000]) <= (len(masked)*0.05):
+                    print('DELETE > 1000y', str(len(masked[masked.time > 1000]))+'/'+
+                                            str((len(masked))))
+                    # IF ONLY 5% CELL ARE HIGHER THAN 1000 YEARS : MASKED (OUTLIERS):
+                    masked = masked[masked.time <= 1000]
+                else:
+                    print('NO CELL > 1000y')
+            masked.to_file(simulations_folder+
+                                 model_name+'/'+'_pathlines/'+
+                                 'ending_years_masked.shp') # time in years !
+            keep_particules = masked.particleid
+            keep_particules = keep_particules.tolist()
+            
+            endobj.write_shapefile(endpoint_data=e,
+                                    shpname=simulations_folder+
+                                            model_name+'/'+'_pathlines/'+
+                                            'starting.shp',
+                                    direction='starting',
+                                    mg=grid_model, epsg=crs_code, sr=None)
+            
+            # reproj_approx_points('ending')
+            # reproj_approx_points('starting')
+            
+            #### SELECT PARTICLUES ####
+            import random
+            import pickle
+            if not os.path.exists(simulations_folder+'_id_particules_random.data'):
+                id_particules_random = random.sample(keep_particules[:-1], 1000)
+                with open(simulations_folder+'_id_particules_random.data', 'wb') as f:
+                    pickle.dump(id_particules_random, f)
+            # else:
+            #     with open(simulations_folder+'_id_particules_random.data', 'rb') as f:
+            #         id_particules_random = pickle.load(f)
+
+        print('VALID '+model_name)
+    except:
+        print('ERROR '+model_name)
+        pass
+
+#%% PATHLINES MODELS
+
+# VALID egu1_4_20.0-0.0-0.1359-0.8
+
+for model_name in list_model_name[:]:
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+    try:
         ### MODEL ###
         # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
         # model_name = list_path[-1].split('\\')[-1]
@@ -538,60 +724,35 @@ for model_name in list_model_name[:]:
         
         crs_code = 2154
         
-        """
-        def reproj_approx_points(shp_name, crs_code):
-            shp = gpd.read_file(simulations_folder+
-                                model_name+'/'+'_pathlines/'+
-                                shp_name+'.shp')
-            ext_shp = shp.geometry.total_bounds
-            shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
-            # shp.to_crs(utm_crs)
-            print(ext_shp)
-            x = (shp.geometry.x) + ext_mod[0] # - ext_shp[0] # 6.39e5 
-            y = (shp.geometry.y) + ext_mod[1] # - ext_shp[3] # 1.78e6 
-            gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
-            gdf.to_file(simulations_folder+
-                        model_name+'/'+'_pathlines/'+
-                        shp_name+'.shp')
-        """
-        
-        ### POINTS ###
-        print('Create shapefile ending and starting points')
-        endobj = flopy.utils.EndpointFile(simulations_folder+
-                                          model_name+'/'+model_name+'.mpend')
-        e = endobj.get_alldata()
-        
-        endobj.write_shapefile(endpoint_data=e,
-                                shpname=simulations_folder+
-                                        model_name+'/'+'_pathlines/'+
-                                        'ending.shp',
-                                direction='ending',
-                                mg=grid_model, epsg=crs_code, sr=None)
-        """
-        endobj.write_shapefile(endpoint_data=e,
-                                shpname=simulations_folder+
-                                        model_name+'/'+'_pathlines/'+
-                                        'starting.shp',
-                                direction='starting',
-                                mg=grid_model, epsg=crs_code, sr=None)
-        # reproj_approx_points('ending')
-        # reproj_approx_points('starting')
-        
         ### PATHLINES ###
         print('Create shapefile particules and pathlines')
         pthobj = flopy.utils.PathlineFile(simulations_folder+
                                           model_name+'/'+model_name+'.mppth')
         pth_data = pthobj.get_alldata()
+        # from operator import itemgetter
+        # n = itemgetter(*keep_particules)(pth_data)
+        pth_data = [pth_data[i] for i in keep_particules[:-1]]
+        for i in len(range(pth_data)):
+            pth_data[i].time = pth_data[i].time / 365
+        # x= list(map(lambda i: pth_data[i], keep_particules))
+        # x = pth_data[::2]
         
-        pthobj.write_shapefile(pathline_data=pth_data,
-                                shpname=simulations_folder+
-                                        model_name+'/'+'_pathlines/'+
-                                        'particlues.shp',
-                                one_per_particle=False, 
-                                direction='ending',
-                                mg=grid_model, epsg=crs_code, sr=None)
+        pth_data_save = []
+        for o, i in enumerate(id_particules_random):
+            print(o, i,len(id_particules_random))
+            for j in pth_data:
+                if i == j.particleid[0]:
+                    pth_data_save.append(j)
+                        
+        # pthobj.write_shapefile(pathline_data=pth_data,
+        #                         shpname=simulations_folder+
+        #                                 model_name+'/'+'_pathlines/'+
+        #                                 'particlues.shp',
+        #                         one_per_particle=False, 
+        #                         direction='ending',
+        #                         mg=grid_model, epsg=crs_code, sr=None)
         
-        pthobj.write_shapefile(pathline_data=pth_data,
+        pthobj.write_shapefile(pathline_data=pth_data_save,
                                 shpname=simulations_folder+
                                         model_name+'/'+'_pathlines/'+
                                         'pathlines.shp',
@@ -599,19 +760,19 @@ for model_name in list_model_name[:]:
                                 direction='ending',
                                 mg=grid_model, epsg=crs_code, sr=None)
         
-        shp_starting = gpd.read_file(simulations_folder+
-                            model_name+'/'+'_pathlines/'+
-                            'starting.shp')
-        shp_ending = gpd.read_file(simulations_folder+
-                            model_name+'/'+'_pathlines/'+
-                            'ending.shp')
-        shp_pathlines = gpd.read_file(simulations_folder+
-                            model_name+'/'+'_pathlines/'+
-                            'pathlines.shp')
-        shp_particules = gpd.read_file(simulations_folder+
-                            model_name+'/'+'_pathlines/'+
-                            'particlues.shp')
-        """
+        # shp_starting = gpd.read_file(simulations_folder+
+        #                     model_name+'/'+'_pathlines/'+
+        #                     'starting.shp')
+        # shp_ending = gpd.read_file(simulations_folder+
+        #                     model_name+'/'+'_pathlines/'+
+        #                     'ending.shp')
+        # shp_pathlines = gpd.read_file(simulations_folder+
+        #                     model_name+'/'+'_pathlines/'+
+        #                     'pathlines.shp')
+        # shp_particules = gpd.read_file(simulations_folder+
+        #                     model_name+'/'+'_pathlines/'+
+        #                     'particlues.shp')
+        
         print('VALID '+model_name)
     except:
         print('ERROR '+model_name)
@@ -630,6 +791,9 @@ path_obs = path_obs+'age_apparent_obs_C2_corrected.shp'
 dic_res = {}
 
 for model_name in list_model_name[:]:
+    
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+        
     print(model_name)
 
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
@@ -638,14 +802,11 @@ for model_name in list_model_name[:]:
     shp_obs['geometry'] = shp_obs.geometry.buffer(100)
     # shp_obs = shp_obs[['ID_station', 'geometry']]
     shp_obs.to_file(path_pathlines+'time_simobs.shp', encoding='utf-8') # mode a
-    
-    shp_sim = gpd.read_file(path_pathlines+'ending.shp')
-    shp_sim.time = shp_sim.time / 365
-    shp_sim.to_file(simulations_folder+
-                         model_name+'/'+'_pathlines/'+
-                         'ending_years.shp') # time in years !
-    intersect = gpd.overlay(shp_sim, shp_obs, how='intersection')
-    
+            
+    masked = gpd.read_file(path_pathlines+'ending_years_masked.shp')
+
+    intersect = gpd.overlay(masked, shp_obs, how='intersection')
+            
     # fig, ax = plt.subplots(1,1)
     # shp_sim.plot(ax=ax, color='darkorange', alpha=0.1)
     # intersect.plot(ax=ax, color='blue')
@@ -670,18 +831,17 @@ for model_name in list_model_name[:]:
         # threshold = threshold*365
         # threshold = np.log10(threshold)
         uniq['time'] = uniq['time']
-        masked = uniq[uniq['id']==ID]
-        masked = masked[masked.time > 0.083] # UNDER ONE MONTH
-        if masked.empty:
+        masked_intersect = uniq[uniq['id']==ID]
+        if masked_intersect.empty:
             res_dat['tsim_mean'][res_dat['id']==ID] = np.nan
             res_dat['tsim_media'][res_dat['id']==ID] = np.nan
             res_dat['tsim_max'][res_dat['id']==ID] = np.nan
             res_dat['tsim_std'][res_dat['id']==ID] = np.nan
         else:
-            res_dat['tsim_mean'][res_dat['id']==ID] = np.nanmean(masked['time'])
-            res_dat['tsim_media'][res_dat['id']==ID] = np.nanmedian(masked['time'])
-            res_dat['tsim_max'][res_dat['id']==ID] = np.nanmax(masked['time'])
-            res_dat['tsim_std'][res_dat['id']==ID] = np.nanstd(masked['time'])
+            res_dat['tsim_mean'][res_dat['id']==ID] = np.nanmean(masked_intersect['time'])
+            res_dat['tsim_media'][res_dat['id']==ID] = np.nanmedian(masked_intersect['time'])
+            res_dat['tsim_max'][res_dat['id']==ID] = np.nanmax(masked_intersect['time'])
+            res_dat['tsim_std'][res_dat['id']==ID] = np.nanstd(masked_intersect['time'])
             
     res_dat.to_file(path_pathlines+'time_simobs.shp')
     
@@ -702,8 +862,11 @@ list_flow_model = d['list_flow_model'][:]
 #%% RECAP MODELS
 
 df_explo = pd.DataFrame()
+
+# c=0
 cp = 0
 compt_model = 0
+
 for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
                                                   list_bottom[:],
                                                   list_koptim[:]):
@@ -738,7 +901,10 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
             df_explo.loc[cp,'RMSE_'+choice] = RMSE
 
         cp += 1
+    # c += 1
+    # if c>1:
     compt_model += 1
+    # compt_model += 1
 
 df_explo.to_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
@@ -814,8 +980,9 @@ cb.ax.set_ylabel('Decay ratio', rotation=270, labelpad=25)
 
 fig, ax = plt.subplots(1,1, figsize=(5,4))
 # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
-im = ax.scatter(df.k, df.ind, c=df.cond_decay, s=100, cmap='jet',
-                norm=mpl.colors.LogNorm())
+im = ax.scatter(df.k, df.ind, c=1/df.cond_decay, s=100, cmap='jet',
+                norm=mpl.colors.LogNorm()
+                )
 ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel('K [m/s]')
@@ -823,16 +990,66 @@ ax.set_ylabel('(log(Dso/Dos))^2')
 cb = plt.colorbar(im, ax=ax)
 cb.ax.set_ylabel('Decay ratio', rotation=270, labelpad=25)
 
-fig, ax = plt.subplots(1,1, figsize=(5,4))
+#%% DICHOTOMY FIGURE
+
+# Import K calibrated
+df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
+df = df[:]
+# Koptim = float('{:.1e}'.format(df.loc[0][1]))
+df['1/cond_decay'] = 1/df['cond_decay']
+df['1/cond_decay'][df['1/cond_decay']==np.inf] = np.nan
+df['Doptim'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = abs(df.Dso - df.Dos)
+# df['Dabs'] = (df.Dso - df.Dos)
+df['Dabs'] = (df.Dso + df.Dos)/2/10-2
+# df['Dabs'] = (df.ind)
+
+# for i in df.index[2:3]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.1
+# for i in df.index[3:4]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.05
+# for i in df.index[8:9]:
+#     df.loc[df.index==i,'Dabs'] = df.loc[df.index==i,'Dabs']-16
+
+# df = df[1:]
+
+fig, ax = plt.subplots(1,1, figsize=(3.8,2.8))
 # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
-im = ax.scatter(df.k, df.Dabs, c=df.cond_decay, s=100, cmap='jet',
-                norm=mpl.colors.LogNorm())
+ax.scatter(df[:1].k/24/3600, df[:1].Dabs, c=df[:1].cond_decay, s=100, 
+           marker='s', lw=2,
+           cmap=mpl.colors.ListedColormap('white'),
+           label=df[:1]['1/cond_decay'].values[0]
+                )
+ax.scatter(df[1:2].k/24/3600, df[1:2].Dabs, c=df[1:2].cond_decay, s=100, 
+           marker='o', lw=2,
+           cmap=mpl.colors.ListedColormap('dimgray'),
+           label='0'
+                )
+im = ax.scatter(df[2:].k/24/3600, df[2:].Dabs, c=1/df[2:].cond_decay, s=100, cmap='jet',
+                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
+                lw=2,
+                label=df['1/cond_decay']
+                )
+# ax.legend()
 ax.set_xscale('log')
-ax.set_yscale('log')
+# ax.set_yscale('log')
 ax.set_xlabel('K [m/s]')
-ax.set_ylabel('Dabs')
-cb = plt.colorbar(im, ax=ax)
-cb.ax.set_ylabel('Decay ratio', rotation=270, labelpad=25)
+ax.set_xlim(1e-8, 1e-5)
+ax.set_ylim(1, 6)
+ax.set_ylabel('I [-]')
+# cb = plt.colorbar()
+from matplotlib.ticker import LogFormatter 
+formatter = LogFormatter(10, labelOnlyBase=True) 
+cb = plt.colorbar(im, ax=ax,
+                  cax = fig.add_axes([0.95, 0.20, 0.03, 0.7]))
+for t in cb.ax.get_yticklabels():
+     t.set_fontsize(10)
+# cb.set_clim(10,500)
+# cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
+# cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
+cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
 
 #%% MAPPING MODELS
 
@@ -900,7 +1117,7 @@ for model_name in filtered:
 
 #%% OBSSIM MODELS
 
-choice = 'mean'
+choice = 'max'
 
 vmin = 0
 vmax = 100
@@ -1027,7 +1244,7 @@ ax.set_ylabel('1/Decay')
 
 #%% RMSE MODELS
 
-choice = 'max'
+choice = 'mean'
 
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
@@ -1040,23 +1257,23 @@ for i, ind in enumerate(id_compt_model):
     mask = df_explo[df_explo['compt_model']==ind]
     label = round(1/mask['cond_decay_cal'].values[0], 1)
     color=colors[i]
-    if i == 0:
+    if ind == 0:
         label = 'constant'
         color='k'
-    if i == 1:
+    if ind == 1:
         label = 'flat'
         color='dimgray'
     # if i == 11:
     ax.plot(mask['porosity_value']*100, mask['RMSE_'+choice], lw=2,
-            color=color,
+            color=color, marker='o',
             label=label)
-# ax.set_xscale('log')
+ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel('Porosity')
 ax.set_ylabel('RMSE')
 ax.legend(loc='best', ncol=2, )
-ax.set_xlim(0.2,20)
-ax.set_ylim(10,100)
+# ax.set_xlim(0.2,20)
+# ax.set_ylim(10,100)
 
 for point in res_dat['id']:
     fig, ax = plt.subplots(1,1, figsize=(5,4))
@@ -1075,7 +1292,7 @@ for point in res_dat['id']:
             label = 'flat'
             color='dimgray'
         ax.plot(mask['porosity_value']*100, mask[point+'_comp_'+choice], lw=2,
-                color=color,
+                color=color, marker='o',
                 label=label)
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -1088,7 +1305,7 @@ for point in res_dat['id']:
 
 #%% POINTS MODELS
 
-choice = 'max'
+choice = 'mean'
 
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
