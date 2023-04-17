@@ -26,9 +26,11 @@ class RoutingAccflux:
         self.geographic = geographic
         self.extraction_folder = extraction_folder
         
-        self.watershed_direc = geographic.watershed_direc
+        # self.watershed_direc = geographic.watershed_direc
+        # self.watershed_buff_fill = geographic.watershed_buff_fill
         
-        self.watershed_buff_fill = geographic.watershed_buff_fill
+        self.watershed_direc_surflow = geographic.watershed_box_buff_direc # geographic.watershed_direc
+        self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill # geographic.watershed_buff_fill
         
         self.shp_folder = os.path.join(self.extraction_folder, '_surfaceflow')
         toolbox.create_folder(self.shp_folder)
@@ -56,17 +58,17 @@ class RoutingAccflux:
         ### Loading ###
         im = imageio.imread(self.raw_rast_path)
         im[im<0] = 0
-        toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.load_rast_path)
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.load_rast_path)
         ### Efficiency ###
-        im = imageio.imread(self.watershed_buff_fill)
+        im = imageio.imread(self.watershed_buff_fill_surflow)
         im[im>=0] = 1
-        toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.eff_rast_path)        
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.eff_rast_path)        
         ### Adsorption ###
-        im = imageio.imread(self.watershed_buff_fill)
+        im = imageio.imread(self.watershed_buff_fill_surflow)
         im[im>=0] = 0
-        toolbox.export_tif(self.watershed_buff_fill, im, -99999, self.abs_rast_path)
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
         ### d8massflux ###
-        wbt.d8_mass_flux(self.watershed_buff_fill, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
+        wbt.d8_mass_flux(self.watershed_buff_fill_surflow, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
 
     #%% TRACE DOWNSLOPE FLOWPATHS
 
@@ -75,7 +77,7 @@ class RoutingAccflux:
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
         # print('raster_to_vector_points')
         # # Trace downslope sim
-        wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc, self.out_rast_path)
+        wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path)
         # print('trace_downslope_flowpaths')
         # # # Simflow to points
         wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
