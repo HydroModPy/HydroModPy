@@ -34,7 +34,7 @@ from wtd_spat_indic import wtd_spat_indic
 
 # %% PATHS + watershed options
 
-watershed_name = 'Baie-du-Cotentin'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 dem_name = "BDALTI_norm-manch_75m.tif"
 
