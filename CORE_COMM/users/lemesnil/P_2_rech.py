@@ -102,8 +102,8 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               out_path=out_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
-                              load=True,
-                              from_shp=None,
+                              load=False,
+                              from_shp=shp_file,
                               from_dem=False,
                               cell_size=None)
 
@@ -136,7 +136,7 @@ watershed_display.watershed_local(dem_path, BV)
 
 start_year = 1960 #start year for shortened time series, complete series start at 1958
 end_year = 2020 #end year for shortened time series, complete series end at 2020
-minimum_yearly_rainfall = 100 # remove outliers
+minimum_yearly_rainfall = 550 # remove outliers
 
 import matplotlib.pyplot as plt
 from scipy.ndimage import uniform_filter1d
