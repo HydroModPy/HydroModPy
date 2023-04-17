@@ -1558,12 +1558,22 @@ for it in range(len(list_path[:])):
     # ax.scatter(values['down_value'], values['dem_value'], c=values['acc_value'], ec='None',
     #            marker='.', lw=0, s=20,
     #            norm=matplotlib.colors.LogNorm(vmin = 1, vmax = 15000))
+    """
     s = ax.scatter(one['down_value'], one['dem_value'], 
                c=one['acc_value'],
                cmap='jet',
                marker="|", lw=2, s=25,
                 vmin=0, 
                 vmax=25,
+                # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
+               )
+    """
+    s = ax.scatter(one['down_value'], one['dem_value'], 
+               c=one['acc_diff'],
+               cmap='jet',
+               marker="|", lw=2, s=25,
+                vmin=0, 
+                vmax=1,
                 # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
                )
     ax.scatter(springs['down_value'], springs['dem_value'], ec='k', 
@@ -1597,7 +1607,7 @@ for it in range(len(list_path[:])):
     plt.tight_layout()
 
     fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/POSCHIAVINO/_results/"+
-                "v4/"+"profile_"+model_name+'.png', dpi=300, bbox_inches='tight')
+                "v5/"+"profile_"+model_name+'.png', dpi=300, bbox_inches='tight')
 
     fig, ax = plt.subplots(1,1, figsize=(6,3))
     bv.plot(ax=ax, facecolor='None')
@@ -1608,20 +1618,26 @@ for it in range(len(list_path[:])):
     show(dem_data, ax=ax, transform=dem_rast.transform, cmap='Greys', alpha=0.5)
     
     show(acc_masked, ax=ax, transform=dem_rast.transform, cmap=mpl.colors.ListedColormap('k'), alpha=1)
-    
+    """
     one.plot(ax=ax, column='acc_diff', ec='None',
              marker="o", lw=0.5, s=5,
               vmin=0, vmax=1,
              # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
              )
+    """
+    one.plot(ax=ax, column='acc_value', ec='None',
+             marker="o", lw=0.5, s=5,
+              vmin=0, vmax=25,
+             # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
+             )
     springs.plot(ax=ax, ec='k', 
                 lw=0.5, marker='.',
-                facecolor='None')
+                facecolor='white')
     
     plt.axis('off')
     
     fig.savefig("D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/POSCHIAVINO/_results/"+
-                "v4/"+"map_"+model_name+'.png', dpi=300, bbox_inches='tight')
+                "v5/"+"map_"+model_name+'.png', dpi=300, bbox_inches='tight')
     
     """
     fig, ax = plt.subplots(1,1, figsize=(6,3))
