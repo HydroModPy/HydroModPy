@@ -738,13 +738,12 @@ class Modflow():
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
-        """
+        
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(1, 1, 1)
         modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
         linecollection = modelxsect.plot_grid()
         modelxsect.plot_array(self.hk)
-        """
         
     #%% PROCESSING
     
