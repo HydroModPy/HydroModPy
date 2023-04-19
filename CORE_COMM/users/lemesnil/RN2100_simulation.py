@@ -34,9 +34,28 @@ from wtd_spat_indic import wtd_spat_indic
 
 # %% PATHS + watershed options
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Baie-du-Cotentin'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 dem_name = "BDALTI_norm-manch_75m.tif"
+
+# C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-cotentin/Carentan_2_sea.shp
+shp_file_dict = {'Saint-Germain-sur-Ay' : r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp',
+             'Agon-Coutainville' : r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Agon-Coutainville\Agon_2_sea_extended.shp',
+             'Barneville-Carteret' : r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Barneville-Carteret\Barneville_2_sea_extended.shp',
+             'Baie-du-Cotentin' : r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Baie-du-cotentin\watershed.shp',
+             'Caen-la-Mer' : 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea_extended.shp'}
+
+esp_rech_dict = {'Saint-Germain-sur-Ay' : r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv',
+             'Agon-Coutainville' : None,
+             'Barneville-Carteret' : r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\LC\rech_LC_aut2022.csv',
+             'Baie-du-Cotentin' : None,
+             'Caen-la-Mer' : r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\CLM\rech_CLM_aut2022.csv'}
+
+calib_zones_dict = {'Saint-Germain-sur-Ay' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp',
+             'Agon-Coutainville' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CMB.shp',
+             'Barneville-Carteret' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_LC.shp',
+             'Baie-du-Cotentin' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_BDC_3.shp',
+             'Caen-la-Mer' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CLM.shp'}
 
 if DIR[0] == 'd': #server
     shp_file = r'D:\mlemesnil\Data\BV_RN2100\SGA\SGA_2_sea.shp'
@@ -50,27 +69,13 @@ if DIR[0] == 'd': #server
     ESPERE_recharge_path = r'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
     shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
 elif DIR[0] == 'c': #local
-    shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-    # C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Agon-Coutainville\Agon_2_sea_extended.shp
-    # 'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Barneville-Carteret\Barneville_2_sea_extended.shp'
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-cotentin/Carentan_2_sea.shp'
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    shp_file = shp_file_dict[watershed_name]
     git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
     data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
     modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
-    ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv'
-    #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
-    # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
-    #r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_2022.csv'
-    #C:\Users\Martin Le Mesnil\Travail\data\estim_ET\LC\rech_LC_aut2022.csv
-    shape_calib_zones_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
-    # 'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_LC.shp'
-    # r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
-    # C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CLM.shp
-    # C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CMB.shp
-    # C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_BDC_3.shp
+    ESPERE_recharge_path = esp_rech_dict[watershed_name]
+    shape_calib_zones_path = calib_zones_dict[watershed_name]
     
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -250,7 +255,7 @@ for DRIAS_model in DRIAS_model_list:
         sim_name_list.append(sim_name)
     
         if disk_save:
-            simulation_results_new_path_dir = os.path.join(r'E:\PostDoc\Modélisation', site_dict[watershed_name], r'Heterogeneous\simulation_results')
+            simulation_results_new_path_dir = os.path.join(r'D:\PostDoc\Modélisation', site_dict[watershed_name], r'Heterogeneous\simulation_results')
             BV.simulations_folder = simulation_results_new_path_dir
             
         success, flow_model = BV.run_modflow(ident=sim_name,
@@ -300,10 +305,10 @@ for DRIAS_model in DRIAS_model_list:
 
 disk_save = True
 if disk_save:
-    simulation_results_new_path_dir = os.path.join(r'E:\PostDoc\Modélisation', site_dict[watershed_name], r'Heterogeneous\simulation_results')
+    simulation_results_new_path_dir = os.path.join(r'D:\PostDoc\Modélisation', site_dict[watershed_name], r'Heterogeneous\simulation_results')
     BV.simulations_folder = simulation_results_new_path_dir
 
-sim_name_list = ['20052014_MPICCLRCP85_14032023153149']
+sim_name_list = ['20612100_MPICCLRCP85_28022023183718'] #20612100_MPICCLRCP85_28022023183718
 # Edit raster for GIS
 for sim_name in sim_name_list:
     rast_path = os.path.join(dirname(BV.simulations_folder), 'rasters_wtd', sim_name)  
@@ -311,7 +316,7 @@ for sim_name in sim_name_list:
     # wtd_spat_indic(BV, sim_name, 2020, 2024, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
     # wtd_spat_indic(BV, sim_name, 2027, 2033, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
     # wtd_spat_indic(BV, sim_name, 2047, 2053, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    # wtd_spat_indic(BV, sim_name, 2094, 2099, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
-    wtd_spat_indic(BV, sim_name, 2022, 2022, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
+    wtd_spat_indic(BV, sim_name, 2094, 2099, [1], figures = 'save', save_rast = rast_path) #
+    # wtd_spat_indic(BV, sim_name, 2022, 2022, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
 
 
