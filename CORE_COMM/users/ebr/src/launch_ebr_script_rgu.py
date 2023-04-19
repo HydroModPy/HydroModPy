@@ -87,7 +87,7 @@ if user == 'Guillossou':
     # # Path to the data folder
     data_path = "E:/_data/"
     # # Path where the results will be stored
-    out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
+    out_path = "E:/Resultats Hydromodpy/"
 
 if user == 'Cimpaye':
     # # Path to the git repositoty home page
@@ -137,7 +137,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Cheze',
+                   'Couesnon',
                    ]
 
 types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
@@ -145,7 +145,7 @@ fields_obs = ['fid','persitanc']
 
 #%% EXTRACT CATCHMENT
 
-load = True
+load = False
 
 for watershed_name in watershed_names[:]:
     
@@ -432,11 +432,11 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Cheze',
+                   'Couesnon'
                    ]
 
 # type_simulation = 'analysis_past'
-type_simulation = 'analysis_past'
+type_simulation = 'analysis_future'
 
 if type_simulation == 'analysis_past':
     ### To chnage
@@ -481,7 +481,7 @@ if type_simulation == 'analysis_future':
     #            'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
     #mod_list = ['CAN3','CAN4','CAN5','CNR1','IPS1','NOR1'] pour RCP2.6
     #mod_list = ['CAN3','CAN4','CAN5','IPS1','NOR1'] pour RCP8.5
-    mod_list = ['CAN3','CAN4','CAN5','IPS1','NOR1']
+    mod_list = ['CAN3']
     ### Not change
     #sce_list = ['RCP2.6','RCP8.5']
     sce_list = ['RCP2.6','RCP8.5']
