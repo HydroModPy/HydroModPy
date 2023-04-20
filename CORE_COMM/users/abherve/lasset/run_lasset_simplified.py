@@ -456,7 +456,7 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
 
-run = True
+run = False
 
 # list_cond_decay = [0.002]
 # list_bottom[0] = 0
@@ -1232,6 +1232,88 @@ cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
 
+#%% DICHOTOMY TRANSMISSIVITY
+
+iDb =  'egu1'
+simul_list = sorted(glob.glob(simulations_folder+iDb+'*'), key=os.path.getmtime)
+
+sel = 0.3
+filtered = list(filter(lambda score: score.split('-')[-1] == str(sel), list_model_name))
+
+df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
+
+c = 0
+for model_name in filtered:
+    # Import K calibrated
+    Smod_path = simulations_folder + model_name + '/_watershed/_simulated_results.csv'
+    Smod_raw = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+    if c == 0:
+        df.loc[c, 'sat'] = 50 - Smod_raw['watertable_depth'].values[0]
+    else:
+        df.loc[c, 'sat'] = Smod_raw['watertable_elevation'].values[0]
+    c+=1
+
+df['T'] = (df['k']/24/3600) *  df['sat']
+
+df = df[:]
+# Koptim = float('{:.1e}'.format(df.loc[0][1]))
+df['1/cond_decay'] = 1/df['cond_decay']
+df['1/cond_decay'][df['1/cond_decay']==np.inf] = np.nan
+df['Doptim'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = abs(df.Dso - df.Dos)
+# df['Dabs'] = (df.Dso - df.Dos)
+df['Dabs'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = (df.ind)
+
+# for i in df.index[2:3]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.1
+# for i in df.index[3:4]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.05
+# for i in df.index[8:9]:
+#     df.loc[df.index==i,'Dabs'] = df.loc[df.index==i,'Dabs']-16
+
+# df = df[1:]
+
+fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+ax.scatter(df[:1]['T'], df[:1].Dabs, c=df[:1].cond_decay, s=100, 
+           marker='s', lw=2,
+           cmap=mpl.colors.ListedColormap('k'),
+           label=df[:1]['1/cond_decay'].values[0]
+                )
+ax.scatter(df[1:2]['T'], df[1:2].Dabs, c=df[1:2].cond_decay, s=100, 
+           marker='o', lw=2,
+           cmap=mpl.colors.ListedColormap('gray'),
+           label='0'
+                )
+im = ax.scatter(df[2:]['T'], df[2:].Dabs, c=1/df[2:].cond_decay, s=100, 
+                cmap='jet',
+                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
+                lw=2,
+                label=df['1/cond_decay']
+                
+                )
+# ax.legend()
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlabel('T [m²/s]')
+ax.set_xlim(1e-5, 1e-2)
+ax.set_ylim(30, 80)
+ax.set_ylabel('I [-]')
+# cb = plt.colorbar()
+from matplotlib.ticker import LogFormatter 
+formatter = LogFormatter(10, labelOnlyBase=True) 
+cb = plt.colorbar(im, ax=ax,
+                  cax = fig.add_axes([0.95, 0.20, 0.03, 0.7]))
+for t in cb.ax.get_yticklabels():
+     t.set_fontsize(10)
+# cb.set_clim(10,500)
+# cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
+# cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
+cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
+
 #%% MAPPING MODELS
 
 import hydroeval as he
@@ -1496,32 +1578,35 @@ choice = 'mean'
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
 for point in res_dat['id']:
-    fig, ax = plt.subplots(1,1, figsize=(5,4))
-    id_compt_model = df_explo['compt_model'].unique()
-    n = len(id_compt_model)
-    cmap = cm.get_cmap('jet', n)
-    colors = pl.cm.jet(np.linspace(0,1,n))
-    for i, ind in enumerate(id_compt_model):
-        mask = df_explo[df_explo['compt_model']==ind]
-        label = round(1/mask['cond_decay_cal'].values[0], 1)
-        color=colors[i]
-        if i == 0:
-            label = 'constant'
-            color='k'
-        if i == 1:
-            label = 'flat'
-            color='dimgray'
-        ax.plot(mask['porosity_value']*100, mask[point+'_comp_'+choice], lw=2,
-                color=color, marker='o',
-                label=label)
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlabel('Porosity')
-    ax.set_ylabel(point+'sim / '+point+'obs')
-    ax.legend(loc='upper left', ncol=2)
-    ax.set_xlim(0.3,30)
-    ax.set_ylim(1e-2,1e2)
-    ax.axhline(y=1, color='k', ls='--')
+    
+    if (point == 'S03') | (point == 'S27'):
+
+        fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
+        id_compt_model = df_explo['compt_model'].unique()
+        n = len(id_compt_model)
+        cmap = cm.get_cmap('jet', n)
+        colors = pl.cm.jet(np.linspace(0,1,n))
+        for i, ind in enumerate(id_compt_model):
+            mask = df_explo[df_explo['compt_model']==ind]
+            label = round(1/mask['cond_decay_cal'].values[0], 1)
+            color=colors[i]
+            if i == 0:
+                label = 'constant'
+                color='k'
+            if i == 1:
+                label = 'flat'
+                color='dimgray'
+            ax.plot(mask['porosity_value']*100, mask[point+'_comp_'+choice],
+                    color=color, marker='o', ms=4, mec='none',
+                    label=label)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        # ax.set_xlabel('Porosity')
+        # ax.set_ylabel(point+'sim / '+point+'obs')
+        # ax.legend(loc='upper left', ncol=2)
+        ax.set_xlim(0.3,30)
+        ax.set_ylim(1e-2,1e2)
+        ax.axhline(y=1, color='k', ls='--', lw=2)
 
 #%% SIM/OBS ALL SPRINGS
 
@@ -1652,6 +1737,7 @@ for cs in choices:
     colors = pl.cm.jet(np.linspace(0,1,n))
     
     for k, point in enumerate(res_dat['id']):
+                
         ax = axs[k]
         
         for model_name in list_model_name[:]:
@@ -1727,7 +1813,7 @@ for cs in choices:
             # if point=='S27':
             #     tobs = 42
             
-            ax.scatter(mod, tp['tsim_'+cs], cmap='Greys', c=por, lw=0.5,
+            ax.scatter(mod, tp['tsim_'+cs], cmap='viridis_r', c=por, lw=0.5,
                        marker='s', 
                        norm=mpl.colors.LogNorm(vmin=0.3, vmax=30))
             ax.set_title(point)
@@ -1755,21 +1841,34 @@ df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'rb') as f:
     dic_res = pickle.load(f)
 
-for model_name in list_model_name[:1]:
+list_selects = ['egu1_3_15.0-0.0-0.1908-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+
+for model_name in list_selects[:]:
 
     dic_sel = dic_res[model_name]
     
-    fig, ax = plt.subplots(1,1, figsize=(4,4))
+    fig, ax = plt.subplots(1,1, figsize=(4,2))
     
-    ax.scatter(dic_sel.id, dic_sel.tsim_mean, marker='o', c='w', s=40)
-    ax.scatter(dic_sel.id, dic_sel.tsim_media, marker='^', c='w', s=40)
-    ax.vlines(dic_sel.id, dic_sel.tsim_min, dic_sel.tsim_max, lw=2, color='grey', zorder=-1)
-    ax.scatter(dic_sel.id, dic_sel.tsim_q25, marker='_', c='k', zorder=2, s=50, lw=2)
-    ax.scatter(dic_sel.id, dic_sel.tsim_q75, marker='_', c='k', zorder=2, s=50, lw=2)
-    # ax.scatter(dic_sel.id, dic_sel.tsim_min, marker='_', c='k', s=20)
-    # ax.scatter(dic_sel.id, dic_sel.tsim_max, marker='_', c='k', s=20)
+    ax.vlines(dic_sel.id, dic_sel.tsim_min, dic_sel.tsim_q10, lw=1.5, color='grey', 
+              zorder=-1,
+              )
+    ax.vlines(dic_sel.id, dic_sel.tsim_q90, dic_sel.tsim_max, lw=1., color='grey', 
+              zorder=-1,
+              )
     
-    ax.scatter(dic_sel.id, dic_sel.tobs_mean, marker='o', c='red', s=40)
+    ax.scatter(dic_sel.id, dic_sel.tobs_mean, marker='o', c='w', s=60, lw=1.5)
+    
+    ax.vlines(dic_sel.id, dic_sel.tsim_q10, dic_sel.tsim_q90, alpha=0.75,
+              lw=6, color='grey', zorder=-1)
+    
+    # ax.scatter(dic_sel.id, dic_sel.tsim_q10, marker='_', c='k', zorder=2, s=50, lw=2)
+    # ax.scatter(dic_sel.id, dic_sel.tsim_q90, marker='_', c='k', zorder=2, s=50, lw=2)
+    # ax.scatter(dic_sel.id, dic_sel.tsim_media, marker='^', c='darkorange', s=40)
+    ax.scatter(dic_sel.id, dic_sel.tsim_mean, marker='^', c='violet', s=70, lw=1.5)
+    ax.scatter(dic_sel.id, dic_sel.tsim_min, marker='_', c='grey', s=20)
+    ax.scatter(dic_sel.id, dic_sel.tsim_max, marker='_', c='grey', s=20)
+    
+    ax.set_ylim(0.1, 1000)
     
     ax.set_title(model_name, fontsize=9)
     # ax.set_ylim(0.1,100)
@@ -2031,18 +2130,20 @@ Q2023['counts'] = np.array(range(1,len(Q2023)+1))+c.index[0].timetuple().tm_yday
 
 fig, ax = plt.subplots(figsize=(4.5,3.5))
 ax.plot(mean_interan_days.counts, mean_interan_days.q50,
-        lw=2, color='darkred', label='Median')
+        lw=1.5, color='dimgray', label='Median')
 yerrmax = mean_interan_days.q90
 yerrmin = mean_interan_days.q10
-ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax, lw=0.5,
                   color='cyan',edgecolor='grey',
-                  alpha = 0.5, label='10-90th')
+                  alpha = 0.30, label='10-90th')
 # ax.plot(Q2021.counts, Q2021['Q_mm/d'],
 #         lw=2, color='dodgerblue', label='Median')
 ax.plot(Q2022.counts, Q2022['Q_mm/d'],
-        lw=2, color='blue', label='Median')
-ax.plot(Q2023.counts, Q2023['Q_mm/d'],
-        lw=2, color='blue', label='Median')
+        lw=2, color='purple', label='Median')
+ax.plot(Q2023.counts, Q2023['Q_mm/d'], ls='-',
+        lw=2, color='darkorange', label='Median')
+ax.plot(Q2023.counts[-1:]+3, Q2023['Q_mm/d'][-1:], marker='>', ms=5,
+        lw=2, color='darkorange', label='Median')
 plt.yscale('log')
 ax.set_xlim(0,366)
 # ax.set_ylim(0.01,100)
@@ -2069,6 +2170,7 @@ koptim_cal = 0.1359
 porosity_value = 10.8 / 100
 cond_decay_cal = 1 / 20
 bottom_cal = 0
+thickness_value = 50
 ######################
 typ= 'Q1'
 ######################
@@ -2078,6 +2180,7 @@ koptim_cal = 0.0211
 porosity_value = 3.9 / 100
 cond_decay_cal = 1 / 100
 bottom_cal = 0
+thickness_value = 50
 #################
 typ= 'Q2'
 ######################
@@ -2090,6 +2193,26 @@ bottom_cal = None
 thickness_value = 50
 #################
 typ= 'Q3'
+######################
+
+model_name = 'egu1_3_15.0-0.0-0.1908-0.3'
+koptim_cal = 0.1908
+porosity_value = 0.3 / 100
+cond_decay_cal = 1 / 15
+bottom_cal = 0
+thickness_value = 50
+#################
+typ= 'Q4'
+######################
+
+model_name = 'egu1_3_15.0-0.0-0.1908-0.3'
+koptim_cal = 0.1908
+porosity_value = 0.1 / 100
+cond_decay_cal = 1 / 15
+bottom_cal = 0
+thickness_value = 50
+#################
+typ= 'Q5'
 ######################
 
 iD = typ
@@ -2138,7 +2261,7 @@ BV.forcing.update_recharge(R, sim_state='transient')
 
 #%% INTERMITTENCY LAUNCH
 
-run = True
+run = False
 
 compt_model = 0
 
@@ -2237,7 +2360,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
 typ_intermit = 'monthly' # yearly or persistency or monthly
 # typ_intermit = 'yearly' # yearly or persistency or monthly
 
-gif = False
+gif = True
 
 for watershed_name in watershed_names[:]:
     print('##### '+watershed_name.upper()+' #####')
@@ -2338,6 +2461,8 @@ for watershed_name in watershed_names[:]:
                         
                         ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
                         
+                        # ax.axhline(y=140, ls='--', c='k')
+                        
                         # if watershed_name=='Canut':
                         #     ax.axvline(x=65, color='k', lw=1, ls='--')
                         # if watershed_name=='Nancon':
@@ -2348,12 +2473,12 @@ for watershed_name in watershed_names[:]:
                         compt_print = "{:02d}".format(compt)
                         print(compt_print)
 
-                        # base_name = figsim_folder+'05_crossmapping/'
-                        # spec_name = 'mapanim_'+watershed_name+'/'+'map_anim_'+str(compt_print)
-                        # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+                        base_name = simulations_folder+'_figures/'+'map_intermittency/'
+                        spec_name = 'map_interm_'+str(compt_print)
+                        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
                         
                         plt.axis('off')
-                        # plt.close()
+                        plt.close()
                         
                         compt += 1
                         
@@ -2361,106 +2486,25 @@ for watershed_name in watershed_names[:]:
                     sup+=12
 
     if gif == True:
-        begin_by = figsim_folder+'05_crossmapping/'+'mapanim_'+watershed_name+'/'+'map_anim_'
+        begin_by = simulations_folder+'_figures/'+'map_intermittency/'+'map_interm_'
         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
         images = []
         for filename in filenames:
             images.append(imageio.imread(filename))
-        base_name = figsim_folder+'05_crossmapping/'
-        gif_name = 'mapanim_'+watershed_name+'/'+'_map_anim_monthly'
+        gif_name = '_map_interm'
         imageio.mimsave(base_name+gif_name+'.gif', images,
-                        duration=0.25, loop=0)
-
-#%% MAPANIM SHP
-
-typ_intermit = 'monthly' # yearly or persistency or monthly
-# typ_intermit = 'yearly' # yearly or persistency or monthly
-
-gif = True
-
-for watershed_name in watershed_names[:]:
-    print('##### '+watershed_name.upper()+' #####')
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
-        
-    simul_list = sorted(glob.glob(simulations_folder+iD+'*'),
-                       key=os.path.getmtime)
-    
-    # wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
-    #                            stable_folder+'geographic/'+'watershed_contour.tif',
-    #                            base = stable_folder+'geographic/'+'watershed_dem.tif')
-    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
-    # line = np.ma.masked_where(line <= 0, line)
-    
-    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-    dem = rasterio.open(BV.geographic.watershed_dem)
-    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
-
-    # plt.imshow(dem_data)
-
-    for simul in simul_list:
-
-        Smod_path = simul+'/_watershed/_simulated_results.csv'  
-        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-        Smod = Smod.reset_index()
-        Smod['iloc'] = Smod.index
-        Smod = Smod.set_index('date')
-        # years = np.arange(2022,2022+1,1)
-        # Smod = select_period(Smod, years[0], years[-1])
-        
-        for dt, i in zip(Smod.index, Smod['iloc']):
-            
-            fig, ax = plt.subplots(1,1, figsize=(7,6))
-            
-            show(dem_data, ax=ax, transform=dem.transform,
-                  cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
-            
-            if watershed_name == 'Lasset_egu':
-                ms=10
-                
-            shp = gpd.read_file(simul+'/_watershed/_surfaceflow/'+
-                                'tracept_t('+str(i)+').shp')
-            shp[shp['id_persist']==0].plot(ax=ax, column='id_persist', lw=0,
-                                           marker='s', color='dodgerblue',
-                                           markersize=ms, zorder=1)
-            shp[shp['id_persist']==1].plot(ax=ax, column='id_persist', lw=0,
-                                           marker='s', color='navy',
-                                           markersize=ms, zorder=1)
-            line.plot(ax=ax, color='k', lw=2)
-    
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-            plt.axis('off')
-            
-            # month_print = "{:02d}".format(k+1)
-            ax.set_title(str(dt)[:7])
-    
-            compt_print = "{:02d}".format(compt)
-            # print(compt_print)
-
-            # base_name = figsim_folder+'05_crossmapping/'
-            # spec_name = 'mapanim_'+watershed_name+'/'+'map_anim_'+str(i)+'_'+str(dt)[:7]
-            # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
-            
-            # plt.close()
-        
-        compt += 1
+                        duration=0.5, loop=0)
 
 #%% CROSSANIM
 
 watershed_name = 'Lasset_egu'
 
-gif = False
+gif = True
 
 dates = pd.date_range(start='01/01/2022', end='31/12/2022', freq='M')
 
 sens = 'horiz'
-sens = 'verti'
+# sens = 'verti'
 res = 25
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -2517,6 +2561,8 @@ cb = 0
 cpb = 0
 cpy = 0
 
+compt_print = 0
+
 for key in dict(itertools.islice(watertable_elevation.items(),
                                  len(watertable_elevation)-12*1, # ONDE 8 years
                                  len(watertable_elevation))):
@@ -2543,7 +2589,7 @@ for key in dict(itertools.islice(watertable_elevation.items(),
     xx, yy = np.meshgrid(xvalues,yvalues)
     
     cur_x = int(dem_data.shape[1] /2)
-    # cur_x = 100
+    cur_x = 135
     cur_y = int(dem_data.shape[0] /2)
     # cur_y = 100
     
@@ -2581,47 +2627,52 @@ for key in dict(itertools.islice(watertable_elevation.items(),
     dem_prof[dem_prof<0] = np.nan
     dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
 
-    fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+    fig, ax = plt.subplots(1, 1, figsize=(5,3.5), dpi=300)
 
     if sens == 'horiz':
-        wt_v_fill = ax.fill_between(np.arange(xx.shape[1])*res, 0, wt_h_plot_min,
+        wt_v_fill = ax.fill_between(np.arange(xx.shape[1])*res, dem_h_plot-3000, wt_h_plot_min,
                                             color='navy', alpha=0.5, lw=0)
-        w_prof = ax.plot(np.arange(xx.shape[1])*res, wt_h_plot_min, color='navy', lw=1)
         store_w_c_plot = wt_h_plot_min.copy()
         # store_w_c_plot = wt_h_plot.copy()
-        wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*res, wt_h_plot_min, wt_h_plot,
+        
+        wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*res, dem_h_plot-3000, wt_h_plot,
                                         color='dodgerblue', alpha=0.5, lw=0)
         w_prof = ax.plot(np.arange(xx.shape[1])*res, wt_h_plot, color='dodgerblue', lw=1)
-     
+        w_prof = ax.plot(np.arange(xx.shape[1])*res, wt_h_plot_min, color='navy', lw=1)
         wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*res, wt_h_plot, dem_h_plot,
                                         color='saddlebrown', alpha=0.5, lw=0)
         d_prof = ax.plot(np.arange(xx.shape[1])*res, dem_h_plot, 'saddlebrown', lw=1.5)
-        # ax.fill_between(np.arange(xx.shape[1])*res, 0, dem_h_plot-30,
-        #                                 color='lightgrey', alpha=0.5, lw=0)
-        # ax.plot(np.arange(xx.shape[1])*75, dem_h_plot-30, color='dimgray', lw=1.5)
-        ax.set_xlim(575, 1250)
-        ax.set_ylim(1400, 2400)
-        # ax.set_yticks([130,140,150,160,170])
+        ax.fill_between(np.arange(xx.shape[1])*res, 0, dem_h_plot-3000,
+                                        color='lightgrey', alpha=0.5, lw=0)
+        ax.plot(np.arange(xx.shape[1])*res, dem_h_plot-3000, color='dimgray', lw=1.5)
+        
+        ax.set_xlim(800, 1200)
+        ax.set_ylim(1550, 1750)
+        ax.set_yticks([1600, 1650, 1700])
+        ax.set_xticks([1200, 1000, 800])
+        ax.set_xticklabels(['','',''])
+        
+        ax.invert_xaxis()
                
     if sens == 'verti':
-        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*res, 0, wt_v_plot_min,
+        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*res, dem_v_plot-3000, wt_v_plot_min,
                                             color='navy', alpha=0.5, lw=0)
         w_prof = ax.plot(np.arange(xx.shape[0])*res, wt_v_plot_min, color='navy', lw=1)
         store_w_c_plot = wt_v_plot_min.copy()
         # store_w_c_plot = wt_v_plot.copy()
         
-        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*res, wt_v_plot_min, wt_v_plot,
+        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*res, dem_v_plot-3000, wt_v_plot,
                                             color='dodgerblue', alpha=0.5, lw=0)
         w_prof = ax.plot(np.arange(xx.shape[0])*res, wt_v_plot, color='dodgerblue', lw=1)
         wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*res, wt_v_plot, dem_v_plot,
                                         color='saddlebrown', alpha=0.5, lw=0)
         d_prof = ax.plot(np.arange(xx.shape[0])*res, dem_v_plot, 'saddlebrown', lw=1.5)
-        # ax.fill_between(np.arange(xx.shape[0])*res, 0, dem_v_plot-30,
-        #                                 color='lightgrey', alpha=0.5, lw=0)
-        # ax.plot(np.arange(xx.shape[0])*res, 0, color='dimgray', lw=1.5)
-        ax.set_xlim(500, 1700)
-        ax.set_ylim(1400, 2400)
-        # ax.set_xlim(1400, 1700)
+        ax.fill_between(np.arange(xx.shape[0])*res, 0, dem_v_plot-3000,
+                                        color='lightgrey', alpha=0.5, lw=0)
+        ax.plot(np.arange(xx.shape[0])*res, dem_v_plot-3000, color='dimgray', lw=1.5)
+        
+        ax.set_ylim(1500, 2200)
+        ax.set_xlim(500, 1500)
         # ax.set_ylim(1600, 2400)
         # ax.set_yticks([90,100,110,120,130])
                       
@@ -2629,9 +2680,11 @@ for key in dict(itertools.islice(watertable_elevation.items(),
     
     plt.tight_layout()
 
-    # base_name = figsim_folder+'05_crossmapping/'
-    # spec_name = 'anim_'+watershed_name+'/'+'cross_anim_'+str(key)
-    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+    base_name = simulations_folder+'_figures/'+'cross_intermittency/'
+    spec_name = 'cross_interm_'+str(compt_print)
+    fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+    
+    compt_print += 1
     
     # plt.close()
 
@@ -2646,15 +2699,14 @@ if gif == True:
     list_path = sorted(glob.glob(simulations_folder+iD+'*'),
                         key=os.path.getmtime)
     model_name = list_path[-1].split('\\')[-1]
-    begin_by = figsim_folder+'05_crossmapping/'+'anim_'+watershed_name+'/'+'cross_anim_'
+    begin_by = simulations_folder+'_figures/'+'cross_intermittency/'+'cross_interm_'
     filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
     images = []
     for filename in filenames:
         images.append(imageio.imread(filename))
-    base_name = figsim_folder+'05_crossmapping/'
-    gif_name = 'anim_'+watershed_name+'/'+'_cross_anim_monthly'
+    gif_name = '_cross_interm'
     imageio.mimsave(base_name+gif_name+'.gif', images,
-                    duration=0.25, loop=0)
+                    duration=0.5, loop=0)
 
 #%% SATURATION GRAPH
 
@@ -2676,63 +2728,101 @@ for simul in simul_list:
     model_name = simul.split('\\')[-1]
 
     Smod_path = simul+'/_watershed/_simulated_results.csv'
-    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+    Smod_raw = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
     
-    Smod.index = R.index
-    Smod['mois'] = Smod.index.month
+    Smod_raw.index = R.index
+    Smod_raw['R'] = R
+    Smod_raw['mois'] = Smod_raw.index.month
     
-    fig, ax = plt.subplots(1,1, figsize=(5,3))
+    Smod = Smod_raw.copy()
     
-    step = 'pre'
-    step = 'mid'
+    for i in np.arange(1, 13, 1):
+        print(i)
+        
+        # Smod = Smod_raw[:i]
+        
+        fig, ax = plt.subplots(1,1, figsize=(5,3))
+        axb = ax.twinx()
+        
+        step = 'pre'
+        step = 'mid'
+        
+        axb.bar(Smod.mois, Smod.R*1000*30, color='orchid', edgecolor='purple', lw=0, alpha= 0.5,
+                width=1)
+        axb.bar(Smod.mois, Smod.R*1000*30, facecolor="None", edgecolor='purple', lw=2, alpha= 1,
+                width=1)
+        axb.set_ylim(0, 600)
+        axb.invert_yaxis()
+        axb.set_yticks([0,200, 400, 600])
+        axb.set_yticklabels([0, 200, ' ', ' '])
+        
+        ax.fill_between(Smod.mois, 0, Smod['perenn_areas'],
+                        interpolate=False, color='navy', alpha=0.5,
+                        step=step)
+        ax.fill_between(Smod.mois, 0, Smod['surflow_areas'],
+                        interpolate=False, color='dodgerblue', alpha=0.5,
+                        step=step)
+        ax.step(Smod.mois, Smod['surflow_areas'], color='dodgerblue',
+                marker=None, markeredgecolor='none',
+                markersize=5, lw=2, label='upstream',
+                where=step)
+        ax.step(Smod.mois, Smod['perenn_areas'], color='navy',
+                marker=None, markeredgecolor='none',
+                markersize=5, lw=2, label='upstream',
+                where=step)
+        
+        # ax.fill_between(Smod.mois, 0, Smod['surflow_areas'],
+        #                 interpolate=False, color='dodgerblue', alpha=0.5,
+        #                 step=step
+        #                 )
+        # ax.fill_between(Smod.mois, 0, Smod['perenn_areas'],
+        #                 interpolate=False, color='navy', alpha=0.5,
+        #                 step=step
+        #                 )
     
-    ax.fill_between(Smod.mois, 0, Smod['surflow_areas'],
-                    interpolate=False, color='dodgerblue', alpha=0.5,
-                    step=step)
-    ax.fill_between(Smod.mois, 0, Smod['perenn_areas'],
-                    interpolate=False, color='navy', alpha=0.5,
-                    step=step)
-    ax.step(Smod.mois, Smod['surflow_areas'], color='dodgerblue',
-            marker=None, markeredgecolor='none',
-            markersize=5, lw=1, label='upstream',
-            where=step)
-    ax.step(Smod.mois, Smod['perenn_areas'], color='navy',
-            marker=None, markeredgecolor='none',
-            markersize=5, lw=1, label='upstream',
-            where=step)
+        # ax.grid('grey', axis='x')
+        ax.set_ylim(5, 20)
+        ax.set_yticks([5, 10, 15, 20])
+        ax.set_yticklabels([5, 10, 15, 20])
+        
+        # ax.set_yticks(np.arange(0,15.05,2.5))
+        ax.set_ylabel('Months')
+        ax.set_ylabel('$A_{sat}$ [%]')
+        # ax.set_xlim(pd.to_datetime('2022'), pd.to_datetime('2022'))
     
-    # ax.fill_between(Smod.mois, 0, Smod['surflow_areas'],
-    #                 interpolate=False, color='dodgerblue', alpha=0.5,
-    #                 step=step
-    #                 )
-    # ax.fill_between(Smod.mois, 0, Smod['perenn_areas'],
-    #                 interpolate=False, color='navy', alpha=0.5,
-    #                 step=step
-    #                 )
-
-    # ax.grid('grey', axis='x')
-    ax.set_ylim(10,15)
-    # ax.set_yticks(np.arange(0,15.05,2.5))
-    ax.set_ylabel('Months')
-    ax.set_ylabel('$A_{sat}$ [%]')
-    # ax.set_xlim(pd.to_datetime('2022'), pd.to_datetime('2022'))
-
-
-    # yearsmaj = mdates.YearLocator(1)   # every year
-    # yearsmin = mdates.YearLocator(1)
-    # years_fmt = mdates.DateFormatter('%Y')
-    # ax.xaxis.set_major_locator(yearsmaj)
-    # ax.xaxis.set_major_formatter(years_fmt)
-
-    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-    # ax.xaxis.set_major_locator(mdates.MonthLocator())
-    # ax.xaxis.set_major_formatter(months_fmt)
+        # yearsmaj = mdates.YearLocator(1)   # every year
+        # yearsmin = mdates.YearLocator(1)
+        # years_fmt = mdates.DateFormatter('%Y')
+        # ax.xaxis.set_major_locator(yearsmaj)
+        # ax.xaxis.set_major_formatter(years_fmt)
     
-    ax.set_xticks(np.arange(1,13,1))
-    ax.set_xticklabels(np.arange(1,13,1))
-    ax.set_xlim(1,12)
+        # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+        # ax.xaxis.set_major_locator(mdates.MonthLocator())
+        # ax.xaxis.set_major_formatter(months_fmt)
+        
+        ax.set_xticks(np.arange(1,13,1))
+        ax.set_xticklabels(np.arange(1,13,1))
+        ax.set_xlim(1,12)
+        
+        ax.axvline(x=i, ls='--', lw=1.5, c='k', zorder=10)
     
-    plt.tight_layout()
+        ax.set_title(i)
+    
+        plt.tight_layout()
+        
+        base_name = simulations_folder+'_figures/'+'graph_intermittency/'
+        spec_name = 'graph_interm_'+str(i)
+        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+        
+if gif == True:
+    begin_by = simulations_folder+'_figures/'+'graph_intermittency/'+'graph_interm_'
+    filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+    images = []
+    for filename in filenames:
+        images.append(imageio.imread(filename))
+    gif_name = '_graph_interm'
+    imageio.mimsave(base_name+gif_name+'.gif', images,
+                    duration=0.5, loop=0)
 
 #%% ---- VRAC : PATHLINES
 
