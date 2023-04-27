@@ -2129,6 +2129,7 @@ Q2023 = c.groupby([c.index.month,
 Q2023['counts'] = np.array(range(1,len(Q2023)+1))+c.index[0].timetuple().tm_yday
 
 fig, ax = plt.subplots(figsize=(4.5,3.5))
+"""
 ax.plot(mean_interan_days.counts, mean_interan_days.q50,
         lw=1.5, color='dimgray', label='Median')
 yerrmax = mean_interan_days.q90
@@ -2136,6 +2137,7 @@ yerrmin = mean_interan_days.q10
 ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax, lw=0.5,
                   color='cyan',edgecolor='grey',
                   alpha = 0.30, label='10-90th')
+"""
 # ax.plot(Q2021.counts, Q2021['Q_mm/d'],
 #         lw=2, color='dodgerblue', label='Median')
 ax.plot(Q2022.counts, Q2022['Q_mm/d'],
@@ -2146,7 +2148,7 @@ ax.plot(Q2023.counts[-1:]+3, Q2023['Q_mm/d'][-1:], marker='>', ms=5,
         lw=2, color='darkorange', label='Median')
 plt.yscale('log')
 ax.set_xlim(0,366)
-# ax.set_ylim(0.01,100)
+ax.set_ylim(0.1,300)
 ax.tick_params(axis='both', which='major', pad=10)
 x1 = np.linspace(0,366,13)
 squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']

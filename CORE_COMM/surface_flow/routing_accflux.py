@@ -25,13 +25,16 @@ class RoutingAccflux:
 
         self.geographic = geographic
         self.extraction_folder = extraction_folder
+               
+        self.watershed_direc_surflow = geographic.watershed_direc
+        self.watershed_buff_fill_surflow = geographic.watershed_buff_fill      
         
-        # self.watershed_direc = geographic.watershed_direc
-        # self.watershed_buff_fill = geographic.watershed_buff_fill
-        
-        self.watershed_direc_surflow = geographic.watershed_box_buff_direc # geographic.watershed_direc
-        self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill # geographic.watershed_buff_fill
-        
+        try:
+            self.watershed_direc_surflow = geographic.watershed_box_buff_direc # geographic.watershed_direc
+            self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill # geographic.watershed_buff_fill
+        except:
+            pass
+
         self.shp_folder = os.path.join(self.extraction_folder, '_surfaceflow')
         toolbox.create_folder(self.shp_folder)
         
