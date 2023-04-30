@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rules SYSTEM "../../reference_rules_scheme.dtd">
+<ParametersGroup name="a_given_inputs">
+	<ParametersGroup name="watershed">
+		&watershed_root;
+	</ParametersGroup>
+	<ParametersGroup name="groundwaterflow">
+		&groundwaterflow;
+	</ParametersGroup>
+</ParametersGroup>
+
