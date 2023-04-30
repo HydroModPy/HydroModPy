@@ -13,3 +13,6 @@
 <!ELEMENT value (#PCDATA)>
 <!ELEMENT default_value (#PCDATA)>
 <!ELEMENT possible_values (#PCDATA)>
+
+<!ENTITY watershed_root SYSTEM "watershed/watershed_root_params.xml">
+<!ENTITY groundwaterflow SYSTEM "groundwater_flow/groundwaterflow_params.xml">

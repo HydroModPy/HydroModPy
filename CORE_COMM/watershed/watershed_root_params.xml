@@ -25,7 +25,7 @@
 					 True if the process start from a given DEM of xyz file
 					 Cases where domain is not georeferenced (e.g. synthetic geometry, erosion models)</description>
 		<type>bool</type>
-		<possible_values/>
+		<possible_values>False</possible_values>
 		<value/>
 		<default_value>False</default_value>
 	</Parameter>
