@@ -531,7 +531,8 @@ class Watershed :
 
     #%% MODEL MODFLOW
 
-    def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
+    def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, 
+                    zone_partic: str = 'watershed', box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
                     bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
                     verbose: bool = False, post_process: bool = False,
@@ -618,10 +619,11 @@ class Watershed :
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
                 # print(self.hydrodynamic.porosity)
-                transport_model = modpath.Modpath(self.geographic,model_name=ident,  
-                                            model_folder=self.simulations_folder,
-                                            exe=self.modflow_path + '/bin/mp6.exe',
-                                            porosity=self.hydrodynamic.porosity)  
+                transport_model = modpath.Modpath(self.geographic,model_name=ident,
+                                                  zone_partic=zone_partic,
+                                                  model_folder=self.simulations_folder,
+                                                  exe=self.modflow_path + '/bin/mp6.exe',
+                                                  porosity=self.hydrodynamic.porosity)  
                 transport_model.pre_processing(verbose = verbose)
                 if run == True:
                     transport_model.processing(verbose = verbose)
