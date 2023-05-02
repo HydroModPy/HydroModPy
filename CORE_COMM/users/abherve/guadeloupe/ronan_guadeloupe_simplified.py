@@ -63,8 +63,8 @@ from groundwater_flow import visualization, modflow_display
 
 # user_path = "Martin"
 user_path = "Ronan"
-data_path= "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/QUIOCK/"
-out_path = "D:/Users/abherve/GUADELOUPE/"
+data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/USERS/QUIOCK/"
+out_path = "C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/"
   
 print("Define a well-validated name of user")
 
@@ -310,7 +310,7 @@ h5file = simulations_folder+'/'+'list_'+typ
 
 dd.io.save(h5file, dictio)
 
-#%% POST-PROCESS
+#%% LOAD MODELS
 
 modpath_sim
 
@@ -319,6 +319,10 @@ d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_of_success = d['list_of_success'][:]
 list_flow_model = d['list_flow_model'][:]
+
+#%% POST-PROCESS
+
+run = False
 
 data_explo = pd.DataFrame(columns=['k0','k1','k0k1','obs','sim','ind']) 
 
@@ -492,6 +496,8 @@ ax_r0.set_ylabel('Streamflow indicator', c='dodgerblue', rotation=270, labelpad=
 
 #%% GENERAL DATA PLOT
 
+model_name = list_model_name[0]
+
 ### SIG ###
 dem = rasterio.open(BV.geographic.watershed_dem)
 dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
@@ -652,7 +658,7 @@ shp_particules = gpd.read_file(simulations_folder+
                     model_name+'/'+'_pathlines/'+
                     'particlues.shp')
 
-#%% DISTINCTION OF PARTICULES
+#%% DISTINCTION OF PARTICULESµ
 
 particleid = shp_particules['particleid'].unique()
 shalid = []
