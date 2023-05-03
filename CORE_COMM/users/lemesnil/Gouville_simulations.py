@@ -47,6 +47,7 @@ if DIR[0] == 'd': #server
     out_path = r'D:\mlemesnil\HydroModPy\Output/'
     modflow_path = r'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
     shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
+    data_folder = r'D:\mlemesnil\Data\piezo_gouville'
 elif DIR[0] == 'c': #local
     git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
     data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
@@ -54,7 +55,7 @@ elif DIR[0] == 'c': #local
     modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
     dems_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville/'
     shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele.shp'
-
+    data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -92,11 +93,11 @@ BV.add_piezometry()
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
 
+
 #%% Piezometry extraction
 import pandas as pd
 
 code = '01423X0044/F4'
-data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
 
 desc_file = os.path.join(data_folder,'ades_export','Descriptif','descriptif.txt')
 df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
