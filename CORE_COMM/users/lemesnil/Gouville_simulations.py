@@ -79,7 +79,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               out_path=out_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
-                              load=True,
+                              load=False,
                               from_shp=shape_path,
                               from_dem=False,
                               cell_size=cell_size)
