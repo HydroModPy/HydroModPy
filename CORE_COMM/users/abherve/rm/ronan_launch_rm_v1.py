@@ -91,6 +91,7 @@ if pc == 'local':
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
     # Path where the results will be stored
     out_path = "C:/Users/ronan/Documents/RMPROJ/"
+    out_path = 'H:/RMPROJ/'
     # Figure folder outputs
     res_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/15_results/RM_v1/'
     
@@ -1186,13 +1187,6 @@ for watershed_name in watershed_names[:]:
 
 #%% ---- ANALYSIS
 
-res_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/14_manuscript/figures/5_application/5.3/'
-
-watershed_names = ['Cheze']
-
-typ_climate = 'SURFEX'
-# typ = 'app-trans-v2'
-typ = 'surf-trans-v3'
 # mod_list = [
 #             'MPI-CCL','MPI-R09',
 #             'CNR-RAC','CNR-ALA',
@@ -1201,20 +1195,16 @@ typ = 'surf-trans-v3'
 #             'NOR-R15'
 #             ]
 
-# typ_climate = 'SURFEX'
-# typ = 'surf-trans-v2'
-mod_list = ['TOT1']
+# mod_list = ['TOT1']
 
-fig_path = res_folder+typ+'/'
-
-if not os.path.exists(fig_path):
-    toolbox.create_folder(fig_path)
-
-#%% EVOLUTION
+#%% DIFFERENCE
  
 iD = 'proj1'
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+mod_list = ['IPS1','NOR1','CAN3',
+            'CNR-ALA','ECE-RCA','MPI-CCL']
 sce_list = ['historic','RCP2.6','RCP8.5']
+
+# sce_list = ['RCP8.5']
 
 df = pd.DataFrame()
 
@@ -1244,12 +1234,98 @@ for watershed_name in watershed_names[:1]:
             Smod_path = simul+'/_watershed/_simulated_results.csv'            
             Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
                         
+            # df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+Smod['runoff']) #
+            df['Q_'+mod+'_'+sce] = (Smod['recharge']+Smod['runoff']) #
+            
+            if sce == 'historic':
+                df['Q_'+mod+'_'+sce][df.index.year>2005] = np.nan
+            
+
+    sce_list = ['RCP2.6','RCP8.5']
+    col_list = ['dimgray','maroon','darkorange','forestgreen','darkviolet','navy']
+    dict_c = dict(zip(mod_list, col_list))
+    
+    for sce in sce_list:
+        
+        fig, ax = plt.subplots(1,1, figsize=(6,3))
+    
+        for mod in mod_list:
+    
+            # d = select_period(df, per[0], per[1])
+            
+            # if typ_climate == 'DRIAS' :
+            d = df.copy()
+            d = d.filter(regex=sce).filter(regex=mod)
+            d = d.resample('Y').mean() * 1000 * 365
+                
+            d = d.rolling(window=30).mean()
+    
+            
+            ax.plot(d, c=dict_c[mod], lw=2, label=mod)
+            # ax.legend(loc='lower left', frameon=False)
+            ax.set_title(watershed_name+'  '+sce)
+            ax.set_ylim(150, 300)
+            ax.set_yticks(np.arange(150, 301, 50))
+            
+            yearsmaj = mdates.YearLocator(20)   # every year
+            monthsmaj = mdates.MonthLocator(12)  # every month
+            years_fmt = mdates.DateFormatter('%Y')
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(monthsmaj)
+            ax.xaxis.set_major_formatter(years_fmt)
+        
+            # ax.set_ylim(150, 350)
+            
+            # ax.set_yscale('log')
+            
+            ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
+            
+            folder_fig = res_path + 'figures/' + 'raw_' + 'All' + '/'
+            
+            fig.savefig(folder_fig +
+                        '_DIFFERENCE_' + str(mod_list) + '_' +
+                        sce + '.png', dpi=300, bbox_inches='tight')
+
+#%% EVOLUTION
+ 
+iD = 'proj1'
+mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+sce_list = ['historic','RCP2.6','RCP8.5']
+
+df = pd.DataFrame()
+
+for watershed_name in watershed_names[2:3]:
+        
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    color = 'k'
+        
+    for mod in mod_list:
+        
+        for sce in sce_list:
+            
+            if sce == 'historic':
+                sce_name = 'RCP8.5'
+            else:
+                sce_name = sce
+            
+            simul_list = glob.glob(simulations_folder+iD+'*'+mod+'*'+sce_name+'*')
+            
+            if len(simul_list)>0 :
+                simul = simul_list[0]
+            else:
+                continue
+                
+            model_name = simul.split('\\')[-1]
+
+            Smod_path = simul+'/_watershed/_simulated_results.csv'            
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                        
             df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+ Smod['runoff']) * 1000 * 365 #
             
             if sce == 'historic':
                 df['Q_'+mod+'_'+sce][df.index.year>2005] = np.nan
             
-    fig, ax = plt.subplots(1,1, figsize=(10,4))
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
     
     per_list = [[1975,2005],[2005,2100],[2005,2100]]
     sce_list = ['historic','RCP2.6','RCP8.5']
@@ -1281,24 +1357,24 @@ for watershed_name in watershed_names[:1]:
         mean = select_period(d['MED'].copy(), per[0], per[1]).rolling(window=5).mean()
         low = select_period(d['Q75'].copy(), per[0], per[1]).rolling(window=5).mean()
         
-        high = select_period(d['Q25'].copy(), per[0], per[1])#.rolling(window=5).mean()
-        mean = select_period(d['MED'].copy(), per[0], per[1])#.rolling(window=5).mean()
-        low = select_period(d['Q75'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # high = select_period(d['Q25'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1])#.rolling(window=5).mean()
         
         ax.plot(mean, c=dict_c_b[sce], lw=2)
         ax.fill_between(mean.index, low, high, color=dict_c[sce], alpha=0.25, ec='None')
         ax.set_axisbelow(True)
-        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        # ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        # ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.set_xlim(pd.to_datetime('1976'), pd.to_datetime('2100'))
         
         # ax.axvline(pd.to_datetime('1980'), c='k', ls='--')
         # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
         # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
         
-        ax.set_ylim(100, 600)
+        ax.set_ylim(100, 350)
         
-        yearsmaj = mdates.YearLocator(10)   # every year
+        yearsmaj = mdates.YearLocator(20)   # every year
         monthsmaj = mdates.MonthLocator(12)  # every month
         years_fmt = mdates.DateFormatter('%Y')
         ax.xaxis.set_major_locator(yearsmaj)
@@ -1306,86 +1382,12 @@ for watershed_name in watershed_names[:1]:
         ax.xaxis.set_major_formatter(years_fmt)
     
         # ax.set_yscale('log')
-        
-        # fig.savefig(fig_path + watershed_name +
-        #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+     
+    folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
 
-#%% DIFFERENCE
- 
-iD = 'proj1'
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-sce_list = ['historic','RCP2.6','RCP8.5']
-
-df = pd.DataFrame()
-
-for watershed_name in watershed_names[:1]:
-    
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-    color = 'k'
-        
-    for mod in mod_list:
-        
-        for sce in sce_list:
-            
-            if sce == 'historic':
-                sce_name = 'RCP8.5'
-            else:
-                sce_name = sce
-            
-            simul_list = glob.glob(simulations_folder+iD+'*'+mod+'*'+sce_name+'*')
-            
-            if len(simul_list)>0 :
-                simul = simul_list[0]
-            else:
-                continue
-                
-            model_name = simul.split('\\')[-1]
-
-            Smod_path = simul+'/_watershed/_simulated_results.csv'            
-            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-                        
-            df['Q_'+mod+'_'+sce] = (Smod['outflow_drain']+ Smod['runoff']) #
-            
-            if sce == 'historic':
-                df['Q_'+mod+'_'+sce][df.index.year>2005] = np.nan
-            
-
-    sce_list = ['RCP2.6','RCP8.5']
-    col_list = ['dimgray','maroon','darkorange','forestgreen','darkviolet','navy']
-    dict_c = dict(zip(mod_list, col_list))
-    
-    for sce in sce_list:
-        
-        fig, ax = plt.subplots(1,1, figsize=(6,4))
-    
-        for mod in mod_list:
-    
-            # d = select_period(df, per[0], per[1])
-            
-            # if typ_climate == 'DRIAS' :
-            d = df.copy()
-            d = d.filter(regex=sce).filter(regex=mod)
-            d = d.resample('Y').mean() * 1000 * 365
-                
-            d = d.rolling(window=30).mean()
-    
-            
-            ax.plot(d, c=dict_c[mod], lw=2, label=mod)
-            ax.legend(loc='lower left', frameon=False)
-            ax.set_title(watershed_name+'  '+sce)
-            ax.set_ylim(150, 500)
-            
-            yearsmaj = mdates.YearLocator(20)   # every year
-            monthsmaj = mdates.MonthLocator(12)  # every month
-            years_fmt = mdates.DateFormatter('%Y')
-            ax.xaxis.set_major_locator(yearsmaj)
-            ax.xaxis.set_minor_locator(monthsmaj)
-            ax.xaxis.set_major_formatter(years_fmt)
-        
-            # ax.set_yscale('log')
-            
-            # fig.savefig(fig_path + watershed_name +
-            #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+    fig.savefig(folder_fig + 
+                'EVOLUTION' + str(mod_list) + '.png',
+                dpi=300, bbox_inches='tight')
 
 #%% BOXPLOT
 
@@ -1395,7 +1397,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[4:5]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1507,11 +1509,11 @@ for watershed_name in watershed_names[:1]:
                 
                 # ax.get_xaxis().set_visible(False)
                 ax.set_yscale('log')
-                ax.set_ylim(2, 200)
-                ax.set_ylim(150, 700)
-                ax.set_yticks([150,300,400,500,600,700])
+                # ax.set_ylim(2, 200)
+                ax.set_ylim(80, 400)
+                ax.set_yticks([100,200,300,400])
                 # ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
-                ax.set_yticklabels([150,300,400,500,600,700])
+                ax.set_yticklabels([100,200,300,400])
                 ax.set_xlim(0.5,4.5)
                      
                 ax.set_axisbelow(True)
@@ -1526,9 +1528,12 @@ for watershed_name in watershed_names[:1]:
                 
             else:
                 continue
-            
-    # fig.savefig(fig_path + watershed_name +
-    #             '_boxplot_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+    
+    folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+     
+    fig.savefig(folder_fig + 
+                'BOXPLOT' + str(mod_list) + '.png',
+                dpi=300, bbox_inches='tight')
 
 #%% INTERMENSUAL
 
@@ -1870,160 +1875,167 @@ for watershed_name in watershed_names[:1]:
 
     mod = 'TOT1'
 
-    per = [2030,2100]
-    
-    sce_list = ['RCP2.6','RCP8.5']
-    col_list = ['dodgerblue','red']
-    col_list_b = ['navy','darkred']
-    dict_c = dict(zip(sce_list, col_list))
-    dict_c_b = dict(zip(sce_list, col_list_b))
-    
-    fig, ax = plt.subplots(1,1, figsize=(4,3.5))
-    
-    # dft = pd.DataFrame(columns=np.arange(1,13,1))
-    dft = pd.DataFrame()
-    
-    # for mod in mod_list:
-    
-    for sce in sce_list:
-        
-        i = 0
-        
-        '''
-        hist = df.copy()
-        hist = hist.filter(regex=sce) #* 365
-        hist = select_period(hist, 1980, 2004)
-        hist = hist.median(axis=1)
-        # hist = hist.groupby([(hist.index.month)]).mean()
-        # hist = hist.T
-        # hist = hist.groupby([(hist.index.year)]).min()
-        
-        fut = df.copy()
-        fut = fut.filter(regex=sce) #* 365
-        fut = select_period(fut, per[0], per[1])
-        fut = fut.median(axis=1)
-        # fut = fut.groupby([(fut.index.month)]).mean()
-        # fut = hist.groupby([(hist.index.year)]).min()
-        '''
-        
-        hist = df.copy()
-        hist = hist.filter(regex='historic')
-        hist = hist.filter(regex=mod)
-        hist = select_period(hist, 1980, 2005)
-        hist = hist.stack().reset_index()
-        hist = hist.set_index('date')
-        hist = hist[0]
+    for per in [[2025,2050],[2050,2075],[2075,2100]]:
 
-        fut = df.copy()
-        fut = fut.filter(regex=sce)
-        fut = fut.filter(regex=mod)
-        fut = select_period(fut, per[0], per[1])
-        fut = fut.stack().reset_index()
-        fut = fut.set_index('date')
-        fut = fut[0]
+        sce_list = ['RCP2.6','RCP8.5']
+        col_list = ['dodgerblue','red']
+        col_list_b = ['navy','darkred']
+        dict_c = dict(zip(sce_list, col_list))
+        dict_c_b = dict(zip(sce_list, col_list_b))
         
-        ################################################
+        fig, ax = plt.subplots(1,1, figsize=(3.5,3))
         
-        qmna_hist = hist.groupby([(hist.index.year)]).min()
-        qmna_sort = qmna_hist.sort_values().to_frame()
-        qmna_sort.columns = ['x']
-    
-        qmna_sort = qmna_sort.round(3) #/ 12
+        # dft = pd.DataFrame(columns=np.arange(1,13,1))
+        dft = pd.DataFrame()
         
-        # Method 1
-        Z = qmna_sort.copy()
-        N = len(Z)
-        count, bins_count = np.histogram(Z, bins=100, density=True)
-        pdf = count / sum(count)
-        cdf = np.cumsum(pdf)
+        # for mod in mod_list:
         
-        # Method 2
-        qh = np.array(qmna_sort.copy())
-        LBINS = 100
-        # No log
-        linbins = np.linspace(0, qh.max(), LBINS)
-        hist_lin, bins_lin = np.histogram(qh, bins=linbins, density=True)
-        bins_lin_centers = 0.5*(bins_lin[1:]+bins_lin[:-1])
-        # Log
-        logbins = np.logspace(np.log10(qh.min()), np.log10(qh.max()), LBINS)
-        hist_log, bins_log = np.histogram(qh, bins=logbins, density=True)
-        bins_log_centers = 10**(0.5*(np.log10(bins_log[1:]) + np.log10(bins_log[:-1])))
-        
-        # freq = pd.DataFrame(bins_log.copy(), columns=['x']).round(1)
-        freq = qmna_sort.groupby('x').size().reset_index(name='counts')
-        # freq = freq.groupby('x').size().reset_index(name='counts')
-        freq['frequency'] = freq.counts/freq.counts.sum() #freq
-        freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
-        freq['retour'] = 1/(freq['cumulative_frequency'])
-        freq['target'] = 5
-        
-        # ax.plot(bins_log)
-        ax.plot(freq['retour'], freq['x']-2, ls='-', c='grey', linewidth=2)
-        ax.plot(freq['retour'], freq['x']-2, ls='-', c='k', marker='+',
-                ms=6, mew=2, linewidth=0)
-        # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
-    
-        ################################################
-    
-        qmna_fut = fut.groupby([(fut.index.year)]).min()
-        qmna_sort = qmna_fut.sort_values().to_frame()
-        qmna_sort.columns = ['x']
-        qmna_sort = qmna_sort.round(3) #/ 12
-        
-        # Method 1
-        Z = qmna_sort.copy()
-        N = len(Z)
-        count, bins_count = np.histogram(Z, bins=100, density=True)
-        pdf = count / sum(count)
-        cdf = np.cumsum(pdf)
-        
-        # Method 2
-        qh = np.array(qmna_sort.copy())
-        LBINS = 100
-        # No log
-        linbins = np.linspace(0, qh.max(), LBINS)
-        hist_lin, bins_lin = np.histogram(qh, bins=linbins, density=True)
-        bins_lin_centers = 0.5*(bins_lin[1:]+bins_lin[:-1])
-        # Log
-        logbins = np.logspace(np.log10(qh.min()), np.log10(qh.max()), LBINS)
-        hist_log, bins_log = np.histogram(qh, bins=logbins, density=True)
-        bins_log_centers = 10**(0.5*(np.log10(bins_log[1:]) + np.log10(bins_log[:-1])))
-        
-        freq = qmna_sort.groupby('x').size().reset_index(name='counts')
-        
-        # freq = pd.DataFrame(bins_log.copy(), columns=['x']).round(1)
-        # freq = freq.groupby('x').size().reset_index(name='counts')
-        
-        freq['frequency'] = freq.counts/freq.counts.sum() #freq
-        freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
-        freq['retour'] = 1/(freq['cumulative_frequency'])
-        freq['target'] = 5
-        
-        # ax.plot(bins_log)
-        ax.plot(freq['retour'], freq['x']-2, ls='-', c=dict_c[sce], linewidth=2)
-        ax.plot(freq['retour'], freq['x']-2, ls='-', c=dict_c_b[sce], marker='+',
-                ms=6, mew=2, linewidth=0)
-        # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
-        
-        ################################################
-        
-        # ax.set_yscale('log')
-        ax.set_xlim(1, 20)
-        # ax.set_ylim(2, 7)
-        # ax.set_yticks([1, 2, 3, 4])
-        ax.set_xscale('log')
-        # ax.set_yscale('log')
-        # ax.set_xticks([2, 5, 10, 20])
-        ax.set_xticks([2, 5, 10, 20])
-        ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
-        
-        ax.set_axisbelow(True)
-        # ax.grid(zorder=-1000)
-        ax.xaxis.grid(color='gray', alpha=0.5, zorder=-20)
-        ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='both')
+        for sce in sce_list:
             
-    # fig.savefig(fig_path + watershed_name +
-    #             '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
+            i = 0
+            
+            '''
+            hist = df.copy()
+            hist = hist.filter(regex=sce) #* 365
+            hist = select_period(hist, 1980, 2004)
+            hist = hist.median(axis=1)
+            # hist = hist.groupby([(hist.index.month)]).mean()
+            # hist = hist.T
+            # hist = hist.groupby([(hist.index.year)]).min()
+            
+            fut = df.copy()
+            fut = fut.filter(regex=sce) #* 365
+            fut = select_period(fut, per[0], per[1])
+            fut = fut.median(axis=1)
+            # fut = fut.groupby([(fut.index.month)]).mean()
+            # fut = hist.groupby([(hist.index.year)]).min()
+            '''
+            
+            hist = df.copy()
+            hist = hist.filter(regex='historic')
+            hist = hist.filter(regex=mod)
+            hist = select_period(hist, 1980, 2005)
+            hist = hist.stack().reset_index()
+            hist = hist.set_index('date')
+            hist = hist[0]
+    
+            fut = df.copy()
+            fut = fut.filter(regex=sce)
+            fut = fut.filter(regex=mod)
+            fut = select_period(fut, per[0], per[1])
+            fut = fut.stack().reset_index()
+            fut = fut.set_index('date')
+            fut = fut[0]
+            
+            ################################################
+            
+            qmna_hist = hist.groupby([(hist.index.year)]).min()
+            qmna_sort = qmna_hist.sort_values().to_frame()
+            qmna_sort.columns = ['x']
+        
+            qmna_sort = qmna_sort.round(3) #/ 12
+            
+            # Method 1
+            Z = qmna_sort.copy()
+            N = len(Z)
+            count, bins_count = np.histogram(Z, bins=100, density=True)
+            pdf = count / sum(count)
+            cdf = np.cumsum(pdf)
+            
+            # Method 2
+            qh = np.array(qmna_sort.copy())
+            LBINS = 100
+            # No log
+            linbins = np.linspace(0, qh.max(), LBINS)
+            hist_lin, bins_lin = np.histogram(qh, bins=linbins, density=True)
+            bins_lin_centers = 0.5*(bins_lin[1:]+bins_lin[:-1])
+            # Log
+            logbins = np.logspace(np.log10(qh.min()), np.log10(qh.max()), LBINS)
+            hist_log, bins_log = np.histogram(qh, bins=logbins, density=True)
+            bins_log_centers = 10**(0.5*(np.log10(bins_log[1:]) + np.log10(bins_log[:-1])))
+            
+            # freq = pd.DataFrame(bins_log.copy(), columns=['x']).round(1)
+            freq = qmna_sort.groupby('x').size().reset_index(name='counts')
+            # freq = freq.groupby('x').size().reset_index(name='counts')
+            freq['frequency'] = freq.counts/freq.counts.sum() #freq
+            freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
+            freq['retour'] = 1/(freq['cumulative_frequency'])
+            freq['target'] = 5
+            
+            # ax.plot(bins_log)
+            ax.plot(freq['retour'], freq['x'], ls='-', c='grey', linewidth=2)
+            ax.plot(freq['retour'], freq['x'], ls='-', c='k', marker='+',
+                    ms=6, mew=2, linewidth=0)
+            # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
+        
+            ################################################
+        
+            qmna_fut = fut.groupby([(fut.index.year)]).min()
+            qmna_sort = qmna_fut.sort_values().to_frame()
+            qmna_sort.columns = ['x']
+            qmna_sort = qmna_sort.round(3) #/ 12
+            
+            # Method 1
+            Z = qmna_sort.copy()
+            N = len(Z)
+            count, bins_count = np.histogram(Z, bins=100, density=True)
+            pdf = count / sum(count)
+            cdf = np.cumsum(pdf)
+            
+            # Method 2
+            qh = np.array(qmna_sort.copy())
+            LBINS = 100
+            # No log
+            linbins = np.linspace(0, qh.max(), LBINS)
+            hist_lin, bins_lin = np.histogram(qh, bins=linbins, density=True)
+            bins_lin_centers = 0.5*(bins_lin[1:]+bins_lin[:-1])
+            # Log
+            logbins = np.logspace(np.log10(qh.min()), np.log10(qh.max()), LBINS)
+            hist_log, bins_log = np.histogram(qh, bins=logbins, density=True)
+            bins_log_centers = 10**(0.5*(np.log10(bins_log[1:]) + np.log10(bins_log[:-1])))
+            
+            freq = qmna_sort.groupby('x').size().reset_index(name='counts')
+            
+            # freq = pd.DataFrame(bins_log.copy(), columns=['x']).round(1)
+            # freq = freq.groupby('x').size().reset_index(name='counts')
+            
+            freq['frequency'] = freq.counts/freq.counts.sum() #freq
+            freq['cumulative_frequency'] = freq['frequency'].cumsum() #freq cumulated
+            freq['retour'] = 1/(freq['cumulative_frequency'])
+            freq['target'] = 5
+            
+            # ax.plot(bins_log)
+            ax.plot(freq['retour'], freq['x'], ls='-', c=dict_c[sce], linewidth=2)
+            ax.plot(freq['retour'], freq['x'], ls='-', c=dict_c_b[sce], marker='+',
+                    ms=6, mew=2, linewidth=0)
+            # ax.plot(pdf, ls='-', c=dict_c[sce], linewidth=1)
+            
+            ################################################
+            
+            # ax.set_yscale('log')
+            ax.set_xlim(1, 20)
+            ax.set_ylim(0, 5)
+            # ax.set_yticks([1, 2, 3, 4])
+            ax.set_xscale('log')
+            # ax.set_yscale('log')
+            # ax.set_xticks([2, 5, 10, 20])
+            ax.set_xticks([2, 5, 10, 20])
+            ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
+            
+            ax.set_axisbelow(True)
+            # ax.grid(zorder=-1000)
+            ax.xaxis.grid(color='gray', alpha=0.5, zorder=-20)
+            ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='both')
+                
+            # fig.savefig(fig_path + watershed_name +
+            #             '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
+    
+            folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+            print(per)
+            
+            fig.savefig(folder_fig + 
+                        'QMNA' + str(mod_list) + '_' + str(per) + '.png',
+                        dpi=300, bbox_inches='tight')
 
 #%% FONCTION
   
@@ -2091,13 +2103,14 @@ plot_maps = True
 iD = 'proj1'
 
 # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-mod_list = ['CNR-ALA']
+# mod_list = ['CNR-ALA']
+mod_list = ['IPS1']
 mods_list = [mod_list]
 
 # sce_list = ['RCP8.5']
 sce_list = ['RCP8.5']
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[:]:
     
     for sce in sce_list:
     
@@ -2176,7 +2189,7 @@ for watershed_name in watershed_names[:1]:
                         # begin_f = -60*12
                         # end_f = -30*12
                         begin_f = -70*12
-                        end_f = 0
+                        end_f = -30*12
                         
                         h_son, f_son, ano_son, son = season_anomaly([8,9,10], begin_h, end_h, begin_f, end_f)
                         # plt.plot(son)
@@ -2258,6 +2271,10 @@ for watershed_name in watershed_names[:1]:
                         line = np.ma.masked_where(line < 0, line)
                         mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
                         
+                        ax.imshow(np.ma.masked_where((mask<0),
+                                                         mask), cmap = 'Greys',
+                                  alpha=0.25)
+                        
                         cmap = plt.cm.Oranges_r
                         cmaplist = [cmap(i) for i in range(cmap.N)]
                         cmaplist = ['darkred','orange']
@@ -2308,15 +2325,15 @@ for watershed_name in watershed_names[:1]:
                         
                         pc = ax.imshow(np.ma.masked_where((days_flux_ano<1),
                                                           days_flux_ano),
-                                                    cmap = mpl.colors.ListedColormap('navy'))
+                                                    cmap = mpl.colors.ListedColormap('dodgerblue'))
                         
                         pc = ax.imshow(np.ma.masked_where((days_flux_ano!=0)|(days_flux_h==0),
                                                           days_flux_ano),
-                                                    cmap = mpl.colors.ListedColormap('darkgray'))
+                                                    cmap = mpl.colors.ListedColormap('k'))
                         
                         pc = ax.imshow(np.ma.masked_where((days_flux_f==0)|(days_flux_h!=0),
                                                           days_flux_f),
-                                                    cmap = mpl.colors.ListedColormap('forestgreen'))
+                                                    cmap = mpl.colors.ListedColormap('navy'))
                         
                         # try:
                         #     days = days_flux_ano.copy()
@@ -2352,6 +2369,15 @@ for watershed_name in watershed_names[:1]:
                         #             '_PI_' + '_' + str(mod_list) +
                         #             '_' + sce + '_' + str(m) + '.png', dpi=300, bbox_inches='tight')
                     
+                        folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+                        print(per)
+                        
+                        fig.savefig(folder_fig + 
+                                    'PI_' + str(m) + '_' + str(mod) + '.png',
+                                    dpi=300, bbox_inches='tight')
+                        
+                        plt.close()
+                        
                     days_flux_ano = days_flux_ano * 100
                     total = days_flux_ano.count()
                     
@@ -2374,3 +2400,4 @@ for watershed_name in watershed_names[:1]:
                     # superficie.to_csv(fig_path + watershed_name +
                     #             '_table_PI_' + str(mod_list) + '_' + sce + '.csv', sep=';')
                 
+#%% NOTES
