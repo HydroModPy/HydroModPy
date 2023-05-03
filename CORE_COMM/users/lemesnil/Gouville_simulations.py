@@ -47,6 +47,7 @@ if DIR[0] == 'd': #server
     out_path = r'D:\mlemesnil\HydroModPy\Output/'
     modflow_path = r'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
     shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
+    data_folder = r'D:\mlemesnil\Data\piezo_gouville'
 elif DIR[0] == 'c': #local
     git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
     data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
@@ -54,7 +55,7 @@ elif DIR[0] == 'c': #local
     modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
     dems_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville/'
     shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele.shp'
-
+    data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -88,15 +89,15 @@ watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
 BV.add_piezometry()
-# BV.add_surfex(surfex_path)
+BV.add_surfex(surfex_path)
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
+
 
 #%% Piezometry extraction
 import pandas as pd
 
 code = '01423X0044/F4'
-data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
 
 desc_file = os.path.join(data_folder,'ades_export','Descriptif','descriptif.txt')
 df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
@@ -137,47 +138,17 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_homo_res49' #calib_optim1_aut22_k1n1
+params_file = 'calib_homo' #calib_optim1_aut22_k1n1
 
 BV.forcing.update_recharge(rech, 'transient') #R_HAD_REG_RCP26
 BV.hydrodynamic.update_thickness(30)
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',5,5,25,'m/j','log']
-params_df.loc[1] = ['n1',0.04,0.04,0.15,'-','lin']
+params_df.loc[0] = ['k1',2,2,4,'m/j','log']
+params_df.loc[1] = ['n1',0.1,0.1,0.2,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
-calib.exploration(49)
+calib.exploration(36)
 
-#%% Extraction and analysis of K-n calibration results
-
-import glob
-import os
-from calibration import calib_analysis
-
-params_file = 'calib_homo_res49' # calib_optim1_aut22_k1n1 calib_explo_aut22_k1n1 calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
-
-#get last calibration result file
-type_obs = 'piezometry'
-typ_calib = 'piezometry_calibration'
-list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                   key=os.path.getmtime)
-name_file = list_path[-1].split('\\')[-1]
-calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-test = calib_analysis.CalibAnalysis(calib_file)
-obj_fc_path = os.path.join(BV.calibration_folder, params_file, typ_calib, '_figures', 'objective_function.png')
-test.display_objective_function(save=obj_fc_path) #,vmax= 1.3,log=False
-
-#get optimal K and n value
-calib_dict = test.calib
-K_values = calib_dict['params_values'][0]
-n_values = calib_dict['params_values'][1]
-
-min_RMSE_idx_flat = np.argmin(calib_dict['objective_function'])
-i_min_RMSE = min_RMSE_idx_flat // n_values.size
-j_min_RMSE = min_RMSE_idx_flat % n_values.size    
-RMSE_optim = calib_dict['objective_function'][i_min_RMSE, j_min_RMSE]
-K_optim = K_values[j_min_RMSE]
-n_optim = n_values[i_min_RMSE]
 
 
