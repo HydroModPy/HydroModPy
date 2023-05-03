@@ -113,13 +113,15 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               from_dem=False,
                               cell_size=cell_size)
 
+types_obs = ['streams_fr'] # list of shapefile name layers for clip hydrology
+fields_obs = ['FID'] # list of shapefile name columns to translate as a tif
 
 # BV.add_drias(drias_path)
 # BV.add_surfex(surfex_path) 
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
 BV.add_forcing()
-BV.add_hydrology(hydrology_path)
+BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
 # BV.add_geology(geology_path)
 
@@ -151,6 +153,7 @@ watershed_display.watershed_local(dem_path, BV)
 import os
 from datetime import datetime
 
+BV.add_piezometry()
 BV.add_forcing()
 BV.piezometry.add_data()
 BV.piezometry.display_data()
@@ -203,10 +206,13 @@ r_ESP['Recharge'] = r_ESP['Recharge'].apply(lambda x: 3*x)
 
 #%% Calibration of K based on streams
 
-from calibration import calib_root
+from calibration import calib_root, calib_analysis
 import pandas as pd
+import glob
+import os
 
 types_obs = ['streams_fr'] # list of shapefile name layers for clip hydrology
+type_obs = 'streams_fr'
 params_file = 'calib_K_streams'
 
 R_mean_Surfex = (307/1000)/365
@@ -222,23 +228,55 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 calib = calib_root.Calibration(params_file, BV, observations = ['streams']) 
 dicot = calib.dichotomy(gap=1)
 
+# Extraction and analysis of calibration results
+
+typ_calib = 'streams_calibration'
+list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                   key=os.path.getmtime)
+name_file = list_path[-1].split('\\')[-1]
+calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+test = calib_analysis.CalibAnalysis(calib_file)
+test.display_objective_function(save=None)
+
+koptim = test.calib['params_values'][-1]
+kr = koptim / test.calib['recharge']
+obj_func = test.calib['objective_function'][-1]
+
+df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+df.loc[0,type_obs] = koptim / 24 / 3600 #m/d to m/s
+df.loc[1,type_obs] = kr
+df.loc[2,type_obs] = obj_func
+    
+df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
 #%% Calibration of K and n based on piezometry
 
-from calibration import calib_root
+hetero = True
+
+from calibration import calib_root, calib_analysis
 import pandas as pd
+import glob
+import os
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_3R_k1n1' #calib_optim1_aut22_k1n1
-# calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
+params_file = 'calib_sandP1P2P4_k1n1' #calib_optim1_aut22_k1n1
+
+if hetero:
+    shape = BV.hydrodynamic.update_calib_zones_from_shp(shape_calib_zones_path)
+    BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = 3.72759372031494) #3.72759372031494
+    BV.hydrodynamic.update_porosity_from_calib_zones(num_zone = 1, porosity_value = 0.4) #0.4
+    hyd_cond_zones = BV.hydrodynamic.hyd_cond
+
 
 BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
-BV.hydrodynamic.update_thickness(29)
-# BV.hydrodynamic.update_porosity(0.25)
+BV.hydrodynamic.update_thickness(30)
+# BV.hydrodynamic.update_hyd_cond(2.68)
 #init value is not used in exploration mode
 #lin or log probably not used
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',0.002,0.002,2,'m/j','log']
-params_df.loc[1] = ['n1',0.001,0.001,0.1,'-','lin']
+params_df.loc[0] = ['k2',0.01,0.01,10,'m/j','log']
+params_df.loc[1] = ['n2',0.05,0.05,0.4,'-','lin']
 #params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin']
 #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
 #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
@@ -247,14 +285,7 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
 calib.exploration(200)
 
-
-#%% Extraction and analysis of K-n calibration results
-
-import glob
-import os
-from calibration import calib_analysis
-
-params_file = 'calib_4Pzs_k1n1' # calib_optim1_aut22_k1n1 calib_explo_aut22_k1n1 calib_explo_hom_K1n1 calib_explo_MF_K1n1 calib_explo_test6piezos_K1n1
+# Extraction and analysis of K-n calibration results
 
 #get last calibration result file
 type_obs = 'piezometry'
