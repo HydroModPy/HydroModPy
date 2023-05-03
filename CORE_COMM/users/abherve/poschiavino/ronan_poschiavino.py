@@ -520,7 +520,7 @@ thick = 50 # m
 bottom = None
 
 # Discretization
-nlay = 1 # vertical discrtization
+nlay = 5 # vertical discrtization
 thick_exp = 1 # exponential decay of nlay with depth
 
 # Porosity
@@ -534,7 +534,7 @@ cond_decay = 0 # exponential decay of K with depth
 recharge = 1 / 365
 
 # Typ name
-typ = 'constant_50m'
+typ = 'constant5lay_50m'
 
 #%% RUN MODEL
 
@@ -542,7 +542,7 @@ sim_state = 'steady' # 'steady' or 'transient'
 modpath_sim = True # run modpath particle tracking if True
 modpath_sim = False # run modpath particle tracking if True
 
-run = True
+run = False
     
 print('##### '+watershed_name.upper()+' #####')
 
@@ -574,7 +574,7 @@ list_flow_model = []
 
 # defKR = np.logspace(-1,1,9)
 # defKR = [2.0,5.0,10.0]
-defKR = [1.0,10.0,100.0,1000.0]
+defKR = [10.0,100.0,1000.0]
 
 # defKR = [10.0]
 # defKR = [0.1]
@@ -628,7 +628,8 @@ for it in range(0,len(defKR)):
     if run == True:
         # try:
         print('SIM - ' + model_name)
-        success, flow_model = BV.run_modflow(ident=model_name,
+        success, flow_model = BV.run_modflow(run=run,
+                                             ident=model_name,
                                              modpath_sim=modpath_sim,
                                              sink_fill=sink_fill,
                                              box=box,
@@ -657,7 +658,9 @@ h5file = simulations_folder+'/'+'list_'+typ
 
 dd.io.save(h5file, dictio)
                         
-#### POSTPROCESS MODEL
+#%% POSTPROCESS MODEL
+
+typ = 'constant5lay_50m'
 
 for watershed_name in watershed_names[:] :
     
@@ -1289,7 +1292,7 @@ for it in range(len(list_path)):
 
 #%% COMPUTING
 
-typ = 'constant_50m'
+typ = 'constant5lay_50m'
 
 ### GENERAL ###
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -1347,7 +1350,7 @@ for it in range(len(list_path)):
     
 #%% VECTOR VALUES
 
-typ = 'constant_50m'
+typ = 'constant5lay_50m'
 
 ### GENERAL ###
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -1486,6 +1489,8 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 list_path = sorted(glob.glob(simulations_folder+typ+'*'),
                     key=os.path.getmtime, reverse=False)
 
+prof_elev = 'cumul' # increm
+
 for it in range(len(list_path[:])):
     model_name = list_path[it].split('\\')[-1]
     print(model_name)
@@ -1558,24 +1563,25 @@ for it in range(len(list_path[:])):
     # ax.scatter(values['down_value'], values['dem_value'], c=values['acc_value'], ec='None',
     #            marker='.', lw=0, s=20,
     #            norm=matplotlib.colors.LogNorm(vmin = 1, vmax = 15000))
-    """
-    s = ax.scatter(one['down_value'], one['dem_value'], 
-               c=one['acc_value'],
-               cmap='jet',
-               marker="|", lw=2, s=25,
-                vmin=0, 
-                vmax=25,
-                # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
-               )
-    """
-    s = ax.scatter(one['down_value'], one['dem_value'], 
-               c=one['acc_diff'],
-               cmap='jet',
-               marker="|", lw=2, s=25,
-                vmin=0, 
-                vmax=1,
-                # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
-               )
+    
+    if prof_elev == 'cumul': # increm
+        s = ax.scatter(one['down_value'], one['dem_value'], 
+                   c=one['acc_value'],
+                   cmap='jet',
+                   marker="|", lw=2, s=25,
+                    vmin=0, 
+                    vmax=25,
+                    # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
+                   )
+    if prof_elev == 'increm': # increm
+        s = ax.scatter(one['down_value'], one['dem_value'], 
+                   c=one['acc_diff'],
+                   cmap='jet',
+                   marker="|", lw=2, s=25,
+                    vmin=0, 
+                    vmax=1,
+                    # norm=matplotlib.colors.LogNorm(vmin=100, vmax=100000)
+                   )
     ax.scatter(springs['down_value'], springs['dem_value'], ec='k', 
                 lw= 1, marker='.', s=10,
                 facecolor='None')
@@ -1664,3 +1670,9 @@ for it in range(len(list_path[:])):
 # fig, ax = plt.subplots(1,1)
 # show(dem_data, ax=ax, transform=dem.transform)
 # springs.plot(ax=ax)
+
+#%% DRAINAGE DENSITY
+
+wbt.raster_to_vector_points(BV.geographic.watershed_dem, 
+                         'C:/Users/ronan/Downloads/points_dem.shp')
+
