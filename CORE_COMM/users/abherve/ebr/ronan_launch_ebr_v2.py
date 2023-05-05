@@ -575,7 +575,7 @@ for watershed_name in watershed_names[:]:
         
         compt+=1
 
-# POST-PROCESS
+#%% POST-PROCESS
 
 for watershed_name in watershed_names[:] :
     
@@ -628,6 +628,55 @@ for watershed_name in watershed_names[:] :
                                    runoff=run,
                                    actual_date=True,
                                    time_step='M')
+
+#%% 2D MAP VIEWS
+
+iD = 'check'
+mod_list = ['REA']
+sce_list = ['historic']
+
+for watershed_name in watershed_names[:]:
+    print('##### '+watershed_name.upper()+' #####')
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    BV.add_forcing()
+    BV.add_hydrodynamic()
+    BV.add_oceanic('None')
+    
+    compt = 1
+    
+    for mod in mod_list:
+        
+        for sce in sce_list:
+    
+            iD = 'check'
+            typ = 'check'
+            h5file = simulations_folder+'/'+'list_'+iD
+            d = dd.io.load(h5file)
+            list_model_name = d['list_model_name'][:]
+            list_of_success = d['list_of_success'][:]
+            list_flow_model = d['list_flow_model'][:]
+            
+            for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+        
+                typ = 'check'
+        
+                list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                                    key=os.path.getmtime, reverse=True)
+                
+                model_name = list_path[-1].split('\\')[-1]
+            
+                visu = visualization.Visualization(BV, model_name)
+                
+                visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
+                                             'drain_flow', 'surface_flow'],
+                              color_scale = [(None,None),(None,None),(None,None),(0,10),
+                                              (None,None),(None,None)])
 
 #%% ---- REANALYSIS
 
@@ -1306,6 +1355,8 @@ for watershed_name in watershed_names[5:6]:
             # fig.savefig(fig_path + watershed_name +
             #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
             
+            ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
+
             folder_fig = res_path + 'figures/' + 'raw_' + 'All' + '/'
         
             fig.savefig(folder_fig + 
@@ -1320,7 +1371,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1398,7 +1449,7 @@ for watershed_name in watershed_names[1:2]:
         # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
         # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
         
-        ax.set_ylim(100, 500)
+        ax.set_ylim(80, 350)
         
         yearsmaj = mdates.YearLocator(10)   # every year
         monthsmaj = mdates.MonthLocator(12)  # every month
@@ -1426,7 +1477,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1539,10 +1590,10 @@ for watershed_name in watershed_names[1:2]:
                 # ax.get_xaxis().set_visible(False)
                 ax.set_yscale('log')
                 ax.set_ylim(2, 200)
-                ax.set_ylim(120, 500)
-                ax.set_yticks([120,200,300,400,500])
+                ax.set_ylim(90, 400)
+                ax.set_yticks([100,200,300,400])
                 # ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
-                ax.set_yticklabels([120,200,300,400,500])
+                ax.set_yticklabels([100,200,300,400])
                 ax.set_xlim(0.5,4.5)
                      
                 ax.set_axisbelow(True)
@@ -1575,7 +1626,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1709,7 +1760,7 @@ for watershed_name in watershed_names[1:2]:
             ax.set_xlim(1,12)
             ax.set_yscale('log')
             
-            ax.set_ylim(0.9, 200)
+            ax.set_ylim(1, 100)
             
             ax.set_axisbelow(True)
             # ax.grid(zorder=-1000)
@@ -1737,7 +1788,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1878,7 +1929,7 @@ sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -2054,7 +2105,7 @@ for watershed_name in watershed_names[1:2]:
         
         # ax.set_yscale('log')
         ax.set_xlim(1, 20)
-        # ax.set_ylim(2, 7)
+        ax.set_ylim(1, 5)
         # ax.set_yticks([1, 2, 3, 4])
         ax.set_xscale('log')
         # ax.set_yscale('log')
@@ -2067,8 +2118,9 @@ for watershed_name in watershed_names[1:2]:
         ax.xaxis.grid(color='gray', alpha=0.5, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='both')
         
-        ax.set_ylim(1,5)
+        # ax.set_ylim(2,7)
         ax.set_yticks([1, 2, 3, 4, 5])
+        # ax.set_yticklabels([0, 2, 3, 4, 5])
             
     # fig.savefig(fig_path + watershed_name +
     #             '_qmna_' + str(mod_list) + '.png', dpi=300, bbox_inches='tight')
@@ -2151,7 +2203,7 @@ mods_list = [mod_list]
 # sce_list = ['RCP8.5']
 sce_list = ['RCP8.5']
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     for sce in sce_list:
     
@@ -2442,7 +2494,7 @@ mods_list = [mod_list]
 # sce_list = ['RCP8.5']
 sce_list = ['RCP8.5']
 
-for watershed_name in watershed_names[1:2]:
+for watershed_name in watershed_names[5:6]:
     
     for sce in sce_list:
     
