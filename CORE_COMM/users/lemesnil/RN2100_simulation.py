@@ -34,7 +34,7 @@ from wtd_spat_indic import wtd_spat_indic
 
 # %% PATHS + watershed options
 
-watershed_name = 'Baie-du-Cotentin'
+watershed_name = 'Saint-Germain-sur-Ay'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 dem_name = "BDALTI_norm-manch_75m.tif"
 
@@ -147,7 +147,7 @@ watershed_display.watershed_local(dem_path, BV)
 #%% Model Parameters and options
 
 hetero = 1
-t = 29 # m
+t = 30 # m
 
 # Strcture of the model
 lay_number = 1 # vertical discrtization
@@ -164,16 +164,16 @@ verbose = True # add print of MODFLOW in console
 
 # Update properties
 if hetero == 0:
-    n = 0.005 # nondim
-    K = 0.207 # m/j
+    n = 0.25 # nondim
+    K = 2.68 # m/j
     BV.hydrodynamic.update_hyd_cond(K)
     BV.hydrodynamic.update_porosity(n)
 elif hetero == 1:
     print('heterogeneous model')
-    K1 = 2.01
-    K2 = 0.267
-    n1 = 0.138
-    n2 = 0.0393
+    K1 = 3.72
+    K2 = 0.52
+    n1 = 0.4
+    n2 = 0.175
     shape = BV.hydrodynamic.update_calib_zones_from_shp(shape_calib_zones_path)
     BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 1, hyd_cond_value = K1)
     BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone = 2, hyd_cond_value = K2)
@@ -191,13 +191,13 @@ from datetime import datetime
 import pandas as pd
 
 # /!\ Activate to save results on external disk
-disk_save = False
+disk_save = True
 
 # /!\ Activate to save rasters of watertable depth threshold frequency
 edit_raster = True
 
-first_yr = 2022
-last_yr = 2022
+first_yr = 2020
+last_yr = 2100
 
 BV.add_forcing()
 RMSL_85 = BV.oceanic.RMSL["RCP8.5"]
@@ -228,16 +228,16 @@ for DRIAS_model in DRIAS_model_list:
         # else:
         #     rech_df = rech_df.join(rech)
         
-        BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
-                                              first_year = 2005, last_year = 2014, 
-                                              time_step = 'D', sim_state = 'transient')
+        # BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce = 'historic',
+        #                                       first_year = 2005, last_year = 2014, 
+        #                                       time_step = 'D', sim_state = 'transient')
         
-        rech_CLM_MF = pd.read_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\CLM\rech_CLM_2022.csv', sep=';', index_col='Date')
-        rech_CLM_MF.index = pd.to_datetime(rech_CLM_MF.index, dayfirst=True)
-        rech_CLM_MF = rech_CLM_MF['Recharge']/1000
-        rech_CLM_MF_35 = rech_CLM_MF*3.5
+        # rech_CLM_MF = pd.read_csv(r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\CLM\rech_CLM_2022.csv', sep=';', index_col='Date')
+        # rech_CLM_MF.index = pd.to_datetime(rech_CLM_MF.index, dayfirst=True)
+        # rech_CLM_MF = rech_CLM_MF['Recharge']/1000
+        # rech_CLM_MF_35 = rech_CLM_MF*3.5
         
-        BV.forcing.update_recharge(rech_CLM_MF_35, sim_state='transient')
+        # BV.forcing.update_recharge(rech_CLM_MF_35, sim_state='transient')
         
         if scenario == 'RCP2.6':
             # pass
@@ -249,7 +249,7 @@ for DRIAS_model in DRIAS_model_list:
         now = datetime.now()
         now_str = now.strftime("%d%m%Y%H%M%S")
         # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
-        sim_name = str(first_yr)+str(last_yr) + '_rech_CLM_MF35_' + now_str
+        sim_name = str(first_yr)+str(last_yr) + '_hetero6PZs_' + now_str
         # # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
         print(sim_name)
         sim_name_list.append(sim_name)
@@ -301,22 +301,22 @@ for DRIAS_model in DRIAS_model_list:
                                 time_step = 'D')
                         
             
-#%% raster
+#% raster
 
 disk_save = True
 if disk_save:
     simulation_results_new_path_dir = os.path.join(r'D:\PostDoc\Modélisation', site_dict[watershed_name], r'Heterogeneous\simulation_results')
     BV.simulations_folder = simulation_results_new_path_dir
 
-sim_name_list = ['20612100_MPICCLRCP85_28022023183718'] #20612100_MPICCLRCP85_28022023183718
+# sim_name_list = ['20612100_MPICCLRCP85_28022023183718'] #20612100_MPICCLRCP85_28022023183718
 # Edit raster for GIS
 for sim_name in sim_name_list:
     rast_path = os.path.join(dirname(BV.simulations_folder), 'rasters_wtd', sim_name)  
     os.makedirs(rast_path, exist_ok = True)
-    # wtd_spat_indic(BV, sim_name, 2020, 2024, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    # wtd_spat_indic(BV, sim_name, 2027, 2033, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    # wtd_spat_indic(BV, sim_name, 2047, 2053, [1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    wtd_spat_indic(BV, sim_name, 2094, 2099, [1], figures = 'save', save_rast = rast_path) #
+    wtd_spat_indic(BV, sim_name, 2020, 2024, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    wtd_spat_indic(BV, sim_name, 2027, 2033, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    wtd_spat_indic(BV, sim_name, 2047, 2053, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    wtd_spat_indic(BV, sim_name, 2094, 2099, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #
     # wtd_spat_indic(BV, sim_name, 2022, 2022, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
 
 
