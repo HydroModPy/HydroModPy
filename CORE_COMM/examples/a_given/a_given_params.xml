@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Jean-Raynald de Dreuzy (Géosciences Rennes) -->
-<!DOCTYPE ParametersGroup SYSTEM "../reference_params_scheme.dtd">
-<!--<?xml-stylesheet type="text/xsl" href="browser_view.xslt"?>-->
-<!--<?xmlspysps authentic_view.sps?>-->
+<!DOCTYPE ParametersGroup SYSTEM "../../reference_params_scheme.dtd">
 
 <ParametersGroup name="a_given_inputs">
 	<ParametersGroup name="watershed">
