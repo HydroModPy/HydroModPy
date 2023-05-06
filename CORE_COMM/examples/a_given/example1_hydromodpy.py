@@ -13,9 +13,12 @@ Simple example for basic execution of HydroModPy (execution should be of the ord
 - Some visualization
 """
 
-
-# General
-import sys
+# File system to define in sys.path for the code to work
+from os.path import dirname, abspath
+# Current Directory stored in DIR 
+DIR = dirname(dirname(dirname(abspath(__file__))))
+import startup
+startup.python_path_update(DIR)
 
 
 import ParametersGroup as pg
@@ -26,46 +29,41 @@ def run_example(out_path, regression_test=False, parameters=None):
     print('Function ready !')
     
     #%% GENERAL LIBRARIES
-    import os
-    from os.path import dirname, abspath
-    # Current Directory stored in DIR 
-    DIR = dirname(dirname(dirname(abspath(__file__))))
-    sys.path.append(DIR)
-    #MARTIN: Add test to confirm that current folder is CORE_COMM
-    # If not, returns error message and stop running execution 
 
-    from glob import glob
+
+#    from glob import glob
     import numpy as np
     import pandas as pd
     from osgeo import gdal, osr
     from IPython import get_ipython
 
     get_ipython().run_line_magic('matplotlib', 'inline')
-    # Plot
+    # # Plot
     import matplotlib.pyplot as plt
-    from matplotlib.font_manager import FontProperties
-    import matplotlib as mpl
-    from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    from matplotlib.colors import LightSource
-    from matplotlib.pyplot import cm
-    from matplotlib.ticker import MaxNLocator
-    # Gis
-    from osgeo import gdal
+    # from matplotlib.font_manager import FontProperties
+    # import matplotlib as mpl
+    # from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+    # from mpl_toolkits.axes_grid1 import make_axes_locatable
+    # from matplotlib.colors import LightSource
+    # from matplotlib.pyplot import cm
+    # from matplotlib.ticker import MaxNLocator
+    # # Gis
+    # from osgeo import gdal
+    # import rasterio
+    # import geopandas as gpd
+    # import warnings  
     import imageio
-    import rasterio
-    import geopandas as gpd
     import whitebox
     import logging
-    import warnings  
 
                      
     # HYDROMODPY MODULES
-             
     from watershed import watershed_root, forcing, watershed_display
     from tools import toolbox, vtk
     from watershed.data import hydrology, climatic, oceanic, piezometry
     from groundwater_flow import modflow_display, visualization
+
+
     # Creation of basis whitebox class (wbt)
     wbt = whitebox.WhiteboxTools()
     wbt.verbose = True
@@ -308,10 +306,10 @@ if user == 'Ronan':
 
 def xml_parameters(): 
     # Initialization of Reference ParametersGroup
-    file_ref = "Parameters_Reference/prog_master_reference.xml"
+    file_ref = "a_given_params.xml"
     # ref = pg.ParametersGroup(file_ref)   
     # Loads User ParametersGroup
-    file_usr = "Parameters_Reference/prog_master_user.xml"
+    file_usr = "a_given_params.xml"
     # usr = pg.ParametersGroup(file_usr)   
     # Results folder
     folder_res = "../../../../../results/xml_parameters"
@@ -321,8 +319,7 @@ def xml_parameters():
 
 
 if __name__ == "__main__":
-    print ("Executed when invoked directly")    
-    xml_parameters()
+    print ("Executed when invoked directly")   
     run_example(out_path, regression_test=False, parameters=xml_parameters())
 else:
     print ("Executed when imported")
