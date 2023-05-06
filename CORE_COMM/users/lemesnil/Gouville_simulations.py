@@ -34,12 +34,29 @@ from watershed import watershed_root, watershed_display
 # %% PATHS + watershed options
 
 watershed_name = 'Gouville'
-
 dem_name = "MNT_Gouville_large.tif"
-git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
-data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
-out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
-modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
+
+if DIR[0] == 'd': #server
+    shape_path = r'D:\mlemesnil\Data\BV_RN2100\Gouville\zone_modele.shp'
+    dems_path =r'D:\mlemesnil\Data\BV_RN2100\Gouville/'
+    # Path to the git repositoty home page
+    git_path = r"D:\mlemesnil\HydroModPy\HydroModPy\CORE_COMM/"
+    # Path to the data folder
+    data_path = r"D:\mlemesnil\Data\HydroModPy/"
+    # Path where the results will be stored
+    out_path = r'D:\mlemesnil\HydroModPy\Output/'
+    modflow_path = r'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
+    shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
+    data_folder = r'D:\mlemesnil\Data\piezo_gouville'
+elif DIR[0] == 'c': #local
+    git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
+    data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
+    out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
+    modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
+    dems_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville/'
+    shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele.shp'
+    data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
+
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 surfex_path =  data_path +'REA-DAYON/' # add surfex models in .h5 format (France scale, else, specify None)
@@ -52,11 +69,9 @@ piezometry_path = True # add piezometry data for automatic download
 subbasin_path = True # generate subbasins from stations or manual points
 drias_path = data_path + "CLIMAT/Normandie/"
 library_path = git_path + 'watershed/watershed_library.csv' # each row is a study site with outlet coordinates
-dems_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville/'
 dem_path = dems_path + dem_name
 cell_size = None # specify new resolution from a given DEM or None
 
-shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele.shp'
 
 #%% Watershed generation
 
@@ -74,15 +89,15 @@ watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
 BV.add_piezometry()
-# BV.add_surfex(surfex_path)
+BV.add_surfex(surfex_path)
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
+
 
 #%% Piezometry extraction
 import pandas as pd
 
 code = '01423X0044/F4'
-data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
 
 desc_file = os.path.join(data_folder,'ades_export','Descriptif','descriptif.txt')
 df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
