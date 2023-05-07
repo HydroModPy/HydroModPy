@@ -3,10 +3,9 @@
 <!DOCTYPE ParametersGroup SYSTEM "../../reference_params_scheme.dtd">
 
 <ParametersGroup name="a_given_inputs">
-	<ParametersGroup name="watershed">
-		&watershed_root;
-	</ParametersGroup>
-	<ParametersGroup name="groundwaterflow">
-		&groundwaterflow;
+	<ParametersGroup name="simulation">
+		&simul_params;
+		&watershed_root_params;
+		&groundwaterflow_params;
 	</ParametersGroup>
 </ParametersGroup>

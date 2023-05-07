@@ -163,7 +163,13 @@ class Parameter:
         Parameter value with the right type 
         """
         if self.type == 'bool': 
-            return bool(int(self.value))
+            if self.value == 'False': 
+                return bool(0)
+            elif self.value == 'True': 
+                return bool(1)
+            else : 
+                print('error parameter', self.name, 'should be a boolean')
+                sys.exit(0)
         elif (self.type == 'string'): 
             return str (self.value)
         elif (self.type == 'double'): 
