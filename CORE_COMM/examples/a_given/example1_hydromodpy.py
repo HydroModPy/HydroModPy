@@ -13,57 +13,71 @@ Simple example for basic execution of HydroModPy (execution should be of the ord
 - Some visualization
 """
 
+# %% LOCALIZATION OF CODES AND PATHS IN THE CURRENT REPOSITORY
+
 # File system to define in sys.path for the code to work
-from os.path import dirname, abspath
+from os.path import dirname, abspath, join
+import sys
 # Current Directory stored in DIR 
 DIR = dirname(dirname(dirname(abspath(__file__))))
+# APPENDS ROOT FOLDER 
+sys.path.append(DIR)
+# Updates path 
 import startup
 startup.python_path_update(DIR)
 
 
+# %% GENERAL LIBRARIES
+
+# from glob import glob
+import numpy as np
+import pandas as pd
+from osgeo import gdal, osr
+from IPython import get_ipython
+from tools import toolbox, vtk
+
+get_ipython().run_line_magic('matplotlib', 'inline')
+# # Plot
+import matplotlib.pyplot as plt
+# from matplotlib.font_manager import FontProperties
+# import matplotlib as mpl
+# from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from matplotlib.colors import LightSource
+# from matplotlib.pyplot import cm
+# from matplotlib.ticker import MaxNLocator
+# # Gis
+# from osgeo import gdal
+# import rasterio
+# import geopandas as gpd
+# import warnings  
+import imageio
+import whitebox
+import logging
+
+
+# %% PROPRIETARY TOOLS 
+
+# Organization of loaded files (several possibilities)
+import pathstructure as path
+
+# Parameter structure
 import ParametersGroup as pg
+from options import parameter_choice
+
+
+# %% HYDROMODPY MODULES
+
+from watershed import watershed_root, forcing, watershed_display
+from watershed.data import hydrology, climatic, oceanic, piezometry
+from groundwater_flow import modflow_display, visualization
 
 
 
 def run_example(out_path, regression_test=False, parameters=None):
+   
     print('Function ready !')
-    
-    #%% GENERAL LIBRARIES
-
-
-#    from glob import glob
-    import numpy as np
-    import pandas as pd
-    from osgeo import gdal, osr
-    from IPython import get_ipython
-
-    get_ipython().run_line_magic('matplotlib', 'inline')
-    # # Plot
-    import matplotlib.pyplot as plt
-    # from matplotlib.font_manager import FontProperties
-    # import matplotlib as mpl
-    # from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-    # from mpl_toolkits.axes_grid1 import make_axes_locatable
-    # from matplotlib.colors import LightSource
-    # from matplotlib.pyplot import cm
-    # from matplotlib.ticker import MaxNLocator
-    # # Gis
-    # from osgeo import gdal
-    # import rasterio
-    # import geopandas as gpd
-    # import warnings  
-    import imageio
-    import whitebox
-    import logging
-
-                     
-    # HYDROMODPY MODULES
-    from watershed import watershed_root, forcing, watershed_display
-    from tools import toolbox, vtk
-    from watershed.data import hydrology, climatic, oceanic, piezometry
-    from groundwater_flow import modflow_display, visualization
-
-
+                         
     # Creation of basis whitebox class (wbt)
     wbt = whitebox.WhiteboxTools()
     wbt.verbose = True
@@ -80,34 +94,17 @@ def run_example(out_path, regression_test=False, parameters=None):
 
     
     #%% LAYOUT PLOT
-    
     fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
     
     #%% NECESSARY PATHS
-        
-    # Path to the git repositoty home page
-    git_path = DIR
-    # Path to the test folder
-    test_path = git_path + "/examples/a_given/"
-    
-    # We suggest that data be stored in the following suite of specific folders
-    # 1 folder for each of the type of data and "process" to be simulated
-    dems_path = test_path + 'dem/'
-    hydrology_path = test_path + 'hydrology/'   # add hydrographic shapefiles
-    modflow_path = test_path + 'modflow/'       # add bin/ folder with necessary .exe
-    climate_path =test_path + 'climate/'
-    intermittency_path = test_path + 'intermittency/'
-    hydrometry_path = test_path + 'hydrometry/'
-    piezometry_path = None                      # add piezometry data or nothing for automatic download
-    geology_path = None                         # add geologic layers
-    oceanic_path = 'None'                         # add specific sea level files
-    
-    # Specifically designed to process SURFEX data (France scale)
-    surfex_path =  None # add surfex models in .h5 format
+    dems_path, hydrology_path, modflow_path, climate_path, \
+        intermittency_path, hydrometry_path, piezometry_path, geology_path, \
+            oceanic_path, surfex_path, library_path = path.path_classical(DIR)
     
     # Indicate the name of the regional DEM
-    dem_name = "DEM_test_75m_LAMB93.tif"           #JR:Parameters
-    # dem_name = "DEM_bzh_75m_LAMB93.tif"
+    #JR:PARAMETERS
+    dem_name = parameter_choice("DEM_test_75m_LAMB93.tif", parameters.getparam("dem").getvalue(), parameters.getparam("parameterization").getvalue())
+    
     dem_path = dems_path + dem_name
     
     dem = gdal.Open(dem_path)
@@ -115,7 +112,6 @@ def run_example(out_path, regression_test=False, parameters=None):
     crs = int(proj.GetAttrValue('AUTHORITY',1))             # Gets name of the projection system
     
     # Import the library of watersheds (maybe several watersheds in the loaded file: library of watersheds)
-    library_path = test_path + 'watershed_library.csv' # each row is a study site
     library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
     
     # Selection of the watershed to deal within from the just loaded library of watersheds
@@ -124,13 +120,14 @@ def run_example(out_path, regression_test=False, parameters=None):
     mysite = library[library['watershed_name'] == watershed_name] # specific row
     
     # Paths generated automatically but necessary for plots
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    stable_folder = join(out_path,watershed_name,'results_stable/')
+    simulations_folder = join(out_path,watershed_name,'results_simulations/')
     
     #%% GENERATING WATERSHED
     
-    # If watershed has already been generated, used the generated one instead of recreating it
-    load = False
+    # If watershed has already been generated, use the generated one instead to recreate it again
+    #JR:PARAMETERS
+    load = parameter_choice(False, parameters.getparam("load").getvalue(), parameters.getparam("parameterization").getvalue())
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -243,7 +240,6 @@ def run_example(out_path, regression_test=False, parameters=None):
     
     if regression_test == False:
     
-        from tools import toolbox, vtk
         vtk.VTK(BV, model_name)
         visu = visualization.Visualization(BV, model_name)
         visu.visual3D(interactive=True,
@@ -288,18 +284,9 @@ def run_example(out_path, regression_test=False, parameters=None):
 
 ####################################################
 
-# user = 'Martin'
-user = 'Ronan'
+out_path=path.results_folder()
+    
 
-# Path where the results will be stored (SHOULD BE SPECIFIED BY THE USER)
-if user == 'Jean-Raynald':
-    out_path = "D:/results/HydroModPy/"
-if user == 'Alexandre':
-    out_path = "C:/Users/alexa/Dropbox/HydroModPy/"
-if user == 'Martin':
-    out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
-if user == 'Ronan':
-    out_path = 'D:/Users/abherve/TESTS/'
 
 ####################################################
 
