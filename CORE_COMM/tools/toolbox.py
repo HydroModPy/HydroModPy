@@ -156,7 +156,7 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     
 def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     raw_dem = gdal.Open(raw_dem_path)    
-    warp = gdal.Warp(wgs_dem_path,raw_dem,dstSRS='EPSG:4326')
+    warp = gdal.Warp(wgs_dem_path, raw_dem, dstSRS='EPSG:4326')
     warp = None
     
     wgs_dem = gdal.Open(wgs_dem_path)
