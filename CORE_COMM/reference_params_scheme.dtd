@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Definition of elements -->
+<!ELEMENT ParametersGroup (ParametersGroup* | Parameter*)*>
+<!ATTLIST ParametersGroup
+	name CDATA #REQUIRED
+>
+<!ELEMENT Parameter (description? | type? | value? | default_value? | possible_values?)*>
+<!ATTLIST Parameter
+	name CDATA #REQUIRED
+>
+<!ELEMENT description (#PCDATA)>
+<!ELEMENT type (#PCDATA)>
+<!ELEMENT value (#PCDATA)>
+<!ELEMENT default_value (#PCDATA)>
+<!ELEMENT possible_values (#PCDATA)>
+
+<!ENTITY simul_params SYSTEM "examples/a_given/simul_params.xml">
+<!ENTITY watershed_root_params SYSTEM "watershed/watershed_root_params.xml">
+<!ENTITY groundwaterflow_params SYSTEM "groundwater_flow/groundwaterflow_params.xml">
