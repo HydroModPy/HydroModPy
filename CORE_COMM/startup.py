@@ -13,7 +13,7 @@ Created on Sat Jan  7 16:08:40 2023
 
 import sys
 import os
-from os.path import dirname, abspath
+from os.path import dirname
 
 
 def python_path_update(DIR):
@@ -22,13 +22,20 @@ def python_path_update(DIR):
     # Test to confirm that current folder is CORE_COMM
     if (DIR.split(os.sep)[-1]!=root_folder): 
         print("Error detected in the root folder path, Aborts to avoid wrong executions")
-        sys.exit()
+        print("Current Folder is", DIR)
+        print("Adds folder from Environment Variable")
+        folder = os.path.join(os.getenv("HYDROMODPY_ROOT").replace('/',os.sep),"HydroModPy","CORE_COMM")
+        print(folder)
+    else: 
+        folder = DIR
         
     # APPENDS ROOT FOLDER 
-    sys.path.append(DIR)
+    sys.path.append(folder)
 
     # HYDROMODPY TOOLS
-    sys.path.append(os.path.join(dirname(DIR),"Tools","Parameters","Parameters"))
+    sys.path.append(os.path.join(dirname(folder),"Tools","Parameters","Parameters"))
+    
+    return folder
     
 
 
