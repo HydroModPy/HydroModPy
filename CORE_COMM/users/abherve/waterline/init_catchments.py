@@ -48,7 +48,7 @@ from rasterio.plot import show
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = True
+wbt.verbose = False
 
 # Warnings
 import warnings
@@ -64,13 +64,13 @@ from watershed import watershed_root, watershed_display, forcing
 from watershed.data import climatic
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
-from calibration import calib_root
+from calibration import calib_root, calib_analysis
 
 # LAYOUT PLOT
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% ---- CATCH
+#%% ---- EXTRACT CATCHMENT
 
 #%% PATH WATERSHED
 
@@ -115,17 +115,19 @@ watershed_names = ['Vosvozis',
                    'Poschiavino']
 
 # watershed_names = ['Temmes']
-
+# watershed_names = ['Kocinka']
 # watershed_names = ['Canut']
 # watershed_names = ['Hoal']
 
-#%% GENERATE WATERSHED
+#%% DATA TOPO
 
-load = True
+load = False
+
+dict_utm_path =  {}
 
 for watershed_name in watershed_names[:]:
     
-    dems_path = data_path + '_Europe/' + 'Topography/' # reginal DEM or conceptual DEM        
+    dems_path = data_path + '_Europe/' + 'Topography/' # reginal DEM or conceptual DEM   
 
     # if watershed_name == 'Vosvozis':
     #     dem_name = 'EUDTM_Greece.tif'
@@ -191,7 +193,7 @@ for watershed_name in watershed_names[:]:
     #                       utm_crs)
         
     print('##### '+watershed_name.upper()+' #####')
-    print(utm_crs)
+    print(utm_crs.upper())
     
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=utm_dem_path, 
@@ -203,6 +205,8 @@ for watershed_name in watershed_names[:]:
                                   from_dem=from_dem,
                                   from_xy=from_xy,
                                   cell_size=cell_size)
+    
+    dict_utm_path[watershed_name] = [utm_dem_path, int(utm_crs.split(':')[-1])]
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
@@ -218,28 +222,51 @@ for watershed_name in watershed_names[:]:
         watershed_display.watershed_local(utm_dem_path, BV)
     except:
         pass
-            
-#%% DATA WATERSHED
-
-types_obs = ['xxx']
-fields_obs = ['fid']
-
-hydrology_path = 'xxx'
-
-import rasterio as rio
+    
+    try:    
+        list_tifs = glob.glob(stable_folder+"geographic/"+"*.tif")
+        
+        ####### dst_crs = utm_crs
+        dst_crs = 'epsg:3035'
+    
+        for i in list_tifs:
+    
+            tif_path = i
+        
+            with rasterio.open(tif_path, 'r') as src:
+                raster = src.read()
+                kwargs = src.meta.copy()
+                kwargs.update({
+                    'crs': dst_crs
+                })
+            with rasterio.open(tif_path, 'w', **kwargs) as dst:
+                dst.write(raster)
+    except:
+        pass
+        
+#%% DATA HYDRO
 
 for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
                
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
+                                  dem_path=dict_utm_path[watershed_name][0], 
                                   out_path=out_path,
                                   load=True)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
     
+    hydrology_path = data_path + '_Europe/' + 'Hydrography/'
+
+    h = gpd.read_file(hydrology_path + "EU-HYDRO_"+watershed_name+".gpkg")
+    h = h.to_crs(dict_utm_path[watershed_name][1])
+    h.to_file(hydrology_path + "EU-HYDRO_"+watershed_name+".shp")
+        
+    types_obs = ["EU-HYDRO_"+watershed_name]
+    fields_obs = ["fid"]
+            
     BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
     BV.add_hydrodynamic()
@@ -247,10 +274,160 @@ for watershed_name in watershed_names[:]:
     
     try:
         watershed_display.watershed_dem(BV)
-        watershed_display.watershed_local(dem_path, BV)
+        watershed_display.watershed_local(dict_utm_path[watershed_name][0], BV)
     except:
         pass
     
+    """
+    streams = hydrology_path + '/' +  types_obs[0] +'.shp'
+    print(streams)
+    streams_out = "C:/Users/ronan/Documents/SIMULATIONS/WATERLINE/CATCHMENTS/Vosvozis/results_stable/hydrology/" + types_obs[0] +'.shp'
+    print(streams_out)
+    
+    # First clip of the shape file at the watershed scale (classical GIS function performed here in geopandas)
+    #       geopandas more robust than wbt for the shapefiles
+    #       clips steams_file by watshd_file
+    
+    streams_file = gpd.read_file(streams)
+    watshd_file = gpd.read_file(BV.geographic.watershed_shp)
+    file_clipped = gpd.clip(streams_file, watshd_file) # wbt.clip(streams, watershed_shp, self.streams)
+    # saves clipped file to the reuslts file structure
+    file_clipped.to_file(streams_out)
+    
+    streams_file.plot()
+    watshd_file.plot()
+    """
+
+#%% DATA SHP
+
+for watershed_name in watershed_names[:]:
+    
+    print('##### '+watershed_name.upper()+' #####')
+               
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dict_utm_path[watershed_name][0], 
+                                  out_path=out_path,
+                                  load=True)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+
+    list_shps = glob.glob(stable_folder+"geographic/"+"*.shp")
+    
+    for i in list_shps:
+        print(i)
+        
+        shp_path = i
+        
+        s = gpd.read_file(shp_path)
+        s = s.to_crs(3035)
+        s.to_file(shp_path)
+
+#%% DATA GW
+
+gw_data = pd.DataFrame(watershed_names, columns=['watershed_names'])
+
+for watershed_name in watershed_names[:]:
+    
+    print('##### '+watershed_name.upper()+' #####')
+               
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dict_utm_path[watershed_name][0], 
+                                  out_path=out_path,
+                                  load=True)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+    
+    gw_path = data_path + '_Europe/' + 'Groundwater/'
+    
+    toolbox.create_folder(stable_folder+'groundwater/')
+
+    list_gwdata = glob.glob(gw_path+'*.tif')
+    
+    for i in list_gwdata:
+        name = i.split('\\')[-1]
+        if name != 'france_potentialrecharge.tif':
+            gw_data_path = gw_path + name
+            out_gw_path = stable_folder+'groundwater/'+name
+            # x='C:/Users/ronan/Documents/SIMULATIONS/WATERLINE/CATCHMENTS/Vosvozis/results_stable/geographic/box_buff_leae.shp'
+            wbt.clip_raster_to_polygon(gw_data_path,
+                                       BV.geographic.watershed_box_shp,
+                                       out_gw_path,
+                                       maintain_dimensions=False)
+            
+            gw_rec_tif = imageio.imread(out_gw_path)
+            gw_rec_tif[gw_rec_tif<0] = np.nan
+            gw_rec_mean = np.nanmean(gw_rec_tif)
+            print(round(gw_rec_mean,1))
+            
+            gw_data.loc[gw_data['watershed_names']==watershed_name, name[:-4]] = round(gw_rec_mean, 1)
+    
+#%% ---- MODELING DICHOTOMY
+
+#%% DICHOTOMY STREAMS
+
+# for watershed_name in ['Vosvozis', 'Kocinka', 'Temmes']:
+for watershed_name in ['Vosvozis']:
+        
+    df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+    
+    for type_obs, field_obs in zip(types_obs, fields_obs):
+   
+        print('##### '+watershed_name.upper()+' #####')
+        
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dict_utm_path[watershed_name][0], 
+                                      out_path=out_path,
+                                      load=True,
+                                      modflow_path=modflow_path)
+        
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+        
+        # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
+        
+        BV.add_oceanic('None')
+        BV.add_forcing()
+        
+        recharge = gw_data.loc[gw_data['watershed_names']==watershed_name,'Potential Groundwater Recharge bias corrected'].values[0]
+        BV.forcing.update_recharge(recharge / 1000 / 365, sim_state='steady') #♠ mm/y to m/d
+        
+        BV.add_hydrodynamic()
+        BV.hydrodynamic.update_nlay(1)
+        BV.hydrodynamic.update_thickness(30)
+        BV.hydrodynamic.update_bottom(None)
+        BV.hydrodynamic.update_cond_decay(0)
+        BV.hydrodynamic.update_thick_exp(1)
+        
+        params_df = pd.DataFrame(columns=['params',
+                                          'init_values','lower_bounds','higher_bounds',
+                                          'units','scale'])
+        params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
+        params_file = 'calib_dicot_hom_1v_k1_'+type_obs
+        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+        
+        dicot = calib.dichotomy(gap=1)
+
+        typ_calib = 'streams_calibration'
+        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                            key=os.path.getmtime)
+        name_file = list_path[-1].split('\\')[-1]
+        calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+        test = calib_analysis.CalibAnalysis(calib_file)
+        test.display_objective_function(save=None)
+        
+        koptim = test.calib['params_values'][-1]
+        kr = koptim / test.calib['recharge']
+        obj_func = test.calib['objective_function'][-1]
+                
+        df.loc[0,type_obs] = koptim / 24 / 3600
+        df.loc[1,type_obs] = kr
+        df.loc[2,type_obs] = obj_func
+        
+    df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+    df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
 #%% ---- NOTES
 
 
