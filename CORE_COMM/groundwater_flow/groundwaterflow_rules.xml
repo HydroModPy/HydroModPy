@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rules>
+	<constraint>
+		<condition parametersGroup='groundwaterflow' parameterName='model_name' logicalOperator='equal' value='hs1d' />	
+		<action parametersGroup='groundwaterflow/modflow' parameterName='' logicalOperator='disableGroup' />
+	</constraint>
+	<constraint>
+		<condition parametersGroup='groundwaterflow' parameterName='model_name' logicalOperator='equal' value='modflow' />	
+		<action parametersGroup='groundwaterflow/hs1d' parameterName='' logicalOperator='disableGroup' />
+	</constraint>
+</rules>
