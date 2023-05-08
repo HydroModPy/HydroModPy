@@ -1,11 +1,4 @@
 <ParametersGroup name="simul">
-	<Parameter name="parameterization">
-		<description>Uses Parameterization from file first</description>
-		<type>bool</type>
-		<possible_values>True;False</possible_values> 
-		<value/>
-		<default_value>True</default_value>
-	</Parameter>
 	<Parameter name="load">
 		<description>Loads the stored watershed files instead of regenerating the code, speeds up the simulation at the expense of some vulnerability</description>
 		<type>bool</type>
