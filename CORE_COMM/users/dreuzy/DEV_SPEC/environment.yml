@@ -20,6 +20,7 @@ dependencies:
     
     # Data reading/writing and conversion
     - pandas
+    - lxml
     
     # Post-processing
     - matplotlib
