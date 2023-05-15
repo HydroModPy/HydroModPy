@@ -71,7 +71,12 @@ class Hydrodynamic:
         Exponential decay thickness of the hydraulic conductivity (only, not porosity)
         Default value: 0, exponential decay not activated 
         K = Ksurface * exp (- cond_decay * z)
-        
+    
+    poro_decay: float
+        Exponential decay thickness of the porosity
+        Default value: 0, exponential decay not activated
+        K = Ksurface * exp (- poro_decay * z)
+    
     thick_exp: float
         Exponential increase of the mesh thickness
         Default value: 1, exponential decay not activated 
@@ -88,7 +93,7 @@ class Hydrodynamic:
     #%% INIT
     
     def __init__(self, nrow: int, ncol: int, box_dem: str, nlay_init: int = 1, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
-                 thickness_init: float = 50., bottom_init: float = None, cond_decay_init: float = 0.,
+                 thickness_init: float = 50., bottom_init: float = None, cond_decay_init: float = 0., poro_decay_init: float = 0.,
                  thick_exp_init: float = 1.):
         """
         
@@ -118,6 +123,7 @@ class Hydrodynamic:
         self.calib_zones = np.ones((nrow, ncol))
         self.bottom = bottom_init
         self.cond_decay = cond_decay_init
+        self.poro_decay = poro_decay_init
         self.thick_exp = thick_exp_init
         self.box_dem = box_dem
     
@@ -188,7 +194,18 @@ class Hydrodynamic:
         """
         
         self.cond_decay =  cond_decay_value
+    
+    def update_poro_decay(self, poro_decay_value: float):
+        """
         
+        Updates the :attr:`poro_decay` with a constant value :data:`poro_decay_value`.
+
+        :param cond_decay_value: .
+        
+        """
+        
+        self.poro_decay =  poro_decay_value    
+    
     def update_thick_exp(self, thick_exp_value: float):
         """
         

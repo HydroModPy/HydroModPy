@@ -206,6 +206,7 @@ case = 'k0k1'
 case = 'calib'
 case = 'inter1'
 case = 'best1'
+case = 'explor1'
 ######################
 
 if case == 'k0k1':
@@ -270,6 +271,23 @@ if case == 'best1':
             
     # Name
     typ = 'casebest1'
+
+if case == 'explor1':
+    etot = 400
+    esurf = 40
+    # list_x = np.array([0.1,1,10])
+    list_x = np.geomspace(0.001, 1000, 10)
+    k0s = Koptim * (etot/(esurf+((etot-esurf)/list_x))) * 3600 * 24
+    k1s = (k0s / list_x)
+    thick_k0 = 40 # thickness of the upper layer
+    cond_decays = [0] * 10 # exponential decay of K with depth : 0.02
+    # Vertical
+    verti_ks = []
+    for i in range(len(list_x)):
+        verti_ks.append( [ [k0s[i], [0, thick_k0]] ] )
+            
+    # Name
+    typ = 'explor1'
     
 #%% OPTIONS
 
@@ -322,6 +340,7 @@ date_today = date_today.replace(' ','_')
 for i, (k0, k1, verti_k, cond_decay) in enumerate(zip(k0s, k1s, verti_ks, cond_decays)):
     print(i, k1, verti_k, cond_decay)
     
+    """    
     if i <= 2:
         BV.hydrodynamic.update_hyd_cond(k1)
         model_name = typ+'_'+str(compt)+'_'+\
@@ -331,13 +350,18 @@ for i, (k0, k1, verti_k, cond_decay) in enumerate(zip(k0s, k1s, verti_ks, cond_d
         BV.hydrodynamic.update_hyd_cond(k0)
         model_name = typ+'_'+str(compt)+'_'+\
                          str(Sy*100)+'-'+'e'+str(cond_decay)+'-'+str(thick)+'_'+str(nlay)
-        
+    """    
+    
+    BV.hydrodynamic.update_hyd_cond(k1)
+    model_name = typ+'_'+str(compt)+'_'+\
+                     str(Sy*100)+'-'+str(round(verti_k[0][0]/k1,3))+'-'+str(thick)+'_'+str(nlay)
     BV.hydrodynamic.update_cond_decay(cond_decay) # 0
 
     if run == True:
         # try:
         print('SIM - ' + model_name)
-        
+
+      
         success, flow_model = BV.run_modflow(ident=model_name,
                                              run=run,
                                              modpath_sim=modpath_sim,
@@ -538,22 +562,28 @@ def make_patch_spines_invisible(ax):
 # ax_r3.yaxis.set_label_position('right')
 # ax_r3.yaxis.set_ticks_position('right')
 
-ax_l0.plot(data_explo['k0k1'], (data_explo['D_so']/data_explo['D_os'])/1,
-           color='forestgreen', marker='o', lw=3)
-# ax_l0.set_xscale('log')
+# ax_l0.plot(data_explo['k0k1'], (data_explo['D_so']),
+#            color='forestgreen', marker='o', lw=3)
+# ax_l0.plot(data_explo['k0k1'], (data_explo['D_os']),
+#            color='', marker='o', lw=3)
+ax_l0.plot(data_explo['k0k1'], (abs(1-(data_explo['D_so']/data_explo['D_os']))),
+           color='red', marker='o', lw=2)
+ax_l0.set_xscale('log')
 ax_l0.set_yscale('log')
-ax_l0.axhline(y=1, c='k', ls='--')
+# ax_l0.axhline(y=1, c='k', ls='--')
 # ax_l0.set_xlim(0.01, 1e3)
 ax_l0.set_xlabel('K upper layer / K lower layer')
-ax_l0.set_ylabel('Stream network indicator', c='forestgreen')
+ax_l0.set_ylabel('Stream network indicator', c='red')
 ax_l0.set_title('Calibration criteria')
 # ax_l0.axvline(x=6e-1, c='k', ls='--')
+ax_l0.axvline(x=2, c='limegreen', ls='--', lw=2)
 
 ax_r0.plot(data_explo['k0k1'], ((data_explo['Qout_sim']/data_explo['Qsub_obs'])),
-           color='dodgerblue', marker='o', lw=3)
+           color='dodgerblue', marker='o', lw=2)
 # ax_r0.set_yscale('log')
-ax_l0.set_ylim(0.1, 10)
+ax_l0.set_ylim(0.1, 30)
 ax_r0.set_ylabel('Streamflow indicator', c='dodgerblue', rotation=270, labelpad=+25,)
+ax_r0.set_ylim(1, 2)
 
 # ax_r1.plot(data_explo['k0k1'], (data_explo['t_sim']),
 #            color='red', marker='o', lw=3)
