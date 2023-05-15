@@ -147,7 +147,7 @@ sea_lev_df_fill = sea_lev_df.fillna(sea_lev_df.mean())
 sea_lev_df_fill = sea_lev_df_fill
 sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
 
-sea_lev_cut = sea_lev[0:30]
+sea_lev_cut = sea_lev[0:30] 
 
 #%% Homogeneous calibration
 
