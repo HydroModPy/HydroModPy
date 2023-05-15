@@ -735,7 +735,7 @@ for model_name in list_selects:
         
     # id_particules_random = random.sample(keep_particules[:-1], 1000)
     
-    random.sample(keep_particules[:-1], 1000)
+    # random.sample(keep_particules[:-1], 1000)
     
     pth_data_save = []
     for o, i in enumerate(id_particules_random):

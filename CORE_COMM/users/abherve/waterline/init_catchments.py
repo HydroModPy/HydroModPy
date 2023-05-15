@@ -70,6 +70,8 @@ from calibration import calib_root, calib_analysis
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+# t = imageio.imread('C:/Users/ronan/Documents/SIMULATIONS/WATERLINE/CATCHMENTS/Canut/results_stable/geographic/watershed_direc.tif')
+
 #%% ---- EXTRACT CATCHMENT
 
 #%% PATH WATERSHED
@@ -121,7 +123,7 @@ watershed_names = ['Vosvozis',
 
 #%% DATA TOPO
 
-load = False
+load = True
 
 dict_utm_path =  {}
 
@@ -222,28 +224,151 @@ for watershed_name in watershed_names[:]:
         watershed_display.watershed_local(utm_dem_path, BV)
     except:
         pass
+
+#%% DATA TIF
+
+load = True
+
+for watershed_name in watershed_names[:]:
     
-    try:    
-        list_tifs = glob.glob(stable_folder+"geographic/"+"*.tif")
-        
-        ####### dst_crs = utm_crs
-        dst_crs = 'epsg:3035'
+    print('##### '+watershed_name.upper()+' #####')
+               
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dict_utm_path[watershed_name][0], 
+                                  out_path=out_path,
+                                  load=True)
     
-        for i in list_tifs:
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+
+    # try:    
+        
+    list_tifs = glob.glob(stable_folder+"geographic/"+"*.tif")
     
-            tif_path = i
+    
+    # dst_crs = utm_crs
+    dst_crs = 'epsg:'+str(dict_utm_path[watershed_name][1])
+    # dst_crs = 'epsg:3035'
+
+    for i in list_tifs:
+
+        tif_path = i
+    
+        with rasterio.open(tif_path, 'r') as src:
+            raster = src.read()
+            kwargs = src.meta.copy()
+            kwargs.update({
+                'crs': dst_crs
+            })
+        with rasterio.open(tif_path, 'w', **kwargs) as dst:
+            dst.write(raster)
+    
+    for i in list_tifs:
+
+        tif_path = i
         
-            with rasterio.open(tif_path, 'r') as src:
-                raster = src.read()
-                kwargs = src.meta.copy()
-                kwargs.update({
-                    'crs': dst_crs
-                })
-            with rasterio.open(tif_path, 'w', **kwargs) as dst:
-                dst.write(raster)
-    except:
-        pass
+        open_tif = imageio.imread(tif_path)
+        tif_name = tif_path.split('\\')[-1]
+        # print(tif_name, open_tif.shape)
         
+        if tif_name == 'watershed_box_buff_dem.tif':
+            base_open_tif = open_tif
+            base_dem_path = tif_path
+            shape = open_tif.shape
+        
+        print(tif_name, open_tif.shape)
+            
+    """    
+    for i in list_tifs:
+        
+        tif_path = i
+        
+       
+        # dst_crs = 'epsg:3035'
+
+        # with rasterio.open(tif_path, 'r') as src:
+        #     raster = src.read()
+        #     kwargs = src.meta.copy()
+        #     kwargs.update({
+        #         'crs': dst_crs
+        #     })
+        # with rasterio.open(tif_path, 'w', **kwargs) as dst:
+        #     dst.write(raster)
+    
+        
+        open_tif = imageio.imread(tif_path)
+        tif_name = tif_path.split('\\')[-1]
+        
+        if np.nanmin(open_tif) ==  -99999:
+        
+            if open_tif.shape != shape:
+                toolbox.export_tif(base_dem_path, open_tif, -99999, tif_path)
+            
+            wbt.set_nodata_value(
+                    tif_path, 
+                    tif_path, 
+                    back_value=-99999)
+            
+            wbt.modify_no_data_value(
+                    tif_path, 
+                    new_value="-9999")
+        
+            # smaller_raster = gdal.Open(tif_path)
+            # larger_raster  = gdal.Open(base_dem_path)
+            
+            # gt = smaller_raster.GetGeoTransform()
+            # lt = larger_raster.GetGeoTransform()
+            
+            # SmlMaxX = gt[0] + (gt[1] * smaller_raster.RasterXSize)
+            # SmlMinY = gt[3] + (gt[5] * smaller_raster.RasterYSize)
+            # Xoff = int((gt[0] - lt[0])/lt[1]) # cols to skip
+            # Yoff = int((gt[3] - lt[3])/lt[5]) # rows to skip
+            # Cols = int((SmlMaxX - gt[0])/lt[1])
+            # Rows = int((SmlMinY - gt[3])/lt[5])
+            
+            # # print out some numbers so you can check manually
+            # print("X offset {}, Y offset {}".format(Xoff,Yoff))
+            # print("Xmax {}, Ymin {}".format(SmlMaxX,SmlMinY))
+            # print("Reading {} cols, {} rows".format(Cols,Rows))
+            
+            # band = larger_raster.GetRasterBand(1)
+            # data = larger_raster.ReadAsArray(Xoff,Yoff,Cols,Rows) # read the larger raster
+        
+        check_tif = imageio.imread(tif_path)
+        print(tif_name, check_tif.shape)
+    """
+    
+    # except:
+    #     pass
+
+#%% DATA SHP
+
+load = True
+
+for watershed_name in watershed_names[:]:
+    
+    print('##### '+watershed_name.upper()+' #####')
+               
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dict_utm_path[watershed_name][0], 
+                                  out_path=out_path,
+                                  load=True)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
+
+    list_shps = glob.glob(stable_folder+"geographic/"+"*.shp")
+    
+    for i in list_shps:
+        print(i)
+        
+        shp_path = i
+        
+        s = gpd.read_file(shp_path)
+        # s = s.to_crs(3035)
+        s = s.to_crs(dict_utm_path[watershed_name][1])
+        s.to_file(shp_path)
+
 #%% DATA HYDRO
 
 for watershed_name in watershed_names[:]:
@@ -298,32 +423,9 @@ for watershed_name in watershed_names[:]:
     watshd_file.plot()
     """
 
-#%% DATA SHP
-
-for watershed_name in watershed_names[:]:
-    
-    print('##### '+watershed_name.upper()+' #####')
-               
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dict_utm_path[watershed_name][0], 
-                                  out_path=out_path,
-                                  load=True)
-    
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
-
-    list_shps = glob.glob(stable_folder+"geographic/"+"*.shp")
-    
-    for i in list_shps:
-        print(i)
-        
-        shp_path = i
-        
-        s = gpd.read_file(shp_path)
-        s = s.to_crs(3035)
-        s.to_file(shp_path)
-
 #%% DATA GW
+
+load = True
 
 gw_data = pd.DataFrame(watershed_names, columns=['watershed_names'])
 
@@ -335,6 +437,10 @@ for watershed_name in watershed_names[:]:
                                   dem_path=dict_utm_path[watershed_name][0], 
                                   out_path=out_path,
                                   load=True)
+    
+    s = gpd.read_file(BV.geographic.watershed_box_shp)
+    s = s.to_crs(3035)
+    s.to_file(BV.geographic.watershed_box_shp)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -363,12 +469,20 @@ for watershed_name in watershed_names[:]:
             
             gw_data.loc[gw_data['watershed_names']==watershed_name, name[:-4]] = round(gw_rec_mean, 1)
     
+    s = gpd.read_file(BV.geographic.watershed_box_shp)
+    # s = s.to_crs(3035)
+    s = s.to_crs(dict_utm_path[watershed_name][1])
+    s.to_file(BV.geographic.watershed_box_shp)
+    
 #%% ---- MODELING DICHOTOMY
 
 #%% DICHOTOMY STREAMS
 
 # for watershed_name in ['Vosvozis', 'Kocinka', 'Temmes']:
-for watershed_name in ['Vosvozis']:
+# for watershed_name in ['Vosvozis']:
+# for watershed_name in ['Canut']:
+
+for watershed_name in watershed_names:
         
     df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
     
@@ -402,8 +516,13 @@ for watershed_name in ['Vosvozis']:
         params_df = pd.DataFrame(columns=['params',
                                           'init_values','lower_bounds','higher_bounds',
                                           'units','scale'])
-        params_df.loc[0] = ['k1',8.64e-01,8.64e-03,8.64e+01,'m/j','lin']
-        params_file = 'calib_dicot_hom_1v_k1_'+type_obs
+        params_df.loc[0] = ['k1',
+                            None,
+                            1e-08*24*3600,
+                            1e-03*24*3600,
+                            'm/j',
+                            'lin']
+        params_file = 'calib_dicot_hom_1v_k1_'
         params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
         calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
         
