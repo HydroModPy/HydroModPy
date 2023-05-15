@@ -75,7 +75,7 @@ def folder_of_file_new(file_name,folder_new):
 
     """
     # Gets file_name without the folder
-    pos = file_name.rfind('/')
+    pos = file_name.rfind(os.sep)
     if pos != -1 : 
         file_name = file_name[pos+1:]
     # Creates folder if it does not exsit

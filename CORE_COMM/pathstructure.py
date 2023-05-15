@@ -17,6 +17,7 @@ from os.path import dirname, abspath
 
 
 def results_folder(): 
+    
     # user = 'Martin'
     user = 'Jean-Raynald'
 
@@ -34,7 +35,6 @@ def results_folder():
 
 
 def path_classical(DIR):
-
 
     # Path to the git repositoty home page
     git_path = DIR
