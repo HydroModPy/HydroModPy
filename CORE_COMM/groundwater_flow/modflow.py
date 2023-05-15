@@ -570,6 +570,9 @@ class Modflow():
         # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
         # Homogeneous or heterogeneous hydraulic conductivity 
         # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
+        # print(self.nlay, self.nrow, self.ncol)
+        # print(self.hyd_cond)
+        # print(self.hyd_cond.shape)
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
         if self.cond_decay != 0.:
