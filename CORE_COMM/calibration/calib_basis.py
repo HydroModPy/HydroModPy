@@ -144,7 +144,8 @@ class CalibrationBasis:
         #%% RUN MODEL
 
         # Run model: seeks the parameters automatically in the elements of self.watershed
-        succes, mf = self.watershed.run_modflow(self.ident, 
+        succes, mf = self.watershed.run_modflow(self.ident,
+                                                box=False,  #### BE CAREFUL HERE
                                                 verbose=True,
                                                 calib=self.param_folder)
         
