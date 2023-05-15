@@ -543,7 +543,7 @@ class Modflow():
             
         ### Constant Head boundary conditions of No Flow (at sea level)
         
-        if isinstance(self.sea_level, (int,float,pd.Series)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
+        if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             print('niv1')
             if isinstance(self.sea_level,(int,float)) == False:

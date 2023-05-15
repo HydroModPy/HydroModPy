@@ -4,8 +4,8 @@
 
 <ParametersGroup name="a_given_inputs">
 	<ParametersGroup name="simulation">
-		&simul_params;
-		&watershed_root_params;
-		&groundwaterflow_params;
+		&simul;
+		&watershed_root;
+		&groundwaterflow;
 	</ParametersGroup>
 </ParametersGroup>

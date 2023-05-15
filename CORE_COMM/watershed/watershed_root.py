@@ -28,6 +28,8 @@ from tools import toolbox
 from watershed import forcing, geographic, hydrodynamic, watershed_display
 from calibration import calib_dichotomy
 
+from options import parameter_choice
+
 #%% CLASS
 
 class Watershed :
@@ -230,8 +232,7 @@ class Watershed :
             False: the watershed will be generated (and not loaded)
             
         """
-
-        self.watershed_name = watershed_name
+        self.watershed_name = parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
         self.library_path = library_path
         
         self.from_shp = from_shp

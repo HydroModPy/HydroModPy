@@ -14,6 +14,6 @@
 <!ELEMENT default_value (#PCDATA)>
 <!ELEMENT possible_values (#PCDATA)>
 
-<!ENTITY simul_params SYSTEM "examples/a_given/simul_params.xml">
-<!ENTITY watershed_root_params SYSTEM "watershed/watershed_root_params.xml">
-<!ENTITY groundwaterflow_params SYSTEM "groundwater_flow/groundwaterflow_params.xml">
+<!ENTITY simul SYSTEM "examples/a_given/simul_params.xml">
+<!ENTITY watershed_root SYSTEM "watershed/watershed_root_params.xml">
+<!ENTITY groundwaterflow SYSTEM "groundwater_flow/groundwaterflow_params.xml">

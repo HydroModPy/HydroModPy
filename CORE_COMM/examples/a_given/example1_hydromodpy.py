@@ -17,14 +17,17 @@ Simple example for basic execution of HydroModPy (execution should be of the ord
 
 # File system to define in sys.path for the code to work
 from os.path import dirname, abspath, join
+import os 
 import sys
 # Current Directory stored in DIR 
 DIR = dirname(dirname(dirname(abspath(__file__))))
 # APPENDS ROOT FOLDER 
 sys.path.append(DIR)
+sys.path.append(os.path.join(os.getenv("HYDROMODPY_ROOT").replace('/',os.sep),"HydroModPy"))
 # Updates path 
 import startup
-startup.python_path_update(DIR)
+DIR = startup.python_path_update(DIR)
+print(sys.path)
 
 
 # %% GENERAL LIBRARIES
@@ -37,6 +40,7 @@ from IPython import get_ipython
 from tools import toolbox, vtk
 
 get_ipython().run_line_magic('matplotlib', 'inline')
+
 # # Plot
 import matplotlib.pyplot as plt
 # from matplotlib.font_manager import FontProperties
@@ -77,6 +81,8 @@ from groundwater_flow import modflow_display, visualization
 def run_example(out_path, regression_test=False, parameters=None):
    
     print('Function ready !')
+    
+    parameters = parameters.getgroup('simulation')
                          
     # Creation of basis whitebox class (wbt)
     wbt = whitebox.WhiteboxTools()
@@ -103,7 +109,7 @@ def run_example(out_path, regression_test=False, parameters=None):
     
     # Indicate the name of the regional DEM
     #JR:PARAMETERS
-    dem_name = parameter_choice("DEM_test_75m_LAMB93.tif", parameters.getparam("dem").getvalue(), parameters.getparam("parameterization").getvalue())
+    dem_name = parameter_choice("DEM_test_75m_LAMB93.tif", parameters.getgroup('simul').getparam("dem").getvalue())
     
     dem_path = dems_path + dem_name
     
@@ -115,7 +121,9 @@ def run_example(out_path, regression_test=False, parameters=None):
     library = pd.read_csv(library_path, sep=';', header=0, engine='python') # explore catchment studied
     
     # Selection of the watershed to deal within from the just loaded library of watersheds
-    watershed_name = 'Example' # add manually study site information in map units  #JR:Parameters
+    #JR:PARAMETERS
+    watershed_name = parameter_choice('Example', parameters.getgroup('watershed_root').getparam("watershed_name").getvalue())
+     # add manually study site information in map units  #JR:Parameters
     #RONAN: Supprimer la ligne?
     mysite = library[library['watershed_name'] == watershed_name] # specific row
     
@@ -127,7 +135,7 @@ def run_example(out_path, regression_test=False, parameters=None):
     
     # If watershed has already been generated, use the generated one instead to recreate it again
     #JR:PARAMETERS
-    load = parameter_choice(False, parameters.getparam("load").getvalue(), parameters.getparam("parameterization").getvalue())
+    load = parameter_choice(False, parameters.getgroup('simul').getparam("load").getvalue())
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -147,7 +155,7 @@ def run_example(out_path, regression_test=False, parameters=None):
                                   from_dem=from_dem,
                                   from_xy=from_xy,
                                   cell_size=cell_size,
-                                  parameters=parameters)
+                                  parameters=parameters.getgroup('watershed_root'))
     
     #%% ADD SPECIFIC DATA
     
@@ -292,14 +300,18 @@ out_path=path.results_folder()
 
 
 def xml_parameters(): 
+    # local folder of example
+    folder = dirname(abspath(__file__))
     # Initialization of Reference ParametersGroup
-    file_ref = "a_given_params.xml"
+    file_ref = join(folder,"a_given_params.xml")
     # ref = pg.ParametersGroup(file_ref)   
     # Loads User ParametersGroup
-    file_usr = "a_given_params.xml"
-    # usr = pg.ParametersGroup(file_usr)   
-    # Results folder
-    folder_res = "../../../../../results/xml_parameters"
+    file_usr = join(folder,"a_given_params.xml")  
+    # Results folder: defines and creates
+    #JR-ATTENTION: folder_res à transmettre pour les résultats
+    vec=folder.split('\\')
+    folder_res = join(os.getenv("HYDROMODPY_RESULTS").replace('/',os.sep),vec[-2],vec[-1])
+    os.makedirs(folder_res,exist_ok=True)
     # Merges the two structures and affects default_values to values when necessary
     paramgroup = pg.ParametersGroup.merge_diff(file_ref,file_usr,pg.EXPLOPT.REPLACE,folder_res)[0]
     return paramgroup

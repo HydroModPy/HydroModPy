@@ -34,7 +34,7 @@ from watershed import watershed_root, watershed_display
 # %% PATHS + watershed options
 
 watershed_name = 'Gouville'
-dem_name = "MNT_Gouville_large.tif"
+dem_name = "MNT_fus.tif" #MNT_Gouville_large.tif
 
 if DIR[0] == 'd': #server
     shape_path = r'D:\mlemesnil\Data\BV_RN2100\Gouville\zone_modele.shp'
@@ -54,7 +54,7 @@ elif DIR[0] == 'c': #local
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
     modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
     dems_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville/'
-    shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele.shp'
+    shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele_west_ext.shp'
     data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -121,8 +121,8 @@ BV.piezometry.display_data()
 
 #%% Surfex extraction
 
-first_yr = 2006
-last_yr = 2007
+first_yr = 2016
+last_yr = 2016
 sce = 'historic'
 mod = 'REA'
 
@@ -131,6 +131,23 @@ BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
                                   first_year = first_yr, last_year = last_yr, 
                                   time_step = 'D', sim_state = 'transient')
 rech = BV.forcing.recharge
+rech_cut = rech.iloc[0:30]
+
+#%% Sea level extraction
+
+from SHOM_process import SHOM
+
+maregraph = 'St-Malo'
+first_yr = 2016
+last_yr = 2016
+
+sea_lev_df = SHOM(maregraph, first_yr, last_yr)
+sea_lev_df_interp = sea_lev_df.interpolate()
+sea_lev_df_fill = sea_lev_df.fillna(sea_lev_df.mean())
+sea_lev_df_fill = sea_lev_df_fill
+sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
+
+sea_lev_cut = sea_lev[0:30]
 
 #%% Homogeneous calibration
 
@@ -138,17 +155,19 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_homo' #calib_optim1_aut22_k1n1
+params_file = 'calib_test_1x_janv' #calib_optim1_aut22_k1n1
 
-BV.forcing.update_recharge(rech, 'transient') #R_HAD_REG_RCP26
+BV.forcing.update_recharge(rech_cut, 'transient')
+BV.oceanic.update_MSL(sea_lev_cut)
+
 BV.hydrodynamic.update_thickness(30)
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',2,2,4,'m/j','log']
-params_df.loc[1] = ['n1',0.1,0.1,0.2,'-','lin']
+params_df.loc[0] = ['k1',75,75,75,'m/j','log']
+params_df.loc[1] = ['n1',0.1,0.1,0.1,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
-calib.exploration(36)
+calib.exploration(1)
 
 
 
