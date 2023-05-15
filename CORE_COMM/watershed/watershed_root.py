@@ -232,7 +232,14 @@ class Watershed :
             False: the watershed will be generated (and not loaded)
             
         """
-        self.watershed_name = parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
+        
+        try:
+            self.watershed_name = parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
+            print("parameter_choice way")
+        except:
+            self.watershed_name = watershed_name
+            pass
+        
         self.library_path = library_path
         
         self.from_shp = from_shp
@@ -535,7 +542,8 @@ class Watershed :
     def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, 
                     zone_partic: str = 'watershed', box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
-                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., poro_decay: float = 0.,
+                    multip_cond: float = None,
                     verbose: bool = False, post_process: bool = False,
                     time_step: str = 'M', calib: str = None, init_rech: str = 'mean', bc_left: (float) = None, bc_right: (float) = None,
                     verti_k: list = None):
@@ -573,6 +581,7 @@ class Watershed :
         :param lay_number: number of layer of the model
         :param bottom: if bottom is None, the model has a constant thickness.if bottom is float, the model has a flat bottom at the float elevation
         :param cond_decay: changes the hydraulic conductivity exponentially with the depth. lay_number must be >1.
+        :param poro_decay: changes the porosity exponentially with the depth. lay_number must be >1.
         :param thick_exp: changes the thickness of the layers exponentially. lay_number must be >1.
         :meta public:
             
@@ -593,6 +602,7 @@ class Watershed :
                                      bottom=self.hydrodynamic.bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond,
                                      cond_decay=self.hydrodynamic.cond_decay,
+                                     poro_decay=self.hydrodynamic.poro_decay,
                                      porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge,
                                      sea_level=self.oceanic.MSL,

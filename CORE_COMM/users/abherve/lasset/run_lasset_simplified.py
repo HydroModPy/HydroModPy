@@ -108,7 +108,7 @@ if user == 'Ronan':
     # Path to the data folder
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
     # Path where the results will be stored
-    out_path = "C:/Users/ronan/Documents/HYDROMODPY/LASSET/"
+    out_path = "C:/Users/ronan/Documents/SIMULATIONS/LASSET/"
     # Figure folder outputs
     # figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
     #############################################################
@@ -142,7 +142,7 @@ dem_path = dems_path + dem_name
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 # watershed_names = ['Pompage'] # search the name in watershed_library or just label your result folder
 
-watershed_names = ['Lasset_egu']
+watershed_names = ['Lasset_decay']
 code_names = ['?']
 
 #%% GENERATE WATERSHED
@@ -242,8 +242,9 @@ R_rea = BV.forcing.recharge
 #%% DICHOTOMY PARAMS
 
 ######################
-dicot_name = 'egu1'
+# dicot_name = 'egu1'
 # dicot_name = 'oneplot'
+dicot_name = 'explor1'
 ######################
 
 # 12 cases :
@@ -311,16 +312,16 @@ BV.hydrodynamic.update_nlay(nlay) # 1
 BV.hydrodynamic.update_thick_exp(thick_exp) # 1
 BV.hydrodynamic.update_thickness(thick) # 30 / intervient pas si bottom != None
 BV.hydrodynamic.update_porosity(Sy)
-BV.hydrodynamic.update_hyd_cond(K0) 
+BV.hydrodynamic.update_hyd_cond(K0)
 
 # params_file = 'calib_dicot_hom_1v_k1'+'/'+dicot_name
-params_file = 'calib_dicot_hom_1v_k1'+dicot_name
+params_file = 'calib_dicot_hom_1v_k1'+'_'+dicot_name
 
 #%% DICHOTOMY LAUCNH
 
 cp = 0
 
-for cond_decay, bottom in zip(list_cond_decay[3:4], list_bottom[3:4]):
+for cond_decay, bottom in zip(list_cond_decay[:], list_bottom[:]):
     
     if np.isin(cp, range(10)):
         params_df = pd.DataFrame(columns=['params',
@@ -416,7 +417,7 @@ df.to_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';
 df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
 
 ######################
-typ = 'egu1'
+typ = 'explor1'
 ######################
 
 box=True
@@ -442,7 +443,7 @@ list_koptim = list(df['k'].values)
 
 # list_porosity = np.logspace(np.log10(0.001), np.log10(0.3), 10)
 # list_porosity = np.geomspace((0.001), (0.3), 10)
-list_porosity = np.geomspace((0.003), (0.3), 10).round(3)
+list_porosity = np.geomspace((0.03), (0.3), 10).round(3)
 
 # Label
 list_model_name = []
@@ -467,10 +468,10 @@ compt_model = 0
 for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_bottom[:], list_koptim[:]):
     BV.hydrodynamic.update_bottom(bottom_cal) # None
     BV.hydrodynamic.update_cond_decay(cond_decay_cal) # 0
+    BV.hydrodynamic.update_poro_decay(cond_decay_cal/2) # 0
     BV.hydrodynamic.update_hyd_cond(koptim_cal)
     
     for porosity_value in list_porosity[:]:
-        BV.hydrodynamic.update_porosity(porosity_value)
         
         model_name = typ+'_'+str(compt_model)+'_'+\
                      str(round(1/cond_decay_cal,1))+'-'+\

@@ -82,26 +82,6 @@ out_path = "C:/Users/ronan/Documents/SIMULATIONS/WATERLINE/CATCHMENTS/"
 res_path = 'C:/Users/ronan/OneDrive/UNINE/5_Waterline/Hydromodpy/Catchments/'
 modflow_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
-### Resampling
-"""
-wbt.resample(
-    data_path+'DEM_2m.tif', 
-    data_path+'DEM_10m.tif', 
-    cell_size=10, 
-    base=None, 
-    method="cc")
-wbt.modify_no_data_value(
-    data_path+'DEM_10m.tif', 
-    new_value="-99999")
-
-with rasterio.open(data_path+'DEM_10m.tif') as src:
-    data = src.read()
-    ras_meta = src.profile
-    ras_meta['crs'] = 'EPSG:2056'
-with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
-    dest.write(data)
-"""
-
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
@@ -123,7 +103,7 @@ watershed_names = ['Vosvozis',
 
 #%% DATA TOPO
 
-load = True
+load = False
 
 dict_utm_path =  {}
 
@@ -193,12 +173,32 @@ for watershed_name in watershed_names[:]:
     # toolbox.reproject_shp(data_path + 'hydrology/' + types_obs[0] + '.shp',
     #                       data_path + 'hydrology/' + types_obs[0] + '_utm' + '.shp',
     #                       utm_crs)
-        
+    
+    resamp_dem_path = dems_path+'EUDTM_Frame_'+watershed_name+'_utm'+str(utm_crs.split(':')[-1])+'_resamp100'+'.tif'
+    
+    ### Resampling
+    wbt.resample(
+        utm_dem_path, 
+        resamp_dem_path, 
+        cell_size=100, 
+        base=None, 
+        method="cc")
+    # wbt.modify_no_data_value(
+    #     data_path+'DEM_10m.tif',
+    #     new_value="-99999")
+
+    with rasterio.open(resamp_dem_path) as src:
+        data = src.read()
+        ras_meta = src.profile
+        ras_meta['crs'] = utm_crs.upper()
+    with rasterio.open(resamp_dem_path, "w", **ras_meta) as dest:
+        dest.write(data)
+    
     print('##### '+watershed_name.upper()+' #####')
     print(utm_crs.upper())
     
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=utm_dem_path, 
+                                  dem_path=resamp_dem_path, 
                                   out_path=out_path,
                                   modflow_path=modflow_path,
                                   library_path=library_path,
@@ -482,70 +482,72 @@ for watershed_name in watershed_names[:]:
 # for watershed_name in ['Vosvozis']:
 # for watershed_name in ['Canut']:
 
-for watershed_name in watershed_names:
-        
-    df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+for watershed_name in watershed_names[2:]:
     
-    for type_obs, field_obs in zip(types_obs, fields_obs):
-   
-        print('##### '+watershed_name.upper()+' #####')
+    if watershed_name != 'Hoal':
+    
+        df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
         
-        BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                      dem_path=dict_utm_path[watershed_name][0], 
-                                      out_path=out_path,
-                                      load=True,
-                                      modflow_path=modflow_path)
-        
-        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-        
-        # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
-        
-        BV.add_oceanic('None')
-        BV.add_forcing()
-        
-        recharge = gw_data.loc[gw_data['watershed_names']==watershed_name,'Potential Groundwater Recharge bias corrected'].values[0]
-        BV.forcing.update_recharge(recharge / 1000 / 365, sim_state='steady') #♠ mm/y to m/d
-        
-        BV.add_hydrodynamic()
-        BV.hydrodynamic.update_nlay(1)
-        BV.hydrodynamic.update_thickness(30)
-        BV.hydrodynamic.update_bottom(None)
-        BV.hydrodynamic.update_cond_decay(0)
-        BV.hydrodynamic.update_thick_exp(1)
-        
-        params_df = pd.DataFrame(columns=['params',
-                                          'init_values','lower_bounds','higher_bounds',
-                                          'units','scale'])
-        params_df.loc[0] = ['k1',
-                            None,
-                            1e-08*24*3600,
-                            1e-03*24*3600,
-                            'm/j',
-                            'lin']
-        params_file = 'calib_dicot_hom_1v_k1_'
-        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-        
-        dicot = calib.dichotomy(gap=1)
-
-        typ_calib = 'streams_calibration'
-        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                            key=os.path.getmtime)
-        name_file = list_path[-1].split('\\')[-1]
-        calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-        test = calib_analysis.CalibAnalysis(calib_file)
-        test.display_objective_function(save=None)
-        
-        koptim = test.calib['params_values'][-1]
-        kr = koptim / test.calib['recharge']
-        obj_func = test.calib['objective_function'][-1]
-                
-        df.loc[0,type_obs] = koptim / 24 / 3600
-        df.loc[1,type_obs] = kr
-        df.loc[2,type_obs] = obj_func
-        
-    df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
-    df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+        for type_obs, field_obs in zip(types_obs, fields_obs):
+       
+            print('##### '+watershed_name.upper()+' #####')
+            
+            BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                          dem_path=dict_utm_path[watershed_name][0], 
+                                          out_path=out_path,
+                                          load=True,
+                                          modflow_path=modflow_path)
+            
+            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+            
+            # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
+            
+            BV.add_oceanic('None')
+            BV.add_forcing()
+            
+            recharge = gw_data.loc[gw_data['watershed_names']==watershed_name,'Potential Groundwater Recharge bias corrected'].values[0]
+            BV.forcing.update_recharge(recharge / 1000 / 365, sim_state='steady') #♠ mm/y to m/d
+            
+            BV.add_hydrodynamic()
+            BV.hydrodynamic.update_nlay(1)
+            BV.hydrodynamic.update_thickness(30)
+            BV.hydrodynamic.update_bottom(None)
+            BV.hydrodynamic.update_cond_decay(0)
+            BV.hydrodynamic.update_thick_exp(1)
+            
+            params_df = pd.DataFrame(columns=['params',
+                                              'init_values','lower_bounds','higher_bounds',
+                                              'units','scale'])
+            params_df.loc[0] = ['k1',
+                                None,
+                                1e-08*24*3600,
+                                1e-03*24*3600,
+                                'm/j',
+                                'lin']
+            params_file = 'calib_dicot_hom_1v_k1_'
+            params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+            calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+            
+            dicot = calib.dichotomy(gap=1)
+    
+            typ_calib = 'streams_calibration'
+            list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                                key=os.path.getmtime)
+            name_file = list_path[-1].split('\\')[-1]
+            calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+            test = calib_analysis.CalibAnalysis(calib_file)
+            test.display_objective_function(save=None)
+            
+            koptim = test.calib['params_values'][-1]
+            kr = koptim / test.calib['recharge']
+            obj_func = test.calib['objective_function'][-1]
+                    
+            df.loc[0,type_obs] = koptim / 24 / 3600
+            df.loc[1,type_obs] = kr
+            df.loc[2,type_obs] = obj_func
+            
+        df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+        df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
 
 #%% ---- NOTES
 
