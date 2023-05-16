@@ -573,10 +573,11 @@ class Modflow():
         # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
         # print(self.nlay, self.nrow, self.ncol)
         # print(self.hyd_cond)
-        # print(self.hyd_cond.shape)
+        # print(self.hyd_cond.shape)        
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
         if self.cond_decay != 0.:
+            print('DECAY EXPO CONDH')
             depth = np.zeros(self.hk.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             self.hk *= np.exp(-self.cond_decay*depth)
@@ -584,6 +585,7 @@ class Modflow():
         self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
         
         if self.poro_decay != 0.:
+            print('DECAY EXPO POROSITY')
             depth = np.zeros(self.ps.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             self.ps *= np.exp(-(self.poro_decay)*depth)
@@ -591,7 +593,7 @@ class Modflow():
             # the medium structure that we chose to be equal to 2, as com-
             # monly reported in the literature (Cardenas and Jiang, 2010;
             # Bernabé et al., 2003)
-        
+            
         # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
         if self.verti_k != None:
             for j in range(len(self.verti_k)):
@@ -624,7 +626,7 @@ class Modflow():
             Kv[-1,:,:] = np.mean(self.hk)
             self.hk = Kv.copy()
         """
-        
+                
         self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk,
@@ -759,6 +761,12 @@ class Modflow():
         modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
         linecollection = modelxsect.plot_grid()
         modelxsect.plot_array(self.hk)
+        
+        fig = plt.figure(figsize=(10, 5))
+        ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
+        linecollection = modelxsect.plot_grid()
+        modelxsect.plot_array(self.ps)
         
     #%% PROCESSING
     

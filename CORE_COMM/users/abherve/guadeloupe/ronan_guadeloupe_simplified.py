@@ -973,7 +973,7 @@ for model_name in list_selects[:]:
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name[:]
 
-for model_name in list_selects[:1]:
+for model_name in list_selects[:]:
 
     shp_starting = gpd.read_file(simulations_folder+
                         model_name+'/'+'_pathlines/'+
@@ -1140,7 +1140,7 @@ for model_name in list_selects[:]:
                                         
 #%% ---- PLOT 3
 
-#%% PATHLINES - CROSS SECTION
+#%% ## PATHLINES - CROSS SECTION
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
@@ -1201,7 +1201,7 @@ for model_name in list_selects[:1]:
             #     if b.z.max()<head_max:
             ax.plot(b.x, b.z, color='blue', lw=0.5)
 
-#%% ELEVATION DISCHARGE ALL - ALONG RIVERS
+#%% ## ELEVATION DISCHARGE ALL - ALONG RIVERS
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
@@ -1458,6 +1458,8 @@ for model_name in list_selects[:]:
     
     # plt.tight_layout()
     
+    ax.set_title(model_name, fontsize=8)
+    
     fig.savefig(fig_path+'discharge_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% FLOWPATHS RED/BLUE - ALONG RIVERS
@@ -1635,7 +1637,9 @@ for model_name in list_selects[:]:
     #             'Times and counts'+'.png', dpi=300, bbox_inches='tight')
     
     # fig.savefig(fig_path+'residence_'+model_name+'.png', dpi=300, bbox_inches='tight')
-
+    
+    ax.set_title(model_name, fontsize=8)
+    
     fig.savefig(fig_path+'residence_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% CONCENTRATION SR - ALON RIVERS
@@ -1879,7 +1883,9 @@ for model_name in list_selects[:]:
     
     # fig.savefig(simulations_folder + '/' + model_name + '/' +'_figures/' + 
     #             'Concentration and Ratio Sr'+'.png', dpi=300, bbox_inches='tight')
-
+    
+    ax.set_title(model_name, fontsize=8)
+    
     fig.savefig(fig_path+'concentration_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% ---- MODPATH FILES OLD
