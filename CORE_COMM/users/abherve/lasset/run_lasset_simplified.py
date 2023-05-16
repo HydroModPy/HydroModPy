@@ -366,8 +366,10 @@ for cond_decay, bottom in zip(list_cond_decay[:], list_bottom[:]):
     # BV.hydrodynamic.update_bottom(-100)
     # BV.hydrodynamic.update_cond_decay(0)
     # BV.hydrodynamic.update_thick_exp(1.25)
-
+    
+    """
     dicot = calib.dichotomy(gap=1)
+    """
     
     cp +=1
     
@@ -443,7 +445,7 @@ list_koptim = list(df['k'].values)
 
 # list_porosity = np.logspace(np.log10(0.001), np.log10(0.3), 10)
 # list_porosity = np.geomspace((0.001), (0.3), 10)
-list_porosity = np.geomspace((0.03), (0.3), 10).round(3)
+list_porosity = np.geomspace((0.003), (0.3), 10).round(3)
 
 # Label
 list_model_name = []
@@ -457,7 +459,9 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
 
-run = False
+typ = 'explor1'
+
+run = True
 
 # list_cond_decay = [0.002]
 # list_bottom[0] = 0
@@ -466,21 +470,29 @@ run = False
 compt_model = 0
 
 for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_bottom[:], list_koptim[:]):
+# for cond_decay_cal, bottom_cal, koptim_cal in zip([1/300], [0], [0.00654704859375]):
     BV.hydrodynamic.update_bottom(bottom_cal) # None
     BV.hydrodynamic.update_cond_decay(cond_decay_cal) # 0
     BV.hydrodynamic.update_poro_decay(cond_decay_cal/2) # 0
     BV.hydrodynamic.update_hyd_cond(koptim_cal)
     
+    
     for porosity_value in list_porosity[:]:
+    # for porosity_value in [0.03]:
         
+        BV.hydrodynamic.update_porosity(porosity_value)
+        
+        # print(BV.hydrodynamic.poro_decay)
+
         model_name = typ+'_'+str(compt_model)+'_'+\
-                     str(round(1/cond_decay_cal,1))+'-'+\
-                     str(bottom_cal)+'-'+\
+                     str(bottom_cal)+'_'+\
                      str(round(koptim_cal,4))+'-'+\
-                     str(round(porosity_value*100, 2))
+                     str(round(porosity_value*100, 2))+'_'+\
+                     str(round(1/cond_decay_cal,1))+'-'+\
+                     str(round(1/(cond_decay_cal/2),1))
                      
         print('SIM - ' + model_name)
-        
+
         success, flow_model = BV.run_modflow(run=run,
                                              ident=model_name,
                                              sink_fill=sink_fill,
@@ -568,38 +580,56 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                           intermittency=False,
                                           chronics=False)
 
+#%% RELOAD MODELS
+
+typ = 'explor1'
+
+h5file = simulations_folder+'/'+'list_'+typ
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name'][:]
+list_of_success = d['list_of_success'][:]
+list_flow_model = d['list_flow_model'][:]
+
 #%% ENDPOINT MODELS
 
 # model_name = 'egu1_1_10.0-0.0-0.0857-26.68'
 # model_name = 'egu1_0_500.0-0-0.0058-30.0'
 
-list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+# list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+list_selects = list_model_name
+
+fig_cross = True
 
 for model_name in list_selects[:]:
+    print(model_name)
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
-    try:
+    # try:
         
-        id_model = int(model_name.split('_')[1])
-                
-        ### MODEL ###
-        # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
-        # model_name = list_path[-1].split('\\')[-1]
-        mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    id_model = int(model_name.split('_')[1])
+            
+    ### MODEL ###
+    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+    # model_name = list_path[-1].split('\\')[-1]
+    mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    
+    fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    sy_grid = mf.upw.sy
+    # sr_model = flopy.utils.reference.SpatialReference()
+    
+    if fig_cross == True:
         
-        fname = simulations_folder+model_name+'/'+model_name+'.hds'
-        gridname = simulations_folder+model_name+'/'+model_name+'.dis'
-        # grid_model = flopy.discretization.grid.Grid(mf)
-        grid_model = mf.modelgrid
-        hk_grid = mf.upw.hk
-        # sr_model = flopy.utils.reference.SpatialReference()
-        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
         # ax = fig.add_subplot(1, 1, 1)
         axs = axs.ravel()
         modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
         linecollection = modelxsect.plot_grid()
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
-        modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='Spectral_r')
+        modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='YlOrRd_r')
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
         axs[0].set_title('Hydraulic conductivity')
@@ -609,85 +639,107 @@ for model_name in list_selects[:]:
         bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
         ext_mod = bv_box.geometry.total_bounds
         
-        crs_code = 2154
+        # axs[0].set_ylim(150, 350)
+        # axs[1].set_ylim(150, 350)
         
-        """
-        def reproj_approx_points(shp_name, crs_code):
-            shp = gpd.read_file(simulations_folder+
-                                model_name+'/'+'_pathlines/'+
-                                shp_name+'.shp')
-            ext_shp = shp.geometry.total_bounds
-            shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
-            # shp.to_crs(utm_crs)
-            print(ext_shp)
-            x = (shp.geometry.x) + ext_mod[0] # - ext_shp[0] # 6.39e5 
-            y = (shp.geometry.y) + ext_mod[1] # - ext_shp[3] # 1.78e6 
-            gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
-            gdf.to_file(simulations_folder+
-                        model_name+'/'+'_pathlines/'+
-                        shp_name+'.shp')
-        """
-        
-        ### POINTS ###
-        print('Create shapefile ending and starting points')
-        endobj = flopy.utils.EndpointFile(simulations_folder+
-                                          model_name+'/'+model_name+'.mpend')
-        e = endobj.get_alldata()
-        
-        endobj.write_shapefile(endpoint_data=e,
-                                shpname=simulations_folder+
-                                        model_name+'/'+'_pathlines/'+
-                                        'ending.shp',
-                                direction='ending',
-                                mg=grid_model, epsg=crs_code, sr=None)
-        path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
-        shp_sim = gpd.read_file(path_pathlines+'ending.shp')
-        shp_sim.time = shp_sim.time / 365
-        shp_sim.to_file(simulations_folder+
-                             model_name+'/'+'_pathlines/'+
-                             'ending_years.shp') # time in years !
-        masked = shp_sim.copy()
-        masked = masked[masked.time > 0.1] # ONLY SUP ONE MONTH APPROX
-        masked = masked[masked.k == 1] # ONLY OUT FIRST CELL
-        masked = masked[masked.zloc != 1] # NOT IN AND OUT SAME CELL
-        if not masked[masked.time > 1000].empty:
-            print('THERE IS CELL > 1000y')
-            if len(masked[masked.time > 1000]) <= (len(masked)*0.05):
-                print('DELETE > 1000y', str(len(masked[masked.time > 1000]))+'/'+
-                                        str((len(masked))))
-                # IF ONLY 5% CELL ARE HIGHER THAN 1000 YEARS : MASKED (OUTLIERS):
-                masked = masked[masked.time <= 1000]
-            else:
-                print('NO CELL > 1000y')
-        masked.to_file(simulations_folder+
-                             model_name+'/'+'_pathlines/'+
-                             'ending_years_masked.shp') # time in years !
-        keep_particules = masked.particleid
-        keep_particules = keep_particules.tolist()
-        
-        endobj.write_shapefile(endpoint_data=e,
-                                shpname=simulations_folder+
-                                        model_name+'/'+'_pathlines/'+
-                                        'starting.shp',
-                                direction='starting',
-                                mg=grid_model, epsg=crs_code, sr=None)
-        
-        # reproj_approx_points('ending')
-        # reproj_approx_points('starting')
-        
-        #### SELECT PARTICLUES ####
-        if not os.path.exists(simulations_folder+'_id_particules_random.data'):
-            id_particules_random = random.sample(keep_particules[:-1], 1000)
-            with open(simulations_folder+'_id_particules_random.data', 'wb') as f:
-                pickle.dump(id_particules_random, f)
-        # else:
-        #     with open(simulations_folder+'_id_particules_random.data', 'rb') as f:
-        #         id_particules_random = pickle.load(f)
+        # fig.savefig(fig_path+'cross_section_h_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
-        print('VALID '+model_name)
-    except:
-        print('ERROR '+model_name)
-        pass
+        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        axs = axs.ravel()
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[0])/2)})
+        linecollection = modelxsect.plot_grid()
+        hdobj = flopy.utils.HeadFile(fname)
+        head_data = hdobj.get_data()
+        modelxsect.plot_array(sy_grid.array, ax=axs[0], cmap='spring_r')
+        pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+                                    cmap='Blues', alpha=0.5, ax=axs[1])
+        axs[0].set_title('Hydraulic conductivity')
+        axs[1].set_title('Watertable and hydraulic gradient')
+        fig.suptitle(model_name, y=1.05)
+        
+        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
+        ext_mod = bv_box.geometry.total_bounds
+        
+        # axs[0].set_ylim(150, 350)
+        # axs[1].set_ylim(150, 350)
+        
+        # fig.savefig(fig_path+'cross_section_v_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    #%%
+    crs_code = 2154
+    
+    """
+    def reproj_approx_points(shp_name, crs_code):
+        shp = gpd.read_file(simulations_folder+
+                            model_name+'/'+'_pathlines/'+
+                            shp_name+'.shp')
+        ext_shp = shp.geometry.total_bounds
+        shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
+        # shp.to_crs(utm_crs)
+        print(ext_shp)
+        x = (shp.geometry.x) + ext_mod[0] # - ext_shp[0] # 6.39e5 
+        y = (shp.geometry.y) + ext_mod[1] # - ext_shp[3] # 1.78e6 
+        gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
+        gdf.to_file(simulations_folder+
+                    model_name+'/'+'_pathlines/'+
+                    shp_name+'.shp')
+    """
+    
+    ### POINTS ###
+    print('Create shapefile ending and starting points')
+    endobj = flopy.utils.EndpointFile(simulations_folder+
+                                      model_name+'/'+model_name+'.mpend')
+    e = endobj.get_alldata()
+    
+    endobj.write_shapefile(endpoint_data=e,
+                            shpname=simulations_folder+
+                                    model_name+'/'+'_pathlines/'+
+                                    'ending.shp',
+                            direction='ending',
+                            mg=grid_model, epsg=crs_code, sr=None)
+    path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
+    shp_sim = gpd.read_file(path_pathlines+'ending.shp')
+    shp_sim.time = shp_sim.time / 365
+    shp_sim.to_file(simulations_folder+
+                         model_name+'/'+'_pathlines/'+
+                         'ending_years.shp') # time in years !
+    masked = shp_sim.copy()
+    masked = masked[masked.time > 0.1] # ONLY SUP ONE MONTH APPROX
+    masked = masked[masked.k == 1] # ONLY OUT FIRST CELL
+    masked = masked[masked.zloc != 1] # NOT IN AND OUT SAME CELL
+    if not masked[masked.time > 1000].empty:
+        print('THERE IS CELL > 1000y')
+        if len(masked[masked.time > 1000]) <= (len(masked)*0.05):
+            print('DELETE > 1000y', str(len(masked[masked.time > 1000]))+'/'+
+                                    str((len(masked))))
+            # IF ONLY 5% CELL ARE HIGHER THAN 1000 YEARS : MASKED (OUTLIERS):
+            masked = masked[masked.time <= 1000]
+        else:
+            print('NO CELL > 1000y')
+    masked.to_file(simulations_folder+
+                         model_name+'/'+'_pathlines/'+
+                         'ending_years_masked.shp') # time in years !
+    keep_particules = masked.particleid
+    keep_particules = keep_particules.tolist()
+    
+    endobj.write_shapefile(endpoint_data=e,
+                            shpname=simulations_folder+
+                                    model_name+'/'+'_pathlines/'+
+                                    'starting.shp',
+                            direction='starting',
+                            mg=grid_model, epsg=crs_code, sr=None)
+    
+    # reproj_approx_points('ending')
+    # reproj_approx_points('starting')
+    
+    #### SELECT PARTICLUES ####
+    if not os.path.exists(simulations_folder+'_id_particules_random.data'):
+        id_particules_random = random.sample(keep_particules[:-1], 1000)
+        with open(simulations_folder+'_id_particules_random.data', 'wb') as f:
+            pickle.dump(id_particules_random, f)
+    # else:
+    #     with open(simulations_folder+'_id_particules_random.data', 'rb') as f:
+    #         id_particules_random = pickle.load(f)
 
 #%% PATHLINES MODELS
 
@@ -964,16 +1016,6 @@ with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'wb') as handle:
 # dd.io.save(simulations_folder+'/'+'_dic_res_RT_'+typ, dic_res)
 
 #%% ---- LOAD RESULTS
-
-#%% RELOAD MODELS
-
-typ = 'egu1'
-
-h5file = simulations_folder+'/'+'list_'+typ
-d = dd.io.load(h5file)
-list_model_name = d['list_model_name'][:]
-list_of_success = d['list_of_success'][:]
-list_flow_model = d['list_flow_model'][:]
 
 #%% RECAP MODELS
 

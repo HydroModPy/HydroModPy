@@ -482,7 +482,7 @@ for watershed_name in watershed_names[:]:
 # for watershed_name in ['Vosvozis']:
 # for watershed_name in ['Canut']:
 
-for watershed_name in watershed_names[2:]:
+for watershed_name in watershed_names[:]:
     
     if watershed_name != 'Hoal':
     
@@ -518,12 +518,20 @@ for watershed_name in watershed_names[2:]:
             params_df = pd.DataFrame(columns=['params',
                                               'init_values','lower_bounds','higher_bounds',
                                               'units','scale'])
-            params_df.loc[0] = ['k1',
-                                None,
-                                1e-08*24*3600,
-                                1e-03*24*3600,
-                                'm/j',
-                                'lin']
+            if watershed_name == 'Lasset':
+                params_df.loc[0] = ['k1',
+                                    None,
+                                    1e-09*24*3600,
+                                    1e-04*24*3600,
+                                    'm/j',
+                                    'lin']
+            else:
+                params_df.loc[0] = ['k1',
+                                    None,
+                                    1e-08*24*3600,
+                                    1e-03*24*3600,
+                                    'm/j',
+                                    'lin']
             params_file = 'calib_dicot_hom_1v_k1_'
             params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
             calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
