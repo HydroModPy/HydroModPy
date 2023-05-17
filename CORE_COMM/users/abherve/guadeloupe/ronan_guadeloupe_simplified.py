@@ -65,7 +65,8 @@ from groundwater_flow import visualization, modflow_display
 user_path = "Ronan"
 data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/USERS/QUIOCK/"
 out_path = "C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/"
-fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/raw/"
+# fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/raw/"
+fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/explor/"
   
 print("Define a well-validated name of user")
 
@@ -1138,7 +1139,7 @@ for model_name in list_selects[:]:
                             model_name+'/'+'_pathlines/'+
                             'shp_x_particules_deep.shp')
                                         
-#%% ---- PLOT 3
+#%% ---- PLOT 2
 
 #%% ## PATHLINES - CROSS SECTION
 
@@ -1888,6 +1889,92 @@ for model_name in list_selects[:]:
     
     fig.savefig(fig_path+'concentration_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
+#%% ---- PLOT 3
+
+#%% STARTING ENDING PATHLINES
+
+list_selects = list_model_name
+
+shp_contour = gpd.read_file(BV.geographic.watershed_shp)
+shp_box = gpd.read_file(stable_folder+'geographic/box_buff.shp')
+
+for model_name in list_selects[:]:
+    
+    shp_ending = gpd.read_file(simulations_folder+
+                                  model_name+'/'+'_pathlines/'+
+                                  'ending_years_masked.shp') # time in years !
+    
+    shp_starting_shal = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_starting_shal.shp') # time in years !
+    shp_starting_deep = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_starting_deep.shp') # time in years !
+    
+    shp_ending_shal = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_ending_shal.shp') # time in years !
+    shp_ending_deep = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_ending_deep.shp') # time in years !
+    
+    shp_pathlines_spings = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'pathlines_1000_springs.shp')
+
+    fig, axs = plt.subplots(2,1, figsize=(6,3))
+    axs.ravel()
+    
+    ax=axs[0]
+    shp_contour.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    shp_box.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    # ax.set_title('Pathlines deep vs. shallow', fontsize=10)
+    shp_starting_shal.plot(ax=ax, color='dodgerblue', lw=0, markersize=4)
+    shp_starting_deep.plot(ax=ax, color='tomato', lw=0, markersize=4)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
+    
+    ax=axs[1]
+    shp_contour.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    shp_box.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    # ax.set_title('Pathlines deep vs. shallow', fontsize=10)
+    shp_ending_shal[shp_ending_shal.time>0].plot(ax=ax, color='dodgerblue', lw=0, markersize=4)
+    shp_ending_deep.plot(ax=ax, color='tomato', lw=0, markersize=4)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
+    
+    fig.suptitle( model_name, y=0.95, fontsize=5)
+    fig.tight_layout()
+    
+    fig.savefig(fig_path+'starting_ending_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    
+    fig, ax = plt.subplots(1,1, figsize=(3,3))
+    shp_contour.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    shp_box.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    ep = shp_ending.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=4,
+                              norm=mpl.colors.LogNorm(vmin=1, vmax=10))
+    shp_pathlines_spings.plot(ax=ax, column='time', cmap='jet', lw=0.5,
+                              norm=mpl.colors.LogNorm(vmin=1, vmax=100))
+    # shp_ending.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=4,
+    #                           vmin=1, vmax=30)
+    # shp_pathlines_spings.plot(ax=ax, column='time', cmap='jet', lw=0.5,
+    #                           vmin=1, vmax=30)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
+    fig = ax.get_figure()
+    cax = fig.add_axes([1, 0.2, 0.02, 0.6])
+    sm = plt.cm.ScalarMappable(cmap='jet', norm=mpl.colors.LogNorm(vmin=1, vmax=100))
+    # fake up the array of the scalar mappable. Urgh...
+    sm._A = []
+    fig.colorbar(sm, cax=cax)
+    fig.suptitle( model_name, y=0.85, fontsize=5)
+    fig.tight_layout()
+    
+    fig.savefig(fig_path+'pathlines_knickpoint_'+model_name+'.png', dpi=300, bbox_inches='tight')
+
 #%% ---- MODPATH FILES OLD
 
 #%% CREATE SAPEFILE MODPATH
@@ -1979,7 +2066,7 @@ shp_particules = gpd.read_file(simulations_folder+
                     model_name+'/'+'_pathlines/'+
                     'particlues.shp')
 
-#%% DISTINCTION OF PARTICULESµ
+#%% DISTINCTION OF PARTICULES
 
 particleid = shp_particules['particleid'].unique()
 shalid = []
@@ -2029,7 +2116,7 @@ shp_particules['V'] = shp_particules['d'] / shp_particules['dt']
 shp_particules_shal = shp_particules[np.isin(shp_particules.particleid, id_layers_random[0])]
 shp_particules_deep = shp_particules[np.isin(shp_particules.particleid, id_layers_random[1])]
 
-#%% ---- PLOT 3
+#%% ---- PLOT 4
 
 #%% PATHLINES QUICK
 
