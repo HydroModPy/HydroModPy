@@ -630,8 +630,8 @@ class Modflow():
         self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk,
-                                            vka=1, sy=self.ps, noparcheck=False, extension='upw', unitnumber=31)
-        
+                                            vka=1, sy=self.ps, noparcheck=False,
+                                            extension='upw', unitnumber=31)
         
         #%% Source terms
         

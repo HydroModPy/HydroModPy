@@ -505,7 +505,8 @@ print(data_explo)
 
 #%% MULTIOBJECTIVE FUNCTIONS
 
-data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
+if not 'data_explo' in globals():
+    data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
 
 fig, ax_l0 = plt.subplots(1,1, figsize=(4,3))
 ax_r0 = ax_l0.twinx()
@@ -514,7 +515,7 @@ ax_r0 = ax_l0.twinx()
 # ax_l2 = ax_l0.twinx()
 # ax_l3 = ax_l0.twinx()
 
-# ax_r1 = ax_l0.twinx()
+ax_r1 = ax_l0.twinx()
 # ax_r2 = ax_l0.twinx()
 # ax_r3 = ax_l0.twinx()
 
@@ -582,13 +583,26 @@ ax_l0.axvline(x=2, c='limegreen', ls='--', lw=2)
 ax_r0.plot(data_explo['k0k1'], ((data_explo['Qout_sim']/data_explo['Qsub_obs'])),
            color='dodgerblue', marker='o', lw=2)
 # ax_r0.set_yscale('log')
-ax_l0.set_ylim(0.1, 30)
+# ax_l0.set_ylim(0.1, 30)
 ax_r0.set_ylabel('Streamflow indicator', c='dodgerblue', rotation=270, labelpad=+25,)
 ax_r0.set_ylim(1, 2)
 
 # ax_r1.plot(data_explo['k0k1'], (data_explo['t_sim']),
 #            color='red', marker='o', lw=3)
 # ax_r0.set_yscale('log')
+
+ax_r1.spines["right"].set_visible(True)
+ax_r1.yaxis.set_label_position('right')
+ax_r1.yaxis.set_ticks_position('right')
+ax_r1.spines['right'].set_position(('outward', 60))
+
+ax_r1.plot(data_explo['k0k1'], 
+           data_explo['RMSE'],
+           color='darkorange', marker='o', lw=2)
+
+ax_r1.set_ylabel('RMSE Sr ratio', c='darkorange', rotation=270, labelpad=+25,)
+
+fig.savefig(fig_path+'multiobjective_'+'allcases'+'.png', dpi=300, bbox_inches='tight')
 
 #%% GENERAL DATA PLOT
 
@@ -1653,6 +1667,8 @@ for model_name in list_selects[:]:
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
 
+cp = 0
+
 for model_name in list_selects[:]:
     
     with open(simulations_folder+
@@ -1887,7 +1903,41 @@ for model_name in list_selects[:]:
     
     ax.set_title(model_name, fontsize=8)
     
+    do_u = [70,80,90,100,110]
+    o_u = [0.7090]*5
+    do_d = [130,140]
+    o_d = [0.7060]*2
+    axb.plot(do_u, o_u, color='k', lw=0, marker='o', ms=5)
+    axb.plot(do_d, o_d, color='k', lw=0, marker='o', ms=5)
+        
     fig.savefig(fig_path+'concentration_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    
+    d = do_u + do_d
+    o = o_u + o_d
+    list_sim = []
+    for i in flat_flux.index:
+        if i in d:
+            while flat_flux.loc[i,'Rsr_riv'] == 0:
+                i += 1
+            else:
+                list_sim.append(flat_flux.loc[i,'Rsr_riv'])
+    
+    value = np.sqrt(np.nansum((np.array(list_sim)-np.array(o))**2)/len(o))
+    data_explo.loc[cp,'RMSE'] = value
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,4))
+    ax.plot(o, list_sim, marker='o', c='forestgreen', lw = 0, ms=13)
+    ax.set_xlim(0.704, 0.710)
+    ax.set_ylim(0.704, 0.710)
+    ax.ticklabel_format(style='plain')
+    ax.ticklabel_format(useOffset=False, style='plain')
+    ax.plot((0.704, 0.710),(0.704, 0.710), c='k', ls='--', zorder=-1)
+    ax.set_xlabel('Observed Sr ratio')
+    ax.set_ylabel('Simulated Sr ratio')
+    
+    fig.savefig(fig_path+'obsVSsim_'+model_name+'.png', dpi=300, bbox_inches='tight')
+
+    cp += 1
 
 #%% ---- PLOT 3
 
