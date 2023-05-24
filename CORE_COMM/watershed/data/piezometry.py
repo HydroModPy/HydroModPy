@@ -71,7 +71,8 @@ class Piezometry:
         self.depth_well = []
         self.elevation_well = []
         try:
-            pass#self.extract_piezos_from_watershed(data_folder, geographic)
+            pass
+            #self.extract_piezos_from_watershed(data_folder, geographic)
         except:
             pass
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
@@ -243,7 +244,10 @@ class Piezometry:
                 self.y_iloc.append(idy)
                 df = pd.read_csv(file, delimiter = ';',header=0, engine='python', encoding='latin1')
                 df.columns = ['Date', file1[1]]
-                df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
+                try:
+                    df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M')
+                except:
+                    df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M:%S')
                 df = df.drop(['Date'], axis=1)
                 self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
             df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})

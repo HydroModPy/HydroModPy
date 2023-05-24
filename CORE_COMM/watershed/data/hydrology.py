@@ -38,10 +38,11 @@ class Hydrology:
 
         for type_obs, field_obs in zip(types_obs, fields_obs):
             try:
-                # print(type_obs, field_obs)
+            # print(type_obs, field_obs)
                 self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
-            except:
-                print('Problem to clip hydrology')
+            # except:
+            except ValueError as e:
+                print(e)
                 pass
     
     #%% FUNCTIONS
@@ -60,7 +61,9 @@ class Hydrology:
         """
         
         streams = hydro_path + '/' +  type_obs +'.shp'
+        # print(streams)
         self.streams = data_folder + type_obs +'.shp'
+        # print(self.streams)
         
         # First clip of the shape file at the watershed scale (classical GIS function performed here in geopandas)
         #       geopandas more robust than wbt for the shapefiles

@@ -42,10 +42,28 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 # print(abspath(__file__))
 # %% PATHS + watershed options
 
-watershed_name = 'Blainville-Havre'
+watershed_name = 'Caen-la-Mer'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 dem_name = "BDALTI_norm-manch_75m.tif"
 # sp_file = "C:/Users/Martin Le Mesnil/Travail/SIG/Couches_base/Administratif/region_normandie/normandie.shp" # None # specify a path if process start from a given shapefile
+
+shp_file_dict = {'Saint-Germain-sur-Ay' : r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp',
+             'Agon-Coutainville' : r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Agon-Coutainville\Agon_2_sea_extended.shp',
+             'Barneville-Carteret' : r'C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Barneville-Carteret\Barneville_2_sea_extended.shp',
+             'Baie-du-Cotentin' : r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-cotentin/Carentan_2_sea.shp',
+             'Caen-la-Mer' : 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea.shp'}
+
+esp_rech_dict = {'Saint-Germain-sur-Ay' : r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv',
+             'Agon-Coutainville' : None,
+             'Barneville-Carteret' : r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\LC\rech_LC_aut2022.csv',
+             'Baie-du-Cotentin' : None,
+             'Caen-la-Mer' : r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\CLM\rech_CLM_aut2022.csv'}
+
+calib_zones_dict = {'Saint-Germain-sur-Ay' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp',
+             'Agon-Coutainville' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CMB.shp',
+             'Barneville-Carteret' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_LC.shp',
+             'Baie-du-Cotentin' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_BDC_3.shp',
+             'Caen-la-Mer' : r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CLM.shp'}
 
 if DIR[0] == 'd': #server
     shp_file = r'D:\mlemesnil\Data\BV_RN2100\SGA\SGA_2_sea.shp'
@@ -59,25 +77,13 @@ if DIR[0] == 'd': #server
     ESPERE_recharge_path = r'D:\mlemesnil\Data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
     shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
 elif DIR[0] == 'c': #local
-    shp_file = r'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
-    # C:\Users\Martin Le Mesnil\Travail\SIG\BV_RN2100\Barneville-Carteret\Barneville_2_sea_extended.shp
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Baie-du-cotentin/Carentan_2_sea.shp'
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Caen/Caen_2_sea_extended.shp'
-    # 'C:/Users/Martin Le Mesnil/Travail/SIG/BV_RN2100/Saint-Germain-sur-Ay/SGA_2_sea.shp'
+    shp_file = shp_file_dict[watershed_name]
     git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
     data_path = r"C:/Users/Martin Le Mesnil/Travail/data/data_test_ronan/"
     out_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/'
     modflow_path = r'C:/Users/Martin Le Mesnil/Travail/HydroModPy/Modflow' # add bin/ folder with necessary .exe
-    ESPERE_recharge_path = r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
-    # r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\BDC\rech_BDC_2022_cut.csv'
-    # r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\SGA\aut_2022\rech_SGA_aut2022.csv'
-    # C:\Users\Martin Le Mesnil\Travail\data\estim_ET\rech_CLM_aut2022.csv
-    # r'C:\Users\Martin Le Mesnil\Travail\data\estim_ET\LC\rech_LC_aut2022.csv'
-    shape_calib_zones_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
-    # r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_BDC_2.shp'
-    # C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_CLM_extended.shp
-    # r'C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_SGA.shp'
-    # C:\Users\Martin Le Mesnil\Travail\SIG\zones_calib\shape_calib_zones_LC.shp
+    ESPERE_recharge_path = esp_rech_dict[watershed_name]
+    shape_calib_zones_path = calib_zones_dict[watershed_name]
                             
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -189,6 +195,7 @@ except:
 r_ESP = r_ESP.rename(index = pd.to_datetime(r_ESP['Date'], dayfirst=True))
 r_ESP = r_ESP.drop('Date', axis=1)
 r_ESP['Recharge'] = r_ESP['Recharge'].apply(lambda x: x/1000) #mm to m
+r_ESP['Recharge'] = r_ESP['Recharge'].apply(lambda x: 3*x)
 
 #%% Calibration of K and n based on piezometry
 
@@ -196,7 +203,7 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_4Pzs_k1n1' #calib_optim1_aut22_k1n1
+params_file = 'calib_3R_k1n1' #calib_optim1_aut22_k1n1
 # calib_explo_synop_K1n1 calib_explo_test6piezos_K1n1 calib_explo_hom_n1
 
 BV.forcing.update_recharge(r_ESP, 'transient') #R_HAD_REG_RCP26
@@ -205,15 +212,15 @@ BV.hydrodynamic.update_thickness(29)
 #init value is not used in exploration mode
 #lin or log probably not used
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',0.001,0.001,10,'m/j','log']
-params_df.loc[1] = ['n1',0.0001,0.0001,0.15,'-','lin']
+params_df.loc[0] = ['k1',0.002,0.002,2,'m/j','log']
+params_df.loc[1] = ['n1',0.001,0.001,0.1,'-','lin']
 #params_df.loc[0] = ['k1',0.001,0.001,1e+02,'m/j','lin']
 #params_df.loc[0] = ['k1',0.1,1e-04,1e+02,'m/j','lin']
 #params_df.loc[1] = ['n1',0.03,0.03,0.3,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
-calib.exploration(400)
+calib.exploration(200)
 
 
 #%% Extraction and analysis of K-n calibration results

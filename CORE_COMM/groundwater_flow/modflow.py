@@ -255,7 +255,7 @@ class Modflow():
     def __init__(self, geographic, sink_fill = False, box=True,
                  climatic=8e-4, lay_number=1, thick=50,
                  bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                 sea_level=None, cond_decay=0., multip_cond=None, init_rech='mean',
+                 sea_level=None, cond_decay=0., poro_decay=0., multip_cond=None, init_rech='mean',
                  bc_left=None, bc_right=None, verti_k=None,
                  model_name='modflow_model',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
@@ -396,6 +396,7 @@ class Modflow():
         self.hyd_cond = hyd_cond
         self.porosity = porosity
         self.cond_decay = cond_decay
+        self.poro_decay = poro_decay
 
     #%% PRE-PROCESSING
 
@@ -543,7 +544,7 @@ class Modflow():
             
         ### Constant Head boundary conditions of No Flow (at sea level)
         
-        if isinstance(self.sea_level, (int,float,pd.Series)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
+        if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             print('niv1')
             if isinstance(self.sea_level,(int,float)) == False:
@@ -570,12 +571,28 @@ class Modflow():
         # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
         # Homogeneous or heterogeneous hydraulic conductivity 
         # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
+        # print(self.nlay, self.nrow, self.ncol)
+        # print(self.hyd_cond)
+        # print(self.hyd_cond.shape)        
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
         if self.cond_decay != 0.:
+            print('DECAY EXPO CONDH')
             depth = np.zeros(self.hk.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             self.hk *= np.exp(-self.cond_decay*depth)
+        
+        self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
+        
+        if self.poro_decay != 0.:
+            print('DECAY EXPO POROSITY')
+            depth = np.zeros(self.ps.shape)
+            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
+            self.ps *= np.exp(-(self.poro_decay)*depth)
+            # η=2 is a coefficient related to
+            # the medium structure that we chose to be equal to 2, as com-
+            # monly reported in the literature (Cardenas and Jiang, 2010;
+            # Bernabé et al., 2003)
             
         # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
         if self.verti_k != None:
@@ -609,12 +626,12 @@ class Modflow():
             Kv[-1,:,:] = np.mean(self.hk)
             self.hk = Kv.copy()
         """
-        
+                
         self.upw = flopy.modflow.ModflowUpw(self.mf, iphdry=1, hdry=-100, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk,
-                                            vka=1, sy=self.porosity, noparcheck=False, extension='upw', unitnumber=31)
-        
+                                            vka=1, sy=self.ps, noparcheck=False,
+                                            extension='upw', unitnumber=31)
         
         #%% Source terms
         
@@ -709,7 +726,7 @@ class Modflow():
                         #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
                         self.drnData[compt, 4] = self.multip_cond 
                     else:
-                        self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2
+                        self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
                 else:
                     if self.sink[i,j]>0:
                         #ALEXANDRE: when filled, no possible drains, why?
@@ -738,13 +755,18 @@ class Modflow():
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
-        """
+        
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(1, 1, 1)
         modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
         linecollection = modelxsect.plot_grid()
         modelxsect.plot_array(self.hk)
-        """
+        
+        fig = plt.figure(figsize=(10, 5))
+        ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.ps.shape[1])/2)})
+        linecollection = modelxsect.plot_grid()
+        modelxsect.plot_array(self.ps)
         
     #%% PROCESSING
     
