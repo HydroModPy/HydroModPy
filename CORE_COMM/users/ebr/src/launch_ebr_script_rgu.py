@@ -87,7 +87,7 @@ if user == 'Guillossou':
     # # Path to the data folder
     data_path = "E:/_data/"
     # # Path where the results will be stored
-    out_path = 'C:/Users/r.guillossou/Documents/Resultats Hydromodpy/'
+    out_path = "E:/Resultats Hydromodpy/"
 
 if user == 'Cimpaye':
     # # Path to the git repositoty home page
@@ -137,7 +137,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Canut',
+                   'Couesnon',
                    ]
 
 types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
@@ -316,8 +316,10 @@ mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
             'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
             'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
             'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
+    
 
 sce_list = ['RCP2.6','RCP8.5']
+
 col_list = ['blue','red']
 dict_scecol = dict(zip(sce_list, col_list))
 
@@ -345,6 +347,10 @@ for watershed_name in watershed_names[:] :
                                                  first_year = 1975, last_year = 2019, sim_state='transient')
                 BV.forcing.update_runoff_drias(gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
                                                  first_year = 1975, last_year = 2019, sim_state='transient')
+            
+            if time_step == 'D':
+                R_mod = BV.forcing.recharge
+                r_mod = BV.forcing.runoff
             
             if time_step == 'M':
                 R_mod = BV.forcing.recharge.resample('M').mean()
@@ -426,7 +432,7 @@ watershed_names = [
 """
 
 watershed_names = [
-                   'Canut',
+                   'Couesnon'
                    ]
 
 # type_simulation = 'analysis_past'
@@ -466,15 +472,18 @@ if type_simulation == 'analysis_past':
 if type_simulation == 'analysis_future':
     ### To change
     iD = 'projfuture'
-    periods = [2020, 2099]
+    periods = [1975, 2100]
     time_step = 'M' # or 'D'
     #mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
     #            'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1',
     #            'ECE-RCA','ECE-RAC','HAD-REG','NOR-R15',
     #            'MPI-CCL','MPI-R09','CNR-RAC','CNR-ALA',
     #            'IPS-WRF','HAD-CCL','IPS-RCA','NOR-HIR']
-    mod_list = ['CAN3','CAN4','CAN5','IPS1','NOR1']
+    #mod_list = ['CAN3','CAN4','CAN5','CNR1','IPS1','NOR1'] pour RCP2.6
+    #mod_list = ['CAN3','CAN4','CAN5','IPS1','NOR1'] pour RCP8.5
+    mod_list = ['CAN3']
     ### Not change
+    #sce_list = ['RCP2.6','RCP8.5']
     sce_list = ['RCP2.6','RCP8.5']
     col_list = ['blue','red']
     dict_scecol = dict(zip(sce_list, col_list))

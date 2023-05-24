@@ -11,6 +11,7 @@ import flopy
 import flopy.utils.binaryfile as fpu
 import numpy as np
 from os.path import dirname, abspath
+import imageio
 
 # HydroModPy modules
 df = dirname(dirname(abspath(__file__)))
@@ -22,10 +23,11 @@ class Modpath:
 
     #%% INIT
     
-    def __init__(self,geographic, model_name='modflow_model', 
+    def __init__(self,geographic, model_name='modflow_model', zone_partic='watershed',
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'), 
                  porosity = 0.01 ,verbose=True):
+        self.zone_partic = zone_partic
         self.model_name = model_name
         self.geographic = geographic
         self.model_folder = model_folder
@@ -93,15 +95,25 @@ class Modpath:
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
         prow = 1
         pcol = 1
-                
-        # To apply particules only on the pixels of the catchment
-        stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip != -99999)*pcol*prow)
         
-        # To apply particules for all pixels of the domain model
-        '''
-        stldata = stl.get_empty_starting_locations_data(npt=np.sum(self.geographic.dem_clip >= -99999)*pcol*prow)
-        '''
+        # To apply particules only on the pixels of the catchment, buff box
+        if self.zone_partic == 'watershed':
+            mask_dem = self.geographic.dem_clip
+            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem != -99999)*pcol*prow)
+        if self.zone_partic == 'domain':
+            mask_dem = self.geographic.dem_clip
+            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem >= -99999)*pcol*prow)
         
+        # if self.zone_partic == 'watershed':
+        #     mask_dem = imageio.imread(self.geographic.watershed_dem)
+        #     stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem != -99999)*pcol*prow)
+        # if self.zone_partic == 'watershed_buff':
+        #     mask_dem = imageio.imread(self.geographic.watershed_buff_dem)
+        #     stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem != -99999)*pcol*prow)
+        # if self.zone_partic == 'watershed_box_buff':
+        #     mask_dem = imageio.imread(self.geographic.watershed_box_buff_dem)
+        #     stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem >= -99999)*pcol*prow)
+
         hds_1c = fpu.HeadFile(head_file)
         # hds_1c = ff.FormattedHeadFile('model1.hds')
         head_1c = hds_1c.get_alldata(mflay=None)
@@ -117,29 +129,47 @@ class Modpath:
         compt = 0
         for i in range(0, nrow):
             for j in range(0, ncol):
-                
-                if self.geographic.dem_clip[i,j] != -99999.: # active or note
-                
-                    if head_1c[0][0][i][j] != 0.48:
-                        for ii in range (0, prow):
-                            for jj in range (0, pcol):
-                                stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
-                                for k in range(0, nlay):
-                                    if head_1c[0][k, i, j] > 0:
-                                        stldata[compt]['k0'] = k
-                                        break
-                                stldata[compt]['j0'] = j
-                                stldata[compt]['i0'] = i
-                                stldata[compt]['zloc0'] = 1
-                                stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
-                                stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
-                                compt = compt + 1
+                if self.zone_partic == 'watershed':
+                    if self.geographic.dem_clip[i,j] != -99999.: # active or note
+                        if head_1c[0][0][i][j] != 0.48:
+                            for ii in range (0, prow):
+                                for jj in range (0, pcol):
+                                    stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
+                                    for k in range(0, nlay):
+                                        if head_1c[0][k, i, j] > 0:
+                                            stldata[compt]['k0'] = k
+                                            break
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    stldata[compt]['zloc0'] = 1
+                                    stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
+                                    stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
+                                    compt = compt + 1
+                if self.zone_partic == 'domain':
+                    if self.geographic.dem_clip[i,j] >= -99999.: # active or note
+                        if head_1c[0][0][i][j] != 0.48:
+                            for ii in range (0, prow):
+                                for jj in range (0, pcol):
+                                    stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
+                                    for k in range(0, nlay):
+                                        if head_1c[0][k, i, j] > 0:
+                                            stldata[compt]['k0'] = k
+                                            break
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    stldata[compt]['zloc0'] = 1
+                                    stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
+                                    stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
+                                    # print(compt)
+                                    compt = compt + 1
         self.point_data = stldata
         stl.data = stldata
         
         # print(self.porosity)
-        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0, laytyp=laytype, ibound=iboundData,
-										prsity=self.porosity, prsityCB=self.porosity, extension='mpbas', unitnumber=86)
+        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0,
+                                  laytyp=laytype, ibound=iboundData,
+										prsity=self.porosity, prsityCB=self.porosity,
+                                        extension='mpbas', unitnumber=86)
         self.mp.write_input()
     
     #%% PROCESSING

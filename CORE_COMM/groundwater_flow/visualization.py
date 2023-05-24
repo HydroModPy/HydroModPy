@@ -346,7 +346,7 @@ class Visualization():
                 # contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'drain_flow':
                 # axs[i].set_title('Seepage rates, log(Q) [m/d]')
-                axs[i].set_title('Seepage rates, Q [m/d]')
+                axs[i].set_title('Seepage rates, Q [m3/d]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
                 # image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
                 #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
@@ -365,7 +365,7 @@ class Visualization():
                 # contour.plot(ax=axs[i], lw=2, color='k', zorder=4,legend=True, label='Watershed')
             if obj == 'surface_flow':
                 # axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
-                axs[i].set_title('Cumulate seepage rates, Q [m/d]')
+                axs[i].set_title('Cumulate seepage rates, Q [m3/d]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
                 # image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                 #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])

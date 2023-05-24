@@ -28,6 +28,8 @@ from tools import toolbox
 from watershed import forcing, geographic, hydrodynamic, watershed_display
 from calibration import calib_dichotomy
 
+from options import parameter_choice
+
 #%% CLASS
 
 class Watershed :
@@ -220,7 +222,7 @@ class Watershed :
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
                  from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
-                 from_xy: list = [], regio_out: bool = False):
+                 from_xy: list = [], regio_out: bool = False, parameters = None):
         """  
         
         Arguments
@@ -230,8 +232,14 @@ class Watershed :
             False: the watershed will be generated (and not loaded)
             
         """
-
-        self.watershed_name = watershed_name
+        
+        try:
+            self.watershed_name = parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
+            print("parameter_choice way")
+        except:
+            self.watershed_name = watershed_name
+            pass
+        
         self.library_path = library_path
         
         self.from_shp = from_shp
@@ -531,9 +539,11 @@ class Watershed :
 
     #%% MODEL MODFLOW
 
-    def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, box: bool = True,
+    def run_modflow(self, ident: str = 'modflow',run: bool = True, modpath_sim: bool = False, 
+                    zone_partic: str = 'watershed', box: bool = True,
                     first_only: bool = True, sink_fill: bool = False, lay_number: int = 1, 
-                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., multip_cond: float = None,
+                    bottom: float = None, thick_exp: float = 1., cond_decay: float = 0., poro_decay: float = 0.,
+                    multip_cond: float = None,
                     verbose: bool = False, post_process: bool = False,
                     time_step: str = 'M', calib: str = None, init_rech: str = 'mean', bc_left: (float) = None, bc_right: (float) = None,
                     verti_k: list = None):
@@ -571,6 +581,7 @@ class Watershed :
         :param lay_number: number of layer of the model
         :param bottom: if bottom is None, the model has a constant thickness.if bottom is float, the model has a flat bottom at the float elevation
         :param cond_decay: changes the hydraulic conductivity exponentially with the depth. lay_number must be >1.
+        :param poro_decay: changes the porosity exponentially with the depth. lay_number must be >1.
         :param thick_exp: changes the thickness of the layers exponentially. lay_number must be >1.
         :meta public:
             
@@ -591,6 +602,7 @@ class Watershed :
                                      bottom=self.hydrodynamic.bottom,
                                      hyd_cond=self.hydrodynamic.hyd_cond,
                                      cond_decay=self.hydrodynamic.cond_decay,
+                                     poro_decay=self.hydrodynamic.poro_decay,
                                      porosity=self.hydrodynamic.porosity,
                                      climatic=self.forcing.recharge,
                                      sea_level=self.oceanic.MSL,
@@ -618,12 +630,14 @@ class Watershed :
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
                 # print(self.hydrodynamic.porosity)
-                transport_model = modpath.Modpath(self.geographic,model_name=ident,  
-                                            model_folder=self.simulations_folder,
-                                            exe=self.modflow_path + '/bin/mp6.exe',
-                                            porosity=self.hydrodynamic.porosity)  
+                transport_model = modpath.Modpath(self.geographic,model_name=ident,
+                                                  zone_partic=zone_partic,
+                                                  model_folder=self.simulations_folder,
+                                                  exe=self.modflow_path + '/bin/mp6.exe',
+                                                  porosity=self.hydrodynamic.porosity)  
                 transport_model.pre_processing(verbose = verbose)
-                transport_model.processing(verbose = verbose)
+                if run == True:
+                    transport_model.processing(verbose = verbose)
                 # transport_model.post_processing()
         
         #RONAN: removes these lines
@@ -653,7 +667,7 @@ class Watershed :
                        specific_discharge = False,
                        accumulation_flux = True,
                        perenn_intermit_shp=True,
-                       groundwater_storage = False,
+                       groundwater_storage = True,
                        residence_times = False,
                        verbose = True,
                        export_tif = True,

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Jean-Raynald de Dreuzy (Géosciences Rennes) -->
+<!DOCTYPE ParametersGroup SYSTEM "../../reference_params_scheme.dtd">
+
+<ParametersGroup name="a_given_inputs">
+	<ParametersGroup name="simulation">
+		&simul;
+		&watershed_root;
+		&groundwaterflow;
+	</ParametersGroup>
+</ParametersGroup>
