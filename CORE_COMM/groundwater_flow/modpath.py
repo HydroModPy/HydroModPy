@@ -48,7 +48,7 @@ class Modpath:
         bas_file = '{}.bas'.format(prefix)
         lpf_file = '{}.upw'.format(prefix)
 
-        self.mf = flopy.modflow.Modflow.load(nam_file,model_ws=self.full_path, verbose=False, check=False)
+        self.mf = flopy.modflow.Modflow.load(nam_file, model_ws=self.full_path, verbose=False, check=False)
         bas = flopy.modflow.ModflowBas.load(bas_file, self.mf)
         lpf = flopy.modflow.ModflowUpw.load(lpf_file, self.mf, check=False)
         nlay = self.mf.nlay

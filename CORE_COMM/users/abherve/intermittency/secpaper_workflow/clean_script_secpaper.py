@@ -489,7 +489,8 @@ if pc == 'local':
     # Path to the data folder
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
     # Path where the results will be stored
-    out_path = "D:/Users/abherve/SECPAPER/"
+    # out_path = "D:/Users/abherve/SECPAPER/"
+    out_path = "C:/Users/ronan/Documents/SIMULATIONS/SECPAPER/"
     # Figure folder outputs
     figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures/_vf/'
 if pc == 'serv':
@@ -767,7 +768,7 @@ for watershed_name in watershed_names :
 
 modflow_path = data_path + 'SOFTWARE/MODFLOW/'
 
-for watershed_name in watershed_names[:1] :
+for watershed_name in watershed_names[:] :
     print('##### '+watershed_name.upper()+' #####')
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
@@ -1290,7 +1291,7 @@ for watershed_name, code_name in zip(watershed_names[:], code_names[:]) :
     spec_name = watershed_name+'_observedQ'
     fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
-#%% MATRIX DISCHARGE
+#%% 2DOBJFCT DISCHARGE
 
 sat_typ = 'surflow_areas'
 
@@ -1571,7 +1572,7 @@ for watershed_name in watershed_names[:]:
     spec_name = watershed_name+'_explodischarge'
     fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
-#%% MATRIX SATURATION
+#%% 2DOBJFCT SATURATION
 
 params_file = 'calib_explo_hom_2v_k1-n1'
 
@@ -1581,7 +1582,7 @@ sat_typ = 'surflow_areas'
 # sat_typ = 'seepage_areas'
 # sat_typ = 'prop_ratio'
 
-for watershed_name in watershed_names[:]:
+for watershed_name in watershed_names[:1]:
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -1636,6 +1637,7 @@ for watershed_name in watershed_names[:]:
         sat = test.sim_results[synt[t]][sat_typ]
         sat = pd.to_numeric(sat, errors='coerce').isnull()
         rsat.append(sat.mean())
+        # rsat.append(sat.max())
 
     fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
     ax.set_title(watershed_name, pad=10)
@@ -1654,6 +1656,7 @@ for watershed_name in watershed_names[:]:
     sim_sat_max = np.zeros((len(p1),len(p2)))
     sim_sat_std = np.zeros((len(p1),len(p2)))
     compt=0
+    list_vals = pd.DataFrame()
     for i in range(len(p1)):
         for j in range(len(p2)):
             temp = [p1[i],p2[j]]
@@ -1693,8 +1696,15 @@ for watershed_name in watershed_names[:]:
                 sim_sat_std[j][i] = np.nanvar(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
+            list_vals.loc[compt, 'K'] = p1[i]
+            list_vals.loc[compt, 'P'] = p2[j]
+            list_vals.loc[compt, 'Smax'] = sim_sat_max[j][i]
+            list_vals.loc[compt, 'Smean'] = sim_sat_mean[j][i]
+            list_vals.loc[compt, 'Smed'] = sim_sat_median[j][i]
+            list_vals.loc[compt, 'Smin'] = sim_sat_min[j][i]
+            list_vals.loc[compt, 'Sstd'] = sim_sat_std[j][i]
             compt += 1
-    
+
     sim_sat_max[np.isnan(sim_sat_max)] = 0
     sim_sat_min[np.isnan(sim_sat_min)] = 0
     
@@ -1704,7 +1714,7 @@ for watershed_name in watershed_names[:]:
     Z = (sim_sat_max - sim_sat_min) / sim_sat_mean
     # Z = (sim_sat_median) #/ sim_sat_mean
     # Z = (sim_sat_max - sim_sat_min) / (sim_sat_min)
-    # Z = (sim_sat_max) #/ sim_sat_mean
+    # Z = (sim_sat_min) #/ sim_sat_mean
     # Z = (sim_sat_mean)
     # Z = sim_sat_mean
     # Z = np.log10(Z)
@@ -1895,6 +1905,72 @@ for watershed_name in watershed_names[:]:
     base_name = figsim_folder+'02_exploration/'
     spec_name = watershed_name+'_explosaturation_median'
     # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
+
+#%% ANNEXE 1
+
+list_vals['Smax'][np.isnan(list_vals['Smax'])] = 0
+list_vals['Smin'][np.isnan(list_vals['Smin'])] = 0
+# sim_sat_max[np.isnan(sim_sat_max)] = 0
+# sim_sat_min[np.isnan(sim_sat_min)] = 0
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, list_vals['Smax'], c=list_vals['P'], ec='None')
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, list_vals['Smean'], c=list_vals['P'], ec='None')
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, list_vals['Smed'], c=list_vals['P'], ec='None')
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, list_vals['Smin'], c=list_vals['P'], ec='None')
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, list_vals['Sstd'], c=list_vals['P'], ec='None')
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, (list_vals['Smax']-list_vals['Smin'])/
+                                    list_vals['Smean'], c=list_vals['P'], ec='None')
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.scatter(list_vals['K']/24/3600, (list_vals['Smax']/list_vals['Smin']),
+           c=list_vals['P'], ec='None')
+
+# (sim_sat_max - sim_sat_min) / sim_sat_mean
+
+#%% ANNEXE 2
+
+list_vals['Smax'][np.isnan(list_vals['Smax'])] = 0
+list_vals['Smin'][np.isnan(list_vals['Smin'])] = 0
+# sim_sat_max[np.isnan(sim_sat_max)] = 0
+# sim_sat_min[np.isnan(sim_sat_min)] = 0
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.scatter(list_vals['P']*100, list_vals['Smean'], c=list_vals['K'], ec='None',
+           norm=mpl.colors.LogNorm())
+
+fig, ax = plt.subplots(1,1, figsize=(3,3))
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.scatter(list_vals['P']*100, (list_vals['Smax']-list_vals['Smin'])/
+                                    list_vals['Smean'], c=list_vals['K'], ec='None',
+           norm=mpl.colors.LogNorm())
 
 #%% STREAMFLOW
 
@@ -2868,9 +2944,10 @@ for watershed_name in watershed_names[:]:
             spec_name = watershed_name+'_cross map fixed'
             # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
-#%% PI
+#%% PI MAPPING
 
 iD = 'calibrated1'
+iD = 'matrix1'
 
 var = 'REC'
 sce_list = ['historic']
@@ -2893,7 +2970,9 @@ for watershed_name in watershed_names[:1]:
                                   load=True,
                                   modflow_path=modflow_path)
     
-    for ix in np.arange(0,1,1):
+    list_simuls = glob.glob(simulations_folder+'*'+iD+'_'+'*')
+    
+    for ix in range(len(list_simuls))[:]:
         
         fig, ax = plt.subplots(1,1, figsize=(10,10), sharex=True, sharey=True)
 
@@ -2920,11 +2999,14 @@ for watershed_name in watershed_names[:1]:
         cmap = plt.cm.YlGnBu
         # cmap = parula_map
         cmaplist = [cmap(i) for i in range(cmap.N)]
-        cmaplist = ['skyblue','dodgerblue','navy']
+        # cmaplist = ['skyblue','dodgerblue','navy']
+        cmaplist = ['white','lightskyblue','deepskyblue','dodgerblue','navy','purple']
+        # cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
         # cmaplist[0] = (.5, .5, .5, 1.0)
         cmap = mpl.colors.LinearSegmentedColormap.from_list(
             'Custom cmap', cmaplist, cmap.N)
         bounds = np.arange(0, 1.1, 0.1)
+        bounds = [-1,0,0.25,0.5,0.75,1,1.1]
         norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
         
         pi = np.ma.masked_where(days_flux <= 0, days_flux)
@@ -2995,14 +3077,204 @@ for watershed_name in watershed_names[:1]:
         # fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
         
         pi_path = os.path.join(simul, '_watershed', 'persistency_index.tif')
-        toolbox.export_tif(BV.geographic.watershed_dem, pi, -99999, pi_path)
+        # toolbox.export_tif(BV.geographic.watershed_dem, pi, -99999, pi_path)
+        toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", pi, -99999, pi_path)
 
         pi_shp_path = os.path.join(simul, '_watershed', 'persistency_index.shp')
         wbt.raster_to_vector_points(pi_path, pi_shp_path)
         pi_shp = gpd.read_file(pi_shp_path)
         pi_shp['VALUE'][pi_shp['VALUE']>1] = 1
+        
         pi_shp.to_file(pi_shp_path)
+        
+        wbt.extract_raster_values_at_points(
+            stable_folder+"geographic/watershed_dem.tif", 
+            pi_shp_path, 
+            out_text=True)
+        
+        pi_shp = gpd.read_file(pi_shp_path)
+        pi_shp = pi_shp.rename(columns={"VALUE1": "DEM"})
+        pi_shp['DEM'][pi_shp['DEM']<0] = np.nan
+        
+        pi_shp.to_file(pi_shp_path)
+        
+        wt_path = os.path.join(simul, '_watershed', '_tifs', 'watertable_elevation_t(0).tif')
+        
+        wbt.extract_raster_values_at_points(
+            wt_path, 
+            pi_shp_path, 
+            out_text=True)
+        
+        pi_shp = gpd.read_file(pi_shp_path)
+        pi_shp = pi_shp.rename(columns={"VALUE1": "WT"})
+        pi_shp['WT'][pi_shp['WT']<0] = np.nan
+        
+        pi_shp.to_file(pi_shp_path)
+        
+        
+        
+        fig, ax = plt.subplots(1,1, figsize=(4,4), sharex=True, sharey=True)
+        ax.scatter(pi_shp['VALUE'], pi_shp['DEM'], c='red', ec='None')
+        ax.scatter(pi_shp['VALUE'], pi_shp['WT'], c='blue', ec='None')
+        ax.set_xlim(0,1)
+        ax.set_ylim(90,120)
+        
+#%% PI DISTRIBUTION
 
+iD = 'calibrated1'
+iD = 'matrix1'
+
+var = 'REC'
+sce_list = ['historic']
+
+y_name = 'surflow_areas'
+
+for watershed_name in watershed_names[:1]:
+
+    if watershed_name == 'Canut':
+        color = 'green'
+    if watershed_name == 'Nancon':
+        color = 'darkmagenta'    
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  modflow_path=modflow_path)
+    
+    list_simuls = glob.glob(simulations_folder+'*'+iD+'_'+'*')
+    
+    for ix in range(len(list_simuls))[:]:
+        
+        fig1, axs1 = plt.subplots(1,1, figsize=(4,2),
+                                sharex=True, sharey=True)
+        
+        simul = glob.glob(simulations_folder+'*'+iD+'_'+str(ix)+'*')[0]
+        model_name = simul.split('\\')[-1]
+        
+        Smod_path = simul+'/_watershed/_simulated_results.csv'    
+        # Smod_path = simul+'/_subbasins/_simulated_results.csv'    
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+        
+        acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+        acc_npy = list(acc_npy.items())[:]
+        # acc_npy = list(acc_npy.items())[360:720]
+        
+        for key in range(len(acc_npy)):
+            # print(key)
+            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+            mask = imageio.imread(glob.glob(stable_folder+'subbasin/'+'intermittency'+'*')[0]+'/'+'watershed_dem.tif')
+            # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+            acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+        zero = acc_npy[0] * 0
+        for i in range(len(acc_npy)):
+            tempo = acc_npy[i].copy()
+            tempo[tempo>0] = 1
+            zero = zero + tempo
+        days_flux = zero.copy() / len(acc_npy)
+        
+        days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
+                
+        box = np.sort(days_flux[~days_flux.mask]).flatten() #.round(5)
+        
+        cell = np.ma.masked_array(mask, mask=(mask<0)).count()        
+
+        import collections
+        a = box.copy()
+        counter=collections.Counter(a)
+
+        df = pd.DataFrame()
+        df['values'] = counter.values()
+        df['values'] = (df['values'] / cell) * 100
+        df['keys'] = np.array(list(counter.keys()))
+        # keyss = np.array(list(counter.keys())).round(2)
+        # index = (keyss.round(2)).astype(str)
+        # df.index = index
+        # df = df.T
+        
+        Z = np.sort(days_flux[~days_flux.mask]).flatten() #.round(3)
+        
+        ###### NP HISTOGRAM
+        ax = axs1
+        bins = 100
+        test = np.histogram(Z, bins=bins, density=True)
+        # ax.plot(test[1][1:], test[0], color=color, lw=2, label="CDF")
+        # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
+        #             c=test[0]/sum(test[0]),
+        #             cmap=cmap, lw=0.1, label="CDF",
+        #             norm=normalize)
+        # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
+        #             c=test[1][1:],
+        #             cmap=cmap, lw=0.1, label="CDF",
+        #             norm=normalize)
+        my_cmap = plt.get_cmap("jet_r")
+        rescale = lambda y: (y - 0) / (1 - 0)
+        # ax.bar(test[1][1:], test[0]/sum(test[0])*100, width=0.02, lw=0,
+        #        color=my_cmap(rescale(test[1][1:])))
+        ax.bar(test[1][1:][test[1][1:]>=1], test[0][test[1][1:]>=1], width=0.01, lw=0, color='purple')
+        try:
+            ax.bar(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], width=0.01, lw=0, color='navy')
+        except:
+            pass
+        ax.bar(test[1][1:][(test[1][1:]>0.5)&(test[1][1:]<0.75)], test[0][(test[1][1:]>0.5)&(test[1][1:]<0.75)], width=0.01, lw=0, color='dodgerblue')
+        ax.bar(test[1][1:][(test[1][1:]>0.25)&(test[1][1:]<0.5)], test[0][(test[1][1:]>0.25)&(test[1][1:]<0.5)], width=0.01, lw=0, color='deepskyblue')
+        ax.bar(test[1][1:][(test[1][1:]<0.25)], test[0][(test[1][1:]<0.25)], width=0.01, lw=0, color='lightskyblue')
+        ax.set_yscale('log')
+        # plt.plot()
+        ax.set_xlim(0.0,1.01)
+        ax.set_ylim(1E-3*100, 1*100)
+        
+        ax.spines.right.set_visible(False)
+        ax.spines.top.set_visible(False)
+        ax.yaxis.set_ticks_position('left')
+        ax.xaxis.set_ticks_position('bottom')
+        
+        ax.set_yticks([1,10,100])
+        ax.tick_params(direction='out', which='both', colors='k',
+                       grid_color='r', grid_alpha=1)
+        
+        """
+        # Colors
+        ccol = plt.cm.jet_r  # define the colormap
+        # cmap = plt.cm.RdYlGn  # define the colormap
+        # cmap = parula_map
+        cmaplist = [cmap(i) for i in range(cmap.N)]
+        # cmaplist[0] = (.5, .5, .5, 1.0)
+        cmap = mpl.colors.LinearSegmentedColormap.from_list(
+            'Custom cmap', cmaplist, ccol.N)
+        bounds = np.arange(0, 1.1, 0.1)
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        normalize = matplotlib.colors.Normalize(vmin=0, vmax=1)
+        
+        ###### BIN FROM NP HIST NORM
+        ax = axs2
+        from scipy.stats import norm
+        pdf = norm.pdf(Z, Z.mean(), Z.std())
+        N = len(Z)
+        count, bins_count = np.histogram(Z, bins=100, density=True)
+        pdf = count / sum(count)
+        cdf = np.cumsum(pdf)
+        # cdf = pdf.copy()
+        # ax.plot(cdf*100, color=color, lw=4, label="CDF")
+        # ax.plot(cdf, color=color, lw=2, label="CDF")
+        ax.scatter(np.arange(0, len(cdf), 1)/100, cdf, s=20, marker=m,
+                    c=cdf,
+                    cmap=cmap, lw=0.1, label="CDF",
+                    norm=normalize)
+        # ax.scatter(np.arange(0, len(pdf), 1), pdf, s=20, marker=m,
+        #             c=pdf,
+        #             cmap=cmap, lw=0.1, label="CDF")
+        # ax.scatter(bins_count[:-1], pdf, s=20, marker=m,
+        #             c=pdf,
+        #             cmap=cmap, lw=0.1, label="CDF")
+        """
+        
+    spec_name = str(watershed_name)+'_histog'
+        
 #%% ---- CHOICE
 
 #%% HYSTERESIS PE vs Qobs

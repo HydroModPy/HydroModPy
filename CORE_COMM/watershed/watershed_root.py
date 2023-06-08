@@ -625,7 +625,7 @@ class Watershed :
             success = True
     
         # Postprocessing and Modpath simulation
-        if success == True:
+        if (run == True) & (success == True):
             if post_process == True:
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
@@ -634,7 +634,8 @@ class Watershed :
                                                   zone_partic=zone_partic,
                                                   model_folder=self.simulations_folder,
                                                   exe=self.modflow_path + '/bin/mp6.exe',
-                                                  porosity=self.hydrodynamic.porosity)  
+                                                  # porosity=self.hydrodynamic.porosity,
+                                                  porosity=flow_model.ps)  
                 transport_model.pre_processing(verbose = verbose)
                 if run == True:
                     transport_model.processing(verbose = verbose)
