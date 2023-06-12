@@ -20,14 +20,10 @@ from os.path import dirname, abspath, join
 import os 
 import sys
 # Current Directory stored in DIR 
-DIR = dirname(dirname(dirname(abspath(__file__))))
-# APPENDS ROOT FOLDER 
+DIR = os.path.join(os.getenv("HYDROMODPY_ROOT").replace('/',os.sep),"HydroModPy","CORE_COMM")
+sys.path.append(os.path.join(dirname(DIR),"Tools","Parameters","Parameters"))
 sys.path.append(DIR)
-sys.path.append(os.path.join(os.getenv("HYDROMODPY_ROOT").replace('/',os.sep),"HydroModPy"))
-# Updates path 
-import startup
-DIR = startup.python_path_update(DIR)
-print(sys.path)
+out_path = os.getenv("HYDROMODPY_RESULTS")
 
 
 # %% GENERAL LIBRARIES
@@ -35,6 +31,7 @@ print(sys.path)
 # from glob import glob
 import numpy as np
 import pandas as pd
+import osgeo
 from osgeo import gdal, osr
 from IPython import get_ipython
 from tools import toolbox, vtk
@@ -113,8 +110,8 @@ def run_example(out_path, regression_test=False, parameters=None):
     
     dem_path = dems_path + dem_name
     
-    dem = gdal.Open(dem_path)
-    proj = osr.SpatialReference(wkt=dem.GetProjection())    # Retrieves projection system attached to the dem
+    dem = osgeo.gdal.Open(dem_path)
+    proj = osgeo.osr.SpatialReference(wkt=dem.GetProjection())    # Retrieves projection system attached to the dem
     crs = int(proj.GetAttrValue('AUTHORITY',1))             # Gets name of the projection system
     
     # Import the library of watersheds (maybe several watersheds in the loaded file: library of watersheds)
