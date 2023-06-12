@@ -108,7 +108,7 @@ if user == 'Ronan':
     # Path to the data folder
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
     # Path where the results will be stored
-    out_path = "C:/Users/ronan/Documents/SIMULATIONS/LASSET/"
+    out_path = "C:/Users/ronan/Documents/HYDROMODPY/LASSET/"
     # Figure folder outputs
     # figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
     fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/figures/v1/"
@@ -144,7 +144,7 @@ dem_path = dems_path + dem_name
 library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 # watershed_names = ['Pompage'] # search the name in watershed_library or just label your result folder
 
-watershed_names = ['Lasset_decay']
+watershed_names = ['Lasset_egu']
 code_names = ['?']
 
 #%% GENERATE WATERSHED
@@ -227,8 +227,8 @@ BV.add_oceanic(oceanic_path)
 # # Zones
 # BV.add_subbasin()
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+# watershed_display.watershed_dem(BV)
+# watershed_display.watershed_local(dem_path, BV)
 
 area = BV.geographic.area
 
@@ -244,9 +244,9 @@ R_rea = BV.forcing.recharge
 #%% DICHOTOMY PARAMS
 
 ######################
-# dicot_name = 'egu1'
+dicot_name = 'egu1'
 # dicot_name = 'oneplot'
-dicot_name = 'explor1'
+# dicot_name = 'explor1'
 ######################
 
 # 12 cases :
@@ -318,6 +318,7 @@ BV.hydrodynamic.update_hyd_cond(K0)
 
 # params_file = 'calib_dicot_hom_1v_k1'+'/'+dicot_name
 params_file = 'calib_dicot_hom_1v_k1'+'_'+dicot_name
+params_file = 'calib_dicot_hom_1v_k1'+dicot_name
 
 #%% DICHOTOMY LAUCNH
 
@@ -421,7 +422,7 @@ df.to_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';
 df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
 
 ######################
-typ = 'explor1'
+typ = 'egu1'
 ######################
 
 box=True
@@ -461,7 +462,7 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
 
-typ = 'explor1'
+typ = 'egu1'
 
 run = True
 
@@ -534,7 +535,7 @@ dd.io.save(h5file, dictio)
 
 #%% RELOAD MODELS
 
-typ = 'explor1'
+typ = 'egu1'
 
 h5file = simulations_folder+'/'+'list_'+typ
 d = dd.io.load(h5file)
@@ -1461,9 +1462,11 @@ cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
 
+fig.savefig(fig_path+
+            'dichotomy_results'+'.png', dpi=300, bbox_inches='tight')
+
 #%% DICHOTOMY TRANSMISSIVITY
 
-iDb =  'egu1'
 iDb =  'explor1'
 simul_list = sorted(glob.glob(simulations_folder+iDb+'*'), key=os.path.getmtime)
 
@@ -1554,10 +1557,10 @@ dem_data = dem.read(1)
 vmin = 0
 vmax = 100
 
-sel = 0
+sel = 11
 filtered = list(filter(lambda score: score.split('_')[1] == str(sel), list_model_name))
 
-for model_name in filtered:
+for model_name in filtered[-1:]:
     print(model_name)
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
     shp_sim = gpd.read_file(path_pathlines+'ending.shp')
@@ -1773,6 +1776,9 @@ ax.legend(loc='best', ncol=2, )
 # ax.set_xlim(0.2,20)
 # ax.set_ylim(10,100)
 
+fig.savefig(fig_path+
+            'mean_RMSE'+'.png', dpi=300, bbox_inches='tight')
+
 fig, ax = plt.subplots(1,1, figsize=(5,4))
 id_compt_model = df_explo['compt_model'].unique()
 n = len(id_compt_model)
@@ -1799,7 +1805,10 @@ ax.set_ylabel('RMSE')
 ax.legend(loc='best', ncol=2, )
 # ax.set_ylim(20, 100)
 # ax.set_xlim(0.2,20)
-# ax.set_ylim(10,100)
+ax.set_ylim(20,80)
+
+fig.savefig(fig_path+
+            'mean_RMSE_zoom'+'.png', dpi=300, bbox_inches='tight')
 
 #%% SIM/OBS EACH SPRINGS
 
@@ -1809,34 +1818,39 @@ df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
 for point in res_dat['id']:
     
-    if (point == 'S03') | (point == 'S27'):
+    # if (point == 'S03') | (point == 'S27'):
 
-        fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
-        id_compt_model = df_explo['compt_model'].unique()
-        n = len(id_compt_model)
-        cmap = cm.get_cmap('jet', n)
-        colors = pl.cm.jet(np.linspace(0,1,n))
-        for i, ind in enumerate(id_compt_model):
-            mask = df_explo[df_explo['compt_model']==ind]
-            label = round(1/mask['cond_decay_cal'].values[0], 1)
-            color=colors[i]
-            if i == 0:
-                label = 'constant'
-                color='k'
-            if i == 1:
-                label = 'flat'
-                color='dimgray'
-            ax.plot(mask['porosity_value']*100, mask[point+'_comp_'+choice],
-                    color=color, marker='o', ms=4, mec='none',
-                    label=label)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        # ax.set_xlabel('Porosity')
-        # ax.set_ylabel(point+'sim / '+point+'obs')
-        # ax.legend(loc='upper left', ncol=2)
-        ax.set_xlim(0.3,30)
-        ax.set_ylim(1e-2,1e2)
-        ax.axhline(y=1, color='k', ls='--', lw=2)
+    fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
+    id_compt_model = df_explo['compt_model'].unique()
+    n = len(id_compt_model)
+    cmap = cm.get_cmap('jet', n)
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    for i, ind in enumerate(id_compt_model):
+        mask = df_explo[df_explo['compt_model']==ind]
+        label = round(1/mask['cond_decay_cal'].values[0], 1)
+        color=colors[i]
+        if i == 0:
+            label = 'constant'
+            color='k'
+        if i == 1:
+            label = 'flat'
+            color='dimgray'
+        ax.plot(mask['porosity_value']*100, mask[point+'_comp_'+choice],
+                color=color, marker='o', ms=4, mec='none',
+                label=label)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('Porosity')
+    ax.set_ylabel(point+'sim / '+point+'obs')
+    # ax.legend(loc='upper left', ncol=2)
+    ax.set_xlim(0.3,30)
+    ax.set_ylim(1e-2,1e2)
+    ax.axhline(y=1, color='k', ls='--', lw=2)
+        
+    ax.set_title(point)
+    
+    fig.savefig(fig_path+
+                point+'_spring_tsimVStobs'+'.png', dpi=300, bbox_inches='tight')
 
 #%% SIM/OBS ALL SPRINGS
 
@@ -1877,6 +1891,9 @@ ax.set_ylabel('tsim / '+'tobs')
 ax.set_xlim(0.3,30)
 ax.set_ylim(1e-2,1e2)
 ax.axhline(y=1, color='k', ls='--', lw=2)
+
+fig.savefig(fig_path+
+            'all_spring_tsimVStobs'+'.png', dpi=300, bbox_inches='tight')
 
 #%% EXTRAC RESIDENCE SEEAPGE
 
@@ -1997,6 +2014,8 @@ for cs in choices:
         # fig.savefig(simulations_folder+'/_figures/'+
         #             'boxplot_'+cs+'.png', dpi=300, bbox_inches='tight')
         
+        
+        
 #%% BOXPLOTS BY S03/S27
 
 # choices = ['min','q10','q25','mean','media','q75','q90','max']
@@ -2071,8 +2090,8 @@ df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'rb') as f:
     dic_res = pickle.load(f)
 
-# list_selects = ['egu1_3_15.0-0.0-0.1908-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
-list_selects = ['explor1_3_0.0_0.1908-10.8_15.0-30.0', 'explor1_8_0.0_0.0211-3.9_100.0-200.0']
+list_selects = ['egu1_3_15.0-0.0-0.1908-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+# list_selects = ['explor1_3_0.0_0.1908-10.8_15.0-30.0', 'explor1_8_0.0_0.0211-3.9_100.0-200.0']
 
 for model_name in list_selects[:]:
 
@@ -2104,6 +2123,10 @@ for model_name in list_selects[:]:
     ax.set_title(model_name, fontsize=9)
     # ax.set_ylim(0.1,100)
     ax.set_yscale('log')
+    ax.set_ylabel('t [y]')
+    
+    fig.savefig(fig_path+
+                'boxplot_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% AGE BY MODELS
 

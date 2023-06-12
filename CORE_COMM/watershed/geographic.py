@@ -209,8 +209,8 @@ class Geographic:
         wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill,
                                    maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer watershed shapefile polygon
-        watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
-        wbt.clip_raster_to_polygon(direc, buffer, watershed_buff_direc,
+        self.watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
+        wbt.clip_raster_to_polygon(direc, buffer, self.watershed_buff_direc,
                                    maintain_dimensions=False)
         
         """
@@ -491,7 +491,8 @@ class Subbasin:
     # .csv file with x, y coordinates representing the outlet desired sub-catchments
     
     def add_coord_manual(self):
-        path_coord = glob.glob(self.adddata_path+'/'+'add_coord_manual_*')[0]
+        path_coord = glob.glob(self.adddata_path+'/'+'*')[0]
+        print(self.adddata_path)
         sub_list = pd.read_csv(path_coord, sep=';')
         print(sub_list)
         code_sub = sub_list['code_sub'].to_list()

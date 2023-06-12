@@ -472,27 +472,27 @@ run = True
 compt_model = 0
 
 for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_bottom[:], list_koptim[:]):
+# for cond_decay_cal, bottom_cal, koptim_cal in zip([0.0033333333333333, 0.0033333333333333], [0,0], [list_koptim[-1:][0],list_koptim[-1:][0]]):
 # for cond_decay_cal, bottom_cal, koptim_cal in zip([1/300], [0], [0.00654704859375]):
     BV.hydrodynamic.update_bottom(bottom_cal) # None
     BV.hydrodynamic.update_cond_decay(cond_decay_cal) # 0
+    # BV.hydrodynamic.update_poro_decay(cond_decay_cal/2) # 0
+    # if compt_model==0:
     BV.hydrodynamic.update_poro_decay(cond_decay_cal/2) # 0
     BV.hydrodynamic.update_hyd_cond(koptim_cal)
-    
     
     for porosity_value in list_porosity[:]:
     # for porosity_value in [0.03]:
         
         BV.hydrodynamic.update_porosity(porosity_value)
         
-        # print(BV.hydrodynamic.poro_decay)
-
         model_name = typ+'_'+str(compt_model)+'_'+\
                      str(bottom_cal)+'_'+\
                      str(round(koptim_cal,4))+'-'+\
                      str(round(porosity_value*100, 2))+'_'+\
-                     str(round(1/cond_decay_cal,1))+'-'+\
-                     str(round(1/(cond_decay_cal/2),1))
-                     
+                     str(round(1/(BV.hydrodynamic.cond_decay),1))+'-'+\
+                     str(round(1/(BV.hydrodynamic.poro_decay),1))
+                             
         print('SIM - ' + model_name)
 
         success, flow_model = BV.run_modflow(run=run,
@@ -519,6 +519,9 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:], list_botto
     
     # if c>1:
     compt_model += 1
+
+x = BV.hydrodynamic.porosity
+y = flow_model.ps
     
 print(list_of_success)
 
@@ -602,7 +605,7 @@ list_selects = list_model_name
 
 fig_cross = True
 
-for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
+for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
     print(model_name)
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
     # try:
@@ -1554,10 +1557,10 @@ dem_data = dem.read(1)
 vmin = 0
 vmax = 100
 
-sel = 0
+sel = 11
 filtered = list(filter(lambda score: score.split('_')[1] == str(sel), list_model_name))
 
-for model_name in filtered:
+for model_name in filtered[-1:]:
     print(model_name)
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
     shp_sim = gpd.read_file(path_pathlines+'ending.shp')
