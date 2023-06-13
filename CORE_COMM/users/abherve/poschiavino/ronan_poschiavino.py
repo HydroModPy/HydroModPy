@@ -2209,3 +2209,20 @@ for it in range(len(list_path[:])):
 wbt.raster_to_vector_points(BV.geographic.watershed_dem, 
                          'C:/Users/ronan/Downloads/points_dem.shp')
 
+#%% NOTES
+
+x = gpd.read_file("C:/Users/ronan/Documents/SIMULATIONS/POSCHIAVINO/Ownoutlet10m_v4/results_simulations/ONEconstant5lay_50m_z500_KR_100.0/_pathlines/particules_1000.shp")
+
+random_100 = random.sample(list(x['particleid']), 100)
+random_50 = random.sample(list(x['particleid']), 50)
+random_10 = random.sample(list(x['particleid']), 10)
+
+xy_100 = x[np.isin(x.particleid, random_100)]
+xy_50 = x[np.isin(x.particleid, random_50)]
+xy_10 = x[np.isin(x.particleid, random_10)]
+
+xy_100.to_file("C:/Users/ronan/Documents/SIMULATIONS/POSCHIAVINO/Ownoutlet10m_v4/results_simulations/ONEconstant5lay_50m_z500_KR_100.0/_pathlines/particules_100.shp")
+xy_50.to_file("C:/Users/ronan/Documents/SIMULATIONS/POSCHIAVINO/Ownoutlet10m_v4/results_simulations/ONEconstant5lay_50m_z500_KR_100.0/_pathlines/particules_50.shp")
+xy_10.to_file("C:/Users/ronan/Documents/SIMULATIONS/POSCHIAVINO/Ownoutlet10m_v4/results_simulations/ONEconstant5lay_50m_z500_KR_100.0/_pathlines/particules_10.shp")
+
+
