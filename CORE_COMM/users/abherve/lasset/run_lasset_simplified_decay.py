@@ -111,7 +111,7 @@ if user == 'Ronan':
     out_path = "C:/Users/ronan/Documents/SIMULATIONS/LASSET/"
     # Figure folder outputs
     # figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
-    fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/figures/v1/"
+    fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/figures/v2/"
     path_obs = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
     #############################################################
 
@@ -605,7 +605,7 @@ list_selects = list_model_name
 
 fig_cross = True
 
-for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
+for model_name, flow_model in zip(list_selects[12*5:], list_flow_model[12*5:]):
     print(model_name)
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
     # try:
@@ -956,11 +956,11 @@ for model_name in list_selects[:]:
     
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
     
-    path_rtd_obs= path_obs+'age_apparent_obs_C2_corrected.shp'
-    shp_obs = gpd.read_file(path_rtd_obs)
-    shp_obs['geometry'] = shp_obs.geometry.buffer(100)
-    # shp_obs = shp_obs[['ID_station', 'geometry']]
-    shp_obs.to_file(path_pathlines+'time_simobs.shp', encoding='utf-8') # mode a
+    # path_rtd_obs= path_obs+'age_apparent_obs_C2_corrected.shp'
+    # shp_obs = gpd.read_file(path_rtd_obs)
+    # shp_obs['geometry'] = shp_obs.geometry.buffer(100)
+    # # shp_obs = shp_obs[['ID_station', 'geometry']]
+    # shp_obs.to_file(path_pathlines+'time_simobs.shp', encoding='utf-8') # mode a
     
     
     shp_simobs = gpd.read_file(path_pathlines+'time_simobs.shp', encoding='utf-8') # mode a
@@ -1028,7 +1028,7 @@ for model_name in list_selects[:]:
                                       model_name+'/'+model_name+'.mppth')
     pth_data = pthobj.get_alldata()
     
-    cond_lay = 38 # ==> approx. 40 meters
+    cond_lay = 40 # ==> approx. 40 meters
     compt = 0
     indices_layers = []
     superf_p = []
@@ -1927,8 +1927,7 @@ for i, ind in enumerate(id_compt_model):
         color='dimgray'
     ax.plot(mask['porosity_value'], 
             mask['end_tmean']/42, lw=1.5,
-            color=color, marker='o', ms=4, mec='none',
-            label=label)
+            color=color, marker='o', ms=4, mec='none')
     
 ax.set_xscale('log')
 ax.set_yscale('log')
@@ -1942,7 +1941,7 @@ ax.axhline(y=1, color='k', ls='--', lw=2, alpha=1, zorder=10)
 #%% BOXPLOTS BY SPRINGS
 
 # choices = ['min','q10','q25','mean','media','q75','q90','max']
-choices = ['mean']
+choices = ['max']
 
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
@@ -1976,7 +1975,7 @@ for cs in choices:
         for model_name in list_model_name[:]:
             # print(model_name)
             
-            por = float(model_name.split('-')[-1])
+            por = float(model_name.split('_')[-2].split('-')[1])
             mod = int(model_name.split('_')[1])+1
             
             t=dic_res[model_name]
@@ -2003,7 +2002,7 @@ for cs in choices:
 #%% BOXPLOTS BY S03/S27
 
 # choices = ['min','q10','q25','mean','media','q75','q90','max']
-choices = ['mean']
+choices = ['q90']
 
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
