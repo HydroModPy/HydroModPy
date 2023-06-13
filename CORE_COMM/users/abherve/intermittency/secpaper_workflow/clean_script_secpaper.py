@@ -2930,7 +2930,7 @@ sce_list = ['historic']
 
 y_name = 'surflow_areas'
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[1:]:
 
     if watershed_name == 'Canut':
         color = 'green'
@@ -2950,156 +2950,158 @@ for watershed_name in watershed_names[:1]:
     
     for ix in range(len(list_simuls))[:]:
         
-        fig, ax = plt.subplots(1,1, figsize=(10,10), sharex=True, sharey=True)
-
-        simul = glob.glob(simulations_folder+'*'+iD+'_'+str(ix)+'*')[0]
-        model_name = simul.split('\\')[-1]
+        try:
         
-        acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
-        acc_npy = list(acc_npy.items())[:]
-        
-        for key in range(len(acc_npy)):
-            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-            acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
-        zero = acc_npy[0] * 0
-        for i in range(len(acc_npy)):
-            tempo = acc_npy[i].copy()
-            tempo[tempo>0] = 1
-            zero = zero + tempo
-        days_flux = zero.copy() / len(acc_npy)
-                
-        vmin = 0
-        vmax = 1
-        
-        # cmap = plt.cm.jet_r  # define the colormap
-        cmap = plt.cm.YlGnBu
-        # cmap = parula_map
-        cmaplist = [cmap(i) for i in range(cmap.N)]
-        # cmaplist = ['skyblue','dodgerblue','navy']
-        cmaplist = ['white','lightskyblue','deepskyblue','dodgerblue','navy','purple']
-        # cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
-        # cmaplist[0] = (.5, .5, .5, 1.0)
-        cmap = mpl.colors.LinearSegmentedColormap.from_list(
-            'Custom cmap', cmaplist, cmap.N)
-        bounds = np.arange(0, 1.1, 0.1)
-        bounds = [-1,0,0.25,0.5,0.75,1,1.1]
-        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-        
-        pi = np.ma.masked_where(days_flux <= 0, days_flux)
-        pc = ax.imshow(pi,
-                       cmap=cmap, norm=norm, alpha=1)
-        # pc = ax.imshow(np.ma.masked_where(pi != 1, pi),
-        #                cmap=mpl.colors.ListedColormap('k'), norm=norm, alpha=1)
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        ax.axis('off')
-        
-        wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
-                                   stable_folder+'geographic/'+'watershed_contour.tif',
-                                   base = stable_folder+'geographic/'+'watershed_dem.tif')
-        line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
-        line = np.ma.masked_where(line <= 0, line)
-        import matplotlib as mpl
-        ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
-        plt.subplots_adjust(hspace = -0.6)
-        
-        base_name = figsim_folder+'03_sensitivity/'
-        spec_name = watershed_name+'_pimap sensitivity_'+model_name
-        fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight',
-                    transparent=True)
-        
-        '''        
-        ### Classic histogram
-        # masked = days_flux[days_flux >= 0]
-        # Z = masked.flatten()
-        # from scipy.stats import norm
-        # pdf = norm.pdf(Z, Z.mean(), Z.std())
-        # ax.hist(Z, bins = 100, density=True,
-        #         color = color, edgecolor = 'none', alpha = 0.5)
-        # ax.set_yscale('log')
+            fig, ax = plt.subplots(1,1, figsize=(10,10), sharex=True, sharey=True)
     
-        Smod_path = simul+'/_watershed/_simulated_results.csv'            
-        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-        Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+            simul = glob.glob(simulations_folder+'*'+iD+'_'+str(ix)+'*')[0]
+            model_name = simul.split('\\')[-1]
+            
+            acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+            acc_npy = list(acc_npy.items())[:]
+            
+            for key in range(len(acc_npy)):
+                mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+            zero = acc_npy[0] * 0
+            for i in range(len(acc_npy)):
+                tempo = acc_npy[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy() / len(acc_npy)
+                    
+            vmin = 0
+            vmax = 1
+            
+            # cmap = plt.cm.jet_r  # define the colormap
+            cmap = plt.cm.YlGnBu
+            # cmap = parula_map
+            cmaplist = [cmap(i) for i in range(cmap.N)]
+            # cmaplist = ['skyblue','dodgerblue','navy']
+            cmaplist = ['white','lightskyblue','deepskyblue','dodgerblue','navy','purple']
+            # cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
+            # cmaplist[0] = (.5, .5, .5, 1.0)
+            cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                'Custom cmap', cmaplist, cmap.N)
+            bounds = np.arange(0, 1.1, 0.1)
+            bounds = [-1,0,0.25,0.5,0.75,1,1.1]
+            norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+            
+            pi = np.ma.masked_where(days_flux <= 0, days_flux)
+            pc = ax.imshow(pi,
+                           cmap=cmap, norm=norm, alpha=1)
+            # pc = ax.imshow(np.ma.masked_where(pi != 1, pi),
+            #                cmap=mpl.colors.ListedColormap('k'), norm=norm, alpha=1)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            ax.axis('off')
+            
+            wbt.vector_lines_to_raster(stable_folder+'geographic/'+'watershed_contour.shp',
+                                       stable_folder+'geographic/'+'watershed_contour.tif',
+                                       base = stable_folder+'geographic/'+'watershed_dem.tif')
+            line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+            line = np.ma.masked_where(line <= 0, line)
+            import matplotlib as mpl
+            ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+            plt.subplots_adjust(hspace = -0.6)
+            
+            base_name = figsim_folder+'03_sensitivity/'
+            spec_name = watershed_name+'_pimap sensitivity_'+model_name
+            fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight',
+                        transparent=True)
+            
+            '''        
+            ### Classic histogram
+            # masked = days_flux[days_flux >= 0]
+            # Z = masked.flatten()
+            # from scipy.stats import norm
+            # pdf = norm.pdf(Z, Z.mean(), Z.std())
+            # ax.hist(Z, bins = 100, density=True,
+            #         color = color, edgecolor = 'none', alpha = 0.5)
+            # ax.set_yscale('log')
         
-        ### Normalized cumulative evolution of areas in time
-        X2 = np.sort(Smod[y_name])
-        N = len(Smod[y_name])
-        # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
-        #         color=color, lw=2)
-        ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
-                color=color, lw=2)
-        ax.set_xlabel('percent_time [%]')
-        ax.set_ylabel(y_name)
-        # ax.set_xlim(-5,100)
-        # ax.set_ylim(-5,100)
-        # ax.set_xscale('log')
-        # ax.set_yscale('log')
-        '''
-     
-        days_flux = np.ma.masked_where(days_flux == 0, days_flux)
+            Smod_path = simul+'/_watershed/_simulated_results.csv'            
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+            
+            ### Normalized cumulative evolution of areas in time
+            X2 = np.sort(Smod[y_name])
+            N = len(Smod[y_name])
+            # ax.plot((1-np.arange(0,N,1)/N)*100, (X2-X2.min())/(X2.max()-X2.min()) * 100,
+            #         color=color, lw=2)
+            ax.plot((1-np.arange(0,N,1)/N)*100, (X2),
+                    color=color, lw=2)
+            ax.set_xlabel('percent_time [%]')
+            ax.set_ylabel(y_name)
+            # ax.set_xlim(-5,100)
+            # ax.set_ylim(-5,100)
+            # ax.set_xscale('log')
+            # ax.set_yscale('log')
+            '''
+         
+            days_flux = np.ma.masked_where(days_flux == 0, days_flux)
+        
+            count_inf = np.ma.masked_where(days_flux > 0.1, days_flux).count()
+            count_sup = np.ma.masked_where(days_flux < 0.9, days_flux).count()
+            
+            total = np.ma.masked_where(days_flux == 0, days_flux).count()
+        
+            print(watershed_name, (count_inf / total)*100, (count_sup / total)*100)
+          
+            position=fig.add_axes([0.93,0.35,0.01,0.30])  ## the parameters are the specified position you set 
+            cb = fig.colorbar(pc,cax=position, orientation="vertical")
+            position.set_ylabel('Persistency index [-]', rotation=270, labelpad=40)
+            cb.ax.tick_params(axis='y', direction='out')
+            
+            # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
+        
+            base_name = figsim_folder+'fig06/'
+            spec_name = watershed_name+'_persistency'
+            # fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
+            
+            pi_path = os.path.join(simul, '_watershed', 'persistency_index.tif')
+            # toolbox.export_tif(BV.geographic.watershed_dem, pi, -99999, pi_path)
+            toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", pi, -99999, pi_path)
     
-        count_inf = np.ma.masked_where(days_flux > 0.1, days_flux).count()
-        count_sup = np.ma.masked_where(days_flux < 0.9, days_flux).count()
-        
-        total = np.ma.masked_where(days_flux == 0, days_flux).count()
+            pi_shp_path = os.path.join(simul, '_watershed', 'persistency_index.shp')
+            wbt.raster_to_vector_points(pi_path, pi_shp_path)
+            pi_shp = gpd.read_file(pi_shp_path)
+            pi_shp['VALUE'][pi_shp['VALUE']>1] = 1
+            
+            pi_shp.to_file(pi_shp_path)
+            
+            wbt.extract_raster_values_at_points(
+                stable_folder+"geographic/watershed_dem.tif", 
+                pi_shp_path, 
+                out_text=True)
+            
+            pi_shp = gpd.read_file(pi_shp_path)
+            pi_shp = pi_shp.rename(columns={"VALUE1": "DEM"})
+            pi_shp['DEM'][pi_shp['DEM']<0] = np.nan
+            
+            pi_shp.to_file(pi_shp_path)
+            
+            wt_path = os.path.join(simul, '_watershed', '_tifs', 'watertable_elevation_t(0).tif')
+            
+            wbt.extract_raster_values_at_points(
+                wt_path, 
+                pi_shp_path, 
+                out_text=True)
+            
+            pi_shp = gpd.read_file(pi_shp_path)
+            pi_shp = pi_shp.rename(columns={"VALUE1": "WT"})
+            pi_shp['WT'][pi_shp['WT']<0] = np.nan
+            
+            pi_shp.to_file(pi_shp_path)
+            
+            # fig, ax = plt.subplots(1,1, figsize=(4,4), sharex=True, sharey=True)
+            # ax.scatter(pi_shp['VALUE'], pi_shp['DEM'], c='red', ec='None')
+            # ax.scatter(pi_shp['VALUE'], pi_shp['WT'], c='blue', ec='None')
+            # ax.set_xlim(0,1)
+            # ax.set_ylim(90,120)
+        except:
+            pass
     
-        print(watershed_name, (count_inf / total)*100, (count_sup / total)*100)
-      
-        position=fig.add_axes([0.93,0.35,0.01,0.30])  ## the parameters are the specified position you set 
-        cb = fig.colorbar(pc,cax=position, orientation="vertical")
-        position.set_ylabel('Persistency index [-]', rotation=270, labelpad=40)
-        cb.ax.tick_params(axis='y', direction='out')
-        
-        # fig1.savefig(figsim_folder+watershed_name+'_persistency_map_historic'+'.png', dpi=300, bbox_inches='tight')
-    
-        base_name = figsim_folder+'fig06/'
-        spec_name = watershed_name+'_persistency'
-        # fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight') 
-        
-        pi_path = os.path.join(simul, '_watershed', 'persistency_index.tif')
-        # toolbox.export_tif(BV.geographic.watershed_dem, pi, -99999, pi_path)
-        toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", pi, -99999, pi_path)
-
-        pi_shp_path = os.path.join(simul, '_watershed', 'persistency_index.shp')
-        wbt.raster_to_vector_points(pi_path, pi_shp_path)
-        pi_shp = gpd.read_file(pi_shp_path)
-        pi_shp['VALUE'][pi_shp['VALUE']>1] = 1
-        
-        pi_shp.to_file(pi_shp_path)
-        
-        wbt.extract_raster_values_at_points(
-            stable_folder+"geographic/watershed_dem.tif", 
-            pi_shp_path, 
-            out_text=True)
-        
-        pi_shp = gpd.read_file(pi_shp_path)
-        pi_shp = pi_shp.rename(columns={"VALUE1": "DEM"})
-        pi_shp['DEM'][pi_shp['DEM']<0] = np.nan
-        
-        pi_shp.to_file(pi_shp_path)
-        
-        wt_path = os.path.join(simul, '_watershed', '_tifs', 'watertable_elevation_t(0).tif')
-        
-        wbt.extract_raster_values_at_points(
-            wt_path, 
-            pi_shp_path, 
-            out_text=True)
-        
-        pi_shp = gpd.read_file(pi_shp_path)
-        pi_shp = pi_shp.rename(columns={"VALUE1": "WT"})
-        pi_shp['WT'][pi_shp['WT']<0] = np.nan
-        
-        pi_shp.to_file(pi_shp_path)
-        
-        
-        
-        # fig, ax = plt.subplots(1,1, figsize=(4,4), sharex=True, sharey=True)
-        # ax.scatter(pi_shp['VALUE'], pi_shp['DEM'], c='red', ec='None')
-        # ax.scatter(pi_shp['VALUE'], pi_shp['WT'], c='blue', ec='None')
-        # ax.set_xlim(0,1)
-        # ax.set_ylim(90,120)
-        
 #%% SENSITIVITY PIDISTRIB PLOT
 
 iD = 'calibrated1'
@@ -3110,7 +3112,7 @@ sce_list = ['historic']
 
 y_name = 'surflow_areas'
 
-for watershed_name in watershed_names[:]:
+for watershed_name in watershed_names[1:]:
 
     if watershed_name == 'Canut':
         color = 'green'
@@ -3130,182 +3132,186 @@ for watershed_name in watershed_names[:]:
     
     for ix in range(len(list_simuls))[:]:
         
-        fig1, axs1 = plt.subplots(1,1, figsize=(4,2),
-                                sharex=True, sharey=True)
-        
-        simul = glob.glob(simulations_folder+'*'+iD+'_'+str(ix)+'*')[0]
-        model_name = simul.split('\\')[-1]
-        
-        Smod_path = simul+'/_watershed/_simulated_results.csv'    
-        # Smod_path = simul+'/_subbasins/_simulated_results.csv'    
-        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-        Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
-        
-        acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
-        acc_npy = list(acc_npy.items())[:]
-        # acc_npy = list(acc_npy.items())[360:720]
-        
-        for key in range(len(acc_npy)):
-            # print(key)
-            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-            # mask = imageio.imread(glob.glob(stable_folder+'subbasin/'+'intermittency'+'*')[0]+'/'+'watershed_dem.tif')
-            # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
-            acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
-        zero = acc_npy[0] * 0
-        for i in range(len(acc_npy)):
-            tempo = acc_npy[i].copy()
-            tempo[tempo>0] = 1
-            zero = zero + tempo
-        days_flux = zero.copy() / len(acc_npy)
-        print(model_name)
-        print(days_flux.min())
-        
-        # days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
-        
-        box = np.sort(days_flux[~days_flux.mask]).flatten() #.round(5)
-        
-        cell = np.ma.masked_array(mask, mask=(mask<0)).count()        
-
-        import collections
-        a = box.copy()
-        counter=collections.Counter(a)
-
-        df = pd.DataFrame()
-        df['values'] = counter.values()
-        df['values'] = (df['values'] / cell) * 100
-        df['keys'] = np.array(list(counter.keys()))
-        # keyss = np.array(list(counter.keys())).round(2)
-        # index = (keyss.round(2)).astype(str)
-        # df.index = index
-        # df = df.T
-        
-        Z = np.sort(days_flux[~days_flux.mask]).flatten() #.round(3)
-        print(len(Z))
-        
-        ###### NP HISTOGRAM
-        ax = axs1
-        bins = 100
-        test = np.histogram(Z, bins=bins, density=True)
-        test_bis, binval = np.histogram(Z, bins=bins, density=True)
-        cum_test = np.cumsum(test[0])
-        # ax.plot(test[1][1:], test[0], color=color, lw=2, label="CDF")
-        # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
-        #             c=test[0]/sum(test[0]),
-        #             cmap=cmap, lw=0.1, label="CDF",
-        #             norm=normalize)
-        # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
-        #             c=test[1][1:],
-        #             cmap=cmap, lw=0.1, label="CDF",
-        #             norm=normalize)
-        my_cmap = plt.get_cmap("jet_r")
-        rescale = lambda y: (y - 0) / (1 - 0)
-        # ax.bar(test[1][1:], test[0]/sum(test[0])*100, width=0.02, lw=0,
-        #        color=my_cmap(rescale(test[1][1:])))
-        
-        bincentres_g = np.array([(binval[i]+binval[i+1])/2. for i in range(len(binval)-1)])
-        plt.plot(bincentres_g, cum_test)
-        
-        w=0.01
-        ax.bar(test[1][1:][test[1][1:]>=1], test[0][test[1][1:]>=1], width=w, lw=0, color='purple')
         try:
-            ax.bar(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], width=w, lw=0, color='navy')
+        
+            fig1, axs1 = plt.subplots(1,1, figsize=(4,2),
+                                    sharex=True, sharey=True)
+            
+            simul = glob.glob(simulations_folder+'*'+iD+'_'+str(ix)+'*')[0]
+            model_name = simul.split('\\')[-1]
+            
+            Smod_path = simul+'/_watershed/_simulated_results.csv'    
+            # Smod_path = simul+'/_subbasins/_simulated_results.csv'    
+            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.perenn_areas
+            
+            acc_npy = np.load(os.path.join(simul, '_watershed','accumulation_flux.npy'), allow_pickle=True).item()
+            acc_npy = list(acc_npy.items())[:]
+            # acc_npy = list(acc_npy.items())[360:720]
+            
+            for key in range(len(acc_npy)):
+                # print(key)
+                mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+                # mask = imageio.imread(glob.glob(stable_folder+'subbasin/'+'intermittency'+'*')[0]+'/'+'watershed_dem.tif')
+                # acc = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+            zero = acc_npy[0] * 0
+            for i in range(len(acc_npy)):
+                tempo = acc_npy[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy() / len(acc_npy)
+            print(model_name)
+            print(days_flux.min())
+            
+            # days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
+            
+            box = np.sort(days_flux[~days_flux.mask]).flatten() #.round(5)
+            
+            cell = np.ma.masked_array(mask, mask=(mask<0)).count()        
+    
+            import collections
+            a = box.copy()
+            counter=collections.Counter(a)
+    
+            df = pd.DataFrame()
+            df['values'] = counter.values()
+            df['values'] = (df['values'] / cell) * 100
+            df['keys'] = np.array(list(counter.keys()))
+            # keyss = np.array(list(counter.keys())).round(2)
+            # index = (keyss.round(2)).astype(str)
+            # df.index = index
+            # df = df.T
+            
+            Z = np.sort(days_flux[~days_flux.mask]).flatten() #.round(3)
+            print(len(Z))
+            
+            ###### NP HISTOGRAM
+            ax = axs1
+            bins = 100
+            test = np.histogram(Z, bins=bins, density=True)
+            test_bis, binval = np.histogram(Z, bins=bins, density=True)
+            cum_test = np.cumsum(test[0])
+            # ax.plot(test[1][1:], test[0], color=color, lw=2, label="CDF")
+            # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
+            #             c=test[0]/sum(test[0]),
+            #             cmap=cmap, lw=0.1, label="CDF",
+            #             norm=normalize)
+            # ax.scatter(test[1][1:], test[0]/sum(test[0]), s=20, marker=m,
+            #             c=test[1][1:],
+            #             cmap=cmap, lw=0.1, label="CDF",
+            #             norm=normalize)
+            my_cmap = plt.get_cmap("jet_r")
+            rescale = lambda y: (y - 0) / (1 - 0)
+            # ax.bar(test[1][1:], test[0]/sum(test[0])*100, width=0.02, lw=0,
+            #        color=my_cmap(rescale(test[1][1:])))
+            
+            bincentres_g = np.array([(binval[i]+binval[i+1])/2. for i in range(len(binval)-1)])
+            # plt.plot(bincentres_g, cum_test)
+            
+            w=0.01
+            ax.bar(test[1][1:][test[1][1:]>=1], test[0][test[1][1:]>=1], width=w, lw=0, color='purple')
+            try:
+                ax.bar(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], width=w, lw=0, color='navy')
+            except:
+                pass
+            ax.bar(test[1][1:][(test[1][1:]>0.5)&(test[1][1:]<0.75)], test[0][(test[1][1:]>0.5)&(test[1][1:]<0.75)], width=w, lw=0, color='dodgerblue')
+            ax.bar(test[1][1:][(test[1][1:]>0.25)&(test[1][1:]<0.5)], test[0][(test[1][1:]>0.25)&(test[1][1:]<0.5)], width=w, lw=0, color='deepskyblue')
+            ax.bar(test[1][:-1][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], test[0][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], width=w, lw=0, color='lightskyblue')
+            ax.bar(test[1][:-1][test[1][:-1]==0], test[0][test[1][:-1]==0], width=w, lw=0, color='grey')
+            
+            # ax.step(test[1][1:][test[1][1:]>=1], test[0][test[1][1:]>=1],
+            #         where='mid', lw=2, color='purple')
+            # try:
+            #     ax.step(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], 
+            #             where='mid', lw=2, color='navy')
+            # except:
+            #     pass
+            # ax.step(test[1][1:][(test[1][1:]>0.5)&(test[1][1:]<0.75)], test[0][(test[1][1:]>0.5)&(test[1][1:]<0.75)],
+            #         where='mid', lw=2, color='dodgerblue')
+            # ax.step(test[1][1:][(test[1][1:]>0.25)&(test[1][1:]<0.5)], test[0][(test[1][1:]>0.25)&(test[1][1:]<0.5)],
+            #         where='mid', lw=2, color='deepskyblue')
+            # ax.step(test[1][:-1][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], test[0][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)],
+            #         where='mid', lw=2, color='lightskyblue')
+            # ax.step(test[1][:-1][test[1][:-1]==0], test[0][test[1][:-1]==0],
+            #         where='mid', lw=2, color='grey')
+            
+            """
+            bincentres_g = np.array([(binval[i]+binval[i+1])/2. for i in range(len(binval)-1)])
+            eg_100 = np.ma.masked_where(bincentres_g<bincentres_g[-2], bincentres_g)
+            btw_75_100 = np.ma.masked_where((bincentres_g<0.75)|(bincentres_g>=bincentres_g[-2]), bincentres_g)
+            btw_50_75 = np.ma.masked_where((bincentres_g<0.50)|(bincentres_g>0.75), bincentres_g)
+            btw_25_50 = np.ma.masked_where((bincentres_g<0.25)|(bincentres_g>0.50), bincentres_g)
+            btw_0_25 = np.ma.masked_where((bincentres_g<bincentres_g[1])|(bincentres_g>0.25), bincentres_g)
+            eg_0 = np.ma.masked_where(bincentres_g>bincentres_g[1], bincentres_g)
+            
+            ax.step(eg_100, test, where='mid', color='purple', linestyle='-')
+            ax.step(btw_75_100, test, where='mid', color='navy', linestyle='-')
+            ax.step(btw_50_75, test, where='mid', color='dodgerblue', linestyle='-')
+            ax.step(btw_25_50, test, where='mid', color='deepskyblue', linestyle='-')
+            ax.step(btw_0_25, test, where='mid', color='lightskyblue', linestyle='-')
+            ax.step(eg_0, test, where='mid', color='grey', linestyle='-')
+            """
+            
+            # plt.bar(binval[:-1], test, width=w, lw=0, color='purple')
+            
+            # ax.hist(test[0], bins=100, range=[0, 0.25], histtype='bar', edgecolor='r', linewidth=3) # step
+            
+            ax.set_yscale('log')
+            # plt.plot()
+            ax.set_xlim(-0.01,1.01)
+            ax.set_ylim(1E-3*100, 1*100)
+            
+            ax.spines.right.set_visible(False)
+            ax.spines.top.set_visible(False)
+            ax.yaxis.set_ticks_position('left')
+            ax.xaxis.set_ticks_position('bottom')
+            
+            ax.set_yticks([1,10,100])
+            ax.tick_params(direction='out', which='both', colors='k',
+                           grid_color='r', grid_alpha=1)
+            
+            """
+            # Colors
+            ccol = plt.cm.jet_r  # define the colormap
+            # cmap = plt.cm.RdYlGn  # define the colormap
+            # cmap = parula_map
+            cmaplist = [cmap(i) for i in range(cmap.N)]
+            # cmaplist[0] = (.5, .5, .5, 1.0)
+            cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                'Custom cmap', cmaplist, ccol.N)
+            bounds = np.arange(0, 1.1, 0.1)
+            norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+            normalize = matplotlib.colors.Normalize(vmin=0, vmax=1)
+            
+            ###### BIN FROM NP HIST NORM
+            ax = axs2
+            from scipy.stats import norm
+            pdf = norm.pdf(Z, Z.mean(), Z.std())
+            N = len(Z)
+            count, bins_count = np.histogram(Z, bins=100, density=True)
+            pdf = count / sum(count)
+            cdf = np.cumsum(pdf)
+            # cdf = pdf.copy()
+            # ax.plot(cdf*100, color=color, lw=4, label="CDF")
+            # ax.plot(cdf, color=color, lw=2, label="CDF")
+            ax.scatter(np.arange(0, len(cdf), 1)/100, cdf, s=20, marker=m,
+                        c=cdf,
+                        cmap=cmap, lw=0.1, label="CDF",
+                        norm=normalize)
+            # ax.scatter(np.arange(0, len(pdf), 1), pdf, s=20, marker=m,
+            #             c=pdf,
+            #             cmap=cmap, lw=0.1, label="CDF")
+            # ax.scatter(bins_count[:-1], pdf, s=20, marker=m,
+            #             c=pdf,
+            #             cmap=cmap, lw=0.1, label="CDF")
+            """
+            
+            base_name = figsim_folder+'03_sensitivity/'
+            spec_name = watershed_name+'_pidistrib sensitivity_'+model_name
+            fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
         except:
             pass
-        ax.bar(test[1][1:][(test[1][1:]>0.5)&(test[1][1:]<0.75)], test[0][(test[1][1:]>0.5)&(test[1][1:]<0.75)], width=w, lw=0, color='dodgerblue')
-        ax.bar(test[1][1:][(test[1][1:]>0.25)&(test[1][1:]<0.5)], test[0][(test[1][1:]>0.25)&(test[1][1:]<0.5)], width=w, lw=0, color='deepskyblue')
-        ax.bar(test[1][:-1][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], test[0][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], width=w, lw=0, color='lightskyblue')
-        ax.bar(test[1][:-1][test[1][:-1]==0], test[0][test[1][:-1]==0], width=w, lw=0, color='grey')
-        
-        # ax.step(test[1][1:][test[1][1:]>=1], test[0][test[1][1:]>=1],
-        #         where='mid', lw=2, color='purple')
-        # try:
-        #     ax.step(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], 
-        #             where='mid', lw=2, color='navy')
-        # except:
-        #     pass
-        # ax.step(test[1][1:][(test[1][1:]>0.5)&(test[1][1:]<0.75)], test[0][(test[1][1:]>0.5)&(test[1][1:]<0.75)],
-        #         where='mid', lw=2, color='dodgerblue')
-        # ax.step(test[1][1:][(test[1][1:]>0.25)&(test[1][1:]<0.5)], test[0][(test[1][1:]>0.25)&(test[1][1:]<0.5)],
-        #         where='mid', lw=2, color='deepskyblue')
-        # ax.step(test[1][:-1][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], test[0][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)],
-        #         where='mid', lw=2, color='lightskyblue')
-        # ax.step(test[1][:-1][test[1][:-1]==0], test[0][test[1][:-1]==0],
-        #         where='mid', lw=2, color='grey')
-        
-        """
-        bincentres_g = np.array([(binval[i]+binval[i+1])/2. for i in range(len(binval)-1)])
-        eg_100 = np.ma.masked_where(bincentres_g<bincentres_g[-2], bincentres_g)
-        btw_75_100 = np.ma.masked_where((bincentres_g<0.75)|(bincentres_g>=bincentres_g[-2]), bincentres_g)
-        btw_50_75 = np.ma.masked_where((bincentres_g<0.50)|(bincentres_g>0.75), bincentres_g)
-        btw_25_50 = np.ma.masked_where((bincentres_g<0.25)|(bincentres_g>0.50), bincentres_g)
-        btw_0_25 = np.ma.masked_where((bincentres_g<bincentres_g[1])|(bincentres_g>0.25), bincentres_g)
-        eg_0 = np.ma.masked_where(bincentres_g>bincentres_g[1], bincentres_g)
-        
-        ax.step(eg_100, test, where='mid', color='purple', linestyle='-')
-        ax.step(btw_75_100, test, where='mid', color='navy', linestyle='-')
-        ax.step(btw_50_75, test, where='mid', color='dodgerblue', linestyle='-')
-        ax.step(btw_25_50, test, where='mid', color='deepskyblue', linestyle='-')
-        ax.step(btw_0_25, test, where='mid', color='lightskyblue', linestyle='-')
-        ax.step(eg_0, test, where='mid', color='grey', linestyle='-')
-        """
-        
-        # plt.bar(binval[:-1], test, width=w, lw=0, color='purple')
-        
-        # ax.hist(test[0], bins=100, range=[0, 0.25], histtype='bar', edgecolor='r', linewidth=3) # step
-        
-        ax.set_yscale('log')
-        # plt.plot()
-        ax.set_xlim(-0.01,1.01)
-        ax.set_ylim(1E-3*100, 1*100)
-        
-        ax.spines.right.set_visible(False)
-        ax.spines.top.set_visible(False)
-        ax.yaxis.set_ticks_position('left')
-        ax.xaxis.set_ticks_position('bottom')
-        
-        ax.set_yticks([1,10,100])
-        ax.tick_params(direction='out', which='both', colors='k',
-                       grid_color='r', grid_alpha=1)
-        
-        """
-        # Colors
-        ccol = plt.cm.jet_r  # define the colormap
-        # cmap = plt.cm.RdYlGn  # define the colormap
-        # cmap = parula_map
-        cmaplist = [cmap(i) for i in range(cmap.N)]
-        # cmaplist[0] = (.5, .5, .5, 1.0)
-        cmap = mpl.colors.LinearSegmentedColormap.from_list(
-            'Custom cmap', cmaplist, ccol.N)
-        bounds = np.arange(0, 1.1, 0.1)
-        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-        normalize = matplotlib.colors.Normalize(vmin=0, vmax=1)
-        
-        ###### BIN FROM NP HIST NORM
-        ax = axs2
-        from scipy.stats import norm
-        pdf = norm.pdf(Z, Z.mean(), Z.std())
-        N = len(Z)
-        count, bins_count = np.histogram(Z, bins=100, density=True)
-        pdf = count / sum(count)
-        cdf = np.cumsum(pdf)
-        # cdf = pdf.copy()
-        # ax.plot(cdf*100, color=color, lw=4, label="CDF")
-        # ax.plot(cdf, color=color, lw=2, label="CDF")
-        ax.scatter(np.arange(0, len(cdf), 1)/100, cdf, s=20, marker=m,
-                    c=cdf,
-                    cmap=cmap, lw=0.1, label="CDF",
-                    norm=normalize)
-        # ax.scatter(np.arange(0, len(pdf), 1), pdf, s=20, marker=m,
-        #             c=pdf,
-        #             cmap=cmap, lw=0.1, label="CDF")
-        # ax.scatter(bins_count[:-1], pdf, s=20, marker=m,
-        #             c=pdf,
-        #             cmap=cmap, lw=0.1, label="CDF")
-        """
-        
-        base_name = figsim_folder+'03_sensitivity/'
-        spec_name = watershed_name+'_pidistrib sensitivity_'+model_name
-        # fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
         
 #%% SENSITIVITY PICUMUL ANALY
 
