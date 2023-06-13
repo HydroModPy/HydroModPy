@@ -996,7 +996,7 @@ iD = 'matrix1'
 # Options
 sim_state = 'transient' # 'steady' or 'transient'
 modpath_sim = False # run modpath particle tracking if True
-run = True
+run = False
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
 box = False # if True generate a rectangular model
@@ -1005,7 +1005,7 @@ verbose = True # add print of MODFLOW in console
 post_process = False # necessary to decompose post process of process    
 init_rech = 'mean'
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[1:]:
     print('##### '+watershed_name.upper()+' #####')
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' 
@@ -1080,7 +1080,8 @@ for watershed_name in watershed_names[:1]:
             
             print(model_name)
 
-            success, flow_model = BV.run_modflow(ident=model_name,
+            success, flow_model = BV.run_modflow(run=False,
+                                                  ident=model_name,
                                                   modpath_sim=modpath_sim,
                                                   sink_fill=sink_fill,
                                                   box=box,
@@ -1114,7 +1115,7 @@ for watershed_name in watershed_names[:1]:
 
 iD = 'matrix1'
 
-for watershed_name in watershed_names[:1] :
+for watershed_name in watershed_names[1:] :
     
     print('##### '+watershed_name.upper()+' #####')
     
@@ -1132,33 +1133,39 @@ for watershed_name in watershed_names[:1] :
     list_of_success = d['list_of_success'][:]
     list_flow_model = d['list_flow_model'][:]
     
+    list_of_success[-3] = False
+    list_of_success[-2] = False
+    
     for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
-            
+        
         if success==True:
-                print(success)
-                                
-                BV.matrix_modflow(success,
-                                  flow_model,
-                                  first_only = True,
-                                  watertable_elevation = True,
-                                  watertable_depth = True, 
-                                  seepage_areas = True,
-                                  outflow_drain = True,
-                                  groundwater_flux = False,
-                                  specific_discharge = False,
-                                  accumulation_flux = True,
-                                  perenn_intermit_shp = True,
-                                  groundwater_storage = True,
-                                  residence_times = False,
-                                  verbose = True,
-                                  export_tif = True)
-                
-                # # Extract results
-                BV.results_modflow(ident=model_name,
-                                   recharge=dict_recharge[watershed_name],
-                                   runoff=dict_runoff[watershed_name],
-                                   actual_date=True,
-                                   time_step='M')
+            print(success)
+                              
+            flow_model.dem_path = stable_folder+'geographic/watershed_buff_dem.tif'
+            print(flow_model.dem_path)
+            
+            BV.matrix_modflow(success,
+                              flow_model,
+                              first_only = True,
+                              watertable_elevation = True,
+                              watertable_depth = True, 
+                              seepage_areas = True,
+                              outflow_drain = True,
+                              groundwater_flux = False,
+                              specific_discharge = False,
+                              accumulation_flux = True,
+                              perenn_intermit_shp = True,
+                              groundwater_storage = True,
+                              residence_times = False,
+                              verbose = True,
+                              export_tif = True)
+            
+            # # Extract results
+            BV.results_modflow(ident=model_name,
+                               recharge=dict_recharge[watershed_name],
+                               runoff=dict_runoff[watershed_name],
+                               actual_date=True,
+                               time_step='M')
 
 #%% ---- PLOT
 
@@ -1593,7 +1600,7 @@ sat_typ = 'surflow_areas'
 
 for watershed_name in watershed_names[:1]:
     
-    fig1, ax1 = plt.subplots(1,1, figsize=(3.8,3.5))
+    # fig1, ax1 = plt.subplots(1,1, figsize=(3.8,3.5))
 
     print('##### '+watershed_name.upper()+' #####')
     
@@ -1669,6 +1676,7 @@ for watershed_name in watershed_names[:1]:
     sim_sat_std = np.zeros((len(p1),len(p2)))
     sim_wte = np.zeros((len(p1),len(p2)))
     sim_wtd = np.zeros((len(p1),len(p2)))
+    
     compt=0
     list_vals = pd.DataFrame()
     for i in range(len(p1)):
@@ -1717,10 +1725,12 @@ for watershed_name in watershed_names[:1]:
                 sim_sat_std[j][i] = np.nanstd(pd.to_numeric(sim_res[string][sat_typ], errors='coerce'))
             except:
                 pass
-            
-            sim_wte[j][i] = np.nanmean(pd.to_numeric(sim_res[string]['watertable_elevation'], errors='coerce'))
-            sim_wtd[j][i] = np.nanmean(pd.to_numeric(sim_res[string]['watertable_depth'], errors='coerce'))
-            ax1.plot(pd.to_numeric(sim_res[string]['watertable_depth'], errors='coerce'))
+            try:
+                sim_wte[j][i] = np.nanmean(pd.to_numeric(sim_res[string]['watertable_elevation'], errors='coerce'))
+                sim_wtd[j][i] = np.nanmean(pd.to_numeric(sim_res[string]['watertable_depth'], errors='coerce'))
+            except:
+                pass
+            # ax1.plot(pd.to_numeric(sim_res[string]['watertable_depth'], errors='coerce'))
             # print(sim_wtd[j][i])
             
             list_vals.loc[compt, 'K'] = p1[i]
@@ -1827,7 +1837,7 @@ for watershed_name in watershed_names[:1]:
     #                   alpha=0.25, linewidths=0,
     #                   levels=np.linspace(0.5,10,2),
     #                   ) #figadd.cmap_white_jet()
-    """
+    '''
     pc2 = ax.contourf(X/24/3600,Y*100,Z2, cmap=mpl.colors.ListedColormap('grey'), 
                       alpha=0.25, linewidths=0,
                       levels=np.linspace(0,0.5,2),
@@ -1839,7 +1849,7 @@ for watershed_name in watershed_names[:1]:
     pc2 = ax.contour(X/24/3600,Y*100,Z2, cmap=mpl.colors.ListedColormap('k'), alpha=1, linewidths=2,
                       levels=np.linspace(0.5,10,2)
                       ) #figadd.cmap_white_jet()    
-    """
+    '''
     # ax.contourf(X/24/3600,Y*100, Z2/4, cmap='jet', alpha=0.5,
     #                    norm=mpl.colors.LogNorm(vmin=0.1, vmax=101),
     #                   linewidths=2) #♠mpl.colors.ListedColormap('k')
@@ -1929,6 +1939,8 @@ for watershed_name in watershed_names[:1]:
                       alpha=1, cmap=mpl.colors.ListedColormap('k'),
                       linestyles=':',
                       linewidths=2)  
+    
+    ax.set_yscale('log')
     
     plt.tight_layout()    
     
@@ -2908,7 +2920,7 @@ for watershed_name in watershed_names[:]:
             spec_name = watershed_name+'_cross map fixed'
             # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
-#%% PI MAPPING
+#%% SENSITIVITY PIDMAP PLOT
 
 iD = 'calibrated1'
 iD = 'matrix1'
@@ -3088,7 +3100,7 @@ for watershed_name in watershed_names[:1]:
         # ax.set_xlim(0,1)
         # ax.set_ylim(90,120)
         
-#%% PI DISTRIBUTION
+#%% SENSITIVITY PIDISTRIB PLOT
 
 iD = 'calibrated1'
 iD = 'matrix1'
@@ -3295,7 +3307,7 @@ for watershed_name in watershed_names[:]:
         spec_name = watershed_name+'_pidistrib sensitivity_'+model_name
         # fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
         
-#%% PI CUMULATED
+#%% SENSITIVITY PICUMUL ANALY
 
 iD = 'calibrated1'
 iD = 'matrix1'
@@ -3407,7 +3419,7 @@ for watershed_name in watershed_names[:1]:
         
     # d_cum.set_index = bincentres_g
 
-#%% PLOT PI CUMULATED
+#%% SENSITIVITY PICUMUL PLOT
 
 # d_cum.iloc[:,0:3].plot()
 # d_cum.iloc[:,3:6].plot()
@@ -3479,7 +3491,7 @@ base_name = figsim_folder+'03_sensitivity/'
 spec_name = watershed_name+'_picumul sensitivity_'+'3'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
 
-#%% SENSITIVITY HYSTERESIS
+#%% SENSITIVITY HYSTERESIS PLOT
 
 iD = 'matrix1'
 typ = iD
@@ -3694,239 +3706,265 @@ for watershed_name in watershed_names :
         spec_name = watershed_name+'_hysteresis sensitivity_'+model_name
         fig1.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
 
-#%% SAT AND VARIATION
+#%% 2D SATURATION GRAPH
 
 watershed_name = 'Canut'
+watershed_name = 'Nancon'
 
-list_vals['Smax'][np.isnan(list_vals['Smax'])] = 0
-list_vals['Smin'][np.isnan(list_vals['Smin'])] = 0
-# sim_sat_max[np.isnan(sim_sat_max)] = 0
-# sim_sat_min[np.isnan(sim_sat_min)] = 0
+for watershed_name in ['Canut']:
 
-fig, ax = plt.subplots(1,1, figsize=(4,2), sharex=True, sharey=True)
-ax.set_xscale('log')
-ax.set_xlim(1e-8, 1e-3)
-ax.set_ylim(0, 100)
-n = len(list_vals['P'].unique())
-colors = pl.cm.RdBu_r(np.linspace(0,1,n))
-res = pd.DataFrame()
-for txt in ['Smax', 'Smean', 'Smin']:
-    for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
-        sel_val = list_vals[np.isin(list_vals['P'], p)]
-        # if (i == 0) | (i ==19):
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=0.1)
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
-        if (i == 0) | (i ==19):
+    list_vals['Smax'][np.isnan(list_vals['Smax'])] = 0
+    list_vals['Smin'][np.isnan(list_vals['Smin'])] = 0
+    # sim_sat_max[np.isnan(sim_sat_max)] = 0
+    # sim_sat_min[np.isnan(sim_sat_min)] = 0
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,2), sharex=True, sharey=True)
+    ax.set_xscale('log')
+    ax.set_xlim(1e-8, 1e-3)
+    ax.set_ylim(0, 100)
+    n = len(list_vals['P'].unique())
+    colors = pl.cm.RdBu_r(np.linspace(0,1,n))
+    res = pd.DataFrame()
+    for txt in ['Smax', 'Smean', 'Smin']:
+        for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
+            sel_val = list_vals[np.isin(list_vals['P'], p)]
+            # if (i == 0) | (i ==19):
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=0.1)
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
+            if (i == 0) | (i ==19):
+                res['K'] = sel_val['K'].values
+                res[txt+'_'+str(i)] = sel_val[txt].values
+                res = res.reset_index(drop=True)
+    zo=2
+    ax.fill_between(res.K/24/3600, res.Smin_0, res.Smax_0, color='dodgerblue', alpha=0.35, lw=0.5, zorder=zo)
+    ax.plot(res.K/24/3600, res.Smean_0, c='navy', lw=1.5, zorder=-10)
+    ax.plot(res.K/24/3600, res.Smax_0, c='navy', lw=1.5, zorder=zo, ls=':')
+    ax.plot(res.K/24/3600, res.Smin_0, c='navy', lw=1.5, zorder=zo, ls=':')
+    zo=2
+    ax.fill_between(res.K/24/3600, res.Smin_19, res.Smax_19, color='red', alpha=0.35, lw=0.5, zorder=zo)
+    ax.plot(res.K/24/3600, res.Smean_19, c='darkred', lw=1.5, zorder=zo)
+    ax.plot(res.K/24/3600, res.Smax_19, c='darkred', lw=1.5, zorder=zo, ls=':')
+    ax.plot(res.K/24/3600, res.Smin_19, c='darkred', lw=1.5, zorder=zo, ls=':')
+    
+    base_name = figsim_folder+'03_sensitivity/'
+    spec_name = watershed_name+'_comparison sensitivity_'+'sat'
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
+    
+    for txt in ['Smax', 'Smean', 'Smin']:
+        for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
+            sel_val = list_vals[np.isin(list_vals['P'], p)]
+            # if (i != 0) | (i != 19):
+            #     ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
+    
+    # cmap = plt.cm.jet_r  # define the colormap
+    cmap = plt.cm.YlGnBu
+    # cmap = parula_map
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    # cmaplist = ['skyblue','dodgerblue','navy']
+    cmaplist = ['navy','darkred']
+    # cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
+    # cmaplist[0] = (.5, .5, .5, 1.0)
+    cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, cmap.N)
+    bounds = np.arange(0, 1.1, 0.1)
+    bounds = [-1,0,0.25,0.5,0.75,1,1.1]
+    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+    
+    list_vals['Snorm'] = list_vals['Sstd'] #/ list_vals['Smean']
+    list_vals['Snorm'][np.isnan(list_vals['Snorm'])] = 0
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,2), sharex=True, sharey=True)
+    ax.set_xscale('log')
+    ax.set_xlim(1e-8, 1e-3)
+    # ax.set_ylim(-5, 105)
+    n = len(list_vals['P'].unique())
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    # colors = cmap(np.linspace(0,1,n))
+    res = pd.DataFrame()
+    for txt in ['Snorm']:
+        for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
+            if i>0:
+                sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
+            sel_val = list_vals[np.isin(list_vals['P'], p)]
+            # if (i == 0) | (i ==19):
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
+            if i > 0:
+                ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
+                                lw=0, zorder=zo)
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
+            if (i == 0) | (i ==19):
+                res['K'] = sel_val['K'].values
+                res[txt+'_'+str(i)] = sel_val[txt].values
+                res = res.reset_index(drop=True)
+                ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
+    ax.set_ylim(0, 35)
+    
+    base_name = figsim_folder+'03_sensitivity/'
+    spec_name = watershed_name+'_comparison sensitivity_'+'std'
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
+    
+    # cmap = plt.cm.jet_r  # define the colormap
+    # cmap = plt.cm.YlGnBu
+    # cmap = parula_map
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    # cmaplist = ['skyblue','dodgerblue','navy']
+    cmaplist = ['navy','darkred']
+    # cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
+    # cmaplist[0] = (.5, .5, .5, 1.0)
+    cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, cmap.N)
+    bounds = np.arange(0, 1.1, 0.1)
+    bounds = [-1,0,0.25,0.5,0.75,1,1.1]
+    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+    
+    
+    list_vals['Snorm'] = list_vals['Sstd'] / list_vals['Smean']
+    # list_vals['Snorm'] = (list_vals['Smax'] - list_vals['Smin']) / list_vals['Smean']
+    list_vals['Snorm'][np.isnan(list_vals['Snorm'])] = 0
+    
+    fig, ax = plt.subplots(1,1, figsize=(3,2))
+    ax.set_xscale('log')
+    ax.set_xlim(1e-7, 2e-4)
+    # ax.set_ylim(-5, 105)
+    n = len(list_vals['P'].unique())
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    # colors = cmap(np.linspace(0,1,n))
+    res = pd.DataFrame()
+    for txt in ['Snorm']:
+        for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
+            if i>0:
+                sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
+            sel_val = list_vals[np.isin(list_vals['P'], p)]
+            # if (i == 0) | (i ==19):
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
+            if i > 0:
+                ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
+                                lw=0, zorder=zo)
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
+            if (i == 0) | (i ==19):
+                res['K'] = sel_val['K'].values
+                res[txt+'_'+str(i)] = sel_val[txt].values
+                res = res.reset_index(drop=True)
+                ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
+    ax.set_ylim(0, 1.20)
+    
+    base_name = figsim_folder+'03_sensitivity/'
+    spec_name = watershed_name+'_comparison sensitivity_'+'stdnorm'
+    # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
+    
+    '''
+    fig, ax = plt.subplots(1,1, figsize=(3,2))
+    sc = ax.scatter(list_vals['K']/24/3600, list_vals['Sstd']/list_vals['Smean'], c=list_vals['P'],
+                    ec='None', s=8, cmap='jet', alpha=0.35)
+    cbar = fig.colorbar(sc)
+    cbar.set_ticks(np.arange(list_vals['P'].min(), list_vals['P'].max(), 0.01))
+    '''
+    
+    # list_vals['Smax']-list_vals['Smin'])/list_vals['Smean']
+    # axb.set_xlim(1e-8, 1e-2)
+    # ax.set_ylim(-5, 105)
+    
+    # ax.set_yscale('log')
+
+#%% 2D DIFFUSIVITY GRAPH
+
+for watershed_name in watershed_names[:1]:
+
+    dem_mean = imageio.imread('C:/Users/ronan/Documents/SIMULATIONS/SECPAPER/'+watershed_name+'/results_stable/geographic/watershed_dem.tif')
+    dem_mean[dem_mean<0] = np.nan
+    dem_mean = np.nanmean(dem_mean)
+    
+    list_vals['Smax'][np.isnan(list_vals['Smax'])] = 0
+    list_vals['Smin'][np.isnan(list_vals['Smin'])] = 0
+    
+    list_vals['Snorm'] = list_vals['Sstd'] / list_vals['Smean']
+    # list_vals['Snorm'] = (list_vals['Smax'] - list_vals['Smin']) / list_vals['Smean']
+    list_vals['Snorm'][np.isnan(list_vals['Snorm'])] = 0
+    
+    fig, axs = plt.subplots(1,2, figsize=(7,2))
+    axs = axs.ravel()
+    ax = axs[0]
+    ax.set_xscale('log')
+    # ax.set_xlim(1e-7, 2e-4)
+    # ax.set_ylim(-5, 105)
+    n = len(list_vals['P'].unique())
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    # colors = cmap(np.linspace(0,1,n))
+    res = pd.DataFrame()
+    for txt in ['Snorm']:
+        for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
+            if i>0:
+                sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
+            sel_val = list_vals[np.isin(list_vals['P'], p)]
+            sel_val['WTd'][sel_val['WTd']>30] = np.nan
+            sel_val['WTd'][sel_val['WTd']<0] = 0
+            # if (i == 0) | (i ==19):
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
+            # if i >= 0:
+            #     ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
+            #                     lw=0, zorder=zo)
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
+            # if (i == 0) | (i ==19):
             res['K'] = sel_val['K'].values
             res[txt+'_'+str(i)] = sel_val[txt].values
             res = res.reset_index(drop=True)
-zo=2
-ax.fill_between(res.K/24/3600, res.Smin_0, res.Smax_0, color='dodgerblue', alpha=0.35, lw=0.5, zorder=zo)
-ax.plot(res.K/24/3600, res.Smean_0, c='navy', lw=1.5, zorder=-10)
-ax.plot(res.K/24/3600, res.Smax_0, c='navy', lw=1.5, zorder=zo, ls=':')
-ax.plot(res.K/24/3600, res.Smin_0, c='navy', lw=1.5, zorder=zo, ls=':')
-zo=2
-ax.fill_between(res.K/24/3600, res.Smin_19, res.Smax_19, color='red', alpha=0.35, lw=0.5, zorder=zo)
-ax.plot(res.K/24/3600, res.Smean_19, c='darkred', lw=1.5, zorder=zo)
-ax.plot(res.K/24/3600, res.Smax_19, c='darkred', lw=1.5, zorder=zo, ls=':')
-ax.plot(res.K/24/3600, res.Smin_19, c='darkred', lw=1.5, zorder=zo, ls=':')
-
-base_name = figsim_folder+'03_sensitivity/'
-spec_name = watershed_name+'_comparison sensitivity_'+'sat'
-# fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
-
-for txt in ['Smax', 'Smean', 'Smin']:
-    for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
-        sel_val = list_vals[np.isin(list_vals['P'], p)]
-        # if (i != 0) | (i != 19):
-        #     ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
-
-# cmap = plt.cm.jet_r  # define the colormap
-cmap = plt.cm.YlGnBu
-# cmap = parula_map
-cmaplist = [cmap(i) for i in range(cmap.N)]
-# cmaplist = ['skyblue','dodgerblue','navy']
-cmaplist = ['navy','darkred']
-# cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
-# cmaplist[0] = (.5, .5, .5, 1.0)
-cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, cmap.N)
-bounds = np.arange(0, 1.1, 0.1)
-bounds = [-1,0,0.25,0.5,0.75,1,1.1]
-norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-
-list_vals['Snorm'] = list_vals['Sstd'] #/ list_vals['Smean']
-list_vals['Snorm'][np.isnan(list_vals['Snorm'])] = 0
-
-fig, ax = plt.subplots(1,1, figsize=(4,2), sharex=True, sharey=True)
-ax.set_xscale('log')
-ax.set_xlim(1e-8, 1e-3)
-# ax.set_ylim(-5, 105)
-n = len(list_vals['P'].unique())
-colors = pl.cm.jet(np.linspace(0,1,n))
-# colors = cmap(np.linspace(0,1,n))
-res = pd.DataFrame()
-for txt in ['Snorm']:
-    for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
-        if i>0:
-            sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
-        sel_val = list_vals[np.isin(list_vals['P'], p)]
-        # if (i == 0) | (i ==19):
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
-        if i > 0:
-            ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
-                            lw=0, zorder=zo)
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
-        if (i == 0) | (i ==19):
+            # ax.scatter((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], c=colors[i], # 
+            #            s=2, zorder=0, lw=1,
+            #            # norm=mpl.colors.LogNorm(),
+            #            ec='None')
+            ax.scatter((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], cmap=mpl.colors.ListedColormap('k'), # 
+                       s=2, zorder=0, lw=1,
+                       # norm=mpl.colors.LogNorm())
+                       )
+            ax.plot((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], c=colors[i], # 
+                        zorder=1, lw=1
+                        # norm=mpl.colors.LogNorm()
+                        )
+    # ax.set_ylim(0, 1.20)
+    # ax.set_yscale('log')
+    
+    # fig, ax = plt.subplots(1,1, figsize=(3,2))
+    ax = axs[1]
+    ax.set_xscale('log')
+    # ax.set_xlim(1e-7, 2e-4)
+    # ax.set_ylim(-5, 105)
+    n = len(list_vals['P'].unique())
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    # colors = cmap(np.linspace(0,1,n))
+    res = pd.DataFrame()
+    for txt in ['Snorm']:
+        for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
+            if i>0:
+                sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
+            sel_val = list_vals[np.isin(list_vals['P'], p)]
+            # if (i == 0) | (i ==19):
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
+            # if i >= 0:
+            #     ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
+            #                     lw=0, zorder=zo)
+            # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
+            # if (i == 0) | (i ==19):
             res['K'] = sel_val['K'].values
             res[txt+'_'+str(i)] = sel_val[txt].values
             res = res.reset_index(drop=True)
-            ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
-ax.set_ylim(0, 35)
-
-base_name = figsim_folder+'03_sensitivity/'
-spec_name = watershed_name+'_comparison sensitivity_'+'std'
-# fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
-
-# cmap = plt.cm.jet_r  # define the colormap
-# cmap = plt.cm.YlGnBu
-# cmap = parula_map
-cmaplist = [cmap(i) for i in range(cmap.N)]
-# cmaplist = ['skyblue','dodgerblue','navy']
-cmaplist = ['navy','darkred']
-# cmaplist = ['white','red','gold','forestgreen','dodgerblue','navy']
-# cmaplist[0] = (.5, .5, .5, 1.0)
-cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, cmap.N)
-bounds = np.arange(0, 1.1, 0.1)
-bounds = [-1,0,0.25,0.5,0.75,1,1.1]
-norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-
-
-list_vals['Snorm'] = list_vals['Sstd'] / list_vals['Smean']
-list_vals['Snorm'] = (list_vals['Smax'] - list_vals['Smin']) / list_vals['Smean']
-list_vals['Snorm'][np.isnan(list_vals['Snorm'])] = 0
-
-fig, ax = plt.subplots(1,1, figsize=(3,2))
-ax.set_xscale('log')
-ax.set_xlim(1e-7, 2e-4)
-# ax.set_ylim(-5, 105)
-n = len(list_vals['P'].unique())
-colors = pl.cm.jet(np.linspace(0,1,n))
-# colors = cmap(np.linspace(0,1,n))
-res = pd.DataFrame()
-for txt in ['Snorm']:
-    for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
-        if i>0:
-            sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
-        sel_val = list_vals[np.isin(list_vals['P'], p)]
-        # if (i == 0) | (i ==19):
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
-        if i > 0:
-            ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
-                            lw=0, zorder=zo)
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
-        if (i == 0) | (i ==19):
-            res['K'] = sel_val['K'].values
-            res[txt+'_'+str(i)] = sel_val[txt].values
-            res = res.reset_index(drop=True)
-            ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
-ax.set_ylim(0, 1.20)
-
-base_name = figsim_folder+'03_sensitivity/'
-spec_name = watershed_name+'_comparison sensitivity_'+'stdnorm'
-# fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
-
-'''
-fig, ax = plt.subplots(1,1, figsize=(3,2))
-sc = ax.scatter(list_vals['K']/24/3600, list_vals['Sstd']/list_vals['Smean'], c=list_vals['P'],
-                ec='None', s=8, cmap='jet', alpha=0.35)
-cbar = fig.colorbar(sc)
-cbar.set_ticks(np.arange(list_vals['P'].min(), list_vals['P'].max(), 0.01))
-'''
-
-# list_vals['Smax']-list_vals['Smin'])/list_vals['Smean']
-# axb.set_xlim(1e-8, 1e-2)
-# ax.set_ylim(-5, 105)
-
-# ax.set_yscale('log')
-
-#%% DIFFUSIVITY
-
-dem_mean = imageio.imread('C:/Users/ronan/Documents/SIMULATIONS/SECPAPER/Canut/results_stable/geographic/watershed_dem.tif')
-dem_mean[dem_mean<0] = np.nan
-dem_mean = np.nanmean(dem_mean)
-
-list_vals['Smax'][np.isnan(list_vals['Smax'])] = 0
-list_vals['Smin'][np.isnan(list_vals['Smin'])] = 0
-
-list_vals['Snorm'] = list_vals['Sstd'] / list_vals['Smean']
-# list_vals['Snorm'] = (list_vals['Smax'] - list_vals['Smin']) / list_vals['Smean']
-list_vals['Snorm'][np.isnan(list_vals['Snorm'])] = 0
-
-fig, ax = plt.subplots(1,1, figsize=(3,2))
-ax.set_xscale('log')
-# ax.set_xlim(1e-7, 2e-4)
-# ax.set_ylim(-5, 105)
-n = len(list_vals['P'].unique())
-colors = pl.cm.jet(np.linspace(0,1,n))
-# colors = cmap(np.linspace(0,1,n))
-res = pd.DataFrame()
-for txt in ['Snorm']:
-    for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
-        if i>0:
-            sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
-        sel_val = list_vals[np.isin(list_vals['P'], p)]
-        sel_val['WTd'][sel_val['WTd']>30] = np.nan
-        sel_val['WTd'][sel_val['WTd']<0] = 0
-        # if (i == 0) | (i ==19):
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
-        # if i >= 0:
-        #     ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
-        #                     lw=0, zorder=zo)
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
-        # if (i == 0) | (i ==19):
-        res['K'] = sel_val['K'].values
-        res[txt+'_'+str(i)] = sel_val[txt].values
-        res = res.reset_index(drop=True)
-        ax.scatter((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], c=colors[i], # 
-                   s=2, zorder=0, lw=1,
-                   # norm=mpl.colors.LogNorm(),
-                   ec='None')
-        ax.plot((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], c=colors[i], # 
-                    zorder=0, lw=1,
-                    # norm=mpl.colors.LogNorm()
-                    )
-# ax.set_ylim(0, 1.20)
-# ax.set_yscale('log')
-
-fig, ax = plt.subplots(1,1, figsize=(3,2))
-ax.set_xscale('log')
-# ax.set_xlim(1e-7, 2e-4)
-# ax.set_ylim(-5, 105)
-n = len(list_vals['P'].unique())
-colors = pl.cm.jet(np.linspace(0,1,n))
-# colors = cmap(np.linspace(0,1,n))
-res = pd.DataFrame()
-for txt in ['Snorm']:
-    for i, p in enumerate(sorted(list_vals['P'].unique(), reverse=False)):
-        if i>0:
-            sel_preced = list_vals[np.isin(list_vals['P'], sorted(list_vals['P'].unique())[i-1])]
-        sel_val = list_vals[np.isin(list_vals['P'], p)]
-        # if (i == 0) | (i ==19):
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c=colors[i], zorder=0, lw=1)
-        # if i >= 0:
-        #     ax.fill_between(sel_val['K']/24/3600, sel_preced[txt], sel_val[txt], color=colors[i], alpha=0.35,
-        #                     lw=0, zorder=zo)
-        # ax.plot(sel_val['K']/24/3600, sel_val[txt], c='grey', zorder=0, lw=0.1)
-        # if (i == 0) | (i ==19):
-        res['K'] = sel_val['K'].values
-        res[txt+'_'+str(i)] = sel_val[txt].values
-        res = res.reset_index(drop=True)
-        ax.scatter((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], c=sel_val['K'], # colors[i]
-                   s=3, zorder=0, lw=1,
-                   norm=mpl.colors.LogNorm(),
-                   ec='None')
-# ax.set_ylim(0, 1.20)
-# ax.set_yscale('log')
+            # ax.scatter((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt], c=sel_val['K'], # colors[i]
+            #            s=3, zorder=0, lw=1,
+            #            norm=mpl.colors.LogNorm(),
+            #            ec='None')
+            ax.scatter((sel_val['K']/24/3600)*(30-sel_val['WTd'])/(sel_val['P']), sel_val[txt],
+                       cmap=mpl.colors.ListedColormap('k'), # colors[i]
+                       s=2, zorder=0, lw=1,
+                       )
+    n = len(list_vals['K'].unique())
+    colors = pl.cm.jet(np.linspace(0,1,n))        
+    for txt in ['Snorm']:
+        for i, k in enumerate(sorted(list_vals['K'].unique(), reverse=False)):
+            sec_val = list_vals[np.isin(list_vals['K'], k)]
+            sec_val['WTd'][sec_val['WTd']>30] = np.nan
+            sec_val['WTd'][sec_val['WTd']<0] = 0
+            ax.plot((sec_val['K']/24/3600)*(30-sec_val['WTd'])/(sec_val['P']), sec_val[txt], c=colors[i],
+                    lw=1)
+                
+    # ax.set_ylim(0, 1.20)
+    # ax.set_yscale('log')
 
 #%% ---- CHOICE
 
