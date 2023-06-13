@@ -18,20 +18,19 @@ dependencies:
         - pyproj
         - contextily
         - colormap #pip install easydev may be necessary
-
+        - matplotlib-scalebar
+        - whitebox
+        - xarray-simlab # Required for FastScape, and called 'xsimlab' in the code
+        - flopy
+        - deepdish
+        - vedo
+        - fastscape
     # Main processing libraries
     #- numpy
-    - whitebox
-    - gdal
-    - flopy
-    - fastscape
-    - xarray-simlab # Required for FastScape, and called 'xsimlab' in the code
-
+    - gdal    
     # H5 files
     - pytables
-    - deepdish=0.3.7
     - netCDF4
-
     # Data reading/writing and conversion
     - pandas
     - geopandas 
@@ -43,8 +42,7 @@ dependencies:
     
     # Post-processing
     - matplotlib
-    - matplotlib-scalebar
-    - vedo
+ 
 
     # Viewing notebooks
     - jupyter

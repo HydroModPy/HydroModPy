@@ -117,6 +117,7 @@ def run_example(out_path, regression_test=False):
     mysite = library[library['watershed_name'] == watershed_name] # specific row
     
     # Paths generated automatically but necessary for plots
+    out_path = '/home/agauvain/Documents/HydroModPy'
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
     
