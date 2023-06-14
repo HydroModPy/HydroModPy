@@ -82,26 +82,6 @@ out_path = "C:/Users/ronan/Documents/SIMULATIONS/WATERLINE/CATCHMENTS/"
 res_path = 'C:/Users/ronan/OneDrive/UNINE/5_Waterline/Hydromodpy/Catchments/'
 modflow_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
-### Resampling
-"""
-wbt.resample(
-    data_path+'DEM_2m.tif', 
-    data_path+'DEM_10m.tif', 
-    cell_size=10, 
-    base=None, 
-    method="cc")
-wbt.modify_no_data_value(
-    data_path+'DEM_10m.tif', 
-    new_value="-99999")
-
-with rasterio.open(data_path+'DEM_10m.tif') as src:
-    data = src.read()
-    ras_meta = src.profile
-    ras_meta['crs'] = 'EPSG:2056'
-with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
-    dest.write(data)
-"""
-
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
@@ -193,12 +173,32 @@ for watershed_name in watershed_names[:]:
     # toolbox.reproject_shp(data_path + 'hydrology/' + types_obs[0] + '.shp',
     #                       data_path + 'hydrology/' + types_obs[0] + '_utm' + '.shp',
     #                       utm_crs)
-        
+    
+    resamp_dem_path = dems_path+'EUDTM_Frame_'+watershed_name+'_utm'+str(utm_crs.split(':')[-1])+'_resamp100'+'.tif'
+    
+    ### Resampling
+    wbt.resample(
+        utm_dem_path, 
+        resamp_dem_path, 
+        cell_size=100, 
+        base=None, 
+        method="cc")
+    # wbt.modify_no_data_value(
+    #     data_path+'DEM_10m.tif',
+    #     new_value="-99999")
+
+    with rasterio.open(resamp_dem_path) as src:
+        data = src.read()
+        ras_meta = src.profile
+        ras_meta['crs'] = utm_crs.upper()
+    with rasterio.open(resamp_dem_path, "w", **ras_meta) as dest:
+        dest.write(data)
+    
     print('##### '+watershed_name.upper()+' #####')
     print(utm_crs.upper())
     
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=utm_dem_path, 
+                                  dem_path=resamp_dem_path, 
                                   out_path=out_path,
                                   modflow_path=modflow_path,
                                   library_path=library_path,
@@ -482,12 +482,15 @@ for watershed_name in watershed_names[:]:
 # for watershed_name in ['Vosvozis']:
 # for watershed_name in ['Canut']:
 
-for watershed_name in watershed_names:
-        
-    df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
+for watershed_name in watershed_names[:]:
     
-    for type_obs, field_obs in zip(types_obs, fields_obs):
-   
+    if watershed_name != 'Hoal':
+        
+        type_obs = "EU-HYDRO_"+watershed_name
+        field_obs = "fid"
+        
+        df = pd.DataFrame(np.nan, index=range(1), columns=[type_obs])
+               
         print('##### '+watershed_name.upper()+' #####')
         
         BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -516,17 +519,27 @@ for watershed_name in watershed_names:
         params_df = pd.DataFrame(columns=['params',
                                           'init_values','lower_bounds','higher_bounds',
                                           'units','scale'])
-        params_df.loc[0] = ['k1',
-                            None,
-                            1e-08*24*3600,
-                            1e-03*24*3600,
-                            'm/j',
-                            'lin']
+        if watershed_name == 'Lasset':
+            params_df.loc[0] = ['k1',
+                                None,
+                                1e-09*24*3600,
+                                1e-04*24*3600,
+                                'm/j',
+                                'lin']
+        else:
+            params_df.loc[0] = ['k1',
+                                None,
+                                1e-08*24*3600,
+                                1e-03*24*3600,
+                                'm/j',
+                                'lin']
         params_file = 'calib_dicot_hom_1v_k1_'
         params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
         calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
         
-        dicot = calib.dichotomy(gap=1)
+        """
+        # dicot = calib.dichotomy(gap=1)
+        """
 
         typ_calib = 'streams_calibration'
         list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
@@ -543,9 +556,76 @@ for watershed_name in watershed_names:
         df.loc[0,type_obs] = koptim / 24 / 3600
         df.loc[1,type_obs] = kr
         df.loc[2,type_obs] = obj_func
-        
-    df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+            
+        df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+        df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+#%% DICHOTOMY PLOT
+
+watershed_names = ['Vosvozis',
+                   'Kocinka',
+                   'Temmes',
+                   'Canut',
+                   'Lasset',
+                   'Poschiavino']
+
+lito = {'Vosvozis':'red',
+        'Kocinka':'orange',
+        'Temmes':'blue',
+        'Canut':'green',
+        'Lasset':'grey',
+        'Poschiavino':'violet'}
+
+styl = {'Vosvozis':'s',
+        'Kocinka':'s',
+        'Temmes':'d',
+        'Canut':'o',
+        'Lasset':'o',
+        'Poschiavino':'o'}
+
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
+
+fig, ax = plt.subplots(1,1, figsize=(4,3), sharex=True, sharey=True)
+    
+n = len(watershed_names)
+
+cp=0
+for idx, watershed_name in enumerate(watershed_names[:]):
+    
+    site = watershed_name
+    
+    s='o'
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=None, 
+                                  out_path=out_path,
+                                  load=True)
+    
     df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+    
+    # ax.axvline(df['EU-HYDRO_'+watershed_name][0], color=lito[watershed_name], ls='-',
+    #            label=watershed_name)
+    
+    ax.plot(df['EU-HYDRO_'+watershed_name][0], df['EU-HYDRO_'+watershed_name][2], 
+            color=lito[watershed_name], marker='s', ms=10, lw=0, label=watershed_name)
+    
+    # plt.scatter(df.complete[0], np.sqrt(np.exp(df.complete[2])), color=lito[watershed_name], s=100)
+
+    # ax.set_ylim(0.95)
+    ax.set_xlim(1e-6, 1e-3)
+    ax.set_xscale('log')
+    # ax.set_yscale('log')
+    ax.legend(loc='upper left')
+    
+    ax.set_ylabel('Success criterion')
+    ax.set_xlabel('K [m/s]')
+    
+    cp+=1
+
+# ax.set_yticks(np.arange(0,8,1))
+# ax.set_yticklabels(watershed_names)
+    
+fig.tight_layout()
 
 #%% ---- NOTES
 

@@ -65,7 +65,8 @@ from groundwater_flow import visualization, modflow_display
 user_path = "Ronan"
 data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/USERS/QUIOCK/"
 out_path = "C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/"
-fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/raw/"
+# fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/raw/"
+fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/explor/"
   
 print("Define a well-validated name of user")
 
@@ -206,6 +207,7 @@ case = 'k0k1'
 case = 'calib'
 case = 'inter1'
 case = 'best1'
+case = 'explor1'
 ######################
 
 if case == 'k0k1':
@@ -270,6 +272,23 @@ if case == 'best1':
             
     # Name
     typ = 'casebest1'
+
+if case == 'explor1':
+    etot = 400
+    esurf = 40
+    # list_x = np.array([0.1,1,10])
+    list_x = np.geomspace(0.001, 1000, 10)
+    k0s = Koptim * (etot/(esurf+((etot-esurf)/list_x))) * 3600 * 24
+    k1s = (k0s / list_x)
+    thick_k0 = 40 # thickness of the upper layer
+    cond_decays = [0] * 10 # exponential decay of K with depth : 0.02
+    # Vertical
+    verti_ks = []
+    for i in range(len(list_x)):
+        verti_ks.append( [ [k0s[i], [0, thick_k0]] ] )
+            
+    # Name
+    typ = 'explor1'
     
 #%% OPTIONS
 
@@ -322,6 +341,7 @@ date_today = date_today.replace(' ','_')
 for i, (k0, k1, verti_k, cond_decay) in enumerate(zip(k0s, k1s, verti_ks, cond_decays)):
     print(i, k1, verti_k, cond_decay)
     
+    """    
     if i <= 2:
         BV.hydrodynamic.update_hyd_cond(k1)
         model_name = typ+'_'+str(compt)+'_'+\
@@ -331,13 +351,18 @@ for i, (k0, k1, verti_k, cond_decay) in enumerate(zip(k0s, k1s, verti_ks, cond_d
         BV.hydrodynamic.update_hyd_cond(k0)
         model_name = typ+'_'+str(compt)+'_'+\
                          str(Sy*100)+'-'+'e'+str(cond_decay)+'-'+str(thick)+'_'+str(nlay)
-        
+    """    
+    
+    BV.hydrodynamic.update_hyd_cond(k1)
+    model_name = typ+'_'+str(compt)+'_'+\
+                     str(Sy*100)+'-'+str(round(verti_k[0][0]/k1,3))+'-'+str(thick)+'_'+str(nlay)
     BV.hydrodynamic.update_cond_decay(cond_decay) # 0
 
     if run == True:
         # try:
         print('SIM - ' + model_name)
-        
+
+      
         success, flow_model = BV.run_modflow(ident=model_name,
                                              run=run,
                                              modpath_sim=modpath_sim,
@@ -480,7 +505,8 @@ print(data_explo)
 
 #%% MULTIOBJECTIVE FUNCTIONS
 
-data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
+if not 'data_explo' in globals():
+    data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
 
 fig, ax_l0 = plt.subplots(1,1, figsize=(4,3))
 ax_r0 = ax_l0.twinx()
@@ -489,7 +515,7 @@ ax_r0 = ax_l0.twinx()
 # ax_l2 = ax_l0.twinx()
 # ax_l3 = ax_l0.twinx()
 
-# ax_r1 = ax_l0.twinx()
+ax_r1 = ax_l0.twinx()
 # ax_r2 = ax_l0.twinx()
 # ax_r3 = ax_l0.twinx()
 
@@ -538,26 +564,45 @@ def make_patch_spines_invisible(ax):
 # ax_r3.yaxis.set_label_position('right')
 # ax_r3.yaxis.set_ticks_position('right')
 
-ax_l0.plot(data_explo['k0k1'], (data_explo['D_so']/data_explo['D_os'])/1,
-           color='forestgreen', marker='o', lw=3)
-# ax_l0.set_xscale('log')
+# ax_l0.plot(data_explo['k0k1'], (data_explo['D_so']),
+#            color='forestgreen', marker='o', lw=3)
+# ax_l0.plot(data_explo['k0k1'], (data_explo['D_os']),
+#            color='', marker='o', lw=3)
+ax_l0.plot(data_explo['k0k1'], (abs(1-(data_explo['D_so']/data_explo['D_os']))),
+           color='red', marker='o', lw=2)
+ax_l0.set_xscale('log')
 ax_l0.set_yscale('log')
-ax_l0.axhline(y=1, c='k', ls='--')
+# ax_l0.axhline(y=1, c='k', ls='--')
 # ax_l0.set_xlim(0.01, 1e3)
 ax_l0.set_xlabel('K upper layer / K lower layer')
-ax_l0.set_ylabel('Stream network indicator', c='forestgreen')
+ax_l0.set_ylabel('Stream network indicator', c='red')
 ax_l0.set_title('Calibration criteria')
 # ax_l0.axvline(x=6e-1, c='k', ls='--')
+ax_l0.axvline(x=2, c='limegreen', ls='--', lw=2)
 
 ax_r0.plot(data_explo['k0k1'], ((data_explo['Qout_sim']/data_explo['Qsub_obs'])),
-           color='dodgerblue', marker='o', lw=3)
+           color='dodgerblue', marker='o', lw=2)
 # ax_r0.set_yscale('log')
-ax_l0.set_ylim(0.1, 10)
+# ax_l0.set_ylim(0.1, 30)
 ax_r0.set_ylabel('Streamflow indicator', c='dodgerblue', rotation=270, labelpad=+25,)
+ax_r0.set_ylim(1, 2)
 
 # ax_r1.plot(data_explo['k0k1'], (data_explo['t_sim']),
 #            color='red', marker='o', lw=3)
 # ax_r0.set_yscale('log')
+
+ax_r1.spines["right"].set_visible(True)
+ax_r1.yaxis.set_label_position('right')
+ax_r1.yaxis.set_ticks_position('right')
+ax_r1.spines['right'].set_position(('outward', 60))
+
+ax_r1.plot(data_explo['k0k1'], 
+           data_explo['RMSE'],
+           color='darkorange', marker='o', lw=2)
+
+ax_r1.set_ylabel('RMSE Sr ratio', c='darkorange', rotation=270, labelpad=+25,)
+
+fig.savefig(fig_path+'multiobjective_'+'allcases'+'.png', dpi=300, bbox_inches='tight')
 
 #%% GENERAL DATA PLOT
 
@@ -943,7 +988,7 @@ for model_name in list_selects[:]:
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name[:]
 
-for model_name in list_selects[:1]:
+for model_name in list_selects[:]:
 
     shp_starting = gpd.read_file(simulations_folder+
                         model_name+'/'+'_pathlines/'+
@@ -1108,9 +1153,9 @@ for model_name in list_selects[:]:
                             model_name+'/'+'_pathlines/'+
                             'shp_x_particules_deep.shp')
                                         
-#%% ---- PLOT 3
+#%% ---- PLOT 2
 
-#%% PATHLINES - CROSS SECTION
+#%% ## PATHLINES - CROSS SECTION
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
@@ -1171,7 +1216,7 @@ for model_name in list_selects[:1]:
             #     if b.z.max()<head_max:
             ax.plot(b.x, b.z, color='blue', lw=0.5)
 
-#%% ELEVATION DISCHARGE ALL - ALONG RIVERS
+#%% ## ELEVATION DISCHARGE ALL - ALONG RIVERS
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
@@ -1428,6 +1473,8 @@ for model_name in list_selects[:]:
     
     # plt.tight_layout()
     
+    ax.set_title(model_name, fontsize=8)
+    
     fig.savefig(fig_path+'discharge_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% FLOWPATHS RED/BLUE - ALONG RIVERS
@@ -1605,7 +1652,9 @@ for model_name in list_selects[:]:
     #             'Times and counts'+'.png', dpi=300, bbox_inches='tight')
     
     # fig.savefig(fig_path+'residence_'+model_name+'.png', dpi=300, bbox_inches='tight')
-
+    
+    ax.set_title(model_name, fontsize=8)
+    
     fig.savefig(fig_path+'residence_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% CONCENTRATION SR - ALON RIVERS
@@ -1617,6 +1666,8 @@ for model_name in list_selects[:]:
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
+
+cp = 0
 
 for model_name in list_selects[:]:
     
@@ -1849,8 +1900,130 @@ for model_name in list_selects[:]:
     
     # fig.savefig(simulations_folder + '/' + model_name + '/' +'_figures/' + 
     #             'Concentration and Ratio Sr'+'.png', dpi=300, bbox_inches='tight')
-
+    
+    ax.set_title(model_name, fontsize=8)
+    
+    do_u = [70,80,90,100,110]
+    o_u = [0.7090]*5
+    do_d = [130,140]
+    o_d = [0.7060]*2
+    axb.plot(do_u, o_u, color='k', lw=0, marker='o', ms=5)
+    axb.plot(do_d, o_d, color='k', lw=0, marker='o', ms=5)
+        
     fig.savefig(fig_path+'concentration_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    
+    d = do_u + do_d
+    o = o_u + o_d
+    list_sim = []
+    for i in flat_flux.index:
+        if i in d:
+            while flat_flux.loc[i,'Rsr_riv'] == 0:
+                i += 1
+            else:
+                list_sim.append(flat_flux.loc[i,'Rsr_riv'])
+    
+    value = np.sqrt(np.nansum((np.array(list_sim)-np.array(o))**2)/len(o))
+    data_explo.loc[cp,'RMSE'] = value
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,4))
+    ax.plot(o, list_sim, marker='o', c='forestgreen', lw = 0, ms=13)
+    ax.set_xlim(0.704, 0.710)
+    ax.set_ylim(0.704, 0.710)
+    ax.ticklabel_format(style='plain')
+    ax.ticklabel_format(useOffset=False, style='plain')
+    ax.plot((0.704, 0.710),(0.704, 0.710), c='k', ls='--', zorder=-1)
+    ax.set_xlabel('Observed Sr ratio')
+    ax.set_ylabel('Simulated Sr ratio')
+    
+    fig.savefig(fig_path+'obsVSsim_'+model_name+'.png', dpi=300, bbox_inches='tight')
+
+    cp += 1
+
+#%% ---- PLOT 3
+
+#%% STARTING ENDING PATHLINES
+
+list_selects = list_model_name
+
+shp_contour = gpd.read_file(BV.geographic.watershed_shp)
+shp_box = gpd.read_file(stable_folder+'geographic/box_buff.shp')
+
+for model_name in list_selects[:]:
+    
+    shp_ending = gpd.read_file(simulations_folder+
+                                  model_name+'/'+'_pathlines/'+
+                                  'ending_years_masked.shp') # time in years !
+    
+    shp_starting_shal = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_starting_shal.shp') # time in years !
+    shp_starting_deep = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_starting_deep.shp') # time in years !
+    
+    shp_ending_shal = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_ending_shal.shp') # time in years !
+    shp_ending_deep = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'shp_ending_deep.shp') # time in years !
+    
+    shp_pathlines_spings = gpd.read_file(simulations_folder+
+                              model_name+'/'+'_pathlines/'+
+                              'pathlines_1000_springs.shp')
+
+    fig, axs = plt.subplots(2,1, figsize=(6,3))
+    axs.ravel()
+    
+    ax=axs[0]
+    shp_contour.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    shp_box.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    # ax.set_title('Pathlines deep vs. shallow', fontsize=10)
+    shp_starting_shal.plot(ax=ax, color='dodgerblue', lw=0, markersize=4)
+    shp_starting_deep.plot(ax=ax, color='tomato', lw=0, markersize=4)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
+    
+    ax=axs[1]
+    shp_contour.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    shp_box.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    # ax.set_title('Pathlines deep vs. shallow', fontsize=10)
+    shp_ending_shal[shp_ending_shal.time>0].plot(ax=ax, color='dodgerblue', lw=0, markersize=4)
+    shp_ending_deep.plot(ax=ax, color='tomato', lw=0, markersize=4)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
+    
+    fig.suptitle( model_name, y=0.95, fontsize=5)
+    fig.tight_layout()
+    
+    fig.savefig(fig_path+'starting_ending_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    
+    fig, ax = plt.subplots(1,1, figsize=(3,3))
+    shp_contour.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    shp_box.plot(ax=ax, facecolor='none', lw=2, zorder=10)
+    ep = shp_ending.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=4,
+                              norm=mpl.colors.LogNorm(vmin=1, vmax=10))
+    shp_pathlines_spings.plot(ax=ax, column='time', cmap='jet', lw=0.5,
+                              norm=mpl.colors.LogNorm(vmin=1, vmax=100))
+    # shp_ending.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=4,
+    #                           vmin=1, vmax=30)
+    # shp_pathlines_spings.plot(ax=ax, column='time', cmap='jet', lw=0.5,
+    #                           vmin=1, vmax=30)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
+    fig = ax.get_figure()
+    cax = fig.add_axes([1, 0.2, 0.02, 0.6])
+    sm = plt.cm.ScalarMappable(cmap='jet', norm=mpl.colors.LogNorm(vmin=1, vmax=100))
+    # fake up the array of the scalar mappable. Urgh...
+    sm._A = []
+    fig.colorbar(sm, cax=cax)
+    fig.suptitle( model_name, y=0.85, fontsize=5)
+    fig.tight_layout()
+    
+    fig.savefig(fig_path+'pathlines_knickpoint_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% ---- MODPATH FILES OLD
 
@@ -1943,7 +2116,7 @@ shp_particules = gpd.read_file(simulations_folder+
                     model_name+'/'+'_pathlines/'+
                     'particlues.shp')
 
-#%% DISTINCTION OF PARTICULESµ
+#%% DISTINCTION OF PARTICULES
 
 particleid = shp_particules['particleid'].unique()
 shalid = []
@@ -1993,7 +2166,7 @@ shp_particules['V'] = shp_particules['d'] / shp_particules['dt']
 shp_particules_shal = shp_particules[np.isin(shp_particules.particleid, id_layers_random[0])]
 shp_particules_deep = shp_particules[np.isin(shp_particules.particleid, id_layers_random[1])]
 
-#%% ---- PLOT 3
+#%% ---- PLOT 4
 
 #%% PATHLINES QUICK
 
