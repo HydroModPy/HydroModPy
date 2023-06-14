@@ -14,6 +14,7 @@ from os.path import dirname, abspath
 DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
 sys.path.append(os.path.join(DIR, 'users', 'lemesnil'))
+import matplotlib.pyplot as plt
 
 # Gis
 import whitebox
@@ -46,7 +47,6 @@ if DIR[0] == 'd': #server
     # Path where the results will be stored
     out_path = r'D:\mlemesnil\HydroModPy\Output/'
     modflow_path = r'D:\mlemesnil\HydroModPy\Modflow' # add bin/ folder with necessary .exe
-    shape_calib_zones_path = r'D:\mlemesnil\Data\HydroModPy\calib_zones\SGA\shape_calib_zones_SGA.shp'
     data_folder = r'D:\mlemesnil\Data\piezo_gouville'
 elif DIR[0] == 'c': #local
     git_path = r"C:/Users/Martin Le Mesnil/Travail/HydroModPy/HydroModPy/CORE_COMM/"
@@ -56,7 +56,8 @@ elif DIR[0] == 'c': #local
     dems_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville/'
     shape_path = r'C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\zone_modele_west_ext.shp'
     data_folder = r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\data_gouville\extraction'
-
+    shape_calib_zones_path = r"C:\Users\Martin Le Mesnil\Travail\SIG\Gouville\calib_zones_west.shp"
+    
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 surfex_path =  data_path +'REA-DAYON/' # add surfex models in .h5 format (France scale, else, specify None)
@@ -80,7 +81,7 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
                               out_path=out_path,
                               modflow_path=modflow_path,
                               library_path=library_path,
-                              load=False,
+                              load=True,
                               from_shp=shape_path,
                               from_dem=False,
                               cell_size=cell_size)
@@ -89,7 +90,7 @@ watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
 BV.add_piezometry()
-BV.add_surfex(surfex_path)
+# BV.add_surfex(surfex_path)
 BV.add_hydrodynamic()
 BV.add_oceanic(oceanic_path)
 
@@ -111,7 +112,7 @@ piezo_NGF_df.index = piezo_NGF_df['Date'] #pd.to_datetime(piezo_NGF_df['Date'],f
 piezo_NGF_df = piezo_NGF_df.drop(['Date'], axis=1)
 piezo_NGF_df.columns = [code]
 
-filename = 'piezometry_' + str.replace(code, '/', '') + '_363782_6897114_9.2_10' + '.csv'
+filename = 'piezometry_' + str.replace(code, '/', '') + '_363782_6897114_9.2_10' + '.csv' #_363782_6897114_9.2_10  _363400_6897114_9.2_10
 piezo_add_path = os.path.join(stable_folder, 'add_data',  filename)
 piezo_NGF_df.to_csv(piezo_add_path, sep = ';')
 
@@ -131,11 +132,19 @@ BV.forcing.update_recharge_surfex(clim_mod = mod, clim_sce = sce,
                                   first_year = first_yr, last_year = last_yr, 
                                   time_step = 'D', sim_state = 'transient')
 rech = BV.forcing.recharge
-rech_cut = rech.iloc[0:30]
+rech_cut = rech.iloc[0:10]
+rech_cut_mean_int = rech_cut.values.mean()
+
+rech_cut_mean = rech_cut.copy()
+for i in range(len(rech_cut)):
+    rech_cut_mean.iloc[i] = rech_cut_mean_int
+
+plt.plot(rech)
 
 #%% Sea level extraction
 
 from SHOM_process import SHOM
+import numpy as np
 
 maregraph = 'St-Malo'
 first_yr = 2016
@@ -146,8 +155,12 @@ sea_lev_df_interp = sea_lev_df.interpolate()
 sea_lev_df_fill = sea_lev_df.fillna(sea_lev_df.mean())
 sea_lev_df_fill = sea_lev_df_fill
 sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
+sea_lev_mean = np.mean(sea_lev)
 
-sea_lev_cut = sea_lev[0:30] 
+sea_lev_cut = sea_lev[0:10]
+sea_lev_cut_mean = np.mean(sea_lev_cut)
+
+plt.plot(sea_lev)
 
 #%% Homogeneous calibration
 
@@ -155,12 +168,12 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_test_1x_janv' #calib_optim1_aut22_k1n1
+params_file = 'calib_test' #calib_optim1_aut22_k1n1
 
 BV.forcing.update_recharge(rech_cut, 'transient')
 BV.oceanic.update_MSL(sea_lev_cut)
 
-BV.hydrodynamic.update_thickness(30)
+BV.hydrodynamic.update_thickness(20)
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
 params_df.loc[0] = ['k1',75,75,75,'m/j','log']
 params_df.loc[1] = ['n1',0.1,0.1,0.1,'-','lin']
@@ -168,6 +181,62 @@ params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=No
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
 calib.exploration(1)
+fig1 = plt.gcf()
+fig1.savefig('C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/Gouville\\results_calibration/calib_test_fig', dpi=200)
+plt.imsave('C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/Gouville\\results_calibration/calib_test_fig')
 
+#%% Homogeneous calibration - automated scenarios
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_test' #calib_optim1_aut22_k1n1
+
+BV.forcing.update_recharge(rech_cut, 'transient')
+BV.oceanic.update_MSL(sea_lev_cut)
+
+thick_list = [10, 20, 30]
+k_list = [.1, 1, 10, 100, 1000]
+n_list = [.02, .1, .3]
+for T in thick_list:
+    for K in k_list:
+        for n in n_list:
+            BV.hydrodynamic.update_thickness(T)
+            params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+            params_df.loc[0] = ['k1',K,K,K,'m/j','log']
+            params_df.loc[1] = ['n1',n,n,n,'-','lin']
+            params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+            
+            calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
+            calib.exploration(1)
+            
+
+
+#%% Heterogeneous calibration 
+
+from calibration import calib_root
+import pandas as pd
+
+types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
+params_file = 'calib_hetero_test' #calib_hetero_transient_n1n2_P1P3_halfkcalib_hetero_transient_n1n2_P4P6_t28
+
+BV.forcing.update_recharge(rech, 'transient') #R_HAD_REG_RCP26
+BV.hydrodynamic.update_thickness(30)
+
+shape = BV.hydrodynamic.update_calib_zones_from_shp(shape_calib_zones_path)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone=1, hyd_cond_value=25)
+BV.hydrodynamic.update_hyd_cond_from_calib_zones(num_zone=2, hyd_cond_value=2)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone=1, porosity_value=0.1)
+# BV.hydrodynamic.update_porosity_from_calib_zones(num_zone=2, porosity_value=0.05)
+
+params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+params_df.loc[0] = ['n1',0.1,0.1,0.1,'-','lin']
+params_df.loc[1] = ['n2',0.05,0.05,0.05,'-','lin']
+
+params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+
+calib = calib_root.Calibration(params_file, BV, observations = ['piezometry']) 
+calib.exploration(1)
 
 
