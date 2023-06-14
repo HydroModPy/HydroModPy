@@ -232,7 +232,7 @@ class Watershed :
             False: the watershed will be generated (and not loaded)
             
         """
-        self.watershed_name = watershed_name #parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
+        # self.watershed_name = watershed_name #parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
         self.library_path = library_path
         
         self.from_shp = from_shp
