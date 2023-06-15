@@ -232,7 +232,6 @@ class Watershed :
             False: the watershed will be generated (and not loaded)
             
         """
-        
         try:
             self.watershed_name = parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
             print("parameter_choice way")

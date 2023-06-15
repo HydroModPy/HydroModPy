@@ -145,7 +145,7 @@ class Piezometry:
         self.watershed = watershed
         self.model = model
         self.param_folder = param_folder
-        
+        print(param_folder)
         self.load_modeling_data()
         self.compare_sim_obs_data()
     
@@ -184,7 +184,7 @@ class Piezometry:
                 df['sim_' + self.watershed.piezometry.codes_bss[j]].plot(ax=ax)
                 #plt.plot(y0,y0-y1)
                 plt.legend(fontsize='xx-large', loc='best')
-                plt.title(self.watershed.piezometry.codes_bss[j])
+                plt.title(self.watershed.piezometry.codes_bss[j] + ' K= ; n=')
                 plt.show()
                 
                 #Amplitude and mean level are computed for observed and simulated data time series

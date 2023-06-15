@@ -29,8 +29,10 @@ def SHOM(maregraph, first_yr, last_yr):
     SHOM_df_h['Valeur'] = SHOM_df_h['Valeur'] + ZH
     SHOM_df_h = SHOM_df_h.rename(columns={"# Date": "Date"})
     SHOM_df_h['Date'] = pd.to_datetime(SHOM_df_h['Date'], dayfirst=True)
-    SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).mean()
+    SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).max()
     SHOM_df = SHOM_df.drop(columns=['Source'])
+    shift = SHOM_df.mean() - SHOM_df_h.Valeur.mean()
+    SHOM_df = SHOM_df - shift
     
     return SHOM_df
 
