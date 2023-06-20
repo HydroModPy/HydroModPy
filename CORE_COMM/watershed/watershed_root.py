@@ -222,7 +222,8 @@ class Watershed :
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
                  from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
-                 from_xy: list = [], regio_out: bool = False, parameters = None):
+                 from_xy: list = [], regio_out: bool = False, bottom_path: str = None,
+                 parameters = None):
         """  
         
         Arguments
@@ -250,6 +251,7 @@ class Watershed :
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
+        self.bottom_path = bottom_path
                 
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
@@ -424,7 +426,8 @@ class Watershed :
                                                 out_path=self.watershed_folder,
                                                 from_shp=self.from_shp, from_dem=self.from_dem,
                                                 from_xy=self.from_xy, regio_path=self.regio_path,
-                                                cell_size=self.cell_size) #2D
+                                                cell_size=self.cell_size, 
+                                                bottom_path=self.bottom_path) #2D
         self.elt_def.append('geographic')
 
     def save_object(self):
