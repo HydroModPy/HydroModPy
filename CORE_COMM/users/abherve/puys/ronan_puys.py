@@ -200,7 +200,7 @@ ax.plot(x[r,200:1200], color='k')
 #%% WATERSHED
 
 load = False
-# load = True
+load = True
 # False to build and save python object4
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -312,7 +312,7 @@ df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams'+
 
 ######################
 case = 'sansbottom1'
-# case = 'avecbottom1'
+case = 'avecbottom1'
 typ = case
 ######################
 
@@ -545,11 +545,15 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
         modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='YlOrRd_r')
+        axs[0].set_xlim(0, 8000)
+        axs[1].set_xlim(0, 8000)
+        axs[0].set_ylim(550, 1400)
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
+        axs[1].set_ylim(550, 1400)
         axs[0].set_title('Hydraulic conductivity')
         axs[1].set_title('Watertable and hydraulic gradient')
-        fig.suptitle(model_name, y=1.05)
+        fig.suptitle(model_name, y=1.05, fontsize=8)
         
         bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
         ext_mod = bv_box.geometry.total_bounds
@@ -562,16 +566,20 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         fig, axs = plt.subplots(1, 2, figsize=(12, 3))
         # ax = fig.add_subplot(1, 1, 1)
         axs = axs.ravel()
-        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[0])/2)})
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
         linecollection = modelxsect.plot_grid()
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
         modelxsect.plot_array(sy_grid, ax=axs[0], cmap='YlGn_r')
+        axs[0].set_xlim(0, 8000)
+        axs[1].set_xlim(0, 8000)
+        axs[0].set_ylim(700, 1100)
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
+        axs[1].set_ylim(700, 1100)
         axs[0].set_title('Porosity')
         axs[1].set_title('Watertable and hydraulic gradient')
-        fig.suptitle(model_name, y=1.05)
+        fig.suptitle(model_name, y=1.05, fontsize=8)
         
         bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
         ext_mod = bv_box.geometry.total_bounds
@@ -582,7 +590,7 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         fig.savefig(fig_path+'cross_section_v_'+model_name+'.png', dpi=300, bbox_inches='tight')
     
     crs_code = 2154
-    
+
     """
     def reproj_approx_points(shp_name, crs_code):
         shp = gpd.read_file(simulations_folder+

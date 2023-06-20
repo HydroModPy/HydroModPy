@@ -771,7 +771,7 @@ class Modflow():
         
         # fig = plt.figure(figsize=(10, 5))
         # ax = fig.add_subplot(1, 1, 1)
-        modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[0])/2)})
+        modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
         # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
         pc1 = modelxsect1.plot_array(self.hk, masked_values=[-9999],
                                     cmap='viridis', alpha=0.5, ax=axs[0])
@@ -783,7 +783,7 @@ class Modflow():
         # fig = plt.figure(figsize=(10, 5))
         # ax = fig.add_subplot(1, 1, 1)
         # ax = axs[1]
-        modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[1])/2)})
+        modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
         # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
         pc2 = modelxsect2.plot_array(self.ps, masked_values=[-9999],
                                     cmap='plasma', alpha=0.5, ax=axs[1])

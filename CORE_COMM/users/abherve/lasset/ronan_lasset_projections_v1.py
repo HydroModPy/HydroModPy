@@ -65,7 +65,7 @@ warnings.filterwarnings("ignore")
 #%HYDROMODPY MODULES
                     
 from watershed import watershed_root, watershed_display, forcing
-from watershed.data import climatic
+from watershed.data import climatic, drias
 from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 from calibration import calib_root
@@ -162,7 +162,6 @@ BV.add_drias("G:/RENNES/CLIMATE_DATA/DRIAS/DATA/FRANCE/")
 pc = 'local'
 
 if pc == 'local':
-
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
     # Path to the data folder
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
@@ -207,7 +206,7 @@ if pc == 'serv':
     hydrometry_path = data_path # add hydrometry data for automatic download
     intermittency_path = data_path # add intermittency data for automatic download
     piezometry_path = False # add piezometry data for automatic download
-    subbasin_path = True # generate subbasins from stations or manual points
+    subbasin_path = True # generate 
 
 # dem_name = "BDALTI_75m_EBR.tif" # name of dem
 dem_name = "BDALTI_75m_MA.tif" # name of dem
