@@ -1598,7 +1598,7 @@ sat_typ = 'surflow_areas'
 # sat_typ = 'seepage_areas'
 # sat_typ = 'prop_ratio'
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:1]:
     
     # fig1, ax1 = plt.subplots(1,1, figsize=(3.8,3.5))
 
@@ -1948,7 +1948,7 @@ for watershed_name in watershed_names[1:]:
     spec_name = watershed_name+'_explosaturation_median'
     # fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
 
-#%% 2D SATURATION GRAPH
+#%% 2D VARIATION GRAPH
 
 ##### LAUNCH 2DOBJFCT SATURATION #####
 
@@ -3203,7 +3203,7 @@ sce_list = ['historic']
 
 y_name = 'surflow_areas'
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:1]:
 
     if watershed_name == 'Canut':
         color = 'green'
@@ -3385,7 +3385,7 @@ sce_list = ['historic']
 
 y_name = 'surflow_areas'
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:1]:
 
     if watershed_name == 'Canut':
         color = 'green'
@@ -3422,6 +3422,26 @@ for watershed_name in watershed_names[1:]:
             acc_npy = list(acc_npy.items())[:]
             # acc_npy = list(acc_npy.items())[360:720]
             
+            print(model_name)
+            
+            print('P',
+                  'min', Smod['perenn_areas'].min().round(1),
+                  # 'med', Smod['perenn_areas'].median().round(2),
+                  'moy', Smod['perenn_areas'].mean().round(1),
+                  'max', Smod['perenn_areas'].max().round(1))
+            
+            print('I',
+                  'min', Smod['intermit_areas'].min().round(1),
+                  # 'med', Smod['intermit_areas'].median().round(2),
+                  'moy', Smod['intermit_areas'].mean().round(1),
+                  'max', Smod['intermit_areas'].max().round(1))
+            
+            print('T',
+                  'moy', Smod['surflow_areas'].min().round(1),
+                  # 'med', Smod['surflow_areas'].median().round(2),
+                  'mean', Smod['surflow_areas'].mean().round(),
+                  'max', Smod['surflow_areas'].max().round(1))
+            
             for key in range(len(acc_npy)):
                 # print(key)
                 mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
@@ -3434,10 +3454,10 @@ for watershed_name in watershed_names[1:]:
                 tempo[tempo>0] = 1
                 zero = zero + tempo
             days_flux = zero.copy() / len(acc_npy)
-            print(model_name)
+            
             print(days_flux.min())
             
-            # days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
+            days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
             
             box = np.sort(days_flux[~days_flux.mask]).flatten() #.round(5)
             
@@ -3461,6 +3481,7 @@ for watershed_name in watershed_names[1:]:
             
             ###### NP HISTOGRAM
             ax = axs1
+            bins = len(Z)
             bins = 100
             test = np.histogram(Z, bins=bins, density=True)
             test_bis, binval = np.histogram(Z, bins=bins, density=True)
@@ -3484,10 +3505,12 @@ for watershed_name in watershed_names[1:]:
             
             w=0.01
             ax.bar(test[1][1:][test[1][1:]>=1], test[0][test[1][1:]>=1], width=w, lw=0, color='purple')
-            try:
-                ax.bar(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], width=w, lw=0, color='navy')
-            except:
-                pass
+            # try:
+            # ax.bar(test[1][1:][(test[1][1:]>0.75)&(test[0]<1)],
+            #        test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], width=w, lw=0, color='navy')
+            # except:
+            #     pass
+            ax.bar(test[1][1:][(test[1][1:]>0.75)&(test[1][1:]<1)], test[0][(test[1][1:]>0.75)&(test[1][1:]<1)], width=w, lw=0, color='navy')
             ax.bar(test[1][1:][(test[1][1:]>0.5)&(test[1][1:]<0.75)], test[0][(test[1][1:]>0.5)&(test[1][1:]<0.75)], width=w, lw=0, color='dodgerblue')
             ax.bar(test[1][1:][(test[1][1:]>0.25)&(test[1][1:]<0.5)], test[0][(test[1][1:]>0.25)&(test[1][1:]<0.5)], width=w, lw=0, color='deepskyblue')
             ax.bar(test[1][:-1][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], test[0][(test[1][:-1]>0.0)&(test[1][:-1]<0.25)], width=w, lw=0, color='lightskyblue')
@@ -3534,6 +3557,7 @@ for watershed_name in watershed_names[1:]:
             # plt.plot()
             ax.set_xlim(-0.01,1.01)
             ax.set_ylim(1E-3*100, 1*100)
+            # ax.set_ylim(1, 1*100)
             
             ax.spines.right.set_visible(False)
             ax.spines.top.set_visible(False)
@@ -3650,7 +3674,7 @@ for watershed_name in watershed_names[1:]:
             print(model_name)
             print(days_flux.min())
             
-            # days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
+            days_flux = np.ma.masked_array(days_flux, mask=(days_flux==0))
             
             box = np.sort(days_flux[~days_flux.mask]).flatten() #.round(5)
             
@@ -3726,13 +3750,17 @@ for i in [0,1,2]:
         cp=0
     ax.plot(d_cum.iloc[:,i], color=dict_c[cp], lw=2)
     cp += 1
+# ax.set_xlim(0,100)
+# ax.set_xticks(np.arange(0,101,20))
+# ax.set_xticklabels(np.arange(0,101/100,20/100).round(2))
+# ax.set_ylim(0.20,1)
+# from matplotlib.ticker import FormatStrFormatter
+# ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+# ax.set_yticks([0.20,0.40,0.60,0.80,1.00])
 ax.set_xlim(0,100)
+ax.set_ylim(0,1)
 ax.set_xticks(np.arange(0,101,20))
-ax.set_xticklabels(np.arange(0,101/100,20/100).round(2))
-ax.set_ylim(0.20,1)
-from matplotlib.ticker import FormatStrFormatter
-ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-ax.set_yticks([0.20,0.40,0.60,0.80,1.00])
+ax.set_xticklabels(np.arange(0,1.1,0.2).round(1))
 base_name = figsim_folder+'03_sensitivity/'
 spec_name = watershed_name+'_picumul sensitivity_'+'1'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
@@ -3747,11 +3775,15 @@ for i in [3,4,5]:
         cp=0
     ax.plot(d_cum.iloc[:,i], color=dict_c[cp], lw=2)
     cp += 1
+# ax.set_xlim(0,100)
+# ax.set_xticks(np.arange(0,101,20))
+# ax.set_xticklabels(np.arange(0,101/100,20/100).round(2))
+# ax.set_ylim(0.75,1)
+# ax.set_yticks([0.75,0.80,0.85,0.90,0.95,1.00])
 ax.set_xlim(0,100)
+ax.set_ylim(0,1)
 ax.set_xticks(np.arange(0,101,20))
-ax.set_xticklabels(np.arange(0,101/100,20/100).round(2))
-ax.set_ylim(0.75,1)
-ax.set_yticks([0.75,0.80,0.85,0.90,0.95,1.00])
+ax.set_xticklabels(np.arange(0,1.1,0.2).round(1))
 base_name = figsim_folder+'03_sensitivity/'
 spec_name = watershed_name+'_picumul sensitivity_'+'2'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)
@@ -3768,11 +3800,15 @@ for i in [6,7,8]:
         cp += 1
     except:
         pass
+# ax.set_xlim(0,100)
+# ax.set_xticks(np.arange(0,101,20))
+# ax.set_xticklabels(np.arange(0,101/100,20/100).round(2))
+# ax.set_ylim(0.90,1)
+# ax.set_yticks([0.90,0.92,0.94,0.96,0.98,1.00])
 ax.set_xlim(0,100)
+ax.set_ylim(0,1)
 ax.set_xticks(np.arange(0,101,20))
-ax.set_xticklabels(np.arange(0,101/100,20/100).round(2))
-ax.set_ylim(0.90,1)
-ax.set_yticks([0.90,0.92,0.94,0.96,0.98,1.00])
+ax.set_xticklabels(np.arange(0,1.1,0.2).round(1))
 base_name = figsim_folder+'03_sensitivity/'
 spec_name = watershed_name+'_picumul sensitivity_'+'3'
 fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight', transparent=True)

@@ -375,6 +375,8 @@ class Modflow():
         else:
             self.dem = geographic.dem_data
             self.dem_path = geographic.watershed_buff_dem
+        self.dem[self.dem<=-9999] = -9999
+        self.bottom_layer = None
         
         #%% Boundary conditions
         
@@ -471,14 +473,20 @@ class Modflow():
         # Discretization: by default, the number of rows and columns is the DEM discretization
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
-        
+                
         # Bottom definition for each of the layers 
         self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
         if self.bottom is None:
-            bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
+            self.bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
         else:
-            bottom_layer = self.bottom              # Float for flat bottom case
-
+            if isinstance(self.bottom,(int,float))==True:
+                bottom_layer = self.bottom              # Float for flat bottom case or 2D
+            if len(self.bottom.shape) == 2:
+                self.bottom_layer = self.bottom
+                self.bottom_layer[self.dem<=-9999]=-9999
+            # else isinstance(self.bottom,(int,float))==True:
+            # elif len(self.bottom.shape) == 2:
+        
         # Modification of layer thickness for exponentially decreasing hydraulic conductivity cases
         if self.thick_exp != 1.:
             exp_scale = 1-self.thick_exp**self.nlay
@@ -490,7 +498,7 @@ class Modflow():
             else:
                 p = (1-self.thick_exp**i) / exp_scale   # Increasing thicknesses with depth
             # Weighted formula to go from bottom_layer to surface (self.dem)
-            self.zbot[i-1] = bottom_layer * p + self.dem * (1-p)
+            self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
         
         '''
         if self.verti_k != None:
@@ -504,7 +512,7 @@ class Modflow():
             
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, self.nlay, self.nrow, self.ncol, 
-            delr=self.resolution, delc=self.resolution, top=self.dem.data, 
+            delr=self.resolution, delc=self.resolution, top=self.dem, 
             botm=self.zbot, itmuni=4, lenuni=2, nper=self.nper, perlen=self.perlen, 
             nstp=self.nstp, steady=self.steady, xul=self.xul, yul=self.yul,
             start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
@@ -755,19 +763,35 @@ class Modflow():
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
-        """
-        fig = plt.figure(figsize=(10, 5))
-        ax = fig.add_subplot(1, 1, 1)
-        modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.hk.shape[1])/2)})
-        linecollection = modelxsect.plot_grid()
-        modelxsect.plot_array(self.hk)
         
-        fig = plt.figure(figsize=(10, 5))
-        ax = fig.add_subplot(1, 1, 1)
-        modelxsect = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((self.ps.shape[1])/2)})
-        linecollection = modelxsect.plot_grid()
-        modelxsect.plot_array(self.ps)
-        """
+        fig, axs = plt.subplots(1, 2, figsize=(12,3))
+        axs = axs.ravel()
+        
+        grid_model = self.mf.modelgrid
+        
+        # fig = plt.figure(figsize=(10, 5))
+        # ax = fig.add_subplot(1, 1, 1)
+        modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[0])/2)})
+        # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
+        pc1 = modelxsect1.plot_array(self.hk, masked_values=[-9999],
+                                    cmap='viridis', alpha=0.5, ax=axs[0])
+        linecollection = modelxsect1.plot_grid(ax=axs[0])
+        axs[0].set_title('Row, K')
+        axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
+                        np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+        
+        # fig = plt.figure(figsize=(10, 5))
+        # ax = fig.add_subplot(1, 1, 1)
+        # ax = axs[1]
+        modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[1])/2)})
+        # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
+        pc2 = modelxsect2.plot_array(self.ps, masked_values=[-9999],
+                                    cmap='plasma', alpha=0.5, ax=axs[1])
+        linecollection = modelxsect2.plot_grid(ax=axs[1])
+        axs[1].set_title('Column, θ')
+        axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
+                        np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+        # fig.suptitle(model_name, y=1.05)
         
     #%% PROCESSING
     
