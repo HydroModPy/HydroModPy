@@ -163,79 +163,45 @@ pc = 'local'
 
 if pc == 'local':
     git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
-    # Path to the data folder
     data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/"
-    # Path where the results will be stored
-    out_path = "C:/Users/ronan/Documents/EBRPROJ/"
-    out_path = "G:/RENNES/EBR_PROJECTIONS/"
-    # Figure folder outputs
-    res_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/15_results/EBR_v2/'
+    out_path = "G:/UNINE/LASSET_PROJECTIONS/"
     
     dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
     shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
     modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
-
-    readayon_path = out_path + '_CLIMATE/READAYON/' # add surfex models in .h5 format (France scale, else, specify None)
-    explore2_path =  out_path + '_CLIMATE/EXPLORE2/' # add surfex models in .h5 format (France scale, else, specify None)
+    
+    readayon_path = 'G:/RENNES/CLIMATE_DATA/SURFEX/DATA/PYRENEES/' # add surfex models in .h5 format (France scale, else, specify None)
+    explore2_path = 'G:/RENNES/CLIMATE_DATA/DRIAS/DATA/PYRENEES/' # add surfex models in .h5 format (France scale, else, specify None)
+    
     geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
     oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
-    hydrology_path = data_path + 'HYDROLOGY/France/Hydrographic/EBR/' # add hydrographic shapefiles
+    hydrology_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/" # add hydrographic shapefiles
     hydrometry_path = data_path + 'HYDROLOGY/France/Hydrometry/' # add hydrometry data for automatic download
     intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
     piezometry_path = False # add piezometry data for automatic download
     subbasin_path = True # generate subbasins from stations or manual points
 
-if pc == 'serv':
-    git_path = "D:/abherve/GITHUB/HydroModPy/CORE_COMM/"
-    # Path to the data folder
-    data_path = "D:/abherve/EBRPROJ/_DATA/"
-    # Path where the results will be stored
-    out_path = "D:/abherve/EBRPROJ/"
-    # Figure folder outputs
-    figsim_folder = out_path + "_FIGURES/"
-    
-    dems_path = data_path # reginal DEM or conceptual DEM
-    shp_path = data_path # if you want run a model from a shapefile
-    modflow_path = data_path + 'SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
-
-    # readayon_path = out_path + '_CLIMATE/READAYON/' # add surfex models in .h5 format (France scale, else, specify None)
-    # explore2_path =  out_path + '_CLIMATE/EXPLORE2/' # add surfex models in .h5 format (France scale, else, specify None)
-    geology_path = data_path # add geologic layers
-    oceanic_path = data_path # add specific sea level files
-    hydrology_path = data_path  # add hydrographic shapefiles
-    hydrometry_path = data_path # add hydrometry data for automatic download
-    intermittency_path = data_path # add intermittency data for automatic download
-    piezometry_path = False # add piezometry data for automatic download
-    subbasin_path = True # generate 
-
 # dem_name = "BDALTI_75m_EBR.tif" # name of dem
-dem_name = "BDALTI_75m_MA.tif" # name of dem
+dem_name = 'BDALTI_09_25m.tif' # name of dem
 from_shp = None # specify a path if process start from a given shapefile
 from_dem = False # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
 
-from_xy = []
+from_xy = [601020,6193860,100,50]
 
 # Depending on the choices
 dem_path = dems_path + dem_name
 # dem_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/calibration/analysis/_data/bdalti5m_35.tif"
 
-library_path = res_path + '_data/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
-watershed_names = [
-                   'Cheze',
-                   'Canut',
-                   'Drains',
-                   'Couesnon',
-                   'Rophemel',
-                   'Mordelles',
-                   ]
+watershed_names = ['Lasset_proj1']
 
-types_obs = ['perennial','complete'] # list of shapefile name layers for clip hydrology
-fields_obs = ['fid','persiatnc']
+types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
+fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
 
@@ -245,38 +211,23 @@ for watershed_name in watershed_names[:]:
     
     print('##### '+watershed_name.upper()+' #####')
     
-    if watershed_name != 'Drains':
-        BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                      dem_path=dem_path, 
-                                      out_path=out_path,
-                                      modflow_path=modflow_path,
-                                      library_path=library_path,
-                                      load=load,
-                                      from_shp=from_shp,
-                                      from_dem=from_dem,
-                                      from_xy=from_xy,
-                                      cell_size=cell_size)
-
-    if watershed_name == 'Drains':
-        if pc == 'local':
-            Drains_shp = res_path+'sig/'+watershed_name+'.shp'
-        if pc =='serv':
-            Drains_shp = data_path+watershed_name+'.shp'
-        BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                      dem_path=dem_path, 
-                                      out_path=out_path,
-                                      modflow_path=modflow_path,
-                                      library_path=library_path,
-                                      load=load,
-                                      from_shp=Drains_shp,
-                                      from_dem=from_dem,
-                                      from_xy=from_xy,
-                                      cell_size=cell_size)
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  modflow_path=modflow_path,
+                                  library_path=library_path,
+                                  load=load,
+                                  from_shp=from_shp,
+                                  from_dem=from_dem,
+                                  from_xy=from_xy,
+                                  cell_size=cell_size)
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
       
 #%% DATA WATERSHED
+
+clip_climate = True
 
 for watershed_name in watershed_names[:]:
     
@@ -287,30 +238,201 @@ for watershed_name in watershed_names[:]:
                                   out_path=out_path,
                                   load=True)
     
-    if load == False:
-        
-        if pc == 'local':
-            BV.add_surfex(readayon_path)
-            BV.add_drias(explore2_path)
-            try:
-                if (watershed_name == 'Mordelles') | (watershed_name == 'Couesnon'):
-                    BV.add_piezometry()
-            except:
-                pass
+    if clip_climate == True:
+        BV.add_surfex(readayon_path)
+        BV.add_drias(explore2_path)
             
-        BV.add_geology(geology_path)
-        BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
-        BV.add_oceanic(oceanic_path)
-        BV.add_hydrometry(hydrometry_path)
-        BV.add_intermittency(intermittency_path)
-        BV.add_subbasin()
+    BV.add_geology(geology_path)
+    BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+    BV.add_oceanic(oceanic_path)
+    BV.add_hydrometry(hydrometry_path)
+    BV.add_intermittency(intermittency_path)
+    # BV.add_piezometry()
+    BV.add_subbasin()
         
     BV.add_hydrodynamic()
     BV.add_forcing()
     
     watershed_display.watershed_dem(BV)
     watershed_display.watershed_local(dem_path, BV)
-            
+
+#%% Q DATA
+
+area = BV.geographic.area
+
+BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 1960, last_year=2019, time_step = 'D',
+                                  sim_state='transient') #
+BV.forcing.update_runoff_surfex(clim_mod = 'REA', clim_sce='historic',
+                                  first_year = 1960, last_year=2019, time_step = 'D',
+                                  sim_state='transient') #
+R_rea = BV.forcing.recharge * 1000
+r_rea = BV.forcing.runoff * 1000
+
+data_path_lasset = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
+
+if not "cdt" in globals():
+    cdt = pd.read_csv(data_path_lasset+'data_ctd_lasset.dat',
+                      index_col='date',
+                      parse_dates=True)
+cdt_d = pd.DataFrame()
+cdt_d['Q_L/s'] = cdt['discharge_Ls'].resample('D').mean()
+cdt_d['Q_L/d'] = cdt_d['Q_L/s'] * 3600 * 24
+cdt_d['Q_m3/d'] = cdt_d['Q_L/d'] / 1000
+cdt_d['Q_m/d'] = cdt_d['Q_m3/d'] / (area*1e6)
+cdt_d['Q_mm/d'] = cdt_d['Q_m/d'] * 1000
+
+cdt_d.to_csv(data_path_lasset+'Q_lasset_units.csv', sep=';')
+
+print(cdt_d.resample('Y').sum())
+
+if not "cms" in globals():
+    cms = pd.read_csv(data_path_lasset+'lasset_Q_Day.Cms.txt',
+                      sep=';', index_col='date_temp',
+                      parse_dates=True)
+    # m3/s
+
+cms_d = pd.DataFrame()
+cms_d['Q_m3/s'] = cms['Q_cms'].resample('D').mean()
+cms_d['Q_m3/d'] = cms_d['Q_m3/s'] * 3600 * 24
+cms_d['Q_m/d'] = cms_d['Q_m3/d'] / (area*1e6)
+cms_d['Q_mm/d'] = cms_d['Q_m/d'] * 1000
+
+print(cms_d.resample('Y').sum())
+
+def fmt_xaxes(ax,
+              loc_years_maj,
+              loc_years_min,
+              loc_months_maj,
+              loc_months_min):
+    yearsmaj = mdates.YearLocator(loc_years_maj)   # every year
+    yearsmin = mdates.YearLocator(loc_years_min)
+    years_fmt = mdates.DateFormatter('%Y')
+    ax.xaxis.set_major_locator(yearsmaj)
+    ax.xaxis.set_major_formatter(years_fmt)
+    
+    monthsmaj = mdates.MonthLocator(loc_months_maj)  # every month
+    monthsmin = mdates.MonthLocator(loc_months_min)
+    months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+    ax.xaxis.set_minor_locator(monthsmaj)
+    ax.xaxis.set_minor_formatter(months_fmt)
+
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+# axb = ax.twinx()
+
+ax.plot(cdt_d['Q_mm/d'])
+# ax.set_ylim(0, 1000)
+ax.set_yscale('log')
+ax.set_xlabel('Date')
+ax.set_ylabel('Q [mm/d]')
+
+yearsmaj = mdates.YearLocator(1)   # every year
+yearsmin = mdates.YearLocator(1)
+years_fmt = mdates.DateFormatter('%Y')
+ax.xaxis.set_major_locator(yearsmaj)
+ax.xaxis.set_major_formatter(years_fmt)
+
+monthsmaj = mdates.MonthLocator()  # every mont
+monthsmin = mdates.MonthLocator()
+months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+ax.xaxis.set_minor_locator(mdates.MonthLocator())
+# ax.xaxis.set_minor_formatter(months_fmt)
+
+# axb.plot(cms['Q_cms'])
+# axb.set_yscale('log')
+
+Qobs = R_rea + r_rea
+
+Qobs_mean = Qobs.mean()
+cdt_d_mean = cdt_d['Q_mm/d'].mean()
+f = cdt_d_mean / Qobs_mean
+print(f)
+
+Qobs = Qobs * f
+
+Qobs = Qobs.rename('Q')
+Qobs = select_period(Qobs, 1960, 2019)
+data_index = Qobs.copy()
+mean_mensual = data_index.resample('M').mean() # mensual mean
+mean_annual = data_index.resample('Y').mean() # annual mean
+Mean = round(data_index.mean(),2)
+Mean = data_index.mean()
+Min = data_index.resample('Y').min()
+Q10 = data_index.resample('Y').quantile(0.10)
+Q25 = data_index.resample('Y').quantile(0.25)
+Q50 = data_index.resample('Y').quantile(0.50)
+Q75 = data_index.resample('Y').quantile(0.75)
+Q90 = data_index.resample('Y').quantile(0.90)
+print(Q10.min())
+print(Q90.mean())
+Max = data_index.resample('Y').max()
+mean_interan_days = data_index.groupby([data_index.index.month,
+                                data_index.index.day], as_index=True).mean().to_frame()
+std_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).std()
+q10_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).quantile(0.10)
+q90_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).quantile(0.90)
+q50_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).quantile(0.50)
+mean_interan_days['std'] = std_interan_days
+mean_interan_days['q10'] = q10_interan_days
+mean_interan_days['q90'] = q90_interan_days
+mean_interan_days['q50'] = q50_interan_days
+mean_interan_days.index.names = ['months','days']
+mean_interan_days = mean_interan_days.reset_index()
+mean_interan_days = mean_interan_days.sort_values(['months','days'])
+mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+
+# 2021
+c = select_period(cdt_d, 2021, 2021)
+Q2021 = c.groupby([c.index.month,
+                    c.index.day], as_index=True).mean()
+Q2021['counts'] = np.array(range(1,len(Q2021)+1))+c.index[0].timetuple().tm_yday
+
+# 2022
+c = select_period(cdt_d, 2022, 2022)
+Q2022 = c.groupby([c.index.month,
+                    c.index.day], as_index=True).mean()
+Q2022['counts'] = np.array(range(1,len(Q2022)+1))+c.index[0].timetuple().tm_yday
+
+# 2023
+c = select_period(cdt_d, 2023, 2023)
+Q2023 = c.groupby([c.index.month,
+                    c.index.day], as_index=True).mean()
+Q2023['counts'] = np.array(range(1,len(Q2023)+1))+c.index[0].timetuple().tm_yday
+
+fig, ax = plt.subplots(figsize=(4.5,3.5))
+"""
+ax.plot(mean_interan_days.counts, mean_interan_days.q50,
+        lw=1.5, color='dimgray', label='Median')
+yerrmax = mean_interan_days.q90
+yerrmin = mean_interan_days.q10
+ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax, lw=0.5,
+                  color='cyan',edgecolor='grey',
+                  alpha = 0.30, label='10-90th')
+"""
+# ax.plot(Q2021.counts, Q2021['Q_mm/d'],
+#         lw=2, color='dodgerblue', label='Median')
+ax.plot(Q2022.counts, Q2022['Q_mm/d'],
+        lw=2, color='purple', label='Median')
+ax.plot(Q2023.counts, Q2023['Q_mm/d'], ls='-',
+        lw=2, color='darkorange', label='Median')
+ax.plot(Q2023.counts[-1:]+3, Q2023['Q_mm/d'][-1:], marker='>', ms=5,
+        lw=2, color='darkorange', label='Median')
+plt.yscale('log')
+ax.set_xlim(0,366)
+ax.set_ylim(0.1,300)
+ax.tick_params(axis='both', which='major', pad=10)
+x1 = np.linspace(0,366,13)
+squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
+ax.set_xticks(x1)
+ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+ax.set_xlabel('Months', labelpad=+10)
+ax.set_ylabel('Streamflow [mm/day]',labelpad=+10)
+plt.tight_layout()
+
 #%% ---- RECHARGE
 
 #%% NORMALIZE
@@ -348,31 +470,24 @@ for watershed_name in watershed_names[:]:
     tmin_R = Rraw.first_valid_index().year+1
     tmax_R = Rraw.last_valid_index().year-1
     
-    raw_path = stable_folder+'/'+'hydrometry/'
-    Qo_paths = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')
-    print(Qo_paths)
-    Qo_mix = pd.DataFrame()
-    cp = 0
-    for Qo_path in Qo_paths[:]:
-        Qo = pd.read_csv(raw_path+Qo_path, sep=';', index_col=0, parse_dates=True)
-        area = float(Qo_path.split('_')[-1].split('.')[0])
-        # print(area)
-        Qo = (Qo / (area*1000000)) * (3600 * 24) # m3/s to m/day
-        Qo_mix[str(cp)] = Qo
-        cp+=1
-    Qobs = Qo_mix.mean(axis=1).squeeze()
-    Qobs = Qobs.rename('Q')
+    Qo_path = data_path_lasset+'Q_lasset_units.csv'
+    print(Qo_path)
+    Qo = pd.read_csv(Qo_path, sep=';', index_col=0, parse_dates=True)
+    area = BV.geographic.area
+    Qo = Qo['Q_m/d'] # m3/s to m/day
+    # Qobs = Qo.mean(axis=1).squeeze()
+    Qobs = Qo.rename('Q')
     Qobs = Qobs.resample('M').mean() # m/day in monthly
     tmin_Q = Qobs.first_valid_index().year+1
     tmax_Q = Qobs.last_valid_index().year-1
         
-    year_min = max(tmin_Q, tmin_R)
-    year_max = min(tmax_Q, tmax_R)
+    # year_min = max(tmin_Q, tmin_R)
+    # year_max = min(tmax_Q, tmax_R)
     
-    Qobs_sel = select_period(Qobs, year_min, year_max)
+    Qobs_sel = select_period(Qobs, 2021, 2023)
 
-    R_sel = select_period(Rraw, year_min, year_max)
-    r_sel = select_period(rraw, year_min, year_max)
+    R_sel = select_period(Rraw, 1960, 2019)
+    r_sel = select_period(rraw, 1960, 2019)
     
     Fnorm = Qobs_sel.mean() / (R_sel.mean() + r_sel.mean())
     print('Fnorm',Fnorm)
@@ -398,7 +513,8 @@ for watershed_name in watershed_names[:]:
 # mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
 #             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
 
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
 sce_list = ['RCP2.6','RCP8.5']
 col_list = ['blue','red']
 dict_scecol = dict(zip(sce_list, col_list))
@@ -484,9 +600,9 @@ for watershed_name in watershed_names[:] :
         all_proj[watershed_name+'_'+'REC'+'_'+'REA'+'_'+'historic'] = R_rea
         all_proj[watershed_name+'_'+'RUN'+'_'+'REA'+'_'+'historic'] = r_rea
 
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-sce_list = ['RCP2.6','RCP8.5']
-col_list = ['blue','red']
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# sce_list = ['RCP2.6','RCP8.5']
+# col_list = ['blue','red']
 dict_scecol = dict(zip(sce_list, col_list))
 
 for watershed_name in watershed_names[:] :
@@ -516,21 +632,11 @@ all_proj.to_csv(out_path + '_CLIMATE/' + 'all_proj.csv', sep=';')
 all_proj = pd.read_csv(out_path + '_CLIMATE/' + 'all_proj.csv', sep=';', index_col=0, parse_dates=True)
 
 watershed_names = [
-                   'Cheze',
-                   'Canut',
-                   'Drains',
-                   'Couesnon',
-                   'Rophemel',
-                   'Mordelles',
+                   'Lasset_proj1',
                    ]
 
 dic_params = {
-             'Cheze':       [3.4e-5,    0.1],
-             'Canut':       [5.1e-5,    0.1],
-             'Drains':      [2.4e-5,    2.0],
-             'Couesnon':    [5.0e-5,    1.0],
-             'Rophemel':    [2.5e-5,    0.3],
-             'Mordelles':   [6.2e-5,    0.2]
+             'Cheze':       [K,    P],
              }
 
 #%% RUN MODELING
@@ -1357,12 +1463,13 @@ for watershed_name in watershed_names[:]:
 #%% DIFFERENCE
  
 iD = 'proj1'
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
 sce_list = ['historic','RCP2.6','RCP8.5']
 
 df = pd.DataFrame()
 
-for watershed_name in watershed_names[5:6]:
+for watershed_name in watershed_names[:]:
     
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
     color = 'k'
@@ -1433,11 +1540,11 @@ for watershed_name in watershed_names[5:6]:
             
             ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
 
-            folder_fig = res_path + 'figures/' + 'raw_' + 'All' + '/'
+            # folder_fig = res_path + 'figures/' + 'raw_' + 'All' + '/'
         
-            fig.savefig(folder_fig + 
-                        'DIFFERENCE_' + sce + '_' + str(mod_list) + '.png',
-                        dpi=300, bbox_inches='tight')
+            # fig.savefig(folder_fig + 
+            #             'DIFFERENCE_' + sce + '_' + str(mod_list) + '.png',
+            #             dpi=300, bbox_inches='tight')
 
 #%% EVOLUTION
  
