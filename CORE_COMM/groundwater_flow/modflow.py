@@ -544,6 +544,7 @@ class Modflow():
             
         ### Constant Head boundary conditions of No Flow (at sea level)
         
+        drain_array = np.ones((self.nrow, self.ncol))
         if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             print('niv1')
@@ -555,8 +556,9 @@ class Modflow():
                     chdKper = []
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
-                            if self.dem[i,j] < self.sea_level[kper]:
-                                if self.iboundData[0,i,j] != 0: #no-flow cells cannoyt be converted to specified head cells
+                            if self.dem[i,j] < np.max(self.sea_level):
+                                if self.iboundData[0,i,j] != 0: #no-flow cells cannot be converted to specified head cells
+                                    drain_array[i,j] = 0
                                     package[kper,i,j] = 1
                                     chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
@@ -711,32 +713,33 @@ class Modflow():
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
         
-        self.drnData = np.zeros((self.nrow*self.ncol, 5))
+        self.drnData = np.zeros((int(np.sum(drain_array)), 5))
         compt = 0
         # First value (0): layer number
         self.drnData[:, 0] = 0 # layer
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
-                self.drnData[compt, 1] = i # Second value (1): row number
-                self.drnData[compt, 2] = j # Third value (2): column number
-                self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
-                # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
-                if self.sink_fill == False:
-                    if self.multip_cond != None:
-                        #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
-                        self.drnData[compt, 4] = self.multip_cond 
-                    else:
-                        self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
-                else:
-                    if self.sink[i,j]>0:
-                        #ALEXANDRE: when filled, no possible drains, why?
-                        self.drnData[compt, 4] = 0
-                    else:
+                if drain_array[i,j] == 1:
+                    self.drnData[compt, 1] = i # Second value (1): row number
+                    self.drnData[compt, 2] = j # Third value (2): column number
+                    self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
+                    # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
+                    if self.sink_fill == False:
                         if self.multip_cond != None:
+                            #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
                             self.drnData[compt, 4] = self.multip_cond 
                         else:
-                            self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
-                compt += 1
+                            self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
+                    else:
+                        if self.sink[i,j]>0:
+                            #ALEXANDRE: when filled, no possible drains, why?
+                            self.drnData[compt, 4] = 0
+                        else:
+                            if self.multip_cond != None:
+                                self.drnData[compt, 4] = self.multip_cond 
+                            else:
+                                self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
+                    compt += 1
         # Imposes condition to Modflow through flopy
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)

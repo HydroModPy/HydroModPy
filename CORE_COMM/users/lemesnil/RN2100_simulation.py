@@ -34,7 +34,7 @@ from wtd_spat_indic import wtd_spat_indic
 
 # %% PATHS + watershed options
 
-watershed_name = 'Saint-Germain-sur-Ay'
+watershed_name = 'Caen-la-Mer'
 # Caen-la-Mer Baie-du-Cotentin Barneville-Carteret Agon-Coutainville Saint-Germain-sur-Ay
 dem_name = "BDALTI_norm-manch_75m.tif"
 
@@ -146,7 +146,7 @@ watershed_display.watershed_local(dem_path, BV)
 
 #%% Model Parameters and options
 
-hetero = 1
+hetero = 0
 t = 30 # m
 
 # Strcture of the model
@@ -164,8 +164,8 @@ verbose = True # add print of MODFLOW in console
 
 # Update properties
 if hetero == 0:
-    n = 0.25 # nondim
-    K = 2.68 # m/j
+    n = 0.00536 # nondim
+    K = 0.207 # m/j
     BV.hydrodynamic.update_hyd_cond(K)
     BV.hydrodynamic.update_porosity(n)
 elif hetero == 1:
@@ -196,7 +196,7 @@ disk_save = True
 # /!\ Activate to save rasters of watertable depth threshold frequency
 edit_raster = True
 
-first_yr = 2020
+first_yr = 2065
 last_yr = 2100
 
 BV.add_forcing()
@@ -208,6 +208,9 @@ md_rmsl_26 = RMSL_26.iloc[:,0]
 
 DRIAS_model_list = ['MPI-CCL'] #['MPI-R09', 'HAD-REG', 'CNR-ALA', 'NOR-R15', 'CNR-RAC', 'ECE-RAC', 'ECE-RCA', 'MPI-CCL']
 sce_list = ['RCP8.5'] #['RCP2.6', 'RCP8.5']
+
+yr_prelevt_mm = 26.9
+d_prelevt_m = (yr_prelevt_mm/1000)/365
 
 sim_name_list = []
 c=0
@@ -222,7 +225,12 @@ for DRIAS_model in DRIAS_model_list:
                                           first_year = first_yr, last_year = last_yr,
                                           sim_state = 'transient')
         
-        # rech = BV.forcing.recharge
+        rech = BV.forcing.recharge
+        yr_mean_rech_mm = rech.mean()*365*1000
+        ratio_prelevt = yr_prelevt_mm/yr_mean_rech_mm
+        rech_prel = rech*(1-ratio_prelevt)
+        BV.forcing.update_recharge(rech_prel, sim_state = 'transient')
+        
         # if c == 1:
         #     rech_df = rech.to_frame()
         # else:
@@ -248,8 +256,8 @@ for DRIAS_model in DRIAS_model_list:
         
         now = datetime.now()
         now_str = now.strftime("%d%m%Y%H%M%S")
-        # sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_' + now_str
-        sim_name = str(first_yr)+str(last_yr) + '_hetero6PZs_' + now_str
+        sim_name = str(first_yr)+str(last_yr) + '_' + gcm+rcm+ sce.replace('.', '') + '_rech_prelevt27_' + now_str
+        # sim_name = str(first_yr)+str(last_yr) + '_hetero6PZs_' + now_str
         # # sim_name = str(first_yr)+str(last_yr) + '_REA_' + now_str
         print(sim_name)
         sim_name_list.append(sim_name)
@@ -313,10 +321,10 @@ if disk_save:
 for sim_name in sim_name_list:
     rast_path = os.path.join(dirname(BV.simulations_folder), 'rasters_wtd', sim_name)  
     os.makedirs(rast_path, exist_ok = True)
-    wtd_spat_indic(BV, sim_name, 2020, 2024, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    wtd_spat_indic(BV, sim_name, 2027, 2033, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    wtd_spat_indic(BV, sim_name, 2047, 2053, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
-    wtd_spat_indic(BV, sim_name, 2094, 2099, [1, .3, .03, -1], figures = 'save', save_rast = rast_path) #
+    # wtd_spat_indic(BV, sim_name, 2020, 2024, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    # wtd_spat_indic(BV, sim_name, 2027, 2033, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    # wtd_spat_indic(BV, sim_name, 2047, 2053, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #[2.5, 1, .5, .3, .03, -1]
+    wtd_spat_indic(BV, sim_name, 2094, 2099, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
     # wtd_spat_indic(BV, sim_name, 2022, 2022, [2.5, 1, .5, .3, .03, -1], figures = 'save', save_rast = rast_path) #
 
 
