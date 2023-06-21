@@ -25,7 +25,6 @@ sys.path.append(os.path.join(dirname(DIR),"Tools","Parameters","Parameters"))
 sys.path.append(DIR)
 out_path = os.getenv("HYDROMODPY_RESULTS")
 
-
 # %% GENERAL LIBRARIES
 
 # from glob import glob
@@ -72,8 +71,6 @@ from options import parameter_choice
 from watershed import watershed_root, forcing, watershed_display
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow_display, visualization
-
-
 
 def run_example(out_path, regression_test=False, parameters=None):
    
@@ -294,7 +291,6 @@ out_path=path.results_folder()
     
 ####################################################
 
-
 def xml_parameters(): 
     # local folder of example
     folder = dirname(abspath(__file__))
@@ -319,4 +315,3 @@ if __name__ == "__main__":
 else:
     print ("Executed when imported")
     
-
