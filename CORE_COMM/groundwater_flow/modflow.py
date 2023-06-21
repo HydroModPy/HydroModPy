@@ -481,9 +481,10 @@ class Modflow():
         else:
             if isinstance(self.bottom,(int,float))==True:
                 self.bottom_layer = self.bottom              # Float for flat bottom case or 2D
-            elif len(self.bottom.shape) == 2:
-                self.bottom_layer = self.bottom
-                self.bottom_layer[self.dem<=-9999]=-9999
+            else:
+                if len(self.bottom.shape) == 2:
+                    self.bottom_layer = self.bottom
+                    self.bottom_layer[self.dem<=-9999]=-9999
             # else isinstance(self.bottom,(int,float))==True:
             # elif len(self.bottom.shape) == 2:
         
