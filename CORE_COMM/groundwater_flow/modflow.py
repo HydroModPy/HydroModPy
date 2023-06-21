@@ -480,10 +480,11 @@ class Modflow():
             self.bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
         else:
             if isinstance(self.bottom,(int,float))==True:
-                bottom_layer = self.bottom              # Float for flat bottom case or 2D
-            if len(self.bottom.shape) == 2:
-                self.bottom_layer = self.bottom
-                self.bottom_layer[self.dem<=-9999]=-9999
+                self.bottom_layer = self.bottom              # Float for flat bottom case or 2D
+            else:
+                if len(self.bottom.shape) == 2:
+                    self.bottom_layer = self.bottom
+                    self.bottom_layer[self.dem<=-9999]=-9999
             # else isinstance(self.bottom,(int,float))==True:
             # elif len(self.bottom.shape) == 2:
         
