@@ -39,14 +39,14 @@ import rasterio
 import fnmatch
 import deepdish as dd
 import matplotlib.dates as mdates
-import seaborn as sns
+# import seaborn as sns
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
-import earthpy.spatial as es
-import earthpy.plot as ep
+# import earthpy.spatial as es
+# import earthpy.plot as ep
 
 # Gis
 import imageio
@@ -180,6 +180,32 @@ if pc == 'local':
     intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
     piezometry_path = False # add piezometry data for automatic download
     subbasin_path = True # generate subbasins from stations or manual points
+    
+    data_path_lasset = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
+    
+pc = 'chyn'
+
+if pc == 'chyn':
+    git_path = "D:/GITHUB/HydroModPy/CORE_COMM/"
+    data_path = "F:/UNINE/LASSET_PROJECTIONS/_DATA/"
+    out_path = "F:/UNINE/LASSET_PROJECTIONS/"
+    
+    dems_path = data_path # reginal DEM or conceptual DEM
+    shp_path = data_path # if you want run a model from a shapefile
+    modflow_path = data_path # add bin/ folder with necessary .exe
+    
+    readayon_path = 'F:/UNINE/LASSET_PROJECTIONS/_DATA/_CLIMATE/READAYON/PYRENEES/' # add surfex models in .h5 format (France scale, else, specify None)
+    explore2_path = 'F:/UNINE/LASSET_PROJECTIONS/_DATA/_CLIMATE/EXPLORE2/PYRENEES/' # add surfex models in .h5 format (France scale, else, specify None)
+    
+    geology_path = data_path# add geologic layers
+    oceanic_path = data_path# add specific sea level files
+    hydrology_path = data_path # add hydrographic shapefiles
+    hydrometry_path = data_path # add hydrometry data for automatic download
+    intermittency_path = data_path # add intermittency data for automatic download
+    piezometry_path = False # add piezometry data for automatic download
+    subbasin_path = True # generate subbasins from stations or manual points
+    
+    data_path_lasset = data_path
 
 # dem_name = "BDALTI_75m_EBR.tif" # name of dem
 dem_name = 'BDALTI_09_25m.tif' # name of dem
@@ -198,13 +224,14 @@ library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
 
-watershed_names = ['Lasset_proj1']
+watershed_names = ['Lasset_proj_chyn']
 
 types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
 fields_obs = ['fid']
 
 #%% GENERATE WATERSHED
 
+load = False
 load = True
 
 for watershed_name in watershed_names[:]:
@@ -227,7 +254,7 @@ for watershed_name in watershed_names[:]:
       
 #%% DATA WATERSHED
 
-clip_climate = True
+clip_climate = False
 
 for watershed_name in watershed_names[:]:
     
@@ -258,6 +285,8 @@ for watershed_name in watershed_names[:]:
 
 #%% Q DATA
 
+BV.add_forcing()
+
 area = BV.geographic.area
 
 BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
@@ -269,7 +298,7 @@ BV.forcing.update_runoff_surfex(clim_mod = 'REA', clim_sce='historic',
 R_rea = BV.forcing.recharge * 1000
 r_rea = BV.forcing.runoff * 1000
 
-data_path_lasset = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
+
 
 if not "cdt" in globals():
     cdt = pd.read_csv(data_path_lasset+'data_ctd_lasset.dat',
@@ -623,36 +652,38 @@ for watershed_name in watershed_names[:] :
             ax.set_title(watershed_name+'_'+mod)
             ax.set_yscale('log')
             
-all_proj.to_csv(out_path + '_CLIMATE/' + 'all_proj.csv', sep=';')
+all_proj.to_csv(out_path + '_DATA/_CLIMATE/' + 'all_proj.csv', sep=';')
             
 #%% ---- MODEL
 
 #%% PARAM MODEL
 
-all_proj = pd.read_csv(out_path + '_CLIMATE/' + 'all_proj.csv', sep=';', index_col=0, parse_dates=True)
+all_proj = pd.read_csv(out_path + '_DATA/_CLIMATE/' + 'all_proj.csv', sep=';', index_col=0, parse_dates=True)
 
 watershed_names = [
-                   'Lasset_proj1',
+                   'Lasset_proj_chyn',
                    ]
 
 dic_params = {
-             'Cheze':       [K,    P],
+             'Lasset_proj_chyn':       [2.2E-6,    10],
              }
 
 #%% RUN MODELING
 
-# iD = 'check'
-# mod_list = ['REA']
-# sce_list = ['historic']
+iD = 'check'
+mod_list = ['REA']
+sce_list = ['historic']
 
-iD = 'proj1'
-mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-sce_list = ['RCP2.6','RCP8.5']
+# iD = 'proj'
+# # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
+# sce_list = ['RCP2.6','RCP8.5']
 
 # Options
 sim_state = 'transient' # 'steady' or 'transient'
 modpath_sim = False # run modpath particle tracking if True
 run = True
+# run = False
 time_step = 'M' # or 'D'
 actual_date = True # False if date is conceptual
 box = False # if True generate a rectangular model
@@ -696,11 +727,12 @@ for watershed_name in watershed_names[:]:
             list_of_success = []
             list_flow_model = []
         
-            nlay = 1
-            bottom = None
-            cond_decay = 0
-            thick_exp = 1
-            thickness = 30
+            nlay = 25
+            bottom = 0
+            cond_decay = 1/15
+            thick_exp = 1.25
+            thickness = 50
+            verti_k = None
                         
             BV.hydrodynamic.update_nlay(nlay) # 1
             BV.hydrodynamic.update_bottom(bottom) # None
@@ -710,6 +742,7 @@ for watershed_name in watershed_names[:]:
             
             K = dic_params[watershed_name][0]
             Sy = dic_params[watershed_name][1]
+            
             BV.hydrodynamic.update_hyd_cond(K*86400) 
             BV.hydrodynamic.update_porosity(Sy/100)
               
@@ -727,13 +760,14 @@ for watershed_name in watershed_names[:]:
             print(model_name)
 
             success, flow_model = BV.run_modflow(ident=model_name,
+                                                 run=run,
                                                   modpath_sim=modpath_sim,
                                                   sink_fill=sink_fill,
                                                   box=box,
                                                   verbose=verbose,
                                                   post_process=post_process, 
                                                   init_rech=init_rech,
-                                                  verti_k=None)
+                                                  verti_k=verti_k)
             if success == True:
                 print(     'Success')
             else:
