@@ -4,7 +4,7 @@ Created on Wed May  3 11:35:03 2023
 
 @author: Martin Le Mesnil
 """
-def SHOM(maregraph, first_yr, last_yr):
+def SHOM(maregraph, first_yr, last_yr, method):
 
     import os
     import pandas as pd
@@ -29,8 +29,17 @@ def SHOM(maregraph, first_yr, last_yr):
     SHOM_df_h['Valeur'] = SHOM_df_h['Valeur'] + ZH
     SHOM_df_h = SHOM_df_h.rename(columns={"# Date": "Date"})
     SHOM_df_h['Date'] = pd.to_datetime(SHOM_df_h['Date'], dayfirst=True)
-    SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).mean()
+    if method == 'max':
+        SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).max()
+    elif method == 'min':
+        SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).min()
+    elif method == 'mean':
+        SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).mean()
+    else:
+        error('Please enter correct method name: min, max or mean')
     SHOM_df = SHOM_df.drop(columns=['Source'])
+    shift = SHOM_df.mean() - SHOM_df_h.Valeur.mean()
+    SHOM_df = SHOM_df - shift
     
     return SHOM_df
 

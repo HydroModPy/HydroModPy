@@ -48,7 +48,7 @@ class Modpath:
         bas_file = '{}.bas'.format(prefix)
         lpf_file = '{}.upw'.format(prefix)
 
-        self.mf = flopy.modflow.Modflow.load(nam_file,model_ws=self.full_path, verbose=False, check=False)
+        self.mf = flopy.modflow.Modflow.load(nam_file, model_ws=self.full_path, verbose=False, check=False)
         bas = flopy.modflow.ModflowBas.load(bas_file, self.mf)
         lpf = flopy.modflow.ModflowUpw.load(lpf_file, self.mf, check=False)
         nlay = self.mf.nlay
@@ -166,8 +166,10 @@ class Modpath:
         stl.data = stldata
         
         # print(self.porosity)
-        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0, laytyp=laytype, ibound=iboundData,
-										prsity=self.porosity, prsityCB=self.porosity, extension='mpbas', unitnumber=86)
+        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0,
+                                  laytyp=laytype, ibound=iboundData,
+										prsity=self.porosity, prsityCB=self.porosity,
+                                        extension='mpbas', unitnumber=86)
         self.mp.write_input()
     
     #%% PROCESSING

@@ -103,7 +103,7 @@ watershed_names = ['Vosvozis',
 
 #%% DATA TOPO
 
-load = False
+load = True
 
 dict_utm_path =  {}
 
@@ -482,72 +482,150 @@ for watershed_name in watershed_names[:]:
 # for watershed_name in ['Vosvozis']:
 # for watershed_name in ['Canut']:
 
-for watershed_name in watershed_names[2:]:
+for watershed_name in watershed_names[:]:
     
     if watershed_name != 'Hoal':
-    
-        df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
         
-        for type_obs, field_obs in zip(types_obs, fields_obs):
-       
-            print('##### '+watershed_name.upper()+' #####')
-            
-            BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                          dem_path=dict_utm_path[watershed_name][0], 
-                                          out_path=out_path,
-                                          load=True,
-                                          modflow_path=modflow_path)
-            
-            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-            
-            # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
-            
-            BV.add_oceanic('None')
-            BV.add_forcing()
-            
-            recharge = gw_data.loc[gw_data['watershed_names']==watershed_name,'Potential Groundwater Recharge bias corrected'].values[0]
-            BV.forcing.update_recharge(recharge / 1000 / 365, sim_state='steady') #♠ mm/y to m/d
-            
-            BV.add_hydrodynamic()
-            BV.hydrodynamic.update_nlay(1)
-            BV.hydrodynamic.update_thickness(30)
-            BV.hydrodynamic.update_bottom(None)
-            BV.hydrodynamic.update_cond_decay(0)
-            BV.hydrodynamic.update_thick_exp(1)
-            
-            params_df = pd.DataFrame(columns=['params',
-                                              'init_values','lower_bounds','higher_bounds',
-                                              'units','scale'])
+        type_obs = "EU-HYDRO_"+watershed_name
+        field_obs = "fid"
+        
+        df = pd.DataFrame(np.nan, index=range(1), columns=[type_obs])
+               
+        print('##### '+watershed_name.upper()+' #####')
+        
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dict_utm_path[watershed_name][0], 
+                                      out_path=out_path,
+                                      load=True,
+                                      modflow_path=modflow_path)
+        
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+        
+        # BV.add_hydrology(hydrology_path, types_obs=[type_obs], fields_obs=[field_obs])
+        
+        BV.add_oceanic('None')
+        BV.add_forcing()
+        
+        recharge = gw_data.loc[gw_data['watershed_names']==watershed_name,'Potential Groundwater Recharge bias corrected'].values[0]
+        BV.forcing.update_recharge(recharge / 1000 / 365, sim_state='steady') #♠ mm/y to m/d
+        
+        BV.add_hydrodynamic()
+        BV.hydrodynamic.update_nlay(1)
+        BV.hydrodynamic.update_thickness(30)
+        BV.hydrodynamic.update_bottom(None)
+        BV.hydrodynamic.update_cond_decay(0)
+        BV.hydrodynamic.update_thick_exp(1)
+        
+        params_df = pd.DataFrame(columns=['params',
+                                          'init_values','lower_bounds','higher_bounds',
+                                          'units','scale'])
+        if watershed_name == 'Lasset':
+            params_df.loc[0] = ['k1',
+                                None,
+                                1e-09*24*3600,
+                                1e-04*24*3600,
+                                'm/j',
+                                'lin']
+        else:
             params_df.loc[0] = ['k1',
                                 None,
                                 1e-08*24*3600,
                                 1e-03*24*3600,
                                 'm/j',
                                 'lin']
-            params_file = 'calib_dicot_hom_1v_k1_'
-            params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-            calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-            
-            dicot = calib.dichotomy(gap=1)
-    
-            typ_calib = 'streams_calibration'
-            list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                                key=os.path.getmtime)
-            name_file = list_path[-1].split('\\')[-1]
-            calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-            test = calib_analysis.CalibAnalysis(calib_file)
-            test.display_objective_function(save=None)
-            
-            koptim = test.calib['params_values'][-1]
-            kr = koptim / test.calib['recharge']
-            obj_func = test.calib['objective_function'][-1]
-                    
-            df.loc[0,type_obs] = koptim / 24 / 3600
-            df.loc[1,type_obs] = kr
-            df.loc[2,type_obs] = obj_func
+        params_file = 'calib_dicot_hom_1v_k1_'
+        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+        calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
+        
+        """
+        # dicot = calib.dichotomy(gap=1)
+        """
+
+        typ_calib = 'streams_calibration'
+        list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
+                            key=os.path.getmtime)
+        name_file = list_path[-1].split('\\')[-1]
+        calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
+        test = calib_analysis.CalibAnalysis(calib_file)
+        test.display_objective_function(save=None)
+        
+        koptim = test.calib['params_values'][-1]
+        kr = koptim / test.calib['recharge']
+        obj_func = test.calib['objective_function'][-1]
+                
+        df.loc[0,type_obs] = koptim / 24 / 3600
+        df.loc[1,type_obs] = kr
+        df.loc[2,type_obs] = obj_func
             
         df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
         df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+
+#%% DICHOTOMY PLOT
+
+watershed_names = ['Vosvozis',
+                   'Kocinka',
+                   'Temmes',
+                   'Canut',
+                   'Lasset',
+                   'Poschiavino']
+
+lito = {'Vosvozis':'red',
+        'Kocinka':'orange',
+        'Temmes':'blue',
+        'Canut':'green',
+        'Lasset':'grey',
+        'Poschiavino':'violet'}
+
+styl = {'Vosvozis':'s',
+        'Kocinka':'s',
+        'Temmes':'d',
+        'Canut':'o',
+        'Lasset':'o',
+        'Poschiavino':'o'}
+
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
+
+fig, ax = plt.subplots(1,1, figsize=(4,3), sharex=True, sharey=True)
+    
+n = len(watershed_names)
+
+cp=0
+for idx, watershed_name in enumerate(watershed_names[:]):
+    
+    site = watershed_name
+    
+    s='o'
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=None, 
+                                  out_path=out_path,
+                                  load=True)
+    
+    df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
+    
+    # ax.axvline(df['EU-HYDRO_'+watershed_name][0], color=lito[watershed_name], ls='-',
+    #            label=watershed_name)
+    
+    ax.plot(df['EU-HYDRO_'+watershed_name][0], df['EU-HYDRO_'+watershed_name][2], 
+            color=lito[watershed_name], marker='s', ms=10, lw=0, label=watershed_name)
+    
+    # plt.scatter(df.complete[0], np.sqrt(np.exp(df.complete[2])), color=lito[watershed_name], s=100)
+
+    # ax.set_ylim(0.95)
+    ax.set_xlim(1e-6, 1e-3)
+    ax.set_xscale('log')
+    # ax.set_yscale('log')
+    ax.legend(loc='upper left')
+    
+    ax.set_ylabel('Success criterion')
+    ax.set_xlabel('K [m/s]')
+    
+    cp+=1
+
+# ax.set_yticks(np.arange(0,8,1))
+# ax.set_yticklabels(watershed_names)
+    
+fig.tight_layout()
 
 #%% ---- NOTES
 
