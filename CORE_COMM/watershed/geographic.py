@@ -56,7 +56,7 @@ class Geographic:
     def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
                  from_shp = [], from_dem = False, from_xy = [], cell_size=100,
-                 regio_path = None):
+                 regio_path = None, bottom_path = None):
 
 
         print('Extraction des données géographiques')
