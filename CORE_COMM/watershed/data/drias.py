@@ -105,7 +105,11 @@ class Drias:
    
         geodf = gpd.read_file(shp_path)
         geom = geodf.geometry.apply(mapping)
+        # try :
         clipped_ds = ds.rio.clip(geom, geodf.crs, all_touched = True, drop = True)
+        # except :
+        #     pass
+        # clipped_ds = ds.clip(geom, geodf.crs, all_touched = True, drop = True)
         # ds.rio.write_crs("epsg:2154", inplace = True)
         
         del ds

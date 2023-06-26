@@ -20,21 +20,17 @@ from os.path import dirname, abspath, join
 import os 
 import sys
 # Current Directory stored in DIR 
-DIR = dirname(dirname(dirname(abspath(__file__))))
-# APPENDS ROOT FOLDER 
+DIR = os.path.join(os.getenv("HYDROMODPY_ROOT").replace('/',os.sep),"HydroModPy","CORE_COMM")
+sys.path.append(os.path.join(dirname(DIR),"Tools","Parameters","Parameters"))
 sys.path.append(DIR)
-sys.path.append(os.path.join(os.getenv("HYDROMODPY_ROOT").replace('/',os.sep),"HydroModPy"))
-# Updates path 
-import startup
-DIR = startup.python_path_update(DIR)
-print(sys.path)
-
+out_path = os.getenv("HYDROMODPY_RESULTS")
 
 # %% GENERAL LIBRARIES
 
 # from glob import glob
 import numpy as np
 import pandas as pd
+import osgeo
 from osgeo import gdal, osr
 from IPython import get_ipython
 from tools import toolbox, vtk
@@ -76,8 +72,6 @@ from watershed import watershed_root, forcing, watershed_display
 from watershed.data import hydrology, climatic, oceanic, piezometry
 from groundwater_flow import modflow_display, visualization
 
-
-
 def run_example(out_path, regression_test=False, parameters=None):
    
     print('Function ready !')
@@ -113,8 +107,8 @@ def run_example(out_path, regression_test=False, parameters=None):
     
     dem_path = dems_path + dem_name
     
-    dem = gdal.Open(dem_path)
-    proj = osr.SpatialReference(wkt=dem.GetProjection())    # Retrieves projection system attached to the dem
+    dem = osgeo.gdal.Open(dem_path)
+    proj = osgeo.osr.SpatialReference(wkt=dem.GetProjection())    # Retrieves projection system attached to the dem
     crs = int(proj.GetAttrValue('AUTHORITY',1))             # Gets name of the projection system
     
     # Import the library of watersheds (maybe several watersheds in the loaded file: library of watersheds)
@@ -128,8 +122,9 @@ def run_example(out_path, regression_test=False, parameters=None):
     mysite = library[library['watershed_name'] == watershed_name] # specific row
     
     # Paths generated automatically but necessary for plots
-    stable_folder = join(out_path,watershed_name,'results_stable/')
-    simulations_folder = join(out_path,watershed_name,'results_simulations/')
+    out_path = '/home/agauvain/Documents/HydroModPy'
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
     
     #%% GENERATING WATERSHED
     
@@ -294,10 +289,7 @@ def run_example(out_path, regression_test=False, parameters=None):
 
 out_path=path.results_folder()
     
-
-
 ####################################################
-
 
 def xml_parameters(): 
     # local folder of example
@@ -323,4 +315,3 @@ if __name__ == "__main__":
 else:
     print ("Executed when imported")
     
-

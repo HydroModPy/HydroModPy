@@ -232,7 +232,6 @@ class Watershed :
             False: the watershed will be generated (and not loaded)
             
         """
-        
         try:
             self.watershed_name = parameter_choice(watershed_name, parameters.getparam("watershed_name").getvalue())
             print("parameter_choice way")
@@ -251,6 +250,7 @@ class Watershed :
         self.dem_path = dem_path
         self.out_path = out_path
         self.modflow_path = modflow_path
+        self.bottom_path = bottom_path
                 
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
@@ -425,7 +425,8 @@ class Watershed :
                                                 out_path=self.watershed_folder,
                                                 from_shp=self.from_shp, from_dem=self.from_dem,
                                                 from_xy=self.from_xy, regio_path=self.regio_path,
-                                                cell_size=self.cell_size) #2D
+                                                cell_size=self.cell_size, 
+                                                bottom_path=self.bottom_path) #2D
         self.elt_def.append('geographic')
 
     def save_object(self):
@@ -625,7 +626,7 @@ class Watershed :
             success = True
     
         # Postprocessing and Modpath simulation
-        if success == True:
+        if (run == True) & (success == True):
             if post_process == True:
                 flow_model.post_processing(verbose = verbose)
             if modpath_sim == True:
@@ -634,7 +635,8 @@ class Watershed :
                                                   zone_partic=zone_partic,
                                                   model_folder=self.simulations_folder,
                                                   exe=self.modflow_path + '/bin/mp6.exe',
-                                                  porosity=self.hydrodynamic.porosity)  
+                                                  # porosity=self.hydrodynamic.porosity,
+                                                  porosity=flow_model.ps)  
                 transport_model.pre_processing(verbose = verbose)
                 if run == True:
                     transport_model.processing(verbose = verbose)

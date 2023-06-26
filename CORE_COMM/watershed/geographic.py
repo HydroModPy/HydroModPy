@@ -57,12 +57,15 @@ class Geographic:
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
                  from_shp = [], from_dem = False, from_xy = [], cell_size=100,
                  regio_path = None):
+
+
         print('Extraction des données géographiques')
         
         self.snap_dist = snap_dist
         self.from_shp = from_shp
         self.from_xy = from_xy
         self.regio_path = regio_path
+        self.bottom_path = bottom_path
         
         if self.from_xy != []:
             x = self.from_xy[0]
@@ -160,12 +163,17 @@ class Geographic:
             shp_file = gpd.read_file(self.from_shp[0])
             shp_file.to_file(self.watershed_shp)
         wbt.polygon_area(self.watershed_shp)
-        area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
-        self.area = np.abs(area)
         # Create shapefile polyline of the watershed
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
-        
+        try:
+            area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
+            self.area = np.abs(area)
+        except:
+            area = gpd.read_file(self.watershed_shp).area[0]/1000000
+            self.area = np.abs(area)
+            pass
+
         # if self.from_shp == None: # ADD FOR CLIMATE !!!
     
         """
@@ -215,6 +223,11 @@ class Geographic:
         self.watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, buffer, self.watershed_buff_direc,
                                    maintain_dimensions=False)
+        # Clip bottom
+        if self.bottom_path != None :
+            self.watershed_buff_bottom = self.gis_path + 'watershed_buff_bottom.tif'
+            wbt.clip_raster_to_polygon(self.bottom_path, buffer, self.watershed_buff_bottom,
+                                       maintain_dimensions=False)
         
         """
         Clip to reach watershed size
@@ -231,6 +244,11 @@ class Geographic:
         self.watershed_direc = self.gis_path + 'watershed_direc.tif'
         wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc,
                                    maintain_dimensions=False)
+        #○ Clip bottom
+        if self.bottom_path != None :
+            self.watershed_bottom = self.gis_path + 'watershed_bottom.tif'
+            wbt.clip_raster_to_polygon(self.bottom_path, self.watershed_shp, self.watershed_bottom,
+                                       maintain_dimensions=False)
         wbt.slope(self.watershed_dem,
                   self.gis_path + 'watershed_slope.tif',
                   units="percent")
@@ -252,6 +270,10 @@ class Geographic:
         self.watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
         wbt.clip_raster_to_polygon(direc, box_buffer, self.watershed_box_buff_direc,
                                    maintain_dimensions=False)
+        if self.bottom_path != None :
+            self.watershed_box_bottom = self.gis_path + 'watershed_box_buff_bottom.tif'
+            wbt.clip_raster_to_polygon(self.bottom_path, box_buffer, self.watershed_box_bottom,
+                                       maintain_dimensions=False)
         
         """
         Create depressions raster
@@ -369,8 +391,10 @@ class Geographic:
         self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_box_buff_dem)
         # Correction
+        # self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+        # wbt.fill_depressions(self.watershed_dem, self.watershed_fill)
         self.watershed_fill = self.gis_path + 'watershed_fill.tif'
-        wbt.fill_depressions(self.watershed_dem, self.watershed_fill)
+        wbt.breach_depressions(self.watershed_dem, self.watershed_fill)
         # Flow direction
         self.watershed_direc = self.gis_path + 'watershed_direc.tif'
         wbt.d8_pointer(self.watershed_fill, self.watershed_direc, esri_pntr=False)
