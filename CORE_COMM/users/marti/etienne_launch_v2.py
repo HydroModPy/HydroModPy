@@ -61,14 +61,6 @@ from tools import toolbox, vtk
 from groundwater_flow import visualization, modflow_display
 
 #%% USERS
-
-# user_path = "Martin"
-user_path = "Ronan"
-data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/USERS/QUIOCK/"
-out_path = "C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/"
-fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/v1/raw/"
-  
-# user_path = "Martin"
 user_path = "Etienne"
 data_path = "D:/emarti/Tarapaca/data/"
 out_path = "D:/emarti/Tarapaca/out/final"
@@ -76,6 +68,9 @@ fig_path = "D:/emarti/Tarapaca/figures"
   
 print("Define a well-validated name of user")
 
+
+#%%Read larger DEM file once 
+north_chile_dem=rxr.open_rasterio(data_path+'DEM/study_area_DEM_UTM.tif', masked=True).squeeze()
 #%% PATHS
 
 #watershed_name = 'Tarapaca'
@@ -86,36 +81,49 @@ watershed_name = '6080791570'
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
 if watershed_name == 'Tarapaca':
-    from_xy = [470009,7807292,500,10]
+    from_xy = [470009,7807292,500,20]
     depth = 20 ###20m depth from pozo DGA (Pozo Enpachica)
     from_shp = None
-
-if watershed_name == '6080791570':
-    from_xy = []
-    depth= 60  ### 60m nivel estatico
-    from_shp = data_path+'shapefiles_BV/6080791570.shp'
+    dem_path = data_path + "/DEM/" + "SRTM_90M_Tarapaca_UTM.tif"
+else:
+    if watershed_name == '6080791570':
+        #from_xy = []
+        depth= 60  ### 60m nivel estatico
+        from_shp = [data_path+'shapefiles_BV/6080791570.shp',20]
+        gdf = gpd.read_file(from_shp[0])
+        
+        
+    if watershed_name == '6080714050' :
+        from_xy = []
+        depth= 35 ###35,5m nivel estatico y pozo DGA (El Carmelo 2) 33m
+        from_shp = data_path+'shapefiles_BV/6080714050.shp'
+        gdf = gpd.read_file(from_shp)
+        
+    if watershed_name == '6080811470' :
+        from_xy = []
+        depth = 37 ##37.5m nivel estatico
+        from_shp = data_path+'shapefiles_BV/6080811470.shp'
+        gdf = gpd.read_file(from_shp)
     
-if watershed_name == '6080714050' :
-    from_xy = [510845.58,7822094.06,250,10]
-    depth= 35 ###35,5m nivel estatico y pozo DGA (El Carmelo 2) 33m
-    from_shp = data_path+'shapefiles_BV/6080714050.shp'
     
-if watershed_name == '6080811470' :
-    from_xy = [480559.9,7823446.4,500,10]
-    depth = 37 ##37.5m nivel estatico
-    from_shp = data_path+'shapefiles_BV/6080811470.shp'
-
-
-
-
-#from_shp = None
-from_dem = False
-cell_size = None
+    gdf_buffer = gdf.buffer(35000)
+    regional_dem = north_chile_dem.rio.clip(gdf_buffer, drop=True)
+    regional_dem.rio.to_raster(raster_path=data_path+'DEM/'+str(watershed_name)+'.tif')
+    dem_name = 'DEM/'+str(watershed_name)+'.tif'
+    dem_path = os.path.join(data_path,dem_name)
     
-dem_name = 'DEM/study_area_DEM_UTM.tif'
+    #from_shp = None
+    from_dem = False
+    cell_size = None
+        
+
 
 climate_path =  None
-dem_path = os.path.join(data_path,dem_name)
+
+
+x=imageio.imread(dem_path)
+plt.imshow(x)
+
 geology_path = None
 hydrology_path = os.path.join(data_path)
 hydrometry_path = 'None' # add hydrometry data for automatic download
@@ -161,11 +169,11 @@ BV.add_forcing()
     
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
-
+dem_data =  rxr.open_rasterio(BV.geographic.watershed_box_buff_dem, masked=True).squeeze()
 #%%
 # Plot dem
 fig , ax2 = plt.subplots(figsize=(16,9))
-dem_data =  rxr.open_rasterio(BV.geographic.watershed_box_buff_dem, masked=True).squeeze()
+
 extent = dem_data.x.min(), dem_data.x.max(), dem_data.y.min(), dem_data.y.max()
 cuenca = gpd.read_file(BV.geographic.watershed_shp)
 #dem_data[dem_data<0] = np.nan
@@ -174,64 +182,13 @@ cuenca.plot(color='None', edgecolor='red',linewidths=1.5, ax=ax2)
 #ax2.scatter(454643, 7803303, color='r', s=25)
 
 
-#%% ---- DICHOTOMY
-
-#%% LAUNCH
-
-df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
-
-area = BV.geographic.area
-    
-recharge = 40 / 1000 / 365  # m/y to m/d
-
-BV.forcing.update_recharge(recharge, sim_state='steady') #
-
-BV.hydrodynamic.update_porosity(0.01)
-BV.hydrodynamic.update_hyd_cond(2)
-BV.hydrodynamic.update_nlay(10)
-BV.hydrodynamic.update_thickness(0)
-BV.hydrodynamic.update_bottom(-1000)
-BV.hydrodynamic.update_cond_decay(0)
-BV.hydrodynamic.update_thick_exp(1)
-
-params_df = pd.DataFrame(columns=['params',
-                                  'init_values','lower_bounds','higher_bounds',
-                                  'units','scale'])
-params_df.loc[0] = ['k1','?',1e-9 * 86400,1e-6 * 86400,'m/j','lin']
-
-params_file = 'calib_dicot_hom_1v_k1'
-
-params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-
-calib = calib_root.Calibration(params_file, BV, observations = ['streams'])
-
-dicot = calib.dichotomy(gap=1)
-
-typ_calib = 'streams_calibration'
-list_path = sorted(glob.glob(os.path.join(BV.calibration_folder, params_file, typ_calib, '*.calib')),
-                   key=os.path.getmtime)
-name_file = list_path[-1].split('\\')[-1]
-calib_file = os.path.join(BV.calibration_folder, params_file, typ_calib, name_file)
-test = calib_analysis.CalibAnalysis(calib_file)
-test.display_objective_function(save=None)
-
-koptim = test.calib['params_values'][-1]
-kr = koptim / test.calib['recharge']
-obj_func = test.calib['objective_function'][-1]
-
-df.loc[0,types_obs[0]] = koptim / 24 / 3600
-df.loc[1,types_obs[0]] = kr
-df.loc[2,types_obs[0]] = obj_func
-
-df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
-
 #%% ---- MODELING
 
 #%% CASES
 
-# Import K calibrated
-df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams.csv', sep=';')
-Koptim = float('{:.1e}'.format(df.loc[0][1]))
+defKR = np.logspace(-2,2,25)
+
+
 
 # Aquifer
 thick = 0 # m
@@ -243,10 +200,13 @@ thick_exp = 1.2 # exponential decay of nlay with depth
 
 # Climate
 
-recharge = 40 / 1000 / 365 # m/y to m/d
+#recharge = 40 / 1000 / 365 # m/y to m/d
 
 # Porosity
-Sy = [0.01, 0.1] # Charlotte ==> 10%
+#Sy = [0.01, 0.1] # Charlotte ==> 10%
+
+#Boundary condition
+#bc_left = float(min(dem_data[:,0])-depth)
 
 ######################
 case = 's1'
@@ -254,7 +214,7 @@ case = 's1'
 
 if case == 's1':
     cond_decay = 0 # exponential decay of K with depth : 0.02
-    k = Koptim * 3600 * 24 # upper layer
+    k= 1e-7 * 86400 # m/s en m/j
     # Vertical cond
     # thick_k0 = 50 # thickness of the upper layer
     # k0 = Koptim * 3600 * 24 # upper layer
@@ -268,7 +228,7 @@ if case == 's1':
 
 # Option
 sim_state = 'steady' # 'steady' or 'transient'
-modpath_sim = True # run modpath particle tracking if True
+modpath_sim = False # run modpath particle tracking if True
 # modpath_sim = False # run modpath particle tracking if True
 
 run = True
@@ -288,7 +248,7 @@ post_process = False # necessary to decompose post process of process
 
 # Recharge
 init_rech = None
-BV.forcing.update_recharge(recharge, sim_state=sim_state) #
+#BV.forcing.update_recharge(recharge, sim_state=sim_state) #
 
 #%% RUN
 
@@ -311,17 +271,16 @@ date_today = date_today.replace('/','-')
 date_today = date_today.replace(':','-')
 date_today = date_today.replace(' ','_')
 
-for i, porosity_val in enumerate(Sy):
-    print(i, porosity_val)
+for i, KR in enumerate(defKR):
     
-    BV.hydrodynamic.update_porosity(porosity_val)
+    KR_name = round(KR, 3)
+    
 
-    model_name = typ+'_'+str(compt)+'_'+ \
-                     str(porosity_val*100)+'-'+ \
-                     str(k)+'-'+ \
-                     str(thick)+'_'+ \
-                     str(nlay)
-
+    #model_name = "KR_"+str(KR_name)+"_layers_nb_"+str(nlay)+"_bchead_"+str(bc_left)+"m_bottom_"+str(bottom)
+    model_name = 'KR_'+str(KR_name)+'_layers_nb_'+str(nlay)+'_bottom_'+str(bottom)+'_no_flow_box' # if no BC
+    recharge = round(k / KR_name, 7)
+    BV.forcing.update_recharge(recharge, sim_state=sim_state)
+    print(i, KR, recharge)
     if run == True:
         # try:
         print('SIM - ' + model_name)
@@ -335,7 +294,7 @@ for i, porosity_val in enumerate(Sy):
                                              verbose=verbose,
                                              post_process=post_process, 
                                              init_rech=init_rech,
-                                             verti_k=verti_k)
+                                             verti_k=verti_k)#, bc_left=bc_left)
                 
     if success == True:
         print(     'Success')
@@ -361,8 +320,10 @@ dd.io.save(h5file, dictio)
 #%% ---- POST-PROCESS
 
 #%% LOAD MODELS
+#watershed_name = '6080714050'
+#simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-h5file = simulations_folder+'/'+'list_'+typ
+h5file = simulations_folder+'/'+'list_s1'
 d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_of_success = d['list_of_success'][:]
@@ -374,17 +335,17 @@ data_explo = pd.DataFrame(columns=['k0','k1','k0k1','obs','sim','ind'])
 
 cp = 0
 
-residence_times = True
+residence_times = False
 
 for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
         
     if success==True:
             print(success)
             
-            if modpath_sim == True:
-                residence_times=True
-            else:
-                residence_times=False
+            # if modpath_sim == True:
+            #     residence_times=True
+            # else:
+            #     residence_times=False
             
             BV.matrix_modflow(success,
                               flow_model,
@@ -402,25 +363,25 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                               verbose = True,
                               export_tif = True)
             
-            # Necessary for results_modflow
-            BV.forcing.update_recharge(flow_model.climatic,
-                                       sim_state=sim_state)
+            # # Necessary for results_modflow
+            # BV.forcing.update_recharge(flow_model.climatic,
+            #                            sim_state=sim_state)
             
-            # # Extract results
-            BV.results_modflow(ident=model_name,
-                               actual_date=actual_date,
-                               time_step=time_step)
+            # # # Extract results
+            # BV.results_modflow(ident=model_name,
+            #                    actual_date=actual_date,
+            #                    time_step=time_step)
             
-            ## Plot maps
-            surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
-                                                  model_name, types_obs,
-                                                  save_gif=False,
-                                                  first_only=True,
-                                                  sim_state=sim_state,
-                                                  outflow=False,
-                                                  accflux=True,
-                                                  intermittency=False,
-                                                  chronics=False)
+            # ## Plot maps
+            # surf = modflow_display.SurfaceOutputs(flow_model.climatic, simulations_folder, stable_folder,
+            #                                       model_name, types_obs,
+            #                                       save_gif=False,
+            #                                       first_only=True,
+            #                                       sim_state=sim_state,
+            #                                       outflow=False,
+            #                                       accflux=True,
+            #                                       intermittency=False,
+            #                                       chronics=False)
 
 #%% ---- MODPATH FILES NEW
 

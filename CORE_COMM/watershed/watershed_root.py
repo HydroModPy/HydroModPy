@@ -46,8 +46,8 @@ class Watershed :
     watershed_def_option: str
         Option for the definition of the Watershed 
 
-    from_shp: str   #RONAN: from_dem_file
-        Path to the shapefile that will be used as "Watershed"
+    from_shp: list   #RONAN: from_dem_file
+        list including path to the shapefile that will be used as "Watershed" and buffer_percent
         With such an option, Watershed is not generated but loaded from the file
     
     from_dem: boolean
@@ -221,7 +221,7 @@ class Watershed :
     def __init__(self, watershed_name: str, dem_path: str, 
                  out_path: str, library_path: str = os.path.join(root_dir,'watershed_library.csv'), 
                  modflow_path: str = None, save_object: bool = True, load: bool = False,
-                 from_shp: str = None, from_dem: bool = False, cell_size: int = 100,
+                 from_shp: list = [], from_dem: bool = False, cell_size: int = 100,
                  from_xy: list = [], regio_out: bool = False, parameters = None):
         """  
         
@@ -313,7 +313,7 @@ class Watershed :
         """
         
         # Conditions that should all be fulfilled to generate watershed from watershed library outlet
-        if (self.from_shp == None) & (self.from_dem == False) & (self.from_xy == []) :
+        if (self.from_shp == []) & (self.from_dem == False) & (self.from_xy == []) :
             try:
                 # Reads the indexed watersheds from the file where they are stored
                 watershed_list = pd.read_csv(self.library_path, delimiter=';')
