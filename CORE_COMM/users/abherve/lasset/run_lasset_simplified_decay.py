@@ -1683,6 +1683,7 @@ for s in range(12):
             maxx = max(ax.get_xlim()[0],ax.get_xlim()[1])
             maxy = max(ax.get_ylim()[0],ax.get_ylim()[1])
             minx = min(ax.get_xlim()[0],ax.get_xlim()[1])
+        
             miny = min(ax.get_ylim()[0],ax.get_ylim()[1])
             maxt = max(maxx,maxy)
             mint = max(minx,miny)
@@ -1795,7 +1796,7 @@ for i, ind in enumerate(id_compt_model):
     ax.plot(mask['porosity_value']*100, mask['RMSE_'+choice], lw=2,
             color=color, marker='o',
             label=label)
-ax.set_xscale('log')
+# ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel('Porosity')
 ax.set_ylabel('RMSE')
@@ -1941,7 +1942,7 @@ ax.axhline(y=1, color='k', ls='--', lw=2, alpha=1, zorder=10)
 #%% BOXPLOTS BY SPRINGS
 
 # choices = ['min','q10','q25','mean','media','q75','q90','max']
-choices = ['max']
+choices = ['mean']
 
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
@@ -2002,7 +2003,7 @@ for cs in choices:
 #%% BOXPLOTS BY S03/S27
 
 # choices = ['min','q10','q25','mean','media','q75','q90','max']
-choices = ['q90']
+choices = ['media']
 
 df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 

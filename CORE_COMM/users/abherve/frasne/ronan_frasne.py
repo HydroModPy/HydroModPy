@@ -63,9 +63,9 @@ from groundwater_flow import visualization, modflow, modflow_display
 
 # user_path = "Martin"
 user_path = "Ronan"
-data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/"
-out_path = "C:/Users/ronan/Documents/SIMULATIONS/PUYS/"
-fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/figures/"
+data_path = "C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/"
+out_path = "G:/UNINE/SIMULATIONS/FRASNE/"
+fig_path = "C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_figures/"
   
 print("Define a well-validated name of user")
 
@@ -137,33 +137,34 @@ mean_thick = 40
 #%% PATHS REGIO
 
 # watershed_name = 'Tiretaine2'
-watershed_name = 'Tiretaine'
+# watershed_name = 'Frasne_coord'
+watershed_name = 'Frasne_drugeon'
 
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
-dem_name = "MNTChdp.tif"
+# dem_name = "Frasne_25m_BDALTIV2_0925_6650_MNT.tif"
+dem_name = "Frasne_large_25m_BDALTIV2_MNT.tif"
 
-# from_shp = None
-from_shp = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/BV Tiretaine.shp"
-
-types_obs = ["Streams BV Tiretaine"]
-fields_obs = ['PERSISTANC']
+from_shp = None
+# from_shp = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/BV Tiretaine.shp"
     
 from_dem = False
 cell_size = None
 
 # from_xy = [703265.205,6518426.385,500,25]
-from_xy = []
+# from_xy = [948344.009,6647659.757,500,25] # coord large
+from_xy = [945491.405,6645989.108,500,25] # drugeon zoom
     
 climate_path =  None
 dem_path = os.path.join(data_path ,dem_name)
-socle_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/MNT_socle_5000r_25g_kriglin1.tif"
-bottom_path = socle_path
+# socle_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/MNT_socle_5000r_25g_kriglin1.tif"
+# bottom_path = socle_path
+bottom_path = None
 
 geology_path = None
-hydrology_path = os.path.join(data_path)
-hydrometry_path = 'None' # add hydrometry data for automatic download
-intermittency_path = 'None' # add intermittency data for automatic download
+hydrology_path = "C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/"
+hydrometry_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/HYDROLOGY/France/Hydrometry/' # add hydrometry data for automatic download
+intermittency_path = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
 modflow_path = modflow_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/SOFTWARE/MODFLOW/"
 oceanic_path = None
 piezometry_path = True # add piezometry data for automatic download
@@ -172,35 +173,35 @@ subbasin_path = True # generate subbasins from stations or manual points
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 
-# wbt.set_nodata_value(
+# # wbt.set_nodata_value(
+# #     dem_path, 
+# #     dem_path,
+# #     back_value=np.nan)
+# wbt.modify_no_data_value(
 #     dem_path, 
-#     dem_path,
-#     back_value=np.nan)
-wbt.modify_no_data_value(
-    dem_path, 
-    new_value="-99999")
-x = imageio.imread(dem_path)
-x[x<0] = np.nan 
+#     new_value="-99999")
+# x = imageio.imread(dem_path)
+# x[x<0] = np.nan 
 
-# wbt.set_nodata_value(
+# # wbt.set_nodata_value(
+# #     socle_path, 
+# #     socle_path,
+# #     back_value=np.nan)
+# wbt.modify_no_data_value(
 #     socle_path, 
-#     socle_path,
-#     back_value=np.nan)
-wbt.modify_no_data_value(
-    socle_path, 
-    new_value="-99999")
-y = imageio.imread(socle_path)
-y[y<0] = np.nan 
+#     new_value="-99999")
+# y = imageio.imread(socle_path)
+# y[y<0] = np.nan 
 
-r = 1100
-fig, ax = plt.subplots(1,1, figsize=(6,3))
-ax.plot(x[r,200:1200], color='k')
+# r = 1100
+# fig, ax = plt.subplots(1,1, figsize=(6,3))
+# ax.plot(x[r,200:1200], color='k')
 # ax.invert_xaxis()
 
 #%% WATERSHED
 
 load = False
-load = True
+# load = True
 # False to build and save python object4
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -222,8 +223,40 @@ BV.add_oceanic('None')
 
 #%% DATA
 
-wbt.polygons_to_lines("C:/Users/ronan/Documents/SIMULATIONS/PUYS/"+watershed_name+"/results_stable/geographic/watershed.shp",
-                      "C:/Users/ronan/Documents/SIMULATIONS/PUYS/"+watershed_name+"/results_stable/geographic/watershed_contour.shp")
+wbt.vector_lines_to_raster(
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/troncon_hydrographique.shp', 
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/troncon_hydrographique.tif', 
+    field="perstianc", 
+    nodata=True, 
+    cell_size=None, 
+    base=dem_path)
+
+wbt.vector_polygons_to_raster(
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/surface_hydrographique.shp', 
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/surface_hydrographique.tif', 
+    field="FID", 
+    nodata=True, 
+    cell_size=None, 
+    base=dem_path)
+
+wbt.raster_to_vector_points(
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/troncon_hydrographique.tif', 
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/troncon_hydrographique_pt.shp')
+
+wbt.raster_to_vector_points(
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/surface_hydrographique.tif', 
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/surface_hydrographique_pt.shp')
+
+wbt.merge_vectors(
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/troncon_hydrographique_pt.shp;\
+     C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/surface_hydrographique_pt.shp', 
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Frasne/_data/BDTOPO_3-3_TOUSTHEMES_GPKG_LAMB93_D025_2023-03-15/mix_hydrographique_pt.shp')
+
+types_obs = ["mix_hydrographique_pt"]
+fields_obs = ['FID']
+
+wbt.polygons_to_lines(out_path+watershed_name+"/results_stable/geographic/watershed.shp",
+                      out_path+watershed_name+"/results_stable/geographic/watershed_contour.shp")
 
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
 
@@ -235,8 +268,7 @@ watershed_display.watershed_local(dem_path, BV)
 #%% LAUNCH
 
 ######################
-case = 'sansbottom1'
-case = 'avecbottom1'
+case = 't1'
 typ = case
 ######################
 
@@ -247,7 +279,7 @@ area = BV.geographic.area
 BV.add_hydrodynamic()
 BV.add_forcing()
 
-recharge = 360 / 1000 / 365  # mm/y to m/d
+recharge = 1500*(1/3) / 1000 / 365  # mm/y to m/d
 
 BV.forcing.update_recharge(recharge, sim_state='steady') #
 
@@ -259,22 +291,15 @@ BV.hydrodynamic.update_thick_exp(1)
 BV.hydrodynamic.update_thickness(40)
 
 # Aquifer
-socle_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/MNT_socle_5000r_25g_kriglin1.tif"
-watershed_bottom_path = BV.geographic.watershed_box_bottom
-b = imageio.imread(watershed_bottom_path)
-if case == 'sansbottom1':
-    bottom = None # aquifer flat or not
-if case == 'avecbottom1':
-    bottom = b - 40
-    bottom[b<=-9999] = -9999
+bottom = 500
 BV.hydrodynamic.update_bottom(bottom)
 
 params_df = pd.DataFrame(columns=['params',
                                   'init_values','lower_bounds','higher_bounds',
                                   'units','scale'])
 params_df.loc[0] = ['k1','?',
-                    1e-6*24*3600,
-                    1e-3*24*3600,
+                    1e-8*24*3600,
+                    1e-4*24*3600,
                     'm/j','lin']
 
 params_file = 'calib_dicot_hom_1v_k1'+'_'+typ
@@ -311,8 +336,7 @@ df.to_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams'+
 #%% CASES
 
 ######################
-case = 'sansbottom1'
-case = 'avecbottom1'
+case = 't1'
 typ = case
 ######################
 
@@ -322,7 +346,7 @@ BV.add_forcing()
 # Import K calibrated
 df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_koptims_dichotomy_streams'+'_'+typ+'.csv', sep=';')
 Koptim = float('{:.2e}'.format(df.loc[0][1]))
-# Koptim = 2E-5
+# Koptim = 1E-5
 print(Koptim)
 
 # Discretization
@@ -331,7 +355,7 @@ nlay = 1 # vertical discrtization
 thick_exp = 1 # exponential decay of nlay with depth
 
 # Climate
-recharge = 360 / 1000 / 365 # m/y to m/d
+recharge = 500 / 1000 / 365 # m/y to m/d
 
 # Porosity
 Sy = 0.1 # Charlotte ==> 10%
@@ -341,25 +365,17 @@ cond_decay = 0 # exponential decay of K with depth : 0.02
 verti_k = None # "k1", or None
 
 # Aquifer
-thick = 40 # m
-socle_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/MNT_socle_5000r_25g_kriglin1.tif"
-watershed_bottom_path = BV.geographic.watershed_box_bottom
-b = imageio.imread(watershed_bottom_path)
-if case == 'sansbottom1':
-    bottom = None # aquifer flat or not
-    typ = case+'optim'
-if case == 'avecbottom1':
-    bottom = b - 40
-    bottom[b<=-9999] = -9999
-    typ = case+'optim'
+thick = 100
+bottom = 500
+typ = case
 
 #%% OPTIONS
 
 # Option
 sim_state = 'steady' # 'steady' or 'transient'
 # modpath_sim = True # run modpath particle tracking if True
-# modpath_sim = False # run modpath particle tracking if True
-modpath_sim = True # run modpath particle tracking if True
+modpath_sim = False # run modpath particle tracking if True
+# modpath_sim = True # run modpath particle tracking if True
 
 run = True
 
@@ -507,7 +523,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                                   chronics=False)
             
             cp+=1
-            
+
 #%% 2D MAP VIEW
 
 for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
@@ -524,7 +540,7 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                   color_scale = [(None,None),(None,None),(None,None),(0,10),
                                   (None,None),(None,None)])
 
-#%% ENDPOINT MODELS
+#%% CROSS SECTION
 
 list_selects = list_model_name
 
@@ -561,12 +577,12 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
         modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='YlOrRd_r')
-        axs[0].set_xlim(0, 8000)
-        axs[1].set_xlim(0, 8000)
-        axs[0].set_ylim(550, 1400)
+        axs[0].set_xlim(1000, 19000)
+        axs[1].set_xlim(1000, 19000)
+        axs[0].set_ylim(700, 1200)
+        axs[1].set_ylim(700, 1200)
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[1].set_ylim(550, 1400)
         axs[0].set_title('Hydraulic conductivity')
         axs[1].set_title('Watertable and hydraulic gradient')
         fig.suptitle(model_name, y=1.05, fontsize=8)
@@ -577,7 +593,7 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         # axs[0].set_ylim(150, 350)
         # axs[1].set_ylim(150, 350)
         
-        fig.savefig(fig_path+'cross_section_h_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(fig_path+'cross_section_h_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
         fig, axs = plt.subplots(1, 2, figsize=(12, 3))
         # ax = fig.add_subplot(1, 1, 1)
@@ -587,12 +603,12 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
         modelxsect.plot_array(sy_grid, ax=axs[0], cmap='YlGn_r')
-        axs[0].set_xlim(0, 8000)
-        axs[1].set_xlim(0, 8000)
-        axs[0].set_ylim(700, 1100)
+        axs[0].set_xlim(1000, 19000)
+        axs[1].set_xlim(1000, 19000)
+        axs[0].set_ylim(700, 1200)
+        axs[1].set_ylim(700, 1200)
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[1].set_ylim(700, 1100)
         axs[0].set_title('Porosity')
         axs[1].set_title('Watertable and hydraulic gradient')
         fig.suptitle(model_name, y=1.05, fontsize=8)
@@ -603,7 +619,34 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         # axs[0].set_ylim(150, 350)
         # axs[1].set_ylim(150, 350)
         
-        fig.savefig(fig_path+'cross_section_v_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(fig_path+'cross_section_v_'+model_name+'.png', dpi=300, bbox_inches='tight') 
+
+#%% ENDPOINT MODELS
+
+list_selects = list_model_name
+
+fig_cross = True
+
+for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
+    print(model_name)
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+    # try:
+        
+    id_model = int(model_name.split('_')[1])
+            
+    ### MODEL ###
+    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+    # model_name = list_path[-1].split('\\')[-1]
+    mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    
+    fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    # sy_grid = mf.upw.sy
+    sy_grid = flow_model.ps
+    # sr_model = flopy.utils.reference.SpatialReference()
     
     crs_code = 2154
 
