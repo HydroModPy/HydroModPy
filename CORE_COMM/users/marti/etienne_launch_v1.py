@@ -35,6 +35,7 @@ import glob
 from os.path import dirname, abspath
 import pandas as pd
 import geopandas as gpd
+import rioxarray as rxr
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
@@ -69,30 +70,49 @@ fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_m
   
 # user_path = "Martin"
 user_path = "Etienne"
-data_path = "xxx"
-out_path = "xxx"
-fig_path = "xxx"
+data_path = "D:/emarti/Tarapaca/data/"
+out_path = "D:/emarti/Tarapaca/out/final"
+fig_path = "D:/emarti/Tarapaca/figures"
   
 print("Define a well-validated name of user")
 
 #%% PATHS
 
-watershed_name = 'Tarapaca_new'
-watershed_name = 'Upstream'
+#watershed_name = 'Tarapaca'
+watershed_name = '6080791570'
+#watershed_name = '6080714050'
+#watershed_name = '6080811470'
 
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
 
 if watershed_name == 'Tarapaca':
     from_xy = [470009,7807292,500,10]
+    depth = 20 ###20m depth from pozo DGA (Pozo Enpachica)
+    from_shp = None
 
-if watershed_name == 'Upstream':
-    from_xy = [513199,7823585,500,10]
+if watershed_name == '6080791570':
+    from_xy = []
+    depth= 60  ### 60m nivel estatico
+    from_shp = data_path+'shapefiles_BV/6080791570.shp'
+    
+if watershed_name == '6080714050' :
+    from_xy = [510845.58,7822094.06,250,10]
+    depth= 35 ###35,5m nivel estatico y pozo DGA (El Carmelo 2) 33m
+    from_shp = data_path+'shapefiles_BV/6080714050.shp'
+    
+if watershed_name == '6080811470' :
+    from_xy = [480559.9,7823446.4,500,10]
+    depth = 37 ##37.5m nivel estatico
+    from_shp = data_path+'shapefiles_BV/6080811470.shp'
 
-from_shp = None
+
+
+
+#from_shp = None
 from_dem = False
 cell_size = None
     
-dem_name = 'SRTM_90M_Tarapaca_UTM.tif'
+dem_name = 'DEM/study_area_DEM_UTM.tif'
 
 climate_path =  None
 dem_path = os.path.join(data_path,dem_name)
@@ -142,6 +162,18 @@ BV.add_forcing()
 watershed_display.watershed_dem(BV)
 watershed_display.watershed_local(dem_path, BV)
 
+#%%
+# Plot dem
+fig , ax2 = plt.subplots(figsize=(16,9))
+dem_data =  rxr.open_rasterio(BV.geographic.watershed_box_buff_dem, masked=True).squeeze()
+extent = dem_data.x.min(), dem_data.x.max(), dem_data.y.min(), dem_data.y.max()
+cuenca = gpd.read_file(BV.geographic.watershed_shp)
+#dem_data[dem_data<0] = np.nan
+x = plt.imshow(dem_data, extent=extent)
+cuenca.plot(color='None', edgecolor='red',linewidths=1.5, ax=ax2)
+#ax2.scatter(454643, 7803303, color='r', s=25)
+
+
 #%% ---- DICHOTOMY
 
 #%% LAUNCH
@@ -165,7 +197,7 @@ BV.hydrodynamic.update_thick_exp(1)
 params_df = pd.DataFrame(columns=['params',
                                   'init_values','lower_bounds','higher_bounds',
                                   'units','scale'])
-params_df.loc[0] = ['k1','?',8.64e-04,8.64e-01,'m/j','lin']
+params_df.loc[0] = ['k1','?',1e-9 * 86400,1e-6 * 86400,'m/j','lin']
 
 params_file = 'calib_dicot_hom_1v_k1'
 

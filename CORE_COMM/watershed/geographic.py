@@ -55,8 +55,10 @@ class Geographic:
     
     def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
-                 from_shp = None, from_dem = False, from_xy = [], cell_size=100,
-                 regio_path = None, bottom_path = None):
+                 from_shp = [], from_dem = False, from_xy = [], cell_size=100,
+                 regio_path = None):
+
+
         print('Extraction des données géographiques')
         
         self.snap_dist = snap_dist
@@ -70,6 +72,9 @@ class Geographic:
             y = self.from_xy[1]
             self.snap_dist = self.from_xy[2]
             buff_percent = self.from_xy[3]
+        
+        if self.from_shp != []:
+            buff_percent = self.from_shp[1]
         
         if from_dem == False:
             self.processing(dem_path, x, y, self.snap_dist, buff_percent, out_path)
@@ -129,7 +134,7 @@ class Geographic:
         """
         Extract watershed from an outlet
         """
-        if self.from_shp == None :
+        if self.from_shp == [] :
             # Extract the coordinate system
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
@@ -155,7 +160,7 @@ class Geographic:
             wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
         else:
             self.watershed_shp = self.gis_path + 'watershed.shp'
-            shp_file = gpd.read_file(self.from_shp)
+            shp_file = gpd.read_file(self.from_shp[0])
             shp_file.to_file(self.watershed_shp)
         wbt.polygon_area(self.watershed_shp)
         # Create shapefile polyline of the watershed
