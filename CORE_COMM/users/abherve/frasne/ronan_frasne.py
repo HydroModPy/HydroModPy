@@ -577,13 +577,13 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
         modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='YlOrRd_r')
-        axs[0].set_xlim(1000, 19000)
-        axs[1].set_xlim(1000, 19000)
+        # axs[0].set_xlim(2000, 18000)
         axs[0].set_ylim(700, 1200)
-        axs[1].set_ylim(700, 1200)
+        axs[0].set_title('Row  -  Hydraulic conductivity')
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[0].set_title('Hydraulic conductivity')
+        # axs[0].set_xlim(2000, 18000)
+        axs[1].set_ylim(700, 1200)
         axs[1].set_title('Watertable and hydraulic gradient')
         fig.suptitle(model_name, y=1.05, fontsize=8)
         
@@ -603,13 +603,14 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
         hdobj = flopy.utils.HeadFile(fname)
         head_data = hdobj.get_data()
         modelxsect.plot_array(sy_grid, ax=axs[0], cmap='YlGn_r')
-        axs[0].set_xlim(1000, 19000)
-        axs[1].set_xlim(1000, 19000)
+        # axs[0].set_xlim(2000, 18000)
         axs[0].set_ylim(700, 1200)
-        axs[1].set_ylim(700, 1200)
+        axs[0].set_title('Column  -  Porosity')
         pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
                                     cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[0].set_title('Porosity')
+        
+        # axs[1].set_xlim(2000, 18000)
+        axs[1].set_ylim(700, 1200)
         axs[1].set_title('Watertable and hydraulic gradient')
         fig.suptitle(model_name, y=1.05, fontsize=8)
         
