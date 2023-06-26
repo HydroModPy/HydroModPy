@@ -507,6 +507,22 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                                   chronics=False)
             
             cp+=1
+            
+#%% 2D MAP VIEW
+
+for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+
+    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
+                        key=os.path.getmtime, reverse=True)
+    
+    model_name = list_path[-1].split('\\')[-1]
+
+    visu = visualization.Visualization(BV, model_name)
+    
+    visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
+                                 'drain_flow', 'surface_flow'],
+                  color_scale = [(None,None),(None,None),(None,None),(0,10),
+                                  (None,None),(None,None)])
 
 #%% ENDPOINT MODELS
 

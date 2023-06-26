@@ -52,7 +52,7 @@ from matplotlib.colors import LightSource
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+wbt.verbose = True
 
 # Warnings
 import warnings
@@ -183,7 +183,9 @@ if pc == 'local':
     
     data_path_lasset = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
     
-pc = 'chyn'
+    watershed_names = ['Lasset_proj_local']
+    
+# pc = 'chyn'
 
 if pc == 'chyn':
     git_path = "D:/GITHUB/HydroModPy/CORE_COMM/"
@@ -206,6 +208,8 @@ if pc == 'chyn':
     subbasin_path = True # generate subbasins from stations or manual points
     
     data_path_lasset = data_path
+    
+    watershed_names = ['Lasset_proj_chyn']
 
 # dem_name = "BDALTI_75m_EBR.tif" # name of dem
 dem_name = 'BDALTI_09_25m.tif' # name of dem
@@ -223,8 +227,6 @@ library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a
 
 # watershed_names = ['Horn','Leff','Canut','Nancon','Arguenon','Flume','Gael']
 # code_names = ['J3014330','J1803010','J7513010','J0014010','J1105810','J7214010','J7313010']
-
-watershed_names = ['Lasset_proj_chyn']
 
 types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
 fields_obs = ['fid']
@@ -668,6 +670,14 @@ dic_params = {
              'Lasset_proj_chyn':       [2.2E-6,    10],
              }
 
+watershed_names = [
+                   'Lasset_proj_local',
+                   ]
+
+dic_params = {
+             'Lasset_proj_local':       [2.2E-6,    10],
+             }
+
 #%% RUN MODELING
 
 iD = 'check'
@@ -751,10 +761,16 @@ for watershed_name in watershed_names[:]:
             date_today = date_today.replace(':','-')
             date_today = date_today.replace(' ','_')
             
+            if bottom == None:
+                name_ep = thickness
+            if bottom != None:
+                name_ep = bottom
+                
             model_name = iD+'_'+str(compt)+'_'+\
                          mod+'-'+sce+'_'+\
-                         str(nlay)+'-'+str(thickness)+'_'+\
+                         str(nlay)+'-'+str(name_ep)+'_'+\
                          str("{:.1e}".format(K))+'-'+str(Sy)+'_'+\
+                         str(1/cond_decay)+'_'+\
                          str(recharge.first_valid_index().year)+'-'+str(recharge.last_valid_index().year)
             
             print(model_name)
@@ -872,7 +888,7 @@ for watershed_name in watershed_names[:]:
     
             iD = 'check'
             typ = 'check'
-            h5file = simulations_folder+'/'+'list_'+iD
+            h5file = simulations_folder+'/'+'list_'+iD+'_'+mod+'_'+sce
             d = dd.io.load(h5file)
             list_model_name = d['list_model_name'][:]
             list_of_success = d['list_of_success'][:]
@@ -916,36 +932,26 @@ for watershed_name in watershed_names[:]:
     # BV.add_intermittency(intermittency_path)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    station_hydro = glob.glob(stable_folder+'/'+'hydrometry/'+'Hydrometric_*')[0].split('\\')[-1] \
-                        .split('_')[1][:-2]
-                        
-    raw_path = stable_folder+'/'+'hydrometry/'
-    Qo_paths = fnmatch.filter(os.listdir(raw_path), 'Hydrometric_*')
-    Qo_mix = pd.DataFrame()
-    cp = 0
-    for Qo_path in Qo_paths:
-        Qo = pd.read_csv(raw_path+Qo_path, sep=';', index_col=0, parse_dates=True)
-        area = float(Qo_path.split('_')[-1].split('.')[0])
-        # print(area)
-        Qo = (Qo / (area*1000000)) * (3600 * 24) # m3/s to m/day
-        Qo_mix[str(cp)] = Qo
-        cp+=1
-    Qobs = Qo_mix.mean(axis=1).squeeze()
-    Qobs = Qobs.rename('Q')
+    
+    Qo_path = data_path_lasset+'Q_lasset_units.csv'
+    print(Qo_path)
+    Qo = pd.read_csv(Qo_path, sep=';', index_col=0, parse_dates=True)
+    area = BV.geographic.area
+    Qo = Qo['Q_m/d'] # m3/s to m/day
+    # Qobs = Qo.mean(axis=1).squeeze()
+    Qobs = Qo.rename('Q')
+    # Qobs = Qobs.resample('M').mean() # m/day in monthly
     Qobs = Qobs.resample('M').mean() * 1000 * 30 # m/day in monthly
+    Qobs.index = pd.date_range(start='30/06/2017', end='28/02/2019', freq='M')
     
     simul_list = sorted(glob.glob(simulations_folder+iD+'*'), key=os.path.getmtime)
     
     for simul in simul_list:
         model_name = simul.split('\\')[-1]
         
-        if (watershed_name == 'Cheze') | (watershed_name == 'Canut') | (watershed_name == 'Drains'):
-            Smod_path = simul+'/_watershed/_simulated_results.csv'
-            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-        else:
-            Smod_path = simul+'/_subbasins/'+'hydrometry_'+station_hydro+'/'+'_simulated_results.csv'
-            Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-            
+        Smod_path = simul+'/_watershed/_simulated_results.csv'
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+
         Qmod = Smod['outflow_drain'] # mm/day
         Qmod = Qmod.squeeze() * 1000 * 30
         Qmod = Qmod + (BV.forcing.runoff * 1000 * 30)
@@ -970,11 +976,11 @@ for watershed_name in watershed_names[:]:
         ax.set_xlabel('$Q_{obs}$ / A [mm/month]')
         ax.set_ylabel('$Q_{sim}$ / A [mm/month]')
         
-        folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+        # folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
     
-        fig.savefig(folder_fig + 
-                    'CHECK_STREAMFLOW_XY_' + 'REA' + '.png',
-                    dpi=300, bbox_inches='tight')
+        # fig.savefig(folder_fig + 
+        #             'CHECK_STREAMFLOW_XY_' + 'REA' + '.png',
+        #             dpi=300, bbox_inches='tight')
     
         ###########################################
         fig, ax = plt.subplots(1,1, figsize=(7,3))
@@ -1000,17 +1006,17 @@ for watershed_name in watershed_names[:]:
         ax.plot(Qmix.Qobs, color='k', lw=2, ls='-', zorder=0, label='observed')
         ax.set_yscale('log')
         ax.plot(Qmix.Qmod, color='red', lw=2, label='modeled')
-        ax.set_ylim(0.1,200)
+        ax.set_ylim(10,1000)
         # ax.grid('grey')
         # ax.set_title('Discharge')
         # ax.set_xlim(pd.to_datetime('1986'))
-        ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2019'))
+        ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2020'))
  
-        folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+        # folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
     
-        fig.savefig(folder_fig + 
-                    'CHECK_STREAMFLOW_TIME_' + 'REA' + '.png',
-                    dpi=300, bbox_inches='tight')
+        # fig.savefig(folder_fig + 
+        #             'CHECK_STREAMFLOW_TIME_' + 'REA' + '.png',
+        #             dpi=300, bbox_inches='tight')
  
         import hydroeval as he
         Qmix = Qmix.dropna(how='any')
@@ -1060,7 +1066,7 @@ for watershed_name in watershed_names[:]:
                         interpolate=False, color='navy', alpha=0.4)
         
         ax.grid('grey', axis='x')
-        ax.set_ylim(0,20)
+        ax.set_ylim(0,35)
         ax.set_ylabel('$A_{sat}$ [%]')
         ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2020'))
 
@@ -1071,11 +1077,11 @@ for watershed_name in watershed_names[:]:
         
         plt.tight_layout()
         
-        folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+        # folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
     
-        fig.savefig(folder_fig + 
-                    'CHECK_SATURATION_' + 'REA' + '.png',
-                    dpi=300, bbox_inches='tight')
+        # fig.savefig(folder_fig + 
+        #             'CHECK_SATURATION_' + 'REA' + '.png',
+        #             dpi=300, bbox_inches='tight')
 
 #%% CHECK MAPPING
 
@@ -1177,11 +1183,11 @@ for watershed_name in watershed_names[:] :
     
             # ax.set_title(years[i])
             
-            folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+            # folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
         
-            fig.savefig(folder_fig + 
-                        'CHECK_MAPPING_' + str(k) + '_REA' + '.png',
-                        dpi=300, bbox_inches='tight')
+            # fig.savefig(folder_fig + 
+            #             'CHECK_MAPPING_' + str(k) + '_REA' + '.png',
+            #             dpi=300, bbox_inches='tight')
             
             try:
                 path_sub = glob.glob(stable_folder+'subbasin/' + '/intermittency*')[0] + '/watershed_contour.shp'
@@ -1198,176 +1204,6 @@ for watershed_name in watershed_names[:] :
 
 iD = 'check'
 
-# watershed_names = ['Canut','Nancon']
-
-dates = pd.date_range(start='01/01/1975', end='31/12/2019', freq='M')
-
-for watershed_name in watershed_names[:]:    
-    
-    fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
-
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True,
-                                  modflow_path=modflow_path)
-    
-    # dem = rasterio.open(BV.geographic.watershed_dem)
-    dem = rasterio.open(stable_folder+'geographic/'+'watershed_dem.tif')
-    dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
-    
-    list_path = sorted(glob.glob(simulations_folder+iD+'*'),
-                        key=os.path.getmtime, reverse=True)
-    model_name = list_path[-1].split('\\')[-1]
-    
-    Smod_path = simul+'/_watershed/_simulated_results.csv'
-    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-    Smod = Smod.reset_index()
-    argmin = Smod['surflow_areas'].argmin()
-    argmax = Smod['surflow_areas'].argmax()
-    
-    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-    
-    import itertools            
-    
-    watertable_elevation = np.load(simulations_folder+model_name+'/_watershed/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
-    
-    min_wt = dict()
-    
-    cp = 0
-    # for key in dict(itertools.islice(watertable_elevation.items(),
-    #                                  len(watertable_elevation), # ONDE 8 years
-    #                                  len(watertable_elevation))):
-    for i, key in enumerate([argmin, argmax]):
-        print(key)
-
-        dem_data = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
-        # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
-        wt_data = watertable_elevation[key]
-        river_data = imageio.imread(stable_folder+'/hydrology/'+'complete.tif')
-    
-        xvalues = np.linspace(-1,1,dem_data.shape[1])
-        yvalues = np.linspace(-1,1,dem_data.shape[0])
-        xx, yy = np.meshgrid(xvalues,yvalues)
-        
-        cur_x = dem_data.shape[1] /2
-        cur_y = dem_data.shape[0] /2
-        
-        dem_max = dem_data.max()
-        dem_prof = dem_data.astype(float)
-        dem_prof[dem_prof<0] = np.nan
-        wt_prof = wt_data.astype(float)
-        wt_prof[wt_prof<0] = np.nan
-        
-        if watershed_name == 'xxx':
-            dem_h_plot = dem_prof[int(cur_y),:]
-            dem_h_plot[dem_h_plot == 0] = np.nan
-            wt_h_plot = wt_prof[int(cur_y),:]
-            wt_h_plot[wt_h_plot == 0] = np.nan
-            
-            # list_h_wt[cp] = wt_h_plot
-            
-        if (watershed_name == 'Canut') | (watershed_name == 'Cheze') | \
-            (watershed_name == 'Drains') | (watershed_name == 'Couesnon') | \
-             (watershed_name == 'Rophemel') | (watershed_name == 'Mordelles'):
-            dem_v_plot = dem_prof[:,int(cur_x)]
-            dem_v_plot[dem_v_plot == 0] = np.nan
-            wt_v_plot = wt_prof[:,int(cur_x)]
-            wt_v_plot[wt_v_plot == 0] = np.nan
-            
-            # list_v_wt[cp] = wt_v_plot
-            
-        dem_max = dem_data.max()
-        dem_prof = dem_data.astype(float)
-        dem_prof[dem_prof<0] = np.nan
-        dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
-        
-        wt_prof = wt_data.astype(float)
-        wt_prof[wt_prof<0] = np.nan
-        
-        cp+=1
-            
-        if watershed_name == 'xxx':
-            # dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
-            # wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
-            if i == 0:
-                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
-                                                color='dodgerblue', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='navy', lw=2)
-            if i == 1:
-                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, 0, wt_h_plot,
-                                                color='dodgerblue', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='dodgerblue', lw=2)
-                wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
-                                                color='saddlebrown', alpha=0.5, lw=0)
-                d_prof = ax.plot(np.arange(xx.shape[1])*75, dem_h_plot, 'saddlebrown', lw=2)
-            # ax.set_xlim(4000, 7000)
-            # ax.set_ylim(130, 170)
-            # ax.set_yticks([140,160])
-                   
-        if (watershed_name == 'Canut') | (watershed_name == 'Cheze') | \
-            (watershed_name == 'Drains') | (watershed_name == 'Couesnon') | \
-             (watershed_name == 'Rophemel') | (watershed_name == 'Mordelles'):            # dem_v_prof, = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, c='saddlebrown', lw=2)
-            # wt_v_prof, = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, c='dodgerblue', lw=2)
-            if i == 0:
-                wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, 0, wt_v_plot,
-                                                    color='dodgerblue', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=0.5)
-            if i == 1:
-                wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, 0, wt_v_plot,
-                                                    color='dodgerblue', alpha=0.5, lw=0)
-                w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='dodgerblue', lw=0.5)
-                wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot,
-                                                color='saddlebrown', alpha=0.5, lw=0)
-                d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1)
-                
-        ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-30, 'dimgray', lw=0, ls='-')
-        ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, 0,
-                                                color='lightgrey', alpha=0.8, lw=0)
-
-        if (watershed_name == 'Cheze'):
-            ax.set_xlim(500, 4200)
-            ax.set_ylim(80, 160)
-            ax.set_yticks([100,120,140,160])
-        if (watershed_name == 'Canut'):
-            ax.set_xlim(1000, 4000)
-            ax.set_ylim(80, 140)
-            ax.set_yticks([100,120,140])
-        if (watershed_name == 'Drains'):
-            ax.set_xlim(3000, 10000)
-            ax.set_ylim(100, 150)
-            ax.set_yticks([110,130,150])
-        if (watershed_name == 'Couesnon'):
-            ax.set_xlim(14000, 25000)
-            ax.set_ylim(40, 160)
-            ax.set_yticks([60,100,140])
-        if (watershed_name == 'Rophemel'):
-            ax.set_xlim(8000, 17500)
-            ax.set_ylim(40, 150)
-            ax.set_yticks([60,100,140])  
-        if (watershed_name == 'Mordelles'):
-            ax.set_xlim(6000, 25000)
-            ax.set_ylim(30, 160)
-            ax.set_yticks([40,80,120,160])    
-            
-        # plt.setp(ax.get_yticklabels()[0], visible=False)    
-        # plt.setp(ax.get_yticklabels()[-1], visible=False)
-            
-        ax.set_title(watershed_name)
-        
-        plt.tight_layout()
-        
-        folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
-    
-        fig.savefig(folder_fig + 
-                    'CHECK_CROSS_SECTION_' + 'REA' + '.png',
-                    dpi=300, bbox_inches='tight')
-        
-        # fig.savefig(simulations_folder+model_name+'/_figures/png/'+'cross_'+str(key)+'.png', dpi=300, bbox_inches='tight')
-
 #%% CHECK PERSISTENCY
 
 iD = 'check'
@@ -1382,7 +1218,7 @@ for watershed_name in watershed_names[:]:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
 
-    for ix in np.arange(0,1,1):
+    for ix in np.arange(1,2,1):
         
         fig, ax = plt.subplots(1,1, figsize=(10,10), sharex=True, sharey=True)
 
@@ -1486,11 +1322,11 @@ for watershed_name in watershed_names[:]:
         pi_shp['VALUE'][pi_shp['VALUE']>1] = 1
         pi_shp.to_file(pi_shp_path)
         
-        folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
+        # folder_fig = res_path + 'figures/' + 'raw_' + watershed_name + '/'
     
-        fig.savefig(folder_fig + 
-                    'CHECK_PERSISTENCY_' + 'REA' + '.png',
-                    dpi=300, bbox_inches='tight')
+        # fig.savefig(folder_fig + 
+        #             'CHECK_PERSISTENCY_' + 'REA' + '.png',
+        #             dpi=300, bbox_inches='tight')
 
 #%% ---- ANALYSIS
 
@@ -2970,3 +2806,18 @@ for watershed_name in watershed_names[5:6]:
 
 #%% ---- NOTES
                     
+x=gpd.read_file("G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/3_SUPPLEMENTS_LIVRAISON_2021-05-00137/RGEALTI_MNT_1M_ASC_LAMB93_IGN69_D009_20210512/dalles.shp")
+y=gpd.read_file("C:/Users/ronan/Documents/SIMULATIONS/LASSET/Lasset_decay/results_stable/geographic/box_buff.shp")
+z=x.clip(y)
+tifs=list(z['NOM_DALLE'])
+for i in range(len(tifs)):
+    tifs[i] = 'G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_MNT_1M_ASC_LAMB93_IGN69_D009_20210512/'+tifs[i]+'.asc'
+List=';'.join(tifs)
+
+# v="G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0602_6195_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0601_6195_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0598_6196_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0600_6196_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0602_6196_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0601_6196_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0599_6196_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0599_6191_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0598_6191_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0601_6191_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0602_6191_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0600_6191_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0601_6192_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0599_6192_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0602_6192_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0600_6192_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0598_6192_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0601_6193_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0598_6193_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0600_6193_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0602_6193_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0599_6193_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0600_6194_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0601_6194_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0599_6194_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0598_6194_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0602_6194_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0600_6195_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0598_6195_MNT_LAMB93_IGN69.tif;G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0599_6195_MNT_LAMB93_IGN69.tif"
+
+wbt.mosaic(inputs=List,
+           output="G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI_5m_D009_Lasset.tif",
+           method="cc")
+
+c=imageio.imread('G:/DATA/Lasset/RGEALTI_2-0_1M_ASC_LAMB93-IGN69_D009_2021-05-12/RGEALTI/1_DONNEES_LIVRAISON_2021-05-00137/RGEALTI_DST_1M_ASC_LAMB93_IGN69_D009_20210512/RGEALTI_FXX_0522_6200_DST_LAMB93_IGN69.tif')
