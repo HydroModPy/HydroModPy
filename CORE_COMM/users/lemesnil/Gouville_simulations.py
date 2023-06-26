@@ -156,32 +156,39 @@ from scipy.ndimage import uniform_filter1d
 maregraph = 'St-Malo'
 first_yr = 2016
 last_yr = 2016
+method_list = ['max']
 
-sea_lev_df = SHOM(maregraph, first_yr, last_yr)
-sea_lev_df_interp = sea_lev_df.interpolate()
-sea_lev_df_fill = sea_lev_df.fillna(sea_lev_df.mean())
-sea_lev_df_fill = sea_lev_df_fill
-sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
-sea_lev_mean = np.mean(sea_lev)
+for method in method_list:
+    sea_lev_df = SHOM(maregraph, first_yr, last_yr, method)
+    sea_lev_df_fill = sea_lev_df.fillna(sea_lev_df.mean())
+    sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
+    sea_lev_mean = np.mean(sea_lev)
+    
+    sea_lev_df_fill = sea_lev_df_fill.rename(columns={'Valeur': 'from_'+method})
+    if 'sea_lev_allmethods' in locals():
+        sea_lev_allmethods = pd.concat([sea_lev_allmethods, sea_lev_df_fill], axis=1)
+    else:
+        sea_lev_allmethods = sea_lev_df_fill.copy()
 
-sea_lev_smooth7 = uniform_filter1d(sea_lev, size=7)
-sea_lev_smooth14 = uniform_filter1d(sea_lev, size=14)
-sea_lev_smooth28 = uniform_filter1d(sea_lev, size=28)
-
-sea_lev_cut = sea_lev[0:90]
-sea_lev_cut_mean = np.mean(sea_lev_cut)
-
-piezo_np = piezo_2016['NGF'].to_numpy()
-piezo_np_shifted = piezo_np - (piezo_np.mean()-sea_lev_mean)
-
-
-plt.plot(sea_lev)
-plt.plot(sea_lev_smooth7)
-plt.plot(sea_lev_smooth14)
-plt.plot(sea_lev_smooth28)
-plt.plot(piezo_np_shifted)
-plt.legend(['sea level', 'mean_7d', 'mean_14d', 'mean_28d', 'piezo_shifted'])
-plt.show()
+    sea_lev_smooth7 = uniform_filter1d(sea_lev, size=7)
+    sea_lev_smooth14 = uniform_filter1d(sea_lev, size=14)
+    sea_lev_smooth28 = uniform_filter1d(sea_lev, size=28)
+    
+    sea_lev_cut = sea_lev[0:90]
+    sea_lev_cut_mean = np.mean(sea_lev_cut)
+    
+    piezo_np = piezo_2016['NGF'].to_numpy()
+    piezo_np_shifted = piezo_np - (piezo_np.mean()-sea_lev_mean)
+    
+    plt.plot(sea_lev)
+    plt.plot(sea_lev_smooth7)
+    plt.plot(sea_lev_smooth14)
+    plt.plot(sea_lev_smooth28)
+    plt.plot(piezo_np_shifted)
+    plt.legend(['sea level', 'mean_7d', 'mean_14d', 'mean_28d', 'piezo_shifted'])
+    plt.show()
+    
+sea_lev_allmethods.to_csv(r'C:\Users\Martin Le Mesnil\Travail\Articles\Analytical\Sea level\sea_level.csv')
 
 #%% Homogeneous calibration
 
@@ -189,23 +196,25 @@ from calibration import calib_root
 import pandas as pd
 
 types_obs = ['piezometry'] # list of shapefile name layers for clip hydrology
-params_file = 'calib_test' #calib_optim1_aut22_k1n1
+params_file = 'calib_homo_2016_K1230_n1015' #calib_optim1_aut22_k1n1
 
 BV.forcing.update_recharge(rech, 'transient')
 BV.oceanic.update_MSL(sea_lev)
 
 # t = 30
 bottom = -20
+thick_exp = 1
 # BV.hydrodynamic.update_thickness(t)
 BV.hydrodynamic.update_bottom(bottom)
+BV.hydrodynamic.update_thick_exp(thick_exp)
 
 params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-params_df.loc[0] = ['k1',10,10,60,'m/j','log']
-params_df.loc[1] = ['n1',0.1,0.1,0.2,'-','lin']
+params_df.loc[0] = ['k1',12,12,30,'m/j','log']
+params_df.loc[1] = ['n1',0.1,0.1,0.15,'-','lin']
 params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
 
 calib = calib_root.Calibration(params_file, BV, observations = ['piezometry'])
-calib.exploration(16)
+calib.exploration(25)
 fig1 = plt.gcf()
 # fig1.savefig('C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/Gouville\\results_calibration/calib_test_fig', dpi=200)
 # plt.imsave('C:/Users/Martin Le Mesnil/Travail/HydroModPy/output2/Gouville\\results_calibration/calib_test_fig')
