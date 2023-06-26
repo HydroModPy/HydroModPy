@@ -73,8 +73,8 @@ print("Define a well-validated name of user")
 north_chile_dem=rxr.open_rasterio(data_path+'DEM/study_area_DEM_UTM.tif', masked=True).squeeze()
 #%% PATHS
 
-#watershed_name = 'Tarapaca'
-watershed_name = '6080791570'
+watershed_name = 'Tarapaca'
+#watershed_name = '6080791570'
 #watershed_name = '6080714050'
 #watershed_name = '6080811470'
 
@@ -138,7 +138,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # n
 
 #%% WATERSHED
 
-load = False
+load = True
 # False to build and save python object4
 
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -210,19 +210,23 @@ thick_exp = 1.2 # exponential decay of nlay with depth
 
 ######################
 case = 's1'
+#case = 's2'
 ######################
 
 if case == 's1':
     cond_decay = 0 # exponential decay of K with depth : 0.02
     k= 1e-7 * 86400 # m/s en m/j
-    # Vertical cond
-    # thick_k0 = 50 # thickness of the upper layer
-    # k0 = Koptim * 3600 * 24 # upper layer
-    # k1s = [Koptim * 3600 * 24 / 0.6]
-    # verti_k = [ [k0, [0, thick_k0]] ] # "k1", or None
     verti_k = None
+    #Boundary condition
+    #bc_left = float(min(dem_data[:,0])-depth)
     # Name
     typ = 's1'
+if case == 's2':
+    cond_decay = 0 # exponential decay of K with depth : 0.02
+    k= 1e-7 * 86400 # m/s en m/j
+    verti_k = None
+    # Name
+    typ = 's2'
     
 #%% OPTIONS
 
@@ -323,7 +327,7 @@ dd.io.save(h5file, dictio)
 #watershed_name = '6080714050'
 #simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-h5file = simulations_folder+'/'+'list_s1'
+h5file = simulations_folder+'/'+'list_'+typ
 d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_of_success = d['list_of_success'][:]
