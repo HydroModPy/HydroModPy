@@ -65,7 +65,7 @@ class Geographic:
         self.from_shp = from_shp
         self.from_xy = from_xy
         self.regio_path = regio_path
-        self.bottom_path = bottom_path
+        self.bottom_path = bottom_pfath
         
         if self.from_xy != []:
             x = self.from_xy[0]
@@ -306,8 +306,8 @@ class Geographic:
         proj = osr.SpatialReference(wkt=dem.GetProjection())
         crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
         # Extract size characteristics
-        self.x_pixel = self.dem_data.shape[1] # columns
-        self.y_pixel = self.dem_data.shape[0] # rows
+        self.x_pixel = self.dem_box_data.shape[1] # columns
+        self.y_pixel = self.dem_box_data.shape[0] # rows
         # Extract resolution
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative
