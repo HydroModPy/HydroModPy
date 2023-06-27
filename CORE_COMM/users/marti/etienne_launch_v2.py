@@ -73,9 +73,9 @@ print("Define a well-validated name of user")
 north_chile_dem=rxr.open_rasterio(data_path+'DEM/study_area_DEM_UTM.tif', masked=True).squeeze()
 #%% PATHS
 
-watershed_name = 'Tarapaca'
+#watershed_name = 'Tarapaca'
 #watershed_name = '6080791570'
-#watershed_name = '6080714050'
+watershed_name = '6080714050'
 #watershed_name = '6080811470'
 
 library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
@@ -96,14 +96,14 @@ else:
     if watershed_name == '6080714050' :
         from_xy = []
         depth= 35 ###35,5m nivel estatico y pozo DGA (El Carmelo 2) 33m
-        from_shp = data_path+'shapefiles_BV/6080714050.shp'
-        gdf = gpd.read_file(from_shp)
+        from_shp = [data_path+'shapefiles_BV/6080714050.shp',20]
+        gdf = gpd.read_file(from_shp[0])
         
     if watershed_name == '6080811470' :
         from_xy = []
         depth = 37 ##37.5m nivel estatico
-        from_shp = data_path+'shapefiles_BV/6080811470.shp'
-        gdf = gpd.read_file(from_shp)
+        from_shp = [data_path+'shapefiles_BV/6080811470.shp',20]
+        gdf = gpd.read_file(from_shp[0])
     
     
     gdf_buffer = gdf.buffer(35000)
@@ -209,8 +209,8 @@ thick_exp = 1.2 # exponential decay of nlay with depth
 #bc_left = float(min(dem_data[:,0])-depth)
 
 ######################
-case = 's1'
-#case = 's2'
+#case = 's1'
+case = 's2'
 ######################
 
 if case == 's1':
