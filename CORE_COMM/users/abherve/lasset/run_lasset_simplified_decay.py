@@ -204,7 +204,7 @@ for watershed_name in watershed_names[:]:
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-    
+
 #%% DATA WATERSHED
 
 #% Merger les points shp
@@ -290,6 +290,33 @@ BV.forcing.update_recharge_surfex(clim_mod = 'REA', clim_sce='historic',
                                   first_year = 1960, last_year=2019, time_step = 'D',
                                   sim_state='steady') #
 R_rea = BV.forcing.recharge
+
+#%% HILLSOPES
+
+from watershed import hillslope
+
+x = hillslope.Hillslope(BV.geographic,
+                        BV.hydrology.streams[:-4]+'.tif',
+                        out_path=out_path+watershed_name+'/')
+#%% PLT
+
+t = pd.concat(x.hs1D)
+
+t[t<0] = np.nan
+
+hsB_w = t.groupby('x')['w'].sum()
+hsB_z = t.groupby('x')['z'].mean()
+hsB = pd.DataFrame(hsB_w, columns = ['w'])
+hsB['z'] = hsB_z
+
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+ax.plot(hsB.index, hsB.z)
+
+# x='C:/Users/ronan/Documents/SIMULATIONS/LASSET/Lasset_decay/results_stable/geographic/watershed_buff_direc.tif'
+# y='C:/Users/ronan/Documents/SIMULATIONS/LASSET/Lasset_decay/results_stable/hydrology/lasset_stream_update_april23_wetlands_perennial_cut_topt.tif'
+
+# hillslopes = 'C:/Users/ronan/Downloads/xxx.tif'
+# wbt.hillslopes(x, y, hillslopes)
 
 #%% ---- MODELING DICHOTOMY
 
