@@ -246,6 +246,7 @@ from watershed import hillslope
 x = hillslope.Hillslope(BV.geographic,
                         BV.hydrology.streams[:-4]+'.tif',
                         out_path=out_path+watershed_name+'/')
+
 #%% PLT
 
 t = pd.concat(x.hs1D)
@@ -259,6 +260,9 @@ hsB['z'] = hsB_z
 
 fig, ax = plt.subplots(1,1, figsize=(6,3))
 ax.plot(hsB.index, hsB.z)
+
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+ax.plot(hsB.index, hsB.w)
 
 # x='C:/Users/ronan/Documents/SIMULATIONS/LASSET/Lasset_decay/results_stable/geographic/watershed_buff_direc.tif'
 # y='C:/Users/ronan/Documents/SIMULATIONS/LASSET/Lasset_decay/results_stable/hydrology/lasset_stream_update_april23_wetlands_perennial_cut_topt.tif'
