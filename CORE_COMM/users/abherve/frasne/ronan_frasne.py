@@ -375,7 +375,7 @@ typ = case
 sim_state = 'steady' # 'steady' or 'transient'
 # modpath_sim = True # run modpath particle tracking if True
 modpath_sim = False # run modpath particle tracking if True
-# modpath_sim = True # run modpath particle tracking if True
+modpath_sim = True # run modpath particle tracking if True
 
 run = True
 

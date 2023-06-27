@@ -13,7 +13,7 @@ import whitebox
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 wbt = whitebox.WhiteboxTools()
-wbt.set_verbose_mode(False)
+wbt.set_verbose_mode(True)
 from osgeo import gdal, osr
 
 #%% CLASS
@@ -36,16 +36,17 @@ class Hillslope:
     
     #%% INIT
     
-    def __init__(self, geographic, 
+    def __init__(self, geographic, streams_tif_path,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         
         print('Extraction des versants et du profil 1D')
         
         # Define gis inputs
-        direc = geographic.direc
-        stream = geographic.watershed_stream
+        direc = geographic.watershed_buff_direc
+        stream = streams_tif_path
         watershed = geographic.watershed_shp
         watershed_dem = geographic.watershed_fill
+        watershed_dem = geographic.watershed_dem
         cellsize = geographic.resolution
         gis_path = os.path.join(out_path, 'results_stable/geographic/')
         
@@ -58,10 +59,12 @@ class Hillslope:
         # Equivalent hillslope
         self.equivalent_hillslope()
 
-    
     #%% FUNCTIONS
     
     def extract_hillslopes(self, direc, stream, watershed, gis_path):
+        
+        print(direc)
+        print(stream)
         
         # Generate hillslopes from regional stream network and flux direction
         hillslopes = gis_path + 'region_hillslopes.tif'
