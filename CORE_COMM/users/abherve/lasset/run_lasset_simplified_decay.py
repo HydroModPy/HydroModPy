@@ -47,8 +47,6 @@ import pickle
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 from matplotlib.colors import LightSource
-import earthpy.spatial as es
-import earthpy.plot as ep
 
 # Gis
 import imageio
@@ -85,22 +83,9 @@ def select_period(df, first, last):
 #%% PATH WATERSHED
 
 # user = 'Clement'
-user = 'Ronan'
-
-if user == 'Clement':
-    dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem 
-    #dem_name = 'BDALTI_09_75m.tif'
-    #############################################################
-    git_path = "C:/Users/LocalAdmin/Documents/GitHub/HydroModPy/CORE_COMM/"
-    # Path to the data folder
-    data_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_data/")
-    # Path where the results will be stored
-    out_path = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_permanent/_out/")
-    # Figure folder outputs
-    figsim_folder = os.path.join("D:/GoogleDrive/1.TRAVAIL/PYTHON/FLOPY/_figures/")
-    #############################################################
+user = 'local'
     
-if user == 'Ronan':
+if user == 'local':
     # dem_name = 'BDALTI_09_75m.tif'
     dem_name = 'BDALTI_09_25m.tif'
     #############################################################
@@ -114,38 +99,86 @@ if user == 'Ronan':
     fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/figures/v2/"
     path_obs = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
     #############################################################
+    
+    dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
+    # shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
+    modflow_path = data_path + '/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
 
-dems_path = data_path + 'DEM/France/' # reginal DEM or conceptual DEM
-# shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
-modflow_path = data_path + '/SOFTWARE/MODFLOW/' # add bin/ folder with necessary .exe
+    surfex_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/CLIMATE/France/SURFEX/Midi-Pyrenees/rea/" 
+                  # add surfex models in .h5 format (France scale, else, specify None)
+    drias_path = data_path + 'DRIAS/Lasset/from_ronan/'
+    geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
+    oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
+    hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
+    hydrometry_path = data_path + 'HYDROMETRY/' # add hydrometry data for automatic download
+    intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
+    piezometry_path = False # add piezometry data for automatic download
+    subbasin_path = False # generate subbasins from stations or manual points
 
-surfex_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/CLIMATE/France/SURFEX/Midi-Pyrenees/rea/" 
-              # add surfex models in .h5 format (France scale, else, specify None)
-drias_path = data_path + 'DRIAS/Lasset/from_ronan/'
-geology_path = data_path + 'GEOLOGY/France/Layer/' # add geologic layers
-oceanic_path = data_path + 'OCEANIC/' # add specific sea level files
-hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
-hydrometry_path = data_path + 'HYDROMETRY/' # add hydrometry data for automatic download
-intermittency_path = data_path + 'HYDROLOGY/France/Intermittency/' # add intermittency data for automatic download
-piezometry_path = False # add piezometry data for automatic download
-subbasin_path = False # generate subbasins from stations or manual points
+    # dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
+    # dem_name = "BDALTI_09_75m.tif"
 
-# dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
-# dem_name = "BDALTI_09_75m.tif"
+    from_shp = [] # specify a path if process start from a given shapefile
+    from_dem = False # True or False if the process start from a given DEM of xyz file
+    cell_size = None # specify new resolution from a given DEM or None
 
-from_shp = None # specify a path if process start from a given shapefile
-from_dem = False # True or False if the process start from a given DEM of xyz file
-cell_size = None # specify new resolution from a given DEM or None
+    from_xy = []
+    # Depending on the choices
+    dem_path = dems_path + dem_name
 
-from_xy = []
-# Depending on the choices
-dem_path = dems_path + dem_name
+    library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+    # watershed_names = ['Pompage'] # search the name in watershed_library or just label your result folder
 
-library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
-# watershed_names = ['Pompage'] # search the name in watershed_library or just label your result folder
+    watershed_names = ['Lasset_decay']
+    code_names = ['?']
 
-watershed_names = ['Lasset_decay']
-code_names = ['?']
+user = 'tower'
+    
+if user == 'tower':
+    # dem_name = 'BDALTI_09_75m.tif'
+    dem_name = 'BDALTI_09_25m.tif'
+    #############################################################
+    git_path = "D:/Users/abherve/GITHUB/HydroModPy/CORE_COMM/"
+    # Path to the data folder
+    data_path = "D:/Users/abherve/SIMULATIONS/LASSET/_data/"
+    # Path where the results will be stored
+    out_path = "D:/Users/abherve/SIMULATIONS/LASSET/"
+    # Figure folder outputs
+    # figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
+    fig_path = "D:/Users/abherve/SIMULATIONS/LASSET/_figures/"
+    #############################################################
+
+    dems_path = data_path # reginal DEM or conceptual DEM
+    # shp_path = data_path + 'SHAPEFILE/' # if you want run a model from a shapefile
+    modflow_path = data_path # add bin/ folder with necessary .exe
+    
+    surfex_path = data_path
+                  # add surfex models in .h5 format (France scale, else, specify None)
+    drias_path = data_path
+    geology_path = data_path# add geologic layers
+    oceanic_path = data_path # add specific sea level files
+    hydrology_path = data_path # add hydrographic shapefiles
+    hydrometry_path = data_path # add hydrometry data for automatic download
+    intermittency_path = data_path # add intermittency data for automatic download
+    piezometry_path = False # add piezometry data for automatic download
+    subbasin_path = False # generate subbasins from stations or manual points
+    
+    # dem_name = "BDALTI_25M_09_MERGED.tif" # name of dem
+    # dem_name = "BDALTI_09_75m.tif"
+    
+    from_shp = [] # specify a path if process start from a given shapefile
+    from_dem = False # True or False if the process start from a given DEM of xyz file
+    cell_size = None # specify new resolution from a given DEM or None
+    
+    from_xy = []
+    # Depending on the choices
+    dem_path = dems_path + dem_name
+    
+    library_path = git_path + 'watershed/' + 'watershed_library.csv' # each row is a study site with outlet coordinates
+    # watershed_names = ['Pompage'] # search the name in watershed_library or just label your result folder
+    
+    watershed_names = ['Lasset_decay']
+    code_names = ['?']
 
 #%% GENERATE WATERSHED
 
@@ -183,7 +216,7 @@ for watershed_name in watershed_names[:]:
 
 from watershed import watershed_root, watershed_display, forcing
 
-if user == 'Ronan':
+if user == 'local':
     hydrology_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/" # add hydrographic shapefiles
     
     wbt.vector_lines_to_raster(hydrology_path+'lasset_stream_perennial_update_april23_cut.shp',
@@ -207,11 +240,30 @@ if user == 'Ronan':
     # types_obs = ["lasset_stream_perennialv2"]
     types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
     
-if user=='Clement':
-    #types_obs = ["lasset_stream_perennialv2"]
-    hydrology_path = data_path + 'HYDROLOGY/' # add hydrographic shapefiles
-    types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
+if user == 'tower':
+    hydrology_path = data_path # add hydrographic shapefiles
+    
+    wbt.vector_lines_to_raster(hydrology_path+'lasset_stream_perennial_update_april23_cut.shp',
+                               hydrology_path+'lasset_stream_perennial_update_april23_cut.tif',
+                               base = stable_folder+'geographic/'+'watershed_dem.tif')
+    wbt.raster_to_vector_points(hydrology_path+'lasset_stream_perennial_update_april23_cut.tif',
+                                hydrology_path+'lasset_stream_perennial_update_april23_cut_topt.shp')
+    wbt.vector_polygons_to_raster(hydrology_path+'lasset_wetlands_perennial_cut.shp',
+                                  hydrology_path+'lasset_wetlands_perennial_cut.tif',
+                                  base = stable_folder+'geographic/'+'watershed_dem.tif')
+    wbt.raster_to_vector_points(hydrology_path+'lasset_wetlands_perennial_cut.tif',
+                                hydrology_path+'lasset_wetlands_perennial_cut_topt.shp')
 
+    merge_path = hydrology_path+'lasset_stream_perennial_update_april23_cut_topt.shp'+\
+                 ';'+\
+                 hydrology_path+'lasset_wetlands_perennial_cut_topt.shp'
+    wbt.merge_vectors(merge_path, hydrology_path+'lasset_stream_update_april23_wetlands_perennial_cut_topt.shp')
+    
+    # types_obs = ["lasset_stream_perennial_update_april23"] # shapefile cours d'eau
+    # types_obs = ["lasset_stream_wetland_perennial_pt_gpdv2"] # shapefile cours d'eau
+    # types_obs = ["lasset_stream_perennialv2"]
+    types_obs = ["lasset_stream_update_april23_wetlands_perennial_cut_topt"]
+    
 #types_obs = ['streams'] # list of shapefile name layers for clip hydrology
 fields_obs = ['fid'] # list of shapefile name columns to translate as a tif
 BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
@@ -447,7 +499,9 @@ list_koptim = list(df['k'].values)
 
 # list_porosity = np.logspace(np.log10(0.001), np.log10(0.3), 10)
 # list_porosity = np.geomspace((0.001), (0.3), 10)
-list_porosity = np.geomspace((0.003), (0.3), 10).round(3)
+# list_porosity = np.geomspace((0.003), (0.3), 10).round(3)
+list_porosity = np.arange((1/100), (50/100), 3/100)
+print(list_porosity)
 
 # Label
 list_model_name = []
@@ -463,7 +517,7 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 typ = 'explor1'
 
-run = True
+run = False
 
 # list_cond_decay = [0.002]
 # list_bottom[0] = 0
@@ -595,6 +649,333 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
                                           intermittency=False,
                                           chronics=False)
 
+#%% CROSS SECTIONS
+
+# model_name = 'egu1_1_10.0-0.0-0.0857-26.68'
+# model_name = 'egu1_0_500.0-0-0.0058-30.0'
+
+# list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+list_selects = list_model_name
+
+fig_cross = True
+
+# figt, axt = plt.subplots(1, 2, figsize=(3, 3))
+
+for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
+    print(model_name)
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+    # try:
+        
+    id_model = int(model_name.split('_')[1])
+            
+    ### MODEL ###
+    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+    # model_name = list_path[-1].split('\\')[-1]
+    # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    mf = flow_model.mf
+    
+    # fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    # sy_grid = mf.upw.sy
+    sy_grid = flow_model.ps
+    # sr_model = flopy.utils.reference.SpatialReference()
+    
+    if fig_cross == True:
+        
+        """
+        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        axs = axs.ravel()
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+        linecollection = modelxsect.plot_grid()
+        # hdobj = flopy.utils.HeadFile(fname)
+        # head_data = hdobj.get_data()
+        modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='viridis', lw=0.1)
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=axs[1])
+        axs[1].set_title('Meshgrid Weat to East')
+        axs[0].set_title('Hydraulic conductivity')
+        fig.suptitle(model_name.upper(), y=1.05, fontsize=8)
+        
+        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
+        ext_mod = bv_box.geometry.total_bounds
+        
+        # axs[0].set_ylim(150, 350)
+        # axs[1].set_ylim(150, 350)
+        
+        # fig.savefig(fig_path+'cross_section_h_'+model_name+'.png', dpi=300, bbox_inches='tight')
+
+        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        axs = axs.ravel()
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
+        linecollection = modelxsect.plot_grid()
+        # hdobj = flopy.utils.HeadFile(fname)
+        # head_data = hdobj.get_data()
+        cb = modelxsect.plot_array(sy_grid, ax=axs[0], cmap='plasma', lw=0.1)
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=axs[1])
+        axs[1].set_title('Meshgrid North to South')
+        axs[0].set_title('Specific yield')
+        fig.suptitle(model_name.upper(), y=1.05, fontsize=8)
+        
+        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
+        ext_mod = bv_box.geometry.total_bounds
+        """
+        
+        fig, axs = plt.subplots(1, 2, figsize=(9, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        axs = axs.ravel()
+        
+        ax = axs[0]
+        # fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+        # linecollection = modelxsect.plot_grid()
+        # hdobj = flopy.utils.HeadFile(fname)
+        # head_data = hdobj.get_data()
+        cb = modelxsect.plot_array(hk_grid.array/24/3600, ax=ax, cmap='viridis', lw=0.1)
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=axs[1])
+        ax.set_title('Meshgrid Weat to East')
+        ax.set_title('Hydraulic conductivity')
+        # ax.set_xlim(150, 350)
+        # ax.set_ylim(150, 350)
+        ax.set_xticks([0,1000,2000,3000])
+        fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
+        fig.colorbar(cb)
+        plt.tight_layout()
+        # fig.set_size_inches(6, 3, forward=True)
+        
+        ax = axs[1]
+        # fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
+        # linecollection = modelxsect.plot_grid()
+        # hdobj = flopy.utils.HeadFile(fname)
+        # head_data = hdobj.get_data()
+        cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1)
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=axs[1])
+        ax.set_title('Meshgrid North to South')
+        ax.set_title('Specific yield')
+        ax.set_xticks([0,1000,2000,3000,4000])
+        fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
+        fig.colorbar(cb)
+        plt.tight_layout()
+        # fig.set_size_inches(6, 3, forward=True)
+        
+#%% DECAY K
+
+start = 0
+stop = -1 
+step = 17
+list_k_selects = list_model_name[start:stop:step]
+list_k_flowmodel = list_flow_model[start:stop:step]
+figk, axk = plt.subplots(1, 1, figsize=(3, 4))
+
+n = 12
+colors = pl.cm.jet(np.linspace(0,1,n))
+
+cp = 0
+for model_name, flow_model in zip(list_k_selects[:], list_k_flowmodel[:]):
+    print(model_name)
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+    # try:
+        
+    id_model = int(model_name.split('_')[1])
+            
+    ### MODEL ###
+    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+    # model_name = list_path[-1].split('\\')[-1]
+    # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    mf = flow_model.mf
+    
+    # fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    # sy_grid = mf.upw.sy
+    sy_grid = flow_model.ps
+    # sr_model = flopy.utils.reference.SpatialReference()
+    
+    zall = flow_model.dem - flow_model.zbot
+    list_z = []
+    list_k = []
+    list_p = []
+    for i in range(len(zall)):
+        list_z.append(zall[i].mean())
+        list_k.append((hk_grid.array/24/3600)[i].mean())
+        list_p.append((sy_grid*100)[i].mean())
+    if cp == 0:
+        c = 'k'
+    if cp == 1 :
+        c = 'grey'
+    if cp > 1:
+        c = colors[cp]
+    axk.plot(list_k, list_z, color=c)
+    
+    cp += 1
+
+axk.set_xscale('log')
+axk.invert_yaxis()
+axk.set_xlim(1e-10, 1e-5)
+axk.set_ylim(1000, 0)
+
+#%% DECAY P
+
+for i in range(17):
+    print(i)
+    
+    start = i
+    stop = -1 
+    step = 17
+    list_p_selects = list_model_name[start:stop:step]
+    list_p_flowmodel = list_flow_model[start:stop:step]
+    figp, axp = plt.subplots(1, 1, figsize=(3, 4))
+    
+    n = 12
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    
+    cp = 0
+    for model_name, flow_model in zip(list_p_selects[:], list_p_flowmodel[:]):
+        
+        
+        print(model_name)
+        # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+        # try:
+            
+        id_model = int(model_name.split('_')[1])
+                
+        ### MODEL ###
+        # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+        # model_name = list_path[-1].split('\\')[-1]
+        # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+        mf = flow_model.mf
+        
+        # fname = simulations_folder+model_name+'/'+model_name+'.hds'
+        gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+        # grid_model = flopy.discretization.grid.Grid(mf)
+        grid_model = mf.modelgrid
+        hk_grid = mf.upw.hk
+        # sy_grid = mf.upw.sy
+        sy_grid = flow_model.ps
+        # sr_model = flopy.utils.reference.SpatialReference()
+        
+        zall = flow_model.dem - flow_model.zbot
+        list_z = []
+        list_k = []
+        list_p = []
+        for i in range(len(zall)):
+            list_z.append(zall[i].mean())
+            list_k.append((hk_grid.array/24/3600)[i].mean())
+            list_p.append((sy_grid*100)[i].mean())
+        if cp == 0:
+            c = 'k'
+        if cp == 1 :
+            c = 'grey'
+        if cp > 1:
+            c = colors[cp]
+        axp.plot(list_p, list_z, color=c)
+        print(np.array(list_p).mean())
+        
+        cp += 1
+    
+    # axp.set_xscale('log')
+    axp.invert_yaxis()
+    axp.set_xlim(0, 60)
+    # axp.set_ylim(1000, 0)
+
+#%% RESUME P
+
+dk_max = pd.DataFrame()
+dk_mean = pd.DataFrame()
+
+dp_max = pd.DataFrame()
+dp_mean = pd.DataFrame()
+
+u = 0
+
+for i in range(17):
+    print(i)
+    
+    start = i
+    stop = -1 
+    step = 17
+    list_p_selects = list_model_name[start:stop:step]
+    list_p_flowmodel = list_flow_model[start:stop:step]
+    figp, axp = plt.subplots(1, 1, figsize=(3, 4))
+    
+    n = 12
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    
+    cp = 0
+    for model_name, flow_model in zip(list_p_selects[:], list_p_flowmodel[:]):
+        
+        
+        print(model_name)
+        # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+        # try:
+            
+        id_model = int(model_name.split('_')[1])
+                
+        ### MODEL ###
+        # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+        # model_name = list_path[-1].split('\\')[-1]
+        # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+        mf = flow_model.mf
+        
+        # fname = simulations_folder+model_name+'/'+model_name+'.hds'
+        gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+        # grid_model = flopy.discretization.grid.Grid(mf)
+        grid_model = mf.modelgrid
+        hk_grid = mf.upw.hk
+        # sy_grid = mf.upw.sy
+        sy_grid = flow_model.ps
+        # sr_model = flopy.utils.reference.SpatialReference()
+        
+        zall = flow_model.dem - flow_model.zbot
+        list_z = []
+        list_k = []
+        list_p = []
+        for j in range(len(zall)):
+            list_z.append(zall[j].mean())
+            list_k.append((hk_grid.array/24/3600)[j].mean())
+            list_p.append((sy_grid*100)[j].mean())
+        if cp == 0:
+            c = 'k'
+        if cp == 1 :
+            c = 'grey'
+        if cp > 1:
+            c = colors[cp]
+        axp.plot(list_p, list_z, color=c)
+        print(np.array(list_p).mean())
+        
+        dk_max.loc[i,cp] = np.array(list_k).max()
+        dk_mean.loc[i,cp] = np.array(list_k).mean()
+        
+        dp_max.loc[i,cp] = np.array(list_p).max()
+        dp_mean.loc[i,cp] = np.array(list_p).mean()
+        
+        cp += 1
+            
+    # axp.set_xscale('log')
+    axp.invert_yaxis()
+    axp.set_xlim(0, 60)
+    # axp.set_ylim(1000, 0)
+    
+#%% F
+
+dk_max.T.plot(lw=0, marker='o')
+dk_mean.T.plot(lw=0, marker='o')
+
+dp_max.T.plot(lw=0, marker='o')
+dp_mean.T.plot(lw=0, marker='o')
+
 #%% ENDPOINT MODELS
 
 # model_name = 'egu1_1_10.0-0.0-0.0857-26.68'
@@ -625,52 +1006,6 @@ for model_name, flow_model in zip(list_selects[12*5:], list_flow_model[12*5:]):
     # sy_grid = mf.upw.sy
     sy_grid = flow_model.ps
     # sr_model = flopy.utils.reference.SpatialReference()
-    
-    if fig_cross == True:
-        
-        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
-        # ax = fig.add_subplot(1, 1, 1)
-        axs = axs.ravel()
-        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
-        linecollection = modelxsect.plot_grid()
-        hdobj = flopy.utils.HeadFile(fname)
-        head_data = hdobj.get_data()
-        modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='YlOrRd_r')
-        pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-                                    cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[0].set_title('Hydraulic conductivity')
-        axs[1].set_title('Watertable and hydraulic gradient')
-        fig.suptitle(model_name, y=1.05)
-        
-        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
-        ext_mod = bv_box.geometry.total_bounds
-        
-        # axs[0].set_ylim(150, 350)
-        # axs[1].set_ylim(150, 350)
-        
-        fig.savefig(fig_path+'cross_section_h_'+model_name+'.png', dpi=300, bbox_inches='tight')
-
-        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
-        # ax = fig.add_subplot(1, 1, 1)
-        axs = axs.ravel()
-        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[0])/2)})
-        linecollection = modelxsect.plot_grid()
-        hdobj = flopy.utils.HeadFile(fname)
-        head_data = hdobj.get_data()
-        modelxsect.plot_array(sy_grid, ax=axs[0], cmap='YlGn_r')
-        pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-                                    cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[0].set_title('Porosity')
-        axs[1].set_title('Watertable and hydraulic gradient')
-        fig.suptitle(model_name, y=1.05)
-        
-        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
-        ext_mod = bv_box.geometry.total_bounds
-        
-        # axs[0].set_ylim(150, 350)
-        # axs[1].set_ylim(150, 350)
-        
-        fig.savefig(fig_path+'cross_section_v_'+model_name+'.png', dpi=300, bbox_inches='tight')
     
     crs_code = 2154
     
