@@ -298,7 +298,6 @@ from watershed import hillslope
 x = hillslope.Hillslope(BV.geographic,
                         BV.hydrology.streams[:-4]+'.tif',
                         out_path=out_path+watershed_name+'/')
-#%% PLT
 
 t = pd.concat(x.hs1D)
 
@@ -544,7 +543,7 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 typ = 'explor1'
 
-run = False
+run = True
 
 # list_cond_decay = [0.002]
 # list_bottom[0] = 0
@@ -795,7 +794,7 @@ for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
         plt.tight_layout()
         # fig.set_size_inches(6, 3, forward=True)
         
-#%% DECAY K
+#%% GRAPH DECAY COND
 
 start = 0
 stop = -1 
@@ -814,6 +813,8 @@ for model_name, flow_model in zip(list_k_selects[:], list_k_flowmodel[:]):
     # try:
         
     id_model = int(model_name.split('_')[1])
+    
+    decay_k = model_name.split('_')[-1].split('-')[0]
             
     ### MODEL ###
     # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
@@ -844,25 +845,36 @@ for model_name, flow_model in zip(list_k_selects[:], list_k_flowmodel[:]):
         c = 'grey'
     if cp > 1:
         c = colors[cp]
-    axk.plot(list_k, list_z, color=c)
+    axk.plot(list_k, list_z, color=c, lw=2, label=str(decay_k))
     
     cp += 1
 
+axk.xaxis.tick_top()
+axk.set_xlabel('K [m/s]')
+axk.xaxis.set_label_position('top') 
+axk.set_ylabel('Depth [m]')
 axk.set_xscale('log')
 axk.invert_yaxis()
 axk.set_xlim(1e-10, 1e-5)
 axk.set_ylim(1000, 0)
+axk.spines[['right', 'bottom']].set_visible(False)
+axk.tick_params(right=False)
+axk.legend(loc='lower right', frameon=False)
 
-#%% DECAY P
+figk.savefig(fig_path+'decay_k.png', dpi=300, bbox_inches='tight')
+
+#%% GRAPH DECAY PORO
 
 for i in range(17):
+# for i in []:
     print(i)
     
     start = i
-    stop = -1 
+    # stop = -1 
     step = 17
-    list_p_selects = list_model_name[start:stop:step]
-    list_p_flowmodel = list_flow_model[start:stop:step]
+    list_p_selects = list_model_name[start::step]
+    list_p_flowmodel = list_flow_model[start::step]
+    
     figp, axp = plt.subplots(1, 1, figsize=(3, 4))
     
     n = 12
@@ -877,7 +889,9 @@ for i in range(17):
         # try:
             
         id_model = int(model_name.split('_')[1])
-                
+        
+        decay_k = model_name.split('_')[-1].split('-')[0]
+
         ### MODEL ###
         # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
         # model_name = list_path[-1].split('\\')[-1]
@@ -897,27 +911,50 @@ for i in range(17):
         list_z = []
         list_k = []
         list_p = []
-        for i in range(len(zall)):
-            list_z.append(zall[i].mean())
-            list_k.append((hk_grid.array/24/3600)[i].mean())
-            list_p.append((sy_grid*100)[i].mean())
+        for j in range(len(zall)):
+            list_z.append(zall[j].mean())
+            list_k.append((hk_grid.array/24/3600)[j].mean())
+            list_p.append((sy_grid*100)[j].mean())
         if cp == 0:
             c = 'k'
+            zo = 10
+        else:
+            zo=0
         if cp == 1 :
             c = 'grey'
         if cp > 1:
             c = colors[cp]
-        axp.plot(list_p, list_z, color=c)
+        axp.plot(list_p, list_z, color=c, label=str(decay_k), zorder=zo)
         print(np.array(list_p).mean())
         
         cp += 1
     
     # axp.set_xscale('log')
     axp.invert_yaxis()
-    axp.set_xlim(0, 60)
-    # axp.set_ylim(1000, 0)
+    axp.set_xlim(0, 50)
+    axp.set_ylim(1000, 0)
+    
+    axp.xaxis.tick_top()
+    axp.set_xlabel('θ [%]')
+    axp.xaxis.set_label_position('top') 
+    axp.set_ylabel('Depth [m]')
+    # axp.set_xscale('log')
+    axp.spines[['right', 'bottom']].set_visible(False)
+    axp.tick_params(right=False)
+    axp.legend(loc='lower right', frameon=False)
+    
+    figp.savefig(fig_path+'decay_p_'+str(i)+'.png', dpi=300, bbox_inches='tight')
 
-#%% RESUME P
+begin_by = fig_path+'decay_p_'
+filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+images = []
+for filename in filenames:
+    images.append(imageio.imread(filename))
+gif_name = 'decay_p'
+imageio.mimsave(fig_path+gif_name+'.gif', images,
+                duration=10, loop=0)
+
+#%% DATAFRAME COND PORO
 
 dk_max = pd.DataFrame()
 dk_mean = pd.DataFrame()
@@ -931,10 +968,10 @@ for i in range(17):
     print(i)
     
     start = i
-    stop = -1 
+    # stop = -1 
     step = 17
-    list_p_selects = list_model_name[start:stop:step]
-    list_p_flowmodel = list_flow_model[start:stop:step]
+    list_p_selects = list_model_name[start::step]
+    list_p_flowmodel = list_flow_model[start::step]
     figp, axp = plt.subplots(1, 1, figsize=(3, 4))
     
     n = 12
@@ -995,13 +1032,85 @@ for i in range(17):
     axp.set_xlim(0, 60)
     # axp.set_ylim(1000, 0)
     
-#%% F
+#%% PLOT COND PORO
 
-dk_max.T.plot(lw=0, marker='o')
-dk_mean.T.plot(lw=0, marker='o')
+dkmax = dk_max.T
+dkmean = dk_mean.T
+dpmax = dp_max.T
+dpmean = dp_mean.T
 
-dp_max.T.plot(lw=0, marker='o')
-dp_mean.T.plot(lw=0, marker='o')
+# dkmax = dk_max
+# dkmean = dk_mean
+# dpmax = dp_max
+# dpmean = dp_mean
+
+fig, ax = plt.subplots(1, 1, figsize=(5, 3))
+n = 17
+colors = pl.cm.plasma(np.linspace(0,1,n))
+for i in range(17):
+    ax.plot(dkmean.index, dkmean[i], marker='_', mew=2,
+            ms=10, lw=0, c='dodgerblue', label=int(round(dkmax[i][0],2)))
+    ax.plot(dkmax.index, dkmax[i], marker='o',
+            ms=5, lw=0, c='k', label=int(round(dkmax[i][0],2)))
+ax.set_xticks(np.array([1,2,3,4,5,6,7,8,9,10,11,12])-1)
+ax.set_xticklabels([1,2,3,4,5,6,7,8,9,10,11,12])
+ax.xaxis.tick_bottom()
+plt.tick_params(
+    axis='y',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    bottom=True,      # ticks along the bottom edge are off
+    top=False,         # ticks along the top edge are off
+    right=False,
+    labelbottom=True) # labels along the bottom edge are off
+ax.set_xlabel('Cases')
+ax.set_ylabel('K [m/s]')
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(right=False)
+ax.set_ylim(1e-8,1e-5)
+ax.set_yscale('log')
+ax.text(0.5,0.3, 'Mean', transform=ax.transAxes, c='dodgerblue')
+ax.text(0.6,0.7, 'Max', transform=ax.transAxes, c='k')
+fig.savefig(fig_path+'resume_kmeanmax_cases.png', dpi=300, bbox_inches='tight')
+
+fig, ax = plt.subplots(1, 1, figsize=(5, 3))
+n = 17
+colors = pl.cm.plasma(np.linspace(0,1,n))
+for i in range(17):
+    ax.plot(dpmean.index, dpmean[i], marker='s',
+            ms=3, lw=0, c=colors[i], label=int(round(dpmax[i][0],2)))
+ax.set_xticks(np.array([1,2,3,4,5,6,7,8,9,10,11,12])-1)
+ax.set_xticklabels([1,2,3,4,5,6,7,8,9,10,11,12])
+ax.xaxis.tick_bottom()
+ax.set_xlabel('Cases')
+ax.set_ylabel('θ mean [%]')
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(right=False)
+ax.legend(frameon=False, bbox_to_anchor=(1.2, 1.05))
+ax.set_ylim(0,50)
+fig.savefig(fig_path+'resume_pmean_cases.png', dpi=300, bbox_inches='tight')
+
+fig, ax = plt.subplots(1, 1, figsize=(5, 3))
+n = 17
+colors = pl.cm.plasma(np.linspace(0,1,n))
+for i in range(17):
+    ax.plot(dpmax.index, dpmax[i], marker='s',
+            ms=3, lw=0, c=colors[i], label=int(round(dpmax[i][0],2)))
+ax.set_xticks(np.array([1,2,3,4,5,6,7,8,9,10,11,12])-1)
+ax.set_xticklabels([1,2,3,4,5,6,7,8,9,10,11,12])
+ax.xaxis.tick_bottom()
+ax.set_xlabel('Cases')
+ax.set_ylabel('θ max [%]')
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(right=False)
+ax.legend(frameon=False, bbox_to_anchor=(1.2, 1.05))
+ax.set_ylim(0,50)
+fig.savefig(fig_path+'resume_pmax_cases.png', dpi=300, bbox_inches='tight')
+
+# dk_max.T.plot(lw=0, marker='o')
+# dk_mean.T.plot(lw=0, marker='o')
+
+# dp_max.T.plot(lw=0, marker='o')
+# dp_mean.T.plot(lw=0, marker='o')
 
 #%% ENDPOINT MODELS
 
