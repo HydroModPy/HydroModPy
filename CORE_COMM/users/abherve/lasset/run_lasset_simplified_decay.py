@@ -7,69 +7,103 @@ Created on Wed Jan 26 10:49:18 2022
 
 #%% LIBRARIES MODULES
 
-# General
+# Default
 import sys
 from os.path import dirname, abspath
 DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
-import numpy as np
-import pandas as pd
-from osgeo import gdal, osr
-import matplotlib.pyplot as plt
-
 import glob
-import geopandas as gpd
-from shapely.geometry.polygon import LineString, Polygon
-from shapely.ops import linemerge, unary_union, polygonize
-from datetime import datetime
 import os
-import re
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-import scipy.stats as sp
-import shapely.geometry as SG
-import matplotlib.pylab as pl
-import math
-# import seaborn as sns
-from pyproj import Transformer
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.colors import Normalize
-from matplotlib import cm
-import matplotlib as mpl
-import rasterio
+from datetime import datetime
 import fnmatch
-import deepdish as dd
-import matplotlib.dates as mdates
-import flopy
 import random
 import pickle
-
-# Plot
-from matplotlib_scalebar.scalebar import ScaleBar
-from rasterio.plot import show
-from matplotlib.colors import LightSource
-
-# Gis
-import imageio
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = True
-
-# Warnings
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
 warnings.filterwarnings("ignore")
 # warnings.warn("You won't see this warning")
-                 
-#%HYDROMODPY MODULES
-                    
-from watershed import watershed_root, watershed_display, forcing
-from watershed.data import climatic
-from tools import toolbox, vtk
-from groundwater_flow import visualization, modflow_display
-from calibration import calib_root, calib_analysis, calib_basis
 
+# Perhaps default
+import numpy as np
+import pandas as pd
+
+# Add conda
+import geopandas as gpd # install matplotlib
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib import cm
+import matplotlib.pylab as pl
+import matplotlib.dates as mdates
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+# Add forge
+import gdal # conda install -c conda-forge gdal
+import rasterio # conda install -c conda-forge rasteriofrom rasterio.plot import show
+# import rioxarray # conda install -c conda-forge rioxarray
+
+# Add pip
+import deepdish as dd
+import flopy # pip install flopy==3.3.4
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = True
+import vedo
+import hydroeval
+import xarray
+import netCDF4
+import matplotlib_scalebar
+import contextily
+import pyproj # pip install pyproj (may be install before geopandas, or uninstall after geopandas)
+import selenium
+import pyshp
+import jupyter
+
+#%HYDROMODPY MODULES
+from watershed import forcing,\
+    geographic,\
+        hillslope,\
+            hydrodynamic,\
+                watershed_display,\
+                    watershed_root
+
+from watershed.data import climatic_display,\
+    climatic,\
+        drias,\
+            geology,\
+                hydrology,\
+                    hydrometry,\
+                        intermittency,\
+                            oceanic_display,\
+                                oceanic,\
+                                    piezometry
+                                    
+from tools import toolbox,\
+    vtk
+    
+from groundwater_flow import groundwaterflow,\
+    hs1d,\
+        modflow_display,\
+            modflow_results,\
+                modflow,\
+                    modflow6,\
+                        modpath,\
+                            visualization
+                            
+from calibration import calib_analysis,\
+    calib_basis,\
+        calib_dichotomy,\
+            calib_exploration,\
+                calib_objective_function,\
+                    calib_params,\
+                        calib_root,\
+                            calib_simplex,\
+                                global_parameters,\
+                                    tools_figures_additional
+                                    
 # LAYOUT PLOT
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -684,13 +718,14 @@ for model_name, success, flow_model in zip(list_model_name, list_of_success, lis
 # model_name = 'egu1_0_500.0-0-0.0058-30.0'
 
 # list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
-list_selects = list_model_name
+list_selects = list_model_name[16::17]
+list_flowmodel = list_flow_model[16::17]
 
 fig_cross = True
 
 # figt, axt = plt.subplots(1, 2, figsize=(3, 3))
 
-for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
+for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
     print(model_name)
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
     # try:
@@ -766,7 +801,15 @@ for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
         # linecollection = modelxsect.plot_grid()
         # hdobj = flopy.utils.HeadFile(fname)
         # head_data = hdobj.get_data()
-        cb = modelxsect.plot_array(hk_grid.array/24/3600, ax=ax, cmap='viridis', lw=0.1)
+        val = hk_grid.array/24/3600
+        for i in range(val.shape[0]):
+            # mask = val[i] == 0
+            # val[i][mask] = 1e-100
+            val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+        cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.1,
+                                    norm=mpl.colors.LogNorm(vmin=1e-10, 
+                                                            vmax=1e-5)
+                                   )
         # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
         #                             cmap='Blues', alpha=0.5, ax=axs[1])
         ax.set_title('Meshgrid Weat to East')
@@ -786,7 +829,7 @@ for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
         # linecollection = modelxsect.plot_grid()
         # hdobj = flopy.utils.HeadFile(fname)
         # head_data = hdobj.get_data()
-        cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1)
+        cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1, vmin=0, vmax=50)
         # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
         #                             cmap='Blues', alpha=0.5, ax=axs[1])
         ax.set_title('Meshgrid North to South')
@@ -796,6 +839,8 @@ for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
         fig.colorbar(cb)
         plt.tight_layout()
         # fig.set_size_inches(6, 3, forward=True)
+        
+        fig.savefig(fig_path+'cross_section_'+model_name+'.png', dpi=300, bbox_inches='tight')
         
 #%% GRAPH DECAY COND
 
@@ -1115,6 +1160,8 @@ fig.savefig(fig_path+'resume_pmax_cases.png', dpi=300, bbox_inches='tight')
 # dp_max.T.plot(lw=0, marker='o')
 # dp_mean.T.plot(lw=0, marker='o')
 
+#%% ---- PATHLINES POSTPROCESS
+
 #%% ENDPOINT MODELS
 
 # model_name = 'egu1_1_10.0-0.0-0.0857-26.68'
@@ -1125,7 +1172,7 @@ list_selects = list_model_name
 
 fig_cross = True
 
-for model_name, flow_model in zip(list_selects[12*5:], list_flow_model[12*5:]):
+for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
     print(model_name)
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
     # try:
@@ -1627,48 +1674,6 @@ for model_name in list_selects[:]:
                             model_name+'/'+'_pathlines/'+
                             'shp_x_particules_deep.shp')
 
-#%% VISU2D PATHLINES 
-
-fig, ax = plt.subplots(1,1, figsize=(3.8,2.8))
-
-geotx_p = BV.geographic.x_coord
-geoty_p = BV.geographic.y_coord
-geot_p = BV.geographic.geodata
-cols = geotx_p.shape[0]
-rows = geoty_p.shape[0]
-ext = []
-xarr = [0, cols]
-yarr = [0, rows]
-for px in xarr:
-    for py in yarr:
-        x = geotx_p[0] + (px * geot_p[1]) + (py * geot_p[2])
-        y = geoty_p[0] + (px * geot_p[4]) + (py * geot_p[5])
-        ext.append([x, y])
-max_time = []
-min_time = []
-for j in sp_particules:
-    max_time.append(np.max(np.log10(pth_data[j].time)))
-    min_time.append(np.min(np.log10(pth_data[j].time)))
-for j in sp_particules:
-    x = pth_data[j].x + ext[1][0]
-    y = pth_data[j].y + ext[1][1]
-    points = np.array([x, y]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    from matplotlib.collections import LineCollection
-    lc = LineCollection(segments, cmap='jet', alpha=0.5)
-    # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
-    lc.set_array(pth_data[j].time / 365) # t in years
-    lc.set_linewidth(2)
-    # if color_scale[i][0] == None:
-    #     lc.set_clim(1,np.max(max_time))
-    # else:
-    #     lc.set_clim(color_scale[i][0],color_scale[i][1])
-    line = ax.add_collection(lc)
-plt.show()
-# image.append(line)
-# basemap.append(0)
-# contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
-
 #%% ---- LOAD RESULTS
 
 #%% RECAP MODELS
@@ -1738,7 +1743,13 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
 
 df_explo.to_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
-#%% ---- MODELING PLOT
+#%% ---- MIX : MODELING NEW
+
+#%% XXX
+
+
+
+#%% ---- MIX : MODELING PLOT
 
 #%% CROSS DECAY HEAD 
 
@@ -7684,4 +7695,46 @@ Runof_averag.index = dates
 
 BV.forcing.update_runoff(select_period(Runof_averag, 2021, 2022), sim_state=sim_state)
 '''
+
+#%% VISU2D PATHLINES 
+
+fig, ax = plt.subplots(1,1, figsize=(3.8,2.8))
+
+geotx_p = BV.geographic.x_coord
+geoty_p = BV.geographic.y_coord
+geot_p = BV.geographic.geodata
+cols = geotx_p.shape[0]
+rows = geoty_p.shape[0]
+ext = []
+xarr = [0, cols]
+yarr = [0, rows]
+for px in xarr:
+    for py in yarr:
+        x = geotx_p[0] + (px * geot_p[1]) + (py * geot_p[2])
+        y = geoty_p[0] + (px * geot_p[4]) + (py * geot_p[5])
+        ext.append([x, y])
+max_time = []
+min_time = []
+for j in sp_particules:
+    max_time.append(np.max(np.log10(pth_data[j].time)))
+    min_time.append(np.min(np.log10(pth_data[j].time)))
+for j in sp_particules:
+    x = pth_data[j].x + ext[1][0]
+    y = pth_data[j].y + ext[1][1]
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    from matplotlib.collections import LineCollection
+    lc = LineCollection(segments, cmap='jet', alpha=0.5)
+    # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
+    lc.set_array(pth_data[j].time / 365) # t in years
+    lc.set_linewidth(2)
+    # if color_scale[i][0] == None:
+    #     lc.set_clim(1,np.max(max_time))
+    # else:
+    #     lc.set_clim(color_scale[i][0],color_scale[i][1])
+    line = ax.add_collection(lc)
+plt.show()
+# image.append(line)
+# basemap.append(0)
+# contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
 
