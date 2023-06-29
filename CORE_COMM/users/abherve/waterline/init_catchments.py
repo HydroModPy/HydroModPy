@@ -627,6 +627,54 @@ for idx, watershed_name in enumerate(watershed_names[:]):
     
 fig.tight_layout()
 
+#%% 
+
+d_path = 'C:/Users/ronan/OneDrive/UNINE/5_Waterline/Data/Greece/GreeceBasinMonthly1km.tif'
+src_ds = gdal.Open(d_path)
+if src_ds is not None: 
+    print ("band count: " + str(src_ds.RasterCount))
+raster = gdal.Open(d_path)
+for i in range(12):
+    band = raster.GetRasterBand(i+1)
+    date = band.GetDescription()
+    arr = band.ReadAsArray()
+    fig, ax = plt.subplots(1,1, figsize=(3,3), sharex=True, sharey=True)
+    im = ax.imshow(arr, vmin=0, vmax=50)
+    ax.set_title(date)
+    fig.colorbar(im)
+
+df = pd.DataFrame()    
+for i in range(src_ds.RasterCount):
+# for i in range(12):
+    band = raster.GetRasterBand(i+1)
+    date = band.GetDescription().split('_')[-1]
+    arr = band.ReadAsArray()
+    df.loc[i, 'date'] = date
+    df.loc[i, '1km'] = np.nanmean(arr)
+from datetime import datetime
+# dates = datetime.strptime(df.date, "%Y-%m-%d")
+df.date = pd.to_datetime(df.date)
+df = df.set_index('date')
+fig, ax = plt.subplots(1,1, figsize=(15,3), sharex=True, sharey=True)
+ax.plot(df)
+
+tws_path = "C:/Users/ronan/OneDrive/UNINE/5_Waterline/Data/Greece/COST-G_TWS/COST-G_TWS_greece.nc"
+import netCDF4 as nc
+ds = nc.Dataset(tws_path)
+print(ds)
+for var in ds.variables.values():
+    print(var)
+time = ds['time'][:]
+tws = ds['tws'][:]
+dft = pd.DataFrame()
+for i in range((tws.shape[0])):
+    dft.loc[i, 'time'] = time[i]
+    dft.loc[i, 'tws'] = np.nansum(tws[i])
+
+fig, ax = plt.subplots(1,1, figsize=(15,3), sharex=True, sharey=True)
+ax.plot(dft.time, dft.tws)
+# tws_sel = tws[0, 0:1, 0:1]
+
 #%% ---- NOTES
 
 

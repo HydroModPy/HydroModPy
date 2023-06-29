@@ -65,7 +65,7 @@ class Geographic:
         self.from_shp = from_shp
         self.from_xy = from_xy
         self.regio_path = regio_path
-        self.bottom_path = bottom_pfath
+        self.bottom_path = bottom_path
         
         if self.from_xy != []:
             x = self.from_xy[0]
