@@ -1,4 +1,4 @@
-name: hydromodpy
+name: hydromodpy1
 channels:
   - conda-forge
   - defaults
@@ -483,4 +483,4 @@ dependencies:
     - whiteboxgui==0.7.0
     - x21==0.3.3
     - xugrid==0.1.3
-prefix: C:\Users\ronan\anaconda3\envs\hydromodpy
+prefix: C:\Users\ronan\anaconda3\envs\hydromodpy1
