@@ -128,7 +128,7 @@ def run_example(out_path, regression_test=False):
     print('##### '+watershed_name.upper()+' #####')
     
     subbasin_path = True   # generate subbasins from stations or manual points
-    from_shp = None        # specify a path if process start from a given shapefile
+    from_shp = []        # specify a path if process start from a given shapefile
     from_dem = False       # True or False if the process start from a given DEM of xyz file
     cell_size = None       # specify new resolution from a given DEM or None
     from_xy = []
