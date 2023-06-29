@@ -166,7 +166,7 @@ if user == 'local':
     watershed_names = ['Lasset_decay']
     code_names = ['?']
 
-user = 'tower'
+# user = 'tower'
     
 if user == 'tower':
     # dem_name = 'BDALTI_09_75m.tif'
@@ -361,7 +361,7 @@ ax.plot(hsB.index, hsB.w)
 ######################
 # dicot_name = 'egu1'
 # dicot_name = 'oneplot'
-dicot_name = 'explor1'
+dicot_name = 'explor2'
 ######################
 
 # 12 cases :
@@ -537,6 +537,7 @@ df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv',
 
 ######################
 typ = 'explor1'
+typ = 'explor2'
 ######################
 
 box=True
@@ -578,7 +579,7 @@ BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
 
-typ = 'explor1'
+typ = 'explor2'
 
 run = True
 
