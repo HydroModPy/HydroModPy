@@ -10,7 +10,7 @@ import os
 
 #HydroModPy modules
 import modflow
-import hs1d
+# import hs1d
 
 #%% CLASS
 
@@ -67,15 +67,15 @@ class GroundwaterFlow(abc.ABC):
         """
         
         if program == 'modflow':
-            modflow.Modflow(geographic,
+            Modflow(geographic,
                  climatic=climatic, lay_number=lay_number, thick=thick,
                  bottom = bottom, thick_exp=thick_exp, hyd_cond=hyd_cond, porosity=porosity, 
                  sea_level=sea_level, cond_decay=cond_decay,
                  time_step=time_step, model_name=model_name, 
                  model_folder=model_folder, 
                  exe = exe)
-        if program == 'hs1d':
-            hs1d
+        # if program == 'hs1d':
+        #     hs1d
 
     #%% Abstract Base Class
     

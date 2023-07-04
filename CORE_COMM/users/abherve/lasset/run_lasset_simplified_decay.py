@@ -59,7 +59,7 @@ import matplotlib_scalebar
 import contextily
 import pyproj # pip install pyproj (may be install before geopandas, or uninstall after geopandas)
 import selenium
-import pyshp
+import shapefile
 import jupyter
 
 #%HYDROMODPY MODULES
@@ -166,7 +166,7 @@ if user == 'local':
     watershed_names = ['Lasset_decay']
     code_names = ['?']
 
-# user = 'tower'
+user = 'tower'
     
 if user == 'tower':
     # dem_name = 'BDALTI_09_75m.tif'
@@ -361,7 +361,8 @@ ax.plot(hsB.index, hsB.w)
 ######################
 # dicot_name = 'egu1'
 # dicot_name = 'oneplot'
-dicot_name = 'explor2'
+dicot_name = 'explor1'
+# dicot_name = 'explor2'
 ######################
 
 # 12 cases :
@@ -537,7 +538,7 @@ df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv',
 
 ######################
 typ = 'explor1'
-typ = 'explor2'
+# typ = 'explor2'
 ######################
 
 box=True
@@ -578,8 +579,6 @@ BV.hydrodynamic.update_thick_exp(1.25) # 1
 BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
-
-typ = 'explor2'
 
 run = True
 
@@ -656,6 +655,7 @@ dd.io.save(h5file, dictio)
 #%% RELOAD MODELS
 
 typ = 'explor1'
+# typ = 'explor2'
 
 h5file = simulations_folder+'/'+'list_'+typ
 d = dd.io.load(h5file)
@@ -1011,6 +1011,8 @@ dk_mean = pd.DataFrame()
 dp_max = pd.DataFrame()
 dp_mean = pd.DataFrame()
 
+df_recap = pd.DataFrame()
+
 u = 0
 
 for i in range(17):
@@ -1075,12 +1077,22 @@ for i in range(17):
         dp_mean.loc[i,cp] = np.array(list_p).mean()
         
         cp += 1
-            
+    
+        df_recap.loc[u, 'model_name'] = model_name
+        df_recap.loc[u, 'dk_max'] = np.array(list_k).max()
+        df_recap.loc[u, 'dk_mean'] = np.array(list_k).mean()
+        df_recap.loc[u, 'dp_max'] = np.array(list_p).max()
+        df_recap.loc[u, 'dp_mean'] = np.array(list_p).mean()
+
+        u+=1
+    
     # axp.set_xscale('log')
     axp.invert_yaxis()
-    axp.set_xlim(0, 60)
+    axp.set_xlim(0, 50)
     # axp.set_ylim(1000, 0)
-    
+
+df_recap.to_csv(simulations_folder+'dfrecap_cond_poro_'+typ+'.csv', sep=';')    
+
 #%% PLOT COND PORO
 
 dkmax = dk_max.T
@@ -1287,12 +1299,16 @@ dic_res = {}
 for model_name in list_model_name[:]:
     
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
-        
+    
+    path_obs = data_path    
+    
     print(model_name)
 
     path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
     
-    path_rtd_obs= path_obs+'age_apparent_obs_C2_corrected.shp'
+    # path_rtd_obs= path_obs+'age_apparent_obs_C2_corrected.shp'
+    # path_rtd_obs= path_obs+'age_apparent_obs_C2_corrected_v1mod.shp'
+    path_rtd_obs= path_obs+'age_apparent_obs_C2_corrected_v2mod.shp'
     shp_obs = gpd.read_file(path_rtd_obs)
     shp_obs['geometry'] = shp_obs.geometry.buffer(100)
     # shp_obs = shp_obs[['ID_station', 'geometry']]
@@ -1362,11 +1378,14 @@ with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'wb') as handle:
     pickle.dump(dic_res, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # dd.io.save(simulations_folder+'/'+'_dic_res_RT_'+typ, dic_res)
-
+#
 #%% PATHLINES MODELS
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name
+
+filtered = list(filter(lambda score: score == str('explor1_6_0.0_0.0503-34.0_45.0-90.0'), list_model_name))
+list_selects = filtered
 
 for model_name in list_selects[:]:
 
@@ -1510,7 +1529,13 @@ for model_name in list_selects[:]:
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name[:]
 
+filtered = list(filter(lambda score: score == str('explor1_6_0.0_0.0503-34.0_45.0-90.0'), list_model_name))
+list_selects = filtered
+
 for model_name in list_selects[:]:
+
+    print(flow_model.dem.mean() - flow_model.zbot[9].mean()) 
+    lay_sep = 10 # 42 m
 
     shp_starting = gpd.read_file(simulations_folder+
                         model_name+'/'+'_pathlines/'+
@@ -1527,7 +1552,7 @@ for model_name in list_selects[:]:
     shp_particules = gpd.read_file(simulations_folder+
                         model_name+'/'+'_pathlines/'+
                         'particules_1000.shp')
-    
+
     ###### METHOD 1 : PARTIAL
     particleid = shp_particules['particleid'].unique()
     shalid = []
@@ -1537,9 +1562,9 @@ for model_name in list_selects[:]:
     for pid in particleid :
         print(pid, len(particleid))
         mask = shp_particules.loc[shp_particules['particleid']==pid]
-        if all(x < 40 for x in mask.k):
+        if all(x < lay_sep for x in mask.k):
             shalid.append(pid)
-        if any(x >= 40 for x in mask.k):
+        if any(x >= lay_sep for x in mask.k):
             deepid.append(pid)
             
     indices_layers_rdm = [random.sample(shalid, len(shalid)),
@@ -1550,7 +1575,7 @@ for model_name in list_selects[:]:
                                       model_name+'/'+model_name+'.mppth')
     pth_data = pthobj.get_alldata()
     
-    cond_lay = 40 # ==> approx. 40 meters
+    cond_lay = lay_sep # ==> approx. 40 meters
     compt = 0
     indices_layers = []
     superf_p = []
@@ -1649,6 +1674,9 @@ for model_name in list_selects[:]:
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
 list_selects = list_model_name[:]
 
+filtered = list(filter(lambda score: score == str('explor1_6_0.0_0.0503-34.0_45.0-90.0'), list_model_name))
+list_selects = filtered
+
 for model_name in list_selects[:]:
 
     shp_1000_particules = gpd.read_file(simulations_folder+
@@ -1690,6 +1718,8 @@ except:
 
 df_explo = pd.DataFrame()
 
+df_explofil = pd.DataFrame()
+
 # c=0
 cp = 0
 compt_model = 0
@@ -1716,6 +1746,7 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
                      
         path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
         res_dat = gpd.read_file(path_pathlines+'time_simobs.shp')
+        res_dat = res_dat.sort_values(by=['id'],ignore_index=True)
         
         df_explo.loc[cp,'model_name'] = model_name
         df_explo.loc[cp,'compt_model'] = compt_model
@@ -1723,6 +1754,13 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
         df_explo.loc[cp,'bottom_cal'] = bottom_cal
         df_explo.loc[cp,'koptim_cal'] = koptim_cal
         df_explo.loc[cp,'porosity_value'] = porosity_value
+        
+        df_explofil.loc[cp,'model_name'] = model_name
+        df_explofil.loc[cp,'compt_model'] = compt_model
+        df_explofil.loc[cp,'cond_decay_cal'] = cond_decay_cal
+        df_explofil.loc[cp,'bottom_cal'] = bottom_cal
+        df_explofil.loc[cp,'koptim_cal'] = koptim_cal
+        df_explofil.loc[cp,'porosity_value'] = porosity_value
                 
         for choice in ['mean','media','max','std']:
             for point in res_dat['id']:
@@ -1730,11 +1768,25 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
                 df_explo.loc[cp, point+'_sim_'+choice] = res_dat[res_dat['id']==point]['tsim_'+choice].values[0]
                 df_explo.loc[cp, point+'_comp_'+choice] = df_explo.loc[cp, point+'_sim_'+choice] / df_explo.loc[cp, point+'_obs']
         
+                df_explofil.loc[cp, point+'_obs'] =  res_dat[res_dat['id']==point]['tobs_mean'].values[0]
+                df_explofil.loc[cp, point+'_sim_'+choice] = res_dat[res_dat['id']==point]['tsim_'+choice].values[0]
+                df_explofil.loc[cp, point+'_comp_'+choice] = df_explofil.loc[cp, point+'_sim_'+choice] / df_explofil.loc[cp, point+'_obs']
+        
             RMSE = np.sqrt(np.nanmean((res_dat['tobs_mean']-res_dat['tsim_'+choice])**2))
             # RMSE = he.evaluator(he.rmse, ysim, yobs)
             # RMSE = mean_squared_error(yobs, ysim, squared=False)
             # print(RMSE)
             df_explo.loc[cp,'RMSE_'+choice] = RMSE
+            
+            # if np.isnan(res_dat.loc[5,'tsim_'+choice])
+            
+            # if res_dat['tsim_'+choice][:5].isna().sum() >= 1:
+            if res_dat['tsim_'+choice][:4].isna().sum() >= 1:
+                RMSE_fil = np.nan
+            else:
+                RMSE_fil = np.sqrt(np.nanmean((res_dat['tobs_mean']-res_dat['tsim_'+choice])**2))
+            
+            df_explofil.loc[cp,'RMSE_'+choice] = RMSE_fil
 
         cp += 1
     # c += 1
@@ -1744,11 +1796,511 @@ for cond_decay_cal, bottom_cal, koptim_cal in zip(list_cond_decay[:],
 
 df_explo.to_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 
+df_explofil.to_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
 #%% ---- MIX : MODELING NEW
 
-#%% XXX
+#%% V1 DICHOTOMY K FIGURE
 
+# Import K calibrated
+df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
+df = df[:]
+# Koptim = float('{:.1e}'.format(df.loc[0][1]))
+df['1/cond_decay'] = 1/df['cond_decay']
+df['1/cond_decay'][df['1/cond_decay']==np.inf] = np.nan
+df['Doptim'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = abs(df.Dso - df.Dos)
+# df['Dabs'] = (df.Dso - df.Dos)
+df['Dabs'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = (df.ind)
 
+# for i in df.index[2:3]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.1
+# for i in df.index[3:4]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.05
+# for i in df.index[8:9]:
+#     df.loc[df.index==i,'Dabs'] = df.loc[df.index==i,'Dabs']-16
+
+# df = df[1:]
+
+fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+ax.scatter(df[:1].k/24/3600, df[:1].Dabs, c=df[:1].cond_decay, s=100, 
+           marker='s', lw=2,
+           cmap=mpl.colors.ListedColormap('k'),
+           label=df[:1]['1/cond_decay'].values[0]
+                )
+ax.scatter(df[1:2].k/24/3600, df[1:2].Dabs, c=df[1:2].cond_decay, s=100, 
+           marker='o', lw=2,
+           cmap=mpl.colors.ListedColormap('gray'),
+           label='0'
+                )
+im = ax.scatter(df[2:].k/24/3600, df[2:].Dabs, c=1/df[2:].cond_decay, s=100, 
+                cmap='jet',
+                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
+                lw=2,
+                label=df['1/cond_decay']
+                
+                )
+# ax.legend()
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlabel('K [m/s]')
+ax.set_xlim(1e-8, 1e-5)
+ax.set_ylim(30, 80)
+ax.set_ylabel('$D_{optim}$ [m]')
+# cb = plt.colorbar()
+from matplotlib.ticker import LogFormatter 
+formatter = LogFormatter(10, labelOnlyBase=True) 
+cb = plt.colorbar(im, ax=ax,
+                  cax = fig.add_axes([0.95, 0.20, 0.03, 0.7]))
+for t in cb.ax.get_yticklabels():
+     t.set_fontsize(10)
+# cb.set_clim(10,500)
+# cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
+# cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
+cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
+
+fig.savefig(fig_path+'dichotomy_K.png', dpi=300, bbox_inches='tight')
+
+#%% V1 DICHOTOMY T FIGURE
+
+iDb =  'egu1'
+iDb =  'explor1'
+simul_list = sorted(glob.glob(simulations_folder+iDb+'*'), key=os.path.getmtime)
+
+sel = 40.0
+filtered = list(filter(lambda score: score.split('-')[-1] == str(sel), list_model_name))
+
+df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
+
+c = 0
+for model_name in filtered:
+    # Import K calibrated
+    Smod_path = simulations_folder + model_name + '/_watershed/_simulated_results.csv'
+    Smod_raw = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+    if c == 0:
+        df.loc[c, 'sat'] = 50 - Smod_raw['watertable_depth'].values[0]
+    else:
+        df.loc[c, 'sat'] = Smod_raw['watertable_elevation'].values[0]
+    c+=1
+
+df['T'] = (df['k']/24/3600) *  df['sat']
+
+df = df[:]
+# Koptim = float('{:.1e}'.format(df.loc[0][1]))
+df['1/cond_decay'] = 1/df['cond_decay']
+df['1/cond_decay'][df['1/cond_decay']==np.inf] = np.nan
+df['Doptim'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = abs(df.Dso - df.Dos)
+# df['Dabs'] = (df.Dso - df.Dos)
+df['Dabs'] = (df.Dso + df.Dos)/2
+# df['Dabs'] = (df.ind)
+
+# for i in df.index[2:3]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.1
+# for i in df.index[3:4]:
+#     df.loc[df.index==i,'k'] = df.loc[df.index==i,'k']+0.05
+# for i in df.index[8:9]:
+#     df.loc[df.index==i,'Dabs'] = df.loc[df.index==i,'Dabs']-16
+
+# df = df[1:]
+
+fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
+# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
+ax.scatter(df[:1]['T'], df[:1].Dabs, c=df[:1].cond_decay, s=100, 
+           marker='s', lw=2,
+           cmap=mpl.colors.ListedColormap('k'),
+           label=df[:1]['1/cond_decay'].values[0]
+                )
+ax.scatter(df[1:2]['T'], df[1:2].Dabs, c=df[1:2].cond_decay, s=100, 
+           marker='o', lw=2,
+           cmap=mpl.colors.ListedColormap('gray'),
+           label='0'
+                )
+im = ax.scatter(df[2:]['T'], df[2:].Dabs, c=1/df[2:].cond_decay, s=100, 
+                cmap='jet',
+                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
+                lw=2,
+                label=df['1/cond_decay']
+                
+                )
+# ax.legend()
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlabel('T [m²/s]')
+ax.set_xlim(1e-5, 1e-2)
+ax.set_ylim(30, 80)
+ax.set_ylabel('$D_{optim}$ [m]')
+# cb = plt.colorbar()
+from matplotlib.ticker import LogFormatter 
+formatter = LogFormatter(10, labelOnlyBase=True) 
+cb = plt.colorbar(im, ax=ax,
+                  cax = fig.add_axes([0.95, 0.20, 0.03, 0.7]))
+for t in cb.ax.get_yticklabels():
+     t.set_fontsize(10)
+# cb.set_clim(10,500)
+# cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
+# cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
+cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
+
+fig.savefig(fig_path+'dichotomy_T.png', dpi=300, bbox_inches='tight')
+
+#%% V1 RMSE MODELS
+
+choice = 'mean'
+
+df_recap = pd.read_csv(simulations_folder+'dfrecap_cond_poro_'+typ+'.csv', sep=';')
+
+# df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
+df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
+df_mix = df_explo.merge(df_recap, on='model_name', how='inner')
+
+# df_explo = df_explo[2*10:5*10]
+# df_explo = df_explo[:2*10]
+# df_explo = df_explo[5*10:8*10]
+# df_explo = df_explo[8*10:]
+
+fig, ax = plt.subplots(1,1, figsize=(4.5,3))
+id_compt_model = df_mix['compt_model'].unique()
+n = len(id_compt_model)
+cmap = cm.get_cmap('jet', n)
+colors = pl.cm.jet(np.linspace(0,1,n))
+for i, ind in enumerate(id_compt_model):
+    mask = df_mix[df_mix['compt_model']==ind]
+    label = round(1/mask['cond_decay_cal'].values[0], 1)
+    color=colors[i]
+    if ind == 0:
+        label = 'constant'
+        color='k'
+    if ind == 1:
+        label = 'flat'
+        color='dimgray'
+    # if i == 11:
+    ax.plot(mask['dp_max'], mask['RMSE_'+choice],
+            lw=2,
+            color=color, marker='o', ms=3,
+            label=label)
+# ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlabel('θ max [%]')
+ax.set_ylabel('$RMSE_{norm}$ [-]')
+ax.legend(loc='best', ncol=2, prop={'size': 6}, frameon=False)
+ax.set_xlim(0,50)
+
+fig.savefig(fig_path+'RMSE_poro max.png', dpi=300, bbox_inches='tight')
+
+fig, ax = plt.subplots(1,1, figsize=(4.5,3))
+id_compt_model = df_mix['compt_model'].unique()
+n = len(id_compt_model)
+cmap = cm.get_cmap('jet', n)
+colors = pl.cm.jet(np.linspace(0,1,n))
+for i, ind in enumerate(id_compt_model):
+    mask = df_mix[df_mix['compt_model']==ind]
+    label = round(1/mask['cond_decay_cal'].values[0], 1)
+    color=colors[i]
+    if ind == 0:
+        label = 'constant'
+        color='k'
+    if ind == 1:
+        label = 'flat'
+        color='dimgray'
+    # if i == 11:
+    ax.plot(mask['dp_mean'], mask['RMSE_'+choice]/42,
+            lw=2,
+            color=color, marker='o', ms=3,
+            label=label)
+# ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlabel('θ mean [%]')
+ax.set_ylabel('$RMSE_{norm}$ [-]')
+ax.legend(loc='best', ncol=2, prop={'size': 6}, frameon=False)
+ax.set_xlim(0,25)
+
+fig.savefig(fig_path+'RMSE_poro mean.png', dpi=300, bbox_inches='tight')
+
+# ax.set_xlim(0.2,20)
+# ax.set_ylim(10,100)
+
+#%% V1 XZ SIM/OBS EACH SPRINGS
+
+choice = 'max'
+
+# choice = 'media'
+
+df_recap = pd.read_csv(simulations_folder+'dfrecap_cond_poro_'+typ+'.csv', sep=';')
+
+# df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
+df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
+df_mix = df_explo.merge(df_recap, on='model_name', how='inner')
+
+df_explo = df_mix.copy()
+
+for point in res_dat['id']:
+    
+    # if (point == 'S03') | (point == 'S27'):
+
+    fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
+    id_compt_model = df_explo['compt_model'].unique()
+    n = len(id_compt_model)
+    cmap = cm.get_cmap('jet', n)
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    for i, ind in enumerate(id_compt_model):
+        mask = df_explo[df_explo['compt_model']==ind]
+        label = round(1/mask['cond_decay_cal'].values[0], 1)
+        color=colors[i]
+        if i == 0:
+            label = 'constant'
+            color='k'
+        if i == 1:
+            label = 'flat'
+            color='dimgray'
+        ax.plot(mask['dp_max'], mask[point+'_comp_'+choice],
+                color=color, marker='o', ms=4, mec='none',
+                label=label)
+    # ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('θ max [%]')
+    ax.set_ylabel(point+'sim / '+point+'obs')
+    ax.legend(loc='best', ncol=2, prop={'size': 4}, frameon=False)
+    ax.set_xlim(0,50)
+    ax.set_ylim(1e-2,1e2)
+    ax.axhline(y=1, color='k', ls='--', lw=2)
+    
+    fig.savefig(fig_path+'SIMvsOBS_poro max'+point+'.png', dpi=300, bbox_inches='tight')
+
+for point in res_dat['id']:
+    
+    # if (point == 'S03') | (point == 'S27'):
+
+    fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
+    id_compt_model = df_explo['compt_model'].unique()
+    n = len(id_compt_model)
+    cmap = cm.get_cmap('jet', n)
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    for i, ind in enumerate(id_compt_model):
+        mask = df_explo[df_explo['compt_model']==ind]
+        label = round(1/mask['cond_decay_cal'].values[0], 1)
+        color=colors[i]
+        if i == 0:
+            label = 'constant'
+            color='k'
+        if i == 1:
+            label = 'flat'
+            color='dimgray'
+        ax.plot(mask['dp_mean'], mask[point+'_comp_'+choice],
+                color=color, marker='o', ms=4, mec='none',
+                label=label)
+    # ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('θ mean [%]')
+    ax.set_ylabel(point+'sim / '+point+'obs')
+    ax.legend(loc='best', ncol=2, prop={'size': 4}, frameon=False)
+    ax.set_xlim(0,50)
+    ax.set_ylim(1e-2,1e2)
+    ax.axhline(y=1, color='k', ls='--', lw=2)
+    
+    fig.savefig(fig_path+'SIMvsOBS_poro mean'+point+'.png', dpi=300, bbox_inches='tight')
+
+#%% V1 XZ SIM/OBS ALL SPRINGS
+
+choice = 'mean'
+
+df_recap = pd.read_csv(simulations_folder+'dfrecap_cond_poro_'+typ+'.csv', sep=';')
+
+# df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
+df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
+df_mix = df_explo.merge(df_recap, on='model_name', how='inner')
+
+df_explo = df_mix.copy()
+
+fig, ax = plt.subplots(1,1, figsize=(3.8,2.8))
+id_compt_model = df_explo['compt_model'].unique()
+n = len(id_compt_model)
+cmap = cm.get_cmap('spring_r', n)
+colors = pl.cm.jet(np.linspace(0,1,n))
+for i, ind in enumerate(id_compt_model):
+    res_mix = pd.DataFrame()
+    mask = df_explo[df_explo['compt_model']==ind]
+    label = round(1/mask['cond_decay_cal'].values[0], 1)
+    color=colors[i]
+    if i == 0:
+        label = 'constant'
+        color='k'
+    if i == 1:
+        label = 'flat'
+        color='dimgray'
+    for point in res_dat['id']:
+        res_mix['dp_mean'] = list(mask['dp_mean'])
+        res_mix[point+'_comp_'+choice] = list(mask[point+'_comp_'+choice])
+    res_mix['all_mean'] = res_mix.iloc[:,1:].mean(axis=1)
+
+    ax.plot(res_mix['dp_mean'], 
+            res_mix['all_mean'], lw=1.5,
+            color=color, marker='o', ms=4, mec='none',
+            label=label)
+# ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('θ mean [%]')
+ax.set_ylabel('tsim / '+'tobs [-]')
+# ax.legend(loc='upper left', ncol=2)
+ax.set_xlim(0,50)
+ax.set_ylim(1e-2,1e2)
+ax.axhline(y=1, color='k', ls='--', lw=2)
+
+fig.savefig(fig_path+'SIMvsOBS_poro mean'+'_all'+'.png', dpi=300, bbox_inches='tight')
+
+fig, ax = plt.subplots(1,1, figsize=(3.8,2.8))
+id_compt_model = df_explo['compt_model'].unique()
+n = len(id_compt_model)
+cmap = cm.get_cmap('spring_r', n)
+colors = pl.cm.jet(np.linspace(0,1,n))
+for i, ind in enumerate(id_compt_model):
+    res_mix = pd.DataFrame()
+    mask = df_explo[df_explo['compt_model']==ind]
+    label = round(1/mask['cond_decay_cal'].values[0], 1)
+    color=colors[i]
+    if i == 0:
+        label = 'constant'
+        color='k'
+    if i == 1:
+        label = 'flat'
+        color='dimgray'
+    for point in res_dat['id']:
+        res_mix['dp_max'] = list(mask['dp_max'])
+        res_mix[point+'_comp_'+choice] = list(mask[point+'_comp_'+choice])
+    res_mix['all_mean'] = res_mix.iloc[:,1:].mean(axis=1)
+
+    ax.plot(res_mix['dp_max'], 
+            res_mix['all_mean'], lw=1.5,
+            color=color, marker='o', ms=4, mec='none',
+            label=label)
+# ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('θ max [%]')
+ax.set_ylabel('tsim / '+'tobs [-]')
+# ax.legend(loc='upper left', ncol=2)
+ax.set_xlim(0,50)
+ax.set_ylim(1e-2,1e2)
+ax.axhline(y=1, color='k', ls='--', lw=2)
+
+fig.savefig(fig_path+'SIMvsOBS_poro max'+'_all'+'.png', dpi=300, bbox_inches='tight')
+
+#%% V1 PLANCHA BOXPLOTS BY SPRINGS
+
+# choices = ['min','q10','q25','mean','media','q75','q90','max']
+choices = ['mean','media','q75','q90']
+
+df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
+with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'rb') as f:
+    dic_res = pickle.load(f)
+
+# for i in range(12):
+# mask = list(filter(lambda score: score.split('_')[1] == str(i), dic_res))
+
+# color_dict = dict(zip(sce_list, sce_color))
+         
+# from mycolorpy import colorlist as mcp
+# import numpy as np
+# color1=mcp.gen_color(cmap="winter",n=5)
+
+for cs in choices:
+    
+    print(cs)
+
+    fig, axs = plt.subplots(3,2, figsize=(6.5,7))
+    axs = axs.ravel()
+    
+    n = len(list_porosity)
+    cmap = cm.get_cmap('RdYlGn', n)
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    
+    for k, point in enumerate(res_dat['id']):
+                
+        ax = axs[k]
+        
+        for model_name in list_model_name[:]:
+            # print(model_name)
+            
+            por = float(model_name.split('_')[-2].split('-')[1])
+            mod = int(model_name.split('_')[1])+1
+            
+            t=dic_res[model_name]
+            tp=t[t['id']==point]
+            
+            ax.scatter(mod, tp['tsim_'+cs], cmap='RdYlGn_r', c=por, lw=0.5,
+                       norm=mpl.colors.LogNorm(vmin=0.3, vmax=30))
+            ax.set_title(point)
+            
+            ax.set_xlim(0, 13)
+            ax.set_ylim(0.1, 1000)
+            ax.set_yscale('log')
+            ax.set_xticks([1,2,3,4,5,6,7,8,9,10,11,12])
+            ax.set_xticklabels([1,2,3,4,5,6,7,8,9,10,11,12])
+            
+            ax.axhline(y=40, ls='--', c='k')
+            
+        fig.suptitle(cs.upper())
+        fig.tight_layout()
+        
+        # fig.savefig(simulations_folder+'/_figures/'+
+        #             'boxplot_'+cs+'.png', dpi=300, bbox_inches='tight')
+
+    fig.savefig(fig_path+'plancha_recap_'+cs+'.png', dpi=300, bbox_inches='tight')
+
+#%% V1 ONE BOXPLOT FOR ONE MODEL
+
+# df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
+df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
+with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'rb') as f:
+    dic_res = pickle.load(f)
+
+# list_selects = ['egu1_3_15.0-0.0-0.1908-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+list_selects = list_model_name
+# list_selects = ['explor1_6_0.0_0.0503-34.0_45.0-90.0']
+
+for model_name in list_selects[:]:
+
+    dic_sel = dic_res[model_name]
+    dic_sel = dic_sel.sort_values(by=['id'],ignore_index=True)
+    
+    fig, ax = plt.subplots(1,1, figsize=(4,3))
+    
+    ax.vlines(dic_sel.id, dic_sel.tsim_min, dic_sel.tsim_q10, lw=1.5, color='grey', 
+              zorder=-1,
+              )
+    ax.vlines(dic_sel.id, dic_sel.tsim_q90, dic_sel.tsim_max, lw=1., color='grey', 
+              zorder=-1,
+              )
+    
+    ax.scatter(dic_sel.id, dic_sel.tobs_mean, marker='o', c='w', s=60, lw=1.5)
+    
+    ax.vlines(dic_sel.id, dic_sel.tsim_q10, dic_sel.tsim_q90, alpha=0.75,
+              lw=6, color='grey', zorder=-1)
+    
+    # ax.scatter(dic_sel.id, dic_sel.tsim_q10, marker='_', c='k', zorder=2, s=50, lw=2)
+    # ax.scatter(dic_sel.id, dic_sel.tsim_q90, marker='_', c='k', zorder=2, s=50, lw=2)
+    # ax.scatter(dic_sel.id, dic_sel.tsim_media, marker='^', c='darkorange', s=40)
+    ax.scatter(dic_sel.id, dic_sel.tsim_mean, marker='^', c='violet', s=70, lw=1.5)
+    ax.scatter(dic_sel.id, dic_sel.tsim_min, marker='_', c='grey', s=20)
+    ax.scatter(dic_sel.id, dic_sel.tsim_max, marker='_', c='grey', s=20)
+    
+    ax.set_ylim(0.1, 1000)
+    
+    ax.set_title(model_name, fontsize=9)
+    # ax.set_ylim(0.1,100)
+    ax.set_yscale('log')
+    
+    fig.savefig(fig_path+'sim and obs'+model_name+'.png', dpi=300, bbox_inches='tight')
 
 #%% ---- MIX : MODELING PLOT
 
@@ -1956,7 +2508,7 @@ iDb =  'egu1'
 iDb =  'explor1'
 simul_list = sorted(glob.glob(simulations_folder+iDb+'*'), key=os.path.getmtime)
 
-sel = 0.3
+sel = 40.0
 filtered = list(filter(lambda score: score.split('-')[-1] == str(sel), list_model_name))
 
 df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
@@ -2255,7 +2807,7 @@ for i, ind in enumerate(id_compt_model):
     ax.plot(mask['porosity_value']*100, mask['RMSE_'+choice], lw=2,
             color=color, marker='o',
             label=label)
-ax.set_xscale('log')
+# ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel('Porosity')
 ax.set_ylabel('RMSE')
@@ -2265,6 +2817,8 @@ ax.legend(loc='best', ncol=2, )
 
 fig, ax = plt.subplots(1,1, figsize=(5,4))
 id_compt_model = df_explo['compt_model'].unique()
+id_compt_model = id_compt_model[2:7]
+df_explo = df_explo[17*2:17*7]
 n = len(id_compt_model)
 cmap = cm.get_cmap('jet', n)
 colors = pl.cm.jet(np.linspace(0,1,n))
@@ -2287,6 +2841,7 @@ ax.set_yscale('log')
 ax.set_xlabel('Porosity')
 ax.set_ylabel('RMSE')
 ax.legend(loc='best', ncol=2, )
+ax.set_ylim(10, 100)
 # ax.set_ylim(20, 100)
 # ax.set_xlim(0.2,20)
 # ax.set_ylim(10,100)
@@ -2295,38 +2850,47 @@ ax.legend(loc='best', ncol=2, )
 
 choice = 'mean'
 
-df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
+choice = 'media'
+
+df_recap = pd.read_csv(simulations_folder+'dfrecap_cond_poro_'+typ+'.csv', sep=';')
+
+# df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
+df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
+
+df_mix = df_explo.merge(df_recap, on='model_name', how='inner')
+
+df_explo = df_mix.copy()
 
 for point in res_dat['id']:
     
-    if (point == 'S03') | (point == 'S27'):
+    # if (point == 'S03') | (point == 'S27'):
 
-        fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
-        id_compt_model = df_explo['compt_model'].unique()
-        n = len(id_compt_model)
-        cmap = cm.get_cmap('jet', n)
-        colors = pl.cm.jet(np.linspace(0,1,n))
-        for i, ind in enumerate(id_compt_model):
-            mask = df_explo[df_explo['compt_model']==ind]
-            label = round(1/mask['cond_decay_cal'].values[0], 1)
-            color=colors[i]
-            if i == 0:
-                label = 'constant'
-                color='k'
-            if i == 1:
-                label = 'flat'
-                color='dimgray'
-            ax.plot(mask['porosity_value']*100, mask[point+'_comp_'+choice],
-                    color=color, marker='o', ms=4, mec='none',
-                    label=label)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        # ax.set_xlabel('Porosity')
-        # ax.set_ylabel(point+'sim / '+point+'obs')
-        # ax.legend(loc='upper left', ncol=2)
-        ax.set_xlim(0.3,30)
-        ax.set_ylim(1e-2,1e2)
-        ax.axhline(y=1, color='k', ls='--', lw=2)
+    fig, ax = plt.subplots(1,1, figsize=(3.5,2.5))
+    id_compt_model = df_explo['compt_model'].unique()
+    n = len(id_compt_model)
+    cmap = cm.get_cmap('jet', n)
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    for i, ind in enumerate(id_compt_model):
+        mask = df_explo[df_explo['compt_model']==ind]
+        label = round(1/mask['cond_decay_cal'].values[0], 1)
+        color=colors[i]
+        if i == 0:
+            label = 'constant'
+            color='k'
+        if i == 1:
+            label = 'flat'
+            color='dimgray'
+        ax.plot(mask['dp_mean'], mask[point+'_comp_'+choice],
+                color=color, marker='o', ms=4, mec='none',
+                label=label)
+    # ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('Porosity')
+    ax.set_ylabel(point+'sim / '+point+'obs')
+    # ax.legend(loc='upper left', ncol=2)
+    # ax.set_xlim(0.3,30)
+    ax.set_ylim(1e-2,1e2)
+    ax.axhline(y=1, color='k', ls='--', lw=2)
 
 #%% SIM/OBS ALL SPRINGS
 
@@ -2359,12 +2923,12 @@ for i, ind in enumerate(id_compt_model):
             res_mix['all_mean'], lw=1.5,
             color=color, marker='o', ms=4, mec='none',
             label=label)
-ax.set_xscale('log')
+# ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel('Porosity')
 ax.set_ylabel('tsim / '+'tobs')
 # ax.legend(loc='upper left', ncol=2)
-ax.set_xlim(0.3,30)
+ax.set_xlim(0,50)
 ax.set_ylim(1e-2,1e2)
 ax.axhline(y=1, color='k', ls='--', lw=2)
 
@@ -2715,6 +3279,7 @@ R_rea = BV.forcing.recharge * 1000
 r_rea = BV.forcing.runoff * 1000
 
 data_path_lasset = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/LASSET/data/"
+data_path_lasset = data_path
 
 if not "cdt" in globals():
     cdt = pd.read_csv(data_path_lasset+'data_ctd_lasset.dat',
@@ -2885,57 +3450,79 @@ plt.tight_layout()
 
 df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv', sep=';')
 
-list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
+# list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
 
-model_name = 'egu1_4_20.0-0.0-0.1359-10.8'
-koptim_cal = 0.1359
-porosity_value = 10.8 / 100
-cond_decay_cal = 1 / 20
-bottom_cal = 0
-thickness_value = 50
-######################
-typ= 'Q1'
-######################
+# model_name = 'egu1_4_20.0-0.0-0.1359-10.8'
+# koptim_cal = 0.1359
+# porosity_value = 10.8 / 100
+# cond_decay_cal = 1 / 20
+# bottom_cal = 0
+# thickness_value = 50
+# ######################
+# typ= 'Q1'
+# ######################
 
-model_name = 'egu1_8_100.0-0.0-0.0211-3.9'
-koptim_cal = 0.0211
-porosity_value = 3.9 / 100
-cond_decay_cal = 1 / 100
+# model_name = 'egu1_8_100.0-0.0-0.0211-3.9'
+# koptim_cal = 0.0211
+# porosity_value = 3.9 / 100
+# cond_decay_cal = 1 / 100
+# bottom_cal = 0
+# thickness_value = 50
+# #################
+# typ= 'Q2'
+# ######################
+
+# model_name = 'egu1_0_inf-None-0.0596-0.3'
+# koptim_cal = 0.0596
+# porosity_value = 0.3 / 100
+# cond_decay_cal = 0
+# bottom_cal = None
+# thickness_value = 50
+# #################
+# typ= 'Q3'
+# ######################
+
+# model_name = 'egu1_3_15.0-0.0-0.1908-0.3'
+# koptim_cal = 0.1908
+# porosity_value = 0.3 / 100
+# cond_decay_cal = 1 / 15
+# bottom_cal = 0
+# thickness_value = 50
+# #################
+# typ= 'Q4'
+# ######################
+
+# model_name = 'egu1_3_15.0-0.0-0.1908-0.3'
+# koptim_cal = 0.1908
+# porosity_value = 0.1 / 100
+# cond_decay_cal = 1 / 15
+# bottom_cal = 0
+# thickness_value = 50
+# #################
+# typ= 'Q5'
+# ######################
+
+model_name = 'interm1_6_0.0_0.0503-34.0_45.0-90.0'
+koptim_cal = 0.0503
+porosity_value = 34 / 100
+cond_decay_cal = 1 / 45
+poro_decay_cal = 1 / 90
 bottom_cal = 0
 thickness_value = 50
 #################
-typ= 'Q2'
+typ= 'Qc'
 ######################
 
-model_name = 'egu1_0_inf-None-0.0596-0.3'
-koptim_cal = 0.0596
-porosity_value = 0.3 / 100
-cond_decay_cal = 0
-bottom_cal = None
-thickness_value = 50
-#################
-typ= 'Q3'
-######################
-
-model_name = 'egu1_3_15.0-0.0-0.1908-0.3'
-koptim_cal = 0.1908
-porosity_value = 0.3 / 100
-cond_decay_cal = 1 / 15
-bottom_cal = 0
-thickness_value = 50
-#################
-typ= 'Q4'
-######################
-
-model_name = 'egu1_3_15.0-0.0-0.1908-0.3'
-koptim_cal = 0.1908
-porosity_value = 0.1 / 100
-cond_decay_cal = 1 / 15
-bottom_cal = 0
-thickness_value = 50
-#################
-typ= 'Q5'
-######################
+# model_name = 'interm1_4_0.0_0.1359-49.0_20.0-40.0'
+# koptim_cal = 0.1359
+# porosity_value = 49 / 100
+# cond_decay_cal = 1 / 20
+# poro_decay_cal = 1 / 40
+# bottom_cal = 0
+# thickness_value = 50
+# #################
+# typ= 'Qb'
+# ######################
 
 iD = typ
 
@@ -2965,6 +3552,7 @@ BV.hydrodynamic.update_thickness(thickness_value) # 30 / intervient pas si botto
 
 BV.hydrodynamic.update_bottom(bottom_cal) # None
 BV.hydrodynamic.update_cond_decay(cond_decay_cal) # 0
+BV.hydrodynamic.update_poro_decay(poro_decay_cal) # 0
 BV.hydrodynamic.update_hyd_cond(koptim_cal)
 BV.hydrodynamic.update_porosity(porosity_value)
 
@@ -2983,7 +3571,7 @@ BV.forcing.update_recharge(R, sim_state='transient')
 
 #%% INTERMITTENCY LAUNCH
 
-run = False
+run = True
 
 compt_model = 0
 
@@ -3195,7 +3783,7 @@ for watershed_name in watershed_names[:]:
                         compt_print = "{:02d}".format(compt)
                         print(compt_print)
 
-                        base_name = simulations_folder+'_figures/'+'map_intermittency/'
+                        base_name = fig_path+'v1_intermit/'
                         spec_name = 'map_interm_'+str(compt_print)
                         fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
                         
@@ -3208,7 +3796,7 @@ for watershed_name in watershed_names[:]:
                     sup+=12
 
     if gif == True:
-        begin_by = simulations_folder+'_figures/'+'map_intermittency/'+'map_interm_'
+        begin_by = fig_path+'v1_intermit/'+'map_interm_'
         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
         images = []
         for filename in filenames:
@@ -3219,7 +3807,7 @@ for watershed_name in watershed_names[:]:
 
 #%% CROSSANIM
 
-watershed_name = 'Lasset_egu'
+watershed_name = 'Lasset_decay'
 
 gif = True
 
@@ -3241,9 +3829,10 @@ BV = watershed_root.Watershed(watershed_name=watershed_name,
 dem = rasterio.open(BV.geographic.watershed_dem)
 dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
 
-list_path = sorted(glob.glob(simulations_folder+iD+'*'),
-                    key=os.path.getmtime, reverse=True)
-model_name = list_path[-1].split('\\')[-1]
+# list_path = sorted(glob.glob(simulations_folder+iD+'*'),
+#                     key=os.path.getmtime, reverse=True)
+# model_name = list_path[-1].split('\\')[-1]
+model_name = 'Qc_0_0.0-0-0.0503-0.34'
 
 mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
 
@@ -3402,7 +3991,7 @@ for key in dict(itertools.islice(watertable_elevation.items(),
     
     plt.tight_layout()
 
-    base_name = simulations_folder+'_figures/'+'cross_intermittency/'
+    base_name = fig_path+'v1_intermit/'
     spec_name = 'cross_interm_'+str(compt_print)
     fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
     
@@ -3421,7 +4010,7 @@ if gif == True:
     list_path = sorted(glob.glob(simulations_folder+iD+'*'),
                         key=os.path.getmtime)
     model_name = list_path[-1].split('\\')[-1]
-    begin_by = simulations_folder+'_figures/'+'cross_intermittency/'+'cross_interm_'
+    begin_by = fig_path+'v1_intermit/'+'cross_interm_'
     filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
     images = []
     for filename in filenames:
@@ -3532,12 +4121,12 @@ for simul in simul_list:
     
         plt.tight_layout()
         
-        base_name = simulations_folder+'_figures/'+'graph_intermittency/'
+        base_name = fig_path+'v1_intermit/'
         spec_name = 'graph_interm_'+str(i)
         fig.savefig(base_name+spec_name+'.png', dpi=300, bbox_inches='tight')
         
 if gif == True:
-    begin_by = simulations_folder+'_figures/'+'graph_intermittency/'+'graph_interm_'
+    begin_by = fig_path+'v1_intermit/'+'graph_interm_'
     filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
     images = []
     for filename in filenames:

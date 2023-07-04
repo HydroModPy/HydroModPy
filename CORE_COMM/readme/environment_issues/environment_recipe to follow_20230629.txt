@@ -60,7 +60,7 @@ import matplotlib_scalebar											0.8.1
 import contextily												1.3.0
 import pyproj (installed old version with geopandas, so need to be updated: uninstall and pip)			3.5.0	
 import selenium													4.10.0
-import pyshp (may be a problem with this one)									2.3.1
+import shapefile (pip install pyshp)										2.3.1
 import jupyter													1.0.0
 
 # 7 - Import HydroModPy modules needed
