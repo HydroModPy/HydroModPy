@@ -532,12 +532,12 @@ class Modflow():
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
         
         # SYNTHETIC CASE: FIXED HEAD ON THE LEFT BORDER (square domain), no longer actively used
-        if  isinstance(self.bc_left,(int,float)) == True:
+        if  isinstance(self.bc_left,(int,float)) == True: ### BE CAREFUL !
            self.iboundData[:,:,0] = -1                      
            self.strtData[:,:,0] = self.bc_left
        
         # SYNTHETIC CASE: FIXED HEAD ON THE RIGHT BORDER (square domain), no longer actively used
-        if  isinstance(self.bc_right,(int,float)) == True:
+        if  isinstance(self.bc_right,(int,float)) == True: ### BE CAREFUL !
            self.iboundData[:,:,-1] = -1
            self.strtData[:,:,-1] = self.bc_right
            

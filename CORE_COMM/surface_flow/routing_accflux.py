@@ -27,7 +27,7 @@ class RoutingAccflux:
         self.extraction_folder = extraction_folder
                
         self.watershed_direc_surflow = geographic.watershed_direc
-        self.watershed_buff_fill_surflow = geographic.watershed_buff_fill      
+        self.watershed_buff_fill_surflow = geographic.watershed_buff_fill
         
         try:
             self.watershed_direc_surflow = geographic.watershed_box_buff_direc # geographic.watershed_direc

@@ -9,7 +9,7 @@ import abc
 import os
 
 #HydroModPy modules
-import modflow
+# import modflow
 # import hs1d
 
 #%% CLASS

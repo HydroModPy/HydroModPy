@@ -402,6 +402,9 @@ class Geographic:
         self.watershed_acc = self.gis_path + 'watershed_acc.tif'
         wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
         
+        self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+        shutil.copyfile(self.watershed_fill, self.watershed_buff_fill)  
+        
         """
         # Create shapefile
         self.watershed_shp = self.gis_path + 'watershed.shp'

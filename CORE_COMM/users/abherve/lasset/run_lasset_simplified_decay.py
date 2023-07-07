@@ -179,7 +179,7 @@ if user == 'tower':
     out_path = "D:/Users/abherve/SIMULATIONS/LASSET/"
     # Figure folder outputs
     # figsim_folder = 'D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/8_paper/hysteresis/figures2/_outputs/'
-    fig_path = "D:/Users/abherve/SIMULATIONS/LASSET/_figures/"
+    fig_path = "D:/Users/abherve/SIMULATIONS/LASSET/_figures/v1/"
     #############################################################
 
     dems_path = data_path # reginal DEM or conceptual DEM
@@ -538,7 +538,7 @@ df = pd.read_csv(BV.calibration_folder+'/'+dicot_name+'_'+watershed_name+'.csv',
 
 ######################
 typ = 'explor1'
-# typ = 'explor2'
+# typ = 'explorgrid'
 ######################
 
 box=True
@@ -576,11 +576,12 @@ list_flow_model = []
 # Update properties
 BV.hydrodynamic.update_nlay(25) # 1
 BV.hydrodynamic.update_thick_exp(1.25) # 1
+# BV.hydrodynamic.update_thick_exp(1) # 1
 BV.hydrodynamic.update_thickness(50) # 30 / intervient pas si bottom != None
 
 #%% POROSITY LAUNCH
 
-run = True
+run = False
 
 # list_cond_decay = [0.002]
 # list_bottom[0] = 0
@@ -1007,15 +1008,21 @@ imageio.mimsave(fig_path+gif_name+'.gif', images,
 
 dk_max = pd.DataFrame()
 dk_mean = pd.DataFrame()
+dkw_mean = pd.DataFrame()
 
 dp_max = pd.DataFrame()
 dp_mean = pd.DataFrame()
+dpw_mean = pd.DataFrame()
+dpw2_mean = pd.DataFrame()
+dpw3_mean = pd.DataFrame()
 
 df_recap = pd.DataFrame()
 
 u = 0
 
 for i in range(17):
+# for i in [16]:
+# for i in range(1):
     print(i)
     
     start = i
@@ -1052,8 +1059,10 @@ for i in range(17):
         # sy_grid = mf.upw.sy
         sy_grid = flow_model.ps
         # sr_model = flopy.utils.reference.SpatialReference()
+        zbooot = flow_model.zbot
         
         zall = flow_model.dem - flow_model.zbot
+        
         list_z = []
         list_k = []
         list_p = []
@@ -1070,19 +1079,65 @@ for i in range(17):
         axp.plot(list_p, list_z, color=c)
         print(np.array(list_p).mean())
         
+        ### WEIGHTED
+        # zpond = zall * np.nan
+        zthick = zall * np.nan
+        for l in range(zall.shape[0]):
+            if l == 0:
+                # zpond[l] = zall[l] * sy_grid[l]
+                zthick[l] = zall[l]
+            if (l > 0) & (l < (zall.shape[0]-1)):
+                # zpond[l] = (zall[l+1] - zall[l]) * sy_grid[l]
+                zthick[l] = (zall[l+1] - zall[l])
+            if l == zall.shape[0]-1:
+                # zpond[l] = zall[l] * sy_grid[l]
+                zthick[l] = zall[l]
+        
+        k_pond = zall * np.nan
+        p_pond = zall * np.nan
+        list_kw = []
+        list_pw = []
+        for m in range(zall.shape[0]):
+            k_pond[m] = (hk_grid.array/24/3600)[m] * zthick[m]
+            p_pond[m] = (sy_grid*100)[m] * zthick[m]
+            list_kw.append(np.nansum(k_pond[m]) / np.nansum(zthick[m]))
+            list_pw.append(np.nansum(p_pond[m]) / np.nansum(zthick[m]))
+            # list_kw.append(np.nansum(k_pond[m]) / flow_model.dem)
+            # list_pw.append(np.nansum(p_pond[m]) / flow_model.dem)
+        print(np.array(list_pw).mean())
+        
+        if cp == 0 :
+            list_pw2 = np.nansum(p_pond) / np.nansum(zthick)
+            list_pw3 = np.nansum(p_pond) / np.nansum(zthick)
+        if cp > 0 :
+            list_pw2 = np.nansum(p_pond) / np.nansum(flow_model.dem)
+            list_pw3 = np.nansum(p_pond) / np.nansum(zthick)
+        print(list_pw2)
+        print(list_pw3)
+        
         dk_max.loc[i,cp] = np.array(list_k).max()
         dk_mean.loc[i,cp] = np.array(list_k).mean()
+        dkw_mean.loc[i,cp] = np.array(list_kw).mean()
         
         dp_max.loc[i,cp] = np.array(list_p).max()
         dp_mean.loc[i,cp] = np.array(list_p).mean()
+        dpw_mean.loc[i,cp] = np.array(list_pw).mean()
+        dpw2_mean.loc[i,cp] = list_pw2
+        dpw3_mean.loc[i,cp] = list_pw3
         
         cp += 1
     
         df_recap.loc[u, 'model_name'] = model_name
+        
         df_recap.loc[u, 'dk_max'] = np.array(list_k).max()
         df_recap.loc[u, 'dk_mean'] = np.array(list_k).mean()
+        df_recap.loc[u, 'dkw_mean'] = np.array(list_kw).mean()
+        
         df_recap.loc[u, 'dp_max'] = np.array(list_p).max()
         df_recap.loc[u, 'dp_mean'] = np.array(list_p).mean()
+        df_recap.loc[u, 'dpw_mean'] = np.array(list_pw).mean()
+        df_recap.loc[u, 'dpw2_mean'] = list_pw2
+        df_recap.loc[u, 'dpw3_mean'] = list_pw3
 
         u+=1
     
@@ -1131,7 +1186,7 @@ ax.set_ylim(1e-8,1e-5)
 ax.set_yscale('log')
 ax.text(0.5,0.3, 'Mean', transform=ax.transAxes, c='dodgerblue')
 ax.text(0.6,0.7, 'Max', transform=ax.transAxes, c='k')
-fig.savefig(fig_path+'resume_kmeanmax_cases.png', dpi=300, bbox_inches='tight')
+# fig.savefig(fig_path+'resume_kmeanmax_cases.png', dpi=300, bbox_inches='tight')
 
 fig, ax = plt.subplots(1, 1, figsize=(5, 3))
 n = 17
@@ -1148,7 +1203,7 @@ ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(right=False)
 ax.legend(frameon=False, bbox_to_anchor=(1.2, 1.05))
 ax.set_ylim(0,50)
-fig.savefig(fig_path+'resume_pmean_cases.png', dpi=300, bbox_inches='tight')
+# fig.savefig(fig_path+'resume_pmean_cases.png', dpi=300, bbox_inches='tight')
 
 fig, ax = plt.subplots(1, 1, figsize=(5, 3))
 n = 17
@@ -1165,7 +1220,7 @@ ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(right=False)
 ax.legend(frameon=False, bbox_to_anchor=(1.2, 1.05))
 ax.set_ylim(0,50)
-fig.savefig(fig_path+'resume_pmax_cases.png', dpi=300, bbox_inches='tight')
+# fig.savefig(fig_path+'resume_pmax_cases.png', dpi=300, bbox_inches='tight')
 
 # dk_max.T.plot(lw=0, marker='o')
 # dk_mean.T.plot(lw=0, marker='o')
@@ -1292,11 +1347,215 @@ for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
     #     print('ERROR '+model_name)
     #     pass
 
+#%% WEIGHTED INPUT
+
+list_selects = list_model_name
+
+fig_cross = True
+
+for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
+    print(model_name)
+    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+    # try:
+        
+    id_model = int(model_name.split('_')[1])
+            
+    ### MODEL ###
+    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+    # model_name = list_path[-1].split('\\')[-1]
+    mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+    modeldir = simulations_folder+model_name+'/'
+    namepath = model_name
+    
+    fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    # sy_grid = mf.upw.sy
+    sy_grid = flow_model.ps
+    # sr_model = flopy.utils.reference.SpatialReference()
+    
+    recharge = flow_model.rchData[0]
+    
+    import flopy.utils.binaryfile as bf
+    import flopy.utils.postprocessing as pp
+
+    mymodel       = mf
+    mybas         = mymodel.get_package('BAS6')
+    mydis         = mymodel.get_package('DIS')
+
+    ncol          = np.unique(mydis.ncol)[0]
+    nrow          = np.unique(mydis.nrow)[0]
+    nlay          = np.unique(mydis.nlay)[0]
+    dcol          = np.unique(mydis.delc)[0]
+    drow          = np.unique(mydis.delr)[0]
+    
+    hds = bf.HeadFile(modeldir+namepath+ ".hds")
+    head = hds.get_data(totim=1.0)
+    
+    print('Number of layers:          ', nlay)
+    print('Number of rows (North):    ', nrow)
+    print('Number of cols (East):     ', ncol)
+    print('Mesh size - rows (North):  ', drow)
+    print('Mesh size - cols (East):   ', dcol)
+    print('')
+    print('________________________')
+    print('Retrieving surface flows')
+    print('________________________')
+    period        = 0
+    step          = 0
+    Qx, Qy, Qz_rech  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None, 
+                                              kstpkper=(step, period), totim=None,boundary_ifaces={'RECHARGE': 6}, hdsfile=modeldir+namepath+'.hds', 
+                                              model=mymodel)
+    Qx_2, Qy_2, Qz_drain  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None, 
+                                                   kstpkper=(step, period), totim=None,boundary_ifaces={'DRAINS': 6}, hdsfile=modeldir+namepath+'.hds', 
+                                                   model=mymodel)
+    rech_loop = np.zeros([nrow,ncol])
+    for i in range(0,nrow):
+        for j in range (0,ncol):
+            if Qz_rech[0,i,j] == 0:
+                rech_loop[i,j] =-recharge*dcol*drow
+            else:
+                rech_loop[i,j] =Qz_rech[0,i,j]
+                
+    rech = -rech_loop
+    rech[-1,:] = 0
+    rech[:,-1] = 0
+    rech[:,0] = 0
+    drain = Qz_drain[0,:,:]
+    sflux = rech - drain
+    sflux[sflux > rech] = rech.max()
+    sflows = sflux/drow/dcol
+    print(sflows)
+    
+    # plt.imshow((sflows))
+    # plt.colorbar()
+    
+    dem_catch = imageio.v2.imread(BV.geographic.watershed_dem)
+    m = np.ma.masked_where(dem_catch < 0, dem_catch)
+    
+    data_2D_basin = np.ma.masked_where(np.ma.getmask(m), sflows)
+    #data_2D_basin_masked = data_2D_basin[data_2D_basin.mask == False]
+    
+    res_time = np.zeros(np.shape(dem_catch))
+    endobj = flopy.utils.EndpointFile(modeldir + namepath +'.mpend')
+    e = endobj.get_alldata()
+    for cell in range(len(e)):
+        res_time[e[cell].i0,e[cell].j0] = e[cell].time # where infiltrated
+        #res_time[e[cell].i,e[cell].j] = e[cell].time # where outputed
+    
+    res_time = np.ma.masked_where(np.ma.getmask(m), res_time).compressed()
+    rch = data_2D_basin.compressed()
+    rch = rch[res_time > 0]
+    res_time = res_time[res_time > 0]/365
+    rchSum = np.sum(rch)
+    rchPerc = rch / rchSum
+    
+    #tau = porosity*np.mean(data_head_2D)/np.mean(rch)
+    mom1=np.average(res_time,weights=rchPerc)
+    mom2=np.average((res_time - mom1)**2, weights=rchPerc)
+    sigma=np.sqrt(mom2)
+    mom3=np.average(((res_time - mom1)/sigma)**3,weights=rchPerc)
+    mom4=np.average(((res_time - mom1)/sigma)**4,weights=rchPerc)
+    #defining bin number based on dataset
+    binwidth = (max(res_time) - min(res_time))/np.sqrt(len(res_time))
+    bins = round((max(res_time) - min(res_time))/binwidth)
+    y, binEdges = np.histogram(res_time, bins=bins, density=True, weights=rchPerc)
+    x =  ((binEdges[1:] + binEdges[:-1])/2)
+    x1 = np.linspace(0,max(res_time), 200)
+    #Definition of analytical solution vectors
+    pt = np.zeros(len(x1))
+    for i in range(len(x1)):
+        pt[i] = 1/mom1*np.exp(-x1[i]/mom1) #Solution for uniform recharge along x
+    #break
+    #x/mean and y*mean for normalization for both numerical and exponential solution
+    fig, ax1 = plt.subplots(figsize=(16,9))
+    p = ax1.scatter(x/mom1,y*mom1)
+    ax1.plot(x1/mom1, pt*mom1, c='orange', label='analytical solution')
+    plt.xlabel('t/tau')
+    plt.ylabel('p(t)')
+    plt.title('Normalized Weigthed Residence Times KR= %1.3f')
+    
+    print(res_time.mean())
+    print(mom1)
+    
+#%% WEIGHTED OUTPUT
+
+list_selects = list_model_name
+
+fig_cross = True
+
+catch_shp = gpd.read_file(BV.geographic.watershed_shp)
+    
+for model_name, flow_model in zip(list_selects[-1:], list_flow_model[-1:]):
+    print(model_name)
+
+    id_model = int(model_name.split('_')[1])
+
+    # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+
+    path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
+    masked = gpd.read_file(path_pathlines+'ending_years_masked.shp')
+
+    rt_catch = masked.clip(catch_shp)
+
+    outflow_path = simulations_folder + model_name + '/_watershed/_tifs/outflow_drain_t(0).tif'
+
+    tif = rasterio.open(outflow_path)
+
+    # fig, ax = plt.subplots(figsize=(12,12))
+    # rt_catch.plot(ax=ax, color='orangered', alpha=0.2)
+    # from rasterio.plot import show
+    # show(tif, ax=ax)
+    
+    #extract xy from point geometry
+    # for point in masked['geometry']:
+        # print(point.xy[0][0],point.xy[1][0])
+    
+    #extract point value from raster
+    for i, point in zip(rt_catch.index, rt_catch['geometry']):
+        x = point.xy[0][0]
+        y = point.xy[1][0]
+        row, col = tif.index(x,y)
+        # print("Point correspond to row, col: %d, %d"%(row,col))
+        # print("Raster value on point %.2f \n"%tif.read(1)[row,col])
+        rt_catch.loc[i,'rowcol'] = str(row)+'-'+str(col)
+    
+    # Read points from shapefile
+    coords = [(x,y) for x, y in zip(rt_catch.geometry.x, rt_catch.geometry.y)]
+    
+    # Open the raster and store metadata
+    src = rasterio.open(outflow_path)
+    
+    # Sample the raster at every point location and store values in DataFrame
+    rt_catch['outflow'] = [x for x in src.sample(coords)]
+    rt_catch['outflow'] = rt_catch['outflow'].str[0]
+    rt_catch['outflow'][rt_catch['outflow']<=0] = np.nan
+    
+    # fig, ax = plt.subplots(figsize=(4,4))
+    # plt.scatter(rt_catch['outflow'], rt_catch['time'])
+    # plt.yscale('log')
+    
+    all_flux = rt_catch.drop_duplicates(subset=['rowcol'])
+    
+    rt_catch['time_m'] = np.nan
+    for rowcol in rt_catch['rowcol'].unique():
+        mask = (rt_catch['rowcol']==rowcol)
+        tempo = rt_catch[mask]
+        rt_catch['time_m'][mask] = (tempo.time.mean() * tempo.outflow.mean()) / (all_flux['outflow'].sum())
+
+    # rt_catch['time_w'] = np.average(rt_catch['time'], weights=rt_catch['outflow'])
+    rt_catch['time_w'] = (rt_catch['time'] * rt_catch['outflow']) / np.nansum(rt_catch['outflow'])
+    rt_catch.to_file(simulations_folder+
+                         model_name+'/'+'_pathlines/'+
+                         'ending_years_masked_weighted.shp')
+
 #%% EXTRACT RT MODELS
 
 dic_res = {}
 
-for model_name in list_model_name[:]:
+for model_name in list_model_name[:1]:
     
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
     
@@ -1374,11 +1633,11 @@ for model_name in list_model_name[:]:
     
     dic_res[model_name] = res_dat
 
-with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'wb') as handle:
-    pickle.dump(dic_res, handle, protocol=pickle.HIGHEST_PROTOCOL)
+# with open(simulations_folder+'/'+'_dic_res_RT_'+typ, 'wb') as handle:
+#     pickle.dump(dic_res, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # dd.io.save(simulations_folder+'/'+'_dic_res_RT_'+typ, dic_res)
-#
+
 #%% PATHLINES MODELS
 
 list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
@@ -1956,6 +2215,10 @@ choice = 'mean'
 
 df_recap = pd.read_csv(simulations_folder+'dfrecap_cond_poro_'+typ+'.csv', sep=';')
 
+# df_recap = pd.read_csv(simulations_folder+'dfrecap_cond_poro_'+'explorgrid'+'.csv', sep=';')
+# for t in range(len(df_recap)):
+#     df_recap.loc[t,'model_name'] = df_recap.loc[t,'model_name'].replace('explorgrid', 'explor1')
+
 # df_explo = pd.read_csv(simulations_folder+'res_'+typ+'.csv', sep=';')
 df_explo = pd.read_csv(simulations_folder+'resfil_'+typ+'.csv', sep=';')
 
@@ -2011,16 +2274,22 @@ for i, ind in enumerate(id_compt_model):
         label = 'flat'
         color='dimgray'
     # if i == 11:
-    ax.plot(mask['dp_mean'], mask['RMSE_'+choice]/42,
-            lw=2,
-            color=color, marker='o', ms=3,
-            label=label)
+    if ind == 0:
+        ax.plot(mask['dpw3_mean'], mask['RMSE_'+choice]/42,
+                lw=0,
+                color=color, marker='o', ms=0,
+                label=label)
+    if ind > 0:
+        ax.plot(mask['dpw3_mean'], mask['RMSE_'+choice]/42,
+                lw=2,
+                color=color, marker='o', ms=3,
+                label=label)
 # ax.set_xscale('log')
 # ax.set_yscale('log')
 ax.set_xlabel('θ mean [%]')
 ax.set_ylabel('$RMSE_{norm}$ [-]')
 ax.legend(loc='best', ncol=2, prop={'size': 6}, frameon=False)
-ax.set_xlim(0,25)
+ax.set_xlim(0,2)
 
 fig.savefig(fig_path+'RMSE_poro mean.png', dpi=300, bbox_inches='tight')
 
@@ -2094,7 +2363,7 @@ for point in res_dat['id']:
         if i == 1:
             label = 'flat'
             color='dimgray'
-        ax.plot(mask['dp_mean'], mask[point+'_comp_'+choice],
+        ax.plot(mask['dpw3_mean'], mask[point+'_comp_'+choice],
                 color=color, marker='o', ms=4, mec='none',
                 label=label)
     # ax.set_xscale('log')
@@ -2102,7 +2371,7 @@ for point in res_dat['id']:
     ax.set_xlabel('θ mean [%]')
     ax.set_ylabel(point+'sim / '+point+'obs')
     ax.legend(loc='best', ncol=2, prop={'size': 4}, frameon=False)
-    ax.set_xlim(0,50)
+    ax.set_xlim(0,5)
     ax.set_ylim(1e-2,1e2)
     ax.axhline(y=1, color='k', ls='--', lw=2)
     
@@ -2138,11 +2407,11 @@ for i, ind in enumerate(id_compt_model):
         label = 'flat'
         color='dimgray'
     for point in res_dat['id']:
-        res_mix['dp_mean'] = list(mask['dp_mean'])
+        res_mix['dpw3_mean'] = list(mask['dpw3_mean'])
         res_mix[point+'_comp_'+choice] = list(mask[point+'_comp_'+choice])
     res_mix['all_mean'] = res_mix.iloc[:,1:].mean(axis=1)
 
-    ax.plot(res_mix['dp_mean'], 
+    ax.plot(res_mix['dpw3_mean'], 
             res_mix['all_mean'], lw=1.5,
             color=color, marker='o', ms=4, mec='none',
             label=label)
@@ -2151,7 +2420,7 @@ ax.set_yscale('log')
 ax.set_xlabel('θ mean [%]')
 ax.set_ylabel('tsim / '+'tobs [-]')
 # ax.legend(loc='upper left', ncol=2)
-ax.set_xlim(0,50)
+ax.set_xlim(0,5)
 ax.set_ylim(1e-2,1e2)
 ax.axhline(y=1, color='k', ls='--', lw=2)
 
