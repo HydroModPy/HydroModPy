@@ -31,7 +31,7 @@ sys.path.append(df)
 from tools import toolbox
 
 # Surface routing 
-from surface_flow import routing_accflux
+from modeling import downslope
 
 #%% CLASS
 

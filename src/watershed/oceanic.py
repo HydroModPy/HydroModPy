@@ -15,8 +15,6 @@ from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
-from data import oceanic_display
-
 #%% CLASS
 
 class Oceanic:
