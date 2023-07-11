@@ -1,0 +1,903 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; ArchPy 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic_mod.css?v=0.7.0-1" />
+    <link rel="stylesheet" type="text/css" href="_static/twemoji.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script>
+    <script src="_static/twemoji.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <script src="_static/js/petite-vue.js"></script>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body data-dark_mode_code_blocks="true">
+
+<div id="top_nav">
+    
+
+    <nav>
+        
+            
+        
+
+        <p id="toggle_sidebar">
+            <a href="#" title="Toggle sidebar">|||</a>
+        </p>
+        <h1><a href="index.html" title="Go to homepage">ArchPy 1.0.0 documentation</a></h1>
+
+        <a id="mode_toggle" href="#" @click.prevent="handleClick" :title="mode">
+    <template v-if="mode == 'light'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_light"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><circle cx="39.311" cy="39.524" r="15.734" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.212,4.901c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901l-0,9.614c-0,2.705 2.196,4.901 4.9,4.901c2.705,0 4.901,-2.196 4.901,-4.901l0,-9.614Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M67.48,18.073c1.913,-1.912 1.913,-5.018 0,-6.931c-1.912,-1.912 -5.018,-1.912 -6.931,0l-6.798,6.799c-1.912,1.912 -1.912,5.018 0,6.931c1.913,1.912 5.018,1.912 6.931,-0l6.798,-6.799Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.728,61.108c1.912,-1.913 1.912,-5.018 -0,-6.931c-1.913,-1.913 -5.019,-1.913 -6.931,-0l-6.799,6.798c-1.912,1.913 -1.912,5.019 0,6.931c1.913,1.913 5.019,1.913 6.931,0l6.799,-6.798Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.682,54.177c-1.913,-1.913 -5.018,-1.913 -6.931,-0c-1.912,1.913 -1.912,5.018 0,6.931l6.798,6.798c1.913,1.913 5.019,1.913 6.931,0c1.913,-1.912 1.913,-5.018 0,-6.931l-6.798,-6.798Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M4.901,34.623c-2.705,0 -4.901,2.196 -4.901,4.901c0,2.705 2.196,4.901 4.901,4.901l9.614,0c2.705,0 4.901,-2.196 4.901,-4.901c0,-2.705 -2.196,-4.901 -4.901,-4.901l-9.614,0Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.212,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901l-0,9.614c-0,2.705 2.196,4.901 4.9,4.901c2.705,-0 4.901,-2.196 4.901,-4.901l0,-9.614Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M18.929,11.142c-1.912,-1.912 -5.018,-1.912 -6.931,0c-1.912,1.913 -1.912,5.019 0,6.931l6.799,6.799c1.912,1.912 5.018,1.912 6.931,-0c1.912,-1.913 1.912,-5.019 -0,-6.931l-6.799,-6.799Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.108,34.623c-2.705,0 -4.901,2.196 -4.901,4.901c-0,2.705 2.196,4.901 4.901,4.901l9.614,0c2.705,0 4.901,-2.196 4.901,-4.901c-0,-2.705 -2.196,-4.901 -4.901,-4.901l-9.614,0Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+
+    <template v-if="mode == 'dark'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_dark"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><circle cx="39.311" cy="39.524" r="15.734" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.212,14.515c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,0 -4.901,2.196 -4.901,4.901c0,2.705 2.197,4.901 4.901,4.901c2.705,0 4.901,-2.196 4.901,-4.901Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M60.662,24.892c1.902,-1.902 1.902,-4.99 0,-6.892l-0.04,-0.039c-1.901,-1.902 -4.989,-1.902 -6.891,-0c-1.901,1.901 -1.901,4.989 0,6.891l0.04,0.04c1.902,1.901 4.989,1.901 6.891,-0Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.732,61.103c1.91,-1.91 1.91,-5.011 0,-6.921l-0.009,-0.01c-1.91,-1.91 -5.012,-1.91 -6.921,-0c-1.91,1.91 -1.91,5.011 -0,6.921l0.01,0.01c1.909,1.91 5.011,1.91 6.92,-0Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.672,54.167c-1.907,-1.907 -5.004,-1.907 -6.911,0l-0.02,0.02c-1.907,1.907 -1.907,5.004 0,6.911c1.907,1.907 5.004,1.907 6.911,-0l0.02,-0.02c1.907,-1.907 1.907,-5.004 0,-6.911Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M14.52,34.623c-2.702,0 -4.896,2.194 -4.896,4.896l0,0.01c0,2.702 2.194,4.896 4.896,4.896c2.702,0 4.896,-2.194 4.896,-4.896l-0,-0.01c-0,-2.702 -2.194,-4.896 -4.896,-4.896Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.212,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.901,2.196 -4.901,4.901c0,2.704 2.197,4.9 4.901,4.9c2.705,0 4.901,-2.196 4.901,-4.9Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M25.73,17.943c-1.911,-1.911 -5.015,-1.911 -6.926,0l-0.005,0.005c-1.911,1.911 -1.911,5.015 0,6.926c1.911,1.911 5.015,1.911 6.926,0l0.005,-0.005c1.911,-1.911 1.911,-5.014 -0,-6.926Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.098,34.623c-2.699,0 -4.891,2.192 -4.891,4.892l-0,0.019c-0,2.699 2.192,4.891 4.891,4.891c2.7,0 4.892,-2.192 4.892,-4.891l0,-0.019c0,-2.7 -2.192,-4.892 -4.892,-4.892Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+
+    <template v-if="mode == 'darkest'">
+        <svg width="100%" height="100%" viewBox="0 0 79 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g id="mode_darkest"><rect id="Bounds" x="0" y="-0" width="78.623" height="79.049" style="fill:none;"/><path d="M39.315,23.791c8.684,-0 15.734,7.05 15.734,15.733c0,8.684 -7.05,15.734 -15.734,15.734c-8.683,0 -15.733,-7.05 -15.733,-15.734c-0,-8.683 7.05,-15.733 15.733,-15.733Zm0,4.737c6.069,0 10.997,4.927 10.997,10.996c-0,6.069 -4.928,10.996 -10.997,10.996c-6.068,0 -10.996,-4.927 -10.996,-10.996c0,-6.069 4.928,-10.996 10.996,-10.996Z" style="fill:#fff;"/><g id="beams"><g id="beam"><path id="beam1" serif:id="beam" d="M44.216,14.515c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,0 -4.9,2.196 -4.9,4.901c-0,2.705 2.196,4.901 4.9,4.901c2.705,0 4.901,-2.196 4.901,-4.901Z" style="fill:#fff;"/></g><g id="beam2" serif:id="beam"><path id="beam3" serif:id="beam" d="M60.666,24.892c1.902,-1.902 1.902,-4.99 0,-6.892l-0.04,-0.039c-1.901,-1.902 -4.989,-1.902 -6.891,-0c-1.901,1.901 -1.901,4.989 0,6.891l0.04,0.04c1.902,1.901 4.99,1.901 6.891,-0Z" style="fill:#fff;"/></g><g id="beam4" serif:id="beam"><path id="beam5" serif:id="beam" d="M25.737,61.103c1.909,-1.91 1.909,-5.011 -0,-6.921l-0.01,-0.01c-1.91,-1.91 -5.011,-1.91 -6.921,-0c-1.91,1.91 -1.91,5.011 -0,6.921l0.01,0.01c1.91,1.91 5.011,1.91 6.921,-0Z" style="fill:#fff;"/></g><g id="beam6" serif:id="beam"><path id="beam7" serif:id="beam" d="M60.676,54.167c-1.907,-1.907 -5.004,-1.907 -6.911,0l-0.02,0.02c-1.907,1.907 -1.907,5.004 0,6.911c1.907,1.907 5.004,1.907 6.911,-0l0.02,-0.02c1.907,-1.907 1.907,-5.004 0,-6.911Z" style="fill:#fff;"/></g><g id="beam8" serif:id="beam"><path id="beam9" serif:id="beam" d="M14.524,34.623c-2.702,0 -4.896,2.194 -4.896,4.896l0,0.01c0,2.702 2.194,4.896 4.896,4.896c2.702,0 4.896,-2.194 4.896,-4.896l0,-0.01c0,-2.702 -2.194,-4.896 -4.896,-4.896Z" style="fill:#fff;"/></g><g id="beam10" serif:id="beam"><path id="beam11" serif:id="beam" d="M44.216,64.534c0,-2.705 -2.196,-4.901 -4.901,-4.901c-2.704,-0 -4.9,2.196 -4.9,4.901c-0,2.704 2.196,4.9 4.9,4.9c2.705,0 4.901,-2.196 4.901,-4.9Z" style="fill:#fff;"/></g><g id="beam12" serif:id="beam"><path id="beam13" serif:id="beam" d="M25.734,17.943c-1.911,-1.911 -5.015,-1.911 -6.926,0l-0.005,0.005c-1.911,1.911 -1.911,5.015 0,6.926c1.911,1.911 5.015,1.911 6.926,0l0.005,-0.005c1.911,-1.911 1.911,-5.014 0,-6.926Z" style="fill:#fff;"/></g><g id="beam14" serif:id="beam"><path id="beam15" serif:id="beam" d="M64.103,34.623c-2.7,0 -4.892,2.192 -4.892,4.892l-0,0.019c-0,2.699 2.192,4.891 4.892,4.891c2.699,0 4.891,-2.192 4.891,-4.891l0,-0.019c0,-2.7 -2.192,-4.892 -4.891,-4.892Z" style="fill:#fff;"/></g></g></g></svg>
+    </template>
+</a>
+
+<script>
+(function() {
+    const LOCAL_STORAGE_KEY = 'piccoloThemeMode'
+
+    var initialMode = localStorage.getItem(LOCAL_STORAGE_KEY)
+
+    if (initialMode) {
+        // Make sure the value in local storage is valid
+        if (['light', 'dark', 'darkest'].indexOf(initialMode) == -1) {
+            initialMode = 'light'
+            localStorage.setItem(LOCAL_STORAGE_KEY, initialMode)
+        }
+    } else {
+        // Check if the client prefers dark mode
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            initialMode = 'dark'
+        } else {
+            initialMode = 'light'
+        }
+        localStorage.setItem(LOCAL_STORAGE_KEY, initialMode)
+    }
+
+    document.documentElement.dataset.mode = initialMode
+
+    PetiteVue.createApp({
+        'mode': initialMode,
+        handleClick() {
+            let currentMode = this.mode
+
+            if (currentMode == 'light') {
+                this.mode = 'dark'
+            } else if (currentMode == 'dark') {
+                this.mode = 'darkest'
+            } else if (currentMode == 'darkest') {
+                this.mode = 'light'
+            }
+
+            document.documentElement.dataset.mode = this.mode
+            localStorage.setItem(LOCAL_STORAGE_KEY, this.mode)
+
+            console.log(this.mode)
+        }
+    }).mount('#mode_toggle')
+})()
+</script>
+            <p class="mobile_search_link">
+                <a href="search.html" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 64" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
+                        <path d="M14.873 40.009c-2.315-3.943-3.642-8.532-3.642-13.429C11.231 11.91 23.141 0 37.811 0s26.58 11.91 26.58 26.58-11.91 26.58-26.58 26.58a26.44 26.44 0 0 1-14.277-4.161L9.739 62.794a3.12 3.12 0 0 1-4.413 0L.913 58.382c-1.217-1.218-1.217-3.196 0-4.413l13.96-13.96zM37.811 8.054c10.225 0 18.526 8.301 18.526 18.526s-8.301 18.526-18.526 18.526-18.526-8.301-18.526-18.526S27.586 8.054 37.811 8.054z" fill="#fff" />
+                    </svg>
+                </a>
+            </p>
+        
+
+        <div class="searchbox_wrapper">
+            
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+    </nav>
+</div>
+
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="README_rtd.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">List of modules</a></li>
+</ul>
+
+        </div>
+      </div>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#K"><strong>K</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ | <a href="#X"><strong>X</strong></a>
+ | <a href="#Z"><strong>Z</strong></a>
+ 
+</div>
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.add_bh">add_bh() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Unit.add_facies">add_facies() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.add_fake_bh">add_fake_bh() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.add_geological_map">add_geological_map() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.add_grid">add_grid() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Prop.add_hd">add_hd() (base.Prop method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.add_prop">add_prop() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.add_prop_hd">add_prop_hd() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Pile.add_unit">add_unit() (base.Pile method)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.VarStruc2D.alpha">alpha (tpgs.VarStruc2D attribute)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.VarStruc3D.alpha">(tpgs.VarStruc3D attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="base.html#base.Arch_table">Arch_table (class in base)</a>
+</li>
+      <li><a href="base.html#base.Arr_replace">Arr_replace() (in module base)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    base
+
+      <ul>
+        <li><a href="base.html#module-base">module</a>
+</li>
+      </ul></li>
+      <li><a href="tpgs.html#tpgs.VarStruc3D.beta">beta (tpgs.VarStruc3D attribute)</a>
+</li>
+      <li><a href="x_valid.html#x_valid.bh2array">bh2array() (in module x_valid)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="inputs.html#inputs.bhs_analysis">bhs_analysis() (in module inputs)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.fa_domains.bnd_vector">bnd_vector (tpgs.fa_domains attribute)</a>
+</li>
+      <li><a href="base.html#base.borehole">borehole (class in base)</a>
+</li>
+      <li><a href="x_valid.html#x_valid.brier_func">brier_func() (in module x_valid)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.VarStruc2D.c">c (tpgs.VarStruc2D attribute)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.VarStruc3D.c">(tpgs.VarStruc3D attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="base.html#base.Arch_table.celltoindex">celltoindex() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.check_bh_inside">check_bh_inside() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.check_piles_name">check_piles_name() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.check_units_ID">check_units_ID() (base.Arch_table method)</a>
+</li>
+      <li><a href="infer.html#infer.Var_exp.clear">clear() (infer.Var_exp method)</a>
+</li>
+      <li><a href="infer.html#infer.Cm2fit">Cm2fit (class in infer)</a>
+</li>
+      <li><a href="infer.html#infer.cm_any_nan">cm_any_nan() (in module infer)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.compute_distribution">compute_distribution() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.compute_domain">compute_domain() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.compute_facies">compute_facies() (base.Arch_table method)</a>
+
+      <ul>
+        <li><a href="base.html#base.Unit.compute_facies">(base.Unit method)</a>
+</li>
+      </ul></li>
+      <li><a href="base.html#base.Arch_table.compute_geol_map">compute_geol_map() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.compute_prop">compute_prop() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.compute_surf">compute_surf() (base.Arch_table method)</a>
+
+      <ul>
+        <li><a href="base.html#base.Pile.compute_surf">(base.Pile method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.coord2cell">coord2cell() (base.Arch_table method)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.coord2cell">(in module tpgs)</a>
+</li>
+      </ul></li>
+      <li><a href="base.html#base.Surface.copy">copy() (base.Surface method)</a>
+
+      <ul>
+        <li><a href="base.html#base.Unit.copy">(base.Unit method)</a>
+</li>
+      </ul></li>
+      <li><a href="inputs.html#inputs.create_d_f_covmodels">create_d_f_covmodels() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_facies">create_d_facies() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_pile">create_d_pile() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_piles">create_d_piles() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_prop">create_d_prop() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_properties">create_d_properties() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_unit">create_d_unit() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.create_d_units">create_d_units() (in module inputs)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.cross_section">cross_section() (base.Arch_table method)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.Cstruc2geoCm2D">Cstruc2geoCm2D() (in module tpgs)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.Cstruc2geoCm3D">Cstruc2geoCm3D() (in module tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    data_transfo
+
+      <ul>
+        <li><a href="data_transfo.html#module-data_transfo">module</a>
+</li>
+      </ul></li>
+      <li><a href="base.html#base.Arch_table.define_domains">define_domains() (base.Arch_table method)</a>
+
+      <ul>
+        <li><a href="base.html#base.Pile.define_domains">(base.Pile method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="data_transfo.html#data_transfo.distri">distri (class in data_transfo)</a>
+</li>
+      <li><a href="inputs.html#inputs.drawPoly.draw">draw() (inputs.drawPoly method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.draw_cross_section">draw_cross_section() (base.Arch_table method)</a>
+</li>
+      <li><a href="inputs.html#inputs.drawPoly">drawPoly (class in inputs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.erase_hd">erase_hd() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.estimate_surf_params">estimate_surf_params() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.borehole.extract">extract() (base.borehole method)</a>
+</li>
+      <li><a href="inputs.html#inputs.extract_bhs">extract_bhs() (in module inputs)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.extract_log_facies_bh">extract_log_facies_bh() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="inputs.html#inputs.drawPoly.f">f() (inputs.drawPoly method)</a>
+</li>
+      <li><a href="inputs.html#inputs.drawPoly.f_rect">f_rect() (inputs.drawPoly method)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.fa_domains">fa_domains (class in tpgs)</a>
+</li>
+      <li><a href="base.html#base.Facies">Facies (class in base)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.fill_ID">fill_ID() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.fill_top_unit">fill_top_unit() (base.Arch_table method)</a>
+</li>
+      <li><a href="infer.html#infer.Var_exp.fit">fit() (infer.Var_exp method)</a>
+</li>
+      <li><a href="infer.html#infer.fit_surfaces">fit_surfaces() (in module infer)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.flag2Cflag">flag2Cflag() (in module tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.VarStruc3D.gamma">gamma (tpgs.VarStruc3D attribute)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.geoCm2Cstruc2D">geoCm2Cstruc2D() (in module tpgs)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.geoCm2Cstruc3D">geoCm2Cstruc3D() (in module tpgs)</a>
+</li>
+      <li><a href="base.html#base.Geol">Geol (class in base)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.geol_contours">geol_contours() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_all_facies">get_all_facies() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_all_units">get_all_units() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Unit.get_baby_units">get_baby_units() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Unit.get_big_mummy_unit">get_big_mummy_unit() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_bounds">get_bounds() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_entropy">get_entropy() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_facies">get_facies() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_facies_obj">get_facies_obj() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Unit.get_h_level">get_h_level() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.borehole.get_list_facies">get_list_facies() (base.borehole method)</a>
+</li>
+      <li><a href="base.html#base.borehole.get_list_stratis">get_list_stratis() (base.borehole method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_nx">get_nx() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_ny">get_ny() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_nz">get_nz() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_ox">get_ox() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_oy">get_oy() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_oz">get_oz() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_pile_master">get_pile_master() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.get_piles">get_piles() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_proportions">get_proportions() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.get_size">get_size() (in module base)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_surface">get_surface() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Surface.get_surface_covmodel">get_surface_covmodel() (base.Surface method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_surfaces_unit">get_surfaces_unit() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_sx">get_sx() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_sy">get_sy() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_sz">get_sz() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_unit">get_unit() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_units_domains_realizations">get_units_domains_realizations() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_xg">get_xg() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_xgc">get_xgc() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_yg">get_yg() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_ygc">get_ygc() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_zg">get_zg() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.get_zgc">get_zgc() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.getbh">getbh() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.getbhindex">getbhindex() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.getprop">getprop() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.getpropindex">getpropindex() (base.Arch_table method)</a>
+</li>
+      <li><a href="ineq.html#ineq.Gibbs_estimate">Gibbs_estimate() (in module ineq)</a>
+</li>
+      <li><a href="base.html#base.Unit.goes_up_until">goes_up_until() (base.Unit method)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.Gspace2Pspace">Gspace2Pspace() (in module tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.hd_fa_in_unit">hd_fa_in_unit() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.hd_un_in_unit">hd_un_in_unit() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.hierarchy_relations">hierarchy_relations() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="x_valid.html#x_valid.img_to_3D_colors">img_to_3D_colors() (in module x_valid)</a>
+</li>
+      <li><a href="inputs.html#inputs.imp_cm">imp_cm() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.import_d_facies">import_d_facies() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.import_d_piles">import_d_piles() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.import_d_prop">import_d_prop() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.import_d_units">import_d_units() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.import_project">import_project() (in module inputs)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.indextocell">indextocell() (base.Arch_table method)</a>
+</li>
+      <li>
+    ineq
+
+      <ul>
+        <li><a href="ineq.html#module-ineq">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.infacies">infacies() (in module tpgs)</a>
+</li>
+      <li>
+    infer
+
+      <ul>
+        <li><a href="infer.html#module-infer">module</a>
+</li>
+      </ul></li>
+      <li><a href="infer.html#infer.infer_surface">infer_surface() (in module infer)</a>
+</li>
+      <li>
+    inputs
+
+      <ul>
+        <li><a href="inputs.html#module-inputs">module</a>
+</li>
+      </ul></li>
+      <li><a href="base.html#base.interp2D">interp2D() (in module base)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.Ivario">Ivario() (in module tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="K">K</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="ineq.html#ineq.krige">krige() (in module ineq)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="inputs.html#inputs.load_bh_files">load_bh_files() (in module inputs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="inputs.html#inputs.load_results">load_results() (in module inputs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="infer.html#infer.Var_exp.make_exp_var">make_exp_var() (infer.Var_exp method)</a>
+</li>
+      <li><a href="infer.html#infer.Var_exp.make_exp_var_1D">make_exp_var_1D() (infer.Var_exp method)</a>
+</li>
+      <li><a href="infer.html#infer.Var_exp.make_exp_var_2D">make_exp_var_2D() (infer.Var_exp method)</a>
+</li>
+      <li><a href="infer.html#infer.Var_exp.make_exp_var_3D">make_exp_var_3D() (infer.Var_exp method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.make_fake_bh">make_fake_bh() (base.Arch_table method)</a>
+</li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="base.html#module-base">base</a>
+</li>
+        <li><a href="data_transfo.html#module-data_transfo">data_transfo</a>
+</li>
+        <li><a href="ineq.html#module-ineq">ineq</a>
+</li>
+        <li><a href="infer.html#module-infer">infer</a>
+</li>
+        <li><a href="inputs.html#module-inputs">inputs</a>
+</li>
+        <li><a href="tpgs.html#module-tpgs">tpgs</a>
+</li>
+        <li><a href="x_valid.html#module-x_valid">x_valid</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.fa_domains.ncuboids">ncuboids (tpgs.fa_domains attribute)</a>
+</li>
+      <li><a href="data_transfo.html#data_transfo.NScore_Btrsf">NScore_Btrsf() (in module data_transfo)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="data_transfo.html#data_transfo.NScore_trsf">NScore_trsf() (in module data_transfo)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.VarStruc2D.nstruc">nstruc (tpgs.VarStruc2D attribute)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.VarStruc3D.nstruc">(tpgs.VarStruc3D attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.opti_vario">opti_vario() (in module tpgs)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.order_Piles">order_Piles() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Pile.order_units">order_units() (base.Pile method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.orientation_map">orientation_map() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.p1zone">p1zone() (in module tpgs)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.pfa">pfa() (in module tpgs)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.physicsforward">physicsforward() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Pile">Pile (class in base)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_arr">plot_arr() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_bhs">plot_bhs() (base.Arch_table method)</a>
+</li>
+      <li><a href="x_valid.html#x_valid.plot_confusion_matrix">plot_confusion_matrix() (in module x_valid)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_cross_section">plot_cross_section() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_facies">plot_facies() (base.Arch_table method)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.plot_flag">plot_flag() (in module tpgs)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_geol_map">plot_geol_map() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.plot_lines">plot_lines() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_mean_prop">plot_mean_prop() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_proba">plot_proba() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_prop">plot_prop() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.plot_units">plot_units() (base.Arch_table method)</a>
+</li>
+      <li><a href="infer.html#infer.plot_var_exp">plot_var_exp() (in module infer)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.pointToIndex">pointToIndex() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.process_bhs">process_bhs() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.process_geological_map">process_geological_map() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Prop">Prop (class in base)</a>
+</li>
+      <li><a href="base.html#base.borehole.prop_units">prop_units() (base.borehole method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.realizations_aggregation">realizations_aggregation() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.rem_all_bhs">rem_all_bhs() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.rem_all_facies_from_units">rem_all_facies_from_units() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.rem_bh">rem_bh() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Unit.rem_facies">rem_facies() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.rem_fake_bh">rem_fake_bh() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Pile.remove_unit">remove_unit() (base.Pile method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.reprocess">reprocess() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Arch_table.resample2grid">resample2grid() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.resample_to_grid">resample_to_grid() (in module base)</a>
+</li>
+      <li><a href="ineq.html#ineq.run_sim">run_sim() (in module ineq)</a>
+</li>
+      <li><a href="ineq.html#ineq.run_sim_2d">run_sim_2d() (in module ineq)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.run_tpgs">run_tpgs() (in module tpgs)</a>
+</li>
+      <li><a href="base.html#base.running_mean_2D">running_mean_2D() (in module base)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.VarStruc2D.rx">rx (tpgs.VarStruc2D attribute)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.VarStruc3D.rx">(tpgs.VarStruc3D attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="tpgs.html#tpgs.VarStruc2D.ry">ry (tpgs.VarStruc2D attribute)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.VarStruc3D.ry">(tpgs.VarStruc3D attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="tpgs.html#tpgs.VarStruc3D.rz">rz (tpgs.VarStruc3D attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="inputs.html#inputs.save_project">save_project() (in module inputs)</a>
+</li>
+      <li><a href="inputs.html#inputs.save_results">save_results() (in module inputs)</a>
+</li>
+      <li><a href="base.html#base.Surface.set_covmodel">set_covmodel() (base.Surface method)</a>
+</li>
+      <li><a href="base.html#base.Unit.set_dic_facies">set_dic_facies() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Unit.set_f_covmodels">set_f_covmodels() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Unit.set_f_TI">set_f_TI() (base.Unit method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.set_Pile_master">set_Pile_master() (base.Arch_table method)</a>
+</li>
+      <li><a href="base.html#base.Unit.set_SubPile">set_SubPile() (base.Unit method)</a>
+</li>
+      <li><a href="base.html#base.Unit.set_Surface">set_Surface() (base.Unit method)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.simple_kriging">simple_kriging() (in module tpgs)</a>
+</li>
+      <li><a href="base.html#base.split_logs">split_logs() (in module base)</a>
+</li>
+      <li><a href="data_transfo.html#data_transfo.store_distri">store_distri() (in module data_transfo)</a>
+</li>
+      <li><a href="base.html#base.Surface">Surface (class in base)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="x_valid.html#x_valid.test_bh_1fold">test_bh_1fold() (in module x_valid)</a>
+</li>
+      <li>
+    tpgs
+
+      <ul>
+        <li><a href="tpgs.html#module-tpgs">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.Truncation2D">Truncation2D() (in module tpgs)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.Truncation3D">Truncation3D() (in module tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Unit">Unit (class in base)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="base.html#base.Arch_table.unit_mask">unit_mask() (base.Arch_table method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="infer.html#infer.Var_exp">Var_exp (class in infer)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.VarStruc2D.var_type">var_type (tpgs.VarStruc2D attribute)</a>
+
+      <ul>
+        <li><a href="tpgs.html#tpgs.VarStruc3D.var_type">(tpgs.VarStruc3D attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.VarStruc2D">VarStruc2D (class in tpgs)</a>
+</li>
+      <li><a href="tpgs.html#tpgs.VarStruc3D">VarStruc3D (class in tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="inputs.html#inputs.write_bh_files">write_bh_files() (in module inputs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="X">X</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    x_valid
+
+      <ul>
+        <li><a href="x_valid.html#module-x_valid">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="x_valid.html#x_valid.X_valid">X_valid() (in module x_valid)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Z">Z</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="tpgs.html#tpgs.zone_facies">zone_facies() (in module tpgs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+    
+
+      <div class="clearer"></div>
+    </div>
+    <div class="button_nav_wrapper">
+        <div class="button_nav">
+            <div class="left">
+                
+            </div>
+
+            <div class="right">
+                
+            </div>
+        </div>
+    </div>
+
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023, University of Neuchâtel.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    </div>
+
+<p id="theme_credit">Styled using the <a href="https://github.com/piccolo-orm/piccolo_theme">Piccolo Theme</a></p>
+  </body>
+</html>

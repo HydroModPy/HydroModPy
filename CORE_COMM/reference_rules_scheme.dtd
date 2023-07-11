@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!ENTITY simul SYSTEM "examples/a_given/simul_rules.xml">
-<!ENTITY watershed_root SYSTEM "watershed/watershed_root_rules.xml">
-<!ENTITY groundwaterflow SYSTEM "groundwater_flow/groundwaterflow_rules.xml">

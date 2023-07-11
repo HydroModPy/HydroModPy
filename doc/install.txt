@@ -1,2 +1,0 @@
-Defines necessary environment variables
-- 

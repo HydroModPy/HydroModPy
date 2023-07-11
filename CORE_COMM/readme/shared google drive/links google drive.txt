@@ -1,5 +1,0 @@
-Main packages of HydroModPy
-https://docs.google.com/document/d/1Qqgmm2exYsZp7wu7nR0iD8wUgK1qsA--0_OTD6nphMU/edit#heading=h.wcwsr4r1jlu6
-
-Parametrization of the calibration
-https://docs.google.com/document/d/1KFpyU6p5cMjU94ZgNBl0LDjaOuZTKSLXUUYmW6-yu-s/edit

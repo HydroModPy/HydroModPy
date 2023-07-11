@@ -1,4 +1,0 @@
-Problème erreur imageio
-Unité des résultats
-Modifier le script
-Corriger le rio de drias : ds.rio
