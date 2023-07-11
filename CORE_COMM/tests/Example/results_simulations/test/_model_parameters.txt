@@ -1,2 +1,0 @@
-nrow;ncol;res;nlay;nper;rech;hk;sy
-46.0;39.0;75.0;1.0;1.0;0.033;25.92;0.01
