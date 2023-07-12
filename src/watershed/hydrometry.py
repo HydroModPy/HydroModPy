@@ -1,30 +1,17 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
-import pandas as pd
-import chardet
-import numpy as np
-import matplotlib.pyplot as plt
-
-import time
-from selenium import webdriver
-import glob
-import zipfile
 import os
 import datetime
 import geopandas as gpd
-import shutil
-
-from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -35,8 +22,8 @@ class Hydrometry:
     
     #%%INIT
     
-    def __init__(self, out_path, hydrometry_path, geographic):
-        print('Extraction des données hydrométriques')
+    def __init__(self, out_path, hydrometry_path, file_name, geographic):
+        print('Extract hydrometry from specific data')
         
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
         if not os.path.exists(data_folder):
@@ -51,7 +38,7 @@ class Hydrometry:
         self.date_inst = []
         self.date_ferm = []
         try:
-            self.extract_hydrometry_from_watershed(data_folder, hydrometry_path, geographic)
+            self.extract_hydrometry_from_watershed(data_folder, hydrometry_path, file_name, geographic)
         except:
             pass
         try:
@@ -60,9 +47,9 @@ class Hydrometry:
         except:
             pass
     
-    def extract_hydrometry_from_watershed(self, data_folder, hydrometry_path, geographic):
-        hydrometric_data = os.path.join(hydrometry_path, 'hydrometric.shp')
-        self.hydrometric_clip = os.path.join(data_folder,'hydrometric.shp')
+    def extract_hydrometry_from_watershed(self, data_folder, hydrometry_path, file_name, geographic):
+        hydrometric_data = os.path.join(hydrometry_path, file_name)
+        self.hydrometric_clip = os.path.join(data_folder, file_name)
         wbt.clip(hydrometric_data, geographic.watershed_shp, self.hydrometric_clip)
         # try:
         hydromet_bv = gpd.read_file(self.hydrometric_clip)        
@@ -81,326 +68,6 @@ class Hydrometry:
         self.code_bh = hydromet_bv['CdStationH'].to_list()
         self.date_inst = hydromet_bv['timePositi'].to_list()
         self.date_ferm = hydromet_bv['DtFermetur'].to_list()
-                    
-#%% DOWNLOAD DATA ON WEB
-
-# Adapted for an old site, not available today
-
-def download_data_from_code_bh(self, data_folder):
-    
-    url = 'http://hydro.eaufrance.fr/'
-    chrome_options = webdriver.ChromeOptions()
-    prefs = {'download.default_directory' : data_folder.replace('/','\\')}
-    chrome_options.add_experimental_option('prefs', prefs)
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.get(url)
-    
-    driver.close() # Cause the new site
-    
-    timeout = 3
-    try:
-        element_present = EC.presence_of_element_located((By.ID, 'main'))
-        WebDriverWait(driver, timeout).until(element_present)
-    except TimeoutException:
-        print("     Timed out waiting for page to load")
-    finally:
-        print("     Hydrometric page loaded")
-
-    # try:
-    driver.find_element_by_name('btnValider').click()
-    try:
-        driver.find_element_by_link_text("Téléchargement (nécessité de disposer d'un compte)").click()
-    except:
-        driver.find_element_by_link_text("TÃ©lÃ©chargement (nÃ©cessitÃ© de disposer d'un compte)").click()
-    driver.find_element_by_name("username").send_keys("AUNIV084")
-    driver.find_element_by_name("password").send_keys("DRUNIV2022")
-    driver.find_element_by_name("btnCnx").click()
-                        
-    for code in self.code_bh:
-        
-        print('          '+code)
-        error = False
-        
-        if not os.path.exists(data_folder+'/'+code):
-        
-        # if os.path.exists(data_folder+'/'+code+'/'):                
-        #     shutil.rmtree(data_folder+'/'+code+'/')
-            
-            try:
-                driver.find_element_by_xpath("//a[@title='Tout supprimer']").click()
-            except:
-                pass
-            try:
-                driver.find_element_by_link_text('Consultation (pas de compte nécessaire)').click()
-            except:
-                pass
-            try:
-                driver.find_element_by_link_text('Consultation (pas de compte nÃ©cessaire)').click()
-            except:
-                pass
-            try:
-                driver.find_element_by_name("code_station").clear()
-            except:
-                pass
-            
-            driver.find_element_by_name("code_station").send_keys(code)       
-            driver.find_element_by_name("station_hors_service").click()
-            
-            try:
-                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
-                driver.find_element_by_name("station[]").click()
-            except:
-                driver.find_element_by_name("station_hors_service").click()
-                driver.find_element_by_xpath("//input[@value='Nouvelle Recherche']").click()
-                try:
-                    driver.find_element_by_name("station[]").click()
-                except:
-                    error = True
-                    print('               No found')
-                    pass
-                
-            if error == True:
-                continue
-            
-            else:
-                driver.find_element_by_xpath("//input[@value='Exporter']").click()                
-                driver.find_element_by_xpath("//input[@value='QJM']").click()
-                
-                try:
-                    elem = driver.find_element_by_name('debut_an')
-                    elem.click()
-                except:
-                    print('               No data')
-                    error = True
-                    element_present = driver.find_element_by_id('header_gauche')
-                    element_present.click()
-                    driver.find_element_by_name('btnValider').click()
-                    pass
-                
-                if error == True:
-                    continue
-                
-                opt = elem.find_elements_by_tag_name('option')
-                opt[len(opt)-1].click()
-                driver.find_element_by_name("btnValider").click()
-                
-                driver.find_element_by_link_text("page d'accueil").click()
-                
-                down = None
-                while down is None:
-                    driver.refresh()
-                    try:
-                        down = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_1/qjm.zip'+'"]')
-                        down.click()
-                    except:
-                        time.sleep(5)
-                        pass
-                
-                try:
-                    driver.find_element_by_link_text('Exporter les données (Accès restreint)').click()
-                except:
-                    driver.find_element_by_link_text('Exporter les donnÃ©es (AccÃ¨s restreint)').click()
-                    pass
-                
-                driver.find_element_by_xpath("//input[@value='FICHE-STATION']").click()
-                driver.find_element_by_link_text("page d'accueil").click()
-                
-                fich = None
-                while fich is None:
-                    driver.refresh()
-                    try:
-                        fich = driver.find_element_by_xpath('//a[@href="'+'tmp/9745_2/fiche-station.zip'+'"]')
-                        fich.click()
-                    except:
-                        time.sleep(5)
-                        pass
-                    
-                files = glob.glob(data_folder+'/*.zip')
-                while len(files) != 2:
-                    files = glob.glob(data_folder+'/*.zip')
-                    time.sleep(1)
-                    
-                for file in files:
-                    with zipfile.ZipFile(file, 'r') as zip_ref:
-                        zip_ref.extractall(data_folder+'/'+code)
-                    os.remove(file)
-        
-    driver.close()
-
-
-def load_hydrometric_data(self, data_folder):
-    
-    self.discharge = pd.DataFrame()
-    
-    for code in self.code_bh:
-        try:
-            fiche_path = glob.glob(data_folder+'/'+code+'/'+'*fiche-station.csv')[0]        
-            with open(fiche_path) as f:
-                lines = f.readlines()            
-            name = lines[3].split(';')[1]            
-            nlines=0
-            for line in lines:
-                nlines += 1
-                if (line.find('X') >= 0):
-                    x = lines[nlines].split(';')[0]
-                    y = lines[nlines].split(';')[1]       
-                    first = lines[nlines].split(';')[4][6:-6]
-                    last = lines[nlines].split(';')[5][6:-6]
-            if last == None:
-                last = datetime.datetime.today().strftime('%Y')
-            area = lines[4].split(';')[1]
-            alti = lines[17].split(';')[1]
-            
-            qjm_path = glob.glob(data_folder+'/'+code+'/'+'qjm*')[0]            
-            with open(qjm_path) as f:
-                lines = f.readlines()            
-            compt = 0
-            df = pd.DataFrame()
-            for step in range(int(len(lines)/73)):
-                bloc = lines[compt:73+compt]
-                date = bloc[0][-5:-1]
-                debit = pd.DataFrame([sub.split(";") for sub in bloc[41:]])
-                debit.columns = debit.iloc[0]
-                debit = debit[1:]
-                debit = debit.filter(regex='Débit')
-                debit.columns = ['1','2','3','4','5','6','7','8','9','10','11','12']
-                debit = debit.stack().to_frame()
-                debit['day'] = debit.index.get_level_values(0)
-                debit['month'] = debit.index.get_level_values(1)
-                debit['year'] = date
-                debit['date'] = pd.to_datetime(debit[['year','month','day']], errors='coerce')
-                debit = debit.set_index('date', drop=True)
-                debit = debit.sort_index()
-                debit = debit.loc[debit.index.dropna()]
-                debit = debit.replace(to_replace='', value=np.nan)
-                debit = debit[debit.columns.tolist()[0]]
-                debit = pd.to_numeric(debit)
-                df = pd.concat([df,debit])
-                compt += 73
-            df.columns = ['Q']
-            name_out = 'Hydrometric_'+code+'_'+name+'_'+x+'-'+y+'_'+area+'_'+alti+'_'+first+'-'+last
-            df.to_csv(data_folder+'/'+code+'/'+name_out+'.csv', sep=';')
-            append = df.copy()
-            append.columns = [code]
-            fig, ax = plt.subplots(1,1, figsize=(8,3))
-            ax.plot(append, lw=2)
-            ax.set_yscale('log')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Discharge [m$^3$/day]')
-            ax.set_title(code+'\n'+name)
-            fig.savefig(self.fig_hydromet+'/'+code+'_'+' - '+name+'.png', dpi=300, 
-                        bbox_inches='tight', transparent=False)
-            self.discharge = pd.concat([self.discharge, append], axis=1).sort_index()
-        except:
-            pass
-
-#%% LIBRAIRIES
-
-import os
-import geopandas as gpd
-import whitebox
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-
-#%% CLASS
-
-class Intermittency:
-    
-    #%% INIT
-    
-    def __init__(self, out_path, intermittency_path, geographic):
-        print('Extraction des données d\'intermittence')
-        data_folder = os.path.join(out_path,'results_stable','intermittency')
-        if not os.path.exists(data_folder):
-                os.makedirs(data_folder)
-        self.fig_intermit = os.path.join(out_path,'results_stable','_figures','intermittency')
-        if not os.path.exists(self.fig_intermit):
-                os.makedirs(self.fig_intermit)
-        self.code_onde = []
-        self.label = []
-        self.x_coord = []
-        self.y_coord = []
-        self.date_first = []
-        self.date_last = []
-        try:
-            self.extract_intermittency_from_watershed(data_folder, intermittency_path, geographic)
-            self.load_intermittency_data(data_folder)
-        except:
-            pass
-    
-    #%% CLIP DATA FROM A FRANCE SCALE SHAPEFILE
-    
-    def extract_intermittency_from_watershed(self, data_folder, intermittency_path, geographic):
-        onde_data = os.path.join(intermittency_path, 'onde.shp')
-        self.onde_clip = os.path.join(data_folder,'onde.shp')
-        wbt.clip(onde_data, geographic.watershed_shp, self.onde_clip)
-        intermit_bv = gpd.read_file(self.onde_clip)
-        stations = intermit_bv['<LbSiteHyd'].unique()
-        for i in stations:
-            mask = (intermit_bv['<LbSiteHyd'] == i)
-            raw = intermit_bv[mask]
-            self.code_onde.append(raw.iloc[0]['<CdSiteHyd'])
-            self.label.append(raw.iloc[0]['<LbSiteHyd'])
-            self.x_coord.append(raw.iloc[0]['<CoordXSit'])
-            self.y_coord.append(raw.iloc[0]['<CoordYSit'])
-            # self.date_first.append(pd.to_datetime(raw.iloc[0]['<DtRealObs'], format='%Y-%m-%d'))
-            # self.date_last.append(pd.to_datetime(raw.iloc[-1]['<DtRealObs'],format='%Y-%m-%d'))
-            self.date_first.append(raw.iloc[0]['<DtRealObs'])
-            self.date_last.append(raw.iloc[-1]['<DtRealObs'])
-    
-    #%% PLOT INTERMITTENCY DATA        
-    
-    def load_intermittency_data(self, data_folder):
-        self.flowing = pd.DataFrame()
-        shp = gpd.read_file(self.onde_clip)
-        # shp =gpd.read_file("D:/Users/abherve/HYDROMODPY/Rejet/results_stable/intermittency/onde.shp")
-        # shp = gpd.read_file(BV.intermittency.onde_clip)
-        shp['date'] =  pd.to_datetime(shp['<DtRealObs'], format = '%Y-%m-%d')
-        shp['code_flow'] = np.nan
-        dicecoul = {'Assec':1,
-                    'Ecoulement non visible':2,
-                    'Ecoulement visible faible':3,
-                    'Ecoulement visible acceptable':4,
-                    'Ecoulement visible':5}
-        for i in range(len(shp)):
-            shp.loc[i,'code_flow'] = dicecoul[shp.loc[i,'<LbRsObser']]
-        for code in self.code_onde:
-            # code = "J7380001"
-            mask = (shp['<CdSiteHyd'] == code)
-            raw = shp.copy()
-            raw = raw[mask]
-            append = raw[['date','code_flow']]
-            append = append.set_index('date')
-            append.columns = [code]
-            self.flowing = pd.concat([self.flowing, append], axis=1).sort_index()
-            fig, ax = plt.subplots(1,1, figsize=(5,2))
-            ax.scatter(append.index, append[code], c=append[code], cmap='jet_r',
-                       vmin=1, vmax=5,
-                       marker='|', s=50, lw=1.5)
-            lab = raw.iloc[0]['<LbSiteHyd']
-            ax.set_title(code+' - '+lab)
-            ax.set_yticklabels(['-','Assec','Invisible','Faible','Acceptable','Visible'])
-            ax.set_ylim(0.5,5.5)
-            ax.set_xlim(([pd.to_datetime('2012'), pd.to_datetime('2022')]))                  
-            years = mdates.YearLocator(2)   # every 2 years
-            ax.xaxis.set_major_locator(years)
-            years_fmt = mdates.DateFormatter('%Y')
-            ax.xaxis.set_major_formatter(years_fmt)
-            yearsmin = mdates.YearLocator(1)
-            ax.xaxis.set_minor_locator(yearsmin)
-            months = mdates.MonthLocator(6)  # every month
-            months_fmt = mdates.DateFormatter('%m') #b = name of month ? 
-                # ax.xaxis.set_minor_locator(months)
-            ax.grid(True, axis='x', which='major')   
-            plt.tight_layout()
-            fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
-                        bbox_inches='tight', transparent=False)
-            print(code)
-            # plt.close()
        
 #%% NOTES
 

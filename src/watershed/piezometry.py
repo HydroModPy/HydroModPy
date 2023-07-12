@@ -1,9 +1,13 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
 """
+
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
 import os
 import urllib
@@ -19,11 +23,7 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.font_manager import FontProperties
-from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes 
-from mpl_toolkits.axes_grid1.inset_locator import mark_inset
-from datetime import datetime
+
 # Hydromodpy
 from tools import toolbox
 
@@ -51,7 +51,7 @@ class Piezometry:
     #%% INIT
     
     def __init__(self, out_path, geographic):
-        print('Extraction des données piézométriques')
+        print('Extract piezometry from web and specific data')
         data_folder = os.path.join(out_path,'results_stable','piezometric')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)

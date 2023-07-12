@@ -1,220 +1,99 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
 #%% LIBRAIRIES
 
 # Modules
 import numpy as np
-import geopandas as gpd
-
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
 wbt.verbose = False
 
-
 #%% CLASS
 
-class Hydrodynamic:
-    """
-    
-    class Hydrodynamic is used to specify the values of hydraulic conductivity,
-        porosity and thickness of the modeled aquifer.    
-        
-    Values of the parameters of the aquifer independently of the mesh on which the equations are discretized
-        Properties may be heterogeneous on the basis of geological units, discretization is performed in flowpy
-        
-    Options covered by the class: 
-        - Uniform porosity, hydraulic conductivity and thickness
-        - Exponencial Decaying hydraulic conductivity with depth
-        - lateral 2D (not vertical) affectation of properties according to predefined zones (calib_zones) that may be determined by geology 
-                defined manually or in calibration class
-                
-    Manages heterogeneity of hydraulic conductivies for which it creates a 2D array (no resolution of depth)
+class Hydraulic:
 
-    Attributes, public
-    -------------------
-
-    nrow: int
-        number of rows in the DEM (N-S)
-        
-    ncol: int
-        number of columns in the DEM (E-W)
-    
-    nlay: int
-        number of layers 
-        
-    bottom: float
-        == None : constant thickness of the aquifer equal to attribute "thickness"
-        other value: flat bottom which altitude is equal to "bottom" (reference: m NGF)
-    
-    Attributes, Internal variables
-    -------------------
-    
-    hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
-        -- initial value: :data:`hyd_cond_init`
-        only 2D, generalization 3D in the script specific to modflow
-        
-    :ivar porosity: (:data:`nrow`, :data:`ncol`) -- initial value: :data:`porosity_init`
-    :vartype porosity: :class:`numpy.ndarray`
-    
-    thickness: float
-        initial thickness value
-    :vartype thickness: :class:`int`
-    
-    :ivar calib_zones: (:data:`nrow`, :data:`ncol`) -- initial value: 1
-    :vartype calib_zones: :class:`numpy.ndarray`
-            
-    cond_decay: float
-        Exponential decay thickness of the hydraulic conductivity (only, not porosity)
-        Default value: 0, exponential decay not activated 
-        K = Ksurface * exp (- cond_decay * z)
-    
-    poro_decay: float
-        Exponential decay thickness of the porosity
-        Default value: 0, exponential decay not activated
-        K = Ksurface * exp (- poro_decay * z)
-    
-    thick_exp: float
-        Exponential increase of the mesh thickness
-        Default value: 1, exponential decay not activated 
-        Hydraulic conductivies are calculated in flowpy
-        
-    METHODS PUBLIC
-    -------------- 
-        
-    update_calib_zones
-        defines zones for heteregenous distribution of aquifer properties (when applied)
-     
-    """
-    
     #%% INIT
     
-    def __init__(self, nrow: int, ncol: int, box_dem: str, nlay_init: int = 1, hyd_cond_init: float = 8.64, porosity_init: float = 0.1, 
-                 thickness_init: float = 50., bottom_init: float = None, cond_decay_init: float = 0., poro_decay_init: float = 0.,
-                 thick_exp_init: float = 1.):
-        """
+    def __init__(self, 
+                 nrow: int, ncol: int,
+                 box_dem: str,
+                 nlay_init: int = 1,
+                 hyd_cond_init: float = 8.64,
+                 cond_drain_init: float = 864000,
+                 porosity_init: float = 0.1, 
+                 thick_init: float = 50.,
+                 bottom_init: float = None,
+                 cond_decay_init: float = 0.,
+                 poro_decay_init: float = 0.,
+                 lay_decay_init: float = 1.,
+                 verti_cond_init = None):
         
-        Constructor
- 
-        Arguments
-        ----------
-        nlay_init: int
-            initial number of layers
-            may change
-            
-        hyd_cond_init: float
-            initial hydraulic conductivity of the aquifer (m/day). The default is 8.64.
+        print('Init hydraulic module to set model parameter')
         
-        porosity_init: float
-            initial porosity of the aquifer. The default is 0.1.
-    
-        thickness_init: float
-            initial thickness of the aquifer. The default is 50.
-
-        """
-        
+        self.box_dem = box_dem
         self.nlay = nlay_init
         self.hyd_cond = np.ones((nrow, ncol)) * hyd_cond_init
+        self.cond_drain = np.ones((nrow, ncol)) * cond_drain_init
         self.porosity = np.ones((nrow, ncol)) * porosity_init
-        self.thickness = thickness_init
+        self.thick = thick_init
         self.calib_zones = np.ones((nrow, ncol))
         self.bottom = bottom_init
         self.cond_decay = cond_decay_init
         self.poro_decay = poro_decay_init
-        self.thick_exp = thick_exp_init
-        self.box_dem = box_dem
-    
-    #%% UPDATE HOMOGENEOUS
+        self.lay_decay = lay_decay_init
+            
+    #%% UPDATE LATERAL HOMOGENEOUS
     
     def update_nlay(self, nlay_value: float):
-        """
-        
-        Updates :attr:`nlay` with a constant value :data:`nlay_value`.
-        
-        :param nlay_value: .
-        :meta public:
-            
-        """
-        
+
         self.nlay = nlay_value
         
     def update_hyd_cond(self, hyd_cond_value: float):
-        """
-        
-        Updates :attr:`hyd_cond` with a constant value :data:`hyd_cond_value`.
-        
-        :param hyd_cond_value: hydraulic conductivy of the aquifer.
-        :meta public:
-            
-        """
         
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
         
     def update_porosity(self, porosity_value: float):
-        """
-        
-        Updates :attr:`porosity` with a constant value :data:`porosity_value`.
-
-        :param porosity_value: porosity of the aquifer.
-        
-        """
         
         self.porosity = np.ones(np.shape(self.porosity)) * porosity_value
         
-        
-    def update_thickness(self, thickness_value: float):
-        """
-        Updates the :attr:`thickness` with a constant value :data:`thickness_value`.
+    def update_thick(self, thick_value: float):
 
-        :param thickness_value: thickness of the aquifer.
-        """
-        self.thickness =  thickness_value
+        self.thick =  thick_value
             
     def update_bottom(self, bottom_value: float):
-        """
-        
-        Updates the :attr:`bottom` with a constant value :data:`bottom_value`.
-
-        :param cond_decay_value: .
-        
-        """
         
         self.bottom = bottom_value
     
     def update_cond_decay(self, cond_decay_value: float):
-        """
-        
-        Updates the :attr:`cond_decay` with a constant value :data:`cond_decay_value`.
-
-        :param cond_decay_value: .
-        
-        """
         
         self.cond_decay =  cond_decay_value
     
     def update_poro_decay(self, poro_decay_value: float):
-        """
-        
-        Updates the :attr:`poro_decay` with a constant value :data:`poro_decay_value`.
-
-        :param cond_decay_value: .
-        
-        """
         
         self.poro_decay =  poro_decay_value    
     
-    def update_thick_exp(self, thick_exp_value: float):
-        """
+    def update_lay_decay(self, thick_exp_value: float):
         
-        Updates the :attr:`thick_exp` with a constant value :data:`thick_exp_value`.
-
-        :param cond_decay_value: .
-        
-        """
         self.thick_exp =  thick_exp_value
+    
+    def update_cond_drain(self, cond_drain_value: float):
+        
+        self.cond_drain = cond_drain_value
+    
+    def update_cond_vertical(self, verti_cond_value: list):
+        
+        self.verti_cond = verti_cond_value   # None or [ [1e-5, [0, 20]],
+                                             #           [1e-6, [20,80]] ]
+    
+    #%% UPDATE LATERAL HETEROGENEOUS
         
     def update_calib_zones(self, zones: np.ndarray):
         """
@@ -258,9 +137,7 @@ class Hydrodynamic:
         # plt.show()
         
         self.calib_zones = raster_load
-
-    #%% UPDATE HETEROGENEOUS
-        
+    
     def update_hyd_cond_from_calib_zones(self, num_zone: int, hyd_cond_value: float):
         """
         
@@ -285,7 +162,7 @@ class Hydrodynamic:
         
         self.porosity[self.calib_zones==num_zone] = porosity_value
         
-    def update_thickness_from_calib_zones(self, num_zone: int,thickness_value: float):
+    def update_thickness_from_calib_zones(self, num_zone: int, thick_value: float):
         """
         
         Updates :attr:`thickness` with a value :data:`thickness_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
@@ -295,7 +172,7 @@ class Hydrodynamic:
         
         """
         
-        self.thickness[self.calib_zones==num_zone] = thickness_value
+        self.thick[self.calib_zones==num_zone] = thick_value
         
     def update_hyd_cond_with_geology(self, geology_code, geology_array, hyd_cond_values):
         """

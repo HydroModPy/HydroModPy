@@ -1,9 +1,13 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
 """
+
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
 import pandas as pd
 import numpy as np
@@ -12,59 +16,13 @@ from scipy.optimize import curve_fit
 
 #%% CLASS
 
-class Forcing:
-    """
-    
-    class Forcing inputs the climate data forced to the model,
-        - recharge (processed by the groundwater model) (m/day)
-        - runoff (added to the outputs of the groundwater model) (m/day)
-    
-    Forcing are either
-        - loaded from data files issued by SURFEX
-        - generated (inside this calss) synthetic scenarios (eg sinosoids)
-        
-    Attributes, public
-    -------------------
-    data_folder: string
-        Reanalysis and Dayon forcing reanalysis and projection
-        Reanalysis of Surfex has not changed from 2015 
-        
-    drias_folder: string
-        2021 Drias projection (folder)
-    
-    freq: string
-        Frequency of the forcing chronicles (D:day, M:month, Y:year)
-        
-    recharge: pandas matrix or float (constant recharge)
-        recharge to the aquifer (date,value)
-        
-    runoff: pandas matrix or float (constant recharge)
-        runoff simulated by surfex, remains on the surface (date,value)
-    
-    unit: string
-        unit for the recharge and runoff (m/day) #OBSOLETE or NOT DEVELOPED?
-        
-    """
-    
+class Climatic:
+
     #%% INIT
     
     def __init__(self, out_path):
-        """
         
-        Constructor
-            Defines directories where data are stored
-            Two types of data can be loaded 
-                1- Folder "climatic" contains the SURFEX reanalysis and projection (Gildas Dayon) provided by F. Habets (2019)
-                2- Folder "drias" contains the projection EXPLORE 2 obtained from drias (2021)
-            Reanalysis: 1950-2019
-            Projection: 1960-2100
-            
-        Parameters
-        ----------
-        out_path : string
-            root path in which are stored the data 
-
-        """
+        print('Init climatic module to set model parameter')
         
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
         self.drias_folder = os.path.join(out_path, 'results_stable/drias/')
@@ -76,85 +34,28 @@ class Forcing:
     #%% UPDATE FROM OWN MANUAL DATA
     
     def update_recharge(self, values, sim_state):
-        """
-        
-        Main function to load the recharge
 
-        Parameters
-        ----------
-        values : float or panda matrix
-            values assigned to the recharge 
-            Loading or generation of the recharge values is made elsewhere
-
-        sim_state : string
-            value = "steady"
-            value = "transient"
-            
-        """
-        
         self.recharge = values # recharge
         if sim_state == 'steady':
             self.recharge = np.mean(self.recharge)
             if isinstance(self.recharge,(int,float))==False:
                 self.recharge = self.recharge[0]
             
-            
     def update_runoff(self, values, sim_state):
-        """
-        
-        Main function to load the runoff
 
-        Parameters
-        ----------
-        values : fload or panda matrix
-            values assigned to the runoff
-            Loading or generation of the runoff values is made elsewhere
-
-        sim_state : string
-            value = "steady"
-            value = "transient"
-            
-        """
-        
         self.runoff = values # recharge
         if sim_state == 'steady':
             self.runoff = np.mean(self.runoff)
             if isinstance(self.runoff,(int,float))==False:
                 self.runoff = self.runoff[0]
     
+    def update_first_clim(self, first_clim):
+
+        self.first_clim = first_clim # 'mean', 'first' or value
+    
     #%% UPDATE FROM CREATED SYNTHETIC DATA
     
-    def update_synthetic_recharge(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
-        """
-        
-        Generate synthetic recharge (inverse Gaussian, normal, uniform)
-
-        Parameters
-        ----------
-            rech : float
-                Mean recharge distribution (or first parameter of the distribution)
-            
-            shape: float
-                Std of the recharge distribution (or second parameter of the distribution)
-            
-            dis: string
-                inverse-gaussian 
-                normal
-                uniform
-                
-            start_date: string
-                year-month
-                
-            years: float
-                durateion in years over wich recharge should be generated
-            
-            freq: string
-                freqency of the rechrage
-                D: dayly
-                M: monthly
-                Y: yearly
-                
-        """
+    def update_recharge_synthetic(self, rech, shape, years, start_date= "2020-08", freq = None, dis='normal'):
         
         self.freq = freq
         days = years*365
@@ -175,32 +76,7 @@ class Forcing:
         if freq != None:
             self.recharge = self.recharge.resample(self.freq).mean()
         
-    def update_sinusoid_recharge(self, serie, period, amplitude, offset, omega, phase):
-        """
-        
-        SYnthetic Sinusiodal recharge 
-
-        Parameters
-        ----------
-        serie : panda matrix
-            input recharge
-            
-        period : string
-            D (day) or M (month)
-        
-        amplitude : float
-            modifies the amplitude (max-min) of the sinusoid
-            
-        offset : float
-            modifies the mean of the sinusoid
-            
-        omega : float
-            modifies the sinusoid frequency
-            
-        phase : float
-            modifies the phase of the sinusoid
-
-        """
+    def update_recharge_sinusoid(self, serie, period, amplitude, offset, omega, phase):
         
         def sinusoid(x, A , offset, omega, phase):
             return A*np.sin(omega*x+phase) + offset
@@ -226,48 +102,18 @@ class Forcing:
         sinus = sinusoid(X, *param)
         self.recharge = pd.Series(data = sinus, index=date)
         self.recharge[self.recharge < 0] = 0
-    
-    #%% UPDATE FROM SURFEX DATA SET
+
+    #%% UPDATE FROM REANALYSIS DATA SET
     
     # Adpated for :
     #       Historical reanalysis SAFRAN-SURFEX
-    #       DAYON-2015 : SURFEX projections
+    #       https://rmets.onlinelibrary.wiley.com/doi/10.1002/joc.2003
     
-    def update_recharge_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
-        """
-        
-        Loads surfex data already processed externally 
-            unit of the loaded data: mm/day
-        Data have been processed by the file "climatic.py", same as SURFEX_PY (with figures) #RISK OF OUTDATING of SURFEX_PY
+    def update_recharge_reanalysis(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
 
-        Parameters
-        ----------
-        clim_mod : string
-            Name of the climatic model (eg acc, rea, ipsl, cnrm)
-            
-        clim_sce : string
-            Type of scenario (historic, RCP2.6, RCP4.5, RCP6.0, RCP8.5)
-        
-        first_year : int
-            First year of the chronicle that should be loaded (clipping if necessary)
-        
-        last_year : int
-            Last year of the chronicle that should be loaded (clipping if necessary)
-        
-        time_step : string
-            D: day (recommended)
-            M: Month
-            Y: year 
-        
-        sim_state : string
-            steady
-            transient
-
-        """
-        
         self.freq = time_step
-        climatic = pd.read_csv(self.data_folder+'_'+'REC'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
-        climatic = climatic[clim_mod+'_'+clim_sce]
+        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
@@ -275,176 +121,65 @@ class Forcing:
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
-    def update_runoff_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
-        """
-        
-        Loads surfex data already processed externally 
-            unit of the loaded data: mm/day
-        Data have been processed by the file "climatic.py", same as SURFEX_PY (with figures) #RISK OF OUTDATING of SURFEX_PY
-
-        Parameters
-        ----------
-        clim_mod : string
-            Name of the climatic model (eg acc, rea, ipsl, cnrm)
-            
-        clim_sce : string
-            Type of scenario (historic, RCP2.6, RCP4.5, RCP6.0, RCP8.5)
-        
-        first_year : int
-            First year of the chronicle that should be loaded (clipping if necessary)
-        
-        last_year : int
-            Last year of the chronicle that should be loaded (clipping if necessary)
-        
-        time_step : string
-            D: day (recommended)
-            M: Month
-            Y: year 
-        
-        sim_state : string
-            steady
-            transient
-
-        """
+    def update_runoff_reanalysis(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
         
         self.freq = time_step
-        climatic = pd.read_csv(self.data_folder+'_'+'RUN'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
-        climatic = climatic[clim_mod+'_'+clim_sce]
+        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic/1000 # recharge in meters
         self.runoff.index = self.runoff.asfreq(self.freq).index
         # self.runoff.index = self.runoff.index.to_period(self.freq)
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
-        
-    def update_effppt_surfex(self, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
-        """
-        
-        Same as update_recharge_surfex but forces groundwater model with Precipitation - Evapotranspiration
 
-        Parameters
-        ----------
-        clim_mod : string
-            Name of the climatic model (eg acc, rea, ipsl, cnrm)
-            
-        clim_sce : string
-            Type of scenario (historic, RCP2.6, RCP4.5, RCP6.0, RCP8.5)
-        
-        first_year : int
-            First year of the chronicle that should be loaded (clipping if necessary)
-        
-        last_year : int
-            Last year of the chronicle that should be loaded (clipping if necessary)
-        
-        time_step : string
-            D: day (recommended)
-            M: Month
-            Y: year 
-        
-        sim_state : string
-            steady
-            transient
+    #%% UPDATE FROM EXPLORE1 DATA SET
+    
+    # Adpated for :
+    #       EXPLORE 2070 : SURFEX projections (downscaled from DAYON 2015)
+    #       https://professionnels.ofb.fr/fr/node/44
+    
+    def update_recharge_explore1(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
 
-        """
-        
         self.freq = time_step
-        ppt = pd.read_csv(self.data_folder+'_'+'PPT'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
-        ppt = ppt[clim_mod+'_'+clim_sce]
-        ppt = ppt[(ppt.index.year >= first_year) & (ppt.index.year <= last_year)]
-        aet = pd.read_csv(self.data_folder+'_'+'ETP'+'_'+time_step+'.csv', sep=';', index_col=0, parse_dates=True)
-        aet = aet[clim_mod+'_'+clim_sce]
-        aet = aet[(aet.index.year >= first_year) & (aet.index.year <= last_year)]
-        effppt = ppt - aet
-        self.recharge = effppt/1000 # recharge in meters
+        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
+        climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
+        self.recharge = climatic/1000 # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
-        self.effppt = self.recharge.copy()
-        self.pe_pos = self.effppt.clip(lower=0)
-        self.pe_neg = self.effppt.clip(upper=0)
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
-            self.effppt = self.effppt.mean()
-            self.pe_pos = self.pe_pos.clip(lower=0)
-            self.pe_neg = self.pe_neg.clip(upper=0)
 
-    #%% UPDATE FROM DRIAS DATA SET
+    def update_runoff_explore1(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+        
+        self.freq = time_step
+        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
+        climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
+        self.runoff = climatic/1000 # recharge in meters
+        self.runoff.index = self.runoff.asfreq(self.freq).index
+        # self.runoff.index = self.runoff.index.to_period(self.freq)
+        if sim_state == 'steady':
+            self.runoff = self.runoff.mean()
+            
+    #%% UPDATE FROM EXPLORE2 DATA SET
     
     # Adpated for :
-    #       EXPLORE2-2021-SIM2 : SURFEX projections
+    #       EXPLORE2-2021-SIM2 : SURFEX projections (available on DRIAS website)
+    #       https://professionnels.ofb.fr/fr/node/1244
     
-    def update_recharge_drias(self, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
-        """
+    def update_recharge_explore2(self, path_file, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
         
-        Loads recharge from DRIAS files
-
-        Parameters
-        ----------
-        gcm_mod : string
-            Name of the climatic model (eg acc, rea, ipsl, cnrm)
-            
-        rcm_mod : string
-            regional type of model (wrf, aladin, rca)
-            
-        sce_mod: string
-            Type of scenario (historic, RCP2.6, RCP4.5, RCP6.0, RCP8.5)
-        
-        first_year : int
-            First year of the chronicle that should be loaded (clipping if necessary)
-        
-        last_year : int
-            Last year of the chronicle that should be loaded (clipping if necessary)
-        
-        time_step : string
-            D: day (recommended)
-            M: Month
-            Y: year 
-        
-        sim_state : string
-            steady
-            transient
-
-        """
-        
-        data = pd.read_csv(self.drias_folder+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+        data = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
-    def update_runoff_drias(self, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
-        """
+    def update_runoff_explore2(self, path_file, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
         
-        Loads runoff from DRIAS files
-
-        Parameters
-        ----------
-        gcm_mod : string
-            Name of the climatic model (eg acc, rea, ipsl, cnrm)
-            
-        rcm_mod : string
-            regional type of model (wrf, aladin, rca)
-            
-        sce_mod: string
-            Type of scenario (historic, RCP2.6, RCP4.5, RCP6.0, RCP8.5)
-        
-        first_year : int
-            First year of the chronicle that should be loaded (clipping if necessary)
-        
-        last_year : int
-            Last year of the chronicle that should be loaded (clipping if necessary)
-        
-        time_step : string
-            D: day (recommended)
-            M: Month
-            Y: year 
-        
-        sim_state : string
-            steady
-            transient
-
-        """
-        
-        data = pd.read_csv(self.drias_folder+'_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+        data = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':

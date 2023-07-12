@@ -5,7 +5,7 @@ Created on Tue Sep 14 18:07:38 2021
 @author: Alexandre Gauvain
 """
 
-#%% LIBRARIES
+#%% ROOT
 
 import os
 import numpy as np
@@ -17,22 +17,19 @@ import contextily as cx
 # Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-try:
-    from colormap.colors import rgb2hex, hex2rgb
-except:
-    pass
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib_scalebar.scalebar import ScaleBar
 import matplotlib.patches as mpatches
+try:
+    from colormap.colors import rgb2hex, hex2rgb
+except:
+    pass
 
 # Hydromodpy
 from tools import toolbox
-# Parameters plot : v2.0 to classic customized
-# mpl.style.use('default')
-# mpl.rcParams.update(mpl.rcParamsDefault)
 
-#%% PLOT PRAMS
+#%% PLOT PARAMS
 
 # # # Classic
 mpl.style.use('classic')
@@ -85,31 +82,15 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% FUNCTIONS
 
-def watershed_local(regional_dem_path, BV):
-    fontprop = toolbox.plot_params(8,15,18,20)
-    fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
-    shp = gpd.read_file(BV.geographic.watershed_shp)
-    dem = rasterio.open(regional_dem_path)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)  
-    ax.set(aspect='equal')
-    show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
-         cmap='terrain', alpha=1, zorder=2, aspect="auto")
-    shp.plot(ax=ax, lw=2, color='yellow', zorder=4,legend=True, label='Watershed')
-    contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
-    fig.tight_layout()
-    fig.savefig(os.path.join(BV.figure_folder,'watershed_local.png'), dpi=300, 
-                bbox_inches='tight', transparent=False)
-    
 def watershed_dem(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    
-    #polyg = gpd.read_file(BV.geographic.watershed_shp)
-    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+    try:
+        contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+        bounds_shp = contour.geometry.total_bounds
+    except:
+        pass
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
-    #bounds = contour.geometry.total_bounds
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -119,18 +100,20 @@ def watershed_dem(BV):
     ax.add_artist(scalebar)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
-    #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
     image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain')
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
          cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     try:
-        streams = gpd.read_file(BV.hydrology.streams)
+        streams = gpd.read_file(BV.hydrography.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    try:
+        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    except:
+        pass
     try:
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
@@ -158,7 +141,7 @@ def watershed_dem(BV):
                           edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
     except:
         pass
-    ax.legend(loc='lower right', title = BV.watershed_name,framealpha=0.8)
+    ax.legend(loc='lower right', title=BV.watershed_name, framealpha=0.8)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
     fig.add_axes(cax)
@@ -175,11 +158,28 @@ def watershed_dem(BV):
     cbar.ax.tick_params(labelsize=10)
     cbar.ax.yaxis.set_ticks_position('right')
     cbar.ax.tick_params(size=2)
-    #cbar.set_label('Elevation (m)', size=12)
+    # cbar.set_label('Elevation (m)', size=12, rotation=270)
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_dem.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
 
+def watershed_local(regional_dem_path, BV):
+    fontprop = toolbox.plot_params(8,15,18,20)
+    fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
+    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+    shp = gpd.read_file(BV.geographic.watershed_shp)
+    dem = rasterio.open(regional_dem_path)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)  
+    ax.set(aspect='equal')
+    show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
+         cmap='terrain', alpha=1, zorder=2, aspect="auto")
+    shp.plot(ax=ax, lw=2, color='yellow', zorder=4,legend=True, label='Watershed')
+    contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+    fig.tight_layout()
+    fig.savefig(os.path.join(BV.figure_folder,'watershed_local.png'), dpi=300, 
+                bbox_inches='tight', transparent=False)
+    
 def watershed_geology(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
@@ -195,27 +195,41 @@ def watershed_geology(BV):
     ax.set_ylim(ylim)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
-    #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
     cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     geol = gpd.read_file(BV.geology.geol_file)
     try:
         geol['hex']
     except:
-       generate_geology_color(BV.geology.geol_file)
-       geol = gpd.read_file(BV.geology.geol_file)
+        geol = gpd.read_file(BV.geology.geol_file)
+        geol['R_col'] = 255 * (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
+        geol['G_col'] = 255 * (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
+        geol['B_col'] = 255 * (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
+        geol['R_col'][geol['R_col']>255] = 255
+        geol['G_col'][geol['G_col']>255] = 255
+        geol['B_col'][geol['B_col']>255] = 255
+        geol['couleur'] = list(zip(round(geol['R_col']).astype(int),
+                                   round(geol['G_col']).astype(int),
+                                   round(geol['B_col']).astype(int)))
+        for i in range(len(geol)):
+            geol.loc[i,'hex'] = rgb2hex(geol.loc[i,'couleur'][0],
+                                        geol.loc[i,'couleur'][1],
+                                        geol.loc[i,'couleur'][2])
+        geol = geol.drop(columns=['couleur'])
+        geol.to_file(BV.geology.geol_file)
+        geol = gpd.read_file(BV.geology.geol_file)
     color = []
     for i in list(geol['hex']):
         color.append(mpl.colors.to_rgb(i))
     geol = geol.cx[bounds[0]:bounds[2], bounds[1]:bounds[3]]
     geol1 = gpd.clip(geol,polyg)
     handles = []
-    for ctype, data in geol.groupby('DESCR'):
+    for ctype, data in geol.groupby('NATURE'):
         color = data['hex'].iloc[0]
         data.plot(color=color,
               ax=ax,alpha=0.5, edgecolor='dimgrey', zorder=2,
               label=ctype)
-    for ctype, data in geol.groupby('DESCR'):
+    for ctype, data in geol.groupby('NATURE'):
         color = data['hex'].iloc[0]
         if ctype.find('Partie marine')!=0:
             ctype = ctype.split(':')[0]
@@ -225,7 +239,7 @@ def watershed_geology(BV):
     leg = ax.get_legend()
     leg.set_bbox_to_anchor((1,1, 0, 0))
     try:
-        streams = gpd.read_file(BV.hydrology.streams)
+        streams = gpd.read_file(BV.hydrography.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
@@ -247,32 +261,15 @@ def watershed_geology(BV):
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
 
-def generate_geology_color(file):
-    geol = gpd.read_file(file)
-    geol['R_col'] = 255 * (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
-    geol['G_col'] = 255 * (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
-    geol['B_col'] = 255 * (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
-    geol['R_col'][geol['R_col']>255] = 255
-    geol['G_col'][geol['G_col']>255] = 255
-    geol['B_col'][geol['B_col']>255] = 255
-    geol['couleur'] = list(zip(round(geol['R_col']).astype(int),
-                               round(geol['G_col']).astype(int),
-                               round(geol['B_col']).astype(int)))
-    for i in range(len(geol)):
-        geol.loc[i,'hex'] = rgb2hex(geol.loc[i,'couleur'][0],
-                                    geol.loc[i,'couleur'][1],
-                                    geol.loc[i,'couleur'][2])
-    geol = geol.drop(columns=['couleur'])
-    geol.to_file(file)
-    
 def watershed_zones(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    
-    #polyg = gpd.read_file(BV.geographic.watershed_shp)
-    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+    try:
+        contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+        bounds_shp = contour.geometry.total_bounds
+    except:
+        pass
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
-    #bounds = contour.geometry.total_bounds
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -282,17 +279,19 @@ def watershed_zones(BV):
     ax.add_artist(scalebar)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
-    #ax.set_title(BV.name, fontproperties=fontprop)
     ax.set(aspect='equal') 
     image_hidden = ax.imshow(BV.hydrodynamic.calib_zones,cmap='jet')
     show(BV.hydrodynamic.calib_zones, ax=ax, transform=dem.transform, 
          cmap='jet', alpha=0.75, zorder=2, aspect="auto")
     try:
-        streams = gpd.read_file(BV.hydrology.streams)
+        streams = gpd.read_file(BV.hydrography.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    try:
+        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    except:
+        pass
     try:
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
@@ -322,7 +321,7 @@ def watershed_zones(BV):
         pass
     ax.legend(loc='lower right', title = BV.watershed_name,framealpha=0.8)
     divider = make_axes_locatable(ax)
-    '''
+    
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
     fig.add_axes(cax)
     
@@ -339,11 +338,10 @@ def watershed_zones(BV):
     cbar.ax.tick_params(labelsize=10)
     cbar.ax.yaxis.set_ticks_position('right')
     cbar.ax.tick_params(size=2)
-    #cbar.set_label('Elevation (m)', size=12)
-    '''
+    # cbar.set_label('Elevation (m)', size=12, rotation=270)
+    
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_zones.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
 
 #%% NOTES
-

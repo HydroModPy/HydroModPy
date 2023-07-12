@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
 #%% LIBRAIRIES
@@ -15,12 +19,9 @@ import pandas as pd
 import sys
 import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
 from os.path import dirname, abspath
-from osgeo import gdal                   # Gdal: referenced rasters (complex objects)
 import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
 import geopandas as gpd
 import glob
-from matplotlib.collections import LineCollection
 
 import flopy.utils.binaryfile as fpu
 import flopy.utils.postprocessing as pp
@@ -36,310 +37,30 @@ from modeling import downslope
 #%% CLASS
 
 class Modflow():
-    """
-    
-    Preprocessing, processing and postprocessing of modflow (groundwater flow)
-        Discretization: by default, the number of rows and columns is the DEM discretization
-        
-    Simulation on a model given by its DEM for close subsurface saturated flows
-        Prepares and runs the model for conditions of significant interactions with the surface
-        
-    Spatio-temporal discretizations are given 
-        - By the DEM for the spatial discretization 
-        - By the recharge for the temporal discretization 
-        
-    Recharge can be
-        - Steady
-        - Transient following some climatological conditions
-        - Transient with synthetic forcings
-    
-    Initial conditions are
-        - steady-state with the mean or last recharge value within the chronicle
-        - an imposed value externally from the simulation 
-        
-    Boundary condtions are 
-        - No flow on the side boundaries
-        - Seepage on the surface
-        - Imposed head on specific zone (sea-level boundary condition)
-    
-    Sink/Source Term 
-    #ALEXANDRE: is it technically a sink/source term or a boundary condition?
-        - Recharge imposed on the surface
-    
-    Model Properties (hydraulic conductivity and porosity)
-        - Laterally: Homogeneous or Heterogeneous (defined by zones)
-        - Vertically: Homogeneous or Layered 
-    
-    Source terms
-        Between the two possibilities (evt and rch, rch should rather be used)
-        - Negative recharge values (P-E): ETP managed as a pumping term 
-        - Positive recharge values (P-E): Recharge to the aquifer
-    
-    Methods
-    -------
-    Preprocessing: 
-        Model construction from 
-            - domain definition
-            - boundary conditions
-            - initial conditions
-            - parameter values
-        
-    Processing: 
-        Runs the modflow once modeled has been parameterized
-        
-    Postprocessing: 
-        Exports Tiff and Raster files from specific modflow files 
-        Raster will be re-read in another script 
-
-    Attributes, public
-    -------------------
-    mf: class specific to "flopy"
-        Modflow model (custom object impossible to edit with spyder)
-        
-    nwt: class of flopy 
-        Details of the nwt version of modfow used (flopy format)
-        Contains all numerical parameters of the simulation (e.g. tolerances, max number of iterations)
-        
-    Domain definition, hydraulic properties and discretization 
-    ----------------------------------------------------------
-
-    - 2D LATERAL
-
-    geographic: class Geographic
-        Model geometry (eg DEM path)
-        
-    dem: np array
-        DEM for the zone studied
-        
-    dem_path: string
-        path = directory + file name of the DEM
-        
-    nrow: int
-        number of rows (derived from DEM resolution)
-        
-    ncol: int 
-        number of columns (derived from DEM resolution)
-    
-    resolution: float
-        Resolution of the discertization
-        EQUAL TO THAT OF THE DEM (geographic)
-        
-    sink_fill: bool
-        Should it fill the holes in the DEM that mess the groundwater flow simulations
-        Difition of the hole in the DEM: convergence of flow lines to a cell (endoreism)
-        It should be checked that the filling of the sinks lead to a new dem (is it intended?)
-            
-    sink:
-        Parameters of the hole
-    
-    multip_cond: vector of floats
-        Multiple hdyraulic conductivies for the simulation of heterogeneous domains
-        
-    xul: float
-        xmin for the domain to simulate
-            
-    yul: float
-        ymax for the domain to simulate
-            
-    hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
-        - homogeneous : float
-        - heterogeneous : numpy array (same size as the dem)
-        -- initial value: :data:`hyd_cond_init`
-        only 2D, generalization 3D in the script specific to modflow
-        
-    porosity: (:data:`nrow`, :data:`ncol`) 
-        - homogeneous : float
-        - heterogeneous : numpy array (same size as the dem)
-        -- initial value: :data:`porosity_init`
-        :vartype porosity: :class:`numpy.ndarray`
-        
-    - VERTICAL
-
-    thick: float
-        aquifer thickness () 
-        
-    thick_exp: float
-        Exponential increase of the mesh thickness
-        Default value: 1, exponential decay not activated 
-        Hydraulic conductivies are calculated in flowpy
-        
-    bottom: float
-        == None : constant thickness of the aquifer equal to attribute "thickness"
-        other value: flat bottom which altitude is equal to "bottom" (reference: m NGF)
-                
-    nlay: int
-        number of layers 
-    
-    cond_decay: float
-        Exponential decay thickness of the hydraulic conductivity (only, not porosity)
-        Default value: 0, exponential decay not activated 
-        K = Ksurface * exp (- cond_decay * z)
-        
-    verti_k: vector of floats
-        Applies different hydraulic conductivities with layers 
-        Default: None
-        
-    zbot: np matrix of floats
-        altitude of bottom for each of the dem cells
-        
-    laytype: 2D np array
-        cells where water can seep (by default, all the domain)
-    
-    Hydraulic properties (discretized)
-    ----------------------------------
-    hK: 3D np array 
-        hydraulic conductivity discretized on the grid
-
-    hK: porosity
-        hydraulic conductivity discretized on the grid 
-        
-    Boundary Conditions
-    -------------------
-    bc_left: flopy class
-        Boundary conditions 
-        
-    bc_right: flopy class
-        Boundary conditions 
-    
-    sea_level: float or series (set as a climatic chronicle)
-        constant sea level (no transience: # JR: To check)
-                            
-    iboundData: 3D np array
-        one value per cell (flopy coding)
-        -1: Constant head (null flux)
-         0: Inactive Cell (no flow)
-        +1: Active Cell 
-        
-    strtData: 3D np array
-        Value affected to the boundary condition
-        = Altitude 
-    
-    Sink/Source Terms
-    -----------------
-    init_rech: string of float 
-        == "mean" : takes the mean value and applies it as the first value of forcing
-        == "first": takes the first value and applies it as the first value of forcing
-        == float : recharge value
-        Initial recharge applied on the first time step
-        Used for synthetic simulation to determine drainage time of aquifer
-        
-    climatic: float
-        Recharge applied to the model 
-        By defaut, in steady state, a value
-        Otherwise pandas series given by a database (eg SURFEX)
-        
-    evt: class climatic
-        Package to apply evapotranspiration directly to the saturation of the groundwater
-        
-    Time definition and discretization 
-    ---------------------------------- 
-    nper: vector of int
-        Number of forcing periods (recharge)
-        
-    perlen: float
-        Length of period
-    
-    nstp: vector of float
-        Steps in a given period (not used here)
-        
-    steady: vector of bool 
-        Is simulation in steady state
-        
-    start_datetime: float
-        First date of climatic recharge
-        
-    """
 
     #%% INIT
 
-    def __init__(self, geographic, sink_fill = False, box=True,
-                 climatic=8e-4, lay_number=1, thick=50,
-                 bottom=None, thick_exp=1., hyd_cond=8.64e-2, porosity=0.01, 
-                 sea_level=None, cond_decay=0., poro_decay=0., multip_cond=None, init_rech='mean',
-                 bc_left=None, bc_right=None, verti_k=None,
+    def __init__(self, geographic,
                  model_name='modflow_model',
+                 box=True,
+                 sink_fill=False,
+                 first_clim ='mean',
+                 climatic=8e-4,
+                 nlay=1,
+                 thick=50,
+                 bottom=None,
+                 thick_exp=1.,
+                 hyd_cond=8.64e-2,
+                 porosity=0.01, 
+                 sea_level=None,
+                 cond_decay=0.,
+                 poro_decay=0.,
+                 cond_drain=None,
+                 bc_left=None,
+                 bc_right=None,
+                 verti_k=None,                
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'output'), 
                  exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe')):
-        """
-        
-        Constructor
- 
-        Arguments
-        ----------
-        geographic: class Geographic
-            Model geometry (eg DEM path)
-            
-        sink_fill: bool 
-            Fills the holes in the DEM
-            Smoothens the DEM to avoid small scale holes
-            = true : modifies the way drainace is implemented 
-            
-        box: bool 
-            Specifies if the studied watershed is embedded in a rectangle 
-            
-        climatic: float
-            Recharge applied to the model 
-            By defaut, in steady state, a value
-            Otherwise pandas series given by a database (eg SURFEX)
-        
-        lay_number: int
-            Number of layers (vertical discretization)
-            
-        thick: float
-            aquifer thickness () 
-        
-        cond_decay: float
-            Exponential decay thickness of the hydraulic conductivity (only, not porosity)
-            Default value: 0, exponential decay not activated 
-            K = Ksurface * exp (- cond_decay * z)
-            
-        thick_exp: float
-            Exponential increase of the mesh thickness
-            Default value: 1, exponential decay not activated 
-            Hydraulic conductivies are calculated in flowpy
-            
-        hyd_cond: matrix class:`numpy.ndarray` (:data:`nrow`, :data:`ncol`) 
-            -- initial value: :data:`hyd_cond_init`
-            only 2D, generalization 3D in the script specific to modflow
-            
-        porosity: (:data:`nrow`, :data:`ncol`) 
-            -- initial value: :data:`porosity_init`
-            :vartype porosity: :class:`numpy.ndarray`
-        
-        nlay: int
-            number of layers 
-            
-        bottom: float
-            == None : constant thickness of the aquifer equal to attribute "thickness"
-            other value: flat bottom which altitude is equal to "bottom" (reference: m NGF)
-
-        model_folder: string
-            Folder where results will be stored
-        
-        model_name: string
-            id of the model (model configuration + hour/date)
-            
-        sea_level: float or series (set as a climatic chronicle)
-            constant sea level (no transience: # JR: To check)
-                                
-        init_rech: string of float 
-            == "mean" : takes the mean value and applies it as the first value of forcing
-            == "first": takes the first value and applies it as the first value of forcing
-            == float : recharge value
-            Initial recharge applied on the first time step
-            Used for synthetic simulation to determine drainage time of aquifer
-        
-        bc_left: flopy class
-            Boundary conditions 
-            
-        bc_right: flopy class
-            Boundary conditions 
-            
-        verti_k: vector of floats
-            Applies different hydraulic conductivities with layers 
-            Default: None
-            
-        """
         
         #%% Initialization
 
@@ -1076,7 +797,7 @@ class Modflow():
                     
             # Surface flow activation
             if accumulation_flux == True:
-                surface_flow = routing_accflux.RoutingAccflux(self.geographic,
+                surface_flow = downslope.Dowmslope(self.geographic,
                                                               'outflow_drain_t('+lead_numb+').tif',
                                                               'tracept_t('+lead_numb+').shp',
                                                               'accumulation_flux_t('+lead_numb+').tif',

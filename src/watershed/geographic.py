@@ -1,77 +1,33 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
-#%% DEFAULT SITE PACKAGES
+#%% ROOT
 
 # Libraries installed by default
 import sys
-import glob
 import os
-import fnmatch
-import random
-import pickle
-from datetime import datetime
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
-
-# Libraries need to be installed if not
 import numpy as np
 import pandas as pd
-
-# Libraries added from 'conda install' procedure
 import geopandas as gpd
-import matplotlib as mpl        # install automatically by geopandas
-import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.pylab as pl
-import matplotlib.dates as mdates
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-# Libraries added from 'conda forge' procedure
 from osgeo import gdal, osr # or import gdal
-import rasterio
-
-# # Libraries added from 'pip install' procedure
-import deepdish as dd
-import flopy
 import imageio
-import vedo
-import hydroeval
-import xarray	
-import netCDF4
-import matplotlib_scalebar	
-import contextily
-import pyproj # uninstall before install
-import selenium
-import shapefile # named pyshp for install
-import jupyter
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-
-#%% HYDROMODPY ROOT PATH
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
-#%% HYDROMODPY IMPORT MODULES
-
 # Import HydroModPy modules
-import watershed_root
-from watershed import climatic, geographic, geometric, hydraulic, hydrography, hydrometry, intermittency, lithology, oceanic, piezometry
-from modeling import downslope, modflow, modpath, timeseries
-from display import visualization_watershed, visualization_results, export_vtuvtk
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
-
-#%% SPECIFIC INPORT MODULES
 
 from pyproj import Transformer
 from geopy.geocoders import Nominatim
@@ -82,11 +38,6 @@ import shutil
 class Geographic:
     
     #%% INIT
-    
-    # def __init__(self, dem_path, x, y, snap_dist=150, buff_percent=10,
-    #              out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\',
-    #              from_shp = [], from_dem = False, from_xy = [], cell_size=100,
-    #              regio_path = None, bottom_path = None):
     
     def __init__(self,
                  dem_path,
@@ -103,7 +54,7 @@ class Geographic:
                  from_shp,
                  from_xyv):
 
-        print('Extract model area and geographic data')
+        print('Extract geography of the model area')
         
         self.dem_path = dem_path
         self.bottom_path = bottom_path
@@ -386,15 +337,14 @@ class Geographic:
         
     #%% XYZ FILE TO DEM
     
-    # In the case of .txt files with x, y, z coordinates 
-
-    def model_from_dem(self, dem_path, out_path, cell_size):
+    def model_from_dem(self, dem_path, cell_size, out_path):
         # Paths
+        print(out_path)
         self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
         if (dem_path[-3:]=='txt'):
-            x = pd.read_csv(dem_path, sep='\s+', header=None)
+            x = pd.read_csv(dem_path, delim_whitespace=True, header=None)
             x.to_csv(self.gis_path+'transform_xyz'+'.csv', sep=';', index=False)
             wbt.csv_points_to_vector(self.gis_path+'transform_xyz'+'.csv', 
                                      self.gis_path+'transform_xyz'+'.shp', 
