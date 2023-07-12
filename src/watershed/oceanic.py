@@ -1,9 +1,13 @@
-# coding:utf-8
+# -*- coding: utf-8 -*-
 """
+
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
 import os
 import numpy as np
@@ -11,9 +15,43 @@ import pandas as pd
 import geopandas as gpd
 from netCDF4 import Dataset
 import sys
+
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
+
+import matplotlib.pyplot as plt
+
+# Hydromodpy
+from tools import toolbox
+
+#%% FUNCTION
+
+color_dict = {'RCP2.6':'dodgerblue',
+              'RCP8.5':'red',
+              'RCP4.5':'salmon'}
+
+def oceanic_display_data(data, figure_folder, value):
+    fontprop = toolbox.plot_params(15,15,18,20)
+    fig = plt.figure()
+    
+    for sce in data:
+        d = data[sce].index.values
+        data[sce]['median'].plot(c=color_dict[sce], label=sce+': median values')
+        plt.fill_between(d , data[sce]['std high'], data[sce]['std low'],facecolor=color_dict[sce], alpha=0.2, label=sce +': 5th and 95th perc')
+        #data[sce]['5th per'].plot(c=color_dict[sce],ls='--', label=sce)
+        #data[sce]['95th per'].plot(c=color_dict[sce],ls='--', label=sce)
+
+    plt.legend(loc='best')
+    plt.xlabel('Date')
+    if value =='RMSL':
+        plt.ylabel('Mean Sea Level [m]')
+    if value =='RSL':
+        plt.ylabel('Rise Sea Level [m]')
+    
+    plt.tight_layout()
+    name_out = figure_folder + 'plot'
+    fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 
 #%% CLASS
 
@@ -108,14 +146,18 @@ class Oceanic:
         yidx = find_idx[idx][1]
         return int(xidx), int(yidx)
 
+    color_dict = {'RCP2.6':'dodgerblue',
+                  'RCP8.5':'red',
+                  'RCP4.5':'salmon'}
+        
     def display_data(self, values):
         values_list = ['RMSL','RSL']
         if values not in values_list:
             print('You must specify the values you want to display')
         if values =='RMSL':
-            oceanic_display.display_data(self.RMSL,self.figure_folder+'RMSL', values)
+            oceanic_display_data(self.RMSL,self.figure_folder+'RMSL', values)
         if values =='RSL':
-            oceanic_display.display_data(self.RSL,self.figure_folder+'RSL', values)
-
+            oceanic_display_data(self.RSL,self.figure_folder+'RSL', values)
+    
 #%% NOTES
 

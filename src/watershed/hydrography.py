@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
 import os
 import pandas as pd
@@ -16,31 +20,26 @@ wbt.verbose = False
 
 #%% CLASS
 
-class Hydrology:
+class Hydrography:
     
     #%% INIT
     
     def __init__(self, out_path, types_obs, fields_obs, geographic, hydro_path):
         
-        print("Extraction des données hydrologiques")
+        print("Extract hydrography from specific data")
         
         data_folder = out_path + '/results_stable/hydrology/'
         if not os.path.exists(data_folder):
-                os.makedirs(data_folder)
-        
-        # watershed_shp = geographic.watershed_box_shp
-        # watershed_dem = geographic.watershed_box_buff_dem
+            os.makedirs(data_folder)
         
         self.hydro_path = hydro_path 
         
-        watershed_shp = geographic.watershed_shp
-        watershed_dem = geographic.watershed_dem
+        watershed_shp = geographic.watershed_shp # watershed_shp = geographic.watershed_box_shp
+        watershed_dem = geographic.watershed_dem # watershed_dem = geographic.watershed_box_buff_dem
 
         for type_obs, field_obs in zip(types_obs, fields_obs):
             try:
-            # print(type_obs, field_obs)
                 self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
-            # except:
             except ValueError as e:
                 print(e)
                 pass
@@ -48,39 +47,23 @@ class Hydrology:
     #%% FUNCTIONS
     
     def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem):
-        """
-        Clips (meaning selects) everything within the zone defined by watershed_shp
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        None.
-
-        """
         
         streams = hydro_path + '/' +  type_obs +'.shp'
-        # print(streams)
         self.streams = data_folder + type_obs +'.shp'
-        # print(self.streams)
         
         # First clip of the shape file at the watershed scale (classical GIS function performed here in geopandas)
-        #       geopandas more robust than wbt for the shapefiles
-        #       clips steams_file by watshd_file
-        
         streams_file = gpd.read_file(streams)
         watshd_file = gpd.read_file(watershed_shp)
         file_clipped = gpd.clip(streams_file, watshd_file) # wbt.clip(streams, watershed_shp, self.streams)
-        # saves clipped file to the reuslts file structure
+        
+        # Saves clipped file to the reuslts file structure
         file_clipped.to_file(self.streams)
         
         # Transforms shapefile to raster file (.tif format)
         shp_base = gpd.read_file(self.streams)
         shp_type = shp_base.geometry.type[0] # forma = forma.geom_type[0]
-        # print(shp_type)
         self.tif_streams = data_folder + type_obs + '.tif'
-        # shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
+        shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
         shp_base.to_file(self.streams)
         
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
@@ -95,8 +78,8 @@ class Hydrology:
                                        # field=field_obs,
                                        base=watershed_dem)
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
-            # e.g. landslides, sources, wells
             # print(shp_type)
+            # e.g. landslides, sources, wells
             wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         
         wbt.set_nodata_value(

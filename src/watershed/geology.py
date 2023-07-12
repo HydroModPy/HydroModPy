@@ -1,9 +1,13 @@
-#coding:utf-8
+# -*- coding: utf-8 -*-
 """
+
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
 import os
 import numpy as np
@@ -20,7 +24,7 @@ class Geology:
     
     def __init__(self, out_path, geographic, geo_path, landsea, types_obs = 'GEO1M.shp', fields_obs = 'CODE_LEG'):
         
-        print('Extraction des données géologiques')
+        print('Extract geology from specific data')
         
         data_folder = os.path.join(out_path,'results_stable/geology/')
         if not os.path.exists(data_folder):
@@ -102,12 +106,11 @@ class Geology:
         return self
 
     def geo_to_K(self,K_geo_values):
-        """
         
+        """
         geology_array: 2D arrays - code of geology entities
         K_geo_values: 1D array (same size that geology code variable)
             correspondence between geology codes and hydraulique conductivity values 
-        
         """
         
         self.K_array = self.geology_array

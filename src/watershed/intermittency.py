@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
-#%% LIBRAIRIES
+#%% ROOT
 
 import os
 import geopandas as gpd
@@ -21,8 +25,8 @@ class Intermittency:
     
     #%% INIT
     
-    def __init__(self, out_path, intermittency_path, geographic):
-        print('Extraction des données d\'intermittence')
+    def __init__(self, out_path, intermittency_path, file_name, geographic):
+        print('Extract intermittency from specific data')
         data_folder = os.path.join(out_path,'results_stable','intermittency')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -36,16 +40,16 @@ class Intermittency:
         self.date_first = []
         self.date_last = []
         try:
-            self.extract_intermittency_from_watershed(data_folder, intermittency_path, geographic)
+            self.extract_intermittency_from_watershed(data_folder, intermittency_path, file_name, geographic)
             self.load_intermittency_data(data_folder)
         except:
             pass
     
     #%% CLIP DATA FROM A FRANCE SCALE SHAPEFILE
     
-    def extract_intermittency_from_watershed(self, data_folder, intermittency_path, geographic):
-        onde_data = os.path.join(intermittency_path, 'onde.shp')
-        self.onde_clip = os.path.join(data_folder,'onde.shp')
+    def extract_intermittency_from_watershed(self, data_folder, intermittency_path, file_name, geographic):
+        onde_data = os.path.join(intermittency_path, file_name)
+        self.onde_clip = os.path.join(data_folder, file_name)
         wbt.clip(onde_data, geographic.watershed_shp, self.onde_clip)
         intermit_bv = gpd.read_file(self.onde_clip)
         stations = intermit_bv['<LbSiteHyd'].unique()
@@ -108,7 +112,7 @@ class Intermittency:
             plt.tight_layout()
             fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
                         bbox_inches='tight', transparent=False)
-            print(code)
+            # print(code)
             # plt.close()
        
 #%% NOTES
