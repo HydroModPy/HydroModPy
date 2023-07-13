@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
-#%% Librairies
+#%% LIBRAIRIES
 
 import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 import rasterio as rio
 import geopandas as gpd
 from osgeo import gdal, osr
-from pyproj import Proj
 from pyproj import CRS
 from pyproj import Transformer
 from pyproj.aoi import AreaOfInterest
@@ -23,14 +23,17 @@ from pyproj.database import query_utm_crs_info
 from hydroeval import *
 import pandas as pd
 import numpy as np
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
 
-#%% Directory management
+#%% DIRECTORY MANAGEMENT
 
 def create_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)
         
-#%% Raster processing
+#%% RASTER PROCESSING
 
 def clip_tif(tif_path, shp_path, out_path, maintain_dimensions):
     wbt.clip_raster_to_polygon(tif_path, shp_path, out_path, maintain_dimensions=maintain_dimensions)
@@ -50,7 +53,7 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
         masked = np.ma.masked_array(target_data, mask=mask_data<value_masked)
     return masked
 
-#%% Extract features
+#%% EXTRACTING FEATURES
 
 def basin_area(target_data, mask_data, cond_symb, value_masked, resolution):
     masked = mask_by_dem(target_data, mask_data, cond_symb, value_masked)
@@ -73,7 +76,7 @@ def date_range(start, periods, freq):
     time = pd.date_range(str(start), periods=periods, freq=freq)
     return time
 
-#%% Plot parameters
+#%% PLOT SETTINGS
 
 def plot_params(small,interm,medium,large):
     
@@ -136,7 +139,7 @@ def plot_params(small,interm,medium,large):
 
     return fontprop      
 
-#%% Reproject data
+#%% REPROJECT DATA
 
 def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     # Open base dem
@@ -212,6 +215,4 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     # shp.to_crs(utm_crs)
     shp.to_file(out_shp_path)
     
-#%% Notes
-
-    
+#%% NOTES

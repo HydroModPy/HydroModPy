@@ -1,7 +1,15 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
+"""
+
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
+"""
 
 #%% LIBRAIRIES
 
+# Python
 import os
 import numpy as np
 import math
@@ -10,6 +18,7 @@ from scipy.interpolate import griddata
 import flopy
 import flopy.utils.binaryfile as bf
 
+# HydroModPy
 from tools import toolbox
 
 #%% CLASS 1
@@ -1202,4 +1211,3 @@ class VTK():
         textoVtk.close()
                 
 #%% NOTES
-

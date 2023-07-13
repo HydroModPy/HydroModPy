@@ -9,7 +9,7 @@ Created on 2023
 
 #%% ---- LIBRAIRIES
 
-#%% PYTHON SITE PACKAGES
+#%% PYTHON
 
 # Libraries installed by default
 import sys
@@ -23,6 +23,7 @@ import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore")
 
 # Libraries need to be installed if not
@@ -65,7 +66,7 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-#%% HYDROMODPY ROOT PATH
+#%% ROOT
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
@@ -76,7 +77,7 @@ if not cwd == root_dir:
     os.chdir(root_dir)
     # print("Root path directory is: {0}".format(cwd))
 
-#%% HYDROMODPY IMPORT MODULES
+#%% HYDROMODPY
 
 # Import HydroModPy modules
 from src import watershed_root
@@ -88,20 +89,20 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PATHS
 
-#%% INFORM PERSONAL
+#%% PERSONAL
 
-example_path = root_dir + "/examples/01_conceptual unconfined aquifer/"
+example_path = root_dir + "/examples/00_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
-#%% OPTION
+#%% OPTIONS
 
 case = 'FromLIB'
 case = 'FromDEM'
 case = 'FromSHP'
-case = 'FromXYV'
+# case = 'FromXYV'
 
 if case == 'FromLIB':
     dem_path = data_path + 'regional dem.tif'
@@ -155,6 +156,8 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
+load=True
+
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -173,25 +176,26 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 #%% DATA
 
-# Clip specific data at the catchment scale
-BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-BV.add_hydrography(data_path, types_obs=['regional stream network'], fields_obs=['fid'])
-BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-BV.add_intermittency(data_path, 'france onde stations.shp')
-BV.add_piezometry()
+if from_dem == None:
+    # Clip specific data at the catchment scale
+    BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+    BV.add_hydrography(data_path, types_obs=['regional stream network'], fields_obs=['fid'])
+    BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
+    BV.add_intermittency(data_path, 'regional onde stations.shp')
+    BV.add_piezometry()
 
-# # Extract some subbasin from data available above
-BV.add_subbasin(data_path+'additionnal/')
+    # Extract some subbasin from data available above
+    BV.add_subbasin(data_path+'additionnal/')
 
 # General plot of the study site
 if from_dem == None:
     visualization_watershed.watershed_local(dem_path, BV)
+    visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
-visualization_watershed.watershed_geology(BV)
 
 #%% ---- RECHARGE
 
-#%% SOURCES
+#%% CASES
 
 # # Necessary to set model parameters
 BV.add_climatic()
@@ -312,34 +316,42 @@ if recharge_data == 'manual':
 
 #%% ---- PARAMETRIZATION
 
-#%% PARAMETERS
+#%% DEFINE
 
 # Frame settings
 model_name = 'default'
 box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # or 'transient'
+plot_cross = True
+
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
 first_clim = 'mean' # or 'first or value
+
 # Hydraulic settings
 nlay = 5
 lay_decay = 1.25 # 1 for no decay
-bottom = 0 # elevation in meters, None for constant auifer thickness
+bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
-hyd_cond = 1e-5 * 24 *3600 # m/day
+hyd_cond = 1e-5 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
 porosity = 10 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+
 # Boundary settings
 bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 
+# Particle tracking settings
+zone_partic = 'domain' # or watershed
+
 #%% UPDATE
 
+# Import modules
 BV.add_settings()
 BV.add_climatic()
 BV.add_geometric() # soon
@@ -350,9 +362,12 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
+BV.settings.update_active_plot(plot_cross=plot_cross)
+
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_first_clim(first_clim)
+
 # Hydraulic settings
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
@@ -363,32 +378,52 @@ BV.hydraulic.update_porosity(porosity)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
+
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
 
+# Particle tracking settings
+BV.settings.update_input_particules(zone_partic=zone_partic)
+
+#%% ---- MODELING
+
 #%% MODFLOW
 
-model_modflow = BV.bluid_modflow()
+model_modflow = BV.preprocessing_modflow()
+success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+if success_modflow == True:
+    BV.postprocessing_modflow(model_modflow,
+                              watertable_elevation = True,
+                              watertable_depth= True, 
+                              seepage_areas = True,
+                              outflow_drain = True,
+                              groundwater_flux = True,
+                              groundwater_storage = True,
+                              accumulation_flux = True,
+                              export_all_tif = False)
 
 #%% MODPATH
 
-#%% ---- MODEL
-
-#%% SETTINGS
-
-
-
-#%% RUN
-
-
-
-#%% PP
-
-
+if success_modflow == True:
+    model_modpath = BV.preprocessing_modpath(model_modflow)
+    success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+if success_modpath == True:
+    BV.postprocessing_modpath(model_modpath,
+                              ending_point=True,
+                              starting_point=True,
+                              pathlines_shp=True,
+                              particules_shp=True,
+                              random_id=1000)
 
 #%% ---- PLOT
 
-#%% ---- END
+#%% XXX
+
+#%% ---- NOTES
 
 os.chdir(root_dir)
+
+# x = imageio.imread('D:/Users/abherve/GITHUB/HydroModPy/examples/00_basic examples with overview of possibilities/data/regional dem.tif')
+# x[(x<0)&(x>-200)] = 888
+

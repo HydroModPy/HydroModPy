@@ -7,8 +7,9 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import pandas as pd
 import geopandas as gpd
@@ -96,4 +97,3 @@ class Hydrography:
         wbt.raster_to_vector_points(self.tif_streams, pt_streams)
         
 #%% NOTES
-    

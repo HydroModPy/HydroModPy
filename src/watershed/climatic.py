@@ -7,8 +7,9 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import pandas as pd
 import numpy as np
 import os
@@ -186,4 +187,3 @@ class Climatic:
             self.runoff = self.runoff.mean()
             
 #%% NOTES
-

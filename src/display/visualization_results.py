@@ -1,9 +1,15 @@
+# -*- coding: utf-8 -*-
 """
+
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
 """
 
 #%% LIBRAIRIES
 
+# Python
 import vedo
 import numpy as np
 from datetime import datetime
@@ -14,11 +20,11 @@ from matplotlib.collections import LineCollection
 import rasterio
 from rasterio.plot import show
 import geopandas as gpd
-
 import flopy
 import os, sys
 import contextily as cx
 
+# HydroModPy
 from tools import toolbox
 
 #%% CLASS
@@ -513,5 +519,4 @@ class Visualization():
         plt.show()
 
 #%% NOTES        
-        
         

@@ -7,22 +7,23 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from netCDF4 import Dataset
 import sys
+import matplotlib.pyplot as plt
 
+# Root
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
-import matplotlib.pyplot as plt
-
-# Hydromodpy
+# HydroModPy
 from tools import toolbox
 
 #%% FUNCTION
@@ -160,4 +161,3 @@ class Oceanic:
             oceanic_display_data(self.RSL,self.figure_folder+'RSL', values)
     
 #%% NOTES
-

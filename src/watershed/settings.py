@@ -9,7 +9,7 @@ Created on 2023
 
 #%% LIBRAIRIES
 
-# Modules
+# Python
 import numpy as np
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -47,7 +47,12 @@ class Settings:
         
     def update_simulation_state(self, sim_state):
         self.sim_state = sim_state
-
-#%% NOTES
         
+    def update_active_plot(self, plot_cross=True):
+        self.plot_cross = plot_cross
+    
+    def update_input_particules(self, zone_partic='domain'):
+        self.zone_partic = zone_partic
+    
+#%% NOTES
         

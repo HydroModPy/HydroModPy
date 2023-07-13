@@ -7,8 +7,9 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import geopandas as gpd
 import whitebox
@@ -116,4 +117,3 @@ class Intermittency:
             # plt.close()
        
 #%% NOTES
-

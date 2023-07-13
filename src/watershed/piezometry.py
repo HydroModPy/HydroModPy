@@ -7,8 +7,9 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import urllib
 import zipfile
@@ -19,12 +20,12 @@ import numpy as np
 import time
 import glob
 import ssl
+import matplotlib.pyplot as plt
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-import matplotlib.pyplot as plt
 
-# Hydromodpy
+# HydroModPy
 from tools import toolbox
 
 #%% CLASS
@@ -280,4 +281,3 @@ class Piezometry:
         fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 
 #%% NOTES
-

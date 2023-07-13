@@ -7,8 +7,9 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import numpy as np
 from osgeo import gdal
@@ -119,4 +120,3 @@ class Geology:
         return self
 
 #%% NOTES
-
