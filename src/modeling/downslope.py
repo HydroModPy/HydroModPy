@@ -1,26 +1,35 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
 #%% LIBRAIRIES
 
+# Python
 import os
 import whitebox
 import imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
+# HydroModPy
 from tools import toolbox
 
 #%% CLASS
 
-class RoutingAccflux:
+class Downslope:
     
     #%% INIT
 
-    def __init__(self, geographic,
-                 raw_rast_name, trace_shp_name, mass_rast_name,
+    def __init__(self, 
+                 geographic,
+                 raw_rast_name, 
+                 trace_shp_name, 
+                 mass_rast_name,
                  extraction_folder=None):
 
         self.geographic = geographic
@@ -35,10 +44,10 @@ class RoutingAccflux:
         except:
             pass
 
-        self.shp_folder = os.path.join(self.extraction_folder, '_surfaceflow')
+        self.shp_folder = os.path.join(self.extraction_folder, '_temporary')
         toolbox.create_folder(self.shp_folder)
         
-        self.tifs_folder = os.path.join(self.extraction_folder, '_tifs')
+        self.tifs_folder = os.path.join(self.extraction_folder, '_rasters')
         toolbox.create_folder(self.tifs_folder)
         
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
@@ -91,4 +100,3 @@ class RoutingAccflux:
         # print('extract_raster_values_at_points')
         
 #%% NOTES
-

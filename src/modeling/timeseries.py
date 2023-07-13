@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
 #%% LIBRAIRIES
 
-# Modules
+# Python
 import flopy
 import numpy as np
 import os
@@ -21,21 +25,23 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import glob
 import geopandas as gpd
-
 import flopy.utils.binaryfile as fpu
 
-# HydroModPy modules
+# Root
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
+
+# HydroModPy
 from tools import toolbox
 
 #%% CLASS
 
-class Results:
+class Timeseries:
     
     #%% INIT
     
-    def __init__(self, geographic, recharge=250, runoff=25, actual_date=True, model_name='modflow_model',
+    def __init__(self,
+                 geographic, recharge=250, runoff=25, actual_date=True, model_name='modflow_model',
                  stable_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_stable'),
                  model_folder=os.path.join(os.path.dirname(os.getcwd()), 'results_simulation')):
         

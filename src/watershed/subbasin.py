@@ -7,28 +7,28 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
-# Libraries installed by default
+# Python
 import sys
 import os
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 import glob
+import shutil
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
+# Root
 from os.path import dirname, abspath
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
-# Import HydroModPy modules
+# HydroModPy
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
-
-import shutil
 
 #%% CLASS
 

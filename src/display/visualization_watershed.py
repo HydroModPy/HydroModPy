@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep 14 18:07:38 2021
 
-@author: Alexandre Gauvain
+Created on 2023
+
+@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import numpy as np
 import geopandas as gpd
 import rasterio
 from rasterio.plot import show
 import contextily as cx
-
-# Plots
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -26,10 +27,10 @@ try:
 except:
     pass
 
-# Hydromodpy
+# HydroModPy
 from tools import toolbox
 
-#%% PLOT PARAMS
+#%% PLOT SETTINGS
 
 # # # Classic
 mpl.style.use('classic')

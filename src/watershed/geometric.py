@@ -8,7 +8,7 @@ Created on 2023
 
 #%% LIBRAIRIES
 
-# Modules
+# Python
 import whitebox
 wbt = whitebox.WhiteboxTools()
 # wbt.set_compress_rasters(True)
@@ -24,7 +24,7 @@ class Geometric:
         
         print('Init geometric module to set model parameter')
 
-    #%% XXX
+    #%% SOON
     
         
 #%% NOTES

@@ -9,11 +9,11 @@ Created on 2023
 
 #%% LIBRAIRIES
 
-# Modules
+# Python
 import numpy as np
 import whitebox
 wbt = whitebox.WhiteboxTools()
-#wbt.set_compress_rasters(True)
+# wbt.set_compress_rasters(True)
 wbt.verbose = False
 
 #%% CLASS
@@ -211,5 +211,4 @@ class Hydraulic:
             self.porosity[geology_array==geology_code[i]] = porosity_values[i]
         
 #%% NOTES
-        
         

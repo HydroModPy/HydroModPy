@@ -7,8 +7,9 @@ Created on 2023
 
 """
 
-#%% ROOT
+#%% LIBRAIRIES
 
+# Python
 import os
 import datetime
 import geopandas as gpd
@@ -70,4 +71,3 @@ class Hydrometry:
         self.date_ferm = hydromet_bv['DtFermetur'].to_list()
        
 #%% NOTES
-
