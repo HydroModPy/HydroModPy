@@ -102,7 +102,7 @@ out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 case = 'FromLIB'
 case = 'FromDEM'
 case = 'FromSHP'
-# case = 'FromXYV'
+case = 'FromXYV'
 
 if case == 'FromLIB':
     dem_path = data_path + 'regional dem.tif'
@@ -405,16 +405,24 @@ if success_modflow == True:
 
 #%% MODPATH
 
-if success_modflow == True:
-    model_modpath = BV.preprocessing_modpath(model_modflow)
-    success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-if success_modpath == True:
-    BV.postprocessing_modpath(model_modpath,
-                              ending_point=True,
-                              starting_point=True,
-                              pathlines_shp=True,
-                              particules_shp=True,
-                              random_id=1000)
+if sim_state == 'steady':
+    if success_modflow == True:
+        model_modpath = BV.preprocessing_modpath(model_modflow)
+        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+    if success_modpath == True:
+        BV.postprocessing_modpath(model_modpath,
+                                  ending_point=True,
+                                  starting_point=True,
+                                  pathlines_shp=True,
+                                  particules_shp=True,
+                                  random_id=1000)
+
+#%% TIMESERIES
+
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath=model_modpath,
+                                                  actual_date=True, 
+                                                  subbasin_results=False) # or None
 
 #%% ---- PLOT
 
