@@ -1,0 +1,35 @@
+List of issues
+
+	a)
+	Créer le petit .bat pour installer les librairies dans un environnement hydromodpy vide (fixer les versions)
+	
+	b)
+	Can't pickle <class 'src.watershed_root.Watershed'>: it's not the same object as src.watershed_root.Watershed
+	When run a second time
+	
+	c)
+	Répétition des appels de paramètres entre le laucher, watershed_root et le script avec la classe
+	
+	d)
+	Repasser l'ensemble des codes et oprimiser/ranger
+	
+	e)
+	Ajouter la documentation adns le code. Une fois fait, construire la documentation sur un fichier Google Drive.
+
+	f)
+	Développer et tetser chaque exemple. En faire des Jupyter Notebook
+
+List of examples
+
+v0.1
+- 00_basic examples with overview of possibilities		Abers		==> Extract files and test different input cases
+- 01_conceptual unconfined aquifer				Abers		==> Plot 2D map view and cross section
+- 02_hydrographic network in steady state			Canut		==> Plot seepage versus K/R and maps of hydrographic network
+- 03_streamflow and intermittency in transient			Nancon		==> Plot sim vs obs and map of stream intermittency
+- 04_piezometry in a coastal context  				Normandiie	==> Plot boundary condition site and sim vs obs
+- 05_particle tracking for residence times			Lasset		==> Plot endpoints and associated pathlines
+
+v0.2
+- 06_aquifer complexity and heterogeneity			Quiock		==> Soon
+- 07_calibration and multiobjective optimization		Find		==> Soon
+

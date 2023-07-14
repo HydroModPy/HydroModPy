@@ -444,4 +444,19 @@ class Watershed :
                                       particules_shp=particules_shp,
                                       random_id=random_id)
 
+    #%% EXTRACT TIMESERIES
+    
+    def postprocessing_timeseries(self,
+                                  model_modflow,
+                                  model_modpath,
+                                  actual_date=True,
+                                  subbasin_results=True):
+        
+        if model_modflow != None:
+            timeseries_results = timeseries.Timeseries(self.geographic,
+                                                        model_modflow=model_modflow,
+                                                        model_modpath=model_modpath,
+                                                        actual_date=actual_date,
+                                                        subbasin_results=subbasin_results)
+
 #%% NOTES
