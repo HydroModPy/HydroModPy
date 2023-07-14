@@ -89,7 +89,7 @@ class Subbasin:
         # Coordinates
         outpath = outpath + '/'
         df = pd.DataFrame({'x': [X], 'y': [Y]})
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=geographic.crs)
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=geographic.crs_proj)
         outlet_shp = outpath + 'outlet.shp'
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
@@ -103,7 +103,7 @@ class Subbasin:
         watershed_shp = outpath + 'watershed.shp'
         wbt.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
-        shp.set_crs(geographic.crs, inplace=True, allow_override=True)
+        shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
         shp.to_file(watershed_shp)
         wbt.polygon_area(watershed_shp)
         area = gpd.read_file(watershed_shp).AREA[0]/1000000

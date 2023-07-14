@@ -558,6 +558,12 @@ class Modflow():
         # Stress periods (flopy "language")
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
+        
+        # Params model
+        self.nper = self.dis.nper
+        self.kper = np.arange(0,self.nper,1) # ==> time
+        if len(self.kper) > 1:
+            self.kstp = self.nstp[self.kper] - 1
              
         #%% Aggregated results over times
         

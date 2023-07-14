@@ -132,12 +132,15 @@ class Timeseries:
             self.zones_folder = os.path.join(self.stable_folder, 'subbasin')
             self.zones_list = os.listdir(self.zones_folder)
             for zone_name in self.zones_list:
-                  sub_file = os.path.join(self.full_path, '_subbasins', zone_name)
-                  if not os.path.exists(sub_file):
-                      toolbox.create_folder(sub_file) 
-                  dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
-                  self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
-                  self.extract_results(dem_clip, time, recharge, sub_file)
+                sub_file = os.path.join(self.full_path, '_subbasins', zone_name)
+                if not os.path.exists(sub_file):
+                    toolbox.create_folder(sub_file) 
+                try:
+                    dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
+                    self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
+                    self.extract_results(dem_clip, time, recharge, sub_file)
+                except:
+                    pass
     
     #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
     

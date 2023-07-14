@@ -156,8 +156,6 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
-load=True
-
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -322,7 +320,7 @@ if recharge_data == 'manual':
 model_name = 'default'
 box = True # or False
 sink_fill = False # or True
-sim_state = 'steady' # or 'transient'
+sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = True
 
 # Climatic settings
@@ -419,10 +417,17 @@ if sim_state == 'steady':
 
 #%% TIMESERIES
 
-timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                  model_modpath=model_modpath,
-                                                  actual_date=True, 
-                                                  subbasin_results=False) # or None
+if sim_state == 'steady':
+    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                      model_modpath=model_modpath,
+                                                      actual_date=True, 
+                                                      subbasin_results=True) # or None
+
+if sim_state == 'transient':
+    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                      model_modpath=None,
+                                                      actual_date=True, 
+                                                      subbasin_results=True) # or None
 
 #%% ---- PLOT
 
