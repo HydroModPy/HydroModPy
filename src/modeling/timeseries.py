@@ -50,8 +50,18 @@ class Timeseries:
         print('Extract modflow and modpath results in timeseries')
         
         self.geographic = geographic
-        self.stable_folder = geographic.stable_folder
-        self.simulations = geographic.simulations_folder
+        
+        try:
+            self.stable_folder = geographic.stable_folder
+            self.simulations = geographic.simulations_folder
+        except:
+            pass
+        
+        try:
+            self.stable_folder = self.stable_folder
+            self.simulations = self.simulations_folder
+        except:
+            pass
         
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder
