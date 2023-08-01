@@ -605,8 +605,11 @@ class Visualization():
         main_ax.imshow(dem_plot, origin='lower', cmap='terrain')
         
         # Plot contour
-        cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
-        main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+        try:
+            cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
+            main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+        except:
+            pass
         
         # Plot rivers
         try:
