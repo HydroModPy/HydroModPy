@@ -79,12 +79,17 @@ if not cwd == root_dir:
 
 #%% HYDROMODPY
 
+import src
+import importlib
+importlib.reload(src)
+
 # Import HydroModPy modules
 from src import watershed_root
 from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox
+
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PATHS
@@ -156,6 +161,7 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
+# load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -320,7 +326,8 @@ if recharge_data == 'manual':
 model_name = 'default'
 box = True # or False
 sink_fill = False # or True
-sim_state = 'transient' # 'steady' or 'transient'
+# sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 
 # Climatic settings
@@ -431,12 +438,98 @@ if sim_state == 'transient':
 
 #%% ---- PLOT
 
-#%% XXX
+#%% 2D
+
+# if sim_state == 'steady':
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid',
+                             'watertable', 'watertable_depth',
+                             'drain_flow','surface_flow',
+                             'pathlines', 'residence_times'
+                             ],
+              color_scale = [(None,None),(None,None),
+                             (None,None),(0,10),
+                             (None,None),(None,None),
+                             (None,None),(None,None),
+                             ], 
+              lines=100)
+
+#%% 3D
+
+export_vtuvtk.VTK(BV, model_name)
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual3D(interactive=False,
+              object_list=['grid','watertable', 'watertable_depth',
+                           'surface_flow', 'drain_flow', 'pathlines'
+                           ],
+              view='south-west',
+              lines=100, cloc=(0.7,0.1))
+
+#%% RAW
+
+lead_numb = '0'
+outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+demData = imageio.imread(BV.geographic.watershed_dem)
+demData = np.ma.masked_array(demData, mask=demData<0)
+res = BV.geographic.resolution
+
+msk_outflow = (outflow<0)
+outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
+outflow = outflow * 1000 * 365 # mm/year
+outflow = np.log10(outflow)
+
+from matplotlib.colors import LightSource
+ls = LightSource(azdeg=45, altdeg=45)
+cmap = plt.cm.Greys
+rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
+
+fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+im = ax.imshow(demData, alpha=0.8, cmap=cmap)
+im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+cont = imageio.imread(BV.geographic.watershed_contour_tif)
+ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1%", pad=0.05)
+fig.add_axes(cax)
+cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+val = np.ma.masked_where(demData < 0, demData)
+minVal =  int(round(np.nanmin(val[np.nonzero(val)],0)))
+maxVal =  int(round(np.nanmax(val[np.nonzero(val)],0)))
+meanVal = int(round(minVal+((maxVal-minVal)/2),0))
+cbar.set_ticks([minVal, meanVal, maxVal])
+cbar.set_ticklabels([minVal, meanVal, maxVal])
+cbar.mappable.set_clim(minVal, maxVal)
+cbar.ax.tick_params(labelsize=10)
+
+cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
+fig.add_axes(cax)
+cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
+ticks = np.linspace(0, outflow.max(), 5)
+cbar.set_ticks(ticks)
+cbar.set_ticklabels(ticks.round(1))
+cbar.set_label('Seepage outflow log [mm/y]')
+
+plt.tight_layout()
+name_fig = 'map_discharge_' + str(lead_numb) + '.png'
+plt.tight_layout()
+
+fig.savefig(os.path.join(simulations_folder, model_name,
+                            '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
+
+#%% CROSS
+
+dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif') # dem data
+stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
+watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
+interactive = False
+visu = visualization_results.Visualization(BV, model_name)
+visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
 #%% ---- NOTES
 
 os.chdir(root_dir)
-
-# x = imageio.imread('D:/Users/abherve/GITHUB/HydroModPy/examples/00_basic examples with overview of possibilities/data/regional dem.tif')
-# x[(x<0)&(x>-200)] = 888
-

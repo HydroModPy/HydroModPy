@@ -6,6 +6,7 @@ List of issues
 	b) Alex
 	Can't pickle <class 'src.watershed_root.Watershed'>: it's not the same object as src.watershed_root.Watershed
 	When run a second time
+	# Check and improve the visulization in code : src/display/visualization_results.py (petit problème avec le 3D, notamment la légende)
 	
 	c) A voir si correction dans v0.1 (voir avec JR)
 	Répétition des appels de paramètres entre le laucher, watershed_root et le script avec la classe
