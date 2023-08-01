@@ -165,7 +165,7 @@ class Geographic:
         wbt.polygon_area(self.watershed_shp)
         # Create shapefile polyline of the watershed
         self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
-        wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)
+        wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)     
         try:
             area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
             self.area = np.abs(area)
@@ -273,6 +273,11 @@ class Geographic:
             self.watershed_box_bottom = self.gis_path + 'watershed_box_buff_bottom.tif'
             wbt.clip_raster_to_polygon(self.bottom_path, box_buffer, self.watershed_box_bottom,
                                        maintain_dimensions=False)
+        
+        self.watershed_contour_tif = self.gis_path + 'watershed_contour.tif'
+        wbt.vector_lines_to_raster(self.watershed_shp,
+                                   self.watershed_contour_tif,
+                                   base = self.watershed_dem)
         
         """
         Create depressions raster

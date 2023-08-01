@@ -29,7 +29,7 @@ class Hydrography:
         
         print("Extract hydrography from specific data")
         
-        data_folder = out_path + '/results_stable/hydrology/'
+        data_folder = out_path + '/results_stable/hydrography/'
         if not os.path.exists(data_folder):
             os.makedirs(data_folder)
         
