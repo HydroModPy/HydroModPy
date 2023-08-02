@@ -50,18 +50,9 @@ class Timeseries:
         print('Extract modflow and modpath results in timeseries')
         
         self.geographic = geographic
-        
-        try:
-            self.stable_folder = geographic.stable_folder
-            self.simulations = geographic.simulations_folder
-        except:
-            pass
-        
-        try:
-            self.stable_folder = self.stable_folder
-            self.simulations = self.simulations_folder
-        except:
-            pass
+    
+        self.stable_folder = geographic.stable_folder
+        self.simulations = geographic.simulations_folder
         
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder
@@ -69,6 +60,7 @@ class Timeseries:
         self.actual_date = actual_date
        
         self.full_path = os.path.join(self.model_folder, self.model_name)
+        self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         
         self.save_file = os.path.join(self.full_path, '_postprocess')
         if not os.path.exists(self.save_file):
@@ -148,6 +140,7 @@ class Timeseries:
                 try:
                     dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
                     self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
+                    print('Subbasin zones')
                     self.extract_results(dem_clip, time, recharge, sub_file)
                 except:
                     pass
@@ -249,18 +242,15 @@ class Timeseries:
         
         ### intermittency_saturation
         try:
-            if len(self.accumulation_flux>12):
+            if len(self.accumulation_flux)>12:
                 inf = 0
                 sup = 12
                 step = int(round(len(self.accumulation_flux)/12))
                 compt=0            
                 for i in range(step):
-                    print('Intermittency: '+str(i)+' / '+str((step)))
+                    print('Compute intermittency: '+str(i)+' / '+str((step)))
                     interv = list(self.accumulation_flux.items())[inf:sup]
-                    # print(interv)                
                     for key in range(len(interv)):
-                        # key = tupl[0]
-                        # print(key)
                         mask = dem_clip.copy()
                         interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
                     zero = self.accumulation_flux[0] * 0                

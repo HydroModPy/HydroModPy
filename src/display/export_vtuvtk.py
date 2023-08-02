@@ -97,8 +97,11 @@ class VTK():
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
             print('Export vtuvtk watertable')
             self.watertable(modelname, modelfolder, save_file, watershed.geographic)
-            print('Export vtuvtk boundary')
-            self.watershed_boundary(save_file, watershed.geographic)
+            try:
+                print('Export vtuvtk boundary')
+                self.watershed_boundary(save_file, watershed.geographic)
+            except:
+                pass
             try:
                 self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
                 print('Export vtuvtk pathlines')

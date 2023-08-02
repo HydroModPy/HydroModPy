@@ -49,13 +49,15 @@ class Geographic:
                  buff_percent,
                  crs_proj,
                  out_path,
+                 stable_folder,
+                 simulations_folder,
                  from_lib,
                  from_dem,
                  from_shp,
                  from_xyv):
 
         print('Extract geography of the model area')
-        
+                
         self.dem_path = dem_path
         self.bottom_path = bottom_path
         self.cell_size = cell_size
@@ -65,6 +67,8 @@ class Geographic:
         self.buff_percent = buff_percent
         self.crs_proj = crs_proj
         self.out_path = out_path
+        self.stable_folder = stable_folder
+        self.simulations_folder = simulations_folder
         self.from_lib = from_lib
         self.from_dem = from_dem
         self.from_shp = from_shp

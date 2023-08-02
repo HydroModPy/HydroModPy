@@ -29,17 +29,16 @@ Decembre : attendre papier sci. pour publier en ligne ?
 List of examples
 
 v0.1
-- 00_basic examples with overview of possibilities	Ronan			Abers		==> Extract files and test different input cases
-- 01_conceptual unconfined aquifer			Ronan			Abers		==> Plot 2D map view and cross section
+- 01_basic examples with overview of possibilities	Ronan			Abers		==> Extract files and test different input cases
 - 02_hydrographic network in steady state		Ronan			Canut		==> Plot seepage versus K/R and maps of hydrographic network
 - 03_streamflow and intermittency in transient		Ronan			Nancon		==> Plot sim vs obs and map of stream intermittency
 - 04_piezometry in a coastal context  			Alex+Martin		Normandiie	==> Plot boundary condition site and sim vs obs
-- 05_particle tracking for residence times		Ronan			Lasset		==> Plot endpoints and associated pathlines
+- 05_particle tracking for residence times		Ronan			Hillslope	==> Plot endpoints and associated pathlines in cross section
 
 v0.2
-- 06_aquifer complexity and heterogeneity		v2 Alex (lateral K)
+- 06_aquifer complexity and heterogeneity		v2 Alex (lateral K)	Lasset ?	==> Soon
 							   Ronan (vertical K)
 							   Clément (anisotropy K)
-							   Etienne (3D de K)	Quiock		==> Soon
-- 07_calibration and multiobjective optimization	v2			Find		==> Soon
+							   Etienne (3D de K)			
+- 07_calibration and multiobjective optimization	v2			Find ?		==> Soon
 
