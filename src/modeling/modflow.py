@@ -525,9 +525,11 @@ class Modflow():
                         groundwater_flux=True,
                         groundwater_storage=True,
                         accumulation_flux=True,
+                        persistency_index=False,
+                        intermittency_yearly=False,
                         export_all_tif=False):
         
-        # Create folders        
+        # Create folders 
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)        
         
@@ -539,6 +541,9 @@ class Modflow():
         
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         toolbox.create_folder(self.tifs_file)
+        
+        self.save_fig = os.path.join(self.model_folder, '_figures')
+        toolbox.create_folder(self.save_fig)
 
         #%% Import essential data 
         
@@ -583,6 +588,8 @@ class Modflow():
         self.dict_accumulation_flux = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
+        self.dict_persistency_index = {}
+        self.dict_intermittency_yearly = {}
         self.list_traces = []
         
         # Loop over times, fills each of the previous structures 
@@ -718,7 +725,7 @@ class Modflow():
                 except:
                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
                     pass
-                
+            
         ### Save dictionaries to npy
         if watertable_elevation == True:
             np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
@@ -735,4 +742,75 @@ class Modflow():
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
 
+        if persistency_index == True:
+            ### Persistency index
+            acc_npy_raw = np.load(os.path.join(self.save_file,'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            for key in range(len(acc_npy)):
+                mask = imageio.imread(self.geographic.watershed_dem)
+                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+            zero = acc_npy[0] * 0
+            for i in range(len(acc_npy)):
+                tempo = acc_npy[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy() / len(acc_npy)
+            pi_export = days_flux.copy()
+            self.pi = np.ma.masked_where(days_flux <= 0, days_flux)
+            self.dict_persistency_index[0] = self.pi
+            pi_export[days_flux <= 0] = -9999
+            pi_export[mask<=0] = -9999
+            output_path = self.tifs_file+'/persistency_index_t('+'-'+').tif'
+            # if export_tif==True:
+            toolbox.export_tif(self.dem_path, pi_export, -9999, output_path)
+        
+        if persistency_index == True:
+            np.save(self.save_file+'/persistency_index', self.dict_persistency_index)
+                    
+        if intermittency_yearly == True:
+            ### Intermittency yearly
+            acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            if len(acc_npy_raw)>12:
+                inf = 0
+                sup = 12
+                step = int(round(len(acc_npy_raw)/12))
+                compt=0            
+                for i in range(step):
+                    print('Export intermittency: '+str(i)+' / '+str((step)))
+                    interv = list(acc_npy)[inf:sup]
+                    for key in range(len(interv)):
+                        mask = imageio.imread(self.geographic.watershed_dem)
+                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                    zero = acc_npy_raw[0] * 0                
+                    for j in range(len(interv)):
+                        tempo = interv[j].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo                    
+                    days_flux = zero.copy()
+                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                    for k in range(len(interv)):
+                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                        tempo[days_flux<12] = 0
+                        tempo[days_flux==12] = 1
+                        tempo_export = tempo.copy()
+                        self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                        self.dict_intermittency_yearly[compt] = self.tempo
+                        tempo_export[interv[k]<=0] = -9999
+                        tempo_export[mask<=0] = -9999
+                        output_path = self.tifs_file+'/intermittency_yearly_t('+str(compt)+').tif'
+                        # if export_tif==True:
+                        toolbox.export_tif(self.geographic.watershed_dem,
+                                           tempo_export,
+                                           -9999, output_path)
+                        compt+=1                    
+                    inf+=12
+                    sup+=12
+                    
+            if intermittency_yearly == True:
+                np.save(self.save_file+'/intermittency_yearly', self.dict_intermittency_yearly)
+                    
 #%% NOTES

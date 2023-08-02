@@ -91,28 +91,30 @@ class VTK():
         
         if modelname != None:
             modelfolder= os.path.join(watershed.simulations_folder, modelname)
-            save_file = os.path.join(modelfolder, '_watershed','VTK')
+            save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
             toolbox.create_folder(save_file)
-            print('grid')
+            print('Export vtuvtk grid')
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
-            print('watertable')
+            print('Export vtuvtk watertable')
             self.watertable(modelname, modelfolder, save_file, watershed.geographic)
-            print('watershed_boundary')
-            self.watershed_boundary(save_file, watershed.geographic)
+            try:
+                print('Export vtuvtk boundary')
+                self.watershed_boundary(save_file, watershed.geographic)
+            except:
+                pass
             try:
                 self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
-                print('pathlines')
+                print('Export vtuvtk pathlines')
             except:
                 pass
             try:
                 self.piezometers(save_file, watershed.piezometry)
-                print('piezometers')
+                print('Export vtuvtk piezometers')
             except:
                 pass
-
             try:
-                print('streams')
-                self.streams(save_file, watershed.hydrology, watershed.geographic)
+                print('Export vtuvtk streams')
+                self.streams(save_file, watershed.hydrography, watershed.geographic)
             except:
                 pass
         else:
@@ -395,7 +397,7 @@ class VTK():
                 listIBoundDef.append(listIBound[i])
                 listHkDef.append(listHk[i])
     
-        textoVtk = open(os.path.join(save_file,'VTU_Grid.vtu'), 'w')
+        textoVtk = open(os.path.join(save_file,'grid.vtu'), 'w')
     
         # add header
         textoVtk.write('<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
@@ -543,7 +545,7 @@ class VTK():
                         z_store.append(geographic.dem_box_data[yidx,xidx])
                         nb_points += 1
             
-        textoVtk = open(os.path.join(save_file,'VTU_watershed_contour.vtk'), 'w')
+        textoVtk = open(os.path.join(save_file,'watershed_contour.vtk'), 'w')
         # add header
         textoVtk.write('# vtk DataFile Version 2.0\n')
         textoVtk.write('Watershed boundary\n')
@@ -562,7 +564,7 @@ class VTK():
         textoVtk.write('\n')
         textoVtk.close()
 
-    def streams(self,save_file, hydrology, geographic):
+    def streams(self,save_file, hydrography, geographic):
         """
         
         build vtk file of watershed boundary
@@ -576,7 +578,7 @@ class VTK():
             
         """
         
-        lineDf = gpd.read_file(hydrology.streams)
+        lineDf = gpd.read_file(hydrography.streams)
         x_store = []
         y_store = []
         z_store = []
@@ -601,7 +603,7 @@ class VTK():
             z_store.append(zs)
                 
             
-        textoVtk = open(os.path.join(save_file,'VTU_streams.vtk'), 'w')
+        textoVtk = open(os.path.join(save_file,'streams.vtk'), 'w')
         # add header
         textoVtk.write('# vtk DataFile Version 2.0\n')
         textoVtk.write('Watershed boundary\n')
@@ -627,7 +629,7 @@ class VTK():
 
     def piezometers(self,save_file,piezometry):
         piezos = piezometry.codes_bss
-        textoVtk = open(os.path.join(save_file,'VTU_Piezometers.vtk'), 'w')
+        textoVtk = open(os.path.join(save_file,'piezometers.vtk'), 'w')
         # add header
         textoVtk.write('# vtk DataFile Version 2.0\n')
         textoVtk.write('Particles Pathlines Modpath\n')
@@ -699,12 +701,12 @@ class VTK():
         hds = bf.HeadFile(os.path.join(modelfolder,modelname+'.hds'))
         
         # open the drain flux files
-        drain_file = os.path.join(modelfolder,'_watershed','outflow_drain.npy')
+        drain_file = os.path.join(modelfolder,'_postprocess', 'outflow_drain.npy')
         drain_area = np.load(drain_file, allow_pickle=True).item()
         
         # open the surface flux files
         try:
-            surface_file = os.path.join(modelfolder,'_watershed','accumulation_flux.npy')
+            surface_file = os.path.join(modelfolder,'_postprocess', 'accumulation_flux.npy')
             surface_area = np.load(surface_file, allow_pickle=True).item()
         except:
             pass
@@ -716,12 +718,12 @@ class VTK():
         else:
             tsn = np.linspace(0,len(kstpkper)-1,len(kstpkper),dtype=int)
     
-        textoVtk = open(os.path.join(save_file,'VTU_WaterTable.pvd'), 'w')
+        textoVtk = open(os.path.join(save_file,'watertable.pvd'), 'w')
         textoVtk.write('<VTKFile type="Collection" version="0.1">\n')
         textoVtk.write('  <Collection>\n')
         for time_step_num in range(0, len(tsn)):
             time_step = tsn[time_step_num]
-            textoVtk.write('    <DataSet timestep="' + str(time_step) + '" part="0" file="'+os.path.join(save_file,'VTU_WaterTable_' + str(
+            textoVtk.write('    <DataSet timestep="' + str(time_step) + '" part="0" file="'+os.path.join(save_file,'watertable_' + str(
                 time_step) + '.vtu" />\n'))
         textoVtk.write('  </Collection>\n')
         textoVtk.write('</VTKFile>\n')
@@ -947,7 +949,7 @@ class VTK():
                     except:
                         pass
                     
-            textoVtk = open(os.path.join(save_file,'VTU_WaterTable_' + str(time_step) + '.vtu'), 'w')
+            textoVtk = open(os.path.join(save_file,'watertable_' + str(time_step) + '.vtu'), 'w')
             # add header
             textoVtk.write(
                 '<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
@@ -1167,7 +1169,7 @@ class VTK():
                         v = d / (t_store[i][j] - t_store[i][j - 1])
                         v_store.append(v)
     
-        textoVtk = open(os.path.join(save_file,'VTU_Pathlines.vtk'), 'w')
+        textoVtk = open(os.path.join(save_file,'pathlines.vtk'), 'w')
         # add header
         textoVtk.write('# vtk DataFile Version 2.0\n')
         textoVtk.write('Particles Pathlines Modpath\n')

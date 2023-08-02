@@ -245,15 +245,15 @@ class Modpath:
                                    epsg=epsg,
                                    sr=None)
         
+        path_mppth = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
+        pthobj = flopy.utils.PathlineFile(path_mppth+'.mppth')
+        pth_data = pthobj.get_alldata()
+            
         if random_id != None:
             shp_endpoint = gpd.read_file(os.path.join(self.particules_file, 'ending.shp'))
             keep_id = shp_endpoint.particleid
             keep_id = keep_id.tolist()
-
-            path_mppth = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
-            pthobj = flopy.utils.PathlineFile(path_mppth+'.mppth')
-            pth_data = pthobj.get_alldata()
-            
+ 
             # if not os.path.exists(self.particules_file+'/_random_id.data'):
             id_random_particules = random.sample(keep_id[:-1], random_id)
             with open(self.particules_file+'/_random_id.data', 'wb') as f:

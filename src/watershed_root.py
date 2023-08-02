@@ -219,6 +219,8 @@ class Watershed :
                                                 self.buff_percent,
                                                 self.crs_proj,
                                                 self.watershed_folder,
+                                                self.stable_folder,
+                                                self.simulations_folder,
                                                 self.from_lib,
                                                 self.from_dem,
                                                 self.from_shp,
@@ -391,6 +393,8 @@ class Watershed :
                                groundwater_flux=True,
                                groundwater_storage=True,
                                accumulation_flux=True,
+                               persistency_index=False,
+                               intermittency_yearly=False,
                                export_all_tif=False):
         
         # Postprocessing Modflow
@@ -402,6 +406,8 @@ class Watershed :
                                       groundwater_flux=groundwater_flux,
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,
+                                      persistency_index=persistency_index,
+                                      intermittency_yearly=intermittency_yearly,
                                       export_all_tif=export_all_tif)
 
     #%% MODPATH MODEL        
