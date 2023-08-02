@@ -96,7 +96,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/01_conceptual unconfined aquifer/"
+example_path = root_dir + "/examples/05_conceptual particle tracking for residence times/"
 data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
@@ -105,7 +105,8 @@ out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 #%% OPTIONS
 
 case = 'Hillslope_1D'
-# case = 'Hillslope_2D'
+case = 'Hillslope_2D'
+case = 'Lasset'
 
 if case == 'Hillslope_1D':
     dem_path = data_path + 'hillslope_1D.tif'
@@ -127,6 +128,18 @@ if case == 'Hillslope_2D':
     from_dem = [dem_path, 10] # [path, cell size]
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
+    bottom_path = None # path
+    modflow_path = os.path.join(root_dir,'bin/')
+    save_object = True
+
+if case == 'Lasset':
+    dem_path = data_path + 'regional dem.tif'
+    load = False
+    watershed_name = case
+    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
+    from_dem = None # [path, cell size]
+    from_shp = None # [path, buffer size]
+    from_xyv = [601020,6193860,100,50, 'EPSG:2154'] # [x, y, snap distance, buffer size]
     bottom_path = None # path
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
@@ -191,7 +204,10 @@ nlay = 20
 lay_decay = 1.25 # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
-hyd_cond = 5e-7 * 24 * 3600 # m/day
+if watershed_name == 'Lasset':
+    hyd_cond = 1e-8 * 24 * 3600 # m/day
+else:
+    hyd_cond = 5e-7 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
@@ -272,7 +288,7 @@ if sim_state == 'steady':
                                   starting_point=True,
                                   pathlines_shp=True,
                                   particules_shp=True,
-                                  random_id=100)
+                                  random_id=200)
 
 #%% TIMESERIES
 
@@ -285,7 +301,19 @@ if sim_state == 'steady':
 
 #%% 2D
 
-
+# if sim_state == 'steady':
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid',
+                             'watertable', 'watertable_depth',
+                             'drain_flow','surface_flow',
+                             'pathlines', 'residence_times'
+                             ],
+              color_scale = [(None,None),(None,None),
+                             (None,None),(0,10),
+                             (None,None),(None,None),
+                             (None,None),(None,None),
+                             ], 
+              lines=100)
 
 #%% RAW
 
@@ -375,6 +403,44 @@ cbsc.set_label('Residence times [y]', labelpad=+10)
 
 fig.savefig(os.path.join(simulations_folder, model_name,
                             '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
+
+#%% MAP
+
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
+
+line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+
+dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dem_data = dem_rio.read(1)
+dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
+                    cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
+
+shp_pathlines['time'] = shp_pathlines['time'] / 365
+shp_pathlines.plot(ax=ax, column='time', cmap='jet', lw=2,
+                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
+                  zorder=1)
+
+shp_endpoints['time'] = shp_endpoints['time'] / 365
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0,
+                 norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
+                 zorder=2)
+
+line.plot(ax=ax, color='k', lw=3)
+
+ax.set_title('Residence times [y]')
+
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)  
+
+fig.tight_layout()
+
+fig.savefig(os.path.join(simulations_folder, model_name,
+                            '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
 #%% ---- NOTES
 

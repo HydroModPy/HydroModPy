@@ -3,7 +3,7 @@
   <identifier></identifier>
   <parentidentifier></parentidentifier>
   <language></language>
-  <type>dataset</type>
+  <type></type>
   <title></title>
   <abstract></abstract>
   <links/>

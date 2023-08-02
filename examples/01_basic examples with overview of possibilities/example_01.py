@@ -96,7 +96,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/00_basic examples with overview of possibilities/"
+example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
@@ -105,9 +105,9 @@ out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 #%% OPTIONS
 
 case = 'FromLIB'
-case = 'FromDEM'
-case = 'FromSHP'
-case = 'FromXYV'
+# case = 'FromDEM'
+# case = 'FromSHP'
+# case = 'FromXYV'
 
 if case == 'FromLIB':
     dem_path = data_path + 'regional dem.tif'
@@ -307,10 +307,10 @@ if recharge_data == 'synthetic':
     
 if recharge_data == 'manual':
     
-    time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])
+    time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10]) # mm/month
     BV.climatic.update_recharge(time_series, sim_state='transient')
     fig, ax = plt.subplots(1,1, figsize=(6,3))
-    R = BV.climatic.recharge
+    R = BV.climatic.recharge / 1000 / 30
     r = R * 0.1
     ax.plot(R, label='recharge_manual', c='dodgerblue', lw=2)
     ax.plot(r, label='runoff_manual', c='navy', lw=2)
@@ -331,7 +331,7 @@ sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 
 # Climatic settings
-recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
+recharge = R.copy()
 first_clim = 'mean' # or 'first or value
 
 # Hydraulic settings
@@ -420,21 +420,24 @@ if sim_state == 'steady':
                                   starting_point=True,
                                   pathlines_shp=True,
                                   particules_shp=True,
-                                  random_id=1000)
+                                  random_id=100)
 
 #%% TIMESERIES
 
-if sim_state == 'steady':
-    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                      model_modpath=model_modpath,
-                                                      actual_date=True, 
-                                                      subbasin_results=True) # or None
+if from_dem == None:
+    subbasin_results = True
+else:
+    subbasin_results = False
 
-if sim_state == 'transient':
-    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                      model_modpath=None,
-                                                      actual_date=True, 
-                                                      subbasin_results=True) # or None
+if sim_state == 'steady':
+    model_modpath = model_modpath
+else:
+    model_modpath = None
+
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath=model_modpath,
+                                                  actual_date=subbasin_results, 
+                                                  subbasin_results=subbasin_results) # or None
 
 #%% ---- PLOT
 
@@ -456,14 +459,15 @@ visu.visual2D(object_list = ['map','grid',
 
 #%% 3D
 
-export_vtuvtk.VTK(BV, model_name)
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual3D(interactive=False,
-              object_list=['grid','watertable', 'watertable_depth',
-                           'surface_flow', 'drain_flow', 'pathlines'
-                           ],
-              view='south-west',
-              lines=100, cloc=(0.7,0.1))
+if from_dem == None:
+    export_vtuvtk.VTK(BV, model_name)
+    visu = visualization_results.Visualization(BV, model_name)
+    visu.visual3D(interactive=False,
+                  object_list=['grid','watertable', 'watertable_depth',
+                               'surface_flow', 'drain_flow', 'pathlines'
+                               ],
+                  view='south-west',
+                  lines=100, cloc=(0.7,0.1))
 
 #%% RAW
 
@@ -490,8 +494,11 @@ ax.get_yaxis().set_visible(False)
 im = ax.imshow(demData, alpha=0.8, cmap=cmap)
 im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
 cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=outflow.min(), vmax=outflow.max())
-cont = imageio.imread(BV.geographic.watershed_contour_tif)
-ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+try:
+    cont = imageio.imread(BV.geographic.watershed_contour_tif)
+    ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+except:
+    pass
 
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="1%", pad=0.05)
@@ -524,7 +531,10 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 #%% CROSS
 
 dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif') # dem data
-stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
+if from_dem == None:
+    stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
+else:
+    stream_data = None
 watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
 interactive = False
 visu = visualization_results.Visualization(BV, model_name)

@@ -141,7 +141,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 if from_dem == None:
     # Clip specific data at the catchment scale
     BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-    BV.add_hydrography(data_path, types_obs=['regional stream network'], fields_obs=['fid'])
+    BV.add_hydrography(data_path, types_obs=['regional stream network'])
     BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
     BV.add_intermittency(data_path, 'regional onde stations.shp')
     # BV.add_piezometry()
@@ -323,6 +323,8 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
 #%% CROSS
 
+compt = 1
+
 for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,
                                                       list_model_modflow):
@@ -392,9 +394,21 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     ax.set_ylabel('Elevation [m]')
     ax.set_title('K = '+'{:.2e}'.format(model_modflow.hyd_cond.mean()/24/3600)+' m/s')
     
-    plt.tight_layout
-
+    compt += 1
+    
+    fig.tight_layout
+    
+    fig.savefig(os.path.join(model_modflow.figure_file,
+                'CROSS_'+model_name+'_'+str(compt)+'.png'),
+                bbox_inches='tight')
+        
+    fig.savefig(os.path.join(model_modflow.save_fig,
+                'CROSS_'+model_name+'_'+str(compt)+'.png'),
+                bbox_inches='tight')
+    
 #%% MAP
+
+compt = 0
 
 for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,
@@ -430,7 +444,45 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     ax.set_ylabel('Y [pixels]')
     ax.set_title('K = '+'{:.2e}'.format(model_modflow.hyd_cond.mean()/24/3600)+' m/s')
     
+    compt += 1
+    
+    fig.tight_layout()
+
+    fig.savefig(os.path.join(model_modflow.figure_file,
+                'MAP_'+model_name+'_'+str(compt)+'.png'),
+                bbox_inches='tight')
+    
+    fig.savefig(os.path.join(model_modflow.save_fig,
+                'MAP_'+model_name+'_'+str(compt)+'.png'),
+                bbox_inches='tight')
+    
 #%% GRAPH
+
+fig, ax = plt.subplots(1, 1, figsize=(4,3), dpi=300)
+
+for model_name, success_modflow, model_modflow in zip(list_model_name,
+                                                      list_success_modflow,
+                                                      list_model_modflow):
+    
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    
+    simul_csv = pd.read_csv(simulations_folder+model_name+
+                            '/_postprocess/_timeseries/'+'_simulated_timeseries.csv',
+                            sep=';')
+    
+    ax.plot(model_modflow.hyd_cond.mean()/24/3600,
+            simul_csv['seepage_areas'],
+            marker='o', ms=8, lw=0, color='k')
+    
+    ax.set_xscale('log')
+    ax.set_xlabel('K [m/s]')
+    ax.set_ylabel('Area saturated [%]')
+    
+    plt.tight_layout()
+    
+    fig.savefig(os.path.join(model_modflow.save_fig,
+                'GRAPH_sat_'+iD_set_simulations+'.png'),
+                bbox_inches='tight')
 
 #%% ---- NOTES
 
