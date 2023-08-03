@@ -8,38 +8,41 @@ echo '| #  #   #    #  #  # #   #  #  #   #  #  #  #  #  #      #   |'
 echo '| #  #  #     ###   #  #   ##   #   #   ##   ###   #     #    |'
 echo '+-------------------------------------------------------------+'
 
-echo "###### INSTALL ######"
+echo "###### Anaconda3 (or Miniconda) ######"
 
 echo "Try to find Anaconda (or Miniconda)..."
 echo "Can take several minutes..."
-FULL_PATH=$(find C:/ProgramData -type f -path "*conda3/etc/profile.d/conda.sh" 2>/dev/null)
-CONDA_PATH=$(dirname "$FULL_PATH")
-CONDA_PATH=$(dirname "$CONDA_PATH")
-CONDA_PATH=$(dirname "$CONDA_PATH")
+
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  # Linux
+  # Find conda.sh
+  CONDA_PATH=$(find ~/ -type f -path "*conda3/etc/profile.d/conda.sh" 2>/dev/null)
+	source $CONDA_PATH
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  # Mac OSX
+	echo "Install for mac OSX will be setup soon"
+elif [[ "$OSTYPE" == "msys" ]]; then
+  # Windows
+  #Find conda.sh
+  CONDA_PATH=$(find C:/ -type f -path "*conda3/etc/profile.d/conda.sh" 2>/dev/null)
+	source $CONDA_PATH
+	source $CONDA_PATH
+fi
 echo $CONDA_PATH
 
 # Install anaconda if  not installed
 if [ -d "$CONDA_PATH" ];
 then
-    echo "Conda is already installed. Start to install HydroModPy environment"
-    install_conda='True'
+  echo "Conda is already installed. Start to install HydroModPy environment"
+  install_conda='True'
 else
 	echo "Conda is not installed. Needd to install Anaconda3 or Miniconda before install HydroModPy"
   install_conda='False'
 fi
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        #Find conda.sh
-	source $CONDA_PATH/etc/profile.d/conda.sh
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-        # Mac OSX
-	echo "Install for mac OSX will be setup soon"
-elif [[ "$OSTYPE" == "msys" ]]; then
-        #Find conda.sh
-	source $CONDA_PATH/etc/profile.d/conda.sh
-fi
+read -p "Press enter to install HydroModPy"
 
-read -p "Press enter to continue"
+echo "###### Build Conda Environment ######"
 
 # Delete if already install
 conda deactivate
@@ -53,6 +56,8 @@ conda activate hydromodpy-test
 
 # Check Python version
 python --version
+
+echo "###### Install HydroModPy dependencies ######"
 
 # Add necessary librairies
 echo 'Install gdal'
@@ -102,6 +107,8 @@ echo 'Install rtree'
 pip install 'rtree>=0.8.3' --quiet
 
 echo ''
+
+echo "###### HydroModPy installation completed ######"
 
 echo 'HydroModPy is installed. If necessary, you can check if all librairies are completely installed with this command: conda list'
 
