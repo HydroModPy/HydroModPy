@@ -349,7 +349,7 @@ class Watershed :
                                         # Frame settings
                                         model_folder=self.simulations_folder,
                                         model_name=self.settings.model_name,
-                                        exe=self.modflow_path +'/mfnwt.exe',
+                                        bin_path=self.modflow_path,
                                         box=self.settings.box,
                                         sink_fill=self.settings.sink_fill,
                                         sim_state=self.settings.sim_state,
@@ -419,7 +419,7 @@ class Watershed :
                                         # Frame settings
                                         model_folder=self.simulations_folder,
                                         model_name=self.settings.model_name,
-                                        exe=self.modflow_path +'/mp6.exe',
+                                        bin_path = self.modflow_path,
                                         # Specific settings  
                                         zone_partic=self.settings.zone_partic)
         

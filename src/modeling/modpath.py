@@ -39,7 +39,7 @@ class Modpath:
                  # Worflow settings
                  model_folder=os.getcwd()[:2]+'/'+'HydroModPy_Output/',
                  model_name='modflow_model',
-                 exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mp6.exe'),
+                 bin_path = os.path.join(os.getcwd(),'bin'),
                  # Specific settings
                  zone_partic='domain'):
         
@@ -50,7 +50,12 @@ class Modpath:
         self.full_path = os.path.join(model_folder, model_name)
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
-        self.exe = exe
+        if (sys.platform == 'win32') or (sys.platform == 'win64'):
+            self.exe = self.exe = os.path.join(bin_path, 'win' ,'mp6.exe')
+        if (sys.platform == 'linux'):
+            self.exe = os.path.join(bin_path, 'linux' ,'mp6')
+        if (sys.platform == 'mac'):
+            self.exe = os.path.join(bin_path, 'mac' ,'mp6')
         
         self.model_modflow = model_modflow
         
