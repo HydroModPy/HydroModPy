@@ -48,7 +48,7 @@ class Modflow():
                  # Worflow settings
                  model_folder=os.getcwd()[:2]+'/'+'HydroModPy_Output/',
                  model_name='Default',
-                 exe=os.path.join(os.path.dirname(os.getcwd()), 'bin', 'mfnwt.exe'),
+                 bin_path = os.path.join(os.getcwd(),'bin'),
                  box=True,
                  sink_fill=False,
                  sim_state='steady',
@@ -78,7 +78,12 @@ class Modflow():
         if not os.path.exists(self.model_folder):
             toolbox.create(self.model_folder)
         self.model_name = model_name
-        self.exe = exe
+        if (sys.platform == 'win32') or (sys.platform == 'win64'):
+            self.exe = os.path.join(bin_path, 'win' ,'mfnwt.exe')
+        if (sys.platform == 'linux'):
+            self.exe = os.path.join(bin_path, 'linux' ,'mfnwt')
+        if (sys.platform == 'mac'):
+            self.exe = os.path.join(bin_path, 'mac' ,'mfnwt')
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
         self.sim_state = sim_state
         self.plot_cross = plot_cross

@@ -98,14 +98,14 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = '/home/agauvain/Documents/HydroModPy/'
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
 dem_path = data_path + 'regional dem.tif'
-load = False
+load = True
 watershed_name = 'Canut'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
@@ -153,7 +153,7 @@ if from_dem == None:
 if from_dem == None:
     visualization_watershed.watershed_local(dem_path, BV)
     visualization_watershed.watershed_geology(BV)
-visualization_watershed.watershed_dem(BV)
+#visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
 
