@@ -54,7 +54,7 @@ class Modpath:
             self.exe = self.exe = os.path.join(bin_path, 'win' ,'mp6.exe')
         if (sys.platform == 'linux'):
             self.exe = os.path.join(bin_path, 'linux' ,'mp6')
-        if (sys.platform == 'mac'):
+        if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
         
         self.model_modflow = model_modflow

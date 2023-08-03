@@ -82,7 +82,7 @@ class Modflow():
             self.exe = os.path.join(bin_path, 'win' ,'mfnwt.exe')
         if (sys.platform == 'linux'):
             self.exe = os.path.join(bin_path, 'linux' ,'mfnwt')
-        if (sys.platform == 'mac'):
+        if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mfnwt')
         self.full_path = os.path.join(model_folder, model_name) #'modraw'
         self.sim_state = sim_state
