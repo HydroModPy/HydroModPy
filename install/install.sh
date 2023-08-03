@@ -17,27 +17,25 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   # Linux
   # Find conda.sh
   CONDA_PATH=$(find ~/ -type f -path "*conda3/etc/profile.d/conda.sh" 2>/dev/null)
-	source $CONDA_PATH
+  source $CONDA_PATH
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   # Mac OSX
-	echo "Install for mac OSX will be setup soon"
+  CONDA_PATH=$(find ~/ -type f -path "*conda3/etc/profile.d/conda.sh" 2>/dev/null)
+  source $CONDA_PATH
 elif [[ "$OSTYPE" == "msys" ]]; then
   # Windows
   #Find conda.sh
   CONDA_PATH=$(find C:/ -type f -path "*conda3/etc/profile.d/conda.sh" 2>/dev/null)
-	source $CONDA_PATH
-	source $CONDA_PATH
+  source $CONDA_PATH
 fi
 echo $CONDA_PATH
 
 # Install anaconda if  not installed
 if [ -d "$CONDA_PATH" ];
 then
-  echo "Conda is already installed. Start to install HydroModPy environment"
-  install_conda='True'
+  echo "Conda is not installed. Needd to install Anaconda3 or Miniconda before install HydroModPy"
 else
-	echo "Conda is not installed. Needd to install Anaconda3 or Miniconda before install HydroModPy"
-  install_conda='False'
+  echo "Conda is already installed. Start to install HydroModPy environment"
 fi
 
 read -p "Press enter to install HydroModPy"
@@ -110,8 +108,6 @@ echo ''
 
 echo "###### HydroModPy installation completed ######"
 
-echo 'HydroModPy is installed. If necessary, you can check if all librairies are completely installed with this command: conda list'
-
 echo '+-------------------------------------------------------------+'
 echo '| #  #  #  #  ###   ###    ##   #   #   ##   ###   ###   #  # |'
 echo '| #  #   # #  #  #  #  #  #  #  ## ##  #  #  #  #  #  #   # # |'
@@ -119,4 +115,7 @@ echo '| ####    #   #  #  ###   #  #  # # #  #  #  #  #  ###     #  |'
 echo '| #  #   #    #  #  # #   #  #  #   #  #  #  #  #  #      #   |' 
 echo '| #  #  #     ###   #  #   ##   #   #   ##   ###   #     #    |'
 echo '+-------------------------------------------------------------+'
+echo 'Activate HydroModPy environment with this command : conda activate hydromodpy-test'
+echo 'HydroModPy is installed. If necessary, you can check if all librairies are completely installed with this command: conda list'
+
 
