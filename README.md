@@ -7,7 +7,9 @@ A hierarchical stochastic geological modeling tool in Python
 ## Installation
 
 Before install HydromodPy, check Requirements in the next part.
+
 HydroModPy can be installed for Windows and Linux with bash file in the "install" directory :
+
 For Linux :
 ```
 ./install.sh
@@ -25,11 +27,11 @@ conda env create -f environment.yml -n hydromodpy
 ## Run HydroModPy
 
 (1) Activate HydroModPy environment :
-'''
+```
 conda activate hydromodpy
-'''
+```
 
-(2) Open Spyder or Jupyter lab:
+(2) Open Spyder or Jupyter lab :
 ```
 spyder
 jupyter lab
@@ -40,6 +42,7 @@ jupyter lab
 ## Requirements
 
 To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your computer.
+
 Works with python>=3.8.10 and pip 23.2.1
 
 The following python packages will install with the installation procedure:
@@ -79,8 +82,10 @@ The following python packages will install with the installation procedure:
  
  ## Paper
  A paper was published on the HydroModPy concept and its different capabilities.
+ 
  The paper was written with the version 0 of HydroModPy.
+ 
  It is available with the following [link](https://www.frontiersin.org/articles/10.3389/feart.2022.884075/).
 
  ## Contact
- For any questions regarding ArchPy, please contact me at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@unine.ch>
+ For any questions regarding ArchPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@unine.ch>
