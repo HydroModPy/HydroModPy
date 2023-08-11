@@ -1,7 +1,7 @@
 # HydroModPy [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/en/latest/examples.html)
 ![logo](./docs/readthedocs/alex from hydromodpy/source/images/logoHydroModPy_long.png)
 
-A tool to build hydrological model at catchment scale in Python
+A tool to build hydrological model at catchment scale in Python.
 
 ## Installation
 
@@ -21,7 +21,6 @@ Alternatively, HydroModPy can be installed with conda using .yml file in the "in
 ```
 conda env create -f environment.yml -n hydromodpy 
 ```
-
 
 ## Run HydroModPy
 
@@ -44,7 +43,7 @@ To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your compute
 
 Works with python>=3.8.10 and pip 23.2.1
 
-The following python packages will install with the installation procedure:
+The following python packages will be installed with the installation procedure:
   - gdal=3.0.2
   - contextily==1.3.0
   - deepdish==0.3.7
@@ -79,12 +78,11 @@ The following python packages will install with the installation procedure:
  - 06_heterogeneity : aquifer complexity and heterogeneity
  - 07_calibration : calibration and multiobjective optimization
  
- ## Paper
- A paper was published on the HydroModPy concept and its different capabilities.
+ ## Publications
+ Papers was published on the HydroModPy concept and its different capabilities.
  
- The paper was written with the version 0 of HydroModPy.
- 
- It is available with the following [link](https://www.frontiersin.org/articles/10.3389/feart.2022.884075/).
+ Abhervé, R., Gauvain, A., Roques, C., Longuevergne, L., Louaisil, S., Aquilina, L., and de Dreuzy, J.-R.: Calibration of groundwater seepage on the spatial distribution of the stream network to assess catchment-scale hydraulic conductivity, Hydrol. Earth Syst. Sci. Discuss. , , 2022.
+ [link](https://doi.org/10.5194/hess-2022-175).
 
  ## Contact
- For any questions regarding ArchPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@unine.ch>
+ For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@unine.ch>
