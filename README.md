@@ -1,71 +1,86 @@
 # ArchPy
-[![Documentation Status](https://readthedocs.org/projects/archpy/badge/?version=latest)](https://archpy.readthedocs.io/en/latest/?badge=latest)
-![logo](./sphinx_build/source/figures/logo_web.png)
+[![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/en/latest/examples.html)
+![logo](./docs/readthedocs/alex from hydromodpy/source/images/logoHydroModPy_long.png)
 
 A hierarchical stochastic geological modeling tool in Python
 
-
 ## Installation
 
-ArchPy can be installed with pip :
-
+Before install HydromodPy, check Requirements in the next part.
+HydroModPy can be installed for Windows and Linux with bash file in the "install" directory :
+For Linux :
 ```
-pip install geoarchpy
+./install.sh
 ```
+For Windows : double clik on install.sh
 
 OR 
 
-ArchPy can be installed with 
+Alternatively, HydroModPy can be installed with conda using .yml file in the "install" directory :
 ```
-pip install .
+conda env create -f environment.yml -n hydromodpy 
 ```
-when in the main directory.
 
-Alternatively, it is possible to add ArchPy path directly in the python script with sys :
-```
-sys.path.append("path where ArchPy is") 
-```
-and then import ArchPy.
 
-:warning: **Issues with widgets**: For some reasons, widgets does not work properly with recent version of jupyter-server due to recent versions of tornardo. Ensure to have tornado==6.1 if you plan to use widgets and interactive functions with the matplotlib notebook backend. 
+## Run HydroModPy
+
+(1) Activate HydroModPy environment :
+'''
+conda activate hydromodpy
+'''
+
+(2) Open Spyder or Jupyter lab:
+```
+spyder
+jupyter lab
+```
+
+(3) Execute python script following examples below
 
 ## Requirements
 
-Works with python>=3.8
+To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your computer.
+Works with python>=3.8.10 and pip 23.2.1
 
-The following python packages are absolutely necessary:
-   - [Geone](https://github.com/randlab/geone)
-   - matplotlib
-   - numpy
-   - SciPy
-   - sklearn
-   - pandas
-   - shapely < 2.0
-   - scikit-learn
-
-These are not required but highly recommanded.
-   - PyVista
-   - pyyaml (for export uses)
-   - Rasterio (to use rasters)
-   - Geopandas (to use shapefile)
-   - ipywidgets
+The following python packages will install with the installation procedure:
+  - gdal=3.0.2
+  - contextily==1.3.0
+  - deepdish==0.3.7
+  - flopy==3.3.4
+  - geopandas==0.12.2
+  - hydroeval==0.1.0
+  - imageio==2.31.1
+  - jupyter==1.0.0
+  - matplotlib_scalebar==0.8.1
+  - netcdf4==1.6.4
+  - notebook==7.0.0
+  - numpy==1.24.3
+  - pandas==1.5.3
+  - pyproj==3.5.0
+  - pyshp==2.3.1
+  - rasterio==1.2.10
+  - rtree==1.0.1
+  - selenium==4.10.0
+  - spyder==5.0.0
+  - vedo==2023.4.6
+  - xarray==2023.1.0
+  - whitebox==2.3.1
    
  ## Examples
+ 
  There is some example notebooks :
- - 01_basic : a folder where simple and basics ArchPy functionnalities are described 
- - 02_3D_ArchPy : a complete 3D ArchPy model example
- - 03_Article_example : a synthetical example shown in ArchPy article
- - 04_hierarchies : an exemple with many hierarchical units to test ArchPy capabilities
- - 05_mps_surfaces : an example how to use MPS to simulate the units surfaces
- - 06_cross_validation : a notebook that present how to perform a cross-validation directly with ArchPy
- - 07_geological_map : this notebook presents how to integrate and use a geological in an ArchPy model
- - 08_inference : little guide how to use archpy inference tools to estimate surface parameters (no facies parameters for now)
- - 09_interface : little exemple of an interface to call an preexisting archpy model.
+ - 01_basic : examples with overview of possibilities
+ - 02_hydrographic : hydrographic network in steady state
+ - 03_streamflow : streamflow and intermittency in transient state
+ - 04_piezometry : piezometry in a coastal context
+ - 05_particle : conceptual particle traking for residence times
+ - 06_heterogeneity : aquifer complexity and heterogeneity
+ - 07_calibration : calibration and multiobjective optimization
  
  ## Paper
- A paper was published on the ArchPy concept and its different capabilities.
- The paper was written with the version 0.1 of ArchPy.
+ A paper was published on the HydroModPy concept and its different capabilities.
+ The paper was written with the version 0 of HydroModPy.
  It is available with the following [link](https://www.frontiersin.org/articles/10.3389/feart.2022.884075/).
 
  ## Contact
- For any questions regarding ArchPy, please contact me at <ludovic.schorpp@unine.ch>
+ For any questions regarding ArchPy, please contact me at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@unine.ch>
