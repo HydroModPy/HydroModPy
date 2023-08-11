@@ -81,7 +81,7 @@ The following python packages will be installed with the installation procedure:
  ## Publications
  Papers was published on the HydroModPy concept and its different capabilities.
  
- Abhervé, R., Gauvain, A., Roques, C., Longuevergne, L., Louaisil, S., Aquilina, L., and de Dreuzy, J.-R.: Calibration of groundwater seepage on the spatial distribution of the stream network to assess catchment-scale hydraulic conductivity, Hydrol. Earth Syst. Sci. Discuss. , , 2022.
+ Abhervé, R., Gauvain, A., Roques, C., Longuevergne, L., Louaisil, S., Aquilina, L., and de Dreuzy, J.-R.: Calibration of groundwater seepage on the spatial distribution of the stream network to assess catchment-scale hydraulic conductivity, Hydrol. Earth Syst. Sci. Discuss., 2022.
  [link](https://doi.org/10.5194/hess-2022-175).
 
  ## Contact
