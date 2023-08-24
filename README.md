@@ -22,6 +22,13 @@ Alternatively, HydroModPy can be installed with conda using .yml file in the "in
 conda env create -f environment.yml -n hydromodpy 
 ```
 
+Install ChromeDriver for Selenium library
+Selenium is a library that manages interaction with files in the web
+It requires the following file to be downloaded: https://chromedriver.chromium.org/downloads
+The .exe should be stored in a file
+The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> system parameter -> environment variables)
+Click on "Path" -> modify -> add path of the .exe
+
 ## Run HydroModPy
 
 (1) Activate HydroModPy environment :
