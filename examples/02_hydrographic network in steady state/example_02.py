@@ -99,6 +99,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
 out_path = '/home/agauvain/Documents/HydroModPy/'
+out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -207,7 +208,8 @@ lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+verti_cond = None # or [ [1e-5, [0, 20]],
+                  #      [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
 porosity = 10 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
