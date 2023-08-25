@@ -99,13 +99,14 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
 out_path = '/home/agauvain/Documents/HydroModPy/'
+out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-case = 'FromLIB'
-# case = 'FromDEM'
+# case = 'FromLIB'
+case = 'FromDEM'
 # case = 'FromSHP'
 # case = 'FromXYV'
 
@@ -210,6 +211,7 @@ recharge_data = 'explore1'
 recharge_data = 'explore2'
 recharge_data = 'synthetic'
 recharge_data = 'manual'
+recharge_data = 'raster'
 
 if recharge_data == 'reanalysis':
     BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
@@ -304,7 +306,7 @@ if recharge_data == 'synthetic':
     ax.set_ylabel('[mm/day]')
     ax.legend()
     print(R.resample('Y').sum()*1000)
-    
+
 if recharge_data == 'manual':
     
     time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10]) # mm/month
@@ -318,6 +320,28 @@ if recharge_data == 'manual':
     ax.set_ylabel('[mm/month]')
     ax.legend()
 
+if recharge_data == 'raster':
+    
+    dem_struct = imageio.imread(stable_folder+'geographic/watershed_box_buff_dem.tif') * 0
+    dem_struct = dem_struct + 10/1000/30
+    dem_struct[:,int(dem_struct.shape[1]/2):] = dem_struct[:,int(dem_struct.shape[1]/2):] + 1000/1000/30
+    
+    list_of_arrays = [dem_struct, dem_struct, dem_struct] # transient
+    # list_of_arrays = [dem_struct] # steay
+        
+    dictio = {}
+    
+    for i in range(len(list_of_arrays)):
+        dictio[i] = list_of_arrays[i]
+    
+    R = dictio.copy()
+    r = R.copy()
+    for i in range(len(R)):
+        r[i] = r[i] * 0.1
+    
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    ax.imshow(R[0])
+
 #%% ---- PARAMETRIZATION
 
 #%% DEFINE
@@ -326,8 +350,8 @@ if recharge_data == 'manual':
 model_name = 'default'
 box = True # or False
 sink_fill = False # or True
-# sim_state = 'transient' # 'steady' or 'transient'
-sim_state = 'steady' # 'steady' or 'transient'
+sim_state = 'transient' # 'steady' or 'transient'
+# sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 
 # Climatic settings

@@ -83,8 +83,12 @@ class Timeseries:
                 time=[0]
                 recharge = self.recharge
             else:
-                time = np.array(range(len(self.recharge)))
-                recharge = self.recharge.squeeze().values
+                if isinstance(self.recharge,(dict))==False:
+                    time = np.array(range(len(self.recharge)))
+                    recharge = self.recharge.squeeze().values
+                else:
+                    time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
+                    recharge = pd.Series(np.nan, index=range(len(self.recharge)))
                
         npy_list = [] 
         for f in os.listdir(self.save_file):

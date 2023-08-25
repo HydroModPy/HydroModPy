@@ -35,20 +35,22 @@ class Climatic:
     #%% UPDATE FROM OWN MANUAL DATA
     
     def update_recharge(self, values, sim_state):
-
+        
         self.recharge = values # recharge
-        if sim_state == 'steady':
-            self.recharge = np.mean(self.recharge)
-            if isinstance(self.recharge,(int,float))==False:
-                self.recharge = self.recharge[0]
+        if isinstance(values,(dict))==False:
+            if sim_state == 'steady':
+                self.recharge = np.mean(self.recharge)
+                if isinstance(self.recharge,(int,float))==False:
+                    self.recharge = self.recharge[0]
             
     def update_runoff(self, values, sim_state):
 
         self.runoff = values # recharge
-        if sim_state == 'steady':
-            self.runoff = np.mean(self.runoff)
-            if isinstance(self.runoff,(int,float))==False:
-                self.runoff = self.runoff[0]
+        if isinstance(values,(dict))==False:
+            if sim_state == 'steady':
+                self.runoff = np.mean(self.runoff)
+                if isinstance(self.runoff,(int,float))==False:
+                    self.runoff = self.runoff[0]
     
     def update_first_clim(self, first_clim):
 
