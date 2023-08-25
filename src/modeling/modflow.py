@@ -189,7 +189,15 @@ class Modflow():
             self.start_datetime = None
         if self.sim_state == 'transient':
             # Transient state
-            self.start_datetime = self.climatic.index[0]            # First date of climatic recharge
+            if isinstance(self.climatic,(dict))==True:
+                self.start_datetime = 0 
+            else:
+                self.start_datetime = self.climatic.index[0]            # First date of climatic recharge
+                if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
+                    if pd.infer_freq(self.climatic.index) != 'D':
+                        for i in range(1,len(self.climatic)):      
+                            dif = self.climatic.index[i]-self.climatic.index[i-1]
+                            self.perlen[i] = dif.days
             self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
             self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
             self.nstp = np.ones(len(self.climatic))     # One step per time step
@@ -198,12 +206,7 @@ class Modflow():
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
             self.perlen = np.ones(len(self.climatic))
-            if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
-                if pd.infer_freq(self.climatic.index) != 'D':
-                    for i in range(1,len(self.climatic)):      
-                        dif = self.climatic.index[i]-self.climatic.index[i-1]
-                        self.perlen[i] = dif.days
-
+                        
         ### Model Domain definition and discretization 
                 
         # Bottom definition for each of the layers 
@@ -360,63 +363,67 @@ class Modflow():
         
         # EVAPOTRANSPIRATION FROM THE AQUIFER
             # from the watertable: evt package (from negative value, should always be positive)
-        if isinstance(self.climatic,float)==False and (self.climatic < 0).any().any() == True:
-            # self.climatic : recharge values (float in steady state or chronicles in transient state)
-            # Modifies ETP values (self.climatic): from negative to positive values (sink term)
-            #      package evt requires positive values (negative values are not allowed)
-            self.evt = self.climatic.copy() 
-            # All positive values are set to 0 (no negative values)
-            self.evt[self.evt>=0] = 0
-            # All negative values are set to positive values
-            self.evt = abs(self.evt)
-            self.evtData = {}
-            # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
-            for kper in range(0, self.nper):
-                if isinstance(self.evt,(int,float)):
-                    # If integer or float, do it only once (steady state)
-                    self.evtData[kper] = self.evt
-                else:
-                    # Transient state: 
-                    if kper == 0:
-                        # self.evtData[kper] = np.nanmean(self.evt)
-                        self.evtData[kper] = 0
+        if isinstance(self.climatic,(dict))==False:
+            if isinstance(self.climatic,float)==False and (self.climatic < 0).any().any() == True:
+                # self.climatic : recharge values (float in steady state or chronicles in transient state)
+                # Modifies ETP values (self.climatic): from negative to positive values (sink term)
+                #      package evt requires positive values (negative values are not allowed)
+                self.evt = self.climatic.copy() 
+                # All positive values are set to 0 (no negative values)
+                self.evt[self.evt>=0] = 0
+                # All negative values are set to positive values
+                self.evt = abs(self.evt)
+                self.evtData = {}
+                # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
+                for kper in range(0, self.nper):
+                    if isinstance(self.evt,(int,float)):
+                        # If integer or float, do it only once (steady state)
+                        self.evtData[kper] = self.evt
                     else:
-                        self.evtData[kper] = self.evt[kper]
-            # expd = self.thick : ETP can take water all over the aquifer thickness
-            self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
-                                                evtr=self.evtData, 
-                                                surf=0, exdp=self.thick)
-            # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
-            if not isinstance(self.climatic,(int,float)):
-                self.climatic[self.climatic<0] = 0
+                        # Transient state: 
+                        if kper == 0:
+                            # self.evtData[kper] = np.nanmean(self.evt)
+                            self.evtData[kper] = 0
+                        else:
+                            self.evtData[kper] = self.evt[kper]
+                # expd = self.thick : ETP can take water all over the aquifer thickness
+                self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
+                                                    evtr=self.evtData, 
+                                                    surf=0, exdp=self.thick)
+                # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
+                if not isinstance(self.climatic,(int,float)):
+                    self.climatic[self.climatic<0] = 0
                 
         # RECHARGE TO THE AQUIFER
             # over the surface: rch package (should always be positive)
         self.rchData = {}
         for kper in range(0, self.nper):
-            if isinstance(self.climatic,(int,float)):
-                # Only value in self.climatic (steady)
-                self.rchData[kper] = self.climatic
+            if isinstance(self.climatic,(dict))==True:
+                self.rchData = self.climatic
             else:
-                if kper == 0:
-                    # First value: steady (to reach equilibrium before starting the transient state of the simulation)
-                    # By default mean of the climatic chronicle
-                    if self.first_clim == 'mean':
-                        self.rchData[kper] = np.nanmean(self.climatic)
-                    if self.first_clim == 'first':
-                        # First value of the cimatic chronicle
-                        self.rchData[kper] = self.climatic.iloc[0]
-                    if isinstance(self.first_clim,(int,float)):
-                        # Imposed value (if steady state: just one value)
-                        self.rchData[kper] = self.init_rech
+                if isinstance(self.climatic,(int,float)):
+                    # Only value in self.climatic (steady)
+                    self.rchData[kper] = self.climatic
                 else:
-                    # More flexibility in the possible format of the climatic chronicles 
-                    # Should only be used exceptionnaly (pandas series recommended)
-                    try:
-                        self.rchData[kper] = self.climatic[kper]
-                    except:
-                        self.rchData[kper] = self.climatic.iloc[kper].values[0]
-                        
+                    if kper == 0:
+                        # First value: steady (to reach equilibrium before starting the transient state of the simulation)
+                        # By default mean of the climatic chronicle
+                        if self.first_clim == 'mean':
+                            self.rchData[kper] = np.nanmean(self.climatic)
+                        if self.first_clim == 'first':
+                            # First value of the cimatic chronicle
+                            self.rchData[kper] = self.climatic.iloc[0]
+                        if isinstance(self.first_clim,(int,float)):
+                            # Imposed value (if steady state: just one value)
+                            self.rchData[kper] = self.init_rech
+                    else:
+                        # More flexibility in the possible format of the climatic chronicles 
+                        # Should only be used exceptionnaly (pandas series recommended)
+                        try:
+                            self.rchData[kper] = self.climatic[kper]
+                        except:
+                            self.rchData[kper] = self.climatic.iloc[kper].values[0]        
+            
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
                 
