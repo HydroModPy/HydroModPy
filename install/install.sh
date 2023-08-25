@@ -118,4 +118,6 @@ echo '+-------------------------------------------------------------+'
 echo 'Activate HydroModPy environment with this command : conda activate hydromodpy-test'
 echo 'HydroModPy is installed. If necessary, you can check if all librairies are completely installed with this command: conda list'
 
+read -p 'Press enter to finish installation...'
+
 
