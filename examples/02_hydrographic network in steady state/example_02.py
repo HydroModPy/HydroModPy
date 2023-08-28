@@ -153,7 +153,7 @@ if from_dem == None:
 # General plot of the study site
 if from_dem == None:
     visualization_watershed.watershed_local(dem_path, BV)
-    visualization_watershed.watershed_geology(BV)
+    #visualization_watershed.watershed_geology(BV)
 #visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
