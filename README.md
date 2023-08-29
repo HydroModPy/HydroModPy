@@ -7,6 +7,30 @@ A tool to build hydrological model at catchment scale in Python.
 
 Before install HydromodPy, check Requirements in the next part.
 
+Install Git:
+https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
+
+Go to the folder where you want to install HydroModPy:
+```
+cd "path/where/you/want/clone/Hydromodpy"
+```
+
+Clone HydroModPy repository:
+```
+git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+```
+
+Go to stable branch:
+```
+git checkout "v0.1"
+```
+
+Go to install folder:
+
+```
+cd HydroModPy/install
+```
+
 HydroModPy can be installed for Windows and Linux with bash file in the "install" directory :
 
 For Linux :
