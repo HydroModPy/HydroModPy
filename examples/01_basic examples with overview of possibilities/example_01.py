@@ -560,7 +560,7 @@ if from_dem == None:
 else:
     stream_data = None
 watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
-interactive = False
+interactive = True
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 

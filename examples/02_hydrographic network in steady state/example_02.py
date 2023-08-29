@@ -100,6 +100,7 @@ example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
 out_path = '/home/agauvain/Documents/HydroModPy/'
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# out_path = '...'
 
 #%% ---- WATERSHED
 
@@ -153,8 +154,8 @@ if from_dem == None:
 # General plot of the study site
 if from_dem == None:
     visualization_watershed.watershed_local(dem_path, BV)
-    #visualization_watershed.watershed_geology(BV)
-#visualization_watershed.watershed_dem(BV)
+    visualization_watershed.watershed_geology(BV)
+visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
 
@@ -349,7 +350,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     xx, yy = np.meshgrid(xvalues,yvalues)
     
     cur_x = dem_data.shape[1] /2
-    cur_y = dem_data.shape[0] /2
+    # cur_y = dem_data.shape[0] /2
     
     dem_prof = dem_data.astype(float)
     dem_prof[dem_prof<0] = np.nan
@@ -439,7 +440,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
     im_cont = ax.imshow(contour, alpha=1, cmap=mpl.colors.ListedColormap('k'))
     im_obs = ax.imshow(obs_river_data, alpha=1, cmap=mpl.colors.ListedColormap('navy'))
-    im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7)
+    # im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7)
     im_seep = ax.imshow(seep_river_data, cmap=mpl.colors.ListedColormap('darkorange'), alpha=0.7)
 
     ax.set_xlabel('X [pixels]')
