@@ -61,7 +61,7 @@ echo "###### Install HydroModPy dependencies ######"
 echo 'Install gdal'
 conda install -c conda-forge gdal=3.0.2 -y
 echo 'Install rasterio'
-pip install rasterio==1.2.10 --quiet #conda install -c conda-forge rasterio=1.2.10
+conda install -c conda-forge rasterio=1.2.10 -y #pip install numpy==1.2.10 --quiet
 echo 'Install numpy'
 pip install numpy==1.24.3 --quiet
 echo 'Install pandas'
