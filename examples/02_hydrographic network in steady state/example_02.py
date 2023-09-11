@@ -481,7 +481,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     ax.set_xlabel('K [m/s]')
     ax.set_ylabel('Area saturated [%]')
     
-    plt.tight_layout()
+    fig.tight_layout()
     
     fig.savefig(os.path.join(model_modflow.save_fig,
                 'GRAPH_sat_'+iD_set_simulations+'.png'),
