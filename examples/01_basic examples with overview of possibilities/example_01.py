@@ -99,16 +99,16 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-out_path = '/home/agauvain/Documents/HydroModPy/'
+# out_path = '/home/agauvain/Documents/HydroModPy/'
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
 # case = 'FromLIB'
-case = 'FromDEM'
+# case = 'FromDEM'
 # case = 'FromSHP'
-# case = 'FromXYV'
+case = 'FromXYV'
 
 if case == 'FromLIB':
     dem_path = data_path + 'regional dem.tif'
@@ -211,7 +211,7 @@ recharge_data = 'explore1'
 recharge_data = 'explore2'
 recharge_data = 'synthetic'
 recharge_data = 'manual'
-recharge_data = 'raster'
+# recharge_data = 'raster'
 
 if recharge_data == 'reanalysis':
     BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
@@ -350,8 +350,8 @@ if recharge_data == 'raster':
 model_name = 'default'
 box = True # or False
 sink_fill = False # or True
-sim_state = 'transient' # 'steady' or 'transient'
-# sim_state = 'steady' # 'steady' or 'transient'
+# sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 
 # Climatic settings
@@ -460,7 +460,7 @@ else:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  actual_date=subbasin_results, 
+                                                  actual_date=True, 
                                                   subbasin_results=subbasin_results) # or None
 
 #%% ---- PLOT
@@ -486,7 +486,7 @@ visu.visual2D(object_list = ['map','grid',
 if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
-    visu.visual3D(interactive=False,
+    visu.visual3D(interactive=True,
                   object_list=['grid','watertable', 'watertable_depth',
                                'surface_flow', 'drain_flow', 'pathlines'
                                ],
@@ -560,7 +560,7 @@ if from_dem == None:
 else:
     stream_data = None
 watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
-interactive = True
+interactive = False
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 

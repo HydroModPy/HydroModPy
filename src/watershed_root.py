@@ -464,5 +464,7 @@ class Watershed :
                                                         model_modpath=model_modpath,
                                                         actual_date=actual_date,
                                                         subbasin_results=subbasin_results)
+            
+            return timeseries_results
 
 #%% NOTES

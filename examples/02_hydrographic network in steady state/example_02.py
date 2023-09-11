@@ -440,7 +440,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
     im_cont = ax.imshow(contour, alpha=1, cmap=mpl.colors.ListedColormap('k'))
     im_obs = ax.imshow(obs_river_data, alpha=1, cmap=mpl.colors.ListedColormap('navy'))
-    # im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7)
+    im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7)
     im_seep = ax.imshow(seep_river_data, cmap=mpl.colors.ListedColormap('darkorange'), alpha=0.7)
 
     ax.set_xlabel('X [pixels]')
