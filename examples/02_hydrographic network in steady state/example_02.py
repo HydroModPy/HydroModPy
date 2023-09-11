@@ -149,7 +149,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additionnal/')
+    BV.add_subbasin(data_path+'additional/')
 
 # General plot of the study site
 if from_dem == None:
@@ -479,9 +479,9 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     
     ax.set_xscale('log')
     ax.set_xlabel('K [m/s]')
-    ax.set_ylabel('Area saturated [%]')
+    ax.set_ylabel('Drainage density [%]')
     
-    fig.tight_layout()
+    # fig.tight_layout()
     
     fig.savefig(os.path.join(model_modflow.save_fig,
                 'GRAPH_sat_'+iD_set_simulations+'.png'),

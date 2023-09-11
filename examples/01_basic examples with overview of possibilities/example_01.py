@@ -190,7 +190,7 @@ if from_dem == None:
     BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additionnal/')
+    BV.add_subbasin(data_path+'additional/')
 
 # General plot of the study site
 if from_dem == None:
