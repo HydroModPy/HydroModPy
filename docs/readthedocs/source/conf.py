@@ -19,11 +19,11 @@ from sphinx.builders.html import StandaloneHTMLBuilder
 package_path = os.path.abspath('../..')
 os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
 
-sys.path.insert(0, os.path.abspath('../../../../src/'))
-sys.path.insert(0, os.path.abspath('../../../../src/watershed/'))
-sys.path.insert(0, os.path.abspath('../../../../src/tools/'))
-sys.path.insert(0, os.path.abspath('../../../../src/modeling/'))
-sys.path.insert(0, os.path.abspath('../../../../src/display/'))
+sys.path.insert(0, os.path.abspath('../../../src/'))
+sys.path.insert(0, os.path.abspath('../../../src/watershed/'))
+sys.path.insert(0, os.path.abspath('../../../src/tools/'))
+sys.path.insert(0, os.path.abspath('../../../src/modeling/'))
+sys.path.insert(0, os.path.abspath('../../../src/display/'))
 
 # -- Project information -----------------------------------------------------
 
