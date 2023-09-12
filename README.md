@@ -1,4 +1,4 @@
-# HydroModPy [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/en/latest/examples.html)
+# HydroModPy [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 ![logo](./docs/readthedocs/docs/source/images/logoHydroModPy_long.png)
 
 A tool to build hydrological model at catchment scale in Python.
