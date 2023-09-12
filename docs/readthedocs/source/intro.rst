@@ -11,9 +11,9 @@ Stable current version: v0.1
 Authors
 -------
 
-A. Gauvain  
+A. Gauvain**(1,2)
 
-R. Abhervé
+R. Abhervé**(2,3)
 
 Links
 -----
