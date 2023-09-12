@@ -35,26 +35,26 @@ Clone HydroModPy repository:
 
 .. code-block::
 
-git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+  git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
 
 Go to stable branch:
 
 .. code-block::
     
-git checkout "v0.1"
-
+  git checkout "v0.1"
+ 
 Go to install folder:
 
 .. code-block::
     
-cd HydroModPy/install
+  cd HydroModPy/install
 
 HydroModPy can be installed for Windows and Linux with bash file in the "install" directory :
 For Linux :
 
 .. code-block::
     
-./install.sh
+  ./install.sh
 
 
 For Windows : double clik on install.sh
@@ -63,13 +63,13 @@ Or alternatively, HydroModPy can be installed with conda using .yml file in the 
 
 .. code-block::
     
-conda env create -f environment.yml -n hydromodpy 
+  conda env create -f environment.yml -n hydromodpy 
 
 Check that environment exists:
 
 .. code-block::
     
-conda env list
+  conda env list
 
 Install ChromeDriver for Selenium library (Optional)
 *******************************************************
@@ -87,13 +87,13 @@ Execute in command window:
 
 .. code-block::
     
-activate hydromodpy
+  activate hydromodpy
 
 Check that libraries are installed: 
 
 .. code-block::
     
-conda list
+  conda list
 
 Go to Jupyter Notebook or Spyder
 ***********************************
@@ -102,13 +102,13 @@ Execute:
 
 .. code-block::
     
-jupyter lab 
+  jupyter lab 
 
 or
 
 .. code-block::
     
-spyder
+  spyder
     
 Spyder advices:
 
