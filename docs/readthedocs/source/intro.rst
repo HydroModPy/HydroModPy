@@ -11,9 +11,9 @@ Stable current version: v0.1
 Authors
 -------
 
-A. Gauvain**(1,2)
+A. Gauvain:math:^{1,2},
 
-R. Abhervé**(2,3)
+R. Abhervé:math:^{2,3}
 
 Links
 -----
