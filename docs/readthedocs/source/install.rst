@@ -4,12 +4,6 @@ HydroModPy Installation Procedure
 GitLab Repository
 -----------------
 
-Download HydroModPy from GitLab repository at this link:
-
-https://gitlab.com/Alex-Gauvain/HydroModPy/-/archive/master/HydroModPy-master.zip
-
-Or clone it using Git:
-
 https://gitlab.com/Alex-Gauvain/HydroModPy.git
 
 Conda Environment
