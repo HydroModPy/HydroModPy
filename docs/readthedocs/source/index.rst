@@ -9,10 +9,12 @@ Welcome to HydroModPy's documentation!
    
    intro
    install
-   watershed
-   groundwater_flow
-   tools
+   structure
+   modules
    examples
+   groundwater_flow
+   examples
+   tools
 
 Indices and tables
 ==================
