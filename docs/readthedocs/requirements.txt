@@ -50,7 +50,7 @@ flake8==3.8.4
 flopy==3.3.4
 fonttools==4.42.1
 fqdn==1.5.1
-GDAL==3.0.2
+#GDAL==3.0.2
 geographiclib==2.0
 geopandas==0.12.2
 geopy==2.4.0
