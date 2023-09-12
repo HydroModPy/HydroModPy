@@ -9,12 +9,12 @@ version: 2
 build:
   os: ubuntu-20.04
   tools:
-    python: "miniconda3-4.7"
-    # python: "3.8"
+    #python: "miniconda3-4.7"
+    python: "3.8.10"
     # You can also specify other tool versions:
-    # nodejs: "16"
-    # rust: "1.55"
-    # golang: "1.17"
+    nodejs: "19"
+    rust: "1.64"
+    golang: "1.19"
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -26,9 +26,9 @@ formats:
    - epub
 
 # Optionally declare the Python requirements required to build your docs
-#python:
-#   install:
-#      - requirements: requirements.txt
+python:
+   install:
+      - requirements: docs/readthedocs/requirements.txt
 
-conda:
-   environment: install/environment_windows.yml
+#conda:
+#   environment: /home/agauvain/Git/HydroModPy/docs/readthedocs/requirements.txt
