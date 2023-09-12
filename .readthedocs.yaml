@@ -15,8 +15,6 @@ build:
     nodejs: "19"
     rust: "1.64"
     golang: "1.19"
-    jupyter_sphinx
-    sphinx-autodoc-typehints
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -31,6 +29,7 @@ formats:
 python:
    install:
       - requirements: docs/readthedocs/requirements.txt
-
+      - jupyter_sphinx
+      - sphinx-autodoc-typehints
 #conda:
 #   environment: install/environment_linux.yml
