@@ -31,4 +31,4 @@ formats:
 #      - requirements: requirements.txt
 
 conda:
-   environment: install/environment_linux.yml
+   environment: install/environment_windows.yml
