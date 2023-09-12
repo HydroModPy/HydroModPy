@@ -31,4 +31,4 @@ python:
       - requirements: docs/readthedocs/requirements.txt
 
 #conda:
-#   environment: /home/agauvain/Git/HydroModPy/docs/readthedocs/requirements.txt
+#   environment: install/environment_linux.yml
