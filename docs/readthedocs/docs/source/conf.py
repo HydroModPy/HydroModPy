@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.abspath('../../../../src/watershed/'))
 sys.path.insert(0, os.path.abspath('../../../../src/tools/'))
 sys.path.insert(0, os.path.abspath('../../../../src/modeling/'))
 sys.path.insert(0, os.path.abspath('../../../../src/display/'))
+
 # -- Project information -----------------------------------------------------
 
 project = 'HydroModPy'
@@ -90,7 +91,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'piccolo_theme'
+html_theme = 'sphinx_rtd_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
 
