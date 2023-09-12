@@ -7,7 +7,7 @@ version: 2
 
 # Set the version of Python and other tools you might need
 build:
-  os: ubuntu-20.04
+  os: ubuntu-22.04
   tools:
     #python: "miniconda3-4.7"
     python: "3.8"
@@ -28,8 +28,7 @@ formats:
 # Optionally declare the Python requirements required to build your docs
 python:
    install:
+      - requirements: docs/readthedocs/readthedocs_requirements.txt
       - requirements: docs/readthedocs/requirements.txt
-      - jupyter_sphinx
-      - sphinx-autodoc-typehints
 #conda:
 #   environment: install/environment_linux.yml
