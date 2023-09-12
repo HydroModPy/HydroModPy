@@ -13,7 +13,6 @@ Welcome to HydroModPy's documentation!
    modules
    examples
    groundwater_flow
-   examples
    tools
 
 Indices and tables

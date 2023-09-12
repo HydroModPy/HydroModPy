@@ -11,9 +11,14 @@ Stable current version: v0.1
 Authors
 -------
 
-A. Gauvain:math:`^{1,2}`,
+A. Gauvain [1,2],
+R. Abhervé [1,2],
 
-R. Abhervé:math:`^{2,3}`,
+[1] Geosciences Rennes - University of Rennes
+
+[2] Laboratoire de Météorologie Dynamique (LMD) - Sorbonne Université
+
+[3] Centre for Hydrogeology and Geothermics (CHYN) - University of Neuchâtel
 
 Links
 -----
