@@ -101,6 +101,7 @@ data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
 # out_path = '...'
+out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -149,7 +150,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additionnal/')
+    BV.add_subbasin(data_path+'additional/')
 
 # General plot of the study site
 if from_dem == None:
@@ -440,7 +441,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
     im_cont = ax.imshow(contour, alpha=1, cmap=mpl.colors.ListedColormap('k'))
     im_obs = ax.imshow(obs_river_data, alpha=1, cmap=mpl.colors.ListedColormap('navy'))
-    # im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7)
+    im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7)
     im_seep = ax.imshow(seep_river_data, cmap=mpl.colors.ListedColormap('darkorange'), alpha=0.7)
 
     ax.set_xlabel('X [pixels]')
@@ -479,9 +480,9 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     
     ax.set_xscale('log')
     ax.set_xlabel('K [m/s]')
-    ax.set_ylabel('Area saturated [%]')
+    ax.set_ylabel('Drainage density [%]')
     
-    plt.tight_layout()
+    # fig.tight_layout()
     
     fig.savefig(os.path.join(model_modflow.save_fig,
                 'GRAPH_sat_'+iD_set_simulations+'.png'),

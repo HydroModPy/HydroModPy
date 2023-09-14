@@ -19,25 +19,22 @@ from sphinx.builders.html import StandaloneHTMLBuilder
 package_path = os.path.abspath('../..')
 os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
 
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/watershed/data/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/tools/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/surface_flow/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/readme/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/groundwater_flow/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/examples/'))
-sys.path.insert(0, os.path.abspath('../../CORE_COMM/calibration/'))
+sys.path.insert(0, os.path.abspath('../../../src/'))
+sys.path.insert(0, os.path.abspath('../../../src/watershed/'))
+sys.path.insert(0, os.path.abspath('../../../src/tools/'))
+sys.path.insert(0, os.path.abspath('../../../src/modeling/'))
+sys.path.insert(0, os.path.abspath('../../../src/display/'))
+
 # -- Project information -----------------------------------------------------
 
 project = 'HydroModPy'
-copyright = '2021, Alexandre Gauvain'
-author = 'Alexandre Gauvain \\\\ Ronan Abhervé \\\\ June Sallou \\\\ Clément Roques \\\\ Jean-Raynald de Dreuzy'
+copyright = '2021'
+author = 'A. Gauvain \\\\ R. Abhervé'
 
 # The short X.Y version
-version = '1.0'
+version = '0.1'
 # The full version, including alpha/beta/rc tags
-release = '1.0.0'
+release = '0.1.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -194,3 +191,4 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+autodoc_mock_imports = ["osgeo","gdal"]

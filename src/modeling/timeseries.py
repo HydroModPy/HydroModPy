@@ -189,12 +189,12 @@ class Timeseries:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
         
         ### watertable_elevation
-        try:
-            for key in self.watertable_elevation:
-                calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', -99999)
-                self.mfdata.loc[key,'watertable_elevation'] = calc
-        except:
-            pass
+        # try:
+        for key in self.watertable_elevation:
+            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', -99999)
+            self.mfdata.loc[key,'watertable_elevation'] = calc
+        # except:
+        #     pass
         
         ### watertable_depth
         try:
