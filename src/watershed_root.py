@@ -35,9 +35,188 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% CLASS
 
 class Watershed :
+    """
+    
+    class Watershed is used to extract watershed and its data from regional DEM
+        Hub to all elements necessary or optional to construct watersheds (meaning catchements) and run modflow simulations
+    
+    Attributes, public
+    -------------------
+    watershed_name: str 
+        Name of the watershed
+        
+    watershed_def_option: str
+        Option for the definition of the Watershed 
 
-    #%% INIT
+    from_shp: list   #RONAN: from_dem_file
+        list including path to the shapefile that will be used as "Watershed" and buffer_percent
+        With such an option, Watershed is not generated but loaded from the file
+    
+    from_dem: boolean
+        Uses DEM instead of shapefile
+        True if the process start from a given DEM of xyz file
+        Cases where domain is not georeferenced (e.g. synthetic geometry, erosion models)
+        
+    cell_size: float
+        Modifies the resolution of the DEM, a new value rather than the DEM resolution
 
+    outlet_def_option: str #RONAN
+        Method to define the watershed outlets 
+
+    from_xy: list of floats
+        Definition of the outlets directly with the list of coordinates (floats)
+        
+    library_path: str  #RONAN: from_library_file
+        definition of the outlets of the watershed loaded from watershed_library.csv file.
+        
+    elt_def: list of names
+        List classes that have been instantiated (hydrodynamic, geology....)
+    
+    Subsurface properties
+    ---------------------
+    hydrodynamic: class Hydrodynamic (COMPULSORY to run modflow simulations, not necessary to generate watershed by clipping)
+        hydrodynamic properties (hydraulic conductivity, porosity, reservoir thickness, exponential decrease)
+    
+    geology: class Geology
+        lateral ("2D") geological description (loaded from the database, clipped at the watershed scale)
+        hydrodynamic class will be defined according from the geological description (through common indexes)
+        
+    piezometry: class Piezometry
+        Ensemble of piezometers for which data are provided (sofar from ADES-BRGM database)
+    
+    Surface properties
+    ------------------
+    hydrology: class Hydrology
+        Hydrographic network, clipped from a database like BD-TOPAGE
+        format: Humid zones (polygones), streams (polylines), landslides, sources, wells (points), raster
+        
+    hydrometry: class Hydrometry
+        Hydrological stations within the considered watershed from a French specific shapefile avialable from internet
+    
+    intermittency: class Intermittency
+        Intermittent streams from "onde" network obtained from public database avialable from internet 
+        Specific shapefile
+        Point based (from individual stations)
+        
+    subbasin: class Subbasin
+        Catchments defined from the existing hydrologic stations = hydrometry + intermittency + points of interest
+        points of interest are given in a text file (defined in the class)
+    
+    Atmospheric
+    -----------
+    forcing: class Forcing (COMPULSORY to run modflow simulations, not necessary to generate watershed by clipping)
+        Recharge chronicle at the entry of modflow (permanent or transient, surfex or drias data)
+        Not spatialized (same recharge everywhere, mean of the recharge over the watershed)
+        Rechargemay not be linked to surfex or drias, may be generated synthetically
+
+    climatic: class Climatic
+        netCDF et h5 climatic data obtained from surfex clipped to the defined watershed
+        
+    drias: class Drias
+        netCDF et h5 climatic data obtained from drias clipped to the defined watershed
+    
+    Oceanic
+    -------
+    oceanic: class Oceanic
+        sea level chronicles (loaded from "maregraph" data)
+        may be a direct input to the model
+
+    
+    METHODS PUBLIC
+    --------------
+    constructor: 
+        Stores options
+        (Loads or Generates) and saves watershed
+        Geographic will be loaded or created in all cases
+        Other classes (hydrology, hydrodynamic...) will only be loaded if previously stored, otherwise they will not be filled
+        
+    add_forcing: 
+        Creates forcing and adds it to the class members
+        
+    add_...
+        Creates "..." and adds it to the class members
+        
+    run_modflow 
+        Build and run modflow model
+        
+    matrix_modflow
+        postprocessing modflow results (handle to another function)
+    
+    results_modflow
+        Process Modflow results to provide targetted temporal chronicles (storage included)
+        
+    display
+        Display watershed figure
+    
+    METHODS PRIVATE
+    --------------       
+    define_watershed_charac: 
+        Load watershed informations from watershed.csv file
+    
+    load_object:
+        Loads pwatershed when it has already been generated (Uses pickle)
+        
+    create_object:
+        Creates watershed by defining geographic
+        
+    save_object:
+        Saves python object (using pickle)
+    
+    Read the docs
+    -------------
+    :param str name: name of watershed.
+    :param dem_path: folder of the regional DEM.
+    :param out_path: root directory of results.
+    :param surfex_path: root directory of surfex data.
+    :param oceanic_path: root directory of oceanic data.
+    :param geology_path: root directory of geology data.
+    :param hydrology_path: root directory of hydrology data.
+    :param piezometry_path: download franch piezometric data.
+    :param modflow_path: root directory of modflow executable.
+    :param save_object: save the watershed object in pickle file.
+    :param load: load the pickle file. Doesn't build the watershed object.
+    :param types_obs: list of observations data. Only if hydrology_path is not None.
+    :param fields_obs: list of observations fields. Only if hydrology_path is not None.
+    :ivar str watershed_folder: root directory of results of watershed class
+    :ivar add_data_folder: folder if you want add data manually
+    :vartype add_data_folder: :class:`str`
+    :ivar simulations_folder: root directory of simulation results
+    :vartype simulations_folder: :class:`str`
+    :ivar stable_folder: root directory of stable results
+    :vartype stable_folder: :class:`str`
+    :ivar figure_folder: root directory of figures folder
+    :vartype figure_folder: :class:`str`
+    :ivar elt_def: list of elements in the python object
+    :vartype elt_def: :class:`list`
+    :ivar geographic: geographic object
+    :vartype geographic: :class:`object`
+    :ivar hydrodynamic: hydrodynamic object
+    :vartype hydrodynamic: :class:`object`
+    :ivar forcing: forcing object
+    :vartype forcing: :class:`object`
+    :ivar climatic: climatic object
+    :vartype climatic: :class:`object`
+    :ivar hydrology: hydrology object
+    :vartype hydrology: :class:`object`
+    :ivar oceanic: oceanic object
+    :vartype oceanic: :class:`object`
+    :ivar geology: geology object
+    :vartype geology: :class:`object`
+    :ivar piezometry: piezometry object
+    :vartype piezometry: :class:`object`
+    :ivar x_outlet: x coordinate of the watershed outlet.
+    :vartype x_outlet: :class:`float`
+    :ivar y_outlet: y coordinate of the watershed outlet.
+    :vartype y_outlet: :class:`float`
+    :ivar snap_dist: maximum distance snappin of the watershed outlet.
+    :vartype snap_dist: :class:`float`
+    :ivar buff_percent: percentage of the watershed to build the buffer around it.
+    :vartype buff_percent: :class:`float`
+    :ivar crs_proj: coordiante system of projection
+    :vartype crs_proj: :class:`str`
+    :meta public:
+        
+    """
     def __init__(self, 
                  dem_path: str, 
                  out_path: str,
@@ -464,5 +643,7 @@ class Watershed :
                                                         model_modpath=model_modpath,
                                                         actual_date=actual_date,
                                                         subbasin_results=subbasin_results)
+            
+            return timeseries_results
 
 #%% NOTES

@@ -247,7 +247,7 @@ class Geographic:
         self.watershed_direc = self.gis_path + 'watershed_direc.tif'
         wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc,
                                    maintain_dimensions=False)
-        #○ Clip bottom
+        # Clip bottom
         if self.bottom_path != None :
             self.watershed_bottom = self.gis_path + 'watershed_bottom.tif'
             wbt.clip_raster_to_polygon(self.bottom_path, self.watershed_shp, self.watershed_bottom,
@@ -257,6 +257,11 @@ class Geographic:
                   units="percent")
         slope = imageio.imread(self.gis_path + 'watershed_slope.tif')
         self.slope = np.nanmean(slope[slope>=0])
+        # Create contour
+        self.watershed_contour_tif = self.gis_path + 'watershed_contour.tif'
+        wbt.vector_lines_to_raster(self.watershed_shp,
+                                   self.watershed_contour_tif,
+                                   base = self.watershed_dem)
         
         """
         Clip to reach box extent size
@@ -278,10 +283,13 @@ class Geographic:
             wbt.clip_raster_to_polygon(self.bottom_path, box_buffer, self.watershed_box_bottom,
                                        maintain_dimensions=False)
         
-        self.watershed_contour_tif = self.gis_path + 'watershed_contour.tif'
-        wbt.vector_lines_to_raster(self.watershed_shp,
-                                   self.watershed_contour_tif,
-                                   base = self.watershed_dem)
+        if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
+            print('   Reshape tifs')
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), -99999, self.watershed_box_buff_dem)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), -99999, self.watershed_box_buff_fill)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), -32768, self.watershed_box_buff_direc)
+            if self.bottom_path != None :
+                toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_bottom), -99999, self.watershed_box_buff_bottom)
         
         """
         Create depressions raster

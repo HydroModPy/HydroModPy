@@ -131,11 +131,11 @@ def plot_params(small,interm,medium,large):
     plt.rc('axes', labelsize=medium, labelpad=12)        # fontsize of the x and y labels
     plt.rc('xtick', labelsize=interm)                   # fontsize of the tick labels
     plt.rc('ytick', labelsize=interm)                   # fontsize of the tick labels
-    plt.rc('font', family='serif')
+    plt.rc('font', family='sans serif')
     
     fontprop = FontProperties()
-    fontprop.set_family('serif') # for x and y label
-    fontdic = {'family' : 'srif', 'weight' : 'bold'} # for legend  
+    fontprop.set_family('sans serif') # for x and y label
+    fontdic = {'family' : 'sans serif', 'weight' : 'bold'} # for legend  
 
     return fontprop      
 

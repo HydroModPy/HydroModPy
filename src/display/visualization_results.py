@@ -630,6 +630,7 @@ class Visualization():
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
         except:
+            print('Problem to plot contour')
             pass
         
         # Plot rivers
@@ -637,6 +638,7 @@ class Visualization():
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
             main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'))
         except:
+            print('Problem to plot streams')
             pass
         
         plt.gca().invert_yaxis()
