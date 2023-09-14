@@ -1,6 +1,9 @@
 Examples
 ========
 
+.. nbgallery::
+    example_02
+
 Import Modules
 **************
 .. code-block:: python

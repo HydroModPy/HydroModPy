@@ -59,6 +59,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
     'nbsphinx',
+    "sphinx_gallery.load_style",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
