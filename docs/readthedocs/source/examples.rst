@@ -1,6 +1,8 @@
 Examples
 ========
 
+example_02.ipynb
+
 Import Modules
 **************
 .. code-block:: python
