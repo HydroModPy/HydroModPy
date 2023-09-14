@@ -1,6 +1,6 @@
 sphinx-rtd-theme
 jupyter_sphinx
-nbsphynx
+nbsphinx
 sphinx-autodoc-typehints
 Sphinx==7.0.1
 sphinx-gallery==0.13.0
