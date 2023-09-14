@@ -24,6 +24,8 @@ sys.path.insert(0, os.path.abspath('../../../src/watershed/'))
 sys.path.insert(0, os.path.abspath('../../../src/tools/'))
 sys.path.insert(0, os.path.abspath('../../../src/modeling/'))
 sys.path.insert(0, os.path.abspath('../../../src/display/'))
+sys.path.insert(0, os.path.abspath('../../../examples/02_hydrographic network in steady state/'))
+
 
 # -- Project information -----------------------------------------------------
 
@@ -56,6 +58,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
+    'nbsphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
