@@ -118,7 +118,7 @@ class Climatic:
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
-        self.recharge = climatic/1000 # recharge in meters
+        self.recharge = climatic # recharge in meters
         self.recharge.index = self.recharge.asfreq(self.freq).index
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
@@ -130,7 +130,7 @@ class Climatic:
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
-        self.runoff = climatic/1000 # recharge in meters
+        self.runoff = climatic # recharge in meters
         self.runoff.index = self.runoff.asfreq(self.freq).index
         # self.runoff.index = self.runoff.index.to_period(self.freq)
         if sim_state == 'steady':
@@ -187,5 +187,12 @@ class Climatic:
         self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
+
+    #%% SET DATA SET TO STEADY INPUTS
+    def set_steady_recharge(self):
+        self.recharge = self.recharge.mean()
+        
+    def set_steady_runoff(self):
+        self.runoff = self.runoff.mean()
             
 #%% NOTES
