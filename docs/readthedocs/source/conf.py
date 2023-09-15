@@ -173,6 +173,7 @@ latex_documents = [
      author, 'manual'),
 ]
 
+latex_logo = 'images/logoHydroModPy_long.png'
 
 # -- Options for manual page output ------------------------------------------
 
@@ -194,7 +195,6 @@ texinfo_documents = [
      author, 'HydroModPy', 'One line description of project.',
      'Miscellaneous'),
 ]
-
 
 # -- Extension configuration -------------------------------------------------
 autodoc_mock_imports = ["osgeo","gdal"]
