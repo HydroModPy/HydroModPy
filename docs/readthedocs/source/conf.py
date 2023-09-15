@@ -170,7 +170,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     [", ".join(author)], ", ".join(author), 'report'),
+     ", ".join(author), ", ".join(author), 'report'),
 ]
 
 latex_logo = 'images/logoHydroModPy_long.png'
@@ -179,10 +179,10 @@ latex_logo = 'images/logoHydroModPy_long.png'
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'HydroModPy', 'HydroModPy Documentation',
-     author, 1)
-]
+# man_pages = [
+#    (master_doc, 'HydroModPy', 'HydroModPy Documentation',
+#     author, 1)
+#]
 
 
 # -- Options for Texinfo output ----------------------------------------------
