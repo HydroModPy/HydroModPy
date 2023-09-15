@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.abspath('../../../examples/02_hydrographic network in
 
 project = 'HydroModPy'
 copyright = '2021'
-author = ['A. Gauvain','R. Abhervé']
+author = 'A. Gauvain, R. Abhervé'
 
 # The short X.Y version
 version = '0.1'
@@ -170,7 +170,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     ", ".join(author), 'report'),
+     author, 'report'),
 ]
 
 latex_logo = 'images/logoHydroModPy_long.png'
@@ -192,7 +192,7 @@ latex_logo = 'images/logoHydroModPy_long.png'
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'HydroModPy', 'HydroModPy Documentation',
-     ", ".join(author), 'HydroModPy', 'One line description of project.',
+     author, 'HydroModPy', 'One line description of project.',
      'Miscellaneous'),
 ]
 
