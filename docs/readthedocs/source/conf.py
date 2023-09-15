@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.abspath('../../../examples/02_hydrographic network in
 
 project = 'HydroModPy'
 copyright = '2021'
-author = 'A. Gauvain \\\\ R. Abhervé'
+author = ['A. Gauvain','R. Abhervé']
 
 # The short X.Y version
 version = '0.1'
@@ -170,7 +170,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     author, 'manual'),
+     ", ".join(author), ", ".join(author), 'report'),
 ]
 
 latex_logo = 'images/logoHydroModPy_long.png'
@@ -181,7 +181,7 @@ latex_logo = 'images/logoHydroModPy_long.png'
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (master_doc, 'HydroModPy', 'HydroModPy Documentation',
-     [author], 1)
+     author, 1)
 ]
 
 
@@ -198,3 +198,9 @@ texinfo_documents = [
 
 # -- Extension configuration -------------------------------------------------
 autodoc_mock_imports = ["osgeo","gdal"]
+
+# use :numref: for references (instead of :ref:)
+numfig = True
+smart_quotes = False
+html_use_smartypants = False
+html_theme = 'sphinx_rtd_theme'
