@@ -170,7 +170,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     ", ".join(author), ", ".join(author), 'report'),
+     ", ".join(author), 'report'),
 ]
 
 latex_logo = 'images/logoHydroModPy_long.png'
@@ -192,7 +192,7 @@ latex_logo = 'images/logoHydroModPy_long.png'
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'HydroModPy', 'HydroModPy Documentation',
-     author, 'HydroModPy', 'One line description of project.',
+     ", ".join(author), 'HydroModPy', 'One line description of project.',
      'Miscellaneous'),
 ]
 
