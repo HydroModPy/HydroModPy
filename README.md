@@ -4,7 +4,7 @@
 A tool to build hydrological model at catchment scale in Python.
 
 ## Installation
-        
+<pre>
 +--------------------------------------------------------------------+  
 |      __  __          __           ____ ___            ________     |  
 |     / / / /         / /          / __ `__ \          / / __  /     |  
@@ -15,8 +15,8 @@ A tool to build hydrological model at catchment scale in Python.
 |       /____/ Hydrological Modelling in Python /_______________/    |  
 |                                                                    |  
 +--------------------------------------------------------------------+  
-      
- 
+</pre>      
+
 Before install HydromodPy, check Requirements in the next part.
 
 Install Git:
