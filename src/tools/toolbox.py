@@ -214,5 +214,17 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
     # shp.to_crs(utm_crs)
     shp.to_file(out_shp_path)
+
+#%% DISPLAY 
+
+def print_hydromodpy():
+    print('      __  __          __           __  ____          ________     ') 
+    print('     / / / /         / /          /  \/   /         / / __  /     ') 
+    print('    / /_/ /_  ______/ /________  /       /___  ____/ / /_/ /_  __ ')
+    print('   / __  / / / / __  / ___/ __ \/ /\,-/ / __ \/ __  / ____/ / / / ')  
+    print('  / / / / /_/ / /_/ / /  / /_/ / /   / / /_/ / /_/ / /   / /_/ /  ')  
+    print(' /_/ /_/\__, /_____/_/   \____/_/   /_/\____/_____/_/____\__, /   ')  
+    print('       /____/ Hydrological Modelling in Python /_____________/    ')  
+    print('                                                                  ')    
     
 #%% NOTES
