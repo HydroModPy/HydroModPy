@@ -115,7 +115,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = True
+# load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -174,8 +174,8 @@ BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS.cs
                                      sim_state='transient')
 
 fig, ax = plt.subplots(1,1, figsize=(6,3))
-R = BV.climatic.recharge.resample('M').sum() #*1000
-r = BV.climatic.runoff.resample('M').sum() #*1000
+R = BV.climatic.recharge.resample('M').sum() /1000
+r = BV.climatic.runoff.resample('M').sum() /1000
 ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
 ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
 ax.set_xlabel('Date')
