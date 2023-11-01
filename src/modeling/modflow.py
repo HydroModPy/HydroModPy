@@ -188,16 +188,20 @@ class Modflow():
             self.steady = True          # Steady state
             self.start_datetime = None
         if self.sim_state == 'transient':
+            
             # Transient state
             if isinstance(self.climatic,(dict))==True:
                 self.start_datetime = 0 
             else:
                 self.start_datetime = self.climatic.index[0]            # First date of climatic recharge
+                # To cooridate with forcing and/or climatic
+                """
                 if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
                     if pd.infer_freq(self.climatic.index) != 'D':
                         for i in range(1,len(self.climatic)):      
                             dif = self.climatic.index[i]-self.climatic.index[i-1]
                             self.perlen[i] = dif.days
+                """
             self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
             self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
             self.nstp = np.ones(len(self.climatic))     # One step per time step
