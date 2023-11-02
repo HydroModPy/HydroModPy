@@ -9,7 +9,7 @@ version: 2
 build:
   os: ubuntu-22.04
   tools:
-    #python: "miniconda3-4.7"
+    # python: "miniconda3-4.7"
     python: "3.8"
     # You can also specify other tool versions:
     nodejs: "19"
@@ -20,7 +20,7 @@ build:
 sphinx:
    configuration: docs/readthedocs/source/conf.py
 
-#If using Sphinx, optionally build your docs in additional formats such as PDF
+# If using Sphinx, optionally build your docs in additional formats such as PDF
 formats:
    - pdf
    - epub
@@ -30,5 +30,5 @@ python:
    install:
       - requirements: docs/readthedocs/readthedocs_requirements.txt
       - requirements: docs/readthedocs/hydromodpy_requirements.txt
-#conda:
+# conda:
 #   environment: install/environment_linux.yml
