@@ -1,4 +1,4 @@
-name: hydromodpy-test
+name: hydromodpy-0.1
 channels:
   - conda-forge
   - defaults
@@ -308,5 +308,5 @@ dependencies:
     - xyzservices==2023.7.0
     - yapf==0.40.1
     - zipp==3.16.2
-prefix: /Users/Alexande/miniconda3/envs/hydromodpy-test
+prefix: /Users/Alexande/miniconda3/envs/hydromodpy-0.1
 

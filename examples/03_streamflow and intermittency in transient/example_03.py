@@ -96,6 +96,7 @@ example_path = root_dir + "/examples/03_streamflow and intermittency in transien
 data_path = example_path + "data/"
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+
 #%% ---- WATERSHED
 
 #%% OPTIONS
@@ -341,7 +342,7 @@ axs = axs.ravel()
 
 for i, simul in enumerate(simul_list[:]):
     
-    model_name = simul.split('\\')[-1]
+    model_name = simul.split('/')[-1]
     
     ax = axs[i]
 
@@ -450,7 +451,7 @@ simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
         
 for simul in simul_list[:]:
     
-    model_name = simul.split('\\')[-1]
+    model_name = simul.split('/')[-1]
     Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
         
@@ -539,7 +540,7 @@ axs = axs = axs.ravel()
 
 for i, simul in enumerate(simul_list[:]):
     
-    model_name = simul.split('\\')[-1]
+    model_name = simul.split('/')[-1]
 
     ax = axs[i]
     
@@ -591,7 +592,7 @@ for i, simul in enumerate(simul_list[:]):
     fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
                                  figsize=(10,3))
     
-    model_name = simul.split('\\')[-1]
+    model_name = simul.split('/')[-1]
     
     Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
@@ -680,7 +681,7 @@ simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
 
 for i, simul in enumerate(simul_list[:]):
     
-    model_name = simul.split('\\')[-1]
+    model_name = simul.split('/')[-1]
     
     Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)

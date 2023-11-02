@@ -1,18 +1,18 @@
 import sys, platform
 import setuptools
 
-with open("README.md", "r") as file:
+with open('README.md', 'r') as file:
     long_desc = file.read()
 
 setuptools.setup(
     name='HydroModPy',
-    version='1.0',
-    author="Alexandre Gauvain, Ronan Abhervé",
-    author_email="alexandre.gauvain.ag@gmail.com",
-    description="Hydrological model at catchment scale",
+    version='0.1',
+    author='Alexandre Gauvain','Ronan Abhervé'
+    author_email='alexandre.gauvain.ag@gmail.com','ronan.abherve@gmail.com'
+    description='Hydrogeological modelling',
     long_description=long_desc,
     long_description_content_type='text/markdown',
-    url = "https://gitlab.com/Alex-Gauvain/HydroModPy",
+    url = 'https://gitlab.com/Alex-Gauvain/HydroModPy',
     install_requires=[
                       'numpy==1.24.3',
                       'pandas==1.5.3',
