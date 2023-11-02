@@ -6,6 +6,7 @@ The ``Watershed`` class
 .. autoclass:: watershed_root.Watershed
     :members:
     :undoc-members:
+    :special-members:
     :show-inheritance:
 
 Watershed Structure
