@@ -1,4 +1,4 @@
-name: hydromodpy
+name: hydromodpy-0.1
 channels:
   - conda-forge
   - defaults
@@ -308,4 +308,4 @@ dependencies:
       - xyzservices==2023.7.0
       - yapf==0.40.1
       - zipp==3.16.2
-prefix: C:\Users\aLex\.conda\envs\hydromodpy
+prefix: C:\Users\aLex\.conda\envs\hydromodpy-0.1
