@@ -136,7 +136,7 @@ class Watershed :
             # Definition of the watershed
             self.__init_object()
             # Creation of the watershed defined at the previous line
-            self.create_object()
+            self.__create_object()
             # Save object
             if save_object == True:
                 self.save_object()
@@ -208,11 +208,9 @@ class Watershed :
 
     def __init_object(self):
         """
-        Private method to 
+        Private method to initialize condition to generate watershed
 
         """
-        
-        # Conditions that should all be fulfilled to generate watershed from watershed library outlet
         
         if self.from_lib != None:
             watershed_list = pd.read_csv(self.from_lib, delimiter=';')
@@ -259,8 +257,10 @@ class Watershed :
             self.buff_percent = self.from_xyv[3]
             self.crs_proj = self.from_xyv[4]
 
-    def create_object(self):
-        
+    def __create_object(self):
+        """
+        Private method to create geographic watershed
+        """
         # Structure data
         self.geographic = geographic.Geographic(self.dem_path,
                                                 self.bottom_path,
@@ -281,7 +281,10 @@ class Watershed :
         self.elt_def.append('geographic')
 
     def save_object(self):
+        """
+        Public method to save watershed object
 
+        """
         # If folder already exists, removes it
         if os.path.exists(os.path.join(self.watershed_folder,'watershed_object')):
             os.remove(os.path.join(self.watershed_folder,'watershed_object'))
@@ -290,7 +293,19 @@ class Watershed :
         config_dictionary_file.close()
 
     def display_object(self,dtype: str = 'watershed_dem'):
-        
+        """
+        Public method to display watershed
+
+        Parameters
+        ----------
+        dtype : str, optional
+            Three posibilities:
+                'watershed_dem' to display the watershed elevation
+                'watershed_geology' to display the watershed geology
+                'watershed_zones' to display hydraulic zones of the watershed
+            The default is 'watershed_dem'
+
+        """
         if dtype == 'watershed_dem':
             visualization_watershed.watershed_dem(self)
         if dtype == 'watershed_geology':
@@ -301,11 +316,27 @@ class Watershed :
     #%% ADDING DATA
         
     def add_climatic(self):
+        """
+        Public method to add climatic data
+        """
         self.climatic = climatic.Climatic(out_path=self.watershed_folder)
         self.elt_def.append('climatic')
         self.save_object()
         
-    def add_geology(self, geology_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG'):
+    def add_geology(self, geology_path:str, types_obs:str='GEO1M.shp', fields_obs:str='CODE_LEG'):
+        """
+        Public method to add geologic data
+
+        Parameters
+        ----------
+        geology_path : str
+            Path where the polygon shapefile is located.
+        types_obs : str, optional
+            Name of the geology shapefile. The default is 'GEO1M.shp'.
+        fields_obs : str, optional
+            Field data of the polygons. The default is 'CODE_LEG'.
+        """
+        
         self.geology_path = geology_path
         self.geology = geology.Geology(out_path=self.watershed_folder,
                                        geographic=self.geographic,
@@ -317,11 +348,17 @@ class Watershed :
         self.save_object()
         
     def add_geometric(self):
+        """
+        Public method to add geometric data
+        """
         self.geometric = None
         self.elt_def.append('geometric')
         self.save_object()
     
     def add_hydraulic(self):
+        """
+        Public method to add hydraulic data
+        """
         self.hydraulic = hydraulic.Hydraulic(nrow=self.geographic.y_pixel,
                                              ncol=self.geographic.x_pixel,
                                              box_dem=self.geographic.watershed_box_buff_dem)
@@ -329,10 +366,23 @@ class Watershed :
         self.save_object()
         
     def add_hydrography(self,
-                        hydrography_path,
-                        types_obs=['streams'], 
-                        fields_obs=['FID'], 
-                        reset=False):
+                        hydrography_path:str,
+                        types_obs:list=['streams'], 
+                        fields_obs:list=['FID']):
+        """
+        Public method to add watershed hydrography
+
+        Parameters
+        ----------
+        hydrography_path : str
+            Path where the hydrography shapefiles are located.
+        types_obs : list, optional
+            List of shapefile names. The default is ['streams'].
+        fields_obs : list, optional
+            List of field names. The default is ['FID'].
+
+        """
+        
         self.hydrography_path = hydrography_path
         self.types_obs = types_obs
         self.fields_obs = fields_obs
@@ -344,7 +394,18 @@ class Watershed :
         self.elt_def.append('hydrography')
         self.save_object()
 
-    def add_hydrometry(self, hydrometry_path, file_name):
+    def add_hydrometry(self, hydrometry_path: str, file_name:str):
+        """
+        Public method to add watershed hydrometry
+
+        Parameters
+        ----------
+        hydrometry_path : str
+            Path where the hydrometry files are located.
+        file_name : str
+            DName of the file.
+
+        """
         self.hydrometry_path = hydrometry_path
         self.hydrometry = hydrometry.Hydrometry(out_path=self.watershed_folder, 
                                                 hydrometry_path=self.hydrometry_path,
@@ -353,7 +414,19 @@ class Watershed :
         self.elt_def.append('hydrometry')
         self.save_object()
         
-    def add_intermittency(self, intermittency_path, file_name):
+    def add_intermittency(self, intermittency_path:str, file_name:str):
+        """
+        Public method to add hydraulic intermittency
+
+        Parameters
+        ----------
+        intermittency_path : str
+            Path where the hydraulic intermittency files are located.
+        file_name : str
+            Name of the file.
+
+        """
+        
         self.intermittency_path = intermittency_path
         self.intermittency = intermittency.Intermittency(out_path=self.watershed_folder, 
                                                          intermittency_path=self.intermittency_path,
@@ -362,7 +435,17 @@ class Watershed :
         self.elt_def.append('intermittency')
         self.save_object()
         
-    def add_oceanic(self, oceanic_path):
+    def add_oceanic(self, oceanic_path:str):
+        """
+        Public method to add oceanic/sea data
+
+        Parameters
+        ----------
+        oceanic_path : str
+            Path where the oceanic data are located.
+
+        """
+        
         self.oceanic = oceanic.Oceanic()
         self.oceanic_path = oceanic_path
         self.oceanic.extract_data(out_path=self.watershed_folder,
@@ -372,12 +455,25 @@ class Watershed :
         self.save_object()
         
     def add_piezometry(self):
+        """
+        Public method to add piezometric data
+
+        """
         self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,
                                                 geographic=self.geographic)
         self.elt_def.append('piezometry')
         self.save_object()
                     
-    def add_subbasin(self, add_path):
+    def add_subbasin(self, add_path:str):
+        """
+        Public method to add subbasins
+
+        Parameters
+        ----------
+        add_path : str
+            Path of the folder where the data are located.
+
+        """
         if hasattr(self, 'hydrometry') == False:
             self.hydrometry=None
         self.subbasin = subbasin.Subbasin(geographic=self.geographic, hydrometry=self.hydrometry, 
@@ -388,12 +484,25 @@ class Watershed :
         self.save_object()
     
     def add_settings(self):
+        """
+        Pulic method to add settings model
+
+        """
         self.settings = settings.Settings()
         self.elt_def.append('settings')
         self.save_object()
 
     #%% MODFLOW MODEL
     def preprocessing_modflow(self):
+        """
+        Public method to build the hydrologic model
+
+        Returns
+        -------
+        model_modflow : object
+            Python object of the hydraulic model
+            
+        """
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
                                         # Frame settings
@@ -428,8 +537,25 @@ class Watershed :
                 
         return model_modflow
          
-    def processing_modflow(self, model_modflow, write_model=True, run_model=False):
-        
+    def processing_modflow(self, model_modflow:object, write_model:bool=True, run_model:bool=False):
+        """
+        Public method to run the simulation of the model.
+
+        Parameters
+        ----------
+        model_modflow : object
+            Modflow model
+        write_model : bool, optional
+            write input files before run simulation. The default is True.
+        run_model : bool, optional
+            Run simulation. The default is False.
+
+        Returns
+        -------
+        success_model : bool
+            Boolean to know if the simulation rans succesfully.
+
+        """
         # Processing Modflow
         success_model = model_modflow.processing(write_model=write_model, run_model=run_model)
         
@@ -437,46 +563,42 @@ class Watershed :
         
     def postprocessing_modflow(self, model_modflow:object,
                                watertable_elevation:bool=True,
-                               watertable_depth=True, 
-                               seepage_areas=True,
-                               outflow_drain=True,
-                               groundwater_flux=True,
-                               groundwater_storage=True,
-                               accumulation_flux=True,
-                               persistency_index=False,
-                               intermittency_yearly=False,
-                               export_all_tif=False):
+                               watertable_depth:bool=True, 
+                               seepage_areas:bool=True,
+                               outflow_drain:bool=True,
+                               groundwater_flux:bool=True,
+                               groundwater_storage:bool=True,
+                               accumulation_flux:bool=True,
+                               persistency_index:bool=False,
+                               intermittency_yearly:bool=False,
+                               export_all_tif:bool=False):
         """
-        
+        Public method to post-process the simulation of the model
 
         Parameters
         ----------
         model_modflow : object
-            DESCRIPTION.
+            Modflow object.
         watertable_elevation : bool, optional
-            DESCRIPTION. The default is True.
-        watertable_depth : TYPE, optional
-            DESCRIPTION. The default is True.
-        seepage_areas : TYPE, optional
-            DESCRIPTION. The default is True.
-        outflow_drain : TYPE, optional
-            DESCRIPTION. The default is True.
-        groundwater_flux : TYPE, optional
-            DESCRIPTION. The default is True.
-        groundwater_storage : TYPE, optional
-            DESCRIPTION. The default is True.
-        accumulation_flux : TYPE, optional
-            DESCRIPTION. The default is True.
-        persistency_index : TYPE, optional
-            DESCRIPTION. The default is False.
-        intermittency_yearly : TYPE, optional
-            DESCRIPTION. The default is False.
-        export_all_tif : TYPE, optional
-            DESCRIPTION. The default is False.
-
-        Returns
-        -------
-        None.
+            Build watertable elevation outputs. The default is True.
+        watertable_depth : bool, optional
+            Build watertable_depth outputs. The default is True.
+        seepage_areas : bool, optional
+            Build seepage area outputs. The default is True.
+        outflow_drain : bool, optional
+            Build outflow drain outputs. The default is True.
+        groundwater_flux : bool, optional
+            Build groudwater flux outputs. The default is True.
+        groundwater_storage : bool, optional
+            Build groundwater storage ouputs. The default is True.
+        accumulation_flux : bool, optional
+            Build accumulation flux outputs. The default is True.
+        persistency_index : bool, optional
+            Build persistency index outputs. The default is False.
+        intermittency_yearly : bool, optional
+            Build intermittency yearly. The default is False.
+        export_all_tif : bool, optional
+            Build tif files for all time steps. The default is False.
 
         """
         
@@ -495,7 +617,20 @@ class Watershed :
 
     #%% MODPATH MODEL        
         
-    def preprocessing_modpath(self, model_modflow):
+    def preprocessing_modpath(self, model_modflow:object):
+        """
+        Public method to set the partickle tracking
+
+        Parameters
+        ----------
+        model_modflow : object
+            Modflow object.
+
+        Returns
+        -------
+        model_modpath : object
+            Modpath object.
+        """
         
         model_modpath = modpath.Modpath(self.geographic,
                                         model_modflow,
@@ -511,20 +646,55 @@ class Watershed :
                 
         return model_modpath
                             
-    def processing_modpath(self, model_modpath, write_model=True, run_model=False):
-        
+    def processing_modpath(self, model_modpath:object, write_model:bool=True, run_model:bool=False):
+        """
+        Public method to run the partickle tracking.
+
+        Parameters
+        ----------
+        model_modpath : object
+            Modpath object.
+        write_model : bool, optional
+            Write input files before run simulation. The default is True.
+        run_model : bool, optional
+            Run simulation. The default is False.
+
+        Returns
+        -------
+        success_model : bool
+            Boolean to know if the simulation rans succesfully.
+
+        """
         # Processing Modpath
         success_model = model_modpath.processing(write_model=write_model, run_model=run_model)
         
         return success_model
         
     def postprocessing_modpath(self,
-                               model_modpath,
-                               ending_point=True,
-                               starting_point=True,
-                               pathlines_shp=True,
-                               particules_shp=True,
-                               random_id=None):
+                               model_modpath:object,
+                               ending_point:bool=True,
+                               starting_point:bool=True,
+                               pathlines_shp:bool=True,
+                               particules_shp:bool=True,
+                               random_id:int=None):
+        """
+        Public method to post-process the simulation of the particle tracking
+
+        Parameters
+        ----------
+        model_modpath : object
+            Modpath object.
+        ending_point : bool, optional
+            Save ending point. The default is True.
+        starting_point : bool, optional
+            Save starting point. The default is True.
+        pathlines_shp : bool, optional
+            Save pathlines as lines shapefile. The default is True.
+        particules_shp : bool, optional
+            Save particule as points shapefile. The default is True.
+        random_id : int, optional
+            Number of particules which are saved. The default is None.
+        """
         
         model_modpath.post_processing(model_modpath,
                                       ending_point=ending_point,
@@ -536,10 +706,31 @@ class Watershed :
     #%% EXTRACT TIMESERIES
     
     def postprocessing_timeseries(self,
-                                  model_modflow,
-                                  model_modpath,
-                                  actual_date=True,
-                                  subbasin_results=True):
+                                  model_modflow:object,
+                                  model_modpath:object,
+                                  actual_date:bool=True,
+                                  subbasin_results:bool=True):
+        """
+        Public method to postprocesing the timeseries of the watershed
+
+        Parameters
+        ----------
+        model_modflow : object
+            Modflow object.
+        model_modpath : object
+            Modpath object.
+        actual_date : bool, optional
+            True if data are referenced temporally. The default is True.
+        subbasin_results : bool, optional
+            Generate all results for each subbassin. The default is True.
+
+        Returns
+        -------
+        timeseries_results : pandas.dataframe
+            Table with all results.
+
+        """
+        
         
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self.geographic,
