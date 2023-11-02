@@ -126,7 +126,7 @@ class Watershed :
         success = False
         if load==True:
              # Load from previously stored (saved) watershed
-             success = self.load_object()
+             success = self.__load_object()
              print("Object was loaded successfully")
         else: 
              print("Object was not loaded as demanded, but created from scratch")
@@ -142,9 +142,15 @@ class Watershed :
                 self.save_object()
         
     #%% PYTHON OBJECT
-    
-    def load_object(self):
-        
+    def __load_object(self):
+        """
+        Private method to load watershed object
+
+        Returns
+        -------
+        success : bool
+            True if the watershed object is load succesfully.
+        """
         
         if os.path.exists(os.path.join(self.watershed_folder, 'watershed_object')):
             
