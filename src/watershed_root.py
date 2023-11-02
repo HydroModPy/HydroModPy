@@ -101,7 +101,7 @@ class Watershed :
         self.from_shp = from_shp
         self.from_xyv = from_xyv
         self.bottom_path = bottom_path
-        self.bin_path = os.path.join(root_dir, 'bin/')
+        self.bin_path = os.path.join(os.path.dirname(root_dir), 'bin/')
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
@@ -134,7 +134,7 @@ class Watershed :
         if load==False or success==False: 
             print("Create new object, will removed previousy stored object")
             # Definition of the watershed
-            self.init_object()
+            self.__init_object()
             # Creation of the watershed defined at the previous line
             self.create_object()
             # Save object
@@ -206,7 +206,11 @@ class Watershed :
             
             return False
 
-    def init_object(self):
+    def __init_object(self):
+        """
+        Private method to 
+
+        """
         
         # Conditions that should all be fulfilled to generate watershed from watershed library outlet
         
