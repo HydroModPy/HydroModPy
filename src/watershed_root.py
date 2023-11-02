@@ -35,145 +35,61 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% CLASS
 
 class Watershed :
-    """
-    
-    class Watershed is used to extract watershed and its data from regional DEM
-        Hub to all elements necessary or optional to construct watersheds (meaning catchements) and run modflow simulations
-    
-    Attributes, public
-    -------------------
-    watershed_name: str 
-        Name of the watershed
-        
-    watershed_def_option: str
-        Option for the definition of the Watershed 
-
-    from_shp: list   #RONAN: from_dem_file
-        list including path to the shapefile that will be used as "Watershed" and buffer_percent
-        With such an option, Watershed is not generated but loaded from the file
-    
-    from_dem: boolean
-        Uses DEM instead of shapefile
-        True if the process start from a given DEM of xyz file
-        Cases where domain is not georeferenced (e.g. synthetic geometry, erosion models)
-        
-    cell_size: float
-        Modifies the resolution of the DEM, a new value rather than the DEM resolution
-
-    outlet_def_option: str #RONAN
-        Method to define the watershed outlets 
-
-    from_xy: list of floats
-        Definition of the outlets directly with the list of coordinates (floats)
-        
-    library_path: str  #RONAN: from_library_file
-        definition of the outlets of the watershed loaded from watershed_library.csv file.
-        
-    elt_def: list of names
-        List classes that have been instantiated (hydrodynamic, geology....)
-    
-    Subsurface properties
-    ---------------------
-    hydrodynamic: class Hydrodynamic (COMPULSORY to run modflow simulations, not necessary to generate watershed by clipping)
-        hydrodynamic properties (hydraulic conductivity, porosity, reservoir thickness, exponential decrease)
-    
-    geology: class Geology
-        lateral ("2D") geological description (loaded from the database, clipped at the watershed scale)
-        hydrodynamic class will be defined according from the geological description (through common indexes)
-        
-    piezometry: class Piezometry
-        Ensemble of piezometers for which data are provided (sofar from ADES-BRGM database)
-    
-    Surface properties
-    ------------------
-    hydrology: class Hydrology
-        Hydrographic network, clipped from a database like BD-TOPAGE
-        format: Humid zones (polygones), streams (polylines), landslides, sources, wells (points), raster
-        
-    hydrometry: class Hydrometry
-        Hydrological stations within the considered watershed from a French specific shapefile avialable from internet
-    
-    intermittency: class Intermittency
-        Intermittent streams from "onde" network obtained from public database avialable from internet 
-        Specific shapefile
-        Point based (from individual stations)
-        
-    subbasin: class Subbasin
-        Catchments defined from the existing hydrologic stations = hydrometry + intermittency + points of interest
-        points of interest are given in a text file (defined in the class)
-    
-    Atmospheric
-    -----------
-    forcing: class Forcing (COMPULSORY to run modflow simulations, not necessary to generate watershed by clipping)
-        Recharge chronicle at the entry of modflow (permanent or transient, surfex or drias data)
-        Not spatialized (same recharge everywhere, mean of the recharge over the watershed)
-        Rechargemay not be linked to surfex or drias, may be generated synthetically
-
-    climatic: class Climatic
-        netCDF et h5 climatic data obtained from surfex clipped to the defined watershed
-        
-    drias: class Drias
-        netCDF et h5 climatic data obtained from drias clipped to the defined watershed
-    
-    Oceanic
-    -------
-    oceanic: class Oceanic
-        sea level chronicles (loaded from "maregraph" data)
-        may be a direct input to the model
-
-    
-    METHODS PUBLIC
-    --------------
-    constructor: 
-        Stores options
-        (Loads or Generates) and saves watershed
-        Geographic will be loaded or created in all cases
-        Other classes (hydrology, hydrodynamic...) will only be loaded if previously stored, otherwise they will not be filled
-        
-    add_forcing: 
-        Creates forcing and adds it to the class members
-        
-    add_...
-        Creates "..." and adds it to the class members
-        
-    run_modflow 
-        Build and run modflow model
-        
-    matrix_modflow
-        postprocessing modflow results (handle to another function)
-    
-    results_modflow
-        Process Modflow results to provide targetted temporal chronicles (storage included)
-        
-    display
-        Display watershed figure
-    
-    METHODS PRIVATE
-    --------------       
-    define_watershed_charac: 
-        Load watershed informations from watershed.csv file
-    
-    load_object:
-        Loads pwatershed when it has already been generated (Uses pickle)
-        
-    create_object:
-        Creates watershed by defining geographic
-        
-    save_object:
-        Saves python object (using pickle)
+    """    
+    Class Watershed is used to extract watershed and its data from regional DEM.
+    Hub to all elements necessary or optional to construct watersheds (meaning catchements) and run modflow simulations.
     """
     def __init__(self, 
                  dem_path: str, 
                  out_path: str,
                  load: bool = False,
                  watershed_name: str = 'Default',
-                 from_lib: list = None, # os.path.join(root_dir,'watershed_library.csv')
-                 from_dem: list = None, # [path, cell size]
-                 from_shp: list = None, # [path, buffer size]
-                 from_xyv: list = None, # [x, y, snap distance, buffer size]
+                 from_lib: str = None, # os.path.join(root_dir,'watershed_library.csv')
+                 from_dem: list = [], # [path, cell size]
+                 from_shp: list = [], # [path, buffer size]
+                 from_xyv: list = [], # [x, y, snap distance, buffer size]
                  bottom_path: str = None, # path
-                 modflow_path: str = os.path.join(root_dir,'bin/'), 
                  save_object: bool = True):
+        
+        
+        """
+        Constructor
+
+        Parameters
+        ----------
+        dem_path : str
+            Path of the regional Digital Elevation Model.
+        out_path : str
+            Path of the HydroModPy outputs.
+        load : bool, optional
+            To load the watershed object. The file Must be already created. The default is False.
+        watershed_name : str, optional
+            Name of the watershed. The default is 'Default'.
+        from_lib : str, optional
+            Path of the watershed librairies. If None : method not used. The default is None.
+        from_dem : list, optional
+            List with two parameters: [path, cell_size]
+            path: Path of the DEM
+            cell_size: Resolution of the DEM. To change the initial resolution
+            The default is empty list.
+        from_shp : list, optional
+            List of tow parameters: [path, buffer_size] 
+            path: Path of the polygon shapefile. 
+            buffer_size: Buffer distance
+            The default is empty list.
+        from_xyv : list, optional
+            List of four parameters: [x, y, snap_distance, buffer_size]
+            x: x coordinate of the watershed outlet
+            y: y coordinate of the watershed outlet
+            snap_distance: Maximum distance where the outlet can be moove
+            buffer_size: Buffer disrance
+            The default is empty list.
+        bottom_path : str, optional
+            Path of the regional Digital . The default is None.
+        save_object : bool, optional
+            True : To save the watershed object (using pickle). The default is True.
+
+        """
         
         toolbox.print_hydromodpy()
         self.dem_path = dem_path
@@ -185,7 +101,7 @@ class Watershed :
         self.from_shp = from_shp
         self.from_xyv = from_xyv
         self.bottom_path = bottom_path
-        self.modflow_path = modflow_path
+        self.bin_path = os.path.join(root_dir, 'bin/')
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
@@ -228,6 +144,7 @@ class Watershed :
     #%% PYTHON OBJECT
     
     def load_object(self):
+        
         
         if os.path.exists(os.path.join(self.watershed_folder, 'watershed_object')):
             
@@ -466,15 +383,13 @@ class Watershed :
         self.save_object()
 
     #%% MODFLOW MODEL
-    
     def preprocessing_modflow(self):
-                
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
                                         # Frame settings
                                         model_folder=self.simulations_folder,
                                         model_name=self.settings.model_name,
-                                        bin_path=self.modflow_path,
+                                        bin_path=self.bin_path,
                                         box=self.settings.box,
                                         sink_fill=self.settings.sink_fill,
                                         sim_state=self.settings.sim_state,
@@ -510,8 +425,8 @@ class Watershed :
         
         return success_model
         
-    def postprocessing_modflow(self, model_modflow,
-                               watertable_elevation=True,
+    def postprocessing_modflow(self, model_modflow:object,
+                               watertable_elevation:bool=True,
                                watertable_depth=True, 
                                seepage_areas=True,
                                outflow_drain=True,
@@ -521,6 +436,39 @@ class Watershed :
                                persistency_index=False,
                                intermittency_yearly=False,
                                export_all_tif=False):
+        """
+        
+
+        Parameters
+        ----------
+        model_modflow : object
+            DESCRIPTION.
+        watertable_elevation : bool, optional
+            DESCRIPTION. The default is True.
+        watertable_depth : TYPE, optional
+            DESCRIPTION. The default is True.
+        seepage_areas : TYPE, optional
+            DESCRIPTION. The default is True.
+        outflow_drain : TYPE, optional
+            DESCRIPTION. The default is True.
+        groundwater_flux : TYPE, optional
+            DESCRIPTION. The default is True.
+        groundwater_storage : TYPE, optional
+            DESCRIPTION. The default is True.
+        accumulation_flux : TYPE, optional
+            DESCRIPTION. The default is True.
+        persistency_index : TYPE, optional
+            DESCRIPTION. The default is False.
+        intermittency_yearly : TYPE, optional
+            DESCRIPTION. The default is False.
+        export_all_tif : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
         
         # Postprocessing Modflow
         model_modflow.post_processing(model_modflow,
@@ -544,7 +492,7 @@ class Watershed :
                                         # Frame settings
                                         model_folder=self.simulations_folder,
                                         model_name=self.settings.model_name,
-                                        bin_path = self.modflow_path,
+                                        bin_path = self.bin_path,
                                         # Specific settings  
                                         zone_partic=self.settings.zone_partic)
         
