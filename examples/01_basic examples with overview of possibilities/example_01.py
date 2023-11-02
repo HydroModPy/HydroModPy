@@ -119,7 +119,6 @@ if case == 'FromLIB':
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 if case == 'FromDEM':
@@ -131,7 +130,6 @@ if case == 'FromDEM':
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 if case == 'FromSHP':
@@ -143,7 +141,6 @@ if case == 'FromSHP':
     from_shp = [data_path + 'conceptual shp.shp', 10] # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 if case == 'FromXYV':
@@ -155,7 +152,6 @@ if case == 'FromXYV':
     from_shp = None # [path, buffer size]
     from_xyv = [127307.551 , 6835727.567 , 200 , 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 #%% GEOGRAPHIC
@@ -172,7 +168,6 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               bottom_path=bottom_path, # path
-                              modflow_path=modflow_path, 
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots

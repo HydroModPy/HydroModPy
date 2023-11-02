@@ -373,7 +373,7 @@ class Visualization():
             the number of random pathlines displayed
         """
         
-        vedo.settings.screeshot_scale = render
+        #vedo.settings.screeshot_scale = render
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
                                           yzGrid=False), size=size)
 
