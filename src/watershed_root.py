@@ -174,7 +174,8 @@ class Watershed :
                  bottom_path: str = None, # path
                  modflow_path: str = os.path.join(root_dir,'bin/'), 
                  save_object: bool = True):
-
+        
+        toolbox.print_hydromodpy()
         self.dem_path = dem_path
         self.out_path = out_path
         self.load = load
