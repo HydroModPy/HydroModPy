@@ -1,9 +1,9 @@
-# HydroModPy [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+## HydroModPy [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 ![logo](./docs/readthedocs/source/images/logoHydroModPy_long.png)
 
-A tool to build hydrological model at catchment scale in Python.
+A Python toolkit to facilitate the deployment of unconfined aquifer catchment-scale hydrogeological models.
 
-## Installation  
+## Git installation
 
 Before install HydromodPy, check Requirements in the next part.
 Proceed to installation as administrator for better results.
@@ -27,24 +27,26 @@ git checkout "v0.1"
 ```
 
 Go to install folder:
-
 ```
 cd HydroModPy/install
 ```
 
+## Environment installation
+
 HydroModPy can be installed for Windows and Linux with bash file in the "install" directory :
 
-For Linux :
+For Linux:
 ```
 ./install.sh
 ```
-For Windows : double clik on install.sh
-
-OR 
+For Windows:
+```
+double clik on install.sh
+```
 
 Alternatively, HydroModPy can be installed with conda using .yml file in the "install" directory :
 ```
-conda env create -f environment.yml -n hydromodpy 
+conda env create -f environment.yml -n hydromodpy-0.1 
 ```
 
 Install ChromeDriver for Selenium library
@@ -54,7 +56,7 @@ The .exe should be stored in a file
 The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> system parameter -> environment variables)
 Click on "Path" -> modify -> add path of the .exe
 
-## Run HydroModPy
+## Launch HydroModPy
 
 (1) Activate HydroModPy environment :
 ```
@@ -69,7 +71,7 @@ jupyter lab
 
 (3) Execute python script following examples below
 
-## Requirements
+## Library requirements
 
 To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your computer.
 
@@ -99,7 +101,7 @@ The following python packages will be installed with the installation procedure:
   - xarray==2023.1.0
   - whitebox==2.3.1
    
- ## Examples
+ ## Available examples
  
  There is some example notebooks :
  - 01_basic : examples with overview of possibilities
@@ -110,11 +112,11 @@ The following python packages will be installed with the installation procedure:
  - 06_heterogeneity : aquifer complexity and heterogeneity
  - 07_calibration : calibration and multiobjective optimization
  
- ## Publications
+ ## Linked publications
  Papers was published on the HydroModPy concept and its different capabilities.
  
  Abhervé, R., Gauvain, A., Roques, C., Longuevergne, L., Louaisil, S., Aquilina, L., and de Dreuzy, J.-R.: Calibration of groundwater seepage on the spatial distribution of the stream network to assess catchment-scale hydraulic conductivity, Hydrol. Earth Syst. Sci. Discuss., 2022.
  [link](https://doi.org/10.5194/hess-2022-175).
 
- ## Contact
- For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@unine.ch>
+ ## Coresponding authors
+ For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@gmail.com>

@@ -40,7 +40,6 @@ then
 else
   echo "Conda is already installed. Start to install HydroModPy environment"
 fi
-
 read -p "Press enter to install HydroModPy"
 
 echo "###### Build Conda Environment ######"
