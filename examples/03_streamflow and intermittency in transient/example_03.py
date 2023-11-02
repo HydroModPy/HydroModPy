@@ -94,8 +94,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/03_streamflow and intermittency in transient/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-
+# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 #%% ---- WATERSHED
 
 #%% OPTIONS
