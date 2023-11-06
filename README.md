@@ -6,6 +6,7 @@ A Python toolkit to facilitate the deployment of unconfined aquifer catchment-sc
 ## Git installation
 
 Before install HydromodPy, check Requirements in the next part.
+Proceed to installation as administrator for better results.
 
 Install Git:
 https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
