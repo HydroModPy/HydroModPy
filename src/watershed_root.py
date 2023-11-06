@@ -731,7 +731,6 @@ class Watershed :
 
         """
         
-        
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self.geographic,
                                                         model_modflow=model_modflow,
