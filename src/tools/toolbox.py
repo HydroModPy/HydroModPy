@@ -215,6 +215,10 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     # shp.to_crs(utm_crs)
     shp.to_file(out_shp_path)
 
+def select_period(df, first, last):
+    df = df[(df.index.year>=first) & (df.index.year<=last)]
+    return df
+
 #%% DISPLAY 
 
 def print_hydromodpy():
