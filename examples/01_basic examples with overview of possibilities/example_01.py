@@ -98,8 +98,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+#out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
+out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
 
@@ -119,7 +120,6 @@ if case == 'FromLIB':
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 if case == 'FromDEM':
@@ -131,7 +131,6 @@ if case == 'FromDEM':
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 if case == 'FromSHP':
@@ -143,7 +142,6 @@ if case == 'FromSHP':
     from_shp = [data_path + 'conceptual shp.shp', 10] # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 if case == 'FromXYV':
@@ -155,7 +153,6 @@ if case == 'FromXYV':
     from_shp = None # [path, buffer size]
     from_xyv = [127307.551 , 6835727.567 , 200 , 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
     bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
 #%% GEOGRAPHIC
@@ -172,7 +169,6 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               bottom_path=bottom_path, # path
-                              modflow_path=modflow_path, 
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -560,7 +556,7 @@ if from_dem == None:
 else:
     stream_data = None
 watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
-interactive = False
+interactive = True
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
