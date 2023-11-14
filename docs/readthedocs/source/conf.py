@@ -24,12 +24,14 @@ sys.path.insert(0, os.path.abspath('../../../src/watershed/'))
 sys.path.insert(0, os.path.abspath('../../../src/tools/'))
 sys.path.insert(0, os.path.abspath('../../../src/modeling/'))
 sys.path.insert(0, os.path.abspath('../../../src/display/'))
+sys.path.insert(0, os.path.abspath('../../../examples/02_hydrographic network in steady state/'))
+
 
 # -- Project information -----------------------------------------------------
 
 project = 'HydroModPy'
 copyright = '2021'
-author = 'A. Gauvain \\\\ R. Abhervé'
+author = 'A. Gauvain, R. Abhervé'
 
 # The short X.Y version
 version = '0.1'
@@ -56,7 +58,11 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
+    'nbsphinx',
+    "sphinx_gallery.load_style",
 ]
+
+nbsphinx_allow_errors = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -164,18 +170,19 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'HydroModPy.tex', 'HydroModPy Documentation',
-     author, 'manual'),
+     author, 'report'),
 ]
 
+latex_logo = 'images/logoHydroModPy_long.png'
 
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'HydroModPy', 'HydroModPy Documentation',
-     [author], 1)
-]
+# man_pages = [
+#    (master_doc, 'HydroModPy', 'HydroModPy Documentation',
+#     author, 1)
+#]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -189,6 +196,11 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-
 # -- Extension configuration -------------------------------------------------
 autodoc_mock_imports = ["osgeo","gdal"]
+
+# use :numref: for references (instead of :ref:)
+numfig = True
+smart_quotes = False
+html_use_smartypants = False
+html_theme = 'sphinx_rtd_theme'
