@@ -161,61 +161,6 @@ class Watershed :
         
     save_object:
         Saves python object (using pickle)
-    
-    Read the docs
-    -------------
-    :param str name: name of watershed.
-    :param dem_path: folder of the regional DEM.
-    :param out_path: root directory of results.
-    :param surfex_path: root directory of surfex data.
-    :param oceanic_path: root directory of oceanic data.
-    :param geology_path: root directory of geology data.
-    :param hydrology_path: root directory of hydrology data.
-    :param piezometry_path: download franch piezometric data.
-    :param modflow_path: root directory of modflow executable.
-    :param save_object: save the watershed object in pickle file.
-    :param load: load the pickle file. Doesn't build the watershed object.
-    :param types_obs: list of observations data. Only if hydrology_path is not None.
-    :param fields_obs: list of observations fields. Only if hydrology_path is not None.
-    :ivar str watershed_folder: root directory of results of watershed class
-    :ivar add_data_folder: folder if you want add data manually
-    :vartype add_data_folder: :class:`str`
-    :ivar simulations_folder: root directory of simulation results
-    :vartype simulations_folder: :class:`str`
-    :ivar stable_folder: root directory of stable results
-    :vartype stable_folder: :class:`str`
-    :ivar figure_folder: root directory of figures folder
-    :vartype figure_folder: :class:`str`
-    :ivar elt_def: list of elements in the python object
-    :vartype elt_def: :class:`list`
-    :ivar geographic: geographic object
-    :vartype geographic: :class:`object`
-    :ivar hydrodynamic: hydrodynamic object
-    :vartype hydrodynamic: :class:`object`
-    :ivar forcing: forcing object
-    :vartype forcing: :class:`object`
-    :ivar climatic: climatic object
-    :vartype climatic: :class:`object`
-    :ivar hydrology: hydrology object
-    :vartype hydrology: :class:`object`
-    :ivar oceanic: oceanic object
-    :vartype oceanic: :class:`object`
-    :ivar geology: geology object
-    :vartype geology: :class:`object`
-    :ivar piezometry: piezometry object
-    :vartype piezometry: :class:`object`
-    :ivar x_outlet: x coordinate of the watershed outlet.
-    :vartype x_outlet: :class:`float`
-    :ivar y_outlet: y coordinate of the watershed outlet.
-    :vartype y_outlet: :class:`float`
-    :ivar snap_dist: maximum distance snappin of the watershed outlet.
-    :vartype snap_dist: :class:`float`
-    :ivar buff_percent: percentage of the watershed to build the buffer around it.
-    :vartype buff_percent: :class:`float`
-    :ivar crs_proj: coordiante system of projection
-    :vartype crs_proj: :class:`str`
-    :meta public:
-        
     """
     def __init__(self, 
                  dem_path: str, 

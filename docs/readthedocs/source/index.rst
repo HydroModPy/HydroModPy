@@ -12,6 +12,7 @@ Welcome to HydroModPy's documentation!
    structure
    modules
    examples
+   notebooks/example_02
    groundwater_flow
    tools
 
