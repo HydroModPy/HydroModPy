@@ -1,23 +1,21 @@
-- Read The Docs : HydroModPy
-- readthedocs==> .yaml
+Readthedocs
+	files .yaml
 	install miniconda ou python
-	configuration ==> conf.py
-	téléchargement PDF
-	install python : requierements
-	sphinx ==> site format
-Clonage du git et installation ==> Compilation sur le site
+	configuration: conf.py
+	download PDF
+	install python: requierements
+	sphinx: site format
+	
+Clone git and installation: site compilation
 
-conf.py : les possibilités, template...
-	.rst ==> va chercher le index.rst
-		dans index.rst ==> départ du site
-			Welcome !
-			Titres de gauche
-			va chercher automatiquement les .rst quand on met le nom
-				maxdepth ==> arboresence
+conf.py: possibilities and template
+.rst: research the index.rst
+index.rst: site beginning
+maxdepth: arboresence
 
 Modifier des choses
-	Hydromodpy/docs/source
-		images == > ajouter
-	.rst ==> souligner...
-	autoclass ==> appeler les classes
-	index : noms du .rst et les sys.path dans conf
+Hydromodpy/docs/source: add images
+.rst: undeline things
+autoclass: call class
+index: names of .rst
+sys.path: in conf
