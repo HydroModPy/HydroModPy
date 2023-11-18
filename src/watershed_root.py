@@ -53,8 +53,6 @@ class Watershed :
         
         
         """
-        Constructor
-
         Parameters
         ----------
         dem_path : str
