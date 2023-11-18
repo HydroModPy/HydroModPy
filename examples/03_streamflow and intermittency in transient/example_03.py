@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Created on 2023
+Created on 2023.
 
 @author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
@@ -679,8 +679,7 @@ for i, simul in enumerate(simul_list[:]):
     
     Smod['onde'] = d
     
-    from datetime import date, timedelta
-    from dateutil.relativedelta import relativedelta
+    from datetime import timedelta
     x_months = Smod.index + timedelta(days=-30)
     Smod['date'] = x_months
     Smod.index = Smod['date']
