@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Created on 2023
+Created on 2023.
 
 @author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
@@ -13,12 +13,7 @@ Created on 2023
 
 # Libraries installed by default
 import sys
-import glob
 import os
-import fnmatch
-import random
-import pickle
-from datetime import datetime
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
@@ -30,38 +25,13 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 
-# Librairies to check, needed in hydromodpy modules
-import shutil
-from geopy.geocoders import Nominatim
-
 # Libraries added from 'conda install' procedure
-import geopandas as gpd
 import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.pylab as pl
-import matplotlib.dates as mdates
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# Libraries added from 'conda forge' procedure
-from osgeo import gdal, osr # or import gdal
-import rasterio
-
 # # Libraries added from 'pip install' procedure
-import deepdish as dd
-import flopy
 import imageio
-import vedo
-import hydroeval
-import xarray	
-import netCDF4
-import matplotlib_scalebar	
-import contextily
-import pyproj # uninstall before install
-import selenium
-import shapefile # named pyshp for install
-import jupyter
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -85,8 +55,6 @@ importlib.reload(src)
 
 # Import HydroModPy modules
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
-from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox
 
@@ -99,8 +67,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
 #out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-# out_path = '/home/agauvain/Documents/HydroModPy/'
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+out_path = '/home/agauvain/Documents/HydroModPy/'
+#out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
 
