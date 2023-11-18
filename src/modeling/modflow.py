@@ -53,8 +53,8 @@ class Modflow:
                  climatic=0.001, first_clim: str = 'mean', 
                  # Hydraulic settings
                  nlay: int = 1, lay_decay: float = 1., bottom: float = None, 
-                 thick: float = 100., hyd_cond: float = 0.0864, cond_decay: float = 0., 
-                 verti_cond: float = None, cond_drain: float = None, porosity: float = 0.1, 
+                 thick: float = 100., hyd_cond = 0.0864, cond_decay: float = 0., 
+                 verti_cond = None, cond_drain: float = None, porosity = 0.1, 
                  poro_decay: float = 0., 
                  # Boundary settings
                  sea_level: float = None, bc_left: float = None, bc_right: float = None):
@@ -64,51 +64,51 @@ class Modflow:
         Parameters
         ----------
         geographic : object
-            DESCRIPTION.
+            Object geographic build by HydroModPy.
         model_folder : str, optional
-            DESCRIPTION. The default is 'HydroModPy_outputs'.
+            Path where the model will be store. The default is 'HydroModPy_outputs'.
         model_name : str, optional
-            DESCRIPTION. The default is 'Default'.
+            Name of the model. The default is 'Default'.
         bin_path : str, optional
-            DESCRIPTION. The default is 'bin'.
+            Location folder of the modflow executables. The default is 'bin'.
         box : bool, optional
-            DESCRIPTION. The default is True.
+            True if you want run the model on the square area of the watershed. The default is True.
         sink_fill : bool, optional
-            DESCRIPTION. The default is False.
+            If True, package drain is desactivate on pit. The watertable can create lake on pit. The default is False.
         sim_state : str, optional
-            DESCRIPTION. The default is 'steady'.
+            'steady' or 'transient'. simulation state. The default is 'steady'.
         plot_cross : bool, optional
-            DESCRIPTION. The default is True.
-        climatic : TYPE, optional
-            DESCRIPTION. The default is 0.001.
+            if True, display a cross section of the model. The default is True.
+        climatic : float or list, optional
+            recharge value. The default is 0.001.
         first_clim : str, optional
-            DESCRIPTION. The default is 'mean'.
+            'mean': the first recharge value is the mean of the chronicle. 'first': the first recharge is keep. The default is 'mean'.
         nlay : int, optional
-            DESCRIPTION. The default is 1.
+            Number of layer. The default is 1.
         lay_decay : float, optional
-            DESCRIPTION. The default is 1..
+            Modification of layer thickness for exponentially decreasing whit depth. The default is 1..
         bottom : float, optional
-            DESCRIPTION. The default is None.
+            Fixe a flat boundary at the bottom of the model. The default is None.
         thick : float, optional
-            DESCRIPTION. The default is 100..
-        hyd_cond : float, optional
-            DESCRIPTION. The default is 0.0864.
+            Fixe the tickness of the model. The default is 100..
+        hyd_cond : float or 2D float 
+            Fixe the hydraulic conductivity value. default is 0.0864.
         cond_decay : float, optional
-            DESCRIPTION. The default is 0..
-        verti_cond : float, optional
-            DESCRIPTION. The default is None.
+            Modification of hydraulic conductivity for exponentially decreasing whit depth. The default is 0..
+        verti_cond : list, optional
+            Depth-dependent hydraulic conductivity. The default is None.
         cond_drain : float, optional
-            DESCRIPTION. The default is None.
-        porosity : float, optional
-            DESCRIPTION. The default is 0.1.
+            Fixe the conductance value of the drainage package. The default is None.
+        porosity : float or 2D float, optional
+            Fixe the porosity value. The default is 0.1.
         poro_decay : float, optional
-            DESCRIPTION. The default is 0..
+            Modification of porosity for exponentially decreasing whit depth. The default is 0..
         sea_level : float, optional
-            DESCRIPTION. The default is None.
+            Fixed head on each cell below this value. The default is None.
         bc_left : float, optional
-            DESCRIPTION. The default is None.
+            Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
-            DESCRIPTION. The default is None.
+            Fixed head on the right border of the domain. The default is None.
 
         """
         #%% Initialization
@@ -593,18 +593,46 @@ class Modflow:
         return success_model
         
     #%% POST-PROCESSING
-    def post_processing(self, model_modflow,
-                        watertable_elevation=True,
-                        watertable_depth=True, 
-                        seepage_areas=True,
-                        outflow_drain=True,
-                        groundwater_flux=True,
-                        groundwater_storage=True,
-                        accumulation_flux=True,
-                        persistency_index=False,
-                        intermittency_yearly=False,
-                        export_all_tif=False):
-        
+    def post_processing(self, model_modflow:object,
+                        watertable_elevation:bool=True,
+                        watertable_depth:bool=True, 
+                        seepage_areas:bool=True,
+                        outflow_drain:bool=True,
+                        groundwater_flux:bool=True,
+                        groundwater_storage:bool=True,
+                        accumulation_flux:bool=True,
+                        persistency_index:bool=False,
+                        intermittency_yearly:bool=False,
+                        export_all_tif:bool=False):
+        """
+        Create outputs files.
+
+        Parameters
+        ----------
+        model_modflow : object
+            Object floyp modflow.
+        watertable_elevation : bool, optional
+            Write watertable elevation outputs. The default is True.
+        watertable_depth : bool, optional
+            Write watertable depth outputs. The default is True.
+        seepage_areas : bool, optional
+            Write seepage areas outputs. The default is True.
+        outflow_drain : bool, optional
+            Write outflow drain outputs. The default is True.
+        groundwater_flux : bool, optional
+            Write groundwater flux outputs. The default is True.
+        groundwater_storage : bool, optional
+            Write groundwater storage outputs. The default is True.
+        accumulation_flux : bool, optional
+            Write accumulation flux outputs. The default is True.
+        persistency_index : bool, optional
+            Write persistency index outputs. The default is False.
+        intermittency_yearly : bool, optional
+            Write intermittency yearly outputs. The default is False.
+        export_all_tif : bool, optional
+            Write all files .tif at each time step. The default is False.
+
+        """
         # Create folders 
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)        
