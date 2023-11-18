@@ -97,6 +97,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/04_piezometry in a coastal context/"
 data_path = example_path + "data/"
 out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -129,7 +130,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               bottom_path=bottom_path, # path
-                              modflow_path=modflow_path, 
+                              # modflow_path=modflow_path, 
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -196,7 +197,6 @@ poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 bc_left = None # or value
 bc_right = None # or value
 
-
 #%% UPDATE
 
 # Import modules
@@ -224,7 +224,6 @@ BV.hydraulic.update_lay_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
-
 
 #%% ---- MODELING
 
