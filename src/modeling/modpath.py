@@ -42,6 +42,32 @@ class Modpath:
                  bin_path = os.path.join(os.getcwd(),'bin'),
                  # Specific settings
                  zone_partic='domain'):
+        """
+        Parameters
+        ----------
+        geographic : TYPE
+            DESCRIPTION.
+        model_modflow : TYPE
+            DESCRIPTION.
+        # Worflow settings                 model_folder : TYPE, optional
+            DESCRIPTION. The default is os.getcwd()[:2]+'/'+'HydroModPy_Output/'.
+        model_name : TYPE, optional
+            DESCRIPTION. The default is 'modflow_model'.
+        bin_path : TYPE, optional
+            DESCRIPTION. The default is os.path.join(os.getcwd(),'bin').
+        # Specific settings                 zone_partic : TYPE, optional
+            DESCRIPTION. The default is 'domain'.
+
+        Raises
+        ------
+        FileNotFoundError
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         
         self.zone_partic = zone_partic
         self.model_name = model_name
