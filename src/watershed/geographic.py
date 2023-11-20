@@ -103,18 +103,18 @@ class Geographic:
                    out_path):
         
         # Recall important folders
-        self.stable_folder = os.path.join(out_path, 'results_stable/')
-        self.simulations_folder = os.path.join(out_path, 'results_simulations/')
+        self.stable_folder = os.path.join(out_path, 'results_stable')
+        self.simulations_folder = os.path.join(out_path, 'results_simulations')
         
         # Generate regional folder
-        self.reg_path = os.path.join(out_path, 'results_stable/regional/')
+        self.reg_path = os.path.join(out_path, 'results_stable','regional')
         
         # Generate folder where processing files are stored
-        self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
+        self.gis_path = os.path.join(out_path, 'results_stable','geographic')
         toolbox.create_folder(self.gis_path)
         
         # Generate regional folder
-        self.reg_path = os.path.join(out_path, 'results_stable/regional/')
+        self.reg_path = os.path.join(out_path, 'results_stable','regional')
         toolbox.create_folder(self.reg_path)
         
         """
@@ -151,24 +151,24 @@ class Geographic:
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [x_outlet], 'y': [y_outlet]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=crs_proj)
-            outlet_shp = self.gis_path + 'outlet.shp'
+            outlet_shp = os.path.join(self.gis_path, 'outlet.shp')
             gdf.to_file(outlet_shp)
             # Snap the outlet shapefile from the flow accumulation
-            outlet_snap_shp = self.gis_path + 'outlet_snap.shp'
+            outlet_snap_shp = os.path.join(self.gis_path, 'outlet_snap.shp')
             wbt.snap_pour_points(outlet_shp, acc, outlet_snap_shp, snap_dist)
             # Generate raster watershed
-            self.watershed = self.gis_path + 'watershed.tif'
+            self.watershed = os.path.join(self.gis_path, 'watershed.tif')
             wbt.watershed(direc, outlet_snap_shp, self.watershed, esri_pntr=False)
             # Create shapefile polygon of the watershed
-            self.watershed_shp = self.gis_path + 'watershed.shp'
+            self.watershed_shp = os.path.join(self.gis_path, 'watershed.shp')
             wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
         if self.from_shp != None:
-            self.watershed_shp = self.gis_path + 'watershed.shp'
+            self.watershed_shp = os.path.join(self.gis_path, 'watershed.shp')
             shp_file = gpd.read_file(self.from_shp[0])
             shp_file.to_file(self.watershed_shp)
         wbt.polygon_area(self.watershed_shp)
         # Create shapefile polyline of the watershed
-        self.watershed_contour_shp = self.gis_path + 'watershed_contour.shp'
+        self.watershed_contour_shp = os.path.join(self.gis_path, 'watershed_contour.shp')
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)     
         try:
             area = gpd.read_file(self.watershed_shp).AREA[0]/1000000
@@ -192,20 +192,20 @@ class Geographic:
         site_polyg = gpd.read_file(self.watershed_shp)
         site_polyg.to_file(self.watershed_shp)
         site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
-        buffer = self.gis_path + 'buff.shp'
+        buffer = os.path.join(self.gis_path, 'buff.shp')
         site_polyg.to_file(buffer)
 
         """
         Box extent operations
         """
         # Create box extent of the watershed
-        self.watershed_box_shp = self.gis_path + 'watershed_box.shp'
+        self.watershed_box_shp = os.path.join(self.gis_path, 'watershed_box.shp')
         wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
         # Buffer the box extent watershed shapefile polygon
         site_bound = gpd.read_file(self.watershed_box_shp)
         site_bound.to_file(self.watershed_box_shp)
         site_bound['geometry'] = site_bound.geometry.buffer(buff_dist)
-        box_buffer = self.gis_path + 'box_buff.shp'
+        box_buffer = os.path.join(self.gis_path, 'box_buff.shp')
         site_bound.to_file(box_buffer)
         wbt.minimum_bounding_envelope(box_buffer, box_buffer, features=False)
         site_bound = gpd.read_file(box_buffer)
@@ -215,20 +215,20 @@ class Geographic:
         Clip to reach buffer size
         """
         # Clip raw regional DEM from buffer watershed shapefile polygon
-        self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
+        self.watershed_buff_dem = os.path.join(self.gis_path, 'watershed_buff_dem.tif')
         wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem,
                                    maintain_dimensions=False)
         # Clip corrected regional DEM from buffer watershed shapefile polygon
-        self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+        self.watershed_buff_fill = os.path.join(self.gis_path, 'watershed_buff_fill.tif')
         wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill,
                                    maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer watershed shapefile polygon
-        self.watershed_buff_direc = self.gis_path + 'watershed_buff_direc.tif'
+        self.watershed_buff_direc = os.path.join(self.gis_path, 'watershed_buff_direc.tif')
         wbt.clip_raster_to_polygon(direc, buffer, self.watershed_buff_direc,
                                    maintain_dimensions=False)
         # Clip bottom
         if self.bottom_path != None :
-            self.watershed_buff_bottom = self.gis_path + 'watershed_buff_bottom.tif'
+            self.watershed_buff_bottom = os.path.join(self.gis_path, 'watershed_buff_bottom.tif')
             wbt.clip_raster_to_polygon(self.bottom_path, buffer, self.watershed_buff_bottom,
                                        maintain_dimensions=False)
         
@@ -236,29 +236,29 @@ class Geographic:
         Clip to reach watershed size
         """
         # Clip buffer watershed DEM from watershed shapefile polygon
-        self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+        self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
         wbt.clip_raster_to_polygon(self.watershed_buff_dem, self.watershed_shp, self.watershed_dem, 
                                    maintain_dimensions=True)
         # Clip corrected regional DEM from watershed shapefile polygon
-        self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+        self.watershed_fill = os.path.join(self.gis_path, 'watershed_fill.tif')
         wbt.clip_raster_to_polygon(fill, self.watershed_shp, self.watershed_fill,
                                    maintain_dimensions=False)
         # Clip flow direction regional DEM from watershed shapefile polygon
-        self.watershed_direc = self.gis_path + 'watershed_direc.tif'
+        self.watershed_direc = os.path.join(self.gis_path, 'watershed_direc.tif')
         wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc,
                                    maintain_dimensions=False)
         # Clip bottom
         if self.bottom_path != None :
-            self.watershed_bottom = self.gis_path + 'watershed_bottom.tif'
+            self.watershed_bottom = os.path.join(self.gis_path, 'watershed_bottom.tif')
             wbt.clip_raster_to_polygon(self.bottom_path, self.watershed_shp, self.watershed_bottom,
                                        maintain_dimensions=False)
         wbt.slope(self.watershed_dem,
-                  self.gis_path + 'watershed_slope.tif',
+                  os.path.join(self.gis_path, 'watershed_slope.tif'),
                   units="percent")
-        slope = imageio.imread(self.gis_path + 'watershed_slope.tif')
+        slope = imageio.imread(os.path.join(self.gis_path, 'watershed_slope.tif'))
         self.slope = np.nanmean(slope[slope>=0])
         # Create contour
-        self.watershed_contour_tif = self.gis_path + 'watershed_contour.tif'
+        self.watershed_contour_tif = os.path.join(self.gis_path, 'watershed_contour.tif')
         wbt.vector_lines_to_raster(self.watershed_shp,
                                    self.watershed_contour_tif,
                                    base = self.watershed_dem)
@@ -267,19 +267,19 @@ class Geographic:
         Clip to reach box extent size
         """
         # Clip raw regional DEM from buffer box extent watershed shapefile polygon
-        self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
+        self.watershed_box_buff_dem = os.path.join(self.gis_path, 'watershed_box_buff_dem.tif')
         wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem,
                                    maintain_dimensions=False)
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
-        self.watershed_box_buff_fill = self.gis_path + 'watershed_box_buff_fill.tif'
+        self.watershed_box_buff_fill = os.path.join(self.gis_path, 'watershed_box_buff_fill.tif')
         wbt.clip_raster_to_polygon(fill, box_buffer, self.watershed_box_buff_fill,
                                    maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
-        self.watershed_box_buff_direc = self.gis_path + 'watershed_box_buff_direc.tif'
+        self.watershed_box_buff_direc = os.path.join(self.gis_path, 'watershed_box_buff_direc.tif')
         wbt.clip_raster_to_polygon(direc, box_buffer, self.watershed_box_buff_direc,
                                    maintain_dimensions=False)
         if self.bottom_path != None :
-            self.watershed_box_bottom = self.gis_path + 'watershed_box_buff_bottom.tif'
+            self.watershed_box_bottom = os.path.join(self.gis_path, 'watershed_box_buff_bottom.tif')
             wbt.clip_raster_to_polygon(self.bottom_path, box_buffer, self.watershed_box_bottom,
                                        maintain_dimensions=False)
         
@@ -295,7 +295,7 @@ class Geographic:
         Create depressions raster
         """
         try:
-            self.depressions = self.gis_path + 'depressions.tif'
+            self.depressions = os.path.join(self.gis_path, 'depressions.tif')
             wbt.sink(self.watershed_box_buff_dem, self.depressions)
         except:
             pass
@@ -373,8 +373,8 @@ class Geographic:
             wbt.csv_points_to_vector(self.gis_path+'transform_xyz'+'.csv', 
                                      self.gis_path+'transform_xyz'+'.shp', 
                                      xfield=0, yfield=1, epsg=2154)
-            self.watershed_raw = self.gis_path + 'watershed_raw.tif'
-            wbt.vector_points_to_raster(self.gis_path+'transform_xyz'+'.shp', 
+            self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
+            wbt.vector_points_to_raster(os.path.join(self.gis_path, 'transform_xyz'+'.shp'), 
                                         self.watershed_raw, 
                                         field=2, 
                                         assign="last", 
@@ -382,7 +382,7 @@ class Geographic:
                                         cell_size=cell_size, 
                                         base=None)        
             # Create the watershed dem
-            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
             shutil.copyfile(self.watershed_raw, self.watershed_dem)
         else:
             # Find crs
@@ -391,10 +391,10 @@ class Geographic:
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
             print(self.crs)
             # Copy tif
-            self.watershed_raw = self.gis_path + 'watershed_raw.tif'
+            self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
             shutil.copyfile(dem_path, self.watershed_raw)
             # Proj layer
-            self.watershed_dem = self.gis_path + 'watershed_dem.tif'
+            self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
             shutil.copyfile(self.watershed_raw, self.watershed_dem)
         # No data
         wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
@@ -402,19 +402,19 @@ class Geographic:
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_buff_dem)
         # Buff box dem
-        self.watershed_box_buff_dem = self.gis_path + 'watershed_box_buff_dem.tif'
+        self.watershed_box_buff_dem = os.path.join(self.gis_path, 'watershed_box_buff_dem.tif')
         shutil.copyfile(self.watershed_dem, self.watershed_box_buff_dem)
         # Correction
-        self.watershed_fill = self.gis_path + 'watershed_fill.tif'
+        self.watershed_fill = os.path.join(self.gis_path, 'watershed_fill.tif')
         wbt.breach_depressions(self.watershed_dem, self.watershed_fill)
         # Flow direction
-        self.watershed_direc = self.gis_path + 'watershed_direc.tif'
+        self.watershed_direc = os.path.join(self.gis_path, 'watershed_direc.tif')
         wbt.d8_pointer(self.watershed_fill, self.watershed_direc, esri_pntr=False)
         # Flow accumulation
-        self.watershed_acc = self.gis_path + 'watershed_acc.tif'
+        self.watershed_acc = os.path.join(self.gis_path, 'watershed_acc.tif')
         wbt.d8_flow_accumulation(self.watershed_fill, self.watershed_acc, log=True)
         
-        self.watershed_buff_fill = self.gis_path + 'watershed_buff_fill.tif'
+        self.watershed_buff_fill = os.path.join(self.gis_path, 'watershed_buff_fill.tif')
         shutil.copyfile(self.watershed_fill, self.watershed_buff_fill)  
         
 #%% NOTES
