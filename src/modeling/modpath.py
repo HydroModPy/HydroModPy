@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Created on 2023
+Created on 2023.
 
 @author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
@@ -30,19 +30,40 @@ from tools import toolbox
 #%% CLASS
 
 class Modpath:
-
-    #%% INIT
+    """
+    Class Modpath.
+    
+    To build, run particle traccking from modflow simulation.
+    """
     
     def __init__(self,
-                 geographic,
-                 model_modflow,
+                 geographic:object,
+                 model_modflow:object,
                  # Worflow settings
-                 model_folder=os.getcwd()[:2]+'/'+'HydroModPy_Output/',
-                 model_name='modflow_model',
-                 bin_path = os.path.join(os.getcwd(),'bin'),
+                 model_folder:str='HydroModPy_outputs',
+                 model_name='Default_modpath',
+                 bin_path:str = os.path.join(os.getcwd(),'bin'),
                  # Specific settings
-                 zone_partic='domain'):
-        
+                 zone_partic:str='domain'):
+        """
+        Initialize method.
+
+        Parameters
+        ----------
+        geographic : object
+            Geographic object build by HydroModPy.
+        model_modflow : object
+            Modflow Object.
+        model_folder : str, optional
+            . The default is 'HydroModPy_outputs'.
+        model_name : str, optional
+            Name of the model. The default is 'Default'.
+        bin_path : str, optional
+            Location folder of the modflow executables. The default is 'bin'.
+        zone_partic : str, optional
+            'watershed':inject particles only in cells inside watershed boundaries or 'domain': inject particles in all cells. The default is 'domain'.
+
+        """
         self.zone_partic = zone_partic
         self.model_name = model_name
         self.geographic = geographic
@@ -62,7 +83,14 @@ class Modpath:
     #%% PRE-PROCESSING
     
     def pre_processing(self):
-        
+        """
+        Pre-processing to build the partickle tracking.
+
+        Returns
+        -------
+        None.
+
+        """
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)
@@ -188,11 +216,25 @@ class Modpath:
         self.mp.write_input()    
         
     #%% PROCESSING
-    
     def processing(self,
-                   write_model=True,
-                   run_model=False):
-        
+                   write_model:bool=True,
+                   run_model:bool=False):
+        """
+        Run the partickle tracking.
+
+        Parameters
+        ----------
+        write_model : bool, optional
+            Flag to write input files or not. The default is True.
+        run_model : bool, optional
+            Flag to run model or not. The default is False.
+
+        Returns
+        -------
+        success_model : bool
+            Flag to know if the simulation is done correctly.
+
+        """
         # Create modflow files
         if write_model == True:
             self.mp.write_input()  
@@ -208,13 +250,31 @@ class Modpath:
     #%% POST-PROCESSING
     
     def post_processing(self, 
-                        model_modpath,
-                        ending_point = True,
-                        starting_point = True,
-                        pathlines_shp = True,
-                        particules_shp = True,
+                        model_modpath:object,
+                        ending_point:bool = True,
+                        starting_point:bool = True,
+                        pathlines_shp:bool = True,
+                        particules_shp:bool = True,
                         random_id = None):
-        
+        """
+        Create outputs files.
+
+        Parameters
+        ----------
+        model_modpath : object
+            Modpath object.
+        ending_point : bool, optional
+            Write ending point files. The default is True.
+        starting_point : bool, optional
+            Write starting point files. The default is True.
+        pathlines_shp : bool, optional
+            Write pathlines shapefiles. The default is True.
+        particules_shp : bool, optional
+            Write particules shapefiles. The default is True.
+        random_id : int, optional
+            Export random pathlines. The default is None.
+
+        """
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         
         self.particules_file = os.path.join(self.full_path, '_postprocess', '_particules')
