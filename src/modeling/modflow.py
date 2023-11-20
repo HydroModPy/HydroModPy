@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Created on 2023
+Created on 2023.
 
 @author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
@@ -19,7 +19,6 @@ import imageio                           # Import raster to numpy matrix (not ge
 from os.path import dirname, abspath
 import matplotlib.pyplot as plt
 import flopy.utils.binaryfile as fpu
-import flopy.utils.postprocessing as pp
 
 # Warnings
 import warnings
@@ -38,40 +37,80 @@ from tools import toolbox
 from modeling import downslope
 
 #%% CLASS
-
-class Modflow():
-
-    #%% INIT
+class Modflow:
+    """
+    Class Modflow.
     
-    def __init__(self,
-                 geographic,
+    To build, run the hydrologic model and manage/format simulation outputs.
+    """
+    
+    def __init__(self,geographic: object,
                  # Worflow settings
-                 model_folder=os.getcwd()[:2]+'/'+'HydroModPy_Output/',
-                 model_name='Default',
-                 bin_path = os.path.join(os.getcwd(),'bin'),
-                 box=True,
-                 sink_fill=False,
-                 sim_state='steady',
-                 plot_cross=True,
+                 model_folder: str = 'HydroModPy_outputs',  model_name: str = 'Default', 
+                 bin_path: str = 'bin', box: bool = True, sink_fill: bool = False, sim_state: str = 'steady', 
+                 plot_cross: bool = True, 
                  # Climatic settings
-                 climatic=500/1000/365,
-                 first_clim='mean',
+                 climatic=0.001, first_clim: str = 'mean', 
                  # Hydraulic settings
-                 nlay=1,
-                 lay_decay=1,
-                 bottom=None,
-                 thick=100,
-                 hyd_cond=1e-6*60*60*24,
-                 cond_decay=0,
-                 verti_cond=None,
-                 cond_drain=None,
-                 porosity=10/100,
-                 poro_decay=0,
+                 nlay: int = 1, lay_decay: float = 1., bottom: float = None, 
+                 thick: float = 100., hyd_cond = 0.0864, cond_decay: float = 0., 
+                 verti_cond = None, cond_drain: float = None, porosity = 0.1, 
+                 poro_decay: float = 0., 
                  # Boundary settings
-                 sea_level=None,
-                 bc_left=None, 
-                 bc_right=None):
-        
+                 sea_level: float = None, bc_left: float = None, bc_right: float = None):
+        """
+        Initialize method.
+
+        Parameters
+        ----------
+        geographic : object
+            Object geographic build by HydroModPy.
+        model_folder : str, optional
+            Path where the model will be store. The default is 'HydroModPy_outputs'.
+        model_name : str, optional
+            Name of the model. The default is 'Default'.
+        bin_path : str, optional
+            Location folder of the modflow executables. The default is 'bin'.
+        box : bool, optional
+            True if you want run the model on the square area of the watershed. The default is True.
+        sink_fill : bool, optional
+            If True, package drain is desactivate on pit. The watertable can create lake on pit. The default is False.
+        sim_state : str, optional
+            'steady' or 'transient'. simulation state. The default is 'steady'.
+        plot_cross : bool, optional
+            if True, display a cross section of the model. The default is True.
+        climatic : float or list, optional
+            recharge value. The default is 0.001.
+        first_clim : str, optional
+            'mean': the first recharge value is the mean of the chronicle. 'first': the first recharge is keep. The default is 'mean'.
+        nlay : int, optional
+            Number of layer. The default is 1.
+        lay_decay : float, optional
+            Modification of layer thickness for exponentially decreasing whit depth. The default is 1..
+        bottom : float, optional
+            Fixe a flat boundary at the bottom of the model. The default is None.
+        thick : float, optional
+            Fixe the tickness of the model. The default is 100..
+        hyd_cond : float or 2D float 
+            Fixe the hydraulic conductivity value. default is 0.0864.
+        cond_decay : float, optional
+            Modification of hydraulic conductivity for exponentially decreasing whit depth. The default is 0..
+        verti_cond : list, optional
+            Depth-dependent hydraulic conductivity. The default is None.
+        cond_drain : float, optional
+            Fixe the conductance value of the drainage package. The default is None.
+        porosity : float or 2D float, optional
+            Fixe the porosity value. The default is 0.1.
+        poro_decay : float, optional
+            Modification of porosity for exponentially decreasing whit depth. The default is 0..
+        sea_level : float, optional
+            Fixed head on each cell below this value. The default is None.
+        bc_left : float, optional
+            Fixed head on the left border of the domain. The default is None.
+        bc_right : float, optional
+            Fixed head on the right border of the domain. The default is None.
+
+        """
         #%% Initialization
         
         self.model_folder = model_folder
@@ -159,7 +198,14 @@ class Modflow():
     #%% PRE-PROCESSING
 
     def pre_processing(self):
-        
+        """
+        Pre-processing to build the hydrologic model.
+
+        Returns
+        -------
+        None.
+
+        """
         #%% Initialization
             
         # Flopy initialization of Modflow model
@@ -301,7 +347,7 @@ class Modflow():
                                     chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
                             
-                chd = flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+                flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
                     
         #%% Parametrization
         
@@ -492,8 +538,8 @@ class Modflow():
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
             # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
-            pc1 = modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='viridis', alpha=0.5, ax=axs[0])
-            linecollection1 = modelxsect1.plot_grid(ax=axs[0])
+            modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='viridis', alpha=0.5, ax=axs[0])
+            modelxsect1.plot_grid(ax=axs[0])
             axs[0].set_title('Row, K')
             axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
@@ -502,8 +548,8 @@ class Modflow():
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
             # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
-            pc2 = modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='plasma', alpha=0.5, ax=axs[1])
-            linecollection2 = modelxsect2.plot_grid(ax=axs[1])
+            modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='plasma', alpha=0.5, ax=axs[1])
+            modelxsect2.plot_grid(ax=axs[1])
             axs[1].set_title('Column, θ')
             axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
@@ -513,9 +559,24 @@ class Modflow():
     #%% PROCESSING
     
     def processing(self,
-                   write_model=True,
-                   run_model=False):
-        
+                   write_model:bool=True,
+                   run_model:bool=False):
+        """
+        Run the hydrologic model.
+
+        Parameters
+        ----------
+        write_model : bool, optional
+            Flag to write input files or not. The default is True.
+        run_model : bool, optional
+            Flag to run model or not. The default is False.
+
+        Returns
+        -------
+        success_model : bool
+            Flag to know if the simulation is done correctly.
+
+        """
         # Create modflow files
         if write_model == True:
             # write input files
@@ -532,19 +593,46 @@ class Modflow():
         return success_model
         
     #%% POST-PROCESSING
-    
-    def post_processing(self, model_modflow,
-                        watertable_elevation=True,
-                        watertable_depth=True, 
-                        seepage_areas=True,
-                        outflow_drain=True,
-                        groundwater_flux=True,
-                        groundwater_storage=True,
-                        accumulation_flux=True,
-                        persistency_index=False,
-                        intermittency_yearly=False,
-                        export_all_tif=False):
-        
+    def post_processing(self, model_modflow:object,
+                        watertable_elevation:bool=True,
+                        watertable_depth:bool=True, 
+                        seepage_areas:bool=True,
+                        outflow_drain:bool=True,
+                        groundwater_flux:bool=True,
+                        groundwater_storage:bool=True,
+                        accumulation_flux:bool=True,
+                        persistency_index:bool=False,
+                        intermittency_yearly:bool=False,
+                        export_all_tif:bool=False):
+        """
+        Create outputs files.
+
+        Parameters
+        ----------
+        model_modflow : object
+            Object floyp modflow.
+        watertable_elevation : bool, optional
+            Write watertable elevation outputs. The default is True.
+        watertable_depth : bool, optional
+            Write watertable depth outputs. The default is True.
+        seepage_areas : bool, optional
+            Write seepage areas outputs. The default is True.
+        outflow_drain : bool, optional
+            Write outflow drain outputs. The default is True.
+        groundwater_flux : bool, optional
+            Write groundwater flux outputs. The default is True.
+        groundwater_storage : bool, optional
+            Write groundwater storage outputs. The default is True.
+        accumulation_flux : bool, optional
+            Write accumulation flux outputs. The default is True.
+        persistency_index : bool, optional
+            Write persistency index outputs. The default is False.
+        intermittency_yearly : bool, optional
+            Write intermittency yearly outputs. The default is False.
+        export_all_tif : bool, optional
+            Write all files .tif at each time step. The default is False.
+
+        """
         # Create folders 
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)        

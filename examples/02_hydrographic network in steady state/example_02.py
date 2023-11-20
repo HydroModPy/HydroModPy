@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Created on 2023
+Created on 2023.
 
 @author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 
@@ -13,12 +13,7 @@ Created on 2023
 
 # Libraries installed by default
 import sys
-import glob
 import os
-import fnmatch
-import random
-import pickle
-from datetime import datetime
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
@@ -30,38 +25,13 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 
-# Librairies to check, needed in hydromodpy modules
-import shutil
-from geopy.geocoders import Nominatim
-
-# Libraries added from 'conda install' procedure
-import geopandas as gpd
-import matplotlib as mpl        # install automatically by geopandas
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.pylab as pl
-import matplotlib.dates as mdates
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# Libraries added from 'conda forge' procedure
-from osgeo import gdal, osr # or import gdal
-import rasterio
 
 # # Libraries added from 'pip install' procedure
 import deepdish as dd
-import flopy
 import imageio
-import vedo
-import hydroeval
-import xarray	
-import netCDF4
-import matplotlib_scalebar	
-import contextily
-import pyproj # uninstall before install
-import selenium
-import shapefile # named pyshp for install
-import jupyter
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -115,7 +85,6 @@ from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
-modflow_path = os.path.join(root_dir,'bin/')
 save_object = True
 
 #%% GEOGRAPHIC
@@ -131,8 +100,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path
-                              modflow_path=modflow_path, 
+                              bottom_path=bottom_path, # path 
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
