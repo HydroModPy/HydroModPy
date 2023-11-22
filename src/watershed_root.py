@@ -46,9 +46,9 @@ class Watershed:
                  load: bool = False,
                  watershed_name: str = 'Default',
                  from_lib: str = None, # os.path.join(root_dir,'watershed_library.csv')
-                 from_dem: list = [], # [path, cell size]
-                 from_shp: list = [], # [path, buffer size]
-                 from_xyv: list = [], # [x, y, snap distance, buffer size]
+                 from_dem: list = None, # [path, cell size]
+                 from_shp: list = None, # [path, buffer size]
+                 from_xyv: list = None, # [x, y, snap distance, buffer size]
                  bottom_path: str = None, # path
                  save_object: bool = True):
         """
