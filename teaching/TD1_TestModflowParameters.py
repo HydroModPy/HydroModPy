@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 import shutil
 from geopy.geocoders import Nominatim
-# Libraries added from 'conda install' procedure
+# Libraries added from 'conda install' procedure
 import geopandas as gpd
 import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
