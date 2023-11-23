@@ -69,8 +69,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/05_conceptual particle tracking for residence times/"
 data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-out_path = '/home/agauvain/Documents/HydroModPy/'
-
+# out_path = '/home/agauvain/Documents/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -78,7 +77,7 @@ out_path = '/home/agauvain/Documents/HydroModPy/'
 
 case = 'Lasset'
 # case = 'Hillslope_2D'
-# case = 'Lasset'
+# case = 'Hillslope_1D'
 
 if case == 'Hillslope_1D':
     dem_path = data_path + 'hillslope_1D.tif'
