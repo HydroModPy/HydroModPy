@@ -46,13 +46,13 @@ echo "###### Build Conda Environment ######"
 
 # Delete if already install
 conda deactivate
-conda remove --name hydromodpy-test --all -y
+conda remove --name hydromodpy-0.1 --all -y
 
 # Build HydroModPy environment
-conda create -y --name hydromodpy-test python=3.8.10
+conda create -y --name hydromodpy-0.1 python=3.8.10
 
 # Activate HydroModPy environment
-conda activate hydromodpy-test
+conda activate hydromodpy-0.1
 
 # Check Python version
 python --version
