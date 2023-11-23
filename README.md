@@ -46,7 +46,7 @@ double clik on install-jr.sh
 
 Alternatively, HydroModPy can be installed with conda using .yml file in the "install" directory :
 ```
-conda env create -f environment_windows_ronan.yml -n hydromodpy-0.1  # need to update the env name
+conda env create -f environment_windows-ronan.yml -n hydromodpy-0.1  # need to update the env name
 ```
 
 Install ChromeDriver for Selenium library
