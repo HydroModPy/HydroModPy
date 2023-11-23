@@ -41,12 +41,12 @@ For Linux:
 ```
 For Windows:
 ```
-double clik on install.sh
+double clik on install-jr.sh
 ```
 
 Alternatively, HydroModPy can be installed with conda using .yml file in the "install" directory :
 ```
-conda env create -f environment.yml -n hydromodpy-0.1 
+conda env create -f environment_windows_ronan.yml -n hydromodpy-0.1  # need to update the env name
 ```
 
 Install ChromeDriver for Selenium library
@@ -60,7 +60,7 @@ Click on "Path" -> modify -> add path of the .exe
 
 (1) Activate HydroModPy environment :
 ```
-conda activate hydromodpy
+conda activate hydromodpy-0.1
 ```
 
 (2) Open Spyder or Jupyter lab :
@@ -101,9 +101,9 @@ The following python packages will be installed with the installation procedure:
   - xarray==2023.1.0
   - whitebox==2.3.1
    
- ## Available examples
+## Available examples
  
- There is some example notebooks :
+There is some example notebooks :
  - 01_basic : examples with overview of possibilities
  - 02_hydrographic : hydrographic network in steady state
  - 03_streamflow : streamflow and intermittency in transient state
@@ -112,11 +112,13 @@ The following python packages will be installed with the installation procedure:
  - 06_heterogeneity : aquifer complexity and heterogeneity
  - 07_calibration : calibration and multiobjective optimization
  
- ## Linked publications
- Papers was published on the HydroModPy concept and its different capabilities.
+## Linked publications
+Papers was published on the HydroModPy concept and its different capabilities.
  
- Abhervé, R., Gauvain, A., Roques, C., Longuevergne, L., Louaisil, S., Aquilina, L., and de Dreuzy, J.-R.: Calibration of groundwater seepage on the spatial distribution of the stream network to assess catchment-scale hydraulic conductivity, Hydrol. Earth Syst. Sci. Discuss., 2022.
- [link](https://doi.org/10.5194/hess-2022-175).
+Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023).
+Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties.
+Hydrology and Earth System Sciences, 27(17), 3221–3239.
+https://doi.org/10.5194/hess-27-3221-2023
 
- ## Coresponding authors
- For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@gmail.com>
+## Coresponding authors
+For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@gmail.com>
