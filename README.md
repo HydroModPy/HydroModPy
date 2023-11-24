@@ -41,7 +41,7 @@ For Linux:
 ```
 For Windows:
 ```
-double clik on install-jr.sh
+double clik on install.sh
 ```
 
 Alternatively, HydroModPy can be installed with conda using .yml file in the "install" directory :
