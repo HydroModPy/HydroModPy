@@ -96,8 +96,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a coastal context/"
 data_path = example_path + "data/"
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 

@@ -77,7 +77,7 @@ out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 dem_path = data_path + 'regional dem.tif'
 load = False
-watershed_name = 'Nancon'
+watershed_name = 'Nancon5'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
