@@ -108,10 +108,7 @@ class Geographic:
         # Recall important folders
         self.stable_folder = os.path.join(out_path, 'results_stable')
         self.simulations_folder = os.path.join(out_path, 'results_simulations')
-        
-        # Generate regional folder
-        self.reg_path = os.path.join(out_path, 'results_stable','regional')
-        
+                
         # Generate folder where processing files are stored
         self.gis_path = os.path.join(out_path, 'results_stable','geographic')
         toolbox.create_folder(self.gis_path)
