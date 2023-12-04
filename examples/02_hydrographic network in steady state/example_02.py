@@ -34,7 +34,7 @@ import deepdish as dd
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+wbt.verbose = True
 
 #%% ROOT
 
@@ -68,10 +68,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
 # out_path = '...'
-out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 

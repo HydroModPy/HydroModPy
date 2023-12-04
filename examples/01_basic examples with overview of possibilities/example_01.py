@@ -66,9 +66,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-#out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 #out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
-out_path = '/home/agauvain/Documents/HydroModPy/'
+#out_path = '/home/agauvain/Documents/HydroModPy/'
 #out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
@@ -477,7 +477,7 @@ ls = LightSource(azdeg=45, altdeg=45)
 cmap = plt.cm.Greys
 rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
 
-fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+fig, ax = plt.subplots(1, 1, figsize=(8,8), dpi=300)
 ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)
 im = ax.imshow(demData, alpha=0.8, cmap=cmap)
