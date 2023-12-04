@@ -57,7 +57,7 @@ importlib.reload(src)
 
 # Import HydroModPy modules
 from src import watershed_root
-from src.display import visualization_results
+from src.display import visualization_results, export_vtuvtk
 from src.tools import toolbox
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -66,7 +66,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/05_conceptual particle tracking for residence times/"
+example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = example_path + "data/"
 out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
@@ -304,14 +304,13 @@ ls = LightSource(azdeg=45, altdeg=45)
 cmap = plt.cm.Greys
 rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
 
-fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+fig, ax = plt.subplots(1, 1, figsize=(8,8))
 ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)
 im = ax.imshow(demData, alpha=0.8, cmap=cmap)
 im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+cf=ax.imshow(outflow, cmap='YlGnBu', alpha=1, vmin=outflow.min(), vmax=outflow.max())
 
-plt.tight_layout()
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'
 plt.tight_layout()
 
@@ -320,59 +319,61 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 
 #%% CROSS
 
-import flopy.utils.binaryfile as fpu
+if case != 'Lasset':
 
-# Load model
-fname = simulations_folder+model_name+'/'+model_name
-ml = flopy.modflow.Modflow.load(fname+'.nam')
-hdobj = flopy.utils.HeadFile(fname + '.hds')
-times = hdobj.get_times()
-head = hdobj.get_data(totim=times[0])
-
-# Figure
-fig = plt.figure(figsize=(10, 4))
-ax = fig.add_subplot(1, 1, 1)
-ax.set_title('Cross-section : steady-state') 
-ax.set_xlabel('x [m]')
-ax.set_ylabel('z [m]')
-
-# Head color
-xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
-pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues_r',
-                      vmin=0, vmax=200,
-                      alpha=0.8)
-cb = plt.colorbar(pc, shrink=0.75)
-cb.set_label('Head [m]', labelpad=+10)
-wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
-
-# Boundary
-patches = xsect.plot_ibound(head=head)
-
-# Grid
-linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
-
-# General fluxes
-cbb = fpu.CellBudgetFile(fname + '.cbc')
-kstpkper = (0, 0)
-Qx = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=kstpkper, totim=times[0])[0]
-Qy = np.ones(shape=(10,1,100))
-Qz = cbb.get_data(text='FLOW LOWER FACE', kstpkper=kstpkper, totim=times[0])[0]
-drain = cbb.get_data(text='DRAINS', kstpkper=kstpkper, totim=times[0])[0]
-Q = np.sqrt(Qx**2 + Qz**2) # ???
-Q_print = Q[0,0,0] # m/m
-
-# Particules plot
-shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/particules.shp')
-# list_particules = shp['particleid'].unique()
-shp['time'] = shp['time'] / 365
-shp_fil = shp[shp['time']>1]
-sc = ax.scatter(shp_fil['x'], shp_fil['z'], c=shp_fil['time'],
-           s=20, cmap='plasma_r', linewidths=0)
-cbsc = plt.colorbar(sc, shrink=0.75)
-cbsc.set_label('Residence times [y]', labelpad=+10)
-
-fig.savefig(os.path.join(simulations_folder, model_name,
-                            '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
+    import flopy.utils.binaryfile as fpu
+    
+    # Load model
+    fname = simulations_folder+model_name+'/'+model_name
+    ml = flopy.modflow.Modflow.load(fname+'.nam')
+    hdobj = flopy.utils.HeadFile(fname + '.hds')
+    times = hdobj.get_times()
+    head = hdobj.get_data(totim=times[0])
+    
+    # Figure
+    fig = plt.figure(figsize=(10, 4))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_title('Cross-section : steady-state') 
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('z [m]')
+    
+    # Head color
+    xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
+    pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues_r',
+                          vmin=0, vmax=200,
+                          alpha=0.8)
+    cb = plt.colorbar(pc, shrink=0.75)
+    cb.set_label('Head [m]', labelpad=+10)
+    wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
+    
+    # Boundary
+    patches = xsect.plot_ibound(head=head)
+    
+    # Grid
+    linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
+    
+    # General fluxes
+    cbb = fpu.CellBudgetFile(fname + '.cbc')
+    kstpkper = (0, 0)
+    Qx = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=kstpkper, totim=times[0])[0]
+    Qy = np.ones(shape=(10,1,100))
+    Qz = cbb.get_data(text='FLOW LOWER FACE', kstpkper=kstpkper, totim=times[0])[0]
+    drain = cbb.get_data(text='DRAINS', kstpkper=kstpkper, totim=times[0])[0]
+    Q = np.sqrt(Qx**2 + Qz**2) # ???
+    Q_print = Q[0,0,0] # m/m
+    
+    # Particules plot
+    shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/particules.shp')
+    # list_particules = shp['particleid'].unique()
+    shp['time'] = shp['time'] / 365
+    shp_fil = shp[shp['time']>1]
+    sc = ax.scatter(shp_fil['x'], shp_fil['z'], c=shp_fil['time'],
+               s=20, cmap='plasma_r', linewidths=0)
+    cbsc = plt.colorbar(sc, shrink=0.75)
+    cbsc.set_label('Residence times [y]', labelpad=+10)
+    
+    fig.savefig(os.path.join(simulations_folder, model_name,
+                                '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
 
 #%% MAP
 
@@ -391,12 +392,12 @@ rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
                     cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
 
 shp_pathlines['time'] = shp_pathlines['time'] / 365
-shp_pathlines.plot(ax=ax, column='time', cmap='jet', lw=2,
+shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.5,
                   norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
                   zorder=1)
 
 shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0,
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
                  zorder=2)
 

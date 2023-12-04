@@ -22,6 +22,9 @@ from osgeo import gdal, osr # or import gdal
 import imageio
 from pyproj import Transformer
 from geopy.geocoders import Nominatim
+import geopy.geocoders
+import ssl
+import certifi
 import shutil
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -108,10 +111,7 @@ class Geographic:
         # Recall important folders
         self.stable_folder = os.path.join(out_path, 'results_stable')
         self.simulations_folder = os.path.join(out_path, 'results_simulations')
-        
-        # Generate regional folder
-        self.reg_path = os.path.join(out_path, 'results_stable','regional')
-        
+                
         # Generate folder where processing files are stored
         self.gis_path = os.path.join(out_path, 'results_stable','geographic')
         toolbox.create_folder(self.gis_path)
@@ -359,7 +359,15 @@ class Geographic:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
             self.dep_code = int(location.address.split(',')[-2][0:3])
-        except:
+        except OSError:
+            # In some cases, a SSL certificate error can occur. The next two
+            # lines modify the ssl_context
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            geopy.geocoders.options.default_ssl_context = ctx
+            locator = Nominatim(user_agent='google')
+            location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+            self.dep_code = int(location.address.split(',')[-2][0:3])
+        else:
             pass
         
     #%% XYZ FILE TO DEM

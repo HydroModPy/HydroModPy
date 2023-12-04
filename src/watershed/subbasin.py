@@ -44,6 +44,8 @@ class Subbasin:
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):        
         print('Extract subbasin from generated and added data')
         
+        # self.snap_dist = snap_dist
+        
         self.subbasin_path = os.path.join(out_path, 'results_stable/subbasin/')
         if not os.path.exists(self.subbasin_path):
             toolbox.create_folder(self.subbasin_path)
@@ -60,6 +62,7 @@ class Subbasin:
                 sub_path = os.path.join(self.subbasin_path, 'hydrometry_'+code_bh[i])
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
         except:
+            print('     No hydrometry subbasin or problem')
             pass
         
         try:
@@ -70,14 +73,16 @@ class Subbasin:
                 sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
         except:
+            print('     No intermittency subbasin or problem')
             pass
         
         try:
             code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
             for i in range(len(code_sub)):
                 sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)            
         except:
+            print('     No personnal subbasins or problem')
             pass
     
     #%% SUB-CATCHMENT FROM STATIONS
@@ -97,11 +102,13 @@ class Subbasin:
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
         outlet_snap_shp = outpath + 'outlet_snap.shp'
-        wbt.snap_pour_points(outlet_shp, geographic.reg_path + 'region_acc.tif', 
-                             outlet_snap_shp, geographic.snap_dist)
+        wbt.snap_pour_points(outlet_shp,
+                             os.path.join(geographic.reg_path, 'region_acc.tif'),
+                             outlet_snap_shp,
+                             geographic.snap_dist)
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
-        wbt.watershed(geographic.reg_path + 'region_direc.tif', outlet_snap_shp, watershed, esri_pntr=False)
+        wbt.watershed(os.path.join(geographic.reg_path, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
         wbt.raster_to_vector_polygons(watershed, watershed_shp)
