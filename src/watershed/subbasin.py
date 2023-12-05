@@ -40,11 +40,11 @@ class Subbasin:
     #%% INIT
     
     def __init__(self, geographic, hydrometry, intermittency,
-                 add_path,
+                 add_path, sub_snap_dist,
                  out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):        
         print('Extract subbasin from generated and added data')
         
-        # self.snap_dist = snap_dist
+        self.sub_snap_dist = sub_snap_dist
         
         self.subbasin_path = os.path.join(out_path, 'results_stable/subbasin/')
         if not os.path.exists(self.subbasin_path):
@@ -76,20 +76,20 @@ class Subbasin:
             print('     No intermittency subbasin or problem')
             pass
         
-        try:
-            code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
-            for i in range(len(code_sub)):
-                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)            
-        except:
-            print('     No personnal subbasins or problem')
-            pass
+        # try:
+        code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
+        for i in range(len(code_sub)):
+            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
+        # except:
+        #     print('     No personnal subbasins or problem')
+        #     pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
     # Extract sub-catchment from existing stations : hydrometry or intermittency
     
-    def extract_interest_zones(self, geographic, X, Y, outpath):
+    def extract_interest_zones(self, geographic, X, Y, outpath, sub_snap_dist):
         # Path of subbasin
         if os.path.exists(outpath):
             shutil.rmtree(outpath)
@@ -105,7 +105,9 @@ class Subbasin:
         wbt.snap_pour_points(outlet_shp,
                              os.path.join(geographic.reg_path, 'region_acc.tif'),
                              outlet_snap_shp,
-                             geographic.snap_dist)
+                             sub_snap_dist
+                             # geographic.snap_dist
+                             )
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
         wbt.watershed(os.path.join(geographic.reg_path, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
@@ -131,6 +133,7 @@ class Subbasin:
     
     def add_coord_manual(self, add_path):
         path_coord = glob.glob(add_path+'/'+'*')[0]
+        print(path_coord)
         sub_list = pd.read_csv(path_coord, sep=';')
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()
