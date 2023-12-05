@@ -47,11 +47,15 @@ if not cwd == root_dir:
     os.chdir(root_dir)
     # print("Root path directory is: {0}".format(cwd))
 
+
 #%% HYDROMODPY
 
 import src
 import importlib
 importlib.reload(src)
+
+# Import tools
+from src.tools import folder_root
 
 # Import HydroModPy modules
 from src import watershed_root
@@ -66,7 +70,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = folder_root.root_folder_results()
+#out_path = 'D:/results'
 #out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
 #out_path = '/home/agauvain/Documents/HydroModPy/'
 #out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
