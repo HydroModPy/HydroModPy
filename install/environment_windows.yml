@@ -314,4 +314,3 @@ dependencies:
       - xyzservices==2023.7.0
       - yapf==0.40.1
       - zipp==3.16.2
-prefix: C:\Users\ronan\anaconda3\envs\hydromodpy-0.1
