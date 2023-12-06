@@ -77,14 +77,14 @@ class Watershed:
         from_shp : list, optional
             List of tow parameters: [path, buffer_size] 
             path: Path of the polygon shapefile. 
-            buffer_size: Buffer distance
+            buffer_size: Buffer distance (value in percent)
             The default is empty list.
         from_xyv : list, optional
             List of four parameters: [x, y, snap_distance, buffer_size]
             x: x coordinate of the watershed outlet
             y: y coordinate of the watershed outlet
             snap_distance: Maximum distance where the outlet can be moove
-            buffer_size: Buffer disrance
+            buffer_size: Buffer distance (value in percent)
             The default is empty list.
         bottom_path : str, optional
             Path of the regional Digital . The default is None.
