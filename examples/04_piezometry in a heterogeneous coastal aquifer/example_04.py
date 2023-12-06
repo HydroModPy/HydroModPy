@@ -94,10 +94,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-example_path = root_dir + "/examples/04_piezometry in a coastal context/"
+example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -106,6 +106,8 @@ out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 dem_path = data_path + "regional_dem.tif"
 oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
+shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'calib_zones.shp')
+
 load = False
 watershed_name = 'Gouville'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
@@ -147,7 +149,33 @@ BV.add_oceanic(oceanic_path)
 visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_dem(BV)
 
-#%% RECHARGE and SEA data
+#%% PIEZOMETRIC DATA
+
+code = '01423X0044/F4' #BSS piezometer code
+
+file = os.path.join(data_path, 'piezo.txt')
+df = pd.read_csv(file, delimiter = '|',header=0, engine='python', encoding='latin1')
+piezo_NGF_df = df[['Date de la mesure','Côte NGF']]
+piezo_NGF_df.columns = ['Date', 'NGF']
+piezo_2016 = piezo_NGF_df.copy()
+piezo_NGF_df.index = piezo_NGF_df['Date']
+piezo_NGF_df = piezo_NGF_df.drop(['Date'], axis=1)
+piezo_NGF_df.columns = [code]
+
+piezo_2016.index = pd.to_datetime(piezo_2016['Date'],format='%d/%m/%Y %H:%M:%S')
+piezo_2016 = piezo_2016.drop(['Date'], axis=1)
+piezo_2016 = piezo_2016[piezo_2016.index.year == 2016]
+
+filename = 'piezometry_' + str.replace(code, '/', '') + '_363782_6897114_9.2_10' + '.csv' #check if needed
+piezo_add_path = os.path.join(stable_folder, 'add_data',  filename)
+if not os.path.exists(os.path.join(stable_folder, 'add_data')):
+    os.mkdir(os.path.join(stable_folder, 'add_data'))
+piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
+
+BV.piezometry.add_data()
+BV.piezometry.display_data()
+
+#%% RECHARGE data
 
 first_clim = 'mean'
 BV.add_climatic()
@@ -164,11 +192,12 @@ BV.climatic.update_first_clim(first_clim)
 rec = BV.climatic.recharge
 plt.plot(rec)
 
+#%% SEA LEVEL data
 sea_lev = pd.read_csv(data_path + 'sea_level.csv', header=None)
 sea_level = sea_lev[1].values.tolist()
 BV.oceanic.update_MSL(sea_level)
-# sl = BV.oceanic.MSL
-# plt.plot(sl)
+sl = BV.oceanic.MSL
+plt.plot(sl)
 
 #%% ---- PARAMETRIZATION
 
@@ -176,7 +205,7 @@ BV.oceanic.update_MSL(sea_level)
 
 # Frame settings
 model_name = 'default'
-box = True # or False
+box = False # or True
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = True
@@ -186,12 +215,16 @@ nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = -20 # elevation in meters, None for constant aquifer thickness, or 2D matrix
 thick = None # if bottom is None, aquifer thickness
-hyd_cond = 20 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+
+# Lateral heterogeneity of hydrodynamic parameters
+hyd_cond_1 = 18 # m/day
+hyd_cond_2 = 50 # m/day
+porosity_1 = 7 / 100 # -
+porosity_2 = 18 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -216,11 +249,18 @@ BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_porosity(porosity)
+# BV.hydraulic.update_hyd_cond(hyd_cond)
+# BV.hydraulic.update_porosity(porosity)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
+
+# Lateral heterogeneity
+BV.hydraulic.update_calib_zones_from_shp(shape_calib_zones_path)
+BV.hydraulic.update_hyd_cond_from_calib_zones(1, hyd_cond_1)
+BV.hydraulic.update_hyd_cond_from_calib_zones(2, hyd_cond_2)
+BV.hydraulic.update_porosity_from_calib_zones(1, porosity_1)
+BV.hydraulic.update_porosity_from_calib_zones(2, porosity_2)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -242,138 +282,3 @@ if success_modflow == True:
                               accumulation_flux = True,
                               export_all_tif = False)
 
-#%% MODPATH
-
-if sim_state == 'steady':
-    if success_modflow == True:
-        model_modpath = BV.preprocessing_modpath(model_modflow)
-        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-    if success_modpath == True:
-        BV.postprocessing_modpath(model_modpath,
-                                  ending_point=True,
-                                  starting_point=True,
-                                  pathlines_shp=True,
-                                  particules_shp=True,
-                                  random_id=100)
-
-#%% TIMESERIES
-
-if from_dem == None:
-    subbasin_results = True
-else:
-    subbasin_results = False
-
-if sim_state == 'steady':
-    model_modpath = model_modpath
-else:
-    model_modpath = None
-
-timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                  model_modpath=model_modpath,
-                                                  actual_date=True, 
-                                                  subbasin_results=subbasin_results) # or None
-
-#%% ---- PLOT
-
-#%% 2D
-
-# if sim_state == 'steady':
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual2D(object_list = ['map','grid',
-                             'watertable', 'watertable_depth',
-                             'drain_flow','surface_flow',
-                             'pathlines', 'residence_times'
-                             ],
-              color_scale = [(None,None),(None,None),
-                             (None,None),(0,10),
-                             (None,None),(None,None),
-                             (None,None),(None,None),
-                             ], 
-              lines=100)
-
-#%% 3D
-
-if from_dem == None:
-    export_vtuvtk.VTK(BV, model_name)
-    visu = visualization_results.Visualization(BV, model_name)
-    visu.visual3D(interactive=True,
-                  object_list=['grid','watertable', 'watertable_depth',
-                               'surface_flow', 'drain_flow', 'pathlines'
-                               ],
-                  view='south-west',
-                  lines=100, cloc=(0.7,0.1))
-
-#%% RAW
-
-lead_numb = '0'
-outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
-demData = imageio.imread(BV.geographic.watershed_dem)
-demData = np.ma.masked_array(demData, mask=demData<0)
-res = BV.geographic.resolution
-
-msk_outflow = (outflow<0)
-outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
-outflow = outflow * 1000 * 365 # mm/year
-outflow = np.log10(outflow)
-
-from matplotlib.colors import LightSource
-ls = LightSource(azdeg=45, altdeg=45)
-cmap = plt.cm.Greys
-rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
-
-fig, ax = plt.subplots(1, 1, figsize=(6,6), dpi=300)
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-im = ax.imshow(demData, alpha=0.8, cmap=cmap)
-im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=outflow.min(), vmax=outflow.max())
-try:
-    cont = imageio.imread(BV.geographic.watershed_contour_tif)
-    ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
-except:
-    pass
-
-divider = make_axes_locatable(ax)
-cax = divider.append_axes("right", size="1%", pad=0.05)
-fig.add_axes(cax)
-cbar = fig.colorbar(im, cax=cax, orientation="vertical")
-val = np.ma.masked_where(demData < 0, demData)
-minVal =  int(round(np.nanmin(val[np.nonzero(val)],0)))
-maxVal =  int(round(np.nanmax(val[np.nonzero(val)],0)))
-meanVal = int(round(minVal+((maxVal-minVal)/2),0))
-cbar.set_ticks([minVal, meanVal, maxVal])
-cbar.set_ticklabels([minVal, meanVal, maxVal])
-cbar.mappable.set_clim(minVal, maxVal)
-cbar.ax.tick_params(labelsize=10)
-
-cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
-fig.add_axes(cax)
-cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-ticks = np.linspace(0, outflow.max(), 5)
-cbar.set_ticks(ticks)
-cbar.set_ticklabels(ticks.round(1))
-cbar.set_label('Seepage outflow log [mm/y]')
-
-plt.tight_layout()
-name_fig = 'map_discharge_' + str(lead_numb) + '.png'
-plt.tight_layout()
-
-fig.savefig(os.path.join(simulations_folder, model_name,
-                            '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
-
-#%% CROSS
-
-dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif') # dem data
-if from_dem == None:
-    stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
-else:
-    stream_data = None
-watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
-interactive = True
-visu = visualization_results.Visualization(BV, model_name)
-visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
-
-#%% ---- NOTES
-
-os.chdir(root_dir)

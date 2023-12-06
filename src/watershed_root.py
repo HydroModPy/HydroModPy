@@ -29,7 +29,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, subbasin
+from watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
 from modeling import modflow, modpath, timeseries
 from display import visualization_watershed
 from tools import toolbox
@@ -77,14 +77,14 @@ class Watershed:
         from_shp : list, optional
             List of tow parameters: [path, buffer_size] 
             path: Path of the polygon shapefile. 
-            buffer_size: Buffer distance
+            buffer_size: Buffer distance (value in percent)
             The default is empty list.
         from_xyv : list, optional
             List of four parameters: [x, y, snap_distance, buffer_size]
             x: x coordinate of the watershed outlet
             y: y coordinate of the watershed outlet
             snap_distance: Maximum distance where the outlet can be moove
-            buffer_size: Buffer disrance
+            buffer_size: Buffer distance (value in percent)
             The default is empty list.
         bottom_path : str, optional
             Path of the regional Digital . The default is None.
@@ -192,6 +192,9 @@ class Watershed:
                 self.hydrometry = BV.intermittency
                 self.elt_def.append('intermittency')
             # Atmospheric (compulsory: hydrodynamic)
+            if ('safransurfex' in BV.__dir__()) == True:
+                self.safransurfex = BV.safransurfex
+                self.elt_def.append('safransurfex')
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
                 self.elt_def.append('climatic')
@@ -487,8 +490,30 @@ class Watershed:
                                                 geographic=self.geographic)
         self.elt_def.append('piezometry')
         self.save_object()
-                    
-    def add_subbasin(self, add_path:str):
+    
+    def add_settings(self):
+        """
+        Pulic method to add settings model.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.settings = settings.Settings()
+        self.elt_def.append('settings')
+        self.save_object()
+    
+    def add_safransurfex(self, safransurfex_path):
+        self.safransurfex_path = safransurfex_path
+        self.safransurfex = safransurfex.SafranSurfex(out_path=self.watershed_folder,
+                                                      safransurfex_path=self.safransurfex_path,
+                                                      watershed_shp=self.geographic.box_buff)
+        safransurfex.Merge(out_path=self.watershed_folder)
+        self.elt_def.append('safransurfex')
+        #MARTIN self.save_object()
+            
+    def add_subbasin(self, add_path:str, sub_snap_dist:int):
         """
         Public method to add subbasins.
 
@@ -503,25 +528,15 @@ class Watershed:
         self.subbasin = subbasin.Subbasin(geographic=self.geographic, hydrometry=self.hydrometry, 
                                           intermittency=self.intermittency, 
                                           add_path=add_path,
-                                          out_path=self.watershed_folder)
+                                          out_path=self.watershed_folder,
+                                          sub_snap_dist=self.geographic.snap_dist/2)
         self.elt_def.append('subbasin')
         self.save_object()
     
-    def add_settings(self):
-        """
-        Pulic method to add settings model.
 
-        Returns
-        -------
-        None.
-
-        """
-        self.settings = settings.Settings()
-        self.elt_def.append('settings')
-        self.save_object()
 
     #%% MODFLOW MODEL
-    def preprocessing_modflow(self):
+    def preprocessing_modflow(self, model_folder):
         """
         Public method to build the hydrologic model.
 
@@ -534,7 +549,7 @@ class Watershed:
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
                                         # Frame settings
-                                        model_folder=self.simulations_folder,
+                                        model_folder=model_folder,   # self.simulations_folder
                                         model_name=self.settings.model_name,
                                         bin_path=self.bin_path,
                                         box=self.settings.box,

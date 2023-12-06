@@ -208,11 +208,11 @@ class Geographic:
         site_bound = gpd.read_file(self.watershed_box_shp)
         site_bound.to_file(self.watershed_box_shp)
         site_bound['geometry'] = site_bound.geometry.buffer(buff_dist)
-        box_buffer = os.path.join(self.gis_path, 'box_buff.shp')
-        site_bound.to_file(box_buffer)
-        wbt.minimum_bounding_envelope(box_buffer, box_buffer, features=False)
-        site_bound = gpd.read_file(box_buffer)
-        site_bound.to_file(box_buffer)
+        self.box_buff = os.path.join(self.gis_path, 'box_buff.shp')
+        site_bound.to_file(self.box_buff)
+        wbt.minimum_bounding_envelope(self.box_buff, self.box_buff, features=False)
+        site_bound = gpd.read_file(self.box_buff)
+        site_bound.to_file(self.box_buff)
         
         """
         Clip to reach buffer size
@@ -271,19 +271,19 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_dem = os.path.join(self.gis_path, 'watershed_box_buff_dem.tif')
-        wbt.clip_raster_to_polygon(dem_path, box_buffer, self.watershed_box_buff_dem,
+        wbt.clip_raster_to_polygon(dem_path, self.box_buff, self.watershed_box_buff_dem,
                                    maintain_dimensions=False)
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_fill = os.path.join(self.gis_path, 'watershed_box_buff_fill.tif')
-        wbt.clip_raster_to_polygon(fill, box_buffer, self.watershed_box_buff_fill,
+        wbt.clip_raster_to_polygon(fill, self.box_buff, self.watershed_box_buff_fill,
                                    maintain_dimensions=False)
         # Clip flow direction regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_direc = os.path.join(self.gis_path, 'watershed_box_buff_direc.tif')
-        wbt.clip_raster_to_polygon(direc, box_buffer, self.watershed_box_buff_direc,
+        wbt.clip_raster_to_polygon(direc, self.box_buff, self.watershed_box_buff_direc,
                                    maintain_dimensions=False)
         if self.bottom_path != None :
             self.watershed_box_bottom = os.path.join(self.gis_path, 'watershed_box_buff_bottom.tif')
-            wbt.clip_raster_to_polygon(self.bottom_path, box_buffer, self.watershed_box_bottom,
+            wbt.clip_raster_to_polygon(self.bottom_path, self.box_buff, self.watershed_box_bottom,
                                        maintain_dimensions=False)
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
@@ -359,7 +359,7 @@ class Geographic:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
             self.dep_code = int(location.address.split(',')[-2][0:3])
-        except OSError:
+        # except OSError:
             # In some cases, a SSL certificate error can occur. The next two
             # lines modify the ssl_context
             ctx = ssl.create_default_context(cafile=certifi.where())
@@ -367,7 +367,8 @@ class Geographic:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
             self.dep_code = int(location.address.split(',')[-2][0:3])
-        else:
+        # else:
+        except:
             pass
         
     #%% XYZ FILE TO DEM

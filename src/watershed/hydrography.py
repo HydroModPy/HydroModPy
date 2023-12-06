@@ -67,7 +67,10 @@ class Hydrography:
         shp_base = gpd.read_file(self.streams)
         shp_type = shp_base.geometry.type[0] # forma = forma.geom_type[0]
         self.tif_streams = data_folder + type_obs + '.tif'
-        shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
+        try:
+            shp_base[field_obs] = pd.to_numeric(shp_base[field_obs])
+        except:
+            pass
         shp_base.to_file(self.streams)
         
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
