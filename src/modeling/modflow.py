@@ -331,7 +331,7 @@ class Modflow:
             
         ### Constant Head boundary conditions of No Flow (at sea level)
         
-        drain_array = np.ones((self.nrow, self.ncol))
+        self.drain_array = np.ones((self.nrow, self.ncol))
         if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             print('niv1')
@@ -345,7 +345,7 @@ class Modflow:
                         for j in range (0, self.ncol):
                             if self.dem[i,j] < np.max(self.sea_level):
                                 if self.iboundData[0,i,j] != 0: #no-flow cells cannot be converted to specified head cells
-                                    drain_array[i,j] = 0
+                                    self.drain_array[i,j] = 0
                                     package[kper,i,j] = 1
                                     chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
@@ -485,13 +485,13 @@ class Modflow:
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
         
-        self.drnData = np.zeros((int(np.sum(drain_array)), 5))
+        self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
         # First value (0): layer number
         self.drnData[:, 0] = 0 # layer
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
-                if drain_array[i,j] == 1:
+                if self.drain_array[i,j] == 1:
                     self.drnData[compt, 1] = i # Second value (1): row number
                     self.drnData[compt, 2] = j # Third value (2): column number
                     self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
@@ -765,11 +765,12 @@ class Modflow:
             if outflow_drain == True:
                 ### Outflow drain
                 self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
-                self.out_all = np.ones((1, self.dis.nrow, self.dis.ncol))
+                self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
                 sim = 0
                 count = 0
                 for i in range(0, self.dis.nrow):
                     for j in range(0, self.dis.ncol):
+                      if self.drain_array[i,j] == 1:
                         self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
                         count = count + 1
                 self.out_drn = self.out_all[0]
