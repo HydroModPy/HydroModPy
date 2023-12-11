@@ -199,6 +199,33 @@ BV.oceanic.update_MSL(sea_level)
 sl = BV.oceanic.MSL
 plt.plot(sl)
 
+# list_filenames = os.listdir(os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo'))
+# list_path = []
+# for name in list_filenames:
+#     if name.endswith('.txt') and int(name[-8:-4])>=2016 and int(name[-8:-4])<=2016:
+#         path = os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo', name)
+#         list_path.append(path)
+
+# SHOM_df_list = []
+# for m in range(len(list_path)):
+#     SHOM_data = pd.read_csv(list_path[m], sep = ";", header = 13)
+#     SHOM_df_list.append(SHOM_data)
+
+# SHOM_df_h = pd.concat(SHOM_df_list)
+# SHOM_df_h['Valeur'] = SHOM_df_h['Valeur'] + -6.289 #hydrographic zero at nearest maregraph
+# SHOM_df_h = SHOM_df_h.rename(columns={"# Date": "Date"})
+# SHOM_df_h['Date'] = pd.to_datetime(SHOM_df_h['Date'], dayfirst=True)
+# SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).max()
+# SHOM_df = SHOM_df.drop(columns=['Source'])
+# shift = SHOM_df.mean() - SHOM_df_h.Valeur.mean()
+# SHOM_df = SHOM_df - shift
+
+# sea_lev_df_fill = SHOM_df.fillna(SHOM_df.mean())
+# sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
+# plt.plot(sea_lev)
+
+BV.oceanic.update_MSL(sea_lev)
+
 #%% ---- PARAMETRIZATION
 
 #%% DEFINE
