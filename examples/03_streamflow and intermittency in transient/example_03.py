@@ -67,9 +67,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/03_streamflow and intermittency in transient/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
+out_path = 'D:/SIMULATIONS/'
 
 #%% ---- WATERSHED
 
@@ -77,7 +78,7 @@ out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 
 dem_path = data_path + 'regional dem.tif'
 load = False
-watershed_name = 'Nancon5'
+watershed_name = 'Nancon'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
@@ -116,7 +117,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/')
+    BV.add_subbasin(data_path+'additional/', 150)
 
 # General plot of the study site
 if from_dem == None:
@@ -245,7 +246,7 @@ for i, porosity in enumerate(list_porosity[:]):
     BV.settings.update_model_name(model_name)
     print(model_name)
     
-    model_modflow = BV.preprocessing_modflow()
+    model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
     
     list_model_name.append(model_name)

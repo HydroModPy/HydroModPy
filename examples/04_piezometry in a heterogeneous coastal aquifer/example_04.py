@@ -96,8 +96,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = 'D:/SIMULATIONS/'
 
 #%% ---- WATERSHED
 
@@ -139,7 +140,9 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-#%% DATA
+#%% ---- DATA
+
+#%% INIT
 
 # Clip specific data at the catchment scale
 BV.add_piezometry()
@@ -149,7 +152,7 @@ BV.add_oceanic(oceanic_path)
 visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_dem(BV)
 
-#%% PIEZOMETRIC DATA
+#%% PIEZOMETRY
 
 code = '01423X0044/F4' #BSS piezometer code
 
@@ -175,7 +178,7 @@ piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
 BV.piezometry.add_data()
 BV.piezometry.display_data()
 
-#%% RECHARGE data
+#%% RECHARGE
 
 first_clim = 'mean'
 BV.add_climatic()
@@ -190,14 +193,27 @@ BV.climatic.update_recharge_reanalysis(path_file = recharge_path,
                                        sim_state='transient')
 BV.climatic.update_first_clim(first_clim)
 rec = BV.climatic.recharge
-plt.plot(rec)
 
-#%% SEA LEVEL data
+fig, ax = plt.subplots(1,1, figsize=(7,4))
+ax.plot(rec, label='recharge_reanalysis', c='dodgerblue', lw=2)
+ax.set_xlabel('Date')
+ax.set_ylabel('Recharge [mm/d]')
+plt.xticks(rotation=45, ha="right")
+ax.legend()
+
+#%% SEA LEVEL
+
 sea_lev = pd.read_csv(data_path + 'sea_level.csv', header=None)
 sea_level = sea_lev[1].values.tolist()
 BV.oceanic.update_MSL(sea_level)
 sl = BV.oceanic.MSL
-plt.plot(sl)
+
+fig, ax = plt.subplots(1,1, figsize=(7,4))
+ax.plot(sl, label='sea_level', c='navy', lw=2)
+ax.set_xlabel('Days')
+ax.set_ylabel('Sea level [m.a.s.l]')
+plt.xticks(rotation=45, ha="right")
+ax.legend()
 
 # list_filenames = os.listdir(os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo'))
 # list_path = []
@@ -296,7 +312,7 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
