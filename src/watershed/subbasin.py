@@ -60,7 +60,7 @@ class Subbasin:
             y_coord = hydrometry.y_coord
             for i in range(len(code_bh)):
                 sub_path = os.path.join(self.subbasin_path, 'hydrometry_'+code_bh[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
             print('     No hydrometry subbasin or problem')
             pass
@@ -71,19 +71,19 @@ class Subbasin:
             y_coord = intermittency.y_coord
             for i in range(len(code_onde)):
                 sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
             print('     No intermittency subbasin or problem')
             pass
         
-        # try:
-        code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
-        for i in range(len(code_sub)):
-            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
-        # except:
-        #     print('     No personnal subbasins or problem')
-        #     pass
+        try:
+            code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
+            for i in range(len(code_sub)):
+                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
+        except:
+            print('     No personnal subbasins or problem')
+            pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
@@ -133,7 +133,7 @@ class Subbasin:
     
     def add_coord_manual(self, add_path):
         path_coord = glob.glob(add_path+'/'+'*')[0]
-        print(path_coord)
+        # print(path_coord)
         sub_list = pd.read_csv(path_coord, sep=';')
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()

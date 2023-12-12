@@ -47,7 +47,6 @@ if not cwd == root_dir:
     os.chdir(root_dir)
     # print("Root path directory is: {0}".format(cwd))
 
-
 #%% HYDROMODPY
 
 import src
@@ -133,7 +132,7 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -160,7 +159,7 @@ if from_dem == None:
     BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/')
+    BV.add_subbasin(data_path+'additional/', 200)
 
 # General plot of the study site
 if from_dem == None:
@@ -389,7 +388,7 @@ BV.settings.update_input_particules(zone_partic=zone_partic)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -452,7 +451,7 @@ visu.visual2D(object_list = ['map','grid',
               lines=100)
 
 #%% 3D
-
+"""
 if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
@@ -462,7 +461,7 @@ if from_dem == None:
                                ],
                   view='south-west',
                   lines=100, cloc=(0.7,0.1))
-
+"""
 #%% RAW
 
 lead_numb = '0'

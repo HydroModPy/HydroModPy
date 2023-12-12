@@ -69,8 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+out_path = 'D:/SIMULATIONS/'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
 
@@ -117,7 +118,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/')
+    BV.add_subbasin(data_path+'additional/', 150)
 
 # General plot of the study site
 if from_dem == None:
@@ -246,7 +247,7 @@ for hyd_cond in list_hyd_cond:
     BV.settings.update_model_name(model_name)
     print(model_name)
     
-    model_modflow = BV.preprocessing_modflow()
+    model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
     
     list_model_name.append(model_name)

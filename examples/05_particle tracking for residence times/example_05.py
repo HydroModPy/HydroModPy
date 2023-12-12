@@ -68,8 +68,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
+out_path = 'D:/SIMULATIONS/'
 
 #%% ---- WATERSHED
 
@@ -110,7 +111,7 @@ if case == 'Lasset':
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]
-    from_xyv = [601020,6193860,100,50, 'EPSG:2154'] # [x, y, snap distance, buffer size]
+    from_xyv = [601020,6193860,200,50,'EPSG:2154'] # [x, y, snap distance, buffer size]
     bottom_path = None # path
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
@@ -233,7 +234,7 @@ BV.settings.update_input_particules(zone_partic=zone_partic)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -258,7 +259,7 @@ if sim_state == 'steady':
                                   starting_point=True,
                                   pathlines_shp=True,
                                   particules_shp=True,
-                                  random_id=None) # 2000
+                                  random_id=None) # None
 
 #%% TIMESERIES
 
@@ -283,7 +284,7 @@ visu.visual2D(object_list = ['map','grid',
                              (None,None),(None,None),
                              (None,None),(None,None),
                              ], 
-              lines=100)
+              lines=500)
 
 #%% RAW
 
@@ -403,7 +404,7 @@ shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
 
 line.plot(ax=ax, color='k', lw=3)
 
-ax.set_title('Residence times [y]')
+ax.set_title('Ending residence times [y]')
 
 ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)  
