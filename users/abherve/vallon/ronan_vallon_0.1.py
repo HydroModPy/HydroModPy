@@ -320,9 +320,13 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 #%% PATHS
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy_0.1/"
-data_path = "G:/UNINE/SIMULATIONS/VALLON/_data/"
-out_path = 'G:/UNINE/SIMULATIONS/VALLON/'
+# git_path = "D:/Users/abherve/GITHUB/HydroModPy_0.1/"
+# data_path = "G:/UNINE/SIMULATIONS/VALLON/_data/"
+# out_path = 'G:/UNINE/SIMULATIONS/VALLON/'
+
+git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
+data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
+out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
 
 dems_path = data_path + '_gis/DEM/' # reginal DEM or conceptual DEM
 dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
@@ -423,7 +427,7 @@ for watershed_name in watershed_names[:]:
 
 #%% SURFEX - CLIP / EXTRACT / DATA
 
-work_dir = 'G:/UNINE/SIMULATIONS/VALLON/_data/_safransurfex/'
+work_dir = data_path + '_safransurfex/'
 raw_path = work_dir + 'france/'
 clip_path = work_dir + 'vallon/'
 mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93_2056.shp'
@@ -1591,7 +1595,7 @@ for watershed_name in watershed_names[:]:
 
 #%% QOBS
 
-init_path = 'G:/UNINE/SIMULATIONS/VALLON/_data/_hgs/Supplementary Information Thornton/full_model/'
+init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
 
 Qobs_list =[
              '1_q_vdn_u_s1_obs_NAs_removed.smp',
@@ -1766,7 +1770,7 @@ for i, Qobs_name in enumerate(Qobs_list):
 
 #%% POBS
 
-init_path = 'G:/UNINE/SIMULATIONS/VALLON/_data/_hgs/Supplementary Information Thornton/full_model/'
+init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
 
 Pobs_list = ['1_gwl_n1_obs_NAs_removed.smp',
              '1_gwl_n2_obs_NAs_removed.smp',
@@ -1900,7 +1904,7 @@ list_porosity = np.array([0.1, 0.5, 1, 2, 5, 10, 30]) / 100
 
 iD_set_simulations = 'explorSy_test1'
 
-#%% PROCESSING        
+#%% PROCESSING RUN
 
 list_model_name = []
 list_success_modflow = []
@@ -2023,7 +2027,7 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
     
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:1]:
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
@@ -2046,7 +2050,7 @@ for watershed_name in watershed_names[1:]:
         Qobs_name = '1_q_weir_s2_obs_NAs_removed.smp'
     if watershed_name == 'Vare_EUDTM30m':
         Qobs_name = '1_q_ric_s3_obs_NAs_removed.smp'
-    init_path = 'G:/UNINE/SIMULATIONS/VALLON/_data/_hgs/Supplementary Information Thornton/full_model/'
+    init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
     dfQ = pd.read_csv(init_path+Qobs_name, delim_whitespace=True, header=None)
     dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
     dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
@@ -2166,14 +2170,15 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-for w, watershed_name in enumerate(watershed_names[1:]):
+for w, watershed_name in enumerate(watershed_names[:1]):
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
     
-    dem_tif = imageio.imread(BV.geographic.watershed_dem)
+    # dem_tif = imageio.imread(BV.geographic.watershed_dem)
+    dem_tif = imageio.imread(stable_folder+'geographic/watershed_dem.tif')
     dds = []
     for type_obs in types_obs:
         hydro_path = stable_folder+'hydrography/'+type_obs+'.tif'
