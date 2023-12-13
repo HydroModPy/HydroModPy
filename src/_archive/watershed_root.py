@@ -119,6 +119,9 @@ class Watershed:
         self.figure_folder = os.path.join(self.stable_folder, '_figures/')
         toolbox.create_folder(self.figure_folder)
         
+        # self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
+        # toolbox.create_folder(self.calibration_folder)
+        
         self.elt_def = []
         
         success = False
@@ -533,7 +536,7 @@ class Watershed:
 
 
     #%% MODFLOW MODEL
-    def preprocessing_modflow(self, for_calib:bool=False):
+    def preprocessing_modflow(self, model_folder):
         """
         Public method to build the hydrologic model.
 
@@ -542,14 +545,7 @@ class Watershed:
         model_modflow : object
             Python object of the hydraulic model
             
-        """        
-        if for_calib == False:
-            model_folder = self.simulations_folder
-        else:
-            self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
-            toolbox.create_folder(self.calibration_folder)
-            model_folder = self.calibration_folder
-            
+        """
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
                                         # Frame settings
@@ -617,8 +613,7 @@ class Watershed:
                                groundwater_storage:bool=True,
                                accumulation_flux:bool=True,
                                persistency_index:bool=False,
-                               intermittency_monthly:bool=False,
-                               intermittency_daily:bool=False,
+                               intermittency_yearly:bool=False,
                                export_all_tif:bool=False):
         """
         Public method to post-process the simulation of the model.
@@ -659,8 +654,7 @@ class Watershed:
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,
                                       persistency_index=persistency_index,
-                                      intermittency_monthly=intermittency_monthly,
-                                      intermittency_daily=intermittency_daily,
+                                      intermittency_yearly=intermittency_yearly,
                                       export_all_tif=export_all_tif)
 
     #%% MODPATH MODEL        
@@ -753,8 +747,7 @@ class Watershed:
                                   model_modflow:object,
                                   model_modpath:object,
                                   actual_date:bool=True,
-                                  subbasin_results:bool=True,
-                                  freq_time:str='D'):
+                                  subbasin_results:bool=True):
         """
         Public method to postprocesing the timeseries of the watershed.
 
@@ -780,8 +773,7 @@ class Watershed:
                                                         model_modflow=model_modflow,
                                                         model_modpath=model_modpath,
                                                         actual_date=actual_date,
-                                                        subbasin_results=subbasin_results,
-                                                        freq_time=freq_time)
+                                                        subbasin_results=subbasin_results)
             
             return timeseries_results
 

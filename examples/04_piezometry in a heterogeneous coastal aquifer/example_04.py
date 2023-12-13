@@ -98,7 +98,8 @@ example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aq
 data_path = example_path + "data/"
 # out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-out_path = 'D:/SIMULATIONS/'
+# out_path = 'D:/SIMULATIONS/'
+out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
 
 #%% ---- WATERSHED
 
@@ -181,6 +182,8 @@ BV.piezometry.display_data()
 #%% RECHARGE
 
 first_clim = 'mean'
+freq_time = 'D'
+
 BV.add_climatic()
 BV.climatic.update_first_clim(first_clim)
 
@@ -189,7 +192,7 @@ BV.climatic.update_recharge_reanalysis(path_file = recharge_path,
                                        clim_sce='historic',
                                        first_year=2016,
                                        last_year=2016,
-                                       time_step='D',
+                                       time_step=freq_time,
                                        sim_state='transient')
 BV.climatic.update_first_clim(first_clim)
 rec = BV.climatic.recharge
@@ -312,7 +315,7 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
+model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -323,5 +326,15 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
+                              persistency_index=True,
+                              intermittency_monthly=False,
+                              intermittency_daily=True,
                               export_all_tif = False)
+    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                      model_modpath=None,
+                                                      actual_date=True, 
+                                                      subbasin_results=True,
+                                                      freq_time=freq_time)
+
+#%% ---- NOTES
 

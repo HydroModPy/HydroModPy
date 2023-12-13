@@ -70,7 +70,8 @@ data_path = example_path + "data/"
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = '/home/agauvain/Documents/HydroModPy/'
-out_path = 'D:/SIMULATIONS/'
+# out_path = 'D:/SIMULATIONS/'
+out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
 
 #%% ---- WATERSHED
 
@@ -170,6 +171,7 @@ plot_cross = False
 
 # Climatic settings
 first_clim = 'mean' # or 'first or value
+freq_time = 'M'
 
 # Hydraulic settings
 nlay = 1
@@ -246,7 +248,7 @@ for i, porosity in enumerate(list_porosity[:]):
     BV.settings.update_model_name(model_name)
     print(model_name)
     
-    model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
+    model_modflow = BV.preprocessing_modflow(for_calib=False)
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
     
     list_model_name.append(model_name)
@@ -290,13 +292,15 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   groundwater_storage = True,
                                   accumulation_flux = True,
                                   persistency_index=True,
-                                  intermittency_yearly=True,
+                                  intermittency_monthly=True,
+                                  intermittency_daily=False,
                                   export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
                                                           actual_date=True, 
-                                                          subbasin_results=True) # or None
+                                                          subbasin_results=True,
+                                                          freq_time=freq_time) # or None
 
 #%% ---- PLOT
 

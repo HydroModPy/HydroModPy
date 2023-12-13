@@ -965,5 +965,4 @@ class Modflow:
                     
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
             
-                    
 #%% NOTES
