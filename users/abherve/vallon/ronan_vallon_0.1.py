@@ -1118,9 +1118,43 @@ hgs_wb['Time_y'] = hgs_wb['Time'] / 365
 hgs_wb['datetime'] = pd.date_range(start='10/01/2014', end='10/01/2018', freq='D')
 hgs_wb.index = hgs_wb['datetime']
 
-#%% HGS - PLOTS
+#%% HGS - PLOT INPUTS
 
-#%% HGS - PLOT OBS
+fig, ax = plt.subplots(figsize=(7,4))
+ax.plot(hgs_wb['rain_plus_all_melt'] / (37*1e6) * 1000, c='purple', label='PPT + SNOW MELT')
+# ax.plot(hgs_wb['ET_4_PET'] / (37*1e6) * 1000, c='green',  label='PET')
+ax.plot((hgs_wb['rain_plus_all_melt'] - (hgs_wb['ET_4_AET']*-1)) / (37*1e6) * 1000 , c='darkgrey',  label='PPT + SNOW MELT - AET')
+ax.plot(hgs_wb['ET_4_AET'] / (37*1e6) * 1000 * -1, c='darkorange',  label='AET')
+# ax.set_ylim(0,200)
+ax.legend(loc='upper right')
+ax.set_xlabel('Date')	
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.set_xlim(pd.to_datetime('2014-10'), pd.to_datetime('2018-10'))
+ax.set_ylabel('HGS input forcing [mm/d]')
+ax.axhline(0, ls='--', c='k')
+
+dfQ = pd.read_csv(data_path + '_hgs/Supplementary Information Thornton/full_model/'+'1_q_weir_s2_obs_NAs_removed.smp', delim_whitespace=True, header=None)
+dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
+dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
+dfQ.index = dfQ['datetime']
+dfQp = dfQ[3].resample('D').mean()
+dfQp = dfQp/(13.7*1e6)*1000
+ax.plot(dfQp, c='dodgerblue')
+
+plt.tight_layout()
+
+sel_ppt = (select_period(hgs_wb['rain_plus_all_melt'],2017,2017).resample('Y').sum() / (37*1e6) * 1000).mean()
+sel_aet = (select_period(hgs_wb['ET_4_AET'],2017,2017).resample('Y').sum() / (37*1e6) * 1000 * -1).mean()
+sel_inp = sel_ppt-sel_aet
+    
+print(sel_ppt, sel_aet, sel_inp)
+
+#%% HGS - PLOT QOBS
+
+init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
 
 Qobs_list =[
              '1_q_vdn_u_s1_obs_NAs_removed.smp',
@@ -1143,44 +1177,288 @@ for i, Qobs_name in enumerate(Qobs_list[:]):
     dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
     dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
     dfQ.index = dfQ['datetime']
-    dfQp = dfQ[3].resample('D').mean()
-    dfQp = dfQp/(areas[i]*1e6)*1000
+    dfQp = dfQ.resample('D').mean()
     
-    print(select_period(dfQp,2017,2017).resample('Y').sum())
-
-#%% HGS - PLOT RAW
-
-fig, ax = plt.subplots(figsize=(7,4))
-ax.plot(hgs_wb['rain_plus_all_melt'] / (37*1e6) * 1000, c='purple', label='PPT + SNOW MELT')
-# ax.plot(hgs_wb['ET_4_PET'] / (37*1e6) * 1000, c='green',  label='PET')
-ax.plot((hgs_wb['rain_plus_all_melt'] - (hgs_wb['ET_4_AET']*-1)) / (37*1e6) * 1000 , c='darkgrey',  label='PPT + SNOW MELT - AET')
-ax.plot(hgs_wb['ET_4_AET'] / (37*1e6) * 1000 * -1, c='darkorange',  label='AET')
-# ax.set_ylim(0,200)
-ax.legend(loc='upper right')
-ax.set_xlabel('Date')	
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-ax.set_xlim(pd.to_datetime('2014-10'), pd.to_datetime('2018-10'))
-ax.set_ylabel('HGS input forcing [mm/d]')
-ax.axhline(0, ls='--', c='k')
-
-dfQ = pd.read_csv(init_path+'1_q_weir_s2_obs_NAs_removed.smp', delim_whitespace=True, header=None)
-dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
-dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
-dfQ.index = dfQ['datetime']
-dfQp = dfQ[3].resample('D').mean()
-dfQp = dfQp/(areas[i]*1e6)*1000
-ax.plot(dfQp, c='dodgerblue')
-
-plt.tight_layout()
-
-sel_ppt = (select_period(hgs_wb['rain_plus_all_melt'],2017,2017).resample('Y').sum() / (37*1e6) * 1000).mean()
-sel_aet = (select_period(hgs_wb['ET_4_AET'],2017,2017).resample('Y').sum() / (37*1e6) * 1000 * -1).mean()
-sel_inp = sel_ppt-sel_aet
+    zo = 1
+    if i == 0:
+        zo=2
     
-print(sel_ppt, sel_aet, sel_inp)
+    ax = axs[0]
+    ax.plot(dfQp[3]/24/3600, lw=1,
+            label='S'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
+    ax.legend(loc='upper right', frameon=False)
+    # ax.set_yscale('log')
+    ax.set_ylim(0, 8)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.set_ylabel('$Q_{obs}$ [m$^3$/s]')
+    # ax.grid()
+        
+    ax = axs[1]
+    ax.plot(dfQp[3]/(areas[i]*1e6)*1000, lw=1,
+            label='S'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to mm/day
+    ax.legend(loc='lower right', frameon=False)
+    ax.set_yscale('log')
+    ax.set_ylim(8e-2, 100)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.set_ylabel('$Q_{obs}$ [mm/d]')
+    ax.set_xlabel('Date')
+    # ax.grid()
+    
+    plt.tight_layout()
+
+fig, axs = plt.subplots(1,3, figsize=(9,3), sharey=True)
+axs = axs.ravel()
+
+couleurs = ['dodgerblue','darkorange','forestgreen']
+areas = [9.4, 13.7, 14.1]
+
+for i, Qobs_name in enumerate(Qobs_list):
+    
+    dfQ = pd.read_csv(init_path+Qobs_name, delim_whitespace=True, header=None)
+    dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
+    dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
+    zo = 1
+    if i == 0:
+        zo=2
+        
+    ax = axs[i]
+    
+    data_index = dfQ[3]/(areas[i]*1e6)*1000
+    data_index.index = dfQ['datetime']
+    # data_index = select_period(data_index, 2017,2018)
+    
+    data_index = data_index[(data_index.index>='2016-09') & (data_index.index<='2017-06')]
+            
+    mean_mensual = data_index.resample('M').mean() # mensual mean
+    mean_annual = data_index.resample('Y').mean() # annual mean
+    Mean = round(data_index.mean(),2)
+    Mean = data_index.mean()
+    Min = data_index.resample('Y').min()
+    Q10 = data_index.resample('Y').quantile(0.10)
+    Q25 = data_index.resample('Y').quantile(0.25)
+    Q50 = data_index.resample('Y').quantile(0.50)
+    Q75 = data_index.resample('Y').quantile(0.75)
+    Q90 = data_index.resample('Y').quantile(0.90)
+    print(Q10.min())
+    print(Q90.mean())
+    Max = data_index.resample('Y').max()
+    mean_interan_days = data_index.groupby([data_index.index.month,
+                                    data_index.index.day], as_index=True).mean().to_frame()
+    std_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).std()
+    q10_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.10)
+    q90_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.90)
+    q50_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.50)
+    q25_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.25)
+    q75_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.75)
+    mean_interan_days['std'] = std_interan_days
+    mean_interan_days['q10'] = q10_interan_days
+    mean_interan_days['q90'] = q90_interan_days
+    mean_interan_days['q50'] = q50_interan_days
+    mean_interan_days['q75'] = q75_interan_days
+    mean_interan_days['q25'] = q25_interan_days
+    mean_interan_days.index.names = ['months','days']
+    mean_interan_days = mean_interan_days.reset_index()
+    # mean_interan_days.months = mean_interan_days.months.replace(
+    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
+    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
+    mean_interan_days = mean_interan_days.sort_values(['months','days'])
+    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
+    
+    # fig, ax = plt.subplots(figsize=(4,3))
+    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
+    #         lw=1, color='red', label='Mean')
+    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
+            lw=2, color=couleurs[i], label='S'+str(i+1))
+    yerrmax = mean_interan_days.q90
+    yerrmin = mean_interan_days.q10
+    # ax.legend('upper right')
+    # ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+    #                   color='cyan',edgecolor='grey',
+    #                   alpha = 0.5, label='10-90th')
+    
+    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+                      color='gray',edgecolor='grey', lw=0.5,
+                      alpha = 0.25, label='10-90th')
+    
+    # plt.yscale('log')
+    # ax.yaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xlim(0,366)
+    # if i == 0:
+    #     ax.set_ylim(-10,20)
+    # if i == 1:
+    #     ax.set_ylim(0,10)
+    # if i == 2:
+    #     ax.set_ylim(0,10) 
+    # if i == 3:
+    #     ax.set_ylim(0,10) 
+    # if i == 4:
+    #     ax.set_ylim(0,10) 
+    # if i == 5:
+    #     ax.set_ylim(0,10) 
+    # ax.set_ylim(0.01,10)
+    ax.tick_params(axis='both', which='major', pad=10)
+    x1 = np.linspace(0,366,13)
+    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
+    ax.set_xticks(x1)
+    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+    # if i == 2:
+    ax.set_xlabel('Months', labelpad=+10)
+    if i ==0:
+        ax.set_ylabel('$Q_{obs}$ [mm/d]')
+    # ax.set_title('S'+str(i+1))
+    ax.legend(loc='upper right', frameon=False)
+    ax.set_ylim(0,15)
+    # ax.set_yscale('log')
+    
+    # ax.set_ylabel(var + ' [mm/d]',labelpad=+10, color=couleurs[i], fontsize=15)
+    # ax.set_ylabel(var + ' [°C]',labelpad=+10, color=couleurs[i], fontsize=15)
+    # ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
+    # ax.grid(color='grey', lw=0.5, zorder=0)
+    
+    # ax.legend(loc='upper left')
+    plt.tight_layout()
+
+#%% HGS - PLOT POBS
+
+init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
+
+Pobs_list = ['1_gwl_n1_obs_NAs_removed.smp',
+             '1_gwl_n2_obs_NAs_removed.smp',
+             '1_gwl_n3_obs_NAs_removed.smp',
+             '1_gwl_n4_obs_NAs_removed.smp'
+             ]
+
+fig, axs = plt.subplots(3,1, figsize=(8,10), sharex=True)
+# fig, ax = plt.subplots(1,1, figsize=(6,4), sharex=True)
+axs = axs.ravel()
+
+couleurs = ['navy','darkviolet','skyblue','dodgerblue']
+areas = [9.4, 13.7, 14.1]
+
+for i, Pobs_name in enumerate(Pobs_list[:]):
+    dfP = pd.read_csv(init_path+Pobs_name, delim_whitespace=True, header=None)
+    
+    dfP['datetxt'] = dfP[1]+ ' ' + dfP[2].apply(str)
+    dfP['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfP['datetxt']]
+    zo = 1
+    if i == 1:
+        zo=-1
+    if i == 3:
+        zo=-2
+    
+    ax = axs[0]
+    ax.plot(dfP['datetime'], dfP[3], lw=1,
+            label='N'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
+    ax.legend(loc='lower left', frameon=False)
+    # ax.set_yscale('log')
+    # ax.set_ylim(0, 8)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.set_ylabel('$WT_{obs}$ [m.a.s.l]')
+    # ax.grid()
+    if i==0:
+        ax.axhline(y=1502.5, c=couleurs[i], ls=':')
+    if i==1:
+        ax.axhline(y=1505.0, c=couleurs[i], ls=':')
+    if i==2:
+        ax.axhline(y=1472.5, c=couleurs[i], ls=':')
+    if i==3:
+        ax.axhline(y=1482.0, c=couleurs[i], ls=':')
+    
+    ax = axs[2]
+    if i==0:
+        y=1502.5
+    if i==1:
+        y=1505.0
+    if i==2:
+        y=1472.5
+    if i==3:
+        y=1482.0
+    ax.plot(dfP['datetime'], y-dfP[3], lw=1,
+            label='N'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
+    ax.legend(loc='lower left', frameon=False)
+    # ax.set_yscale('log')
+    # ax.set_ylim(0, 8)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.set_ylabel('$WTdepth_{obs}$ [m.a.s.l]')
+    # ax.grid()
+    ax.set_ylim(0,7)
+    if i ==3:
+        ax.invert_yaxis()
+    
+    ax = axs[1]
+    yn = (dfP[3]-dfP[3].min())/(dfP[3].max()-dfP[3].min())
+    ax.plot(dfP['datetime'], yn, lw=1,
+            label='N'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
+    ax.legend(loc='lower left', frameon=False)
+    # ax.set_yscale('log')
+    # ax.set_ylim(0, 8)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.set_ylabel('$WT_{obs}$* [m.a.s.l]')
+
+    # ax.grid()
+
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    ax.set_xlim(pd.to_datetime('2017'), pd.to_datetime('2019'))
+    ax.set_xlabel('Date')
+
+#%% HGS - DATA MIX
+
+init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
+
+Qobs_list =['1_q_vdn_u_s1_obs_NAs_removed.smp',
+            '1_q_weir_s2_obs_NAs_removed.smp',
+            '1_q_ric_s3_obs_NAs_removed.smp'
+            ]
+areas = [9.4, 13.7, 14.1]
+i = 0
+for Sn, Qobs_name in zip(['S1','S2','S3'], Qobs_list[:]):
+    print(Sn)
+    dfQ = pd.read_csv(init_path+Qobs_name, delim_whitespace=True, header=None)
+    dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
+    dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
+    dfQ.index = dfQ['datetime']
+    dfQp = dfQ.resample('D').mean()
+    data_index = dfQp[3]/(areas[i]*1e6)
+    hgs_wb['Q_'+Sn+'_m/d'] = data_index
+    i += 1
+
+Pobs_list = ['1_gwl_n1_obs_NAs_removed.smp',
+             '1_gwl_n2_obs_NAs_removed.smp',
+             '1_gwl_n3_obs_NAs_removed.smp',
+             '1_gwl_n4_obs_NAs_removed.smp'
+             ]
+i = 0
+for Nn, Pobs_name in zip(['N1','N2','N3','N4'], Pobs_list[:]):
+    print(Nn)
+    dfP = pd.read_csv(init_path+Pobs_name, delim_whitespace=True, header=None)   
+    dfP['datetxt'] = dfP[1]+ ' ' + dfP[2].apply(str)
+    dfP['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfP['datetxt']]
+    dfP.index = dfP['datetime']
+    dfPp = dfP.resample('D').mean()
+    data_index = dfPp[3]
+    hgs_wb['P_'+Nn+'_m'] = data_index
+    i += 1
+
+hgs_wb['PPT_m/d'] = hgs_wb['rain_plus_all_melt'] / (37*1e6)
+hgs_wb['AET_m/d'] = hgs_wb['ET_4_AET'] / (37*1e6) * -1
+
+hgs_drop = hgs_wb.dropna(subset='Q_S2_m/d')
+bil_ppt = hgs_drop['PPT_m/d'].resample('Y').mean()*1000*365
+bil_aet = hgs_drop['AET_m/d'].resample('Y').mean()*1000*365
+bil_dis = hgs_drop['Q_S2_m/d'].resample('Y').mean()*1000*365
+print(bil_ppt.mean().astype(int),bil_aet.mean().astype(int),bil_dis.mean().astype(int))
 
 #%% ---- CALIB
 
@@ -1590,269 +1868,6 @@ for watershed_name in watershed_names[:]:
                     color=couleur)
     # ax.axvline(x=min(xs), color=couleur, zorder=-2)
     # ax.axvline(x=max(xs), color=couleur, zorder=-2)
-
-#%% ---- DATA
-
-#%% QOBS
-
-init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
-
-Qobs_list =[
-             '1_q_vdn_u_s1_obs_NAs_removed.smp',
-            # '1_q_vdn_u_s1_obs_NAs_removed_reduced.smp',
-             '1_q_weir_s2_obs_NAs_removed.smp',
-            # '1_q_weir_s2_obs_NAs_removed_reduced.smp',
-             '1_q_ric_s3_obs_NAs_removed.smp'
-            # '1_q_ric_s3_obs_NAs_removed_reduced.smp'
-            ]
-
-fig, axs = plt.subplots(2,1, figsize=(7,6), sharex=True)
-axs = axs.ravel()
-
-couleurs = ['dodgerblue','darkorange','forestgreen']
-areas = [9.4, 13.7, 14.1]
-
-for i, Qobs_name in enumerate(Qobs_list[:]):
-    dfQ = pd.read_csv(init_path+Qobs_name, delim_whitespace=True, header=None)
-    
-    dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
-    dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
-    dfQ.index = dfQ['datetime']
-    dfQp = dfQ.resample('D').mean()
-    
-    zo = 1
-    if i == 0:
-        zo=2
-    
-    ax = axs[0]
-    ax.plot(dfQp[3]/24/3600, lw=1,
-            label='S'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
-    ax.legend(loc='upper right', frameon=False)
-    # ax.set_yscale('log')
-    ax.set_ylim(0, 8)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
-    ax.set_ylabel('$Q_{obs}$ [m$^3$/s]')
-    # ax.grid()
-        
-    ax = axs[1]
-    ax.plot(dfQp[3]/(areas[i]*1e6)*1000, lw=1,
-            label='S'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to mm/day
-    ax.legend(loc='lower right', frameon=False)
-    ax.set_yscale('log')
-    ax.set_ylim(8e-2, 100)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
-    ax.set_ylabel('$Q_{obs}$ [mm/d]')
-    ax.set_xlabel('Date')
-    # ax.grid()
-    
-    plt.tight_layout()
-
-fig, axs = plt.subplots(1,3, figsize=(9,3), sharey=True)
-axs = axs.ravel()
-
-couleurs = ['dodgerblue','darkorange','forestgreen']
-areas = [9.4, 13.7, 14.1]
-
-for i, Qobs_name in enumerate(Qobs_list):
-    
-    dfQ = pd.read_csv(init_path+Qobs_name, delim_whitespace=True, header=None)
-    dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
-    dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
-    zo = 1
-    if i == 0:
-        zo=2
-        
-    ax = axs[i]
-    
-    data_index = dfQ[3]/(areas[i]*1e6)*1000
-    data_index.index = dfQ['datetime']
-    # data_index = select_period(data_index, 2017,2018)
-    
-    data_index = data_index[(data_index.index>='2016-09') & (data_index.index<='2017-06')]
-            
-    mean_mensual = data_index.resample('M').mean() # mensual mean
-    mean_annual = data_index.resample('Y').mean() # annual mean
-    Mean = round(data_index.mean(),2)
-    Mean = data_index.mean()
-    Min = data_index.resample('Y').min()
-    Q10 = data_index.resample('Y').quantile(0.10)
-    Q25 = data_index.resample('Y').quantile(0.25)
-    Q50 = data_index.resample('Y').quantile(0.50)
-    Q75 = data_index.resample('Y').quantile(0.75)
-    Q90 = data_index.resample('Y').quantile(0.90)
-    print(Q10.min())
-    print(Q90.mean())
-    Max = data_index.resample('Y').max()
-    mean_interan_days = data_index.groupby([data_index.index.month,
-                                    data_index.index.day], as_index=True).mean().to_frame()
-    std_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).std()
-    q10_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.10)
-    q90_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.90)
-    q50_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.50)
-    q25_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.25)
-    q75_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.75)
-    mean_interan_days['std'] = std_interan_days
-    mean_interan_days['q10'] = q10_interan_days
-    mean_interan_days['q90'] = q90_interan_days
-    mean_interan_days['q50'] = q50_interan_days
-    mean_interan_days['q75'] = q75_interan_days
-    mean_interan_days['q25'] = q25_interan_days
-    mean_interan_days.index.names = ['months','days']
-    mean_interan_days = mean_interan_days.reset_index()
-    # mean_interan_days.months = mean_interan_days.months.replace(
-    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
-    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
-    mean_interan_days = mean_interan_days.sort_values(['months','days'])
-    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
-    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
-    
-    # fig, ax = plt.subplots(figsize=(4,3))
-    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
-    #         lw=1, color='red', label='Mean')
-    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
-            lw=2, color=couleurs[i], label='S'+str(i+1))
-    yerrmax = mean_interan_days.q90
-    yerrmin = mean_interan_days.q10
-    # ax.legend('upper right')
-    # ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-    #                   color='cyan',edgecolor='grey',
-    #                   alpha = 0.5, label='10-90th')
-    
-    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-                      color='gray',edgecolor='grey', lw=0.5,
-                      alpha = 0.25, label='10-90th')
-    
-    # plt.yscale('log')
-    # ax.yaxis.set_major_formatter(ScalarFormatter())
-    ax.set_xlim(0,366)
-    # if i == 0:
-    #     ax.set_ylim(-10,20)
-    # if i == 1:
-    #     ax.set_ylim(0,10)
-    # if i == 2:
-    #     ax.set_ylim(0,10) 
-    # if i == 3:
-    #     ax.set_ylim(0,10) 
-    # if i == 4:
-    #     ax.set_ylim(0,10) 
-    # if i == 5:
-    #     ax.set_ylim(0,10) 
-    # ax.set_ylim(0.01,10)
-    ax.tick_params(axis='both', which='major', pad=10)
-    x1 = np.linspace(0,366,13)
-    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
-    ax.set_xticks(x1)
-    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
-    # if i == 2:
-    ax.set_xlabel('Months', labelpad=+10)
-    if i ==0:
-        ax.set_ylabel('$Q_{obs}$ [mm/d]')
-    # ax.set_title('S'+str(i+1))
-    ax.legend(loc='upper right', frameon=False)
-    ax.set_ylim(0,15)
-    # ax.set_yscale('log')
-    
-    # ax.set_ylabel(var + ' [mm/d]',labelpad=+10, color=couleurs[i], fontsize=15)
-    # ax.set_ylabel(var + ' [°C]',labelpad=+10, color=couleurs[i], fontsize=15)
-    # ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
-    # ax.grid(color='grey', lw=0.5, zorder=0)
-    
-    # ax.legend(loc='upper left')
-    plt.tight_layout()
-
-#%% POBS
-
-init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
-
-Pobs_list = ['1_gwl_n1_obs_NAs_removed.smp',
-             '1_gwl_n2_obs_NAs_removed.smp',
-             '1_gwl_n3_obs_NAs_removed.smp',
-             '1_gwl_n4_obs_NAs_removed.smp'
-             ]
-
-fig, axs = plt.subplots(3,1, figsize=(8,10), sharex=True)
-# fig, ax = plt.subplots(1,1, figsize=(6,4), sharex=True)
-axs = axs.ravel()
-
-couleurs = ['navy','darkviolet','skyblue','dodgerblue']
-areas = [9.4, 13.7, 14.1]
-
-for i, Pobs_name in enumerate(Pobs_list[:]):
-    dfP = pd.read_csv(init_path+Pobs_name, delim_whitespace=True, header=None)
-    
-    dfP['datetxt'] = dfP[1]+ ' ' + dfP[2].apply(str)
-    dfP['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfP['datetxt']]
-    zo = 1
-    if i == 1:
-        zo=-1
-    if i == 3:
-        zo=-2
-    
-    ax = axs[0]
-    ax.plot(dfP['datetime'], dfP[3], lw=1,
-            label='N'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
-    ax.legend(loc='lower left', frameon=False)
-    # ax.set_yscale('log')
-    # ax.set_ylim(0, 8)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
-    ax.set_ylabel('$WT_{obs}$ [m.a.s.l]')
-    # ax.grid()
-    if i==0:
-        ax.axhline(y=1502.5, c=couleurs[i], ls=':')
-    if i==1:
-        ax.axhline(y=1505.0, c=couleurs[i], ls=':')
-    if i==2:
-        ax.axhline(y=1472.5, c=couleurs[i], ls=':')
-    if i==3:
-        ax.axhline(y=1482.0, c=couleurs[i], ls=':')
-    
-    ax = axs[2]
-    if i==0:
-        y=1502.5
-    if i==1:
-        y=1505.0
-    if i==2:
-        y=1472.5
-    if i==3:
-        y=1482.0
-    ax.plot(dfP['datetime'], y-dfP[3], lw=1,
-            label='N'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
-    ax.legend(loc='lower left', frameon=False)
-    # ax.set_yscale('log')
-    # ax.set_ylim(0, 8)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
-    ax.set_ylabel('$WTdepth_{obs}$ [m.a.s.l]')
-    # ax.grid()
-    ax.set_ylim(0,7)
-    if i ==3:
-        ax.invert_yaxis()
-    
-    ax = axs[1]
-    yn = (dfP[3]-dfP[3].min())/(dfP[3].max()-dfP[3].min())
-    ax.plot(dfP['datetime'], yn, lw=1,
-            label='N'+str(i+1), color=couleurs[i], zorder=zo) # m3/day to m3/seconds
-    ax.legend(loc='lower left', frameon=False)
-    # ax.set_yscale('log')
-    # ax.set_ylim(0, 8)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    # ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
-    ax.set_ylabel('$WT_{obs}$* [m.a.s.l]')
-
-    # ax.grid()
-
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    ax.set_xlim(pd.to_datetime('2017'), pd.to_datetime('2019'))
-    ax.set_xlabel('Date')
 
 #%% ---- MODELING
 
