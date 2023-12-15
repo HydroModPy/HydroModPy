@@ -359,7 +359,7 @@ class Geographic:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
             self.dep_code = int(location.address.split(',')[-2][0:3])
-        # except OSError:
+        except OSError:
             # In some cases, a SSL certificate error can occur. The next two
             # lines modify the ssl_context
             ctx = ssl.create_default_context(cafile=certifi.where())
@@ -367,8 +367,8 @@ class Geographic:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
             self.dep_code = int(location.address.split(',')[-2][0:3])
-        # else:
-        except:
+        else:
+        # except:
             pass
         
     #%% XYZ FILE TO DEM
