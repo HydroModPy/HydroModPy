@@ -42,6 +42,7 @@ import pickle
 import random
 from matplotlib.ticker import ScalarFormatter
 from matplotlib.ticker import MaxNLocator
+import shutil
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -340,11 +341,15 @@ cell_size = None # specify new resolution from a given DEM or None
 from_shp = None
 
 watershed_names = ['Vallons_EUDTM30m',
-                   'Vare_EUDTM30m',
-                   'Nant_EUDTM30m']
+                    'Vare_EUDTM30m',
+                    'Nant_EUDTM30m']
 from_xyvs = [ [2572138.212,1122730.976,300,10,'EPSG:2056'],
               [2574842.267,1122488.817,150,10,'EPSG:2056'],
               [2574600.362,1122366.973,150,10,'EPSG:2056'] ]
+
+# watershed_names = ['Nant_EUDTM30m','Vare_EUDTM30m']
+# from_xyvs = [ [2574600.362,1122366.973,150,10,'EPSG:2056'],
+#               [2574842.267,1122488.817,150,10,'EPSG:2056'] ]
 
 #%% LOAD
 
@@ -499,18 +504,16 @@ for sim in simulations:
 mod = 'REA'
 sce = 'historic'
 
-for watershed_name in ['Vallons_EUDTM30m']:
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True)
-    
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-    surfex_data = stable_folder + 'climatic/'
-    
-    if not os.path.exists(stable_folder+'climatic/REA.H5'):
-        BV.add_safransurfex(clip_path)
+BV = watershed_root.Watershed(watershed_name='Vallons_EUDTM30m',
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+
+stable_folder = out_path+'/'+'Vallons_EUDTM30m'+'/'+'results_stable/'
+surfex_data = stable_folder + 'climatic/'
+
+if not os.path.exists(stable_folder+'climatic/REA.H5'):
+    BV.add_safransurfex(clip_path)
 
 dfd_both = pd.DataFrame()
 
@@ -2033,7 +2036,7 @@ for watershed_name in watershed_names[:]:
     
 #%% RELOAD
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:]:
 
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 
@@ -2057,7 +2060,7 @@ for watershed_name in watershed_names[1:]:
 
 #%% POSTPROCESSING
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:]:
 
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 
@@ -2108,7 +2111,7 @@ def select_period(df, first, last):
     
 
 
-for watershed_name in ['Nant_EUDTM30m','Vare_EUDTM30m'][:1]:
+for watershed_name in ['Nant_EUDTM30m','Vare_EUDTM30m'][:]:
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
@@ -2290,7 +2293,7 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-for w, watershed_name in enumerate(watershed_names[1:]):
+for w, watershed_name in enumerate(watershed_names[:]):
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
@@ -2393,7 +2396,7 @@ for w, watershed_name in enumerate(watershed_names[1:]):
 watershed_names = ['Nant_EUDTM30m',
                    'Vare_EUDTM30m']
         
-box = True # or False
+box = False # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
@@ -2414,24 +2417,18 @@ zone_partic = 'domain' # or watershed
 recharge = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018)
 runoff = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018)
 
-recharge = recharge.iloc[:7]
-runoff = runoff.iloc[:7]
+# recharge = recharge.iloc[:7]
+# runoff = runoff.iloc[:7]
 
-list_hyd_cond = np.geomspace(1e-3,1e-7,20) * 3600 * 24
-list_porosity = np.geomspace(0.1,10,20) / 100
-
-list_hyd_cond = list_hyd_cond[:1]
-list_porosity = list_porosity[:1]
-
-list_hyd_cond = np.array([1e-6]) * 3600 * 24
-list_porosity = np.array([1.0]) / 100
+# list_hyd_cond = np.array([1e-6]) * 3600 * 24
+# list_porosity = np.array([1.0]) / 100
 
 # iD_set_simulations = 'explorSy_test1'
 # iD_set_simulations = 'explorSy_pptaet1'
-# iD_set_simulations = 'EXPLO1'
-iD_set_simulations = 'TEST1'
+# iD_set_simulations = 'TEST2'
+iD_set_simulations = 'EXPLO1'
 
-#%% PROCESSING RUN
+#%% PRO AND POSTPROCESSING
 
 for watershed_name in watershed_names[:1]:
     
@@ -2463,7 +2460,17 @@ for watershed_name in watershed_names[:1]:
     BV.add_oceanic(sea_level)
     
     BV.settings.update_simulation_state(sim_state)
-
+    
+    if watershed_name == 'Nant_EUDTM30m':
+        list_hyd_cond = np.geomspace(1e-4,1e-7,10) * 3600 * 24
+        list_porosity = np.geomspace(0.1,10,10) / 100
+    if watershed_name == 'Vare_EUDTM30m':
+        list_hyd_cond = np.geomspace(1e-4,1e-7,10) * 3600 * 24
+        list_porosity = np.geomspace(0.1,10,10) / 100
+    
+    # list_hyd_cond = np.geomspace(1e-4,1e-7,10) * 3600 * 24
+    # list_porosity = np.geomspace(0.1,10,10) / 100
+    
     compt = 0
     
     for k, hyd_cond in enumerate(list_hyd_cond[:]):
@@ -2475,7 +2482,6 @@ for watershed_name in watershed_names[:1]:
             list_model_name = []
             list_success_modflow = []
             list_model_modflow = []
-            list_model_modpath = []
             
             now = datetime.now()
             oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
@@ -2484,30 +2490,96 @@ for watershed_name in watershed_names[:1]:
             BV.settings.update_model_name(model_name)
             print(model_name)
             
-            list_model_name.append(model_name)
-
             model_modflow = BV.preprocessing_modflow(for_calib=True)
-            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
             
-            list_success_modflow.append(success_modflow)
-            list_model_modflow.append(model_modflow)
+            try:
+            
+                success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
                 
-            dictio = {}
-            dictio['list_model_name'] = list_model_name
-            dictio['list_success_modflow'] = list_success_modflow
-            dictio['list_model_modflow'] = list_model_modflow
-            h5file = calibration_folder+'/'+'results_listing_'+model_name
-            dd.io.save(h5file, dictio)
-            
-            compt += 1
+                list_model_name.append(model_name)
+                list_success_modflow.append(success_modflow)
+                list_model_modflow.append(model_modflow)
+                    
+                dictio = {}
+                dictio['list_model_name'] = list_model_name
+                dictio['list_success_modflow'] = list_success_modflow
+                dictio['list_model_modflow'] = list_model_modflow
+                h5file = calibration_folder+'/'+'results_listing_'+model_name
+                dd.io.save(h5file, dictio)
+                
+                compt += 1
+                
+                if success_modflow == True:
+                    BV.postprocessing_modflow(model_modflow,
+                                              watertable_elevation = True,
+                                              watertable_depth = True, 
+                                              seepage_areas = True,
+                                              outflow_drain = True,
+                                              groundwater_flux = True,
+                                              groundwater_storage = True,
+                                              accumulation_flux = True,
+                                              persistency_index = True,
+                                              intermittency_monthly = False,
+                                              intermittency_daily = True,
+                                              export_all_tif = False)
+        
+                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                                  model_modpath=True,
+                                                                  actual_date=True, 
+                                                                  subbasin_results=True,
+                                                                  freq_time='D')
+                
+                #### DELETE POSTPROCESSING FILES ####
+                            
+                dir_modflow = calibration_folder + '/' + model_name
+                dir_postprocess = dir_modflow + '/' + '_postprocess'
+                dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+                dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+                dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+                
+                files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+                files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+                files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+                
+                if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+                    try:
+                        for file in files_rast_acc[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+                    try:
+                        for file in files_rast_out[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
+                    try:
+                        for file in files_rast_int[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                        
+                if os.path.exists(dir_temporary):
+                    shutil.rmtree(dir_temporary)
+                
+                if os.path.exists(dir_figures):
+                    shutil.rmtree(dir_figures) 
+                
+                files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
+                try:
+                    for file in files_npy:
+                        os.remove(file)
+                except:
+                    pass
+                
+            except:
+                pass
 
-#%% POSTPROCESSING
-    
+#%% DELETE MODFLOW FILES
+
 for watershed_name in watershed_names[:1]:
 
-    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
-    BV.add_settings()
-    
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
     calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
@@ -2523,32 +2595,23 @@ for watershed_name in watershed_names[:1]:
         list_model_modflow = d['list_model_modflow'][:]
         
         for model_name, success_modflow, model_modflow in zip(list_model_name[:],
-                                                                             list_success_modflow[:],
-                                                                             list_model_modflow[:]):
-            if success_modflow == True:
-                BV.postprocessing_modflow(model_modflow,
-                                          watertable_elevation = True,
-                                          watertable_depth = True, 
-                                          seepage_areas = True,
-                                          outflow_drain = True,
-                                          groundwater_flux = True,
-                                          groundwater_storage = True,
-                                          accumulation_flux = True,
-                                          persistency_index = True,
-                                          intermittency_monthly = False,
-                                          intermittency_daily = True,
-                                          export_all_tif = False)
-    
-            timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                              model_modpath=True,
-                                                              actual_date=True, 
-                                                              subbasin_results=True,
-                                                              freq_time='D')
-            
-            #### DELETE FILES AND FOLDER ####
-            
-            # model_name_path = calibration_folder + '/' + model_name
-        
+                                                              list_success_modflow[:],
+                                                              list_model_modflow[:]):
+
+            dir_modflow = calibration_folder + '/' + model_name
+            for file in glob.glob(dir_modflow+'/'+'*'):
+                if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
+                    # print(file)
+                    f = file
+                    if os.path.exists(f):
+                        try:
+                            os.rename(f, f)
+                            print('Access on file "' + f +'" is available!')
+                        except OSError as e:
+                            print('Access-error on file "' + f + '"! \n' + str(e))
+                    os.remove(file)
+                    # shutil.rmtree(file)
+
 #%% ---- RESULTS EXPLORATION
 
 #%% STREAMFLOW
