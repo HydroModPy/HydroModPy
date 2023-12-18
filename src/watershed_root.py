@@ -664,7 +664,7 @@ class Watershed:
                                       export_all_tif=export_all_tif)
 
     #%% MODPATH MODEL        
-    def preprocessing_modpath(self, model_modflow:object):
+    def preprocessing_modpath(self, model_modflow:object, for_calib:bool=False):
         """
         Public method to set the partickle tracking.
 
@@ -678,10 +678,18 @@ class Watershed:
         model_modpath : object
             Modpath object.
         """
+        
+        if for_calib == False:
+            model_folder = self.simulations_folder
+        else:
+            self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
+            toolbox.create_folder(self.calibration_folder)
+            model_folder = self.calibration_folder
+        
         model_modpath = modpath.Modpath(self.geographic,
                                         model_modflow,
                                         # Frame settings
-                                        model_folder=self.simulations_folder,
+                                        model_folder=model_folder,
                                         model_name=self.settings.model_name,
                                         bin_path = self.bin_path,
                                         # Specific settings  

@@ -112,8 +112,17 @@ class Modpath:
         laytype = lpf.laytyp.array
         iboundData = bas.ibound.array
         
-        self.mp = flopy.modpath.Modpath6(modelname=self.mf.name,model_ws=self.full_path, simfile_ext='mpsim', namefile_ext='mpnam', version='modpath',
-                               exe_name=self.exe, modflowmodel=self.mf, head_file=head_file, dis_file=dis_file, dis_unit=87, budget_file=bud_file)
+        self.mp = flopy.modpath.Modpath6(modelname=self.mf.name,
+                                         model_ws=self.full_path,
+                                         simfile_ext='mpsim',
+                                         namefile_ext='mpnam',
+                                         version='modpath',
+                                         exe_name=self.exe,
+                                         modflowmodel=self.mf,
+                                         head_file=head_file,
+                                         dis_file=dis_file,
+                                         dis_unit=87,
+                                         budget_file=bud_file)
         self.mp.array_free_format = True
         cbb = fpu.CellBudgetFile(bud_file)
         # cbb.list_records()
@@ -145,7 +154,7 @@ class Modpath:
         self.mp.budget_file = bud_file
 
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=[2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 1, 1],
-                                   group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=szone)
+                                  group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=szone)
         
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
         prow = 1
@@ -154,10 +163,10 @@ class Modpath:
         # To apply particules only on the pixels of the catchment, buff box
         if self.zone_partic == 'watershed':
             mask_dem = self.geographic.dem_clip
-            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem != -9999)*pcol*prow)
+            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem != self.geographic.nodata)*pcol*prow)
         if self.zone_partic == 'domain':
             mask_dem = self.geographic.dem_clip
-            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem >= -9999)*pcol*prow)
+            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem >= self.geographic.nodata)*pcol*prow)
 
         hds_1c = fpu.HeadFile(head_file)
         head_1c = hds_1c.get_alldata(mflay=None)
@@ -174,7 +183,7 @@ class Modpath:
         for i in range(0, nrow):
             for j in range(0, ncol):
                 if self.zone_partic == 'watershed':
-                    if self.geographic.dem_clip[i,j] != -9999.: # active or note
+                    if self.geographic.dem_clip[i,j] != self.geographic.nodata: # active or note
                         if head_1c[0][0][i][j] != 0.48:
                             for ii in range (0, prow):
                                 for jj in range (0, pcol):
@@ -190,7 +199,7 @@ class Modpath:
                                     stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
                                     compt = compt + 1
                 if self.zone_partic == 'domain':
-                    if self.geographic.dem_clip[i,j] >= -9999.: # active or note
+                    if self.geographic.dem_clip[i,j] >= self.geographic.nodata: # active or note
                         if head_1c[0][0][i][j] != 0.48:
                             for ii in range (0, prow):
                                 for jj in range (0, pcol):

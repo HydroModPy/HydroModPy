@@ -200,7 +200,7 @@ class Timeseries:
         ### watertable_elevation
         # try:
         for key in self.watertable_elevation:
-            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', -99999)
+            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', self.geographic.nodata)
             self.mfdata.loc[key,'watertable_elevation'] = calc
         # except:
         #     pass
@@ -208,7 +208,7 @@ class Timeseries:
         ### watertable_depth
         try:
             for key in self.watertable_depth:
-                calc = calc_mean(key, 'watertable_depth', self.watertable_depth, dem_clip, '==', -99999)
+                calc = calc_mean(key, 'watertable_depth', self.watertable_depth, dem_clip, '==', self.geographic.nodata)
                 self.mfdata.loc[key,'watertable_depth'] = calc
         except:
             pass
@@ -216,7 +216,7 @@ class Timeseries:
         ### seepage_areas
         try:
             for key in self.seepage_areas:
-                calc = calc_percent(key, 'seepage_areas', self.seepage_areas, dem_clip, '==', -99999)
+                calc = calc_percent(key, 'seepage_areas', self.seepage_areas, dem_clip, '==', self.geographic.nodata)
                 self.mfdata.loc[key,'seepage_areas'] = calc
         except:
             pass    
@@ -224,7 +224,7 @@ class Timeseries:
         ### outflow_drain
         try:
             for key in self.outflow_drain:
-                calc = calc_sumnorm(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', -99999, self.resolution)
+                calc = calc_sumnorm(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', self.geographic.nodata, self.resolution)
                 self.mfdata.loc[key,'outflow_drain'] = calc
         except:
             pass
@@ -232,7 +232,7 @@ class Timeseries:
         ### groundwater_flux
         try:
             for key in self.groundwater_flux:
-                calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', -99999)  
+                calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', self.geographic.nodata)  
                 self.mfdata.loc[key,'groundwater_flux'] = calc
         except:
             pass
@@ -240,7 +240,7 @@ class Timeseries:
         ### groundwater_storage
         try:
             for key in self.groundwater_storage:
-                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', -99999, self.resolution)
+                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
                 self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
@@ -248,7 +248,7 @@ class Timeseries:
         ### accumulation_flux
         try:
             for key in self.accumulation_flux:
-                calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
+                calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', self.geographic.nodata)  
                 self.mfdata.loc[key,'accumulation_flux'] = calc
         except:
             pass
@@ -338,6 +338,10 @@ class Timeseries:
                     self.residence_times = self.residence_times.clip(shp_frame)
                 except:
                     pass
+                # filtered = self.residence_times[self.residence_times['k']<=1]
+                # filtered = filtered[filtered.i0.astype(str)+'-'+filtered.j0.astype(str)!=
+                #                     filtered.i.astype(str)+'-'+filtered.j.astype(str)]
+                # calc = np.nanmean(filtered['time'])
                 calc = np.nanmean(self.residence_times['time'])
                 self.mfdata.loc[key,'residence_times'] = calc
         except:
