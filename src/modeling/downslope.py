@@ -46,7 +46,11 @@ class Downslope:
             self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill # geographic.watershed_buff_fill
         except:
             pass
-
+        
+        #### CHANGE HARD DISK ####
+        # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)
+        # self.watershed_buff_fill_surflow = self.watershed_buff_fill_surflow.replace('G','I',1)
+        
         self.shp_folder = os.path.join(self.extraction_folder, '_temporary')
         toolbox.create_folder(self.shp_folder)
         

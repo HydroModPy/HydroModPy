@@ -26,6 +26,7 @@ import geopy.geocoders
 import ssl
 import certifi
 import shutil
+import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -313,8 +314,15 @@ class Geographic:
         self.geodata = dem.GetGeoTransform()
         dem_box = gdal.Open(self.watershed_box_buff_dem)
         self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
+        """
+        ### DELETE GDAL ###
         bv = gdal.Open(self.watershed_dem)
         self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
+        """
+        with rasterio.open(self.watershed_dem, "r+") as src:
+            # Read the data into a numpy array
+            self.dem_clip = src.read(1)
+            self.nodata = src.nodata
         # Open DEM depressions
         try:
             dem_dep = gdal.Open(self.depressions)
@@ -358,7 +366,10 @@ class Geographic:
         try:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-            self.dep_code = int(location.address.split(',')[-2][0:3])
+            try:
+                self.dep_code = int(location.address.split(',')[-2][0:3])
+            except:
+                pass
         except OSError:
             # In some cases, a SSL certificate error can occur. The next two
             # lines modify the ssl_context

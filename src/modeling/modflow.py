@@ -47,7 +47,7 @@ class Modflow:
     To build, run the hydrologic model and manage/format simulation outputs.
     """
     
-    def __init__(self,geographic: object,
+    def __init__(self, geographic: object,
                  # Worflow settings
                  model_folder: str = 'HydroModPy_outputs',  model_name: str = 'Default', 
                  bin_path: str = 'bin', box: bool = True, sink_fill: bool = False, sim_state: str = 'steady', 
@@ -236,8 +236,8 @@ class Modflow:
             self.nstp = [1]             # Steps in a given period (not used here)
             self.steady = True          # Steady state
             self.start_datetime = None
-        if self.sim_state == 'transient':
             
+        if self.sim_state == 'transient':
             # Transient state
             if isinstance(self.climatic,(dict))==True:
                 self.start_datetime = 0 
