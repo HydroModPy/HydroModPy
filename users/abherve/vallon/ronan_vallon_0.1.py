@@ -2430,7 +2430,7 @@ iD_set_simulations = 'EXPLO1'
 
 #%% PRO AND POSTPROCESSING
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[1:]:
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
@@ -2578,7 +2578,7 @@ for watershed_name in watershed_names[:1]:
 
 #%% DELETE MODFLOW FILES
 
-for watershed_name in watershed_names[:1]:
+for watershed_name in watershed_names[1:]:
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
@@ -2586,7 +2586,7 @@ for watershed_name in watershed_names[:1]:
 
     h5files = glob.glob(calibration_folder+'/'+'results_listing_'+iD_set_simulations+'*')
     
-    for h5 in h5files[:1]:
+    for h5 in h5files[:]:
     
         d = dd.io.load(h5)
         
@@ -2643,12 +2643,12 @@ wbt.polygons_to_lines(
 )
 """
 
-ax.xaxis.set(
-    minor_locator=mdates.WeekdayLocator(),               # make minor ticks on each Tuesday
-    minor_formatter=mdates.DateFormatter('%d\n%a'),      # format minor ticks
-    major_locator=mdates.MonthLocator(),                 # make major ticks on first day of each month
-    major_formatter=mdates.DateFormatter('\n\n\n%b\n%Y') # format major ticks
-);
+# ax.xaxis.set(
+#     minor_locator=mdates.WeekdayLocator(),               # make minor ticks on each Tuesday
+#     minor_formatter=mdates.DateFormatter('%d\n%a'),      # format minor ticks
+#     major_locator=mdates.MonthLocator(),                 # make major ticks on first day of each month
+#     major_formatter=mdates.DateFormatter('\n\n\n%b\n%Y') # format major ticks
+# );
 
 ### Resampling
 """
@@ -2681,3 +2681,21 @@ with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
     # ax.ticklabel_format(useOffset=False)
     # ax.ticklabel_format(useOffset=False, style='plain')
     # ax.ticklabel_format(style='plain', axis='y')
+
+#%% HUGO
+
+# df = pd.DataFrame({'x': [x_outlet], 'y': [y_outlet]})
+# gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=crs_proj)
+# outlet_shp = os.path.join(self.gis_path, 'outlet.shp')
+# gdf.to_file(outlet_shp)
+
+# wbt.vector_points_to_raster(
+#     i, 
+#     output, 
+#     field="FID", 
+#     assign="last", 
+#     nodata=True, 
+#     cell_size=None, 
+#     base=None, 
+#     callback=default_callback
+# )
