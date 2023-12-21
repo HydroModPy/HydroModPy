@@ -764,7 +764,7 @@ class Watershed:
                                   subbasin_results:bool=True,
                                   freq_time:str='D'):
         """
-        Public method to postprocesing the timeseries of the watershed.
+        Public method to postprocess the watershed timeseries.
 
         Parameters
         ----------

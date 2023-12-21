@@ -96,16 +96,16 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = 'D:/SIMULATIONS/'
-out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
+# out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-dem_path = data_path + "regional_dem.tif"
+dem_path = data_path + "MNT_gouville_25m.tif"
 oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
 shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'calib_zones.shp')
@@ -267,10 +267,10 @@ cond_drain = None # or value of conductance
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Lateral heterogeneity of hydrodynamic parameters
-hyd_cond_1 = 18 # m/day
-hyd_cond_2 = 50 # m/day
+hyd_cond_1 = 21.5 # m/day
+hyd_cond_2 = 19.5 # m/day
 porosity_1 = 7 / 100 # -
-porosity_2 = 18 / 100 # -
+porosity_2 = 24 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -325,16 +325,29 @@ if success_modflow == True:
                               outflow_drain = True,
                               groundwater_flux = True,
                               groundwater_storage = True,
-                              accumulation_flux = True,
-                              persistency_index=True,
+                              accumulation_flux = False,
+                              persistency_index=False,
                               intermittency_monthly=False,
-                              intermittency_daily=True,
+                              intermittency_daily=False,
                               export_all_tif = False)
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=None,
                                                       actual_date=True, 
-                                                      subbasin_results=True,
+                                                      subbasin_results=False,
                                                       freq_time=freq_time)
 
-#%% ---- NOTES
+#%% SIMULATED VS OBSERVED PIEZOMETRY
+
+watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
+                                            '_postprocess', 'watertable_elevation.npy'),
+                               allow_pickle=True).item()
+
+sim_piezo = []
+for t in range(len(watertable_elevation)):
+    sim_piezo.append(watertable_elevation[t][BV.piezometry.x_iloc, BV.piezometry.y_iloc][0])
+
+df_simobs_piezo = piezo_2016.copy()
+df_simobs_piezo.insert(1, "Sim", sim_piezo)
+
+plt.plot(df_simobs_piezo)
 
