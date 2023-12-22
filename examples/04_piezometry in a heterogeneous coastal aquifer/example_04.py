@@ -88,7 +88,7 @@ from src import watershed_root
 from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -100,6 +100,8 @@ out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = 'D:/SIMULATIONS/'
 # out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
+out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
+# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
 
 #%% ---- WATERSHED
 

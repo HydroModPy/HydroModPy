@@ -11,37 +11,81 @@ import numpy as np
 import os
 import sys as sys
 import time as time
+import pathlib
 
 
 
 # Gets or defines folder result
-def root_folder_results():
-    env_name = "HYDROMODPY_RESUTLS"
+def root_folder_results(user_folder_path = None):
+    """
+    Get the environment variable containing the result folder path, or define 
+    it. Note that in that second case, the environment variable will be updated
+    in the next conda session (if spyder is closed and opened again without
+    restarting the conda console, the effective environment variable will be
+    the old one).
+    
+    Parameters
+    ----------
+    folder_path : str, optional
+        This function can take a user-defined path as the function parameter. 
+        If None (default), the user is asked to define the path as text input.
+
+    Returns
+    -------
+    folder : str
+        Result folder path.
+
+    """
+    
+    env_name = "HYDROMODPY_RESULTS"
     
     # Gets environment variable 
     folder = os.getenv(env_name)
+    
+    if (folder != None) & (isinstance(user_folder_path, str)):
+        print(f"/!\ Result folder '{os.getenv(env_name)}' is already defined as an environment variable. Use update_root_folder_results() to modify it.")
         
     # If environment variable does not exist, define it 
     if folder == None :
-        folder = input("Enter the path of the results folder, use // as delimiter in windows and \ in linux\n")
+        if user_folder_path == None :
+            folder = pathlib.Path(input(r"Enter the path of the results folder: "))
+        elif isinstance(user_folder_path, str):
+            folder = pathlib.Path(user_folder_path)
+        folder = str(folder)
+            
         if os.name == 'nt': 
+            # folder = folder.replace('\\', '//')
             exp='setx ' + env_name + ' "' + folder + '"'
         else :
+            # folder = folder.replace('/', '\')
             exp='export ' + env_name + '="' + folder + '"'
         os.system(exp)
-        print("Environement variable set for folder resuts")
+        os.environ[env_name] = folder
+        print("\nEnvironement variable set for results folder")
         print(env_name, "=", folder)
-    
+        print("/!\ Make sure to have restarted the conda session before the next spyder launching")
+        
     # Creates folder if folder does not exist
     isExist = os.path.exists(folder)
     if not isExist:
         # Create a new directory because it does not exist
         os.makedirs(folder)
-        print("The folder has been created!")
+        print("\nThe folder has been created!")
     
     # Returns folder 
+    print('')
     return folder
 
+
+# Update folder result
+def update_root_folder_results(user_folder_path = None):
+    env_name = "HYDROMODPY_RESULTS"
+    os.environ.pop(env_name, None)
+    # folder = None
+    folder = root_folder_results(user_folder_path)
+    
+    return folder
+    
 
 # def name_dhms():
 #     now = datetime.now()
