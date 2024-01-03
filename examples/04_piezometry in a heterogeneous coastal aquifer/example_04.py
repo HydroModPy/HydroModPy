@@ -96,11 +96,12 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 # out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
 # out_path = 'D:/SIMULATIONS/'
 # out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
-out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
+out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
 
 #%% ---- WATERSHED
@@ -205,6 +206,8 @@ ax.set_xlabel('Date')
 ax.set_ylabel('Recharge [mm/d]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
+
+BV.climatic.update_recharge(rec/1000, sim_state='transient')
 
 #%% SEA LEVEL
 
@@ -351,5 +354,17 @@ for t in range(len(watertable_elevation)):
 df_simobs_piezo = piezo_2016.copy()
 df_simobs_piezo.insert(1, "Sim", sim_piezo)
 
-plt.plot(df_simobs_piezo)
+fig, ax = plt.subplots(1,1, figsize=(7,4), sharex=True)
+ax.plot(df_simobs_piezo.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo.Sim, label='Simulated', color='red', lw=2)
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.legend(loc='upper right', fontsize=8)
+ax.set_ylabel('Watertable elevation [m]')
+ax.set_xlabel('Date')
+ax.set_xlim(pd.to_datetime('2015-12'), pd.to_datetime('2017-02'))
+ax.set_ylim(0, 12)
 
+#%% ---- NOTES
