@@ -326,14 +326,15 @@ def plot(shapely_objects, figure_path='fig.png'):
 # out_path = 'G:/UNINE/SIMULATIONS/VALLON/'
 
 git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
-data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
+# data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
+data_path = 'C:/Users/ronan/Downloads/_init/'
 # out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
 out_path = 'D:/Users/abherve/SIMULATIONS/VALLON/'
 
 dems_path = data_path + '_gis/DEM/' # reginal DEM or conceptual DEM
 dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
 dem_path = dems_path + dem_name
-dem_data = imageio.imread(dem_path)
+# dem_data = imageio.imread(dem_path)
 
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = None # True or False if the process start from a given DEM of xyz file
@@ -439,7 +440,8 @@ work_dir = data_path + '_safransurfex/'
 raw_path = work_dir + 'france/'
 clip_path = work_dir + 'vallon/'
 mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93_2056.shp'
-site_path = data_path + '_gis/SIG/boxbuff_ref.shp'
+# site_path = data_path + '_gis/SIG/boxbuff_ref.shp'
+site_path = 'D:/Users/abherve/SIMULATIONS/VALLON/Vallons_EUDTM30m/results_stable/geographic/box_buff.shp'
 mesh = gpd.read_file(mesh_path)
 site = gpd.read_file(site_path)
 site_mesh = mesh.clip(site)
@@ -602,7 +604,8 @@ wy = sum_wy(dfm)
 
 ### HGS - CLIP / EXTRACT / DATA
 
-init_path = data_path + '_hgs/Additional Clement/Catchment_water_balance/'
+# init_path = data_path + '_hgs/Additional Clement/Catchment_water_balance/'
+init_path = data_path + 'Additional Clement/Catchment_water_balance/'
 
 hgs_wb = pd.read_csv(init_path + 'nant_v100fo.water_balance - Copie.dat', 
                        delim_whitespace=True, 
@@ -621,7 +624,8 @@ hgs_wb.index = hgs_wb['datetime']
 
 ### HGS - DATA MIX
 
-init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
+# init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
+init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/Q/'
 
 Qobs_list =['1_q_vdn_u_s1_obs_NAs_removed.smp',
             '1_q_weir_s2_obs_NAs_removed.smp',
@@ -639,6 +643,9 @@ for Sn, Qobs_name in zip(['S1','S2','S3'], Qobs_list[:]):
     data_index = dfQp[3]/(areas[i]*1e6)
     hgs_wb['Q_'+Sn+'_m/d'] = data_index
     i += 1
+
+# init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
+init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/GWls/'
 
 Pobs_list = ['1_gwl_n1_obs_NAs_removed.smp',
              '1_gwl_n2_obs_NAs_removed.smp',
@@ -2578,7 +2585,7 @@ for watershed_name in watershed_names[1:]:
 
 #%% DELETE MODFLOW FILES
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:]:
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
