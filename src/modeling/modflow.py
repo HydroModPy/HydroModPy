@@ -157,8 +157,11 @@ class Modflow:
             self.dem_path = geographic.watershed_buff_dem
         self.dem[self.dem<=-9999] = -9999
         self.dem[self.dem>=9999] = -9999
-        if self.sea_level == None:
-            self.dem[(self.dem<0)&(self.dem>-200)] = 0
+        try:
+            if self.sea_level == None:
+                self.dem[(self.dem<0)&(self.dem>-200)] = 0
+        except:
+            pass
         # Discretization: by default, the number of rows and columns is the DEM discretization
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]

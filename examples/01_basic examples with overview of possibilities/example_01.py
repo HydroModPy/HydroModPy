@@ -53,13 +53,10 @@ import src
 import importlib
 importlib.reload(src)
 
-# Import tools
-from src.tools import folder_root
-
 # Import HydroModPy modules
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -69,7 +66,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-out_path = folder_root.root_folder_results()
+# out_path = folder_root.root_folder_results()
+out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
+# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
 #out_path = 'D:/results'
 #out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
 #out_path = '/home/agauvain/Documents/HydroModPy/'
