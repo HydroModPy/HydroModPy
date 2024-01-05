@@ -330,6 +330,7 @@ git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
 data_path = 'C:/Users/ronan/Downloads/_init/'
 # out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
 out_path = 'D:/Users/abherve/SIMULATIONS/VALLON/'
+fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_fig_path/'
 
 dems_path = data_path + '_gis/DEM/' # reginal DEM or conceptual DEM
 dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
@@ -2437,7 +2438,7 @@ iD_set_simulations = 'EXPLO1'
 
 #%% PRO AND POSTPROCESSING
 
-for watershed_name in watershed_names[1:]:
+for watershed_name in watershed_names[:]:
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
@@ -2621,9 +2622,644 @@ for watershed_name in watershed_names[:]:
 
 #%% ---- RESULTS EXPLORATION
 
-#%% STREAMFLOW
+#%% STREAMFLOW - OBS
 
-#%% SATURATION
+CRIT = 'NSElog'
+
+init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/Q/'
+
+Qobs_list =[
+            '1_q_vdn_u_s1_obs_NAs_removed.smp',
+            # '1_q_vdn_u_s1_obs_NAs_removed_reduced.smp',
+            '1_q_weir_s2_obs_NAs_removed.smp',
+            # '1_q_weir_s2_obs_NAs_removed_reduced.smp',
+            '1_q_ric_s3_obs_NAs_removed.smp'
+            # '1_q_ric_s3_obs_NAs_removed_reduced.smp'
+            ]
+
+areas = [
+          9.4,
+          13.7,
+          14.1
+         ]
+
+df = pd.DataFrame()
+
+for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
+    
+    if w_name == 'S1':
+        watershed_name = 'Nant_EUDTM30m'
+    else:
+        watershed_name = w_name
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    
+    dfQ = pd.read_csv(init_path+Qobs_list[w], delim_whitespace=True, header=None)
+    dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
+    dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
+    data_index = dfQ[3]/(areas[w]*1e6)
+    data_index.index = dfQ['datetime']
+    data_index.index= data_index.index.map(lambda t: t.replace(hour=0, minute=0, second=0, microsecond=0))
+    Qobs = data_index.copy()
+
+    paths = glob.glob(calibration_folder+'/'+iD_set_simulations+'*')
+    h5files = sorted(paths,
+                     key=lambda item: float((item.split('\\')[-1].split('_')[1])), reverse=False)
+    
+    for i, h5file in enumerate(h5files):
+        model_name = h5file.split('\\')[-1]
+        # print(model_name)
+        
+        if w_name == 'S1':
+            Smod = pd.read_csv(h5file+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+        else:
+            Smod = pd.read_csv(h5file+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+        
+        Qmod = Smod['outflow_drain'] # m/day
+        r = BV.climatic.runoff
+        
+        mix = Qobs.copy().to_frame()
+        mix.columns = ['Qobs']
+        mix['Qsim'] = Qmod
+        mix = mix.dropna()
+        # if w_name == 'Vare_EUDTM30m':
+        #     mix = mix[mix.index<='2017-06']
+        
+        Qobs_stat = mix.Qobs
+        Qsim_stat = mix.Qsim
+        
+        import hydroeval as he
+        NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+        NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+        RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
+        KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+        # print(model_name.upper())
+        # print('NSE', round(NSE,2))
+        # print('NSElog', round(NSElog,2))
+        # print('RMSE', round(RMSE,2))
+        # print('KGE', round(KGE,2))
+        
+        df.loc[i,'model_name'] = model_name
+        
+        df.loc[i,'K'] = float(model_name.split('_')[3].split('-')[0])
+        df.loc[i,'Sy'] = float(model_name.split('_')[3].split('-')[1])
+        df.loc[i,'p1-p2'] = model_name.split('_')[3].split('-')[0]+'-'+model_name.split('_')[3].split('-')[1]
+        
+        df.loc[i,'NSE'] = float(NSE)
+        df.loc[i,'NSElog'] = float(NSElog)
+        df.loc[i,'RMSE'] = float(RMSE)
+        df.loc[i,'KGE'] = float(KGE)
+
+    p1 = df.K.unique()
+    p2 = df.Sy.unique()
+    ded = np.zeros((len(p1),len(p2)))
+    for i, iv in enumerate(p1):
+        for j, jv in enumerate(p2):
+            string = str(iv)+'-'+str(jv)
+            # print(string)
+            ded[j][i] = df[df['p1-p2']==string][CRIT]
+        
+    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
+    Z = ded.copy()
+    
+    # Z = 1-Z
+    # Z = abs(Z)
+    # print(np.nanmin(Z), np.nanmax(Z[Z != np.inf]))
+    from numpy import inf
+    # Z[Z<0] = 0
+    # Z[Z == np.inf] = np.nanmax(Z)
+    # Z[np.isneginf(Z)] = np.nanmax(Z)
+    # Z[~np.isfinite(Z)] = np.nanmax(Z[Z != np.inf])
+    # bounds = np.arange(0,1.1,0.1)
+    # norm = mpl.colors.Normalize(vmin=0, vmax=1.0)
+    # cmap = 'jet'
+    cmap = 'RdYlGn'
+    # pc = ax.pcolormesh(X/3600/24,Y*100,Z, cmap='RdYlGn', shading='gouraud',
+                        # vmin=0, vmax=1
+    #                    ) #figadd.cmap_white_jet()
+    if w_name == 'Vare_EUDTM30m':
+        pc = ax.contourf(X/3600/24, Y*100, Z,
+                            # levels=np.arange(0,1.05,0.05), 
+                            # levels=np.arange(0,1.05,0.05), 
+                            # vmin=0, vmax=1,
+                          alpha=0.5, ec='none', cmap=cmap, 
+                           # extend='max'
+                          )
+    else:
+        pc = ax.contourf(X/3600/24, Y*100, Z,
+                            # levels=np.arange(0,1.05,0.05), 
+                            levels=np.arange(0,1.05,0.05), 
+                            # vmin=0, vmax=1,
+                          alpha=0.5, ec='none', cmap=cmap, 
+                            extend='max'
+                          )
+    position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+    cb = fig.colorbar(pc, cax=position, orientation='vertical')
+    if w_name != 'Vare_EUDTM30m':
+        cb.set_ticks(np.arange(0,1.05,0.2))
+    # cb.set_label('$NSE_{log}$ [-]', rotation=270, labelpad=40)
+    cb.set_label(CRIT, rotation=270, labelpad=40)
+    cb.ax.tick_params(top=True,
+                bottom=True,
+                left=False,
+                right=False,
+                labelleft=False,
+                labelbottom=True)
+    
+    from matplotlib.ticker import FormatStrFormatter
+    cb.ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylabel('θ [%]')
+    ax.set_xlabel('K [m/s]')
+    ax.tick_params(top=True,
+               bottom=True,
+               left=True,
+               right=False,
+               labelleft=True,
+               labelbottom=True)
+    
+    ax.set_title(w_name.split('_')[0], fontsize=8)
+    
+    plt.tight_layout()
+    
+    fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+CRIT+'.png', dpi=300, bbox_inches='tight')
+
+# STREAMFLOW - PARETO FRONT
+
+    fig, axs = plt.subplots(1,2, figsize=(7.5,3.5))
+    axs = axs.ravel()
+    ax = axs[0]
+    norm_x = abs(1-df.NSElog) / (abs(1-df.NSElog).max() - abs(1-df.NSElog).min())
+    norm_y = abs(df.RMSE) / (abs(df.RMSE).max() - abs(df.RMSE).min())
+    df['NSElog-RMSE'] = (abs(1-df.NSElog) / (abs(1-df.NSElog).max() - abs(1-df.NSElog).min())) + (abs(df.RMSE) / (abs(df.RMSE).max() - abs(df.RMSE).min()))
+    ax.scatter(norm_x, norm_y, lw=0, c=norm_x+norm_y, cmap='RdYlGn_r')
+    ax.set_xlabel('NSElog')
+    ax.set_ylabel('RMSE')
+    ax = axs[1]
+    norm_x = abs(1-df.NSE) / (abs(1-df.NSE).max() - abs(1-df.NSE).min())
+    norm_y = abs(1-df.KGE) / (abs(1-df.KGE).max() - abs(1-df.KGE).min())
+    df['NSE-KGE'] = (abs(1-df.NSE) / (abs(1-df.NSE).max() - abs(1-df.NSE).min())) + (abs(1-df.KGE) / (abs(1-df.KGE).max() - abs(1-df.KGE).min()))
+    ax.scatter(norm_x, norm_y, lw=0, c=norm_x+norm_y, cmap='RdYlGn_r')
+    ax.set_xlabel('NSE')
+    ax.set_ylabel('KGE')
+    # ax.set_xlim(0,5)
+    # ax.set_ylim(0,5)
+    fig.suptitle(w_name.split('_')[0], fontsize=8)
+    plt.tight_layout()
+    
+    fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+'PARETO'+'.png', dpi=300, bbox_inches='tight')
+    
+# STREAMFLOW - BEST MODELS
+    
+    df1 = df[df['NSElog-RMSE']==df['NSElog-RMSE'].min()]
+    model_name1 = df1.model_name.values[0]
+    df2 = df[df['NSE-KGE']==df['NSE-KGE'].min()]
+    model_name2 = df2.model_name.values[0]
+    # if w_name == 'Vare_EUDTM30m':
+    #     df3 = df[df['K']==8.64]
+    #     df3 = df3[df3['NSElog']==df3['NSElog'].max()]
+    # else:
+    df3 = df[df['NSElog']==df['NSElog'].max()]
+    model_name3 = df3.model_name.values[0]
+    print(w_name, model_name1, model_name2, model_name3)
+    
+    if w_name == 'S1':
+        Smod1 = pd.read_csv(calibration_folder+model_name1+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod2 = pd.read_csv(calibration_folder+model_name2+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod3 = pd.read_csv(calibration_folder+model_name3+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+    else:
+        Smod1 = pd.read_csv(calibration_folder+model_name1+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod2 = pd.read_csv(calibration_folder+model_name2+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod3 = pd.read_csv(calibration_folder+model_name3+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+    
+    Qmod1 = Smod1['outflow_drain'] # m/day
+    Qmod2 = Smod2['outflow_drain'] # m/day
+    Qmod3 = Smod3['outflow_drain'] # m/day
+    # r = BV.climatic.runoff
+    Rmod = Smod1['recharge']*1000 # m/day
+    
+    mix = Qobs.copy().to_frame()
+    mix.columns = ['Qobs']
+    mix['Qmod1'] = Qmod1
+    mix['Qmod2'] = Qmod2
+    mix['Qmod3'] = Qmod3
+    mix = mix.dropna()
+    mix = mix * 1000
+            
+    fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                                 figsize=(10,3))
+    
+    yearsmaj = mdates.YearLocator(1)   # every year
+    yearsmin = mdates.YearLocator(1)
+    # monthsmaj = mdates.MonthLocator(6)  # every month
+    # monthsmin = mdates.MonthLocator(3)
+    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+    years_fmt = mdates.DateFormatter('%Y')
+
+    ax = a0
+    ax.plot(mix.Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
+    m1 = '{:.2e}'.format(float(model_name1.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name1.split('_')[-1].split('-')[1])*100),2))
+    m2 = '{:.2e}'.format(float(model_name2.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name2.split('_')[-1].split('-')[1])*100),2))
+    m3 = '{:.2e}'.format(float(model_name3.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name3.split('_')[-1].split('-')[1])*100),2))
+    ax.plot(mix.Qmod1, color='red', lw=1, ls='-', zorder=0, label='NSElog, RMSE'+' : '+m1)
+    ax.plot(mix.Qmod2, color='darkorange', lw=1, label='NSE, KGE'+' : '+m2)
+    ax.plot(mix.Qmod3, color='dodgerblue', lw=1, label='NSElog'+' : '+m3)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Q [mm/d]')
+    ax.set_yscale('log')
+    ax.set_ylim(0.1,100)
+    years_maj = mdates.YearLocator()   # every year
+    months_maj = mdates.MonthLocator()  # every x month
+    ax.xaxis.set_major_locator(years_maj)
+    ax.xaxis.set_minor_locator(months_maj)
+    ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.legend(loc='lower left', fontsize=5)
+    # ax.set_title(model_name.upper(), fontsize=10)
+    ax.set_title(w_name.upper(), fontsize=10)
+    
+    axb = ax.twinx()
+    axb.bar(Rmod.index, Rmod,color='grey', edgecolor='grey', width=1, lw=0)
+    axb.set_ylim(0,100)
+    axb.invert_yaxis()
+    axb.set_yticklabels([0,25])
+
+    ax = a1
+    ax.scatter(mix.Qobs, mix.Qmod1,
+               s=10, edgecolor='none', alpha=0.75, facecolor='red')
+    ax.scatter(mix.Qobs, mix.Qmod2,
+               s=10, edgecolor='none', alpha=0.75, facecolor='darkorange')
+    ax.scatter(mix.Qobs, mix.Qmod3,
+               s=10, edgecolor='none', alpha=0.75, facecolor='dodgerblue')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.legend(loc='lower right', frameon=False, labelcolor='dodgerblue')
+    # ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
+    # ax.set_xlim(1,500)
+    # ax.set_ylim(1,500)
+    
+    ax.plot((0.0001,1000),(0.0001,1000), c='k', ls='--')
+    
+    ax.set_xlim(0.1,100)
+    ax.set_ylim(0.1,100)
+ 
+    ax.set_xlabel('$Q_{obs}$ [mm/d]',
+                  # fontsize=12
+                  )
+    ax.set_ylabel('$Q_{sim}$ [mm/d]',
+                  # fontsize=12
+                  )
+    
+    ax.patch.set_visible(True)
+    # ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='red')
+
+    # move ax in front
+    ax.set_zorder(axb.get_zorder() + 1)
+    
+    fig.tight_layout()
+    
+    fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
+
+#%% STREAMFLOW - HGS
+
+CRIT = 'NSElog'
+
+init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Simulated_time_series/full_model/Qs/'
+
+Qobs_list =[
+            'nant_v100fo.hydrograph.S1_Avancon_Nant_Upper.dat',
+            'nant_v100fo.hydrograph.S2_Avancon_Nant_Weir.dat',
+            'nant_v100fo.hydrograph.S3_Le_Richard.dat'
+            ]
+
+areas = [
+          9.4,
+          13.7,
+          14.1
+         ]
+
+df = pd.DataFrame()
+
+for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
+    
+    if w_name == 'S1':
+        watershed_name = 'Nant_EUDTM30m'
+    else:
+        watershed_name = w_name
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    
+    # dfQ = pd.read_csv(init_path+Qobs_list[w], delim_whitespace=True, header=None)
+    # dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
+    # dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
+    # data_index = dfQ[3]/(areas[w]*1e6)
+    # data_index.index = dfQ['datetime']
+    # data_index.index= data_index.index.map(lambda t: t.replace(hour=0, minute=0, second=0, microsecond=0))
+    # Qobs = data_index.copy()
+    
+    dfQsim = pd.read_csv(init_path+Qobs_list[w],delim_whitespace=True, header=2)
+    dfQsim = dfQsim.reset_index()
+    dfQsim.columns = ["Time","Surface","Porous media","Total"]
+    dfQsim.iloc[0]['Time'] = 0
+    dfQsim = dfQsim[dfQsim['Time'].mul(1e10).mod(1e10).astype(int).isin([0])]
+    dfQsim['Time_y'] = dfQsim['Time'] / 365
+    dfQsim['datetime'] = pd.date_range(start='10/01/2014', end='09/30/2018', freq='D')
+    dfQsim.index = dfQsim['datetime']
+    Qobs = dfQsim['Total'] / (areas[w]*1e6) # m3/day to mm/day
+
+    paths = glob.glob(calibration_folder+'/'+iD_set_simulations+'*')
+    h5files = sorted(paths,
+                     key=lambda item: float((item.split('\\')[-1].split('_')[1])), reverse=False)
+    
+    for i, h5file in enumerate(h5files):
+        model_name = h5file.split('\\')[-1]
+        # print(model_name)
+        
+        if w_name == 'S1':
+            Smod = pd.read_csv(h5file+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+        else:
+            Smod = pd.read_csv(h5file+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+        
+        Qmod = Smod['outflow_drain'] # m/day
+        r = BV.climatic.runoff
+        
+        mix = Qobs.copy().to_frame()
+        mix.columns = ['Qobs']
+        mix['Qsim'] = Qmod
+        mix = mix.dropna()
+        # if w_name == 'Vare_EUDTM30m':
+        #     mix = mix[mix.index<='2017-06']
+        
+        Qobs_stat = mix.Qobs
+        Qsim_stat = mix.Qsim
+        
+        import hydroeval as he
+        NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+        NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+        RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
+        KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+        # print(model_name.upper())
+        # print('NSE', round(NSE,2))
+        # print('NSElog', round(NSElog,2))
+        # print('RMSE', round(RMSE,2))
+        # print('KGE', round(KGE,2))
+        
+        df.loc[i,'model_name'] = model_name
+        
+        df.loc[i,'K'] = float(model_name.split('_')[3].split('-')[0])
+        df.loc[i,'Sy'] = float(model_name.split('_')[3].split('-')[1])
+        df.loc[i,'p1-p2'] = model_name.split('_')[3].split('-')[0]+'-'+model_name.split('_')[3].split('-')[1]
+        
+        df.loc[i,'NSE'] = float(NSE)
+        df.loc[i,'NSElog'] = float(NSElog)
+        df.loc[i,'RMSE'] = float(RMSE)
+        df.loc[i,'KGE'] = float(KGE)
+
+    p1 = df.K.unique()
+    p2 = df.Sy.unique()
+    ded = np.zeros((len(p1),len(p2)))
+    for i, iv in enumerate(p1):
+        for j, jv in enumerate(p2):
+            string = str(iv)+'-'+str(jv)
+            # print(string)
+            ded[j][i] = df[df['p1-p2']==string][CRIT]
+        
+    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
+    Z = ded.copy()
+    
+    # Z = 1-Z
+    # Z = abs(Z)
+    # print(np.nanmin(Z), np.nanmax(Z[Z != np.inf]))
+    from numpy import inf
+    # Z[Z<0] = 0
+    # Z[Z == np.inf] = np.nanmax(Z)
+    # Z[np.isneginf(Z)] = np.nanmax(Z)
+    # Z[~np.isfinite(Z)] = np.nanmax(Z[Z != np.inf])
+    # bounds = np.arange(0,1.1,0.1)
+    # norm = mpl.colors.Normalize(vmin=0, vmax=1.0)
+    # cmap = 'jet'
+    cmap = 'RdYlGn'
+    # pc = ax.pcolormesh(X/3600/24,Y*100,Z, cmap='RdYlGn', shading='gouraud',
+                        # vmin=0, vmax=1
+    #                    ) #figadd.cmap_white_jet()
+    if w_name == 'Vare_EUDTM30m':
+        pc = ax.contourf(X/3600/24, Y*100, Z,
+                            # levels=np.arange(0,1.05,0.05), 
+                            # levels=np.arange(0,1.05,0.05), 
+                            # vmin=0, vmax=1,
+                          alpha=0.5, ec='none', cmap=cmap, 
+                           # extend='max'
+                          )
+    else:
+        pc = ax.contourf(X/3600/24, Y*100, Z,
+                            # levels=np.arange(0,1.05,0.05), 
+                            levels=np.arange(0,1.05,0.05), 
+                            # vmin=0, vmax=1,
+                          alpha=0.5, ec='none', cmap=cmap, 
+                           extend='max'
+                          )
+        
+    position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+    cb = fig.colorbar(pc, cax=position, orientation='vertical')
+    if w_name != 'Vare_EUDTM30m':
+        cb.set_ticks(np.arange(0,1.05,0.2))
+    # cb.set_label('$NSE_{log}$ [-]', rotation=270, labelpad=40)
+    cb.set_label(CRIT, rotation=270, labelpad=40)
+    cb.ax.tick_params(top=True,
+                bottom=True,
+                left=False,
+                right=False,
+                labelleft=False,
+                labelbottom=True)
+    from matplotlib.ticker import FormatStrFormatter
+    cb.ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylabel('θ [%]')
+    ax.set_xlabel('K [m/s]')
+    ax.tick_params(top=True,
+               bottom=True,
+               left=True,
+               right=False,
+               labelleft=True,
+               labelbottom=True)
+    
+    ax.set_title(w_name.split('_')[0], fontsize=8)
+    
+    plt.tight_layout()
+    
+    fig.savefig(fig_path+'HGSmatrix2d'+'_'+w_name+'_'+CRIT+'.png', dpi=300, bbox_inches='tight')
+
+# STREAMFLOW - PARETO FRONT
+
+    fig, axs = plt.subplots(1,2, figsize=(7.5,3.5))
+    axs = axs.ravel()
+    ax = axs[0]
+    norm_x = abs(1-df.NSElog) / (abs(1-df.NSElog).max() - abs(1-df.NSElog).min())
+    norm_y = abs(df.RMSE) / (abs(df.RMSE).max() - abs(df.RMSE).min())
+    df['NSElog-RMSE'] = (abs(1-df.NSElog) / (abs(1-df.NSElog).max() - abs(1-df.NSElog).min())) + (abs(df.RMSE) / (abs(df.RMSE).max() - abs(df.RMSE).min()))
+    ax.scatter(norm_x, norm_y, lw=0, c=norm_x+norm_y, cmap='RdYlGn_r')
+    ax.set_xlabel('NSElog')
+    ax.set_ylabel('RMSE')
+    ax = axs[1]
+    norm_x = abs(1-df.NSE) / (abs(1-df.NSE).max() - abs(1-df.NSE).min())
+    norm_y = abs(1-df.KGE) / (abs(1-df.KGE).max() - abs(1-df.KGE).min())
+    df['NSE-KGE'] = (abs(1-df.NSE) / (abs(1-df.NSE).max() - abs(1-df.NSE).min())) + (abs(1-df.KGE) / (abs(1-df.KGE).max() - abs(1-df.KGE).min()))
+    ax.scatter(norm_x, norm_y, lw=0, c=norm_x+norm_y, cmap='RdYlGn_r')
+    ax.set_xlabel('NSE')
+    ax.set_ylabel('KGE')
+    # ax.set_xlim(0,5)
+    # ax.set_ylim(0,5)
+    fig.suptitle(w_name.split('_')[0], fontsize=8)
+    plt.tight_layout()
+    
+    fig.savefig(fig_path+'HGSmatrix2d'+'_'+w_name+'_'+'PARETO'+'.png', dpi=300, bbox_inches='tight')
+    
+# STREAMFLOW - BEST MODELS
+    
+    df1 = df[df['NSElog-RMSE']==df['NSElog-RMSE'].min()]
+    model_name1 = df1.model_name.values[0]
+    df2 = df[df['NSE-KGE']==df['NSE-KGE'].min()]
+    model_name2 = df2.model_name.values[0]
+    # if w_name == 'Vare_EUDTM30m':
+    #     df3 = df[df['K']==8.64]
+    #     df3 = df3[df3['NSElog']==df3['NSElog'].max()]
+    # else:
+    df3 = df[df['NSElog']==df['NSElog'].max()]
+    model_name3 = df3.model_name.values[0]
+    print(w_name, model_name1, model_name2, model_name3)
+    
+    if w_name == 'S1':
+        Smod1 = pd.read_csv(calibration_folder+model_name1+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod2 = pd.read_csv(calibration_folder+model_name2+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod3 = pd.read_csv(calibration_folder+model_name3+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+    else:
+        Smod1 = pd.read_csv(calibration_folder+model_name1+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod2 = pd.read_csv(calibration_folder+model_name2+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        Smod3 = pd.read_csv(calibration_folder+model_name3+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+    
+    Qmod1 = Smod1['outflow_drain'] # m/day
+    Qmod2 = Smod2['outflow_drain'] # m/day
+    Qmod3 = Smod3['outflow_drain'] # m/day
+    # r = BV.climatic.runoff
+    Rmod = Smod1['recharge']*1000 # m/day
+    
+    mix = Qobs.copy().to_frame()
+    mix.columns = ['Qobs']
+    mix['Qmod1'] = Qmod1
+    mix['Qmod2'] = Qmod2
+    mix['Qmod3'] = Qmod3
+    mix = mix.dropna()
+    mix = mix * 1000
+            
+    fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                                 figsize=(10,3))
+    
+    yearsmaj = mdates.YearLocator(1)   # every year
+    yearsmin = mdates.YearLocator(1)
+    # monthsmaj = mdates.MonthLocator(6)  # every month
+    # monthsmin = mdates.MonthLocator(3)
+    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+    years_fmt = mdates.DateFormatter('%Y')
+
+    ax = a0
+    ax.plot(mix.Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
+    m1 = '{:.2e}'.format(float(model_name1.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name1.split('_')[-1].split('-')[1])*100),2))
+    m2 = '{:.2e}'.format(float(model_name2.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name2.split('_')[-1].split('-')[1])*100),2))
+    m3 = '{:.2e}'.format(float(model_name3.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name3.split('_')[-1].split('-')[1])*100),2))
+    ax.plot(mix.Qmod1, color='red', lw=1, ls='-', zorder=0, label='NSElog, RMSE'+' : '+m1)
+    ax.plot(mix.Qmod2, color='darkorange', lw=1, label='NSE, KGE'+' : '+m2)
+    ax.plot(mix.Qmod3, color='dodgerblue', lw=1, label='NSElog'+' : '+m3)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Q [mm/d]')
+    ax.set_yscale('log')
+    ax.set_ylim(0.1,100)
+    years_maj = mdates.YearLocator()   # every year
+    months_maj = mdates.MonthLocator()  # every x month
+    ax.xaxis.set_major_locator(years_maj)
+    ax.xaxis.set_minor_locator(months_maj)
+    ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    ax.legend(loc='lower left', fontsize=5)
+    # ax.set_title(model_name.upper(), fontsize=10)
+    ax.set_title(w_name.upper(), fontsize=10)
+    
+    axb = ax.twinx()
+    axb.bar(Rmod.index, Rmod,color='grey', edgecolor='grey', width=1, lw=0)
+    axb.set_ylim(0,100)
+    axb.invert_yaxis()
+    axb.set_yticklabels([0,25])
+
+    ax = a1
+    ax.scatter(mix.Qobs, mix.Qmod1,
+               s=10, edgecolor='none', alpha=0.75, facecolor='red')
+    ax.scatter(mix.Qobs, mix.Qmod2,
+               s=10, edgecolor='none', alpha=0.75, facecolor='darkorange')
+    ax.scatter(mix.Qobs, mix.Qmod3,
+               s=10, edgecolor='none', alpha=0.75, facecolor='dodgerblue')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.legend(loc='lower right', frameon=False, labelcolor='dodgerblue')
+    # ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
+    # ax.set_xlim(1,500)
+    # ax.set_ylim(1,500)
+    
+    ax.plot((0.0001,1000),(0.0001,1000), c='k', ls='--')
+    
+    ax.set_xlim(0.1,100)
+    ax.set_ylim(0.1,100)
+ 
+    ax.set_xlabel('$Q_{obs}$ [mm/d]',
+                  # fontsize=12
+                  )
+    ax.set_ylabel('$Q_{sim}$ [mm/d]',
+                  # fontsize=12
+                  )
+    
+    ax.patch.set_visible(True)
+    # ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='red')
+
+    # move ax in front
+    ax.set_zorder(axb.get_zorder() + 1)
+    
+    fig.tight_layout()
+    
+    fig.savefig(fig_path+'HGSmatrix2d'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
+
+#%% SATURATION - OBS
+
+
      
 #%% ---- NOTES
     
