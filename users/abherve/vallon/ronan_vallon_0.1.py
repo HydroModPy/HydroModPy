@@ -2624,7 +2624,7 @@ for watershed_name in watershed_names[:]:
 
 #%% STREAMFLOW - OBS
 
-CRIT = 'NSElog'
+CRIT = 'OWN'
 
 init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/Q/'
 
@@ -2644,6 +2644,8 @@ areas = [
          ]
 
 df = pd.DataFrame()
+
+dict_Q_wname = {}
 
 for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     
@@ -2715,6 +2717,19 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
         df.loc[i,'NSElog'] = float(NSElog)
         df.loc[i,'RMSE'] = float(RMSE)
         df.loc[i,'KGE'] = float(KGE)
+        
+        Q10_obs = Qobs_stat.quantile(0.10)
+        Q50_obs = Qobs_stat.quantile(0.50)
+        Q90_obs = Qobs_stat.quantile(0.90)
+        Q10_sim = Qsim_stat.quantile(0.10)
+        Q50_sim = Qsim_stat.quantile(0.50)
+        Q90_sim = Qsim_stat.quantile(0.90)
+        
+        df.loc[i,'OWN_Q10'] = float(((Q10_sim - Q10_obs)**2) / (Q10_obs**2))
+        df.loc[i,'OWN_Q50'] = float(((Q50_sim - Q50_obs)**2) / (Q50_obs**2))
+        df.loc[i,'OWN_Q90'] = float(((Q90_sim - Q90_obs)**2) / (Q90_obs**2))
+        
+        df.loc[i,'OWN'] = ( df.loc[i,'OWN_Q10'] + df.loc[i,'OWN_Q50'] + df.loc[i,'OWN_Q90'] ) / 3
 
     p1 = df.K.unique()
     p2 = df.Sy.unique()
@@ -2731,6 +2746,8 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
     Z = ded.copy()
     
+    dict_Q_wname[w] = Z
+    
     # Z = 1-Z
     # Z = abs(Z)
     # print(np.nanmin(Z), np.nanmax(Z[Z != np.inf]))
@@ -2743,16 +2760,20 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     # norm = mpl.colors.Normalize(vmin=0, vmax=1.0)
     # cmap = 'jet'
     cmap = 'RdYlGn'
+    if CRIT == 'OWN':
+        cmap = 'RdYlGn_r'
+    
     # pc = ax.pcolormesh(X/3600/24,Y*100,Z, cmap='RdYlGn', shading='gouraud',
                         # vmin=0, vmax=1
     #                    ) #figadd.cmap_white_jet()
     if w_name == 'Vare_EUDTM30m':
         pc = ax.contourf(X/3600/24, Y*100, Z,
                             # levels=np.arange(0,1.05,0.05), 
-                            # levels=np.arange(0,1.05,0.05), 
+                            levels=np.arange(0,10.05,1), 
                             # vmin=0, vmax=1,
                           alpha=0.5, ec='none', cmap=cmap, 
-                           # extend='max'
+                            extend='max'
+                            # norm = matplotlib.colors.LogNorm()
                           )
     else:
         pc = ax.contourf(X/3600/24, Y*100, Z,
@@ -2761,10 +2782,13 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
                             # vmin=0, vmax=1,
                           alpha=0.5, ec='none', cmap=cmap, 
                             extend='max'
+                            # norm = matplotlib.colors.LogNorm()
                           )
     position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
     cb = fig.colorbar(pc, cax=position, orientation='vertical')
-    if w_name != 'Vare_EUDTM30m':
+    if w_name == 'Vare_EUDTM30m':
+        cb.set_ticks(np.arange(0,10.05,2))
+    else:
         cb.set_ticks(np.arange(0,1.05,0.2))
     # cb.set_label('$NSE_{log}$ [-]', rotation=270, labelpad=40)
     cb.set_label(CRIT, rotation=270, labelpad=40)
@@ -3259,8 +3283,325 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
 
 #%% SATURATION - OBS
 
+types_obs = ['perennial_natural_streams',
+             # 'fully_natural_streams',
+             # 'fully_natural_streams_springs',
+              'fully_natural_streams_springs_wetlands'
+             ]
 
+sat_typ = 'seepage_areas'
+
+init_path = 'xxx'
+
+areas = [
+          9.4,
+          13.7,
+          14.1
+         ]
+
+df = pd.DataFrame()
+
+dict_S_wname = {}
+
+for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
+    
+    if w_name == 'S1':
+        watershed_name = 'Nant_EUDTM30m'
+    else:
+        watershed_name = w_name        
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    
+    if w_name == 'S1':
+        dem_data = imageio.imread(stable_folder + 'subbasin/subbasin_S1/' + 'watershed_dem.tif')
+    else:
+        dem_data = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
+    
+    list_sat_obs = []
+    for type_obs in types_obs:
+        path_hydro = stable_folder + 'hydrography/' + type_obs + '.tif'
+        obs_hydro = imageio.imread(path_hydro)
+        obs_hydro = np.ma.masked_where(dem_data==-99999, obs_hydro)
+        obs_hydro_masked = np.ma.masked_where(obs_hydro<0, obs_hydro)
+        dd_hydro = round(obs_hydro_masked.count() / obs_hydro.count() * 100, 2)
+        # plt.imshow(obs_hydro_masked)
+        print(dd_hydro)
+        list_sat_obs.append(dd_hydro)
+
+    paths = glob.glob(calibration_folder+'/'+iD_set_simulations+'*')
+    h5files = sorted(paths,
+                     key=lambda item: float((item.split('\\')[-1].split('_')[1])), reverse=False)
+        
+    for i, h5file in enumerate(h5files):
+        model_name = h5file.split('\\')[-1]
+        # print(model_name)
+        
+        if w_name == 'S1':
+            Smod = pd.read_csv(h5file+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+        else:
+            Smod = pd.read_csv(h5file+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+        
+        Sat_mod = Smod[sat_typ] # m/day
+                
+        Smin = Sat_mod.min()
+        Smean = Sat_mod.mean()
+        Smax = Sat_mod.max()
+        S10 = Sat_mod.quantile(0.10)
+        S25 = Sat_mod.quantile(0.25)
+        S50 = Sat_mod.quantile(0.50)
+        S75 = Sat_mod.quantile(0.75)
+        S90 = Sat_mod.quantile(0.90)
+        
+        df.loc[i,'model_name'] = model_name
+        
+        df.loc[i,'K'] = float(model_name.split('_')[3].split('-')[0])
+        df.loc[i,'Sy'] = float(model_name.split('_')[3].split('-')[1])
+        df.loc[i,'p1-p2'] = model_name.split('_')[3].split('-')[0]+'-'+model_name.split('_')[3].split('-')[1]
+        
+        df.loc[i,'Smin'] = float(Smin)
+        df.loc[i,'Smean'] = float(Smean)
+        df.loc[i,'Smax'] = float(Smax)
+        df.loc[i,'S10'] = float(S10)
+        df.loc[i,'S25'] = float(S25)
+        df.loc[i,'S50'] = float(S50)
+        df.loc[i,'S75'] = float(S75)
+        df.loc[i,'S90'] = float(S90)
+        
+        df.loc[i,'Obs_per'] = list_sat_obs[0]
+        df.loc[i,'Obs_med'] = (list_sat_obs[0]+list_sat_obs[-1])/2
+        df.loc[i,'Obs_per'] = list_sat_obs[-1]
+    
+    fig, axs = plt.subplots(1,3, figsize=(3.8*3,3.5))
+    axs = axs.ravel()
+    
+    dict_Zs = {}
+    
+    for ci, choice in enumerate(['S10','S50','S90']):
+        
+        p1 = df.K.unique()
+        p2 = df.Sy.unique()
+        ded = np.zeros((len(p1),len(p2)))
+        for i, iv in enumerate(p1):
+            for j, jv in enumerate(p2):
+                string = str(iv)+'-'+str(jv)
+                # print(string)
+                ded[j][i] = df[df['p1-p2']==string][choice]
+            
+        X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
+        Z = ded.copy()
+        
+        ax = axs[ci]
+        ax.set_title(w_name.split('_')[0]+' - '+choice, pad=10)
+
+        ax.set_aspect('auto')
+        ax.axes.tick_params(which='both', direction='out', zorder=10)
+        
+        if choice == 'S10':
+            Z = ((Z - list_sat_obs[0])**2) / (list_sat_obs[0]**2)
+        if choice == 'S50':
+            Z = ((Z - ((list_sat_obs[0]+list_sat_obs[-1])/2))**2) / (((list_sat_obs[0]+list_sat_obs[-1])/2)**2)
+        if choice == 'S90':
+            Z = ((Z - list_sat_obs[-1])**2) / (list_sat_obs[-1]**2)
+        # Z=abs(Z)
+                
+        print(np.nanmin(Z), np.nanmax(Z))
+    
+        cmap = "RdYlGn_r"
+            
+        pc = ax.contourf(X/24/3600,Y*100, Z, cmap=cmap, alpha=0.5,
+                            # norm=mpl.colors.CenteredNorm(),
+                            # norm=mpl.colors.LogNorm(),
+                            # norm = divnorm,
+                            # vmin=0, vmax=1.0,
+                        levels=np.arange(0, 1.05, 0.1),
+                        linewidths=0, ec='none', ls=None,
+                        extend='max')
+         
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_ylabel('θ [%]')
+        ax.set_xlabel('K [m/s]')
+    
+        position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+        cb = fig.colorbar(pc, cax=position, orientation='vertical')
+        
+        # cb.set_ticklabels(np.round(np.arange(0,11,1),1)) 
+        cb.set_ticks(np.arange(0, 1.1, 0.25))
+        cb.set_label('$A_{diff}$ [-]', rotation=270, labelpad=40)
+        cb.ax.tick_params(top=True,
+                    bottom=True,
+                    left=False,
+                    right=False,
+                    labelleft=False,
+                    labelbottom=True)
+    
+        ax.tick_params(top=True,
+                   bottom=True,
+                   left=True,
+                   right=False,
+                   labelleft=True,
+                   labelbottom=True)
+        
+        ax.set_xlim(1e-7, 1e-4)
+        ax.set_ylim(0.1,10)
+
+        plt.tight_layout()    
+    
+        fig.savefig(fig_path+'SAT_'+w_name+'_per-med-ful'+'_'+sat_typ+'.png', dpi=300, bbox_inches='tight')
+
+# SUM RATIOS
+
+        dict_Zs[ci] = Z
+      
+    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    
+    X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
+    Z = (dict_Zs[0] + dict_Zs[1] + dict_Zs[2]) / 3
+    
+    dict_S_wname[w] = Z
+    
+    ax.set_title(w_name.split('_')[0], pad=10)
+
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+            
+    cmap = "RdYlGn_r"
+        
+    pc = ax.contourf(X/24/3600,Y*100, Z, cmap=cmap, alpha=0.5,
+                        # norm=mpl.colors.CenteredNorm(),
+                        # norm=mpl.colors.LogNorm(),
+                        # norm = divnorm,
+                        # vmin=0, vmax=1.0,
+                    levels=np.arange(0, 1.05, 0.1),
+                    linewidths=0, ec='none', ls=None,
+                    extend='max')
      
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylabel('θ [%]')
+    ax.set_xlabel('K [m/s]')
+
+    position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+    cb = fig.colorbar(pc, cax=position, orientation='vertical')
+    
+    # cb.set_ticklabels(np.round(np.arange(0,11,1),1)) 
+    cb.set_ticks(np.arange(0, 1.1, 0.25))
+    cb.set_label('$A_{diff}$ [-]', rotation=270, labelpad=40)
+    cb.ax.tick_params(top=True,
+                bottom=True,
+                left=False,
+                right=False,
+                labelleft=False,
+                labelbottom=True)
+
+    ax.tick_params(top=True,
+               bottom=True,
+               left=True,
+               right=False,
+               labelleft=True,
+               labelbottom=True)
+    
+    ax.set_xlim(1e-7, 1e-4)
+    ax.set_ylim(0.1,10)
+
+    plt.tight_layout()  
+    
+    fig.savefig(fig_path+'SAT_'+w_name+'_mix_per-med-ful'+'_'+sat_typ+'.png', dpi=300, bbox_inches='tight')
+
+#%% CONVOLUTION - OBS
+
+for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
+    
+    if w_name == 'S1':
+        watershed_name = 'Nant_EUDTM30m'
+    else:
+        watershed_name = w_name        
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    
+    Z_convol = dict_Q_wname[w] + dict_S_wname[w]
+
+    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+    
+    X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
+        
+    ax.set_title(w_name.split('_')[0], pad=10)
+
+    ax.set_aspect('auto')
+    ax.axes.tick_params(which='both', direction='out', zorder=10)
+            
+    cmap = "RdYlGn_r"
+    
+    if w_name == 'Vare_EUDTM30m':
+        pc = ax.contourf(X/24/3600,Y*100, Z_convol, cmap=cmap, alpha=0.5,
+                            # norm=mpl.colors.CenteredNorm(),
+                            # norm=mpl.colors.LogNorm(),
+                            # norm = divnorm,
+                            # vmin=0, vmax=1.0,
+                        levels=np.arange(2, 3.05, 0.05),
+                        linewidths=0, ec='none', ls=None,
+                        extend='max')
+    else:
+        pc = ax.contourf(X/24/3600,Y*100, Z_convol, cmap=cmap, alpha=0.5,
+                            # norm=mpl.colors.CenteredNorm(),
+                            # norm=mpl.colors.LogNorm(),
+                            # norm = divnorm,
+                            # vmin=0, vmax=1.0,
+                        levels=np.arange(0, 1.05, 0.05),
+                        linewidths=0, ec='none', ls=None,
+                        extend='max')
+     
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylabel('θ [%]')
+    ax.set_xlabel('K [m/s]')
+
+    position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
+    cb = fig.colorbar(pc, cax=position, orientation='vertical')
+    
+    # cb.set_ticklabels(np.round(np.arange(0,11,1),1))
+    if w_name == 'Vare_EUDTM30m':
+        cb.set_ticks(np.arange(2, 3.1, 0.25))
+        # cb.set_ticklabels(np.arange(0, 1.1, 0.25))
+    else:
+        cb.set_ticks(np.arange(0, 1.1, 0.25))
+        # cb.set_ticklabels(np.arange(1, 2.1, 0.25))
+    cb.set_label('$A_{diff}$ [-]', rotation=270, labelpad=40)
+    cb.ax.tick_params(top=True,
+                bottom=True,
+                left=False,
+                right=False,
+                labelleft=False,
+                labelbottom=True)
+
+    ax.tick_params(top=True,
+               bottom=True,
+               left=True,
+               right=False,
+               labelleft=True,
+               labelbottom=True)
+    
+    ax.set_xlim(1e-7, 1e-4)
+    ax.set_ylim(0.1,10)
+
+    plt.tight_layout()  
+    
+    fig.savefig(fig_path+'CONVOL_'+w_name+'_mix_per-med-ful'+'_'+sat_typ+'.png', dpi=300, bbox_inches='tight')
+
 #%% ---- NOTES
     
 """
