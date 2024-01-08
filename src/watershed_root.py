@@ -90,7 +90,6 @@ class Watershed:
             Path of the regional Digital . The default is None.
         save_object : bool, optional
             True : To save the watershed object (using pickle). The default is True.
-
         """
         toolbox.print_hydromodpy()
         self.dem_path = dem_path
@@ -213,7 +212,6 @@ class Watershed:
         Returns
         -------
         None.
-
         """
         if self.from_lib != None:
             watershed_list = pd.read_csv(self.from_lib, delimiter=';')
@@ -267,7 +265,6 @@ class Watershed:
         Returns
         -------
         None.
-
         """
         # Structure data
         self.geographic = geographic.Geographic(self.dem_path,
@@ -295,7 +292,6 @@ class Watershed:
         Returns
         -------
         None.
-
         """
         # If folder already exists, removes it
         if os.path.exists(os.path.join(self.watershed_folder,'watershed_object')):
@@ -316,7 +312,6 @@ class Watershed:
                 'watershed_geology' to display the watershed geology
                 'watershed_zones' to display hydraulic zones of the watershed
             The default is 'watershed_dem'
-
         """
         if dtype == 'watershed_dem':
             visualization_watershed.watershed_dem(self)
@@ -333,7 +328,6 @@ class Watershed:
         Returns
         -------
         None.
-
         """
         self.climatic = climatic.Climatic(out_path=self.watershed_folder)
         self.elt_def.append('climatic')
@@ -350,7 +344,7 @@ class Watershed:
         types_obs : str, optional
             Name of the geology shapefile. The default is 'GEO1M.shp'.
         fields_obs : str, optional
-            Field data of the polygons. The default is 'CODE_LEG'.
+            Field data of the polygons. The default is 'CODE_LEG'.            
         """
         self.geology_path = geology_path
         self.geology = geology.Geology(out_path=self.watershed_folder,
@@ -403,7 +397,6 @@ class Watershed:
             List of shapefile names. The default is ['streams'].
         fields_obs : list, optional
             List of field names. The default is ['FID'].
-
         """
         self.hydrography_path = hydrography_path
         self.types_obs = types_obs
@@ -426,7 +419,6 @@ class Watershed:
             Path where the hydrometry files are located.
         file_name : str
             DName of the file.
-
         """
         self.hydrometry_path = hydrometry_path
         self.hydrometry = hydrometry.Hydrometry(out_path=self.watershed_folder, 
@@ -446,7 +438,6 @@ class Watershed:
             Path where the hydraulic intermittency files are located.
         file_name : str
             Name of the file.
-
         """
         self.intermittency_path = intermittency_path
         self.intermittency = intermittency.Intermittency(out_path=self.watershed_folder, 
@@ -464,7 +455,6 @@ class Watershed:
         ----------
         oceanic_path : str
             Path where the oceanic data are located.
-
         """
         self.oceanic = oceanic.Oceanic()
         self.oceanic_path = oceanic_path
@@ -481,7 +471,6 @@ class Watershed:
         Returns
         -------
         None.
-
         """
         self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,
                                                 geographic=self.geographic)
@@ -495,7 +484,6 @@ class Watershed:
         Returns
         -------
         None.
-
         """
         self.settings = settings.Settings()
         self.elt_def.append('settings')
@@ -518,7 +506,6 @@ class Watershed:
         ----------
         add_path : str
             Path of the folder where the data are located.
-
         """
         if hasattr(self, 'hydrometry') == False:
             self.hydrometry=None
@@ -540,8 +527,7 @@ class Watershed:
         Returns
         -------
         model_modflow : object
-            Python object of the hydraulic model
-            
+            Python object of the hydraulic model    
         """        
         if for_calib == False:
             model_folder = self.simulations_folder
@@ -601,7 +587,6 @@ class Watershed:
         -------
         success_model : bool
             Boolean to know if the simulation rans succesfully.
-
         """
         # Processing Modflow
         success_model = model_modflow.processing(write_model=write_model, run_model=run_model)
@@ -647,7 +632,6 @@ class Watershed:
             Build intermittency yearly. The default is False.
         export_all_tif : bool, optional
             Build tif files for all time steps. The default is False.
-
         """
         # Postprocessing Modflow
         model_modflow.post_processing(model_modflow,
@@ -678,7 +662,6 @@ class Watershed:
         model_modpath : object
             Modpath object.
         """
-        
         if for_calib == False:
             model_folder = self.simulations_folder
         else:
@@ -717,7 +700,6 @@ class Watershed:
         -------
         success_model : bool
             Boolean to know if the simulation rans succesfully.
-
         """
         # Processing Modpath
         success_model = model_modpath.processing(write_model=write_model, run_model=run_model)
@@ -781,7 +763,6 @@ class Watershed:
         -------
         timeseries_results : pandas.dataframe
             Table with all results.
-
         """
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self.geographic,
