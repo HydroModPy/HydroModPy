@@ -2624,7 +2624,7 @@ for watershed_name in watershed_names[:]:
 
 #%% STREAMFLOW - OBS
 
-CRIT = 'OWN'
+CRIT = 'RMSE'
 
 init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/Q/'
 
@@ -2762,6 +2762,8 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     cmap = 'RdYlGn'
     if CRIT == 'OWN':
         cmap = 'RdYlGn_r'
+    if CRIT == 'RMSE':
+        cmap = 'RdYlGn_r'
     
     # pc = ax.pcolormesh(X/3600/24,Y*100,Z, cmap='RdYlGn', shading='gouraud',
                         # vmin=0, vmax=1
@@ -2769,7 +2771,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     if w_name == 'Vare_EUDTM30m':
         pc = ax.contourf(X/3600/24, Y*100, Z,
                             # levels=np.arange(0,1.05,0.05), 
-                            levels=np.arange(0,10.05,1), 
+                            # levels=np.arange(0,10.05,1), 
                             # vmin=0, vmax=1,
                           alpha=0.5, ec='none', cmap=cmap, 
                             extend='max'
@@ -2778,7 +2780,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     else:
         pc = ax.contourf(X/3600/24, Y*100, Z,
                             # levels=np.arange(0,1.05,0.05), 
-                            levels=np.arange(0,1.05,0.05), 
+                            # levels=np.arange(0,1.05,0.05), 
                             # vmin=0, vmax=1,
                           alpha=0.5, ec='none', cmap=cmap, 
                             extend='max'
@@ -2786,10 +2788,10 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
                           )
     position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
     cb = fig.colorbar(pc, cax=position, orientation='vertical')
-    if w_name == 'Vare_EUDTM30m':
-        cb.set_ticks(np.arange(0,10.05,2))
-    else:
-        cb.set_ticks(np.arange(0,1.05,0.2))
+    # if w_name == 'Vare_EUDTM30m':
+    #     cb.set_ticks(np.arange(0,10.05,2))
+    # else:
+    #     cb.set_ticks(np.arange(0,1.05,0.2))
     # cb.set_label('$NSE_{log}$ [-]', rotation=270, labelpad=40)
     cb.set_label(CRIT, rotation=270, labelpad=40)
     cb.ax.tick_params(top=True,
@@ -2962,7 +2964,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
 
 #%% STREAMFLOW - HGS
 
-CRIT = 'NSElog'
+CRIT = 'OWN'
 
 init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Simulated_time_series/full_model/Qs/'
 
@@ -3060,7 +3062,20 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
         df.loc[i,'NSElog'] = float(NSElog)
         df.loc[i,'RMSE'] = float(RMSE)
         df.loc[i,'KGE'] = float(KGE)
-
+        
+        Q10_obs = Qobs_stat.quantile(0.10)
+        Q50_obs = Qobs_stat.quantile(0.50)
+        Q90_obs = Qobs_stat.quantile(0.90)
+        Q10_sim = Qsim_stat.quantile(0.10)
+        Q50_sim = Qsim_stat.quantile(0.50)
+        Q90_sim = Qsim_stat.quantile(0.90)
+        
+        df.loc[i,'OWN_Q10'] = float(((Q10_sim - Q10_obs)**2) / (Q10_obs**2))
+        df.loc[i,'OWN_Q50'] = float(((Q50_sim - Q50_obs)**2) / (Q50_obs**2))
+        df.loc[i,'OWN_Q90'] = float(((Q90_sim - Q90_obs)**2) / (Q90_obs**2))
+        
+        df.loc[i,'OWN'] = ( df.loc[i,'OWN_Q10'] + df.loc[i,'OWN_Q50'] + df.loc[i,'OWN_Q90'] ) / 3
+        
     p1 = df.K.unique()
     p2 = df.Sy.unique()
     ded = np.zeros((len(p1),len(p2)))
@@ -3088,16 +3103,20 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     # norm = mpl.colors.Normalize(vmin=0, vmax=1.0)
     # cmap = 'jet'
     cmap = 'RdYlGn'
+    if CRIT == 'RMSE':
+        cmap = 'RdYlGn_r'
+    if CRIT == 'OWN':
+        cmap = 'RdYlGn_r'
     # pc = ax.pcolormesh(X/3600/24,Y*100,Z, cmap='RdYlGn', shading='gouraud',
                         # vmin=0, vmax=1
     #                    ) #figadd.cmap_white_jet()
     if w_name == 'Vare_EUDTM30m':
         pc = ax.contourf(X/3600/24, Y*100, Z,
                             # levels=np.arange(0,1.05,0.05), 
-                            # levels=np.arange(0,1.05,0.05), 
+                            levels=np.arange(0,10.05,1), 
                             # vmin=0, vmax=1,
                           alpha=0.5, ec='none', cmap=cmap, 
-                           # extend='max'
+                            extend='max'
                           )
     else:
         pc = ax.contourf(X/3600/24, Y*100, Z,
@@ -3110,7 +3129,9 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
         
     position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
     cb = fig.colorbar(pc, cax=position, orientation='vertical')
-    if w_name != 'Vare_EUDTM30m':
+    if w_name == 'Vare_EUDTM30m':
+        cb.set_ticks(np.arange(0,10.05,1))
+    else:
         cb.set_ticks(np.arange(0,1.05,0.2))
     # cb.set_label('$NSE_{log}$ [-]', rotation=270, labelpad=40)
     cb.set_label(CRIT, rotation=270, labelpad=40)
@@ -3289,7 +3310,7 @@ types_obs = ['perennial_natural_streams',
               'fully_natural_streams_springs_wetlands'
              ]
 
-sat_typ = 'seepage_areas'
+sat_typ = 'total_areas'
 
 init_path = 'xxx'
 
@@ -3375,7 +3396,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
         
         df.loc[i,'Obs_per'] = list_sat_obs[0]
         df.loc[i,'Obs_med'] = (list_sat_obs[0]+list_sat_obs[-1])/2
-        df.loc[i,'Obs_per'] = list_sat_obs[-1]
+        df.loc[i,'Obs_ful'] = list_sat_obs[-1]
     
     fig, axs = plt.subplots(1,3, figsize=(3.8*3,3.5))
     axs = axs.ravel()
@@ -3516,6 +3537,77 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     
     fig.savefig(fig_path+'SAT_'+w_name+'_mix_per-med-ful'+'_'+sat_typ+'.png', dpi=300, bbox_inches='tight')
 
+# BEST MODELS
+    
+    df['OWN_PER'] = ((df['S10'] - df['Obs_per'])**2)/(df['Obs_per']**2)
+    df['OWN_MED'] = ((df['S50'] - df['Obs_med'])**2)/(df['Obs_med']**2)
+    df['OWN_FUL'] = ((df['S90'] - df['Obs_ful'])**2)/(df['Obs_ful']**2)
+    df['OWN_SAT'] = (df['OWN_PER'] + df['OWN_MED'] +df['OWN_FUL']) / 3
+
+    dfP = df[df['OWN_SAT']==df['OWN_SAT'].min()]
+    model_nameP = dfP.model_name.values[0]
+
+    if w_name == 'S1':
+        SmodP = pd.read_csv(calibration_folder+model_nameP+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+    else:
+        SmodP = pd.read_csv(calibration_folder+model_nameP+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+    
+    Smod = SmodP.copy()
+    
+    fig, ax = plt.subplots(1, 1, figsize=(6,3))
+    
+    ax.fill_between(Smod.index, 0, Smod['total_areas'],
+                    interpolate=False, color='dodgerblue', alpha=0.5,
+                    step='pre', label='Intermittent')
+    ax.fill_between(Smod.index, 0, Smod['perenn_areas'],
+                    interpolate=False, color='navy', alpha=0.5,
+                    step='pre', label='Perennial')
+    ax.legend(loc='upper left')
+    ax.step(Smod.index, Smod['total_areas'], color='dodgerblue',
+            marker=None, markeredgecolor='none',
+            markersize=5, lw=1, label='upstream',
+            where='pre')
+    ax.step(Smod.index, Smod['perenn_areas'], color='navy',
+            marker=None, markeredgecolor='none',
+            markersize=5, lw=1, label='upstream',
+            where='pre')
+    ax.step(Smod.index, Smod['seepage_areas'], color='grey',
+            marker=None, markeredgecolor='none',
+            markersize=5, lw=1, label='upstream',
+            where='pre')
+    
+    # if watershed_name == 'Nant_EUDTM30m':
+    #     ax.set_ylim(0,50)
+    # if watershed_name == 'Vare_EUDTM30m':
+    #     ax.set_ylim(0,6)
+    # ax.set_yticks(np.arange(0,15.05,2.5))
+    ax.set_ylim(0,20)
+    ax.set_ylabel('$A_{sat}$ [%]')
+    ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+    plt.xticks(rotation=0, ha="right")
+
+    years_maj = mdates.YearLocator()   # every year
+    months_maj = mdates.MonthLocator()  # every x month
+    ax.xaxis.set_major_locator(years_maj)
+    ax.xaxis.set_minor_locator(months_maj)
+    
+    mP = '{:.2e}'.format(float(model_nameP.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_nameP.split('_')[-1].split('-')[1])*100),2))
+    ax.set_title(w_name + '  -  ' + model_nameP.upper() + '  -  ' + mP, fontsize=6)
+
+    
+    for j, hline in enumerate(list_sat_obs[:2]):
+        if j == 0:
+            cl = 'navy'
+        if j == 1:
+            cl = 'dodgerblue'
+        ax.axhline(hline, c=cl, ls='--')
+        
+    fig.tight_layout()
+                
+    fig.savefig(fig_path+'OBSsat'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
+
 #%% CONVOLUTION - OBS
 
 for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
@@ -3552,7 +3644,8 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
                             # norm=mpl.colors.LogNorm(),
                             # norm = divnorm,
                             # vmin=0, vmax=1.0,
-                        levels=np.arange(2, 3.05, 0.05),
+                        # levels=np.arange(2, 3.05, 0.05),
+                        levels=np.arange(0, 1.05, 0.05),
                         linewidths=0, ec='none', ls=None,
                         extend='max')
     else:
@@ -3575,7 +3668,8 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     
     # cb.set_ticklabels(np.round(np.arange(0,11,1),1))
     if w_name == 'Vare_EUDTM30m':
-        cb.set_ticks(np.arange(2, 3.1, 0.25))
+        # cb.set_ticks(np.arange(2, 3.1, 0.25))
+        cb.set_ticks(np.arange(0, 1.1, 0.25))
         # cb.set_ticklabels(np.arange(0, 1.1, 0.25))
     else:
         cb.set_ticks(np.arange(0, 1.1, 0.25))
