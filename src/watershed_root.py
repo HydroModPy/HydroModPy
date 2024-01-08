@@ -546,6 +546,9 @@ class Watershed:
         safransurfex.Merge(out_path=self.watershed_folder)
         self.elt_def.append('safransurfex')
         # self.save_object()
+
+    def add_lakeres(self, dummy_lakeres):
+        self.lakeres = dummy_lakeres
             
     def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """
