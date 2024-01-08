@@ -129,6 +129,8 @@ BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
 
 BV.add_piezometry()
 
+BV.add_lakeres()
+
 # Extract some subbasin from data available above
 # =============================================================================
 # BV.add_subbasin(os.path.join(data_path,"additional"), 200)
@@ -252,6 +254,10 @@ ax.plot(r, label='runoff_explore2', c='navy', lw=2)
 ax.set_xlabel('Date')
 ax.set_ylabel('[mm/year]')
 ax.legend()
+
+#%% DAM
+blabla = truc
+BV.lakeres.update_reservoir(blabla)
 
 #%% ---- PARAMETRIZATION
 
