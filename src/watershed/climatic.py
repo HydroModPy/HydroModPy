@@ -31,10 +31,8 @@ class Climatic:
         Parameters
         ----------
         out_path : str
-            Path of the HydroModPy outputs.
-            
+            Path of the HydroModPy outputs. 
         """
-        
         print('Init climatic module to set model parameter')
         
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
@@ -56,9 +54,7 @@ class Climatic:
             Recharge values, float or list of float.
         sim_state : str
             Select the simulation type, steady-state or transient.
-
-        """
-        
+        """   
         self.recharge = values # recharge
         if isinstance(values,(dict))==False:
             if sim_state == 'steady':
@@ -76,9 +72,7 @@ class Climatic:
             Runoff values, float or list of float.
         sim_state : str
             Select the simulation type, steady-state or transient.
-
         """
-
         self.runoff = values # recharge
         if isinstance(values,(dict))==False:
             if sim_state == 'steady':
@@ -94,9 +88,7 @@ class Climatic:
         ----------
         first_clim
             Choice between a float, the mean or the first value in the list of values.
-
         """
-
         self.first_clim = first_clim # 'mean', 'first' or value
     
     #%% UPDATE FROM CREATED SYNTHETIC DATA
@@ -120,7 +112,6 @@ class Climatic:
             Inform the time step requested ('D','M','Y'). The default is None.
         dis : str
             Distribution of the mathematical function. The default is 'normal'.
-
         """
         
         self.freq = freq
@@ -160,7 +151,6 @@ class Climatic:
             Control the number of cycles of the sinusoidal function.
         phase : TYPE
             Control the horizontal shift of the sinusoidal function.
-
         """
         
         def sinusoid(x, A , offset, omega, phase):
@@ -194,7 +184,8 @@ class Climatic:
     #       Historical reanalysis SAFRAN-SURFEX
     #       https://rmets.onlinelibrary.wiley.com/doi/10.1002/joc.2003
     
-    def update_recharge_reanalysis(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+    def update_recharge_reanalysis(self, path_file, clim_mod, clim_sce, first_year, 
+                                   last_year, time_step, sim_state=None):
         """
         Update the recharge from a hydrometeorological reanalysis at the France scale.
 
@@ -212,7 +203,6 @@ class Climatic:
             Last year of selected period.
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
-
         """
         
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
@@ -224,7 +214,8 @@ class Climatic:
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
-    def update_runoff_reanalysis(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+    def update_runoff_reanalysis(self, path_file, clim_mod, clim_sce, first_year,
+                                 last_year, time_step, sim_state=None):
         """
         Update the runoff from a hydrometeorological reanalysis at the France scale.
 
@@ -242,7 +233,6 @@ class Climatic:
             Last year of selected period.
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
-
         """
         
         self.freq = time_step

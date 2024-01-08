@@ -60,7 +60,7 @@ class Watershed:
         Parameters
         ----------
         dem_path : str
-            Path of the regional Digital Elevation Model.
+            Path of the initial Digital Elevation Model.
         out_path : str
             Path of the HydroModPy outputs.
         load : bool, optional
@@ -83,11 +83,11 @@ class Watershed:
             List of four parameters: [x, y, snap_distance, buffer_size]
             x: x coordinate of the watershed outlet
             y: y coordinate of the watershed outlet
-            snap_distance: Maximum distance where the outlet can be moove
+            snap_dist: Maximum distance where the outlet can be moove
             buffer_size: Buffer distance (value in percent)
             The default is empty list.
         bottom_path : str, optional
-            Path of the regional Digital . The default is None.
+            Path of a raster representing the bottom elevation. The default is None.
         save_object : bool, optional
             True : To save the watershed object (using pickle). The default is True.
         """

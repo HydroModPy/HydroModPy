@@ -47,22 +47,57 @@ class Geographic:
     #%% INIT
     
     def __init__(self,
-                 dem_path,
-                 bottom_path,
-                 cell_size,
-                 x_outlet,
-                 y_outlet,
-                 snap_dist,
-                 buff_percent,
-                 crs_proj,
-                 out_path,
-                 stable_folder,
-                 simulations_folder,
-                 from_lib,
-                 from_dem,
-                 from_shp,
-                 from_xyv):
+                 dem_path: str = None,
+                 bottom_path: str = None, # path
+                 cell_size: int = None,
+                 x_outlet: float = None,
+                 y_outlet: float = None,
+                 snap_dist: int = None,
+                 buff_percent: int = None,
+                 crs_proj: str = None,
+                 out_path: str = None,
+                 stable_folder: int = None,
+                 simulations_folder: int = None,
+                 from_lib: str = None,
+                 from_dem: list = None,
+                 from_shp: list = None,
+                 from_xyv: list = None):
+        """
+        Class to initialize the model domain object (watershed).
 
+        Parameters
+        ----------
+        dem_path : str
+            Path of the initial Digital Elevation Model.
+        bottom_path : str, optional
+            Path of a raster representing the bottom elevation. The default is None.
+        cell_size:
+            Resolution of the DEM. To change the initial resolution
+        x_outlet:
+            x coordinate of the watershed outlet.
+        y_outlet:
+            y coordinate of the watershed outlet.
+        snap_dist:
+            Maximum distance where the outlet can be moove
+        buffer_size:
+            buffer distance in percentage of the model domain (value in percent)
+        crs_proj : str
+            Projection label of the workflow (ex: 'EPSG:2454').
+        out_path : str
+            Path of the HydroModPy outputs.
+        stable_folder : str
+            Path of the stable results about the model domain or watershed.
+        simulations_folder : str
+            Path of the simulation results from modeling operations.
+        from_lib : str, optional
+            Path of the watershed librairies. If None : method not used. The default is None.
+        from_dem : list, optional
+            List with two parameters: [path, cell_size]
+        from_shp : list, optional
+            List of tow parameters: [path, buffer_size] 
+        from_xyv : list, optional
+            List of four parameters: [x, y, snap_distance, buffer_size]
+        """
         print('Extract geography of the model area')
                 
         self.dem_path = dem_path
@@ -108,7 +143,35 @@ class Geographic:
                    buff_percent,
                    crs_proj,
                    out_path):
+        """
         
+
+        Parameters
+        ----------
+        dem_path : TYPE
+            DESCRIPTION.
+        bottom_path : TYPE
+            DESCRIPTION.
+        cell_size : TYPE
+            DESCRIPTION.
+        x_outlet : TYPE
+            DESCRIPTION.
+        y_outlet : TYPE
+            DESCRIPTION.
+        snap_dist : TYPE
+            DESCRIPTION.
+        buff_percent : TYPE
+            DESCRIPTION.
+        crs_proj : TYPE
+            DESCRIPTION.
+        out_path : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         # Recall important folders
         self.stable_folder = os.path.join(out_path, 'results_stable')
         self.simulations_folder = os.path.join(out_path, 'results_simulations')
