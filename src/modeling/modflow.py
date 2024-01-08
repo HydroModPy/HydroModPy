@@ -578,7 +578,11 @@ class Modflow:
         # Imposes condition to Modflow through flopy
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
-
+        
+        #%% Lake package (LAK)
+        
+        
+        
         #%% Output control
         
         # OC : output control
