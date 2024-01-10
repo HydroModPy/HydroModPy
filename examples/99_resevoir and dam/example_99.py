@@ -64,7 +64,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% ---- PATHS
 
 #%% PERSONAL
-data_path = os.path.join(os.path.split(root_dir)[0], r"1- Veille", r"4- Donnees")
+data_path = os.path.join(os.path.split(os.path.split(root_dir)[0])[0], r"1- Veille", r"4- Donnees")
 # =============================================================================
 # example_path = root_dir + "/examples/99_reservoir and dam/"
 # data_path = example_path + "data/"
