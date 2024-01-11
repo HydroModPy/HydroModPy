@@ -89,7 +89,6 @@ save_object = True
 #%% GEOGRAPHIC
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load, # load = False
@@ -97,17 +96,16 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               save_object=save_object)
 
+#%%% Reload
+BV = watershed_root.Watershed(dem_path=dem_path,
+                              out_path=out_path,
+                              watershed_name=watershed_name,
+                              load=True)
+
 #%%% Paths
 # Paths generated automatically but necessary for plots
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
-
-#%%% Reload
-BV = watershed_root.Watershed(dem_path=dem_path,
-                              out_path=out_path,
-                              load=True,
-                              watershed_name=watershed_name
-                              )
 
 #%% DATA
 # Clip specific data at the catchment scale
@@ -135,7 +133,7 @@ BV.add_lakeres()
 # =============================================================================
 # BV.add_subbasin(os.path.join(data_path,"additional"), 200)
 # =============================================================================
-BV.add_subbasin(os.path.join(root_dir, 'HydroModPy', 'examples', 
+BV.add_subbasin(os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 'additional'), 200)
 # Normalement pas besoin car c'est déjà un point d'intérêt
 
