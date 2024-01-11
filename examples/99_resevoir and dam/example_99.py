@@ -80,7 +80,7 @@ dem_path = os.path.join(data_path,
                         r"0- MNT\IGN\MNT_fusion", 
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = 'cheze_Dam_0.4'
+watershed_name = 'cheze_Dam_0.5'
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -172,11 +172,19 @@ BV.climatic.update_runoff_reanalysis(path_file=rea_path,
 
 ### Select time period
 recharge = BV.climatic.recharge
-BV.climatic.update_recharge(recharge['2010-07-01':'2014-12-31'],
+BV.climatic.update_recharge(recharge['2010-07-01':'2010-08-15'],
                             sim_state = sim_state)
+# =============================================================================
+# BV.climatic.update_recharge(recharge['2010-07-01':'2014-12-31'],
+#                             sim_state = sim_state)
+# =============================================================================
 runoff = BV.climatic.runoff 
-BV.climatic.update_runoff(runoff['2010-07-01':'2014-12-31'],
+BV.climatic.update_runoff(runoff['2010-07-01':'2010-08-15'],
                           sim_state = sim_state)
+# =============================================================================
+# BV.climatic.update_runoff(runoff['2010-07-01':'2014-12-31'],
+#                           sim_state = sim_state)
+# =============================================================================
 
 ### Figures of chronics
 # Yearly (matplotlib)
