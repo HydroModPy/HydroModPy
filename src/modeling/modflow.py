@@ -147,6 +147,7 @@ class Modflow:
         self.bc_left = bc_left
         self.bc_right = bc_right
         self.sea_level = sea_level 
+        self.flowbound = flowbound
         
         #%% Domain definition 
         

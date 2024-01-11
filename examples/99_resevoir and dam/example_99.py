@@ -288,6 +288,26 @@ BV.lakeres.update_fill()
 
 
 
+#%%% Force the return flow
+# Return flow time series
+return_flow_series = dam_input_df['resti']
+# return_flow_series can also be a .txt file
+
+# Coordinates of the cell where the return flow is mesured
+return_flow_coords = (331500, 6781425) # tuple or list of tuples 
+# =============================================================================
+# fixed_flow_coords = os.path.join(root_dir, 'examples', '99_reservoir and dam',
+#                                  'data', 'additional', 'coords_forcedflow.txt')
+# =============================================================================
+                    # the coords can also be indicated as a .txt file
+
+bound_id = 0 # identifier for the cell (or cells) where the return flow will be forced
+snap_dist = 200
+BV.settings.add_flowbound(bound_id, return_flow_coords, snap_dist,
+                          return_flow_series)
+
+# To remove a forced-flow cell or group of cells:
+# BV.lakeres.remove_flowbound(bound_id)
 
 #%% ---- PARAMETRIZATION
 
