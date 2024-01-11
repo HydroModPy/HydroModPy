@@ -468,7 +468,7 @@ class Modflow:
                                             iphdry=1, hdry=-100, vka=1, noparcheck=False,
                                             extension='upw', unitnumber=31)
         
-        #%% Source terms
+        #%% Source terms (other than artificial filling/pumping of lakes/reservoirs)
         
         ### Source term & initial conditions: recharge (and evapotranspiration) on the top of the model 
         
@@ -578,10 +578,6 @@ class Modflow:
         # Imposes condition to Modflow through flopy
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
-        
-        #%% Lake package (LAK)
-        
-        
         
         #%% Output control
         
