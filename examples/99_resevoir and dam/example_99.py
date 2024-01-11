@@ -80,7 +80,7 @@ dem_path = os.path.join(data_path,
                         r"0- MNT\IGN\MNT_fusion", 
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = 'cheze_Dam_0.5'
+watershed_name = 'cheze_Dam_0.6'
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -264,8 +264,30 @@ ax.set_ylabel('[mm/year]')
 ax.legend()
 
 #%% DAM
-blabla = truc
-BV.lakeres.update_reservoir(blabla)
+# Input data
+dam_data_path = os.path.join(os.path.split(data_path)[0], 
+                             r"1- Biblio locale\14- Barrage",
+                             "Documents_travail_Ronan\dam_data",
+                             r"dam_cheze_volume_raw_2000-2022.csv")
+
+dam_input_df = pd.read_csv(dam_data_path,
+                           sep = ";",
+                           header = 0,
+                           skiprows = 0,
+                           index_col = 'time',
+                           parse_dates = True)
+
+
+BV.lakeres.update_definition()
+
+BV.lakeres.update_precip()
+BV.lakeres.update_evap()
+BV.lakeres.update_runoff()
+BV.lakeres.update_withdraw()
+BV.lakeres.update_fill()
+
+
+
 
 #%% ---- PARAMETRIZATION
 
