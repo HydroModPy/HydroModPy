@@ -127,7 +127,9 @@ BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
 
 BV.add_piezometry()
 
-BV.add_lakeres()
+# =============================================================================
+# BV.add_lakeres()
+# =============================================================================
 
 # Extract some subbasin from data available above
 # =============================================================================

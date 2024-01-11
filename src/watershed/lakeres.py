@@ -47,11 +47,15 @@ class Lakeres:
     #%% INIT
     
     def __init__(self, inputA, inputB):
-
+        0
     
     #%% FIRST FUNCTION
     
-    def first_function(self, input1, input2):
+    def update_blabla(self):
+        0
+        
+        
+        
    
     #%% DISPLAY PLOT
     
