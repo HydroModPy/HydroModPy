@@ -386,7 +386,8 @@ BV.settings.update_input_particules(zone_partic=zone_partic)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
+# model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
+model_modflow = BV.preprocessing_modflow()
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 
 h5file = os.path.join(simulations_folder,
