@@ -20,8 +20,6 @@ wbt.verbose = False
 #%% CLASS
 
 class Geometric:
-
-    #%% INIT
     
     def __init__(self, nrow: int):
         

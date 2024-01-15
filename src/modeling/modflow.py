@@ -40,6 +40,7 @@ from tools import toolbox
 from modeling import downslope
 
 #%% CLASS
+
 class Modflow:
     """
     Class Modflow.
@@ -112,8 +113,8 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
-
         """
+        
         #%% Initialization
         
         self.model_folder = model_folder
@@ -278,7 +279,7 @@ class Modflow:
                     self.bottom_layer = self.bottom
                     self.bottom_layer[self.dem<=-9999]=-9999
         
-        # Modification of layer thickness for exponentially decreasing hydraulic conductivity cases
+        # Modification of layer thickness exponentially
         if self.lay_decay != 1.:
             exp_scale = 1-self.lay_decay**self.nlay
     

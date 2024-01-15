@@ -43,28 +43,27 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% CLASS
 
 class Geographic:
-    
-    #%% INIT
-    
+    """
+    Class to initialize the model domain object (watershed).
+    """
+        
     def __init__(self,
-                 dem_path: str = None,
-                 bottom_path: str = None, # path
-                 cell_size: int = None,
-                 x_outlet: float = None,
-                 y_outlet: float = None,
-                 snap_dist: int = None,
-                 buff_percent: int = None,
-                 crs_proj: str = None,
-                 out_path: str = None,
-                 stable_folder: int = None,
-                 simulations_folder: int = None,
-                 from_lib: str = None,
-                 from_dem: list = None,
-                 from_shp: list = None,
-                 from_xyv: list = None):
+                 dem_path: str=None,
+                 bottom_path: str=None, # path
+                 cell_size: int=None,
+                 x_outlet: float=None,
+                 y_outlet: float=None,
+                 snap_dist: int=None,
+                 buff_percent: int=None,
+                 crs_proj: str=None,
+                 out_path: str=None,
+                 stable_folder: int=None,
+                 simulations_folder: int=None,
+                 from_lib: str=None,
+                 from_dem: list=None,
+                 from_shp: list=None,
+                 from_xyv: list=None):
         """
-        Class to initialize the model domain object (watershed).
-
         Parameters
         ----------
         dem_path : str
@@ -127,28 +126,11 @@ class Geographic:
     
     def processing(self):
         """
-        Generate the model domain files.
+        Prepare, initialize and generate files of the model domain from geospatial functions.
+        """
         
-        Parameters
-        ----------
-        dem_path : TYPE
-            DESCRIPTION.
-        bottom_path : TYPE
-            DESCRIPTION.
-        cell_size : TYPE
-            DESCRIPTION.
-        x_outlet : TYPE
-            DESCRIPTION.
-        y_outlet : TYPE
-            DESCRIPTION.
-        snap_dist : TYPE
-            DESCRIPTION.
-        buff_percent : TYPE
-            DESCRIPTION.
-        crs_proj : TYPE
-            DESCRIPTION.
-        out_path : TYPE
-            DESCRIPTION.
+        """
+        Initial paths
         """
         # Recall important folders
         self.stable_folder = os.path.join(self.out_path, 'results_stable')
@@ -348,7 +330,10 @@ class Geographic:
     #%% DEM FEATURES
     
     def post_processing_dem(self):
-
+        """
+        Add and/or modify the projection of generated files.
+        """
+        
         # Open DEM used for modeling
         dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = dem.GetRasterBand(1).ReadAsArray()
@@ -363,7 +348,7 @@ class Geographic:
         with rasterio.open(self.watershed_dem, "r+") as src:
             # Read the data into a numpy array
             self.dem_clip = src.read(1)
-            self.nodata = src.nodata
+            self.nodata = src.nodata            
         # Open DEM depressions
         try:
             dem_dep = gdal.Open(self.depressions)
@@ -426,6 +411,11 @@ class Geographic:
     #%% XYZ FILE TO DEM
     
     def model_from_dem(self):
+        """
+        Function activated if the model domain is directly defined by a DEM.
+        Allow to build conceptual model from a conceptual raster.
+        """
+        
         # Paths
         print(self.out_path)
         self.gis_path = os.path.join(self.out_path, 'results_stable/geographic/')

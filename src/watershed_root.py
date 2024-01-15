@@ -36,27 +36,25 @@ from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% CLASS
+
 class Watershed:
     """
     Class Watershed is used to extract watershed and its data from regional DEM.
-    
     Hub to all elements necessary or optional to construct watersheds (meaning catchements) and run modflow simulations.
     """
    
     def __init__(self, 
                  dem_path: str, 
                  out_path: str,
-                 load: bool = False,
-                 watershed_name: str = 'Default',
-                 from_lib: str = None, # os.path.join(root_dir,'watershed_library.csv')
-                 from_dem: list = None, # [path, cell size]
-                 from_shp: list = None, # [path, buffer size]
-                 from_xyv: list = None, # [x, y, snap distance, buffer size]
-                 bottom_path: str = None, # path
-                 save_object: bool = True):
-        """
-        Initialize method.
-        
+                 load: bool=False,
+                 watershed_name: str='Default',
+                 from_lib: str=None, # os.path.join(root_dir,'watershed_library.csv')
+                 from_dem: list=None, # [path, cell size]
+                 from_shp: list=None, # [path, buffer size]
+                 from_xyv: list=None, # [x, y, snap distance, buffer size]
+                 bottom_path: str=None, # path
+                 save_object: bool=True):
+        """        
         Parameters
         ----------
         dem_path : str
@@ -139,6 +137,7 @@ class Watershed:
                 self.save_object()
         
     #%% PYTHON OBJECT
+    
     def __load_object(self):
         """
         Private method to load watershed object.
@@ -321,6 +320,7 @@ class Watershed:
             visualization_watershed.watershed_zones(self) 
 
     #%% ADDING DATA
+    
     def add_climatic(self):
         """
         Public method to add climatic data.
@@ -333,7 +333,10 @@ class Watershed:
         self.elt_def.append('climatic')
         self.save_object()
         
-    def add_geology(self, geology_path:str, types_obs:str='GEO1M.shp', fields_obs:str='CODE_LEG'):
+    def add_geology(self, 
+                    geology_path: str,
+                    types_obs: str='GEO1M.shp',
+                    fields_obs: str='CODE_LEG'):
         """
         Public method to add geologic data.
 
@@ -383,9 +386,9 @@ class Watershed:
         self.save_object()
         
     def add_hydrography(self,
-                        hydrography_path:str,
-                        types_obs:list=['streams'], 
-                        fields_obs:list=['FID']):
+                        hydrography_path: str,
+                        types_obs: list=['streams'], 
+                        fields_obs: list=['FID']):
         """
         Public method to add watershed hydrography.
 
@@ -409,7 +412,7 @@ class Watershed:
         self.elt_def.append('hydrography')
         self.save_object()
 
-    def add_hydrometry(self, hydrometry_path: str, file_name:str):
+    def add_hydrometry(self, hydrometry_path: str, file_name: str):
         """
         Public method to add watershed hydrometry.
 
@@ -428,7 +431,7 @@ class Watershed:
         self.elt_def.append('hydrometry')
         self.save_object()
         
-    def add_intermittency(self, intermittency_path:str, file_name:str):
+    def add_intermittency(self, intermittency_path: str, file_name: str):
         """
         Public method to add hydraulic intermittency.
 
@@ -447,7 +450,7 @@ class Watershed:
         self.elt_def.append('intermittency')
         self.save_object()
         
-    def add_oceanic(self, oceanic_path:str):
+    def add_oceanic(self, oceanic_path: str):
         """
         Public method to add oceanic/sea data.
 
@@ -498,7 +501,7 @@ class Watershed:
         self.elt_def.append('safransurfex')
         #MARTIN self.save_object()
             
-    def add_subbasin(self, add_path:str, sub_snap_dist:int):
+    def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """
         Public method to add subbasins.
 
@@ -520,7 +523,8 @@ class Watershed:
 
 
     #%% MODFLOW MODEL
-    def preprocessing_modflow(self, for_calib:bool=False):
+    
+    def preprocessing_modflow(self, for_calib: bool=False):
         """
         Public method to build the hydrologic model.
 
@@ -570,7 +574,10 @@ class Watershed:
                 
         return model_modflow
          
-    def processing_modflow(self, model_modflow:object, write_model:bool=True, run_model:bool=False):
+    def processing_modflow(self, 
+                           model_modflow: object, 
+                           write_model: bool=True,
+                           run_model: bool=False):
         """
         Public method to run the simulation of the model.
 
@@ -593,18 +600,18 @@ class Watershed:
         
         return success_model
         
-    def postprocessing_modflow(self, model_modflow:object,
-                               watertable_elevation:bool=True,
-                               watertable_depth:bool=True, 
-                               seepage_areas:bool=True,
-                               outflow_drain:bool=True,
-                               groundwater_flux:bool=True,
-                               groundwater_storage:bool=True,
-                               accumulation_flux:bool=True,
-                               persistency_index:bool=False,
-                               intermittency_monthly:bool=False,
-                               intermittency_daily:bool=False,
-                               export_all_tif:bool=False):
+    def postprocessing_modflow(self, model_modflow: object,
+                               watertable_elevation: bool=True,
+                               watertable_depth: bool=True, 
+                               seepage_areas: bool=True,
+                               outflow_drain: bool=True,
+                               groundwater_flux: bool=True,
+                               groundwater_storage: bool=True,
+                               accumulation_flux: bool=True,
+                               persistency_index: bool=False,
+                               intermittency_monthly: bool=False,
+                               intermittency_daily: bool=False,
+                               export_all_tif: bool=False):
         """
         Public method to post-process the simulation of the model.
 
@@ -648,7 +655,8 @@ class Watershed:
                                       export_all_tif=export_all_tif)
 
     #%% MODPATH MODEL        
-    def preprocessing_modpath(self, model_modflow:object, for_calib:bool=False):
+    
+    def preprocessing_modpath(self, model_modflow: object, for_calib: bool=False):
         """
         Public method to set the partickle tracking.
 
@@ -683,7 +691,7 @@ class Watershed:
                 
         return model_modpath
                             
-    def processing_modpath(self, model_modpath:object, write_model:bool=True, run_model:bool=False):
+    def processing_modpath(self, model_modpath: object, write_model: bool=True, run_model: bool=False):
         """
         Public method to run the partickle tracking.
 
@@ -707,12 +715,12 @@ class Watershed:
         return success_model
         
     def postprocessing_modpath(self,
-                               model_modpath:object,
-                               ending_point:bool=True,
-                               starting_point:bool=True,
-                               pathlines_shp:bool=True,
-                               particules_shp:bool=True,
-                               random_id:int=None):
+                               model_modpath: object,
+                               ending_point: bool=True,
+                               starting_point: bool=True,
+                               pathlines_shp: bool=True,
+                               particules_shp: bool=True,
+                               random_id: int=None):
         """
         Public method to post-process the simulation of the particle tracking.
 
@@ -739,12 +747,13 @@ class Watershed:
                                       random_id=random_id)
 
     #%% EXTRACT TIMESERIES
+    
     def postprocessing_timeseries(self,
-                                  model_modflow:object,
-                                  model_modpath:object,
-                                  actual_date:bool=True,
-                                  subbasin_results:bool=True,
-                                  freq_time:str='D'):
+                                  model_modflow: object,
+                                  model_modpath: object,
+                                  actual_date: bool=True,
+                                  subbasin_results: bool=True,
+                                  freq_time: str='D'):
         """
         Public method to postprocess the watershed timeseries.
 
