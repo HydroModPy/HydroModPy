@@ -23,11 +23,31 @@ wbt.verbose = False
 #%% CLASS
 
 class Geology:
-    
-    #%% INIT
-    
-    def __init__(self, out_path, geographic, geo_path, landsea, types_obs = 'GEO1M.shp', fields_obs = 'CODE_LEG'):
+    """
+    Add geology data in the watershed object.
+    """
         
+    def __init__(self, out_path, geographic, geo_path, landsea=None,
+                 types_obs='GEO1M.shp', fields_obs='CODE_LEG'):
+        """
+        Class to clip and extract geology caracteristics from a specific lithology map at the France scale.
+        Source of data: BRGM.
+        
+        Parameters
+        ----------
+        out_path : str
+            Path of the HydroModPy outputs. 
+        geographic : object
+            Variable object of the model domain (watershed).
+        geo_path : str
+            Path of the folder with geology data.
+        landsea : bool
+            If different None. Activate funcitons linked to sea geospatial processing. The default is None.
+        types_obs : str, optional
+            Label of the geological map shapefile at the France scale. The default is 'GEO1M.shp'.
+        fields_obs : TYPE, optional
+            Column field label of the geological map shapefile. The default is 'CODE_LEG'.
+        """
         print('Extract geology from specific data')
         
         data_folder = os.path.join(out_path,'results_stable/geology/')
@@ -38,8 +58,8 @@ class Geology:
 
         self.geol_file =  os.path.join(geo_path, types_obs)
         self.field = fields_obs
-        self.structure_dem_path =  os.path.join(data_folder,'GeoStructure.tif')
-        self.structure_clip =  os.path.join(data_folder,'GeoStructure_clip.tif')
+        self.structure_dem_path =  os.path.join(data_folder, 'GeoStructure.tif')
+        self.structure_clip =  os.path.join(data_folder, 'GeoStructure_clip.tif')
         
         # Be careful, column T_M_num not exist in default self.geol_file
         self.landsea = landsea
@@ -56,14 +76,39 @@ class Geology:
     #%% FUNCTIONS
     
     def generate_structure_dem(self, data_folder, geographic):
+        """
+        Parameters
+        ----------
+        data_folder : path
+            Results stable path.
+        geographic : object
+            Variable object of the model domain (watershed).
+
+        Returns
+        -------
+        self
+            Add some variable in Geology class self object.
+        """
         wbt.vector_polygons_to_raster(self.geol_file, self.structure_dem_path , field=self.field, nodata=None, base=geographic.watershed_buff_dem)
         wbt.clip_raster_to_polygon(self.structure_dem_path, geographic.watershed_shp, self.structure_clip)
         if self.landsea != None:
                 wbt.vector_polygons_to_raster(self.geol_file, data_folder + 'Land_Sea.tif', field="T_M_num", nodata=None, base=geographic.watershed_buff_dem)
                 wbt.clip_raster_to_polygon(data_folder + 'Land_Sea.tif', geographic.watershed_shp, data_folder + 'Land_Sea_clip.tif')
+        
         return self
 
-    def geology_array(self,data_folder):
+    def geology_array(self, data_folder):
+        """
+        Parameters
+        ----------
+        data_folder : path
+            Results stable path.
+
+        Returns
+        -------
+        self
+            Add some variable in Geology class self object.
+        """
         dem_geo = gdal.Open(self.structure_dem_path)
         dem_data = dem_geo.GetRasterBand(1).ReadAsArray()
         if self.landsea != None:
@@ -96,9 +141,21 @@ class Geology:
                 self.geology_array[self.geology_array<=100] = int(i)
                 self.geology_array_clip[self.geology_array_clip<=100] = int(i)
         """
+        
         return self
 
     def geology_elevation(self, geographic):
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+
+        Returns
+        -------
+        self
+            Add some variable in Geology class self object.
+        """
         self.geology_elevation = np.ones(len(self.geology_code))
         for i in range(0,len(self.geology_code)):
             self.geology_elevation[i]= np.min(geographic.dem_data[self.geology_array==self.geology_code[i]])
@@ -109,17 +166,27 @@ class Geology:
         
         return self
 
-    def geo_to_K(self,K_geo_values):
-        
+    def geo_to_K(self, K_geo_values):
+        """
+        Parameters
+        ----------
+        K_geo_values : list
+            List of K values according to geology code number.
+
+        Returns
+        -------
+        self
+            Add some variable in Geology class self object.
+        """
+        self.K_array = self.geology_array
+        for i in range(0,len(self.geology_code)):
+            self.K_array[self.geology_array==self.geology_code[i]] = K_geo_values[i]
         """
         geology_array: 2D arrays - code of geology entities
         K_geo_values: 1D array (same size that geology code variable)
             correspondence between geology codes and hydraulique conductivity values 
-        """
+        """  
         
-        self.K_array = self.geology_array
-        for i in range(0,len(self.geology_code)):
-            self.K_array[self.geology_array==self.geology_code[i]]=K_geo_values[i]
         return self
 
 #%% NOTES

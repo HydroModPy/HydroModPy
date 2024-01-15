@@ -1,0 +1,9 @@
+Codes .py commented more or less quickly at least once
+watershed_root	: @alexandre - comme déjà discuté, script intéressant mais redondance des variables avec d'autres codes
+climatic	: @ronan - pas si mal mais à compléter pour rendre plus robuste
+geographic	: @ronan - continuer d'harmoniser la fonction, mais cette version est ok
+geology		: @alexandre - certaines fonctions ou variables à reprendre
+geometric	: @etienne - ajout de la fonction pour convertir un modèle géologique 3D en MODFLOW model
+hydraulic	: @alexandre - checker la seconde partie des updates, et voir si on les paramètres dans le __init__
+hydrogrpahy	: @ronan - not perfect but ok
+hydrometry 	: @ronan - not perfect but ok
