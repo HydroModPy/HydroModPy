@@ -77,9 +77,9 @@ class Geographic:
         y_outlet:
             y coordinate of the watershed outlet.
         snap_dist:
-            Maximum distance where the outlet can be moove
+            Maximum distance where the outlet can be moved.
         buffer_size:
-            buffer distance in percentage of the model domain (value in percent)
+            buffer distance in percentage of the model domain (value in percent).
         crs_proj : str
             Projection label of the workflow (ex: 'EPSG:2454').
         out_path : str

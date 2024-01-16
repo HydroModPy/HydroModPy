@@ -52,10 +52,17 @@ class Piezometry:
     
     """
     
-    #%% INIT
-    
     def __init__(self, out_path, geographic):
+        """
+        Parameters
+        ----------
+        out_path : str
+            Path of the HydroModPy outputs.
+        geographic : object
+            Variable object of the model domain (watershed).
+        """
         print('Extract piezometry from web and specific data')
+        
         data_folder = os.path.join(out_path,'results_stable','piezometry')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -86,7 +93,15 @@ class Piezometry:
     
     #%% DOWNLOAD PIEZOMETERS ID AT FRANCE SCALE
     
-    def download_init_data(self,data_folder, geographic):
+    def download_init_data(self, data_folder, geographic):
+        """
+        Download piezometric data on the web at the France scale.
+
+        Parameters
+        ----------
+        data_folder : str
+            Path of stable results for piezometry.
+        """
         #ADES continue data
         filename = os.path.join(data_folder, 'piezometers.zip')
         folder = os.path.join(data_folder, 'shapefile')
@@ -134,7 +149,15 @@ class Piezometry:
             
     #%% CLIP DATA AT THE CATCHMENT SCALE
     
-    def extract_piezos_from_watershed(self,data_folder, geographic):
+    def extract_piezos_from_watershed(self, data_folder, geographic):
+        """
+        Clip piezoemeters at the model domain (watershed) scale.
+        
+        Returns
+        -------
+        piezos : shapefile
+            Piezometer clipping points.
+        """
         # ADES continue data
         watershed = gpd.read_file(geographic.watershed_box_shp)
         piezos_shp = os.path.join(data_folder, 'shapefile','point_eau_piezo.shp')
@@ -179,7 +202,10 @@ class Piezometry:
     
     #%% DOWNLOAD PIEZOMETRY ON THE WEB 
     
-    def extract_data_from_code_bss(self,data_folder):
+    def extract_data_from_code_bss(self, data_folder):
+        """
+        Function to download data on BRGM site.
+        """
         for code in self.codes_bss:
             code_ = code.replace('_','/')
             print('          '+code)
@@ -207,7 +233,10 @@ class Piezometry:
                 except:
                     self.codes_bss.remove(code)
 
-    def load_piezometric_data(self,data_folder):
+    def load_piezometric_data(self, data_folder):
+        """
+        Function to transform data from downloaded data.
+        """
         self.depth = pd.DataFrame()
         self.elevation = pd.DataFrame()
         for code in self.codes_bss:
@@ -233,6 +262,10 @@ class Piezometry:
     #%% ADD OWN MANUAL DATA
 
     def add_data(self):
+        """
+        Function to add manual data from a .csv file.
+        This file should contain list of coordinate points.
+        """
         files = glob.glob(os.path.join(self.out_path, 'results_stable/add_data/piezometry_*.csv'))
         if len(files)>0:
             for file in files:
@@ -260,7 +293,17 @@ class Piezometry:
         
     #%% DISPLAY PLOT
     
-    def display_data(self,value='elevation',start=None,end=None):
+    def display_data(self, value='elevation',start=None, end=None):
+        """
+        Parameters
+        ----------
+        values : str, optional
+            Type of plot required : 'elevation' or 'depth'. The default is 'elevation'.
+        start : float, optional
+            Start elevation value for interpolation. The default is None.
+        end : float, optional
+            End elevation value for interpolation. The default is None.
+        """
         fontprop = toolbox.plot_params(15,15,18,20)
         values_list = ['elevation','depth']
         if value not in values_list:

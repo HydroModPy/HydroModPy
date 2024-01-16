@@ -25,16 +25,31 @@ from tools import toolbox
 #%% CLASS
 
 class Downslope:
+    """
+    Class for topographically-driven surface runoff of discharge outflows
+    from groundwater flow model 
+    """
     
-    #%% INIT
-
     def __init__(self, 
                  geographic,
                  raw_rast_name, 
                  trace_shp_name, 
                  mass_rast_name,
                  extraction_folder=None):
-
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        raw_rast_name : str
+            Name of the inital raster dicharge outflow simulated, e.g. 'outflow_drain.tif.
+        trace_shp_name : str
+            Name of the shapefile points generated from raw_rast_name.
+        mass_rast_name : TYPE
+            Name of the generated flow accumulated raster.
+        extraction_folder : str, optional
+            Path of the model simulation results. The default is None.
+        """
         self.geographic = geographic
         self.extraction_folder = extraction_folder
                
@@ -74,6 +89,10 @@ class Downslope:
     #%% MASS FLUX FROM OUTFLOW
 
     def trace_cumulated(self):
+        """
+        Mass flux of discharge outflows according to the DEM.
+        Need to have DEM, flux, efficiency and adsorption rasters.
+        """
         ### Loading ###
         im = imageio.imread(self.raw_rast_path)
         im[im<0] = 0
@@ -87,11 +106,16 @@ class Downslope:
         im[im>=0] = 0
         toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
         ### d8massflux ###
-        wbt.d8_mass_flux(self.watershed_buff_fill_surflow, self.load_rast_path, self.eff_rast_path, self.abs_rast_path, self.mass_rast_path)
+        wbt.d8_mass_flux(self.watershed_buff_fill_surflow,
+                         self.load_rast_path, self.eff_rast_path,
+                         self.abs_rast_path, self.mass_rast_path)
 
     #%% TRACE DOWNSLOPE FLOWPATHS
 
     def trace_downslope(self):
+        """
+        Generate continuous hydrogrpahic network with downslope flowpaths.
+        """
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
         # print('raster_to_vector_points')

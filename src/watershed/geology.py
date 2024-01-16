@@ -102,7 +102,7 @@ class Geology:
         Parameters
         ----------
         data_folder : path
-            Results stable path.
+            Results stable path for geology.
 
         Returns
         -------

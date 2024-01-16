@@ -40,8 +40,9 @@ from tools import toolbox
 #%% CLASS
 
 class Timeseries:
-    
-    #%% INIT
+    """
+    Extract timeseries results from rasters and shapefiles created.
+    """
     
     def __init__(self,
                  geographic,
@@ -50,7 +51,22 @@ class Timeseries:
                  actual_date=True,
                  subbasin_results=True,
                  freq_time='D'):
-        
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        model_modflow : object
+            MODFLOW model object.
+        model_modpath : object
+            MODPATH model object.
+        actual_date : bool, optional
+            Indicate if the model is actual time referenced with datetime. The default is True.
+        subbasin_results : bool, optional
+            Indicated if simulation results need to be created at subassins scale. The default is True.
+        freq_time : str, optional
+            Time frequency of the .csv file. The default is 'D'.
+        """
         print('Extract modflow and modpath results in timeseries')
         
         self.freq_time = freq_time
@@ -161,6 +177,20 @@ class Timeseries:
     #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
     
     def extract_results(self, dem_clip, time, recharge, timeseries_file):
+        """
+        Calculate catchment-scale values and save them in a data frame (.csv)..
+
+        Parameters
+        ----------
+        dem_clip : 2D matrix
+            Masked raster data of the model domain (watershed).
+        time : DatetimeIndex or list
+            Index for time.
+        recharge : Series or list
+            Values of recharge input.
+        timeseries_file : str
+            Path folder to save .csv file results.
+        """
         
         def calc_max(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)

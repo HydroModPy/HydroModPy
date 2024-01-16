@@ -36,20 +36,46 @@ from tools import toolbox
 #%% CLASS
 
 class Visualization():
-    
-    #%% INIT
+    """
+    Class to plot results by default.
+    """
     
     def __init__(self, watershed, modelname):
+        """
+        Parameters
+        ----------
+        watershed : object
+            Variable object of the model domain (watershed). Created by geographic.
+        modelname : str
+            Name of the model simulation.
+        """
         self.watershed = watershed
         self.modelname = modelname
 
     #%% 2D
             
-    def visual2D(self, object_list = ['map','grid',
-                                      'watertable', 'watertable_depth',
-                                      'drain_flow','surface_flow',
-                                      'pathlines','residence_times'], 
+    def visual2D(self, 
+                 object_list: list=['map','grid',
+                                    'watertable', 'watertable_depth',
+                                    'drain_flow','surface_flow',
+                                    'pathlines','residence_times'], 
                  color_scale = None, time_step = 0, lines = 100, structure = 'v'):
+        """
+        
+
+        Parameters
+        ----------
+        object_list : list
+            Select the simulation results you wish to plot. 
+        color_scale : list, optional
+            Boundary limits for color scale. The default is None.
+        time_step : int, optional
+            Choice the stress period to plot. The default is 0.
+        lines : int, optional
+            Number of randomly selected pathlines to be traced. The default is 100.
+        structure : str, optional
+            Structure of the frame figures 'h':horizontal or 'v': vertical. The default is 'v'.
+        """
        
         if len(object_list) == len(color_scale):
             pass
@@ -63,7 +89,7 @@ class Visualization():
             sys.exit()
         
         def trim_axs(axs, N):
-            """little helper to massage the axs list to have correct length..."""
+            """Help to manage the axs list in order to have correct lenght/height"""
             axs = axs.flat
             for ax in axs[N:]:
                 ax.remove()
@@ -125,6 +151,7 @@ class Visualization():
         if structure == 'h':
             R = int(np.sqrt(N))
             C = int(N/R)+1
+            
         fig, axs = plt.subplots(nrows=R, ncols=C ,figsize=(5*C,R*(5*dem.height/dem.width)), dpi=300)
         axs = trim_axs(axs,N)
         image = []
@@ -348,15 +375,14 @@ class Visualization():
 
     #%% 3D
     
-    def visual3D(self, object_list = ['grid', 'watertable'] ,
+    def visual3D(self, object_list=['grid', 'watertable'] ,
                  view = 'south-west', bg = 'lb', interactive = False,
                  lines=100, z_scale=20, render=1,
                  cscale = 'default', cmin=-1, cmax=1,
                  cloc=(0.65,0.75) , size=(1500,1080)):
         
         """
-        3Dvisual shows the vtk objects from an interactive windows or a 
-        screenshot.
+        3Dvisual shows the vtk objects from an interactive windows or a screenshot.
 
         Parameters
         ----------
