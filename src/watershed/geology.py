@@ -27,7 +27,7 @@ class Geology:
     Add geology data in the watershed object.
     """
         
-    def __init__(self, out_path, geographic, geo_path, landsea=None,
+    def __init__(self, out_path: str, geographic: object, geo_path: str, landsea=None,
                  types_obs='GEO1M.shp', fields_obs='CODE_LEG'):
         """
         Class to clip and extract geology caracteristics from a specific lithology map at the France scale.

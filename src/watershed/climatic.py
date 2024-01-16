@@ -92,8 +92,8 @@ class Climatic:
     
     #%% UPDATE FROM CREATED SYNTHETIC DATA
     
-    def update_recharge_synthetic(self, rech, shape, years, start_date = "2020-08", 
-                                  freq = None, dis='normal'):
+    def update_recharge_synthetic(self, rech, shape, years, start_date="2020-08", 
+                                  freq=None, dis='normal'):
         """
         Create synthetic recharge values from mathematical function.
 

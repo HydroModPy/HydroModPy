@@ -30,7 +30,7 @@ class Intermittency:
     Add streamflow intermittence data from specific data at France scale.
     """
     
-    def __init__(self, out_path, intermittency_path, file_name, geographic):
+    def __init__(self, out_path: str, intermittency_path: str, file_name: str, geographic: object):
         """
         Parameters
         ----------
@@ -39,7 +39,7 @@ class Intermittency:
         intermittency_path : str
             Path of the folder with the intermittency data.
         file_name : str
-            Path of the shapefile points of hydrometric station.
+            Shapefile name of hydrometric station.
             Function for a specific vector at the France scale.
         geographic : object
             Variable object of the model domain (watershed).

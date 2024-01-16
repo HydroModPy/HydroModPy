@@ -41,12 +41,12 @@ class Subbasin:
     """
     
     def __init__(self,
-                 geographic, 
-                 hydrometry, 
-                 intermittency,
-                 add_path, 
-                 sub_snap_dist,
-                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
+                 geographic: object, 
+                 hydrometry: object, 
+                 intermittency: object,
+                 add_path: str, 
+                 sub_snap_dist: int,
+                 out_path: str=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         """
         Parameters
         ----------
