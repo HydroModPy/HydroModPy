@@ -36,12 +36,33 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% CLASS
 
 class Subbasin:
+    """
+    Class to extract results in some subbasins inside the model domain (watershed).
+    """
     
-    #%% INIT
-    
-    def __init__(self, geographic, hydrometry, intermittency,
-                 add_path, sub_snap_dist,
-                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):        
+    def __init__(self,
+                 geographic, 
+                 hydrometry, 
+                 intermittency,
+                 add_path, 
+                 sub_snap_dist,
+                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        hydrometry : object
+            Variable object of the model domain (watershed).
+        intermittency : object
+            Variable object of the model domain (watershed).
+        add_path : str
+            Path folder with manual data list.
+        sub_snap_dist : int
+            Maximum distance where the subasin outlet can be moved.
+        out_path : str
+            Path of the HydroModPy outputs.
+        """
         print('Extract subbasin from generated and added data')
         
         self.sub_snap_dist = sub_snap_dist
@@ -90,6 +111,16 @@ class Subbasin:
     # Extract sub-catchment from existing stations : hydrometry or intermittency
     
     def extract_interest_zones(self, geographic, X, Y, outpath, sub_snap_dist):
+        """
+        Generate subassin from XY outlet with geospatial tools.
+
+        Parameters
+        ----------
+        X : float
+            X coordinate of the outlet.
+        Y : float
+            Y coordinate of the outlet..
+        """
         # Path of subbasin
         if os.path.exists(outpath):
             shutil.rmtree(outpath)
@@ -132,6 +163,9 @@ class Subbasin:
     # From a .csv file with x, y coordinates representing the outlet desired sub-catchments
     
     def add_coord_manual(self, add_path):
+        """
+        Check files in folder and extract 'code_sub','x_outlet','y_outlet'
+        """
         path_coord = glob.glob(add_path+'/'+'*')[0]
         # print(path_coord)
         sub_list = pd.read_csv(path_coord, sep=';')

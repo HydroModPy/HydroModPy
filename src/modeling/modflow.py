@@ -600,6 +600,7 @@ class Modflow:
         return success_model
         
     #%% POST-PROCESSING
+    
     def post_processing(self, model_modflow:object,
                         watertable_elevation:bool=True,
                         watertable_depth:bool=True, 
@@ -968,6 +969,5 @@ class Modflow:
                     sup+=365
                     
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
-            
-                    
+                                
 #%% NOTES

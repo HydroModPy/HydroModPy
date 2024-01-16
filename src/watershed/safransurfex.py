@@ -18,32 +18,27 @@ sys.path.append(df)
 #%% CLASS 1
 
 class SafranSurfex:
-    
-    #%% INIT
+    """
+    Class to clip and extract climate data from specific .h5 (NetCDF) file at France scale.
+    """
     
     def __init__(self, out_path, safransurfex_path, watershed_shp):
         """
-        
         Functions to clip .h5 SURFEX files at the model domain scale
-            Historical data from Quentin Courtois thesis ['OLD']
-            Historical reanalysis SAFRAN / SURFEX ['REA'] and updated REAUP
-            Climatic projection DAYON-2015 / SURFEX
+            - Historical data from Quentin COURTOIS thesis ['OLD'] (reanalysis SAFRAN / SURFEX)
+            - Historical reanalysis SAFRAN / SURFEX ['REA'] (1958 to 2019) and updated REAUP (2019 to 2023)
+            - Climatic projection DAYON-2015 / SURFEX
                 ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
                  'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
             
         Parameters
         ----------
-        out_path : TYPE
-            DESCRIPTION.
-        surfex_path : TYPE
-            DESCRIPTION.
-        watershed_shp : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+        out_path : str
+            Path of the HydroModPy outputs.
+        surfex_path : str
+            Path of the folder with the climate (safran/surfex) data.
+        watershed_shp : str
+            Path of the shapefile polygon of the model domain (watershed).
         """
         
         data_folder = os.path.join(out_path, 'results_stable/climatic/')
@@ -61,22 +56,8 @@ class SafranSurfex:
     
     def extract_cells_from_shapefile(self, safransurfex_path, watershed_shp):
         """
-        
-        Extract cells
-
-        Parameters
-        ----------
-        surfex_path : TYPE
-            DESCRIPTION.
-        watershed_shp : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+        Extract cells in watershed from France scale grid of 8x8km.
         """
-        
         mesh_path = safransurfex_path + '/shapefile/maille_meteo_fr_pr93.shp'
         mask = gpd.read_file(watershed_shp , encoding="utf-8")
         mesh = gpd.read_file(mesh_path, encoding="utf-8") 
@@ -84,6 +65,14 @@ class SafranSurfex:
         self.cells_list = intersect.num_id.to_list() # wanted Surfex cells list
 
     def extract_values_from_h5file(self, data_folder, safransurfex_path):
+        """
+        Create a .h5 (netCDF) of climate data at the watershed scale for each database.
+
+        Parameters
+        ----------
+        data_folder : str
+            Path of stable results for safran/surfex data.
+        """
         variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS', 'SNOW']
         # scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
         scenarios = ['historic']
@@ -118,23 +107,17 @@ class SafranSurfex:
 #%% CLASS 2
 
 class Merge:
-    
-    #%% INIT
-    
+    """
+    Generated timeseries in .csv format from .h5 (netCDF) generated at the watershed scale.
+    """    
+
     def __init__(self, out_path):
         """
-    
         Parameters
         ----------
-        out_path : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+        out_path : str
+            Path of the HydroModPy outputs.
         """
-
         self.variables = ['REC','RUN', 'ETP', 'PPT', 'TAS', 'SNOW']
         # self.scenarios = ['historic','RCP2.6','RCP4.5','RCP6.0','RCP8.5']
         self.scenarios = ['historic']
@@ -165,6 +148,9 @@ class Merge:
     #%% MERGE ALL DATA IN CSV
     
     def df_climate_bv(self):
+        """
+        Concatenate all climate data in one .csv file (mean values at the watershed scale).
+        """
         for var in self.variables:
             df = self.base.copy()
             for sim in self.simulations:

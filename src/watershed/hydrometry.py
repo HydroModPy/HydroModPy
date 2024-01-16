@@ -37,7 +37,7 @@ class Hydrometry:
             Path of the folder with the hydrometry data.
         file_name : str
             Path of the shapefile points of hydrometric station.
-            Function for a specific vector at the FRance scale.
+            Function for a specific vector at the France scale.
         geographic : object
             Variable object of the model domain (watershed).
         """
@@ -69,6 +69,11 @@ class Hydrometry:
     def extract_hydrometry_from_watershed(self, data_folder, hydrometry_path, file_name, geographic):
         """
         Clip hydrometric stations at the watershed scale (model domain).
+        
+        Parameters
+        ----------
+        data_folder : str
+            Path of stable results for hydrometry.
         """
         hydrometric_data = os.path.join(hydrometry_path, file_name)
         self.hydrometric_clip = os.path.join(data_folder, file_name)
