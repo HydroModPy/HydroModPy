@@ -29,7 +29,9 @@ class Hydrography:
     Add hydrography data in the watershed object.
     """    
     
-    def __init__(self, out_path, types_obs, fields_obs, geographic, hydro_path):
+    def __init__(self, out_path: str,
+                 types_obs: list, fields_obs: list,
+                 geographic: object, hydro_path: str):
         """
         Parameters
         ----------

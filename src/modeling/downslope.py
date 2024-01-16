@@ -31,11 +31,11 @@ class Downslope:
     """
     
     def __init__(self, 
-                 geographic,
-                 raw_rast_name, 
-                 trace_shp_name, 
-                 mass_rast_name,
-                 extraction_folder=None):
+                 geographic: object,
+                 raw_rast_name: str, 
+                 trace_shp_name: str, 
+                 mass_rast_name: str,
+                 extraction_folder: str=None):
         """
         Parameters
         ----------

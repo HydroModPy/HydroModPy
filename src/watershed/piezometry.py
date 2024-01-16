@@ -52,7 +52,7 @@ class Piezometry:
     
     """
     
-    def __init__(self, out_path, geographic):
+    def __init__(self, out_path: str, geographic: object):
         """
         Parameters
         ----------

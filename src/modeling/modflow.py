@@ -50,18 +50,18 @@ class Modflow:
     
     def __init__(self, geographic: object,
                  # Worflow settings
-                 model_folder: str = 'HydroModPy_outputs',  model_name: str = 'Default', 
-                 bin_path: str = 'bin', box: bool = True, sink_fill: bool = False, sim_state: str = 'steady', 
-                 plot_cross: bool = True, 
+                 model_folder: str='HydroModPy_outputs',  model_name: str='Default', 
+                 bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
+                 plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, first_clim: str = 'mean', 
+                 climatic=0.001, first_clim: str='mean', 
                  # Hydraulic settings
-                 nlay: int = 1, lay_decay: float = 1., bottom: float = None, 
-                 thick: float = 100., hyd_cond = 0.0864, cond_decay: float = 0., 
-                 verti_cond = None, cond_drain: float = None, porosity = 0.1, 
-                 poro_decay: float = 0., 
+                 nlay: int=1, lay_decay: float=1., bottom: float=None, 
+                 thick: float=100., hyd_cond=0.0864, cond_decay: float=0., 
+                 verti_cond=None, cond_drain: float=None, porosity=0.1, 
+                 poro_decay: float=0., 
                  # Boundary settings
-                 sea_level: float = None, bc_left: float = None, bc_right: float = None):
+                 sea_level: float=None, bc_left: float=None, bc_right: float=None):
         """
         Initialize method.
 

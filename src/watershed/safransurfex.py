@@ -22,7 +22,7 @@ class SafranSurfex:
     Class to clip and extract climate data from specific .h5 (NetCDF) file at France scale.
     """
     
-    def __init__(self, out_path, safransurfex_path, watershed_shp):
+    def __init__(self, out_path: str, safransurfex_path: str, watershed_shp: str):
         """
         Functions to clip .h5 SURFEX files at the model domain scale
             - Historical data from Quentin COURTOIS thesis ['OLD'] (reanalysis SAFRAN / SURFEX)
@@ -111,7 +111,7 @@ class Merge:
     Generated timeseries in .csv format from .h5 (netCDF) generated at the watershed scale.
     """    
 
-    def __init__(self, out_path):
+    def __init__(self, out_path: str):
         """
         Parameters
         ----------

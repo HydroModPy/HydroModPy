@@ -27,7 +27,7 @@ class Hydrometry:
     Add hydrometry data in the watershed object.
     """
     
-    def __init__(self, out_path, hydrometry_path, file_name, geographic):
+    def __init__(self, out_path: str, hydrometry_path: str, file_name: str, geographic: object):
         """
         Parameters
         ----------
@@ -36,7 +36,7 @@ class Hydrometry:
         hydrometry_path : str
             Path of the folder with the hydrometry data.
         file_name : str
-            Path of the shapefile points of hydrometric station.
+            Shapefile name of hydrometric station.
             Function for a specific vector at the France scale.
         geographic : object
             Variable object of the model domain (watershed).

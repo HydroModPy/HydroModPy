@@ -45,12 +45,12 @@ class Timeseries:
     """
     
     def __init__(self,
-                 geographic,
-                 model_modflow,
-                 model_modpath,
-                 actual_date=True,
-                 subbasin_results=True,
-                 freq_time='D'):
+                 geographic: object,
+                 model_modflow: object,
+                 model_modpath: object,
+                 actual_date: bool=True,
+                 subbasin_results: bool=True,
+                 freq_time: str='D'):
         """
         Parameters
         ----------
