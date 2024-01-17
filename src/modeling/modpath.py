@@ -40,14 +40,14 @@ class Modpath:
     """
     
     def __init__(self,
-                 geographic:object,
-                 model_modflow:object,
+                 geographic: object,
+                 model_modflow: object,
                  # Worflow settings
-                 model_folder:str='HydroModPy_outputs',
-                 model_name='Default_modpath',
-                 bin_path:str = os.path.join(os.getcwd(),'bin'),
+                 model_folder: str='HydroModPy_outputs',
+                 model_name: str='Default_modpath',
+                 bin_path: str=os.path.join(os.getcwd(),'bin'),
                  # Specific settings
-                 zone_partic:str='domain'):
+                 zone_partic: str='domain'):
         """
         Initialize method.
 

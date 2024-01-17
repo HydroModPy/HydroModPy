@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 23 21:20:39 2021
-
-@author: dreuzy
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
+
+#%% LIBRAIRIES
 
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -13,7 +20,7 @@ import sys as sys
 import time as time
 import pathlib
 
-
+#%% FUNCTION 
 
 # Gets or defines folder result
 def root_folder_results(user_folder_path = None):
@@ -34,7 +41,6 @@ def root_folder_results(user_folder_path = None):
     -------
     folder : str
         Result folder path.
-
     """
     
     env_name = "HYDROMODPY_RESULTS"
@@ -76,6 +82,7 @@ def root_folder_results(user_folder_path = None):
     print('')
     return folder
 
+#%% UPDATE
 
 # Update folder result
 def update_root_folder_results(user_folder_path = None):
@@ -85,7 +92,8 @@ def update_root_folder_results(user_folder_path = None):
     folder = root_folder_results(user_folder_path)
     
     return folder
-    
+
+#%% HIDE
 
 # def name_dhms():
 #     now = datetime.now()
@@ -134,3 +142,5 @@ def update_root_folder_results(user_folder_path = None):
 #         dir_path = os.path.join(pypath, dir_name)
 #         if os.path.isdir(dir_path):
 #             sys.path.insert(0, dir_path)
+
+#%% NOTES
