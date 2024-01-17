@@ -30,7 +30,8 @@ import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import rasterio
-
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
 import imageio
 
@@ -68,12 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = example_path + "data/"
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-# out_path = '/home/agauvain/Documents/HydroModPy/'
-# out_path = 'D:/SIMULATIONS/'
-# out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
-out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP05')
+out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 

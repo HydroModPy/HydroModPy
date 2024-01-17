@@ -43,6 +43,8 @@ import matplotlib.pylab as pl
 import matplotlib.dates as mdates
 from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # Libraries added from 'conda forge' procedure
 from osgeo import gdal, osr # or import gdal
@@ -96,13 +98,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-# out_path = 'D:/SIMULATIONS/'
-# out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
-out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
+out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 

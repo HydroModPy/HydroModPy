@@ -288,7 +288,6 @@ def sklearn_linregress(inx, iny):
     plt.xticks(())
     plt.yticks(())
     plt.show()
-
     
 def line(x, line_point1, line_point2, get_eq=False):
     m = (line_point1[1] - line_point2[1])/(line_point1[0] - line_point2[0])
@@ -321,15 +320,16 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 #%% PATHS
 
-# git_path = "D:/Users/abherve/GITHUB/HydroModPy_0.1/"
-# data_path = "G:/UNINE/SIMULATIONS/VALLON/_data/"
-# out_path = 'G:/UNINE/SIMULATIONS/VALLON/'
-
 git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
+
 # data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
 data_path = 'D:/Users/abherve/SIMULATIONS/LASSET2/_data/'
+
+
 # out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
-out_path = 'D:/Users/abherve/SIMULATIONS/LASSET2/'
+# out_path = 'D:/Users/abherve/SIMULATIONS/LASSET2/'
+out_path = 'C:/Users/ronan/Local/SIMULATIONS/LASSET/'
+
 fig_path = out_path + 'figures/'
 
 dem_name = 'BDALTI_09_25m.tif' # EUDTM_Alps_30m_vallon
