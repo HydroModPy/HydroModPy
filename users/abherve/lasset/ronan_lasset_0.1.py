@@ -327,14 +327,13 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
 # data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
-data_path = 'C:/Users/ronan/Downloads/_init/'
+data_path = 'D:/Users/abherve/SIMULATIONS/LASSET2/_data/'
 # out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
-out_path = 'D:/Users/abherve/SIMULATIONS/VALLON/'
-fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_fig_path/'
+out_path = 'D:/Users/abherve/SIMULATIONS/LASSET2/'
+fig_path = out_path + 'figures/'
 
-dems_path = data_path + '_gis/DEM/' # reginal DEM or conceptual DEM
-dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
-dem_path = dems_path + dem_name
+dem_name = 'BDALTI_09_25m.tif' # EUDTM_Alps_30m_vallon
+dem_path = data_path + dem_name
 # dem_data = imageio.imread(dem_path)
 
 subbasin_path = True # generate subbasins from stations or manual points
@@ -342,12 +341,8 @@ from_dem = None # True or False if the process start from a given DEM of xyz fil
 cell_size = None # specify new resolution from a given DEM or None
 from_shp = None
 
-watershed_names = ['Vallons_EUDTM30m',
-                    'Vare_EUDTM30m',
-                    'Nant_EUDTM30m']
-from_xyvs = [ [2572138.212,1122730.976,300,10,'EPSG:2056'],
-              [2574842.267,1122488.817,150,10,'EPSG:2056'],
-              [2574600.362,1122366.973,150,10,'EPSG:2056'] ]
+watershed_names = [ 'Lasset' ]
+from_xyvs = [ [601020,6193860,100,50,'EPSG:2154'] ]
 
 # watershed_names = ['Nant_EUDTM30m','Vare_EUDTM30m']
 # from_xyvs = [ [2574600.362,1122366.973,150,10,'EPSG:2056'],
@@ -384,23 +379,14 @@ for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
     except:
         pass
 
-    BV.add_intermittency('None','None')
-    if watershed_name == 'Vallons_EUDTM30m':
-        BV.add_subbasin(data_path+'_gis/SIG/'+'_additional_Vallons/', sub_snap_dist=150)
-    if watershed_name == 'Nant_EUDTM30m':
-        BV.add_subbasin(data_path+'_gis/SIG/'+'_additional_Nant', sub_snap_dist=150)
-    # if watershed_name == 'Vare_EUDTM30m':
-    #     BV.add_subbasin(data_path+'_gis/SIG/'+'_additional_Vare', sub_snap_dist=150)   
-    
+    # BV.add_subbasin('_additional_subassins/', sub_snap_dist=100)
+
 #%% HYDRO
 
-hydrography_path = data_path + '_gis/Hydrography_clipped/' # add hydrographic shapefiles
+hydrography_path = data_path # add hydrographic shapefiles
 
-types_obs = ['perennial_natural_streams',
-             'fully_natural_streams',
-             'fully_natural_streams_springs',
-             'fully_natural_streams_springs_wetlands']
-fields_obs = ['fid','fid','fid','fid']
+types_obs = ['stream_perennial_wetlands_points']
+fields_obs = ['fid']
 
 for watershed_name in watershed_names[:]:
     
@@ -439,10 +425,10 @@ for watershed_name in watershed_names[:]:
 
 work_dir = data_path + '_safransurfex/'
 raw_path = work_dir + 'france/'
-clip_path = work_dir + 'vallon/'
-mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93_2056.shp'
+clip_path = work_dir + 'site/'
+mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93.shp'
 # site_path = data_path + '_gis/SIG/boxbuff_ref.shp'
-site_path = 'D:/Users/abherve/SIMULATIONS/VALLON/Vallons_EUDTM30m/results_stable/geographic/box_buff.shp'
+site_path = stable_folder + 'geographic/box_buff.shp'
 mesh = gpd.read_file(mesh_path)
 site = gpd.read_file(site_path)
 site_mesh = mesh.clip(site)
@@ -452,58 +438,6 @@ site_mesh.plot(ax=ax)
 num_id = list(site_mesh['num_id'].values)
 print(num_id)
 
-"""
-### FRANCE SCALE TO VALLON SCALE ###
-mod_list = ['REA']
-var_list = ['TAS','PPT','ETP','RUN','REC','SNOW']
-sce_list = ['historic']
-for mod in mod_list:
-    dic = {}
-    dic[mod] = {}        
-    for var in var_list:
-        dic[mod][var]={}                
-        for sce in sce_list:
-            # try:
-            x = pd.read_hdf(raw_path + mod + '.h5', var + '/' + sce)
-            print('YES' + ' - ' + mod.upper()+' - '+var.upper()+' - '+sce.upper())
-            # x = x.iloc[:, num_id]
-            x = x.loc[:, x.columns.isin(num_id)]
-            dic[mod][var][sce] = x
-            dic[mod][var][sce].to_hdf(clip_path + mod + '.h5', var + '/' + sce)
-            # except: 
-            #     print('NO' + ' - ' + mod.upper()+' - '+var.upper()+' - '+sce.upper())
-            #     pass
-            # values['MEAN'] = values.mean(numeric_only=True, axis=1)
-            # values.to_hdf(h5file, var+'/'+sce)
-    dd.io.save(clip_path + mod + 'bis.h5', dic) # long but all    
-
-### FRANCE SCALE TO VALLON SCALE ###
-simulations = ['REA']
-variables = ['TAS','PPT','ETP','RUN','REC','SNOW']
-scenarios = ['historic']
-values = {}
-data_folder = 'G:/UNINE/SIMULATIONS/VALLON/_data/_safransurfex/vallon/'
-for sim in simulations:
-    try:
-        os.remove(data_folder+sim+'.h5')
-    except:
-        pass
-    values[sim] = {}
-    h5file = (data_folder+sim+'.h5')
-    for var in variables:
-        values[sim][var] = {}
-        # for sce in scenarios:
-        valuesT = pd.read_hdf(raw_path+'/'+sim+'.h5',var+'/'+sce)
-        print('Find: '+sim+'-'+var)
-        if (sim == 'REA') | (sim == 'OLD') | (sim == 'REAUP'):
-            valuesT.index.freq = valuesT.index.inferred_freq
-        # values = values.loc[:,self.cells_list]
-        valuesT = valuesT[valuesT.columns.intersection(num_id)]
-        valuesT['MEAN'] = valuesT.mean(numeric_only=True, axis=1)
-        valuesT.to_hdf(h5file, var+'/'+sce)
-        values[sim][var][sce] = valuesT
-"""
-
 mod = 'REA'
 sce = 'historic'
 
@@ -512,7 +446,6 @@ BV = watershed_root.Watershed(watershed_name='Vallons_EUDTM30m',
                               out_path=out_path,
                               load=True)
 
-stable_folder = out_path+'/'+'Vallons_EUDTM30m'+'/'+'results_stable/'
 surfex_data = stable_folder + 'climatic/'
 
 if not os.path.exists(stable_folder+'climatic/REA.H5'):
