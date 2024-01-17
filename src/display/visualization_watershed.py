@@ -87,6 +87,14 @@ fontdic = {'family' : 'serif'} # for legend
 #%% FUNCTIONS
 
 def watershed_dem(BV):
+    """
+    Plot contour watershed and DEM.
+
+    Parameters
+    ----------
+    BV : object
+        Variable object of the model domain (watershed).
+    """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     try:
@@ -168,6 +176,16 @@ def watershed_dem(BV):
                 bbox_inches='tight', transparent=False)
 
 def watershed_local(regional_dem_path, BV):
+    """
+    Plot location of the watershed at the regional scale.
+
+    Parameters
+    ----------
+    regional_dem_path : str
+        Initial path of the regional DEM.
+    BV : object
+        Variable object of the model domain (watershed).
+    """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     contour = gpd.read_file(BV.geographic.watershed_contour_shp)
@@ -185,6 +203,14 @@ def watershed_local(regional_dem_path, BV):
                 bbox_inches='tight', transparent=False)
     
 def watershed_geology(BV):
+    """
+    Plot lithology of the watershed from specific geological map at FRance scale.
+
+    Parameters
+    ----------
+    BV : object
+        Variable object of the model domain (watershed).
+    """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     ax = plt.gca()

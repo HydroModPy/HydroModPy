@@ -33,15 +33,56 @@ wbt.verbose = False
 #%% DIRECTORY MANAGEMENT
 
 def create_folder(path):
+    """
+    If not exist, create a new empty folder.
+
+    Parameters
+    ----------
+    path : str
+        Folder path.
+    """
     if not os.path.exists(path):
         os.makedirs(path)
         
 #%% RASTER PROCESSING
 
 def clip_tif(tif_path, shp_path, out_path, maintain_dimensions):
+    """
+    Clip a raster from a shapefile polygon.
+
+    Parameters
+    ----------
+    tif_path : str
+        Raster path.
+    shp_path : str
+        Shapefile path.
+    out_path : str
+        Ouput result path.
+    maintain_dimensions : bool
+        Maintain the raster dimension or not.
+    """
     wbt.clip_raster_to_polygon(tif_path, shp_path, out_path, maintain_dimensions=maintain_dimensions)
 
 def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
+    """
+    Mask raster from different conditions
+
+    Parameters
+    ----------
+    target_data : 2D matrix
+        Raster data to mask.
+    mask_data : 2D matrix
+        Raster reference for mask.
+    cond_symb : str
+        Select the mask consition: '==','!=','<=','>=','>','<'.
+    value_masked : float
+        Value to mask.
+
+    Returns
+    -------
+    masked : 2D matrix
+        Masked raster.
+    """
     if cond_symb == '==':
         masked = np.ma.masked_array(target_data, mask=mask_data==value_masked)
     if cond_symb == '!=':
@@ -59,12 +100,48 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
 #%% EXTRACTING FEATURES
 
 def basin_area(target_data, mask_data, cond_symb, value_masked, resolution):
+    """
+    Calculate the area of a masked raster.
+
+    Parameters
+    ----------
+    target_data : 2D matrix
+        Raster data to mask.
+    mask_data : 2D matrix
+        Raster reference for mask.
+    cond_symb : str
+        Select the mask consition: '==','!=','<=','>=','>','<'.
+    value_masked : float
+        Value to mask.
+    resolution : float
+        Cell resolution of the raster.
+
+    Returns
+    -------
+    area : float
+        Area in [km²] if resolution is in [m].
+    """
     masked = mask_by_dem(target_data, mask_data, cond_symb, value_masked)
     cell = masked.count()
     area = (cell * resolution**2) / 1000000
     return area
 
 def efficiency_criteria(sim, obs):
+    """
+    Calculate successful criteria.
+
+    Parameters
+    ----------
+    sim : list
+        Timeseries of simulated results.
+    obs : list
+        Timeseries of observed results.
+
+    Returns
+    -------
+    list
+        Float values results.
+    """
     RMSE = evaluator(rmse, sim, obs)
     nRMSE = RMSE[0] / obs.mean() # %
     NSE = evaluator(nse, sim, obs)
@@ -76,13 +153,48 @@ def efficiency_criteria(sim, obs):
     return [RMSE[0], nRMSE, NSE[0], NSElog[0], BAL, MARE[0], KGE[0]]
 
 def date_range(start, periods, freq):
+    """
+    Generate timestamp from datetime.
+
+    Parameters
+    ----------
+    start : int
+        Starting year.
+    periods : int
+        Number of periods.
+    freq : str
+        Frequency of the datetime: 'D','W','M','Y'.
+
+    Returns
+    -------
+    time : datetime
+        Datetime generated.
+    """
     time = pd.date_range(str(start), periods=periods, freq=freq)
     return time
 
 #%% PLOT SETTINGS
 
 def plot_params(small,interm,medium,large):
+    """
+    Change options for plots.
     
+    Parameters
+    ----------
+    small : float
+        Small size.
+    interm : float
+        Intermediate size.
+    medium : float
+        Medium size.
+    large : float
+        Large size.
+
+    Returns
+    -------
+    fontprop : dict
+        Properties of font.
+    """
     small = small
     interm = interm
     medium = medium
@@ -145,6 +257,20 @@ def plot_params(small,interm,medium,large):
 #%% REPROJECT DATA
 
 def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
+    """
+    Export tif from 2D matrix data following raster reference.
+
+    Parameters
+    ----------
+    base_dem_path : str
+        Path of raster reference.
+    data_to_tif : 2D matrix
+        Data to export in raster.
+    data_nodata_val : float
+        Value defined as no data.
+    data_tif_path : TYPE
+        Output path of the exported raster.
+    """
     # Open base dem
     with rio.open(base_dem_path) as src:
         ras_data = src.read()
@@ -161,6 +287,9 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
         dst.write(data_to_tif, 1)
     
 def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
+    """
+    Reproject raster from WGS to UTM projection.
+    """
     raw_dem = gdal.Open(raw_dem_path)    
     warp = gdal.Warp(wgs_dem_path, raw_dem, dstSRS='EPSG:4326')
     warp = None
@@ -197,6 +326,9 @@ def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     return utm_crs
 
 def reproject_coord(x_wgs, y_wgs):
+    """
+    Reproject coordinate points WGS to UTM.
+    """
     # x_wgs=-2
     # y_wgs=48
     lon = x_wgs
@@ -212,6 +344,10 @@ def reproject_coord(x_wgs, y_wgs):
     return utm_crs, x_utm, y_utm
 
 def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
+    """
+    Reproject shapefile with defined UTM crs.
+    For example: 'EPSG:2154'
+    """
     crs_code = utm_crs[5:]
     shp = gpd.read_file(raw_shp_path)
     shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
@@ -219,6 +355,23 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     shp.to_file(out_shp_path)
 
 def select_period(df, first, last):
+    """
+    Clip a timeseries from two boundary years.
+
+    Parameters
+    ----------
+    df : DataFrame or Series
+        DataFrame or Series with datetime index.
+    first : int
+        Starting year.
+    last : int
+        Ending year.
+
+    Returns
+    -------
+    df : DataFrame or Series
+        Clipped variable.
+    """
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 

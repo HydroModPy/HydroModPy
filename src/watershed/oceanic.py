@@ -29,49 +29,49 @@ sys.path.append(df)
 # HydroModPy
 from tools import toolbox
 
-#%% FUNCTION
-
-color_dict = {'RCP2.6':'dodgerblue',
-              'RCP8.5':'red',
-              'RCP4.5':'salmon'}
-
-def oceanic_display_data(data, figure_folder, value):
-    fontprop = toolbox.plot_params(15,15,18,20)
-    fig = plt.figure()
-    
-    for sce in data:
-        d = data[sce].index.values
-        data[sce]['median'].plot(c=color_dict[sce], label=sce+': median values')
-        plt.fill_between(d , data[sce]['std high'], data[sce]['std low'],facecolor=color_dict[sce], alpha=0.2, label=sce +': 5th and 95th perc')
-        #data[sce]['5th per'].plot(c=color_dict[sce],ls='--', label=sce)
-        #data[sce]['95th per'].plot(c=color_dict[sce],ls='--', label=sce)
-
-    plt.legend(loc='best')
-    plt.xlabel('Date')
-    if value =='RMSL':
-        plt.ylabel('Mean Sea Level [m]')
-    if value =='RSL':
-        plt.ylabel('Rise Sea Level [m]')
-    
-    plt.tight_layout()
-    name_out = figure_folder + 'plot'
-    fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
-
 #%% CLASS
 
 class Oceanic:
-    
-    #%% INIT
+    """
+    Add oceanic data from specific data at France scale.
+    Allow to define head boundary with water levels in groundwater flow model.
+    """
     
     def __init__(self):
+        """
+        Parameters
+        ----------
+        MSL : float
+            The default is None.
+        """
         self.MSL = None
-    
-    #%% FUNCTIONS
-    
+
+#%% FUNCTIONS
+        
     def update_MSL(self, value):
+        """
+        Update the MSL value.
+        
+        Parameters
+        ----------
+        value : float
+            Elevation Meter Above Sea Level [m]. The default is None.
+        """
         self.MSL = value
     
-    def extract_data(self, out_path, geographic, oceanic_path = None):
+    def extract_data(self, out_path, geographic, oceanic_path=None):
+        """
+        Clip data at the model_domain (watershed) scale.
+        
+        Parameters
+        ----------
+        out_path : str
+            Path of the HydroModPy outputs.
+        geographic : object
+            Variable object of the model domain (watershed).
+        oceanic_path : str, optional
+            Path of the folder with the oceanic data. The default is None.
+        """
         self.figure_folder = os.path.join(out_path,'results_stable/_figures/oceanic/')
         if not os.path.exists(self.figure_folder):
             os.makedirs(self.figure_folder)
@@ -79,7 +79,15 @@ class Oceanic:
         if ram_path != None:
             self.rise_sea_level(geographic, oceanic_path)
 
-    def mean_sea_level(self,geographic, oceanic_path):
+    def mean_sea_level(self, geographic, oceanic_path):
+        """
+        Extract historical mean sea level in tide sea level stations.
+
+        Returns
+        -------
+        ram_path : str
+            Path of the tide sea level stations data in a shapefile.
+        """
         ram_path = oceanic_path+"/RAM_2020.shp"
         if not os.path.exists(ram_path):
             ram_path = None
@@ -95,6 +103,9 @@ class Oceanic:
         return ram_path
 
     def rise_sea_level(self, geographic, oceanic_path):
+        """
+        Extract future sea level projections under different greenhouse gas emission scenarios.
+        """
         xidx, yidx = self.idx_from_global_map(oceanic_path+'/rsl_ts_26.nc',geographic)
         scenarios = ['RCP2.6','RCP4.5','RCP8.5']
         rsl_name = {'RCP2.6':'rsl_ts_26.nc',
@@ -136,6 +147,23 @@ class Oceanic:
             self.RMSL[sce] = df1
 
     def idx_from_global_map(self, path, geographic):
+        """
+        Index and project zones of interest.
+
+        Parameters
+        ----------
+        path : str
+            Path of the specific NetCDF file.
+        geographic : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        xidx : int
+            Index x.
+        yidx : int
+            Index y.
+        """
         nc = Dataset(path, "r", format="NETCDF4")
         find_idx = np.zeros((np.shape(nc.variables['slr_md'][0])[0]*np.shape(nc.variables['slr_md'][0])[1],5))
         compt = 0
@@ -150,17 +178,61 @@ class Oceanic:
         yidx = find_idx[idx][1]
         return int(xidx), int(yidx)
 
-    color_dict = {'RCP2.6':'dodgerblue',
-                  'RCP8.5':'red',
-                  'RCP4.5':'salmon'}
-        
     def display_data(self, values):
+        """
+        Function to activate plots.
+        
+        Parameters
+        ----------
+        values : str
+            Type of plot required : 'RMSL' or 'RSL'.
+        """
         values_list = ['RMSL','RSL']
         if values not in values_list:
             print('You must specify the values you want to display')
-        if values =='RMSL':
-            oceanic_display_data(self.RMSL,self.figure_folder+'RMSL', values)
-        if values =='RSL':
-            oceanic_display_data(self.RSL,self.figure_folder+'RSL', values)
+        if values == 'RMSL':
+            oceanic_display_data(self.RMSL, self.figure_folder+'RMSL', values)
+        if values == 'RSL':
+            oceanic_display_data(self.RSL, self.figure_folder+'RSL', values)
+
+#%% DISPLAY
+
+def oceanic_display_data(data, figure_folder, value):
+    """
+    Plot functions.
+
+    Parameters
+    ----------
+    data : TYPE
+        DataFrame with data to plot.
+    figure_folder : str
+        Folder path to save figures.
+    value : str
+        Type of plot required : 'RMSL' or 'RSL'.
+    """
+    color_dict = {'RCP2.6':'dodgerblue',
+                  'RCP8.5':'red',
+                  'RCP4.5':'salmon'}
     
+    fontprop = toolbox.plot_params(15,15,18,20)
+    fig = plt.figure()
+    
+    for sce in data:
+        d = data[sce].index.values
+        data[sce]['median'].plot(c=color_dict[sce], label=sce+': median values')
+        plt.fill_between(d , data[sce]['std high'], data[sce]['std low'],facecolor=color_dict[sce], alpha=0.2, label=sce +': 5th and 95th perc')
+        #data[sce]['5th per'].plot(c=color_dict[sce],ls='--', label=sce)
+        #data[sce]['95th per'].plot(c=color_dict[sce],ls='--', label=sce)
+
+    plt.legend(loc='best')
+    plt.xlabel('Date')
+    if value =='RMSL':
+        plt.ylabel('Mean Sea Level [m]')
+    if value =='RSL':
+        plt.ylabel('Rise Sea Level [m]')
+    
+    plt.tight_layout()
+    name_out = figure_folder + 'plot'
+    fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
+
 #%% NOTES

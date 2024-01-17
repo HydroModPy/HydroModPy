@@ -40,6 +40,7 @@ from tools import toolbox
 from modeling import downslope
 
 #%% CLASS
+
 class Modflow:
     """
     Class Modflow.
@@ -49,18 +50,18 @@ class Modflow:
     
     def __init__(self, geographic: object,
                  # Worflow settings
-                 model_folder: str = 'HydroModPy_outputs',  model_name: str = 'Default', 
-                 bin_path: str = 'bin', box: bool = True, sink_fill: bool = False, sim_state: str = 'steady', 
-                 plot_cross: bool = True, 
+                 model_folder: str='HydroModPy_outputs',  model_name: str='Default', 
+                 bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
+                 plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, first_clim: str = 'mean', 
+                 climatic=0.001, first_clim: str='mean', 
                  # Hydraulic settings
-                 nlay: int = 1, lay_decay: float = 1., bottom: float = None, 
-                 thick: float = 100., hyd_cond = 0.0864, cond_decay: float = 0., 
-                 verti_cond = None, cond_drain: float = None, porosity = 0.1, 
-                 poro_decay: float = 0., 
+                 nlay: int=1, lay_decay: float=1., bottom: float=None, 
+                 thick: float=100., hyd_cond=0.0864, cond_decay: float=0., 
+                 verti_cond=None, cond_drain: float=None, porosity=0.1, 
+                 poro_decay: float=0., 
                  # Boundary settings
-                 sea_level: float = None, bc_left: float = None, bc_right: float = None):
+                 sea_level: float=None, bc_left: float=None, bc_right: float=None):
         """
         Initialize method.
 
@@ -112,8 +113,8 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
-
         """
+        
         #%% Initialization
         
         self.model_folder = model_folder
@@ -278,7 +279,7 @@ class Modflow:
                     self.bottom_layer = self.bottom
                     self.bottom_layer[self.dem<=-9999]=-9999
         
-        # Modification of layer thickness for exponentially decreasing hydraulic conductivity cases
+        # Modification of layer thickness exponentially
         if self.lay_decay != 1.:
             exp_scale = 1-self.lay_decay**self.nlay
     
@@ -599,6 +600,7 @@ class Modflow:
         return success_model
         
     #%% POST-PROCESSING
+    
     def post_processing(self, model_modflow:object,
                         watertable_elevation:bool=True,
                         watertable_depth:bool=True, 
@@ -967,6 +969,5 @@ class Modflow:
                     sup+=365
                     
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
-            
-                    
+                                
 #%% NOTES
