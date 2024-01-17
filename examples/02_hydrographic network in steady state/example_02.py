@@ -27,7 +27,8 @@ import pandas as pd
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import deepdish as dd
@@ -68,14 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-# out_path = 'D:/SIMULATIONS/'
-# out_path = '/home/agauvain/Documents/HydroModPy/'
-# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
-# out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
-out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-
+out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP02')
+# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 

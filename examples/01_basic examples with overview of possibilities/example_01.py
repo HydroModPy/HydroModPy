@@ -29,6 +29,8 @@ import pandas as pd
 import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import imageio
@@ -66,14 +68,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-# out_path = folder_root.root_folder_results()
-out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-#out_path = 'D:/results'
-#out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
-#out_path = '/home/agauvain/Documents/HydroModPy/'
-#out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
-#out_path = 'D:/Users/abherve/SIMULATIONS/EXHMP01/'
+out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
+# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
