@@ -168,8 +168,10 @@ class Geographic:
             watersheds=None, 
             weights=None, 
             esri_pntr=False)
-        # Correct no data
-        wbt.modify_no_data_value(self.dem_path, new_value='-99999.0')
+# =============================================================================
+#         # Correct no data
+#         wbt.modify_no_data_value(self.dem_path, new_value='-99999.0')
+# =============================================================================
         
         """
         Extract watershed from an outlet
@@ -245,6 +247,8 @@ class Geographic:
         self.watershed_buff_dem = os.path.join(self.gis_path, 'watershed_buff_dem.tif')
         wbt.clip_raster_to_polygon(self.dem_path, buffer, self.watershed_buff_dem,
                                    maintain_dimensions=False)
+        # Correct no data
+        wbt.modify_no_data_value(self.watershed_buff_dem, new_value='-99999.0')
         # Clip corrected regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_fill = os.path.join(self.gis_path, 'watershed_buff_fill.tif')
         wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill,
@@ -297,6 +301,8 @@ class Geographic:
         self.watershed_box_buff_dem = os.path.join(self.gis_path, 'watershed_box_buff_dem.tif')
         wbt.clip_raster_to_polygon(self.dem_path, self.box_buff, self.watershed_box_buff_dem,
                                    maintain_dimensions=False)
+        # Correct no data
+        wbt.modify_no_data_value(self.watershed_box_buff_dem, new_value='-99999.0')
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_fill = os.path.join(self.gis_path, 'watershed_box_buff_fill.tif')
         wbt.clip_raster_to_polygon(fill, self.box_buff, self.watershed_box_buff_fill,
