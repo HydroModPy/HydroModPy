@@ -41,12 +41,27 @@ class Lakeres:
     def __init__(self, geographic):
         self.n_lakeres:int = 0 # number of lakes/reservoirs
         self.indexes:list = [] # identifiers of lakes/reservoirs
-        self.masks:dict = {} # dict of lakes/reservoirs masks, keyed by lake_id
-        self.flux_data:dict = {} # dict of lakes/reservoirs flux data dataframes, 
-                                 # keyed by lake_id
         self.raster_base = geographic.watershed_dem
         self.crs_proj = geographic.crs_proj
-    
+        with rio.open(self.raster_base, 'r') as base:
+            self.nodata = base.profile['nodata'] # value corresponding to the no data property 
+        self.masks:dict = {} # dict of lakes/reservoirs masks, keyed by lake_id
+        self.raster_array:np.ndarray = None
+        raster_array = toolbox.load_to_numpy(self.raster_base,
+                                              dst_crs = self.crs_proj) # np.ndarray
+        self.raster_array = np.ma.array(raster_array, 
+                                        mask = raster_array==self.nodata,
+                                        fill_value = self.nodata,
+                                        ) * 0 # masked np.ndarray with null values
+        self.flux_data:dict = {} # dict of lakes/reservoirs flux data dataframes, 
+                                 # keyed by lake_id
+                                 
+        self.data_folder = os.path.join(geographic.stable_folder,
+                                   'lakeres')
+        if not os.path.exists(self.data_folder):
+                os.makedirs(self.data_folder)
+        
+
     #%% ADD A NEW LAKE/RESERVOIR   
     def new_lakeres(self, mask_path:str, lake_id:int=None, src_crs=None):
         # can be a lake or an artificial lake
