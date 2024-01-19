@@ -98,8 +98,8 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
         masked = np.ma.masked_array(target_data, mask=mask_data<value_masked)
     return masked
 
-def load_to_numpy(file_path, src_crs:str=None,
-                  base_path:str=None, dst_crs:str=None, out_path:str=None):
+def load_to_numpy(file_path, src_crs=None,
+                  base_path:str=None, dst_crs=None, out_path:str=None):
     """
     Generate a numpy array from a source file (vector or raster) and a base
     raster. The numpy array profile (shape, resolution, extent...) matches 
@@ -117,14 +117,20 @@ def load_to_numpy(file_path, src_crs:str=None,
 
     Parameters
     ----------
-    file_path : TYPE
-        DESCRIPTION.
-    base_path : str, optional
-        DESCRIPTION. The default is None.
-    dst_crs : str, optional
-        DESCRIPTION. The default is None.
-    out_path : str, optional
-        DESCRIPTION. The default is None.
+    file_path : str
+        Path to the input file to process.
+    src_crs : int or str, optional (The default is None)
+        If the CRS is not embeded in the input file, it is possible to 
+        specify it here, as an integer (EPSG), or a str 'EPSG:<int>'
+    base_path : str, optional (The default is None)
+        Path to the file that will serve as the base for dimensions, resolution,
+        extent... 
+    dst_crs : int or str, optional (The default is None)
+        If the CRS is not embeded in the base file, it is possible to 
+        specify it here, as an integer (EPSG), or a str 'EPSG:<int>'
+    out_path : str, optional (The default is None)
+        If specified, the numpy array will be saved as a .tif file, using the
+        profile from the base file.
 
     Returns
     -------
