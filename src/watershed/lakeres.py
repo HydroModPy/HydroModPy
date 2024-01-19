@@ -46,9 +46,24 @@ class Lakeres:
         self.raster_base = geographic.watershed_dem
         self.crs_proj = geographic.crs_proj
     
-    def update_blabla(self):
-        0
+    #%% ADD A NEW LAKE/RESERVOIR   
+    def new_lakeres(self, mask_path:str, lake_id:int=None):
+        # can be a lake or an artificial lake
+        if not lake_id:
+            if self.n_lakeres == 0:
+                lake_id = 0
+            else:
+                lake_id = np.max(self.indexes) + 1
+                
+        self.masks[lake_id] = toolbox.load_to_numpy(mask_path, 
+                                                    base_path = self.raster_base,
+                                                    dst_crs = self.crs_proj)
         
+        self.flux_data[lake_id] = {}
+        # Update Lakeres attributes:
+        # self.idlist = self.idlist.append(lake_id)
+        self.indexes = list(self.masks.keys())
+        self.n_lakeres = len(self.indexes)
         
         
    
