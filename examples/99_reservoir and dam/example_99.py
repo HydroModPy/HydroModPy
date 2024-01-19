@@ -277,15 +277,29 @@ dam_input_df = pd.read_csv(dam_data_path,
                            index_col = 'time',
                            parse_dates = True)
 
+mask_path = os.path.join(root_dir, 'examples', 
+                             '99_reservoir and dam', 'data', 
+                             'Cheze_lake.shp')
 
-BV.lakeres.update_definition()
+BV.add_lakeres(BV.geographic)
 
-BV.lakeres.update_precip()
-BV.lakeres.update_evap()
-BV.lakeres.update_runoff()
-BV.lakeres.update_withdraw()
-BV.lakeres.update_fill()
+lake_mask_path = r""
+lake_id = 0
+BV.lakeres.new_lakeres(mask_path, lake_id)
 
+# =============================================================================
+# BV.lakeres.update_definition(lake_id, new_lake_id, new_mask_path)
+# =============================================================================
+
+# =============================================================================
+# BV.lakeres.update_precip()
+# BV.lakeres.update_evap()
+# BV.lakeres.update_runoff()
+# =============================================================================
+
+# Anthropic fluxes
+withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['meu']
+BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 
 
 #%%% Force the return flow
