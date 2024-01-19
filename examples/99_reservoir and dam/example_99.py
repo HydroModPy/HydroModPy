@@ -283,7 +283,6 @@ mask_path = os.path.join(root_dir, 'examples',
 
 BV.add_lakeres(BV.geographic)
 
-lake_mask_path = r""
 lake_id = 0
 BV.lakeres.new_lakeres(mask_path, lake_id)
 
