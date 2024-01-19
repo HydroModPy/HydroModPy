@@ -25,6 +25,7 @@ from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
 from hydroeval import *
 import pandas as pd
+from affine import Affine
 import numpy as np
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -97,6 +98,134 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
         masked = np.ma.masked_array(target_data, mask=mask_data<value_masked)
     return masked
 
+def load_to_numpy(file_path, src_crs:str=None,
+                  base_path:str=None, dst_crs:str=None, out_path:str=None):
+    """
+    If file_path is a .tif: generate a numpy array from it
+       If base_path is specified: convert the raster (reproject to match 
+       resolution, shape, CRS...) before generating a numpy array from it.
+       If crs_proj is specified, reproject the raster in the new CRS before
+       generating a numpy array from it.
+       
+    If file_path is a .shp: convert the vector into a raster (base_path is 
+    required). 
+
+    Parameters
+    ----------
+    file_path : TYPE
+        DESCRIPTION.
+    base_path : str, optional
+        DESCRIPTION. The default is None.
+    dst_crs : str, optional
+        DESCRIPTION. The default is None.
+    out_path : str, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    val : TYPE
+        DESCRIPTION.
+
+    """
+    # Initializations:
+    if base_path:
+        with rio.open(base_path, 'r') as base: base_profile = base.profile
+    else:
+        base_profile = None
+    if isinstance(src_crs, str): src_crs = rio.crs.CRS.from_string(src_crs)
+    elif isinstance(src_crs, int): src_crs = rio.crs.CRS.from_epsg(src_crs)
+    if isinstance(dst_crs, str): dst_crs = rio.crs.CRS.from_string(dst_crs)
+    elif isinstance(dst_crs, int): dst_crs = rio.crs.CRS.from_epsg(dst_crs)
+    
+    if os.path.splitext(file_path)[-1] == '.shp':
+        if base_profile:
+            file_vect = gpd.read_file(file_path)
+            # CRS initialization
+            if src_crs and not file_vect.crs:
+                file_vect.set_crs(crs = src_crs)
+            if dst_crs and not base_profile['crs'].to_epsg():
+                base_profile['crs'] = dst_crs
+            # The vector needs to be in the same CRS as the base raster:
+            if base_profile['crs'].to_epsg():
+                base_crs = base_profile['crs']
+                print(f"\n    Vector will be rasterized into base CRS 'EPSG:{base_crs.to_epsg()}'")
+            elif dst_crs:
+                base_crs = dst_crs
+                print(f"\n    Vector will be rasterized into base CRS 'EPSG:{base_crs.to_epsg()}' (assumed from user input 'crs_proj')")
+            else:
+                base_crs = file_vect.crs
+                print(f"\n    Vector will be rasterized into base CRS 'EPSG:{base_crs.to_epsg()}' (assumed to be identical to vector CRS)")            
+            file_vect.to_crs(crs = base_crs.to_epsg(), inplace = True)
+            # Rasterize:
+            val = rio.features.rasterize(
+                [(val.geometry, 1) for _, val in file_vect.iterrows()],
+                out_shape = (base_profile['height'], base_profile['width']),
+                transform = base_profile['transform'],
+                fill = base_profile['nodata'],
+                all_touched = False)
+            data_profile = base_profile
+            data_profile['crs'] = base_crs
+        else: # if there is no base_profile
+            print('\nRasterizeError: A rasterio profile is required to convert vectoriel data into raster')
+            return
+            
+    else: # if input file is not a shapefile
+        with rio.open(file_path, 'r') as data:
+            data_profile = data.profile
+            if src_crs and not data_profile['crs'].to_epsg():
+                data_profile['crs'] = src_crs
+            # data_crs = data.crs
+            val = data.read()[0] # extract the first layer
+    
+    # Reprojection:
+    # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):    
+    if (dst_crs and data_profile['crs'].to_epsg() and (data_profile['crs'] != dst_crs)) or (base_profile and (data_profile != base_profile)):
+        if (dst_crs and (data_profile['crs'] != dst_crs) and not data_profile['crs'].to_epsg()):
+            print('\nError: Source CRS is required to reproject data')
+            return
+        
+        rio.warp.reproject(source = val, 
+                                    destination = val, 
+                                    src_transform = data_profile['transform'],
+                                    src_crs = data_profile['crs'],
+                                    src_nodata = data_profile['nodata'],
+                                    dst_transform = base_profile['transform'],
+                                    dst_crs = dst_crs,
+                                    dst_nodata = base_profile['nodata'],
+                                    resampling = rio.enums.Resampling(0),
+                                    # resampling = rasterio.enums.Resampling(5),
+                                    )
+        data_profile = base_profile
+        data_profile['crs'] = dst_crs
+        
+    
+    
+    # Ne fonctionne pas encore
+# =============================================================================
+#     # Drop nodata margins:
+#     J, I = np.where(val == 1)
+#     imin = I.min()
+#     imax = I.max()
+#     jmin = J.min()
+#     jmax = J.max()
+#     xmin = data_profile['transform'][2] + imin*data_profile['transform'][0]
+#     ymax = data_profile['transform'][5] + (data_profile['height']-jmax)*data_profile['transform'][5]
+#     data_profile['transform'] = Affine(data_profile['transform'][0],
+#                                        data_profile['transform'][1],
+#                                        xmin,
+#                                        data_profile['transform'][3],
+#                                        data_profile['transform'][4],
+#                                        ymax)
+#     data_profile['width'] = imax - imin
+#     data_profile['height'] = jmax - jmin
+# =============================================================================
+
+    if out_path: # to export as a .tif file (optional)
+        with rio.open(out_path, 'w', **data_profile) as dst: 
+            dst.write_band(1, val)
+
+    return val
+        
 #%% EXTRACTING FEATURES
 
 def basin_area(target_data, mask_data, cond_symb, value_masked, resolution):
