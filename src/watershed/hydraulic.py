@@ -167,7 +167,7 @@ class Hydraulic:
         """
         self.poro_decay =  poro_decay_value    
     
-    def update_lay_decay(self, thick_exp_value: float):
+    def update_lay_decay(self, lay_decay_value: float):
         """
         Parameters
         ----------
@@ -175,7 +175,7 @@ class Hydraulic:
             Exponential decay ratio of vertical layer mesh thickness increasing with depath.
             The default value without decay is 1.
         """
-        self.thick_exp =  thick_exp_value
+        self.lay_decay = lay_decay_value
     
     def update_cond_drain(self, cond_drain_value: float):
         """
