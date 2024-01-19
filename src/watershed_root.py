@@ -29,7 +29,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
+from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, lakeres, settings, safransurfex, subbasin
 from modeling import modflow, modpath, timeseries
 from display import visualization_watershed
 from tools import toolbox
@@ -546,9 +546,11 @@ class Watershed:
         safransurfex.Merge(out_path=self.watershed_folder)
         self.elt_def.append('safransurfex')
         # self.save_object()
-
-    def add_lakeres(self, dummy_lakeres):
-        self.lakeres = dummy_lakeres
+        
+    def add_lakeres(self, geographic):
+        self.lakeres = lakeres.Lakeres(geographic)
+        self.elt_def.append('lakeres')
+        self.save_object()
             
     def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """

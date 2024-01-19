@@ -33,23 +33,18 @@ from tools import toolbox
 #%% CLASS
 
 class Lakeres:
-    """ 
-        
-    Attributes
-    ----------
 
-
-    Methods
-    -------
-    
-    """
     
     #%% INIT
     
-    def __init__(self, inputA, inputB):
-        0
-    
-    #%% FIRST FUNCTION
+    def __init__(self, geographic):
+        self.n_lakeres:int = 0 # number of lakes/reservoirs
+        self.indexes:list = [] # identifiers of lakes/reservoirs
+        self.masks:dict = {} # dict of lakes/reservoirs masks, keyed by lake_id
+        self.flux_data:dict = {} # dict of lakes/reservoirs flux data dataframes, 
+                                 # keyed by lake_id
+        self.raster_base = geographic.watershed_dem
+        self.crs_proj = geographic.crs_proj
     
     def update_blabla(self):
         0
