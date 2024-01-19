@@ -283,8 +283,12 @@ mask_path = os.path.join(root_dir, 'examples',
 
 BV.add_lakeres(BV.geographic)
 
-lake_id = 0
+lake_id = 1
 BV.lakeres.new_lakeres(mask_path, lake_id)
+
+BV.lakeres.new_lakeres(os.path.join(root_dir, 'examples', 
+                             '99_reservoir and dam', 'data', 
+                             'Dummy_lake.shp'))#, src_crs = 4326)
 
 # =============================================================================
 # BV.lakeres.update_definition(lake_id, new_lake_id, new_mask_path)
