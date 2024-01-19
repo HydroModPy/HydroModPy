@@ -101,14 +101,19 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
 def load_to_numpy(file_path, src_crs:str=None,
                   base_path:str=None, dst_crs:str=None, out_path:str=None):
     """
-    If file_path is a .tif: generate a numpy array from it
-       If base_path is specified: convert the raster (reproject to match 
-       resolution, shape, CRS...) before generating a numpy array from it.
-       If crs_proj is specified, reproject the raster in the new CRS before
-       generating a numpy array from it.
-       
-    If file_path is a .shp: convert the vector into a raster (base_path is 
-    required). 
+    Generate a numpy array from a source file (vector or raster) and a base
+    raster. The numpy array profile (shape, resolution, extent...) matches 
+    with the base one.
+    If the base raster is not specified (base_path), then the generated numpy
+    array has the same profile as the source file.
+    
+    When the source CRS is not embeded in the source file, it can be specified
+    with src_crs.
+    When the destination CRS is not embeded in the base file, it can also be
+    specified with dst_crs.
+    
+    out_path gives the possibility to export the result as a .tif file.
+    
 
     Parameters
     ----------
@@ -123,8 +128,7 @@ def load_to_numpy(file_path, src_crs:str=None,
 
     Returns
     -------
-    val : TYPE
-        DESCRIPTION.
+    val : numpy.ndarray
 
     """
     # Initializations:
@@ -137,25 +141,26 @@ def load_to_numpy(file_path, src_crs:str=None,
     if isinstance(dst_crs, str): dst_crs = rio.crs.CRS.from_string(dst_crs)
     elif isinstance(dst_crs, int): dst_crs = rio.crs.CRS.from_epsg(dst_crs)
     
+    
     if os.path.splitext(file_path)[-1] == '.shp':
         if base_profile:
             file_vect = gpd.read_file(file_path)
             # CRS initialization
-            if src_crs and not file_vect.crs:
-                file_vect.set_crs(crs = src_crs)
-            if dst_crs and not base_profile['crs'].to_epsg():
-                base_profile['crs'] = dst_crs
+            if not file_vect.crs:
+                if src_crs: file_vect.set_crs(crs = src_crs)
+                else: 
+                    print("\nError: Source CRS (src_crs) is required to rasterize.")
+                    return
+                    
+            if not base_profile['crs'].to_epsg():
+                if dst_crs: base_profile['crs'] = dst_crs
+                else: 
+                    print("\nError; Destination CRS (dst_crs) is required to rasterize.")
+                    return
+                    
             # The vector needs to be in the same CRS as the base raster:
-            if base_profile['crs'].to_epsg():
-                base_crs = base_profile['crs']
-                print(f"\n    Vector will be rasterized into base CRS 'EPSG:{base_crs.to_epsg()}'")
-            elif dst_crs:
-                base_crs = dst_crs
-                print(f"\n    Vector will be rasterized into base CRS 'EPSG:{base_crs.to_epsg()}' (assumed from user input 'crs_proj')")
-            else:
-                base_crs = file_vect.crs
-                print(f"\n    Vector will be rasterized into base CRS 'EPSG:{base_crs.to_epsg()}' (assumed to be identical to vector CRS)")            
-            file_vect.to_crs(crs = base_crs.to_epsg(), inplace = True)
+            print(f"\n    Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'")            
+            file_vect.to_crs(crs = base_profile['crs'].to_epsg(), inplace = True)
             # Rasterize:
             val = rio.features.rasterize(
                 [(val.geometry, 1) for _, val in file_vect.iterrows()],
@@ -163,8 +168,8 @@ def load_to_numpy(file_path, src_crs:str=None,
                 transform = base_profile['transform'],
                 fill = base_profile['nodata'],
                 all_touched = False)
+            # update profile
             data_profile = base_profile
-            data_profile['crs'] = base_crs
         else: # if there is no base_profile
             print('\nRasterizeError: A rasterio profile is required to convert vectoriel data into raster')
             return
@@ -174,29 +179,37 @@ def load_to_numpy(file_path, src_crs:str=None,
             data_profile = data.profile
             if src_crs and not data_profile['crs'].to_epsg():
                 data_profile['crs'] = src_crs
+                print(f"\n    The CRS of input data has been set to 'EPSG:{data_profile['crs']}'")
             # data_crs = data.crs
             val = data.read()[0] # extract the first layer
     
     # Reprojection:
     # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):    
-    if (dst_crs and data_profile['crs'].to_epsg() and (data_profile['crs'] != dst_crs)) or (base_profile and (data_profile != base_profile)):
-        if (dst_crs and (data_profile['crs'] != dst_crs) and not data_profile['crs'].to_epsg()):
-            print('\nError: Source CRS is required to reproject data')
-            return
-        
-        rio.warp.reproject(source = val, 
-                                    destination = val, 
-                                    src_transform = data_profile['transform'],
-                                    src_crs = data_profile['crs'],
-                                    src_nodata = data_profile['nodata'],
-                                    dst_transform = base_profile['transform'],
-                                    dst_crs = dst_crs,
-                                    dst_nodata = base_profile['nodata'],
-                                    resampling = rio.enums.Resampling(0),
-                                    # resampling = rasterio.enums.Resampling(5),
-                                    )
-        data_profile = base_profile
-        data_profile['crs'] = dst_crs
+    if base_profile:
+        # CRS initialization
+        if dst_crs and not base_profile['crs'].to_epsg():
+            base_profile['crs'] = dst_crs
+                
+        if data_profile != base_profile:
+            if not data_profile['crs'].to_epsg():
+                print('\nError: Source CRS (src_crs) is required to reproject.')
+                return
+            if not base_profile['crs'].to_epsg():
+                print('\nError: Destination CRS (dst_crs) is required to reproject.')
+                return
+            rio.warp.reproject(source = val, 
+                                        destination = val, 
+                                        src_transform = data_profile['transform'],
+                                        src_crs = data_profile['crs'],
+                                        src_nodata = data_profile['nodata'],
+                                        dst_transform = base_profile['transform'],
+                                        dst_crs = base_profile['crs'],
+                                        dst_nodata = base_profile['nodata'],
+                                        resampling = rio.enums.Resampling(0),
+                                        # resampling = rasterio.enums.Resampling(5),
+                                        )
+            # update_profile
+            data_profile = base_profile
         
     
     
