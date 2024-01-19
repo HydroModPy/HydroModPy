@@ -245,7 +245,8 @@ class Watershed:
             self.y_outlet = None
             self.snap_dist = None
             self.buff_percent = self.from_shp[1]
-            self.crs_proj = shp_file.crs.srs.upper()
+            # self.crs_proj = shp_file.crs.srs.upper()
+            self.crs_proj = f"EPSG:{shp_file.crs.to_epsg()}"
         
         if self.from_xyv != None:
             self.dem_path = self.dem_path
