@@ -22,6 +22,7 @@ import re
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+import rasterio as rio
 import matplotlib.pyplot as plt
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -47,17 +48,52 @@ class Lakeres:
         self.crs_proj = geographic.crs_proj
     
     #%% ADD A NEW LAKE/RESERVOIR   
-    def new_lakeres(self, mask_path:str, lake_id:int=None):
+    def new_lakeres(self, mask_path:str, lake_id:int=None, src_crs=None):
         # can be a lake or an artificial lake
         if not lake_id:
             if self.n_lakeres == 0:
-                lake_id = 0
+                lake_id:int = 1 # initialization
             else:
-                lake_id = np.max(self.indexes) + 1
-                
-        self.masks[lake_id] = toolbox.load_to_numpy(mask_path, 
-                                                    base_path = self.raster_base,
-                                                    dst_crs = self.crs_proj)
+                lake_id:int = np.max(self.indexes) + 1
+        
+        print(f"\nAdding lake n°{lake_id}")
+        mask = toolbox.load_to_numpy(mask_path, 
+                                     src_crs = src_crs,
+                                     base_path = self.raster_base, 
+                                     dst_crs = self.crs_proj)
+        mask[mask == self.nodata] = 0
+        # self.masks[lake_id] = mask.astype(int)
+        self.masks[lake_id] = mask.astype(bool)
+        
+# =============================================================================
+#         self.raster_array = self.raster_array + np.ma.array(self.masks[lake_id],
+#                                                             fill_value = self.nodata
+#                                                             ) * lake_id
+# =============================================================================
+        masked_newlake = np.ma.array(self.masks[lake_id],
+                                     mask = self.raster_array.mask,
+                                     fill_value = self.nodata
+                                     )
+        print('') # newline
+        for idx in self.indexes:
+            intersect = (self.raster_array[(self.raster_array==idx) & (masked_newlake==1)]).sum()
+            if intersect > 0:
+                print(f" Lake n°{lake_id} overwrites lake n°{idx} on {int(intersect)} cells.")
+        self.raster_array[masked_newlake==1] = lake_id
+        
+# =============================================================================
+#         self.raster_array = np.where(self.masks[lake_id]==1, lake_id, self.raster_array)
+# =============================================================================
+        
+        with rio.open(self.raster_base, 'r') as base:
+            base_profile = base.profile
+            base_profile['crs'] = self.crs_proj
+            # base_profile['nodata'] = 0
+            # base_profile['dtype'] = int
+        with rio.open(os.path.join(self.data_folder, 'raster_array.tif'),
+                      'w', **base_profile) as dst: 
+            dst.write_band(1, self.raster_array.astype(int))
+        
         
         self.flux_data[lake_id] = {}
         # Update Lakeres attributes:
