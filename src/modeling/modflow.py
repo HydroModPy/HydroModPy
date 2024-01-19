@@ -485,6 +485,13 @@ class Modflow:
                 self.evt[self.evt>=0] = 0
                 # All negative values are set to positive values
                 self.evt = abs(self.evt)
+                # Extract ETR on the lake
+                for id_lakeres in range(0, len(self.lakeresData)): 
+                    self.evt_lakeres[id_lakeres] = self.evt[
+                        self.lakeresData[id_lakeres]['mask_largest']
+                        ].mean()
+                    # mean because LAKE package needs rates per unit area
+                    self.evt[self.lakeresData[id_lakeres]['mask_largest']] = 0
                 self.evtData = {}
                 # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
                 for kper in range(0, self.nper):
@@ -513,6 +520,14 @@ class Modflow:
                 
         # RECHARGE TO THE AQUIFER
             # over the surface: rch package (should always be positive)
+        # Remove recharge on the lake
+        for lake_id in self.lakeres.indexes: 
+            self.rch_lakeres[lake_id] = self.climatic[
+                self.lakeres.masks[lake_id]
+                ].sum()
+            self.climatic[self.lakeres.masks[lake_id]] = 0
+            # Usefull to store the value, in order to compare to dam leakage
+        
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(dict))==True:
