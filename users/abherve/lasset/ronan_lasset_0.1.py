@@ -998,6 +998,8 @@ class MatchingStreams:
 #%% DICHOTOMY - RUN
 
 vers = 'v1'
+vers = 'v2'
+# vers = 'v3'
 
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
 types_obs = ['stream_perennial_wetlands_points']
@@ -1054,7 +1056,7 @@ for watershed_name in watershed_names[:]:
         BV.hydraulic.update_porosity(porosity)
         BV.hydraulic.update_cond_vertical(verti_cond)
         BV.hydraulic.update_cond_drain(cond_drain)
-        BV.hydraulic.update_lay_decay(poro_decay)
+        BV.hydraulic.update_poro_decay(poro_decay)
         BV.settings.update_bc_sides(bc_left, bc_right)
         BV.add_oceanic(sea_level)
         BV.settings.update_input_particules(zone_partic=zone_partic)
@@ -1067,13 +1069,13 @@ for watershed_name in watershed_names[:]:
         list_d_values = [0, 0]
         list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
         # print(list_d_values)
-        list_d_values = [0, 0, 10, 15, 20, 30, 45, 65, 100, 140, 205, 300]
+        list_d_values = [0, 0, 10, 15, 20, 30, 45, 65, 100, 140, 200, 300]
         list_cond_decay = list(1/np.array(list_d_values))
         list_cond_decay[0] = 0
         list_cond_decay[1] = 0
                 
         list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
-        
+       
         for cond_decay, bottom, id_mod in zip(list_cond_decay[:], list_bottom[:], list_id_mod[:]):
                         
             BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
@@ -1082,10 +1084,16 @@ for watershed_name in watershed_names[:]:
             
             params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
             # params_df.loc[0] = ['k1','?',8.64e-04,8.64e-01,'m/j','lin']
-            if id_mod <= 9:
-                params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if id_mod >= 10:
-                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if id_mod == 0:
+                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if id_mod == 1:
+                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if id_mod >= 2:
+                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if id_mod >= 9:
+                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            # if id_mod >= 10:
+            #     params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             params_file = 'calib_dicot_hom_1v_k1'
             params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
             p_min = params_df['lower_bounds'].values[0]
@@ -1161,14 +1169,16 @@ for watershed_name in watershed_names[:]:
                 mean_simf_to_obs = np.nanmean(simf_to_obs[simf_to_obs['VALUE1']>=0]['VALUE1'])
                 mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
                 
-                # obs = mean_obs_to_sim
-                # sim = mean_sim_to_obs
-                # indicator = sim/obs
+                ### v1
+                obs = mean_obsf_to_simf
+                sim = mean_simf_to_obsf
+                indicator = sim/obs      
                 
+                ### v2
                 obs = mean_obs_to_simf
                 sim = mean_simf_to_obs
                 indicator = sim/obs
-                
+            
                 if sim > obs:
                     p_min = half
                 if sim < obs:
@@ -1215,34 +1225,40 @@ for watershed_name in watershed_names[:]:
                 
                 compt += 1
                             
-            df.to_csv(BV.calibration_folder+'/'+str('model')+str(id_mod)+'_dichotomy_'+vers+'.csv', sep=';')
+            df.to_csv(BV.calibration_folder+'/'+vers+'_'+str('model')+str(id_mod)+'_dichotomy.csv', sep=';')
 
             id_mod += 1
             
 #%% DICHOTOMY - APPEND
+
+vers = 'v1'
+# vers = 'v2'
+# vers = 'v3'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
 dfs = pd.DataFrame()
 
-raws_model = glob.glob(BV.calibration_folder+'/'+str('model')+'*.csv')
+raws_model = glob.glob(BV.calibration_folder+'/'+vers+'_'+'*.csv')
 paths_model = sorted(raws_model,
-                     key=lambda item: float(item.split('\\')[-1].split('_')[0].split('model')[-1]))
+                     key=lambda item: float(item.split('\\')[-1].split('_')[1].split('model')[-1]))
 
 for path_model in paths_model:
 
     df = pd.read_csv(path_model, sep=';')
         
-    dfs = pd.concat([dfs, df],ignore_index = True)
+    dfs = pd.concat([dfs, df], ignore_index = True).drop_duplicates()
 
 dfs.to_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
 
 #%% DICHOTOMY - PLOT
 
-dfs = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
+# dfs = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
+
 dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
+dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
 
 list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
@@ -1250,22 +1266,24 @@ list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
 
 dfz = pd.DataFrame()
-for i in list_id_mod:
+for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
     dfz = pd.concat([dfz, dft.iloc[-1:]])
     
 # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
-ax.scatter(dfz[:0]['K']/24/3600, dfz[:0]['Doptim'], c=dfz[:0]['1/K_decay'], s=100, 
-           marker='s', lw=2,
-           cmap=mpl.colors.ListedColormap('k'),
-           # label=dfz['1/K_decay'].values[0]
-           )
+ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'], c=dfz[:0]['1/K_decay'], s=100, 
+            marker='s', lw=2,
+            cmap=mpl.colors.ListedColormap('k'),
+            # label=dfz['1/K_decay'].values[0]
+            )
 
-ax.scatter(dfz[1:2]['K']/24/3600, dfz[1:2]['Doptim'], c=dfz[1:2]['1/K_decay'], s=100, 
-           marker='o', lw=2,
-           cmap=mpl.colors.ListedColormap('gray'),
-           # label='0'
-           )
+ax.scatter(dfz[1:2]['K']/24/3600, dfz[1:2]['Doptim'],
+            c=dfz[1:2]['1/K_decay'],
+            s=100, 
+             marker='o', lw=2,
+             cmap=mpl.colors.ListedColormap('gray'),
+            # label='0'
+            )
 im = ax.scatter(dfz[2:]['K']/24/3600, dfz[2:]['Doptim'], c=dfz[2:]['1/K_decay'], s=100, 
                 cmap='jet',
                 norm=mpl.colors.LogNorm(vmin=10, vmax=300),
@@ -1276,8 +1294,8 @@ im = ax.scatter(dfz[2:]['K']/24/3600, dfz[2:]['Doptim'], c=dfz[2:]['1/K_decay'],
 ax.set_xscale('log')
 # ax.set_yscale('log')
 ax.set_xlabel('K [m/s]')
-# ax.set_xlim(1e-8, 1e-5)
-# ax.set_ylim(30, 80)
+ax.set_xlim(1e-8, 1e-4)
+ax.set_ylim(0, 100)
 ax.set_ylabel('$D_{optim}$ [m]')
 # cb = plt.colorbar()
 from matplotlib.ticker import LogFormatter 
