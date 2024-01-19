@@ -152,20 +152,21 @@ def load_to_numpy(file_path, src_crs=None,
         if base_profile:
             file_vect = gpd.read_file(file_path)
             # CRS initialization
-            if not file_vect.crs:
-                if src_crs: file_vect.set_crs(crs = src_crs)
+            if not file_vect.crs: # if not file_vect.crs.is_geographic nor file_vect.crs.is_projected:
+                if src_crs: 
+                    file_vect.set_crs(crs = src_crs, allow_override = True)
                 else: 
                     print("\nError: Source CRS (src_crs) is required to rasterize.")
                     return
                     
-            if not base_profile['crs'].to_epsg():
+            if not base_profile['crs'].is_valid:
                 if dst_crs: base_profile['crs'] = dst_crs
                 else: 
                     print("\nError; Destination CRS (dst_crs) is required to rasterize.")
                     return
                     
             # The vector needs to be in the same CRS as the base raster:
-            print(f"\n    Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'")            
+            print(f"\n Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'")            
             file_vect.to_crs(crs = base_profile['crs'].to_epsg(), inplace = True)
             # Rasterize:
             val = rio.features.rasterize(
@@ -183,9 +184,9 @@ def load_to_numpy(file_path, src_crs=None,
     else: # if input file is not a shapefile
         with rio.open(file_path, 'r') as data:
             data_profile = data.profile
-            if src_crs and not data_profile['crs'].to_epsg():
+            if src_crs and not data_profile['crs'].is_valid:
                 data_profile['crs'] = src_crs
-                print(f"\n    The CRS of input data has been set to 'EPSG:{data_profile['crs']}'")
+                print(f"\n The CRS of input data has been set to 'EPSG:{data_profile['crs']}'")
             # data_crs = data.crs
             val = data.read()[0] # extract the first layer
     
@@ -193,14 +194,14 @@ def load_to_numpy(file_path, src_crs=None,
     # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):    
     if base_profile:
         # CRS initialization
-        if dst_crs and not base_profile['crs'].to_epsg():
+        if dst_crs and not base_profile['crs'].is_valid:
             base_profile['crs'] = dst_crs
                 
         if data_profile != base_profile:
-            if not data_profile['crs'].to_epsg():
+            if not data_profile['crs'].is_valid:
                 print('\nError: Source CRS (src_crs) is required to reproject.')
                 return
-            if not base_profile['crs'].to_epsg():
+            if not base_profile['crs'].is_valid:
                 print('\nError: Destination CRS (dst_crs) is required to reproject.')
                 return
             rio.warp.reproject(source = val, 
@@ -242,7 +243,11 @@ def load_to_numpy(file_path, src_crs=None,
     if out_path: # to export as a .tif file (optional)
         with rio.open(out_path, 'w', **data_profile) as dst: 
             dst.write_band(1, val)
-
+    
+    if base_profile: 
+        print(f" destination CRS = {base_profile['crs']}")
+        print(f" no data value = {base_profile['nodata']}")
+    
     return val
         
 #%% EXTRACTING FEATURES
