@@ -85,6 +85,12 @@ class Lakeres:
             self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
             self.indexes = list(self.masks.keys())
         
+    #%% UPDATE ANTHROPIC FLOWS IN AND OUT OF THE LAKE/RESERVOIR
+    def update_withdraw_fill(self, lake_id, withdraw_fill_ts:pd.core.series.Series):
+        self.flux_data[lake_id]['WTHDRW'] = withdraw_fill_ts
+
+        
+        
    
     #%% DISPLAY PLOT
     
