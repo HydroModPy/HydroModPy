@@ -65,6 +65,25 @@ class Lakeres:
         self.indexes = list(self.masks.keys())
         self.n_lakeres = len(self.indexes)
         
+    #%% UPDATE A PREVIOUS LAKE/RESERVOIR
+    def update_definition(self, lake_id:int, new_lake_id:int=None, new_mask_path:str=None):
+        if new_lake_id and not new_mask_path: # just replace the key
+            self.masks[new_lake_id] = self.masks.pop(lake_id)
+            self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
+            self.indexes = list(self.masks.keys())
+            
+        elif new_mask_path and not new_lake_id: # just replace the mask
+            self.masks[lake_id] = toolbox.load_to_numpy(new_mask_path,
+                                                        self.raster_base,
+                                                        self.crs_proj)
+            
+        elif new_lake_id and new_mask_path: # replace both the mask and the key
+            self.masks[new_lake_id] = toolbox.load_to_numpy(new_mask_path,
+                                                            self.raster_base,
+                                                            self.crs_proj)
+            self.mask.pop(lake_id)
+            self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
+            self.indexes = list(self.masks.keys())
         
    
     #%% DISPLAY PLOT
