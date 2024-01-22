@@ -264,6 +264,7 @@ ax.set_ylabel('[mm/year]')
 ax.legend()
 
 #%% DAM
+# In this version, the lake is defined in a new modflow layer added on top of the modeL
 # Input data
 dam_data_path = os.path.join(os.path.split(data_path)[0], 
                              r"1- Biblio locale\14- Barrage",
