@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
 import rasterio as rio
+import rasterio.features # necessary to avoid a bug
 import geopandas as gpd
 from osgeo import gdal, osr
 from pyproj import CRS
