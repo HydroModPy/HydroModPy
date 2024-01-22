@@ -280,7 +280,7 @@ dam_input_df = pd.read_csv(dam_data_path,
 
 mask_path = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
-                             'Cheze_lake.shp')
+                             'Cheze_lake_75m_outside.tif')
 
 BV.add_lakeres(BV.geographic)
 
