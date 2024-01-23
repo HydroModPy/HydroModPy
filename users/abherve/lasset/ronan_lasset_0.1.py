@@ -1079,18 +1079,18 @@ for watershed_name in watershed_names[:]:
         list_bottom.extend([0] * 10)
 
         # Decay of K
-        list_d_values = [0, 0]
-        list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
+        # list_d_values = [0, 0]
+        # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
         # print(list_d_values)
-        list_d_values = [0, 0, 10, 15, 20, 30, 45, 65, 100, 140, 200, 300]
+        list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200, 300]
         list_cond_decay = list(1/np.array(list_d_values))
         list_cond_decay[0] = 0
         list_cond_decay[1] = 0
                 
-        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+        list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
        
         for cond_decay, bottom, id_mod in zip(list_cond_decay[:], list_bottom[:], list_id_mod[:]):
-                        
+        # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
             BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
             BV.hydraulic.update_cond_decay(cond_decay) # 0
             BV.hydraulic.update_bottom(bottom) # 0
@@ -1149,7 +1149,6 @@ for watershed_name in watershed_names[:]:
                 model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
                 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
                 
-                # if success_modflow == True:
                 BV.postprocessing_modflow(model_modflow,
                                           watertable_elevation = True,
                                           watertable_depth= True, 
@@ -1297,7 +1296,7 @@ dfs.to_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';
 
 dfp = dfs.copy()
 
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
+dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (np.log(dfp['Sim']/dfp['Obs']))**2
 # dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * (1+abs(1-dfp['Indicator']))
 # dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) + abs(dfp['Sim']-dfp['Obs'])
@@ -1310,7 +1309,7 @@ dfp = dfs.copy()
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1345,22 +1344,28 @@ im = ax.scatter(dfz[2:]['K']/24/3600, dfz[2:]['Doptim'], c=dfz[2:]['1/K_decay'],
 ax.set_xscale('log')
 # ax.set_yscale('log')
 ax.set_xlabel('K [m/s]')
-ax.set_xlim(1e-8, 1e-5)
+ax.set_xlim(1e-8, 2e-5)
 ax.set_ylim(25, 80)
 ax.set_ylabel('$D_{optim}$ [m]')
 # cb = plt.colorbar()
 from matplotlib.ticker import LogFormatter 
 formatter = LogFormatter(10, labelOnlyBase=True) 
 cb = plt.colorbar(im, ax=ax,
-                  cax = fig.add_axes([0.95, 0.20, 0.03, 0.7]))
+                  cax = fig.add_axes([0.95, 0.10, 0.03, 0.8]))
 for t in cb.ax.get_yticklabels():
      t.set_fontsize(10)
 # cb.set_clim(10,500)
 # cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
-cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.ax.set_ylabel('d [m]', rotation=270, labelpad=25)
+# cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+# cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
+cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300])
+cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300], fontsize=8)
+cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
+                  grid_color='k', grid_alpha=0.5)
+cb.minorticks_off()
+# cb.clim()
+cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 # ax.set_yscale('log')
 
@@ -1370,13 +1375,15 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
-if vers == 'v3':
+# if vers == 'v3':
+#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
+# if vers == 'v4':
+#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_osm_points.shp')
+if vers == 'v6':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-if vers == 'v4':
-    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_osm_points.shp')
 
 # types_obs = ['stream_perennial_wetlands_points']
 # types_obs = ['stream_perennial_wetlands_osm_points']
@@ -1384,7 +1391,8 @@ if vers == 'v4':
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
-    dfz = pd.concat([dfz, dft.iloc[-1:]])
+    # dfz = pd.concat([dfz, dft.iloc[-1:]])
+    dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
 
 for index, row in dfz.iterrows():
     model_name = row['model_name']
@@ -1483,7 +1491,7 @@ BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
 # recharge_ete = sim2[sim2.index.month.isin([7,8,9])]
 # recharge_ete = (recharge_ete['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
 # print(BV.climatic.recharge.mean())
-first_clim = BV.climatic.recharge.mean() # or 'first or value
+first_clim = recharge.mean() # or 'first or value
 BV.climatic.update_first_clim(first_clim)
 plt.plot(BV.climatic.recharge)
 plt.axhline(first_clim, c='k')
@@ -1493,17 +1501,17 @@ list_bottom = [None, 0] # aquifer flat or not
 list_bottom.extend([0] * 10)
 
 # Decay of K
-list_d_values = [0, 0]
-list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
-list_d_values = [0, 0, 10, 15, 20, 30, 45, 65, 100, 140, 200, 300]
+# list_d_values = [0, 0]
+# list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
+list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200, 300]
 list_cond_decay = list(1/np.array(list_d_values))
 list_cond_decay[0] = 0
 list_cond_decay[1] = 0
 
 # Models
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
 
-vers = 'v5'
+vers = 'v6'
 df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
 # For transient
@@ -1519,16 +1527,20 @@ run_model = True
 # run_model = False
 
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[-1:], list_bottom[-1:], list_koptim[-1:], list_id_mod[-1:]):
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:], list_bottom[:], list_koptim[:], list_id_mod[:], list_kroptim[:]):
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
+                                                                           list_bottom[4:5],
+                                                                           list_koptim[4:5],
+                                                                           list_id_mod[4:5],
+                                                                           list_kroptim[4:5]):
     
     # print(kroptim_val)
-    koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
+    # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
     # print(koptim_from_kr, koptim_val)
     
     BV.hydraulic.update_cond_decay(cond_decay_val) # 0
     BV.hydraulic.update_bottom(bottom_val) # None
-    # BV.hydraulic.update_hyd_cond(koptim_val)
-    BV.hydraulic.update_hyd_cond(koptim_from_kr)
+    BV.hydraulic.update_hyd_cond(koptim_val)
+    # BV.hydraulic.update_hyd_cond(koptim_from_kr)
     BV.hydraulic.update_poro_decay(cond_decay_val/2)
     
     dictio = {}
@@ -1560,7 +1572,6 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
         print(model_name)
         BV.settings.update_model_name(model_name)
         
-
         now = datetime.now()
         oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
 
