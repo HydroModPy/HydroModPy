@@ -184,7 +184,7 @@ class Watershed:
                 self.hydrometry = BV.hydrometry
                 self.elt_def.append('hydrometry')
             if ('intermittency' in BV.__dir__()) == True:
-                self.hydrometry = BV.intermittency
+                self.intermittency = BV.intermittency
                 self.elt_def.append('intermittency')
             # Atmospheric (compulsory: hydrodynamic)
             if ('safransurfex' in BV.__dir__()) == True:
