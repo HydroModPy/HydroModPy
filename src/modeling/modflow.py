@@ -472,7 +472,7 @@ class Modflow:
                             self.rchData[kper] = self.climatic.iloc[0]
                         if isinstance(self.first_clim,(int,float)):
                             # Imposed value (if steady state: just one value)
-                            self.rchData[kper] = self.init_rech
+                            self.rchData[kper] = self.first_clim
                     else:
                         # More flexibility in the possible format of the climatic chronicles 
                         # Should only be used exceptionnaly (pandas series recommended)
@@ -611,6 +611,7 @@ class Modflow:
                         accumulation_flux:bool=True,
                         persistency_index:bool=False,
                         intermittency_monthly:bool=False,
+                        intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
                         export_all_tif:bool=False):
         """
@@ -636,8 +637,12 @@ class Modflow:
             Write accumulation flux outputs. The default is True.
         persistency_index : bool, optional
             Write persistency index outputs. The default is False.
-        intermittency_yearly : bool, optional
-            Write intermittency yearly outputs. The default is False.
+        intermittency_monthly : bool, optional
+            Write intermittency monthly outputs. The default is False.
+        intermittency_weekly : bool, optional
+            Write intermittency weekly outputs. The default is False.
+        intermittency_daily : bool, optional
+            Write intermittency daily outputs. The default is False.
         export_all_tif : bool, optional
             Write all files .tif at each time step. The default is False.
 
@@ -703,6 +708,7 @@ class Modflow:
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
         self.dict_intermittency_monthly = {}
+        self.dict_intermittency_weekly = {}
         self.dict_intermittency_daily = {}
         self.list_traces = []
         
@@ -926,6 +932,49 @@ class Modflow:
                     
             np.save(self.save_file+'/intermittency_monthly', self.dict_intermittency_monthly)
         
+        if intermittency_weekly == True:
+            ### Intermittency yearly
+            acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            if len(acc_npy_raw)>52:
+                inf = 0
+                sup = 52
+                step = int(round(len(acc_npy_raw)/52))
+                compt=0            
+                for i in range(step):
+                    print('Export intermittency: '+str(i)+' / '+str((step)))
+                    interv = list(acc_npy)[inf:sup]
+                    for key in range(len(interv)):
+                        mask = imageio.imread(self.geographic.watershed_dem)
+                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                    zero = acc_npy_raw[0] * 0                
+                    for j in range(len(interv)):
+                        tempo = interv[j].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo                    
+                    days_flux = zero.copy()
+                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                    for k in range(len(interv)):
+                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                        tempo[days_flux<52] = 0
+                        tempo[days_flux==52] = 1
+                        tempo_export = tempo.copy()
+                        self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                        self.dict_intermittency_daily[compt] = self.tempo
+                        tempo_export[interv[k]<=0] = -9999
+                        tempo_export[mask<=0] = -9999
+                        output_path = self.tifs_file+'/intermittency_daily_t('+str(compt)+').tif'
+                        # if export_tif==True:
+                        toolbox.export_tif(self.geographic.watershed_dem,
+                                           tempo_export,
+                                           -9999, output_path)
+                        compt+=1                    
+                    inf+=52
+                    sup+=52
+            np.save(self.save_file+'/intermittency_weekly', self.dict_intermittency_weekly)
+            
         if intermittency_daily == True:
             ### Intermittency yearly
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
@@ -966,8 +1015,7 @@ class Modflow:
                                            -9999, output_path)
                         compt+=1                    
                     inf+=365
-                    sup+=365
-                    
+                    sup+=365                    
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
                                 
 #%% NOTES
