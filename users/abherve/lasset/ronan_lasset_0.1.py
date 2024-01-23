@@ -1002,7 +1002,8 @@ class MatchingStreams:
 # vers = 'v2'
 # vers = 'v3'
 # vers = 'v4'
-vers = 'v5'
+# vers = 'v5'
+vers = 'v6'
 
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
 types_obs = ['stream_perennial_wetlands_points']
@@ -1031,8 +1032,6 @@ for watershed_name in watershed_names[:]:
         sink_fill = False # or True
         sim_state = 'steady' # 'steady' or 'transient'
         plot_cross = True
-        rec_summer = sim2[sim2.index.month.isin([7,8,9])]
-        recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         first_clim = 'mean' # or 'first or value
         nlay = 25
         lay_decay = 1.25 # 1 for no decay
@@ -1041,7 +1040,11 @@ for watershed_name in watershed_names[:]:
         # thick = 50 # if bottom is None, aquifer thickness
         ### v5 simf/obsf - with : gap=0.5, streams : RNF, rec : 600 (summer)
         thick = 30 # if bottom is None, aquifer thickness
-            
+        
+        # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
+        # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d     
+        recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+        
         verti_cond = None # or [ [1e-5, [0, 20]],
         cond_drain = None # or value of conductance
         porosity = 5 / 100 # -
@@ -1115,7 +1118,9 @@ for watershed_name in watershed_names[:]:
             half = (p_min + p_max) / 2
             # print(half)
             
+            gap = 1.0
             gap = 0.5
+            gap = 0.1
             
             compt = 0
             
@@ -1199,6 +1204,11 @@ for watershed_name in watershed_names[:]:
                 # indicator = sim/obs
                 
                 ### v4 simf/obsf - with : gap=0.5, streams : RNF+OSM, rec : 600 (summer)
+                # obs = mean_obsf_to_simf
+                # sim = mean_simf_to_obsf
+                # indicator = sim/obs
+                
+                ### v6 simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year)
                 obs = mean_obsf_to_simf
                 sim = mean_simf_to_obsf
                 indicator = sim/obs
@@ -1259,7 +1269,8 @@ for watershed_name in watershed_names[:]:
 # vers = 'v2'
 # vers = 'v3'
 # vers = 'v4'
-vers = 'v5'
+# vers = 'v5'
+vers = 'v6'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -1303,7 +1314,8 @@ list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
-    dfz = pd.concat([dfz, dft.iloc[-1:]])
+    # dfz = pd.concat([dfz, dft.iloc[-1:]])
+    dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
  
 dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
     
@@ -1498,16 +1510,16 @@ df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.cs
 list_cond_decay = list_cond_decay
 list_bottom = list_bottom
 list_koptim = df_optim['K']
-list_porosity = np.array([0.1,0.5,1,2,4,6,8,10,15,20,30])/100
+list_porosity = np.array([0.1,0.5,1,2,4,8,15,30])/100
 list_kroptim = df_optim['KR']
 
 #%% PRO PREPROCESSING
 
 run_model = True
-run_model = False
+# run_model = False
 
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[-1:], list_bottom[-1:], list_koptim[-1:], list_id_mod[-1:]):
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5], list_bottom[4:5], list_koptim[4:5], list_id_mod[4:5], list_kroptim[4:5]):
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:], list_bottom[:], list_koptim[:], list_id_mod[:], list_kroptim[:]):
     
     # print(kroptim_val)
     koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
@@ -1526,7 +1538,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     list_model_modflow = []
         
     # for ip, poro_val in enumerate(list_porosity[-1:]):
-    for ip, poro_val in enumerate(list_porosity[3:4]):
+    for ip, poro_val in enumerate(list_porosity[:]):
         
         BV.hydraulic.update_porosity(poro_val)
 
@@ -1568,7 +1580,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     
 #%% RELOAD POSTPROCESS
 
-for id_mod_val in list_id_mod[4:5]:
+for id_mod_val in list_id_mod[:]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -1578,19 +1590,19 @@ for id_mod_val in list_id_mod[4:5]:
     
     for model_name, model_success, model_modflow in zip(list_model_name, list_model_success, list_model_modflow):
     
-        if success_modflow == True:
-            BV.postprocessing_modflow(model_modflow,
-                                      watertable_elevation = True,
-                                      watertable_depth = True, 
-                                      seepage_areas = True,
-                                      outflow_drain = True,
-                                      groundwater_flux = True,
-                                      groundwater_storage = True,
-                                      accumulation_flux = True,
-                                      persistency_index = True,
-                                      intermittency_monthly = False,
-                                      intermittency_daily = True,
-                                      export_all_tif = False)
+        # if model_success == True:
+        BV.postprocessing_modflow(model_modflow,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = True,
+                                  groundwater_storage = True,
+                                  accumulation_flux = True,
+                                  persistency_index = True,
+                                  intermittency_monthly = False,
+                                  intermittency_daily = True,
+                                  export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=False,
@@ -1598,51 +1610,6 @@ for id_mod_val in list_id_mod[4:5]:
                                                           subbasin_results=True,
                                                           freq_time='W')
 
-"""            
-        #### DELETE POSTPROCESSING FILES ####
-                    
-        dir_modflow = BV.calibration_folder + '/' + model_name
-        dir_postprocess = dir_modflow + '/' + '_postprocess'
-        dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
-        dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
-        dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
-        
-        files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
-        files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
-        files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
-        
-        if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
-            try:
-                for file in files_rast_acc[1:]:
-                    os.remove(file)
-            except:
-                pass
-        if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
-            try:
-                for file in files_rast_out[1:]:
-                    os.remove(file)
-            except:
-                pass
-        if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
-            try:
-                for file in files_rast_int[1:]:
-                    os.remove(file)
-            except:
-                pass
-                
-        if os.path.exists(dir_temporary):
-            shutil.rmtree(dir_temporary)
-        
-        if os.path.exists(dir_figures):
-            shutil.rmtree(dir_figures) 
-        
-        files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
-        try:
-            for file in files_npy:
-                os.remove(file)
-        except:
-            pass
-"""
 #%% DELETE MODFLOW FILES
 """
 for watershed_name in watershed_names[:]:
@@ -1651,21 +1618,63 @@ for watershed_name in watershed_names[:]:
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
     calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
 
+    dir_modflow = BV.calibration_folder + '/' + model_name
+    dir_postprocess = dir_modflow + '/' + '_postprocess'
+    dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+    dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+    dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+    
+    files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+    files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+    files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+    
+    if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+        try:
+            for file in files_rast_acc[1:]:
+                os.remove(file)
+        except:
+            pass
+    if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+        try:
+            for file in files_rast_out[1:]:
+                os.remove(file)
+        except:
+            pass
+    if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
+        try:
+            for file in files_rast_int[1:]:
+                os.remove(file)
+        except:
+            pass
+            
+    if os.path.exists(dir_temporary):
+        shutil.rmtree(dir_temporary)
+    
+    if os.path.exists(dir_figures):
+        shutil.rmtree(dir_figures) 
+    
+    files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
+    try:
+        for file in files_npy:
+            os.remove(file)
+    except:
+        pass
+
+
     h5files = glob.glob(BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'*')
     
     for h5 in h5files[:]:
     
-        d = dd.io.load(h5)
-        
+        d = dd.io.load(h5file)
         list_model_name = d['list_model_name'][:]
-        list_success_modflow = d['list_success_modflow'][:]
+        list_model_success = d['list_model_success'][:]
         list_model_modflow = d['list_model_modflow'][:]
         
-        for model_name, success_modflow, model_modflow in zip(list_model_name[:],
-                                                              list_success_modflow[:],
+        for model_name, modflow_success, model_modflow in zip(list_model_name[:],
+                                                              list_model_success[:],
                                                               list_model_modflow[:]):
 
-            dir_modflow = calibration_folder + '/' + model_name
+            dir_modflow = BV.calibration_folder + '/' + model_name
             for file in glob.glob(dir_modflow+'/'+'*'):
                 if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
                     # print(file)
@@ -1683,341 +1692,114 @@ for watershed_name in watershed_names[:]:
 
 CRIT = 'RMSE'
 
-init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/Q/'
+init_path = data_path + '_Q/'
 
 Qobs_list =[
-            '1_q_vdn_u_s1_obs_NAs_removed.smp',
-            # '1_q_vdn_u_s1_obs_NAs_removed_reduced.smp',
-            '1_q_weir_s2_obs_NAs_removed.smp',
-            # '1_q_weir_s2_obs_NAs_removed_reduced.smp',
-            '1_q_ric_s3_obs_NAs_removed.smp'
-            # '1_q_ric_s3_obs_NAs_removed_reduced.smp'
+             'lasset_Q_Day.Cmd.txt',
+             # 'truites_Q_Day.Cmd.txt'
             ]
 
-areas = [
-          9.4,
-          13.7,
-          14.1
+couleurs = ['navy','darkviolet']
+areas = [3.7,
+         # 1.2
          ]
 
 df = pd.DataFrame()
 
 dict_Q_wname = {}
 
-for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
+for w, w_name in enumerate(['Lasset'][:]):
     
-    if w_name == 'S1':
-        watershed_name = 'Nant_EUDTM30m'
-    else:
-        watershed_name = w_name
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+    # BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
     
-    dfQ = pd.read_csv(init_path+Qobs_list[w], delim_whitespace=True, header=None)
-    dfQ['datetxt'] = dfQ[1]+ ' ' + dfQ[2].apply(str)
-    dfQ['datetime'] = [datetime.strptime(date, "%d/%m/%Y %H:%M:%S") for date in dfQ['datetxt']]
-    data_index = dfQ[3]/(areas[w]*1e6)
-    data_index.index = dfQ['datetime']
-    data_index.index= data_index.index.map(lambda t: t.replace(hour=0, minute=0, second=0, microsecond=0))
-    Qobs = data_index.copy()
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
+    Qobs = dfQ.q / (areas[0]*1e6)
+    Qobs_w_off = Qobs.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+    Qobs_w_sli = Qobs.groupby(np.arange(len(Qobs))//7).mean()
+    Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
+    Qobs_w_sli = Qobs_w_sli.iloc[:-1]
 
-    paths = glob.glob(calibration_folder+'/'+iD_set_simulations+'*')
-    h5files = sorted(paths,
-                     key=lambda item: float((item.split('\\')[-1].split('_')[1])), reverse=False)
-    
-    for i, h5file in enumerate(h5files):
-        model_name = h5file.split('\\')[-1]
-        # print(model_name)
-        
-        if w_name == 'S1':
-            Smod = pd.read_csv(h5file+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
-                               index_col='date', parse_dates=True)
-        else:
-            Smod = pd.read_csv(h5file+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
-                               index_col='date', parse_dates=True)
-        
-        Qmod = Smod['outflow_drain'] # m/day
-        r = BV.climatic.runoff
-        
-        mix = Qobs.copy().to_frame()
-        mix.columns = ['Qobs']
-        mix['Qsim'] = Qmod
-        mix = mix.dropna()
-        # if w_name == 'Vare_EUDTM30m':
-        #     mix = mix[mix.index<='2017-06']
-        
-        Qobs_stat = mix.Qobs
-        Qsim_stat = mix.Qsim
-        
-        import hydroeval as he
-        NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
-        NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
-        RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
-        KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
-        # print(model_name.upper())
-        # print('NSE', round(NSE,2))
-        # print('NSElog', round(NSElog,2))
-        # print('RMSE', round(RMSE,2))
-        # print('KGE', round(KGE,2))
-        
-        df.loc[i,'model_name'] = model_name
-        
-        df.loc[i,'K'] = float(model_name.split('_')[3].split('-')[0])
-        df.loc[i,'Sy'] = float(model_name.split('_')[3].split('-')[1])
-        df.loc[i,'p1-p2'] = model_name.split('_')[3].split('-')[0]+'-'+model_name.split('_')[3].split('-')[1]
-        
-        df.loc[i,'NSE'] = float(NSE)
-        df.loc[i,'NSElog'] = float(NSElog)
-        df.loc[i,'RMSE'] = float(RMSE)
-        df.loc[i,'KGE'] = float(KGE)
-        
-        Q10_obs = Qobs_stat.quantile(0.10)
-        Q50_obs = Qobs_stat.quantile(0.50)
-        Q90_obs = Qobs_stat.quantile(0.90)
-        Q10_sim = Qsim_stat.quantile(0.10)
-        Q50_sim = Qsim_stat.quantile(0.50)
-        Q90_sim = Qsim_stat.quantile(0.90)
-        
-        df.loc[i,'OWN_Q10'] = float(((Q10_sim - Q10_obs)**2) / (Q10_obs**2))
-        df.loc[i,'OWN_Q50'] = float(((Q50_sim - Q50_obs)**2) / (Q50_obs**2))
-        df.loc[i,'OWN_Q90'] = float(((Q90_sim - Q90_obs)**2) / (Q90_obs**2))
-        
-        df.loc[i,'OWN'] = ( df.loc[i,'OWN_Q10'] + df.loc[i,'OWN_Q50'] + df.loc[i,'OWN_Q90'] ) / 3
+    i = 0
 
-    p1 = df.K.unique()
-    p2 = df.Sy.unique()
-    ded = np.zeros((len(p1),len(p2)))
-    for i, iv in enumerate(p1):
-        for j, jv in enumerate(p2):
-            string = str(iv)+'-'+str(jv)
-            # print(string)
-            ded[j][i] = df[df['p1-p2']==string][CRIT]
+    for id_mod_val in list_id_mod[4:5]:
+    
+        h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+        d = dd.io.load(h5file)
+        list_model_name = d['list_model_name'][:]
+        list_model_success = d['list_model_success'][:]
+        list_model_modflow = d['list_model_modflow'][:]
         
-    fig, ax = plt.subplots(1,1, figsize=(3.8,3.5))
-    ax.set_aspect('auto')
-    ax.axes.tick_params(which='both', direction='out', zorder=10)
-    X,Y = np.meshgrid(df.K.unique(), df.Sy.unique())
-    Z = ded.copy()
-    
-    dict_Q_wname[w] = Z
-    
-    # Z = 1-Z
-    # Z = abs(Z)
-    # print(np.nanmin(Z), np.nanmax(Z[Z != np.inf]))
-    from numpy import inf
-    # Z[Z<0] = 0
-    # Z[Z == np.inf] = np.nanmax(Z)
-    # Z[np.isneginf(Z)] = np.nanmax(Z)
-    # Z[~np.isfinite(Z)] = np.nanmax(Z[Z != np.inf])
-    # bounds = np.arange(0,1.1,0.1)
-    # norm = mpl.colors.Normalize(vmin=0, vmax=1.0)
-    # cmap = 'jet'
-    cmap = 'RdYlGn'
-    if CRIT == 'OWN':
-        cmap = 'RdYlGn_r'
-    if CRIT == 'RMSE':
-        cmap = 'RdYlGn_r'
-    
-    # pc = ax.pcolormesh(X/3600/24,Y*100,Z, cmap='RdYlGn', shading='gouraud',
-                        # vmin=0, vmax=1
-    #                    ) #figadd.cmap_white_jet()
-    if w_name == 'Vare_EUDTM30m':
-        pc = ax.contourf(X/3600/24, Y*100, Z,
-                            # levels=np.arange(0,1.05,0.05), 
-                            # levels=np.arange(0,10.05,1), 
-                            # vmin=0, vmax=1,
-                          alpha=0.5, ec='none', cmap=cmap, 
-                            extend='max'
-                            # norm = matplotlib.colors.LogNorm()
-                          )
-    else:
-        pc = ax.contourf(X/3600/24, Y*100, Z,
-                            # levels=np.arange(0,1.05,0.05), 
-                            # levels=np.arange(0,1.05,0.05), 
-                            # vmin=0, vmax=1,
-                          alpha=0.5, ec='none', cmap=cmap, 
-                            extend='max'
-                            # norm = matplotlib.colors.LogNorm()
-                          )
-    position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
-    cb = fig.colorbar(pc, cax=position, orientation='vertical')
-    # if w_name == 'Vare_EUDTM30m':
-    #     cb.set_ticks(np.arange(0,10.05,2))
-    # else:
-    #     cb.set_ticks(np.arange(0,1.05,0.2))
-    # cb.set_label('$NSE_{log}$ [-]', rotation=270, labelpad=40)
-    cb.set_label(CRIT, rotation=270, labelpad=40)
-    cb.ax.tick_params(top=True,
-                bottom=True,
-                left=False,
-                right=False,
-                labelleft=False,
-                labelbottom=True)
-    
-    from matplotlib.ticker import FormatStrFormatter
-    cb.ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_ylabel('θ [%]')
-    ax.set_xlabel('K [m/s]')
-    ax.tick_params(top=True,
-               bottom=True,
-               left=True,
-               right=False,
-               labelleft=True,
-               labelbottom=True)
-    
-    ax.set_title(w_name.split('_')[0], fontsize=8)
-    
-    plt.tight_layout()
-    
-    fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+CRIT+'.png', dpi=300, bbox_inches='tight')
-
-# STREAMFLOW - PARETO FRONT
-
-    fig, axs = plt.subplots(1,2, figsize=(7.5,3.5))
-    axs = axs.ravel()
-    ax = axs[0]
-    norm_x = abs(1-df.NSElog) / (abs(1-df.NSElog).max() - abs(1-df.NSElog).min())
-    norm_y = abs(df.RMSE) / (abs(df.RMSE).max() - abs(df.RMSE).min())
-    df['NSElog-RMSE'] = (abs(1-df.NSElog) / (abs(1-df.NSElog).max() - abs(1-df.NSElog).min())) + (abs(df.RMSE) / (abs(df.RMSE).max() - abs(df.RMSE).min()))
-    ax.scatter(norm_x, norm_y, lw=0, c=norm_x+norm_y, cmap='RdYlGn_r')
-    ax.set_xlabel('NSElog')
-    ax.set_ylabel('RMSE')
-    ax = axs[1]
-    norm_x = abs(1-df.NSE) / (abs(1-df.NSE).max() - abs(1-df.NSE).min())
-    norm_y = abs(1-df.KGE) / (abs(1-df.KGE).max() - abs(1-df.KGE).min())
-    df['NSE-KGE'] = (abs(1-df.NSE) / (abs(1-df.NSE).max() - abs(1-df.NSE).min())) + (abs(1-df.KGE) / (abs(1-df.KGE).max() - abs(1-df.KGE).min()))
-    ax.scatter(norm_x, norm_y, lw=0, c=norm_x+norm_y, cmap='RdYlGn_r')
-    ax.set_xlabel('NSE')
-    ax.set_ylabel('KGE')
-    # ax.set_xlim(0,5)
-    # ax.set_ylim(0,5)
-    fig.suptitle(w_name.split('_')[0], fontsize=8)
-    plt.tight_layout()
-    
-    fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+'PARETO'+'.png', dpi=300, bbox_inches='tight')
-    
-# STREAMFLOW - BEST MODELS
-    
-    df1 = df[df['NSElog-RMSE']==df['NSElog-RMSE'].min()]
-    model_name1 = df1.model_name.values[0]
-    df2 = df[df['NSE-KGE']==df['NSE-KGE'].min()]
-    model_name2 = df2.model_name.values[0]
-    # if w_name == 'Vare_EUDTM30m':
-    #     df3 = df[df['K']==8.64]
-    #     df3 = df3[df3['NSElog']==df3['NSElog'].max()]
-    # else:
-    df3 = df[df['NSElog']==df['NSElog'].max()]
-    model_name3 = df3.model_name.values[0]
-    print(w_name, model_name1, model_name2, model_name3)
-    
-    if w_name == 'S1':
-        Smod1 = pd.read_csv(calibration_folder+model_name1+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
-                           index_col='date', parse_dates=True)
-        Smod2 = pd.read_csv(calibration_folder+model_name2+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
-                           index_col='date', parse_dates=True)
-        Smod3 = pd.read_csv(calibration_folder+model_name3+'/_subbasins/subbasin_S1/_simulated_timeseries.csv', sep=';',
-                           index_col='date', parse_dates=True)
-    else:
-        Smod1 = pd.read_csv(calibration_folder+model_name1+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
-                           index_col='date', parse_dates=True)
-        Smod2 = pd.read_csv(calibration_folder+model_name2+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
-                           index_col='date', parse_dates=True)
-        Smod3 = pd.read_csv(calibration_folder+model_name3+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
-                           index_col='date', parse_dates=True)
-    
-    Qmod1 = Smod1['outflow_drain'] # m/day
-    Qmod2 = Smod2['outflow_drain'] # m/day
-    Qmod3 = Smod3['outflow_drain'] # m/day
-    # r = BV.climatic.runoff
-    Rmod = Smod1['recharge']*1000 # m/day
-    
-    mix = Qobs.copy().to_frame()
-    mix.columns = ['Qobs']
-    mix['Qmod1'] = Qmod1
-    mix['Qmod2'] = Qmod2
-    mix['Qmod3'] = Qmod3
-    mix = mix.dropna()
-    mix = mix * 1000
+        for model_name, model_success, model_modflow in zip(list_model_name, list_model_success, list_model_modflow):
             
-    fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
-                                 figsize=(10,3))
-    
-    yearsmaj = mdates.YearLocator(1)   # every year
-    yearsmin = mdates.YearLocator(1)
-    # monthsmaj = mdates.MonthLocator(6)  # every month
-    # monthsmin = mdates.MonthLocator(3)
-    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-    years_fmt = mdates.DateFormatter('%Y')
+            Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+            
+            r = runoff_w_sli.copy()
+            Qmod = Smod['outflow_drain'] + r # m/day
+            
+            mix = Qobs.copy().to_frame()
+            mix.columns = ['Qobs']
+            mix['Qsim'] = Qmod
+            mix = mix.dropna()
 
-    ax = a0
-    ax.plot(mix.Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
-    m1 = '{:.2e}'.format(float(model_name1.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name1.split('_')[-1].split('-')[1])*100),2))
-    m2 = '{:.2e}'.format(float(model_name2.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name2.split('_')[-1].split('-')[1])*100),2))
-    m3 = '{:.2e}'.format(float(model_name3.split('_')[-1].split('-')[0])/3600/24) + ' ; ' + str(round((float(model_name3.split('_')[-1].split('-')[1])*100),2))
-    ax.plot(mix.Qmod1, color='red', lw=1, ls='-', zorder=0, label='NSElog, RMSE'+' : '+m1)
-    ax.plot(mix.Qmod2, color='darkorange', lw=1, label='NSE, KGE'+' : '+m2)
-    ax.plot(mix.Qmod3, color='dodgerblue', lw=1, label='NSElog'+' : '+m3)
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Q [mm/d]')
-    ax.set_yscale('log')
-    ax.set_ylim(0.1,100)
-    years_maj = mdates.YearLocator()   # every year
-    months_maj = mdates.MonthLocator()  # every x month
-    ax.xaxis.set_major_locator(years_maj)
-    ax.xaxis.set_minor_locator(months_maj)
-    ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
-    ax.legend(loc='lower left', fontsize=5)
-    # ax.set_title(model_name.upper(), fontsize=10)
-    ax.set_title(w_name.upper(), fontsize=10)
-    
-    axb = ax.twinx()
-    axb.bar(Rmod.index, Rmod,color='grey', edgecolor='grey', width=1, lw=0)
-    axb.set_ylim(0,100)
-    axb.invert_yaxis()
-    axb.set_yticklabels([0,25])
-
-    ax = a1
-    ax.scatter(mix.Qobs, mix.Qmod1,
-               s=10, edgecolor='none', alpha=0.75, facecolor='red')
-    ax.scatter(mix.Qobs, mix.Qmod2,
-               s=10, edgecolor='none', alpha=0.75, facecolor='darkorange')
-    ax.scatter(mix.Qobs, mix.Qmod3,
-               s=10, edgecolor='none', alpha=0.75, facecolor='dodgerblue')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.legend(loc='lower right', frameon=False, labelcolor='dodgerblue')
-    # ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
-    # ax.set_xlim(1,500)
-    # ax.set_ylim(1,500)
-    
-    ax.plot((0.0001,1000),(0.0001,1000), c='k', ls='--')
-    
-    ax.set_xlim(0.1,100)
-    ax.set_ylim(0.1,100)
- 
-    ax.set_xlabel('$Q_{obs}$ [mm/d]',
-                  # fontsize=12
-                  )
-    ax.set_ylabel('$Q_{sim}$ [mm/d]',
-                  # fontsize=12
-                  )
-    
-    ax.patch.set_visible(True)
-    # ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='red')
-
-    # move ax in front
-    ax.set_zorder(axb.get_zorder() + 1)
-    
-    fig.tight_layout()
-    
-    fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
+            Qobs_stat = mix.Qobs
+            Qsim_stat = mix.Qsim
+            
+            import hydroeval as he
+            NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+            NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+            RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
+            KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+            print(model_name.upper())
+            print('NSE', round(NSE,2))
+            print('NSElog', round(NSElog,2))
+            print('RMSE', round(RMSE,2))
+            print('KGE', round(KGE,2))
+            
+            # model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
+            #              str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
+            #              str(ip)+'_'+\
+            #              str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))
+            
+            df.loc[i,'model_name'] = model_name
+            
+            df.loc[i,'id_explo'] = iD_explo
+            df.loc[i, 'id_mod'] = id_mod_val
+            
+            df.loc[i,'aK'] = float(model_name.split('_')[2].split('-')[0])
+            df.loc[i,'bottom'] = float(model_name.split('_')[2].split('-')[1])
+            df.loc[i,'K'] = float(['-'.join(model_name.split('_')[2].split('-')[-2:])][0])
+            
+            df.loc[i,'id_eO'] = float(model_name.split('_')[3][0])
+            
+            df.loc[i,'aO'] = float(model_name.split('_')[4].split('-')[0])
+            df.loc[i,'O'] = float(model_name.split('_')[4].split('-')[1])
+            
+            df.loc[i,'NSE'] = float(NSE)
+            df.loc[i,'NSElog'] = float(NSElog)
+            df.loc[i,'RMSE'] = float(RMSE)
+            df.loc[i,'KGE'] = float(KGE)
+            
+            Q10_obs = Qobs_stat.quantile(0.10)
+            Q50_obs = Qobs_stat.quantile(0.50)
+            Q90_obs = Qobs_stat.quantile(0.90)
+            Q10_sim = Qsim_stat.quantile(0.10)
+            Q50_sim = Qsim_stat.quantile(0.50)
+            Q90_sim = Qsim_stat.quantile(0.90)
+            
+            df.loc[i,'OWN_Q10'] = float(((Q10_sim - Q10_obs)**2) / (Q10_obs**2))
+            df.loc[i,'OWN_Q50'] = float(((Q50_sim - Q50_obs)**2) / (Q50_obs**2))
+            df.loc[i,'OWN_Q90'] = float(((Q90_sim - Q90_obs)**2) / (Q90_obs**2))
+            
+            df.loc[i,'OWN'] = ( df.loc[i,'OWN_Q10'] + df.loc[i,'OWN_Q50'] + df.loc[i,'OWN_Q90'] ) / 3
+            
+            i += 1
+            
+plt.scatter(df['O'], df['NSElog'], c=df['aK'])
 
 #%% SATURATION PLOT
 
