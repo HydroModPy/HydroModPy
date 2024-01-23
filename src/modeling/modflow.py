@@ -869,7 +869,8 @@ class Modflow:
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
             for key in range(len(acc_npy)):
-                mask = imageio.imread(self.geographic.watershed_dem)
+                # mask = imageio.imread(self.geographic.watershed_dem)
+                mask = imageio.imread(self.geographic.watershed_box_buff_dem)
                 acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
             zero = acc_npy[0] * 0
             for i in range(len(acc_npy)):
