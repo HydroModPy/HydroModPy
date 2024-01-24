@@ -29,7 +29,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
+from watershed import climatic, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
 from modeling import modflow, modpath, timeseries
 from display import visualization_watershed
 from tools import toolbox
@@ -193,6 +193,9 @@ class Watershed:
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
                 self.elt_def.append('climatic')
+            if ('driaseau' in BV.__dir__()) == True:
+                self.driaseau = BV.driaseau
+                self.elt_def.append('driaseau')
             if ('oceanic' in BV.__dir__()) == True:
                 self.oceanic = BV.oceanic
                 self.elt_def.append('oceanic')
@@ -333,6 +336,24 @@ class Watershed:
         self.climatic = climatic.Climatic(out_path=self.watershed_folder)
         self.elt_def.append('climatic')
         self.save_object()
+    
+    def add_driaseau(self, driaseau_path, list_models='all', list_vars='all'):
+        """
+        Public method to add drias eau data.
+
+        Returns
+        -------
+        None.
+        """
+        self.driaseau_path = driaseau_path
+        self.driaseau = driaseau.Driaseau(out_path=self.watershed_folder,
+                                          driaseau_path=self.driaseau_path,
+                                          watershed_shp=self.geographic.watershed_shp,
+                                          list_models=list_models, 
+                                          list_vars=list_vars)
+        # drias.Merge(out_path=self.watershed_folder)
+        self.elt_def.append('driaseau')
+        # self.save_object()
         
     def add_geology(self, 
                     geology_path: str,
@@ -500,7 +521,7 @@ class Watershed:
                                                       watershed_shp=self.geographic.box_buff)
         safransurfex.Merge(out_path=self.watershed_folder)
         self.elt_def.append('safransurfex')
-        #MARTIN self.save_object()
+        # self.save_object()
             
     def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """
@@ -521,8 +542,6 @@ class Watershed:
         self.elt_def.append('subbasin')
         self.save_object()
     
-
-
     #%% MODFLOW MODEL
     
     def preprocessing_modflow(self, for_calib: bool=False):

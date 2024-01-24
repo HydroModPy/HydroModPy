@@ -359,11 +359,11 @@ for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
     print(BV.geographic.area.round(2))
     print(BV.geographic.slope.round(2))
 
-    try:
-        visualization_watershed.watershed_local(dem_path, BV)
-        visualization_watershed.watershed_dem(BV)
-    except:
-        pass
+    # try:
+    #     visualization_watershed.watershed_local(dem_path, BV)
+    #     visualization_watershed.watershed_dem(BV)
+    # except:
+    #     pass
 
 #%% DATA
 
@@ -409,7 +409,173 @@ for watershed_name in watershed_names[:]:
 BV.add_intermittency('None','None')
 BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
 
-#%% CLIMATE
+#%% OBSERVED
+
+init_path = data_path + '_Q/'
+
+Qobs_list =[
+             'lasset_Q_Day.Cmd.txt',
+             'truites_Q_Day.Cmd.txt'
+            ]
+
+couleurs = ['navy','darkviolet']
+areas = [3.7, 1.2]
+
+fig, axs = plt.subplots(2,1, figsize=(7,6), sharex=True)
+axs = axs.ravel()
+
+for i, Qobs_name in enumerate(Qobs_list[:]):
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
+        
+    zo = 1
+    if i == 0:
+        zo=2
+    
+    ax = axs[0]
+    ax.plot(dfQ['q']/24/3600, lw=1,
+            label=Qobs_name, color=couleurs[i], zorder=zo) # m3/day to m3/seconds
+    ax.legend(loc='upper right', frameon=False)
+    # ax.set_yscale('log')
+    ax.set_ylim(0, 7)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    # ax.set_xlim(pd.to_datetime('2021'), pd.to_datetime('2024'))
+    ax.set_ylabel('$Q_{obs}$ [m$^3$/s]')
+    # ax.set_ylabel('$Q_{obs}$ [L/s]')
+    # ax.grid()
+        
+    ax = axs[1]
+    ax.plot(dfQ['q']/(areas[i]*1e6)*1000, lw=1,
+            label=Qobs_name, color=couleurs[i], zorder=zo) # m3/day to mm/day
+    ax.legend(loc='lower left', frameon=False)
+    ax.set_yscale('log')
+    # ax.set_ylim(8e-2, 100)
+    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
+    # ax.set_xlim(pd.to_datetime('2021'), pd.to_datetime('2024'))
+    ax.set_ylabel('$Q_{obs}$ [mm/d]')
+    ax.set_xlabel('Date')
+    # ax.grid()
+    
+    plt.tight_layout()
+
+fig, axs = plt.subplots(1,2, figsize=(9,3),
+                        # sharey=True
+                        )
+axs = axs.ravel()
+
+for i, Qobs_name in enumerate(Qobs_list):
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp')
+
+    zo = 1
+    if i == 0:
+        zo=2
+        
+    ax = axs[i]
+    
+    data_index = dfQ['q']/(areas[i]*1e6)*1000
+    # data_index = select_period(data_index, 2017,2018)
+    # data_index = data_index[(data_index.index>='2016-09') & (data_index.index<='2017-06')]
+            
+    mean_mensual = data_index.resample('M').mean() # mensual mean
+    mean_annual = data_index.resample('Y').mean() # annual mean
+    Mean = round(data_index.mean(),2)
+    Mean = data_index.mean()
+    Min = data_index.resample('Y').min()
+    Q10 = data_index.resample('Y').quantile(0.10)
+    Q25 = data_index.resample('Y').quantile(0.25)
+    Q50 = data_index.resample('Y').quantile(0.50)
+    Q75 = data_index.resample('Y').quantile(0.75)
+    Q90 = data_index.resample('Y').quantile(0.90)
+    print(Q10.min())
+    print(Q90.mean())
+    Max = data_index.resample('Y').max()
+    mean_interan_days = data_index.groupby([data_index.index.month,
+                                    data_index.index.day], as_index=True).mean().to_frame()
+    std_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).std()
+    q10_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.10)
+    q90_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.90)
+    q50_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.50)
+    q25_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.25)
+    q75_interan_days = data_index.groupby([data_index.index.month,
+                        data_index.index.day], as_index=True).quantile(0.75)
+    mean_interan_days['std'] = std_interan_days
+    mean_interan_days['q10'] = q10_interan_days
+    mean_interan_days['q90'] = q90_interan_days
+    mean_interan_days['q50'] = q50_interan_days
+    mean_interan_days['q75'] = q75_interan_days
+    mean_interan_days['q25'] = q25_interan_days
+    mean_interan_days.index.names = ['months','days']
+    mean_interan_days = mean_interan_days.reset_index()
+    # mean_interan_days.months = mean_interan_days.months.replace(
+    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
+    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
+    mean_interan_days = mean_interan_days.sort_values(['months','days'])
+    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
+    
+    # fig, ax = plt.subplots(figsize=(4,3))
+    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
+    #         lw=1, color='red', label='Mean')
+    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
+            lw=2, color=couleurs[i], label=Qobs_name)
+    yerrmax = mean_interan_days.q90
+    yerrmin = mean_interan_days.q10
+    # ax.legend('upper right')
+    # ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+    #                   color='cyan',edgecolor='grey',
+    #                   alpha = 0.5, label='10-90th')
+    
+    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+                      color='gray',edgecolor='grey', lw=0.5,
+                      alpha = 0.25, label='10-90th')
+    
+    # plt.yscale('log')
+    # ax.yaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xlim(0,366)
+    # if i == 0:
+    #     ax.set_ylim(-10,20)
+    # if i == 1:
+    #     ax.set_ylim(0,10)
+    # if i == 2:
+    #     ax.set_ylim(0,10) 
+    # if i == 3:
+    #     ax.set_ylim(0,10) 
+    # if i == 4:
+    #     ax.set_ylim(0,10) 
+    # if i == 5:
+    #     ax.set_ylim(0,10) 
+    # ax.set_ylim(0.01,10)
+    ax.tick_params(axis='both', which='major', pad=10)
+    x1 = np.linspace(0,366,13)
+    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
+    ax.set_xticks(x1)
+    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+    # if i == 2:
+    ax.set_xlabel('Months', labelpad=+10)
+    if i ==0:
+        ax.set_ylabel('$Q_{obs}$ [mm/d]')
+    # ax.set_title('S'+str(i+1))
+    ax.legend(loc='upper right', frameon=False)
+    # if i==0:
+    #     ax.set_ylim(0,)
+    # if i==1:
+    #     ax.set_ylim(0,2)
+    ax.set_ylim(1e-1,100)
+    ax.set_yscale('log')
+    
+    # ax.set_ylabel(var + ' [mm/d]',labelpad=+10, color=couleurs[i], fontsize=15)
+    # ax.set_ylabel(var + ' [°C]',labelpad=+10, color=couleurs[i], fontsize=15)
+    # ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
+    # ax.grid(color='grey', lw=0.5, zorder=0)
+    
+    # ax.legend(loc='upper left')
+    plt.tight_layout()
+
+#%% CLIMATE SIM2 MF
 
 sim2_1 = pd.read_csv(data_path+'_SIM2/'+'QUOT_SIM2_2020_2023.csv', sep=';', parse_dates=True, index_col='DATE')
 sim2_2 = pd.read_csv(data_path+'_SIM2/'+'QUOT_SIM2_2023_2024.csv', sep=';', parse_dates=True, index_col='DATE')
@@ -661,173 +827,7 @@ for i, var in enumerate(var_list):
     # ax.legend(loc='upper left')
     plt.tight_layout()
 
-#%% OBSERVED
-
-init_path = data_path + '_Q/'
-
-Qobs_list =[
-             'lasset_Q_Day.Cmd.txt',
-             'truites_Q_Day.Cmd.txt'
-            ]
-
-couleurs = ['navy','darkviolet']
-areas = [3.7, 1.2]
-
-fig, axs = plt.subplots(2,1, figsize=(7,6), sharex=True)
-axs = axs.ravel()
-
-for i, Qobs_name in enumerate(Qobs_list[:]):
-    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
-        
-    zo = 1
-    if i == 0:
-        zo=2
-    
-    ax = axs[0]
-    ax.plot(dfQ['q']/24/3600, lw=1,
-            label=Qobs_name, color=couleurs[i], zorder=zo) # m3/day to m3/seconds
-    ax.legend(loc='upper right', frameon=False)
-    # ax.set_yscale('log')
-    ax.set_ylim(0, 7)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    # ax.set_xlim(pd.to_datetime('2021'), pd.to_datetime('2024'))
-    ax.set_ylabel('$Q_{obs}$ [m$^3$/s]')
-    # ax.set_ylabel('$Q_{obs}$ [L/s]')
-    # ax.grid()
-        
-    ax = axs[1]
-    ax.plot(dfQ['q']/(areas[i]*1e6)*1000, lw=1,
-            label=Qobs_name, color=couleurs[i], zorder=zo) # m3/day to mm/day
-    ax.legend(loc='lower left', frameon=False)
-    ax.set_yscale('log')
-    # ax.set_ylim(8e-2, 100)
-    ax.xaxis.set(minor_locator=mdates.MonthLocator(), major_locator=mdates.YearLocator())
-    # ax.set_xlim(pd.to_datetime('2021'), pd.to_datetime('2024'))
-    ax.set_ylabel('$Q_{obs}$ [mm/d]')
-    ax.set_xlabel('Date')
-    # ax.grid()
-    
-    plt.tight_layout()
-
-fig, axs = plt.subplots(1,2, figsize=(9,3),
-                        # sharey=True
-                        )
-axs = axs.ravel()
-
-for i, Qobs_name in enumerate(Qobs_list):
-    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp')
-
-    zo = 1
-    if i == 0:
-        zo=2
-        
-    ax = axs[i]
-    
-    data_index = dfQ['q']/(areas[i]*1e6)*1000
-    # data_index = select_period(data_index, 2017,2018)
-    # data_index = data_index[(data_index.index>='2016-09') & (data_index.index<='2017-06')]
-            
-    mean_mensual = data_index.resample('M').mean() # mensual mean
-    mean_annual = data_index.resample('Y').mean() # annual mean
-    Mean = round(data_index.mean(),2)
-    Mean = data_index.mean()
-    Min = data_index.resample('Y').min()
-    Q10 = data_index.resample('Y').quantile(0.10)
-    Q25 = data_index.resample('Y').quantile(0.25)
-    Q50 = data_index.resample('Y').quantile(0.50)
-    Q75 = data_index.resample('Y').quantile(0.75)
-    Q90 = data_index.resample('Y').quantile(0.90)
-    print(Q10.min())
-    print(Q90.mean())
-    Max = data_index.resample('Y').max()
-    mean_interan_days = data_index.groupby([data_index.index.month,
-                                    data_index.index.day], as_index=True).mean().to_frame()
-    std_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).std()
-    q10_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.10)
-    q90_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.90)
-    q50_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.50)
-    q25_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.25)
-    q75_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.75)
-    mean_interan_days['std'] = std_interan_days
-    mean_interan_days['q10'] = q10_interan_days
-    mean_interan_days['q90'] = q90_interan_days
-    mean_interan_days['q50'] = q50_interan_days
-    mean_interan_days['q75'] = q75_interan_days
-    mean_interan_days['q25'] = q25_interan_days
-    mean_interan_days.index.names = ['months','days']
-    mean_interan_days = mean_interan_days.reset_index()
-    # mean_interan_days.months = mean_interan_days.months.replace(
-    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
-    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
-    mean_interan_days = mean_interan_days.sort_values(['months','days'])
-    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
-    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
-    
-    # fig, ax = plt.subplots(figsize=(4,3))
-    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
-    #         lw=1, color='red', label='Mean')
-    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
-            lw=2, color=couleurs[i], label=Qobs_name)
-    yerrmax = mean_interan_days.q90
-    yerrmin = mean_interan_days.q10
-    # ax.legend('upper right')
-    # ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-    #                   color='cyan',edgecolor='grey',
-    #                   alpha = 0.5, label='10-90th')
-    
-    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-                      color='gray',edgecolor='grey', lw=0.5,
-                      alpha = 0.25, label='10-90th')
-    
-    # plt.yscale('log')
-    # ax.yaxis.set_major_formatter(ScalarFormatter())
-    ax.set_xlim(0,366)
-    # if i == 0:
-    #     ax.set_ylim(-10,20)
-    # if i == 1:
-    #     ax.set_ylim(0,10)
-    # if i == 2:
-    #     ax.set_ylim(0,10) 
-    # if i == 3:
-    #     ax.set_ylim(0,10) 
-    # if i == 4:
-    #     ax.set_ylim(0,10) 
-    # if i == 5:
-    #     ax.set_ylim(0,10) 
-    # ax.set_ylim(0.01,10)
-    ax.tick_params(axis='both', which='major', pad=10)
-    x1 = np.linspace(0,366,13)
-    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
-    ax.set_xticks(x1)
-    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
-    # if i == 2:
-    ax.set_xlabel('Months', labelpad=+10)
-    if i ==0:
-        ax.set_ylabel('$Q_{obs}$ [mm/d]')
-    # ax.set_title('S'+str(i+1))
-    ax.legend(loc='upper right', frameon=False)
-    # if i==0:
-    #     ax.set_ylim(0,)
-    # if i==1:
-    #     ax.set_ylim(0,2)
-    ax.set_ylim(1e-1,100)
-    ax.set_yscale('log')
-    
-    # ax.set_ylabel(var + ' [mm/d]',labelpad=+10, color=couleurs[i], fontsize=15)
-    # ax.set_ylabel(var + ' [°C]',labelpad=+10, color=couleurs[i], fontsize=15)
-    # ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
-    # ax.grid(color='grey', lw=0.5, zorder=0)
-    
-    # ax.legend(loc='upper left')
-    plt.tight_layout()
-
-#%% NORMALIZE
+#%% NORMALIZE SIM2 MF
 
 init_path = data_path + '_Q/'
 
@@ -874,6 +874,155 @@ ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlim(1e-4,1)
 ax.set_ylim(1e-4,1)
+
+#%% CLIMATE FTP ISBA
+
+BV.add_safransurfex(data_path+'_h5_safransurfex/lasset/')
+
+surfex_data = BV.stable_folder + '/climatic/'
+
+dfd_both = pd.DataFrame()
+
+raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS','SNOW']
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS', 'SNOW', 'EFF']
+
+# ppt = pd.read_csv(surfex_data+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+# etp = pd.read_csv(surfex_data+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+# eff = ppt - etp
+# eff = eff.add_prefix('EFF'+'_')
+
+liste = []
+for raw in raws :
+    dfd = pd.read_csv(surfex_data+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+    dfd = dfd.add_prefix(raw+'_')
+    liste.append(dfd)
+dfd = pd.concat(liste, join='inner', axis=1)
+# dfd = pd.concat([dfd,eff], join='inner', axis=1)
+dfd = dfd.apply(pd.to_numeric)
+
+for mod in ['REA']:
+    for sce in ['historic']:
+        dfd['EFF'+'_'+mod+'_'+sce] = dfd['PPT'+'_'+mod+'_'+sce] - dfd['ETP'+'_'+mod+'_'+sce]
+
+dfd = dfd.filter(regex=sce).filter(regex=mod)
+dfd = dfd.dropna(axis = 0, how = 'all')
+dfd = dfd.dropna(axis = 1, how = 'all')
+
+dfm = dfd.copy() 
+mask = dfm.resample("M").count() >= 27
+dfm = dfm.resample("M").mean()[mask]
+
+dfm_surf = dfm.copy()
+dfm_surf = select_period(dfm_surf, 1960, 2023)
+# tas = dfm_surf['TAS_REA_historic']
+# import pyet
+# dfm_surf['Oudin'] = abs(pyet.oudin(tas, lat=pyet.deg_to_rad(48)))
+# dfm_surf["Hargreaves"] = abs(pyet.hargreaves(tas, tmax=tas.max(), tmin=tas.min(), lat=pyet.deg_to_rad(48)))
+# dfm_surf["Hamon"] = abs(pyet.temperature.hamon(tas, lat=pyet.deg_to_rad(48)))
+# dfm_surf["Macguinness"] = abs(pyet.radiation.mcguinness_bordne(tas, lat=pyet.deg_to_rad(48)))
+# deficiency_evaporation(dfm_surf, 'PPT_REA_historic',
+#                             'Oudin', 'PPT-ETP',
+#                             'ETR', 'RU', 'DE')
+
+dfy = dfd.copy()
+mask = dfy.resample("Y").count() >= 364
+dfy = dfy.resample("Y").mean()[mask]
+
+rea = dfd[(dfd.index.year>=1960) & (dfd.index.year<=2023)].filter(regex='REA')
+
+def sum_hwlw(dfm):
+    hw = dfm.dropna(axis=1, how='all')
+    hw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
+    hw = hw.rename_axis(["year", "month"])
+    hw = hw.query("month == "+"["+'10,11,12,1,2,3'+"]")
+    hw = hw.groupby('year').mean()
+    hw.index =  pd.to_datetime(hw.index, format='%Y')
+    hw[hw==0] = np.nan
+    lw = dfm.dropna(axis=1, how='all')
+    lw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
+    lw = lw.rename_axis(["year", "month"])
+    lw = lw.query("month == "+"["+'4,5,6,7,8,9'+"]")
+    lw = lw.groupby('year').mean()
+    lw.index =  pd.to_datetime(lw.index, format='%Y')
+    lw[lw==0] = np.nan
+    return hw, lw
+hw, lw = sum_hwlw(dfm)
+
+def sum_wy(dfm):
+    wy = dfm.copy()
+    wy = wy.dropna(axis=1, how='all')
+    wy['wy_y'] = np.where(wy.index.month < 10, wy.index.year, wy.index.year + 1)
+    wy['wy_m'] = np.where(wy.index.month < 10, wy.index.month+3, wy.index.month-9)
+    wy['wy_m'] = wy['wy_m'].apply(lambda x: '{0:0>2}'.format(x))
+    wy['wy_d'] = wy.index.day
+    d = pd.to_datetime(wy['wy_y'].astype(str)+wy['wy_m']+wy['wy_d'].astype(str), format='%Y%M%d')
+    wy['date'] = wy.index
+    wy.index = d
+    wy = wy.drop(['wy_y','wy_m','wy_d'], axis=1)
+    wy = wy.groupby([(wy.index.year),(wy.index.month)]).mean()
+    wy = wy.rename_axis(["year", "month"])
+    wy = wy.iloc[:-1]
+    wy = wy.groupby('year').mean()
+    wy.index =  pd.to_datetime(wy.index, format='%Y')
+    wy[wy==0] = np.nan
+    return wy
+wy = sum_wy(dfm)
+
+#%% NORMALIZE FTP ISBA
+
+init_path = data_path + '_Q/'
+
+Qobs_list =[
+             'lasset_Q_Day.Cmd.txt'
+            ]
+
+areas = [3.7]
+
+for i, Qobs_name in enumerate(Qobs_list[:]):
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
+    dfQ = dfQ['q']/(areas[i]*1e6)
+
+dfFTP = pd.DataFrame()
+dfFTP['OBSER'] = dfQ
+dfFTP['DRAIN'] = dfd['REC_REA_historic']/1000
+dfFTP['RUNOF'] = dfd['RUN_REA_historic']/1000
+
+# f = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']+dfSIM2['ECSNOW']).mean()
+# f = dfSIM2['OBSER'].mean() / dfSIM2['PPT'].mean()
+norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
+print(norm_factor)
+
+dfFTP['INPUT'] = (dfFTP['DRAIN']+dfFTP['RUNOF']) * norm_factor
+
+fig, ax = plt.subplots(1,1, figsize=(9,3))
+ax.plot(dfFTP['DRAIN']+dfFTP['RUNOF'], label='R + r', c='darkorange')
+ax.plot(dfFTP['DRAIN'], label='R', c='forestgreen')
+ax.plot(dfFTP['OBSER'], label='Q', c='k')
+ax.plot(dfFTP['INPUT'], label='INPUT', c='red')
+ax.legend()
+ax.set_yscale('log')
+import matplotlib.dates as mdates
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+
+fig, ax = plt.subplots(1,1, figsize=(4,4))
+ax.scatter(dfFTP['OBSER'], dfFTP['INPUT'], lw=0, color='k')
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim(1e-4,1)
+ax.set_ylim(1e-4,1)
+
+isba = select_period(dfd,2020,2024)
+
+#%% PROJECTION DRIAS EAU
+
+# BV.add_driaseau('D:/Users/abherve/DRIAS_EAU/', list_models=['Model_01'], list_vars=['DRAINC']) # 'all'
+"""
+BV.add_driaseau('D:/Users/abherve/DRIAS_EAU/Pyrenees/', list_models=['Model_01'], list_vars=['DRAINC']) # 'all'
+"""
+#%% PROJECTION DRIAS CLIMAT
 
 #%% ---- CALIB
 
@@ -1003,7 +1152,8 @@ class MatchingStreams:
 # vers = 'v3'
 # vers = 'v4'
 # vers = 'v5'
-vers = 'v6'
+# vers = 'v6'
+vers = 'v7'
 
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
 types_obs = ['stream_perennial_wetlands_points']
@@ -1042,8 +1192,9 @@ for watershed_name in watershed_names[:]:
         thick = 30 # if bottom is None, aquifer thickness
         
         # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
-        # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d     
-        recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+        # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+        # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+        recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
         
         verti_cond = None # or [ [1e-5, [0, 20]],
         cond_drain = None # or value of conductance
@@ -1087,7 +1238,7 @@ for watershed_name in watershed_names[:]:
         list_cond_decay[0] = 0
         list_cond_decay[1] = 0
                 
-        list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
+        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
        
         for cond_decay, bottom, id_mod in zip(list_cond_decay[:], list_bottom[:], list_id_mod[:]):
         # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
@@ -1120,7 +1271,7 @@ for watershed_name in watershed_names[:]:
             
             gap = 1.0
             gap = 0.5
-            gap = 0.1
+            # gap = 0.1
             
             compt = 0
             
@@ -1208,6 +1359,11 @@ for watershed_name in watershed_names[:]:
                 # indicator = sim/obs
                 
                 ### v6 simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year)
+                # obs = mean_obsf_to_simf
+                # sim = mean_simf_to_obsf
+                # indicator = sim/obs
+                
+                ### v7 simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year) ==> isba
                 obs = mean_obsf_to_simf
                 sim = mean_simf_to_obsf
                 indicator = sim/obs
@@ -1269,7 +1425,8 @@ for watershed_name in watershed_names[:]:
 # vers = 'v3'
 # vers = 'v4'
 # vers = 'v5'
-vers = 'v6'
+# vers = 'v6'
+vers = 'v7'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -1309,7 +1466,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1369,6 +1526,9 @@ cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 # ax.set_yscale('log')
 
+fig.savefig('C:/Users/ronan/Downloads/figs/'+'DICHOTOMY_K'+'.png',
+            bbox_inches='tight')
+
 #%% DICHOTOMY - GRAPH T WITH DEPTH
 
 dfp = dfs.copy()
@@ -1386,7 +1546,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1480,7 +1640,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1563,7 +1723,7 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 # if vers == 'v3':
@@ -1595,6 +1755,10 @@ for index, row in dfz.iterrows():
     shp.plot(ax=ax, color='darkorange', lw=0)
     
     ax.set_title(model_name, fontsize=7)
+    
+    fig.savefig('C:/Users/ronan/Downloads/figs/'+'MAPS_'+model_name+'.png',
+                bbox_inches='tight')
+
 
 #%% ---- EXPLORATION
 
@@ -1603,7 +1767,8 @@ for index, row in dfz.iterrows():
 
 #%% PREPROCESSING
 
-iD_explo = 'e1'
+# iD_explo = 'e1' # with sim2 recharge
+iD_explo = 'e2' # with sim2 recharge
 
 box = True # or False
 sink_fill = False # or True
@@ -1647,7 +1812,8 @@ BV.settings.update_simulation_state(sim_state)
 thick = 30 # if bottom is None, aquifer thickness
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 
-recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
 recharge_w_res = recharge.resample('W', label='right').mean()
 recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
 recharge_w_int = recharge.interpolate()[::7]
@@ -1655,7 +1821,8 @@ recharge_w_sli = recharge.groupby(np.arange(len(recharge))//7).mean()
 recharge_w_sli.index = recharge_w_off.iloc[:-1].index
 recharge_w_sli = recharge_w_sli.iloc[:-1]
 
-runoff = (sim2['RUNC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# runoff = (sim2['RUNC_Q'] * norm_factor) / 1000 # mm/d to m/d
+runoff = (isba['RUN_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
 runoff_w_res = runoff.resample('W', label='right').mean()
 runoff_w_off = runoff.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
 runoff_w_int = runoff.interpolate()[::7]
@@ -1697,7 +1864,7 @@ list_cond_decay[0] = 0
 list_cond_decay[1] = 0
 
 # Models
-list_id_mod = [0,1,2,3,4,4.5,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 
 vers = 'v6'
 df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
@@ -2070,6 +2237,9 @@ for w, w_name in enumerate(['Lasset'][:]):
             #             'STREAMFLOW_'+model_name+'.png'),
             #             bbox_inches='tight')
             
+            fig.savefig('C:/Users/ronan/Downloads/figs/'+'Q_'+model_name+'.png',
+                        bbox_inches='tight')
+            
 # STREAMFLOW CRITERIA
            
 fig, axs = plt.subplots(1,4, figsize=(5*5,5))
@@ -2080,6 +2250,7 @@ for i, j in enumerate(['NSE','NSElog','RMSE','KGE']):
     ax.set_title(j)
     ax.set_xlabel('Porosity [%]')
 fig.suptitle(df.model_name[0].upper(), y=1.05)
+fig.savefig('C:/Users/ronan/Downloads/figs/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
 #%% SATURATION PLOT
 
@@ -2230,6 +2401,9 @@ for id_mod_val in list_id_mod[4:5]:
         # fig.savefig(os.path.join(simulations_folder, '_figures',
         #             'SATURATION_'+model_name+'.png'),
         #             bbox_inches='tight')
+        
+        fig.savefig('C:/Users/ronan/Downloads/figs/'+'S_'+model_name+'.png',
+                    bbox_inches='tight')
 
 # SATURATION CRITERIA
            
@@ -2241,6 +2415,8 @@ for i, j in enumerate(['OWN']):
     ax.set_title(j)
     ax.set_xlabel('Porosity [%]')
 fig.suptitle(df.model_name[0].upper(), y=1.0, fontsize=8)
+fig.savefig('C:/Users/ronan/Downloads/figs/'+'S_'+'criteria'+'.png',
+            bbox_inches='tight')
 
 #%% CONVOLUTION PLOT
 
@@ -3480,3 +3656,65 @@ ax.plot(op['PPT_REA_historic'], c='blue', label='PPT ISBA SERVEUR FTP', lw=3)
 ax.plot(sim2['PRELIQ_Q'], c='red', label='PPT ISBA SERVEUR FTP', lw=1)
 ax.set_xlim(pd.to_datetime('2019-09'), pd.to_datetime('2021-09'))
 
+#%% TEST
+
+# def clip_netcdf(self, data_folder, path_qgis, shp_path, var):
+
+p = 'D:/Users/abherve/DRIAS_EAU/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731.nc'
+
+
+with xr.open_dataset(p, decode_coords = 'all') as ds:
+    ds.load()
+# ds.sel(x = 76000, y = 2273000)
+   
+geodf = gpd.read_file(BV.geographic.watershed_shp)
+geom = geodf.geometry.apply(mapping)
+# try :
+clipped_ds = ds.clip(geom, geodf.crs)
+# except :
+#     pass
+# clipped_ds = ds.clip(geom, geodf.crs, all_touched = True, drop = True)
+# ds.rio.write_crs("epsg:2154", inplace = True)
+
+import geopandas
+import rioxarray
+from shapely.geometry import mapping
+
+geodf = geopandas.read_file(BV.geographic.watershed_shp)
+xds = rioxarray.open_rasterio(p)
+clipped = xds.rio.clip(geodf.geometry.apply(mapping), geodf.crs)
+
+#%% CONVERT NETCDF
+
+import xarray as xr
+xr.set_options(keep_attrs = True)
+import rioxarray as riox
+ 
+file_type = 'modflow'
+
+_basename = 'D:/Users/abherve/DRIAS_EAU/Model_01/DRAINC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731'
+input_file = _basename + ''
+output_file = _basename + '_QGIS.nc'
+(folder_name, file_name) = os.path.split(output_file)
+
+with xr.open_dataset(input_file, decode_coords = 'all') as _dataset:
+    _dataset.load()
+# Comme les latitudes sont fausses, il vaut mieux les supprimer :
+_dataset = _dataset.drop('lon')
+_dataset = _dataset.drop('lat')
+# Créer les coordonnées 'x' et 'y' à partir de i et j
+_dataset = _dataset.assign_coords(
+    x = ('i', 52000 + _dataset.i.values*8000))
+_dataset = _dataset.assign_coords(
+    y = ('j', 1609000 + _dataset.j.values*8000))
+# Remplacer i et j par x et y comme coordonnées
+_dataset = _dataset.swap_dims(i = 'x', j = 'y')
+# Ajouter les attributs standards
+_dataset.x.attrs = {'standard_name': 'projection_x_coordinate',
+                    'long_name': 'x coordinate of projection',
+                    'units': 'Meter'}
+_dataset.y.attrs = {'standard_name': 'projection_y_coordinate',
+                    'long_name': 'y coordinate of projection',
+                    'units': 'Meter'}
+_dataset.rio.write_crs("epsg:27572", inplace = True)
+_dataset.to_netcdf(output_file)  
