@@ -58,7 +58,7 @@ class SafranSurfex:
         """
         Extract cells in watershed from France scale grid of 8x8km.
         """
-        mesh_path = safransurfex_path + '/shapefile/maille_meteo_fr_pr93.shp'
+        mesh_path = safransurfex_path + '/mesh/maille_meteo_fr_pr93.shp'
         mask = gpd.read_file(watershed_shp , encoding="utf-8")
         mesh = gpd.read_file(mesh_path, encoding="utf-8") 
         intersect = gpd.clip(mesh, mask)
