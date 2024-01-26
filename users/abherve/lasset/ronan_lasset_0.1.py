@@ -1562,6 +1562,7 @@ fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
 # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
 # m0 = pd.read_csv(BV.calibration_folder+'/'+dfz[:1]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
 # wt = thick - m0.watertable_depth
+thick = 30
 ax.scatter(dfz[:1]['K']/24/3600 * thick, dfz[:1]['Doptim'], c=dfz[:1]['1/K_decay'], s=100, 
             marker='s', lw=2,
             cmap=mpl.colors.ListedColormap('white'),
@@ -1622,6 +1623,9 @@ cb.minorticks_off()
 cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 # ax.set_yscale('log')
+
+fig.savefig('C:/Users/ronan/Downloads/figs/'+'DICHOTOMY_TMAX'+'.png',
+            bbox_inches='tight')
 
 #%% DICHOTOMY - GRAPH T WITH WT
 
@@ -1717,6 +1721,9 @@ cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 # ax.set_yscale('log')
 
+fig.savefig('C:/Users/ronan/Downloads/figs/'+'DICHOTOMY_TWT'+'.png',
+            bbox_inches='tight')
+
 #%% DICHOTOMY - MAPS
 
 dfp = dfs.copy()
@@ -1730,8 +1737,11 @@ shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
 # if vers == 'v4':
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_osm_points.shp')
-if vers == 'v6':
+# if vers == 'v6':
+#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
+if vers == 'v7':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
+
 
 # types_obs = ['stream_perennial_wetlands_points']
 # types_obs = ['stream_perennial_wetlands_osm_points']
@@ -1765,10 +1775,19 @@ for index, row in dfz.iterrows():
 # 12 models
 # 10 porosity per model : 0.1, 0.5, 1, 2, 4, 7, 10, 15, 20, 30
 
-#%% PREPROCESSING
+#%% UPDATE PARAMETERS
 
+# iD_explo = 'e0' # with isba recharge
 # iD_explo = 'e1' # with sim2 recharge
-iD_explo = 'e2' # with sim2 recharge
+# iD_explo = 'e2' # with isba recharge     ==> decay = /2
+# iD_explo = 'e3' # with isba recharge     ==> decay = /1
+# iD_explo = 'e4' # with isba recharge     ==> decay = /4
+# iD_explo = 'e5' # with isba recharge       ==> decay no and aquifer constant
+iD_explo = 'e6' # with isba recharge       ==> n_decay / 2 ==> all models
+
+decay_factor = 2
+
+vers = 'v7'
 
 box = True # or False
 sink_fill = False # or True
@@ -1866,7 +1885,7 @@ list_cond_decay[1] = 0
 # Models
 list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 
-vers = 'v6'
+
 df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
 # For transient
@@ -1882,12 +1901,22 @@ run_model = True
 # run_model = False
 
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[-1:], list_bottom[-1:], list_koptim[-1:], list_id_mod[-1:]):
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
-                                                                           list_bottom[4:5],
-                                                                           list_koptim[4:5],
-                                                                           list_id_mod[4:5],
-                                                                           list_kroptim[4:5]):
-    
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
+#                                                                             list_bottom[4:5],
+#                                                                             list_koptim[4:5],
+#                                                                             list_id_mod[4:5],
+#                                                                             list_kroptim[4:5]):
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:1],
+#                                                                             list_bottom[:1],
+#                                                                             list_koptim[:1],
+#                                                                             list_id_mod[:1],
+#                                                                             list_kroptim[:1]):
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
+                                                                            list_bottom[:],
+                                                                            list_koptim[:],
+                                                                            list_id_mod[:],
+                                                                            list_kroptim[:]):    
+
     # print(kroptim_val)
     # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
     # print(koptim_from_kr, koptim_val)
@@ -1896,7 +1925,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     BV.hydraulic.update_bottom(bottom_val) # None
     BV.hydraulic.update_hyd_cond(koptim_val)
     # BV.hydraulic.update_hyd_cond(koptim_from_kr)
-    BV.hydraulic.update_poro_decay(cond_decay_val/2)
+    BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
     
     dictio = {}
     
@@ -1911,10 +1940,10 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
 
         if id_mod_val <=1 :
             str_cond_decay = cond_decay_val
-            str_poro_decay = cond_decay_val/2
+            str_poro_decay = cond_decay_val/decay_factor
         else:
             str_cond_decay = 1/cond_decay_val
-            str_poro_decay = 1/(cond_decay_val/2)
+            str_poro_decay = 1/(cond_decay_val/decay_factor)
         if bottom_val==None:
             str_bottom = thick
         else:
@@ -1944,9 +1973,11 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     dd.io.save(h5file, dictio)
     
-#%% RELOAD POSTPROCESS
+#%% LOAD POSTPROCESS
 
-for id_mod_val in list_id_mod[4:5]:
+delete_files = True
+
+for id_mod_val in list_id_mod[:]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -1967,7 +1998,8 @@ for id_mod_val in list_id_mod[4:5]:
                                   accumulation_flux = True,
                                   persistency_index = True,
                                   intermittency_monthly = False,
-                                  intermittency_daily = True,
+                                  intermittency_weekly = True,
+                                  intermittency_daily = False,
                                   export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
@@ -1976,71 +2008,56 @@ for id_mod_val in list_id_mod[4:5]:
                                                           subbasin_results=True,
                                                           freq_time='W')
 
-#%% DELETE MODFLOW FILES
-"""
-for watershed_name in watershed_names[:]:
+# DELETE MODFLOW FILES
 
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
-
-    dir_modflow = BV.calibration_folder + '/' + model_name
-    dir_postprocess = dir_modflow + '/' + '_postprocess'
-    dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
-    dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
-    dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+        if delete_files == True:
     
-    files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
-    files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
-    files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
-    
-    if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
-        try:
-            for file in files_rast_acc[1:]:
-                os.remove(file)
-        except:
-            pass
-    if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
-        try:
-            for file in files_rast_out[1:]:
-                os.remove(file)
-        except:
-            pass
-    if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
-        try:
-            for file in files_rast_int[1:]:
-                os.remove(file)
-        except:
-            pass
-            
-    if os.path.exists(dir_temporary):
-        shutil.rmtree(dir_temporary)
-    
-    if os.path.exists(dir_figures):
-        shutil.rmtree(dir_figures) 
-    
-    files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
-    try:
-        for file in files_npy:
-            os.remove(file)
-    except:
-        pass
-
-
-    h5files = glob.glob(BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'*')
-    
-    for h5 in h5files[:]:
-    
-        d = dd.io.load(h5file)
-        list_model_name = d['list_model_name'][:]
-        list_model_success = d['list_model_success'][:]
-        list_model_modflow = d['list_model_modflow'][:]
+            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+            simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+            calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
         
-        for model_name, modflow_success, model_modflow in zip(list_model_name[:],
-                                                              list_model_success[:],
-                                                              list_model_modflow[:]):
-
             dir_modflow = BV.calibration_folder + '/' + model_name
+            dir_postprocess = dir_modflow + '/' + '_postprocess'
+            dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+            dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+            dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+            
+            files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+            files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+            files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+        
+            if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+                try:
+                    for file in files_rast_acc[1:]:
+                        os.remove(file)
+                except:
+                    pass
+            if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+                try:
+                    for file in files_rast_out[1:]:
+                        os.remove(file)
+                except:
+                    pass
+            if os.path.exists(dir_rasters+ '/' +'intermittency_weekly_t(0).tif'):
+                try:
+                    for file in files_rast_int[1:]:
+                        os.remove(file)
+                except:
+                    pass
+                
+            if os.path.exists(dir_temporary):
+                shutil.rmtree(dir_temporary)
+            
+            if os.path.exists(dir_figures):
+                shutil.rmtree(dir_figures) 
+            
+            files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
+            try:
+                for file in files_npy:
+                    os.remove(file)
+            except:
+                pass
+            
             for file in glob.glob(dir_modflow+'/'+'*'):
                 if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
                     # print(file)
@@ -2053,7 +2070,7 @@ for watershed_name in watershed_names[:]:
                             print('Access-error on file "' + f + '"! \n' + str(e))
                     os.remove(file)
                     # shutil.rmtree(file)
-"""
+
 #%% STREAMFLOW PLOT
 
 CRIT = 'RMSE'
@@ -2089,6 +2106,7 @@ for w, w_name in enumerate(['Lasset'][:]):
     Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
     Qobs_w_sli = Qobs_w_sli.iloc[:-1]
     Qobs = Qobs_w_sli.copy() * 1000
+    # Qobs = Qobs.resample('M').mean()*4
 
     i = 0
 
@@ -2110,6 +2128,7 @@ for w, w_name in enumerate(['Lasset'][:]):
             r = runoff_w_sli.copy()
             Qmod = Smod['outflow_drain'] + r*1 # m/day
             Qmod = Qmod * 1000
+            # Qmod = Qmod.resample('M').mean()*4
             
             mix = Qobs.copy().to_frame()
             mix.columns = ['Qobs']
@@ -2181,7 +2200,8 @@ for w, w_name in enumerate(['Lasset'][:]):
         
             ax = a0
             ax.plot(Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
-            ax.plot(Qmod, color='red', lw=1, label='Simulated')
+            ax.plot(Qmod, color='darkorange', lw=1, label='Simulated')
+            ax.plot(Qmod-(r*1000), color='red', lw=1, label='Simulated')
             ax.set_xlabel('Date')
             ax.set_ylabel('Q [mm/d]')
             ax.set_yscale('log')
@@ -2289,7 +2309,7 @@ for type_obs in types_obs:
     list_sat_obs.append(dd_hydro)
 
 # list_sat_obs = [5,10] # 7
-list_sat_obs = [8,15] # 7
+list_sat_obs = [8,11] # 7
 
 i=0
 
@@ -2379,7 +2399,7 @@ for id_mod_val in list_id_mod[4:5]:
         ax.set_ylim(5,20)
         ax.set_yticks([5, 10, 15, 20])
         ax.set_ylabel('$A_{sat}$ [%]')
-        ax.set_xlim(pd.to_datetime('2020-01-08'), pd.to_datetime('2024'))
+        ax.set_xlim(pd.to_datetime('2020-01-08'), pd.to_datetime('2023'))
         plt.xticks(rotation=0, ha="right")
     
         years_maj = mdates.YearLocator()   # every year
@@ -2510,12 +2530,22 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
 
 #%% CROSS SECTIONS PLOT
 
+iD_explo = 'e2'
+
+for id_mod_val in list_id_mod[4:5]:
+
+    h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+
 # model_name = 'egu1_1_10.0-0.0-0.0857-26.68'
 # model_name = 'egu1_0_500.0-0-0.0058-30.0'
 
 # list_selects = ['egu1_4_20.0-0.0-0.1359-10.8', 'egu1_8_100.0-0.0-0.0211-3.9']
-list_selects = list_model_name[16::17]
-list_flowmodel = list_flow_model[16::17]
+list_selects = list_model_name[:]
+list_flowmodel = list_model_modflow[:]
 
 fig_cross = True
 
@@ -2526,7 +2556,7 @@ for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
     # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
     # try:
         
-    id_model = int(model_name.split('_')[1])
+    # id_model = int(model_name.split('_')[1])
             
     ### MODEL ###
     # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
@@ -2625,7 +2655,10 @@ for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
         # linecollection = modelxsect.plot_grid()
         # hdobj = flopy.utils.HeadFile(fname)
         # head_data = hdobj.get_data()
-        cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1, vmin=0, vmax=50)
+        cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1,
+                                   # vmin=0, vmax=30,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10))
         # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
         #                             cmap='Blues', alpha=0.5, ax=axs[1])
         ax.set_title('Meshgrid North to South')
@@ -2636,7 +2669,10 @@ for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
         plt.tight_layout()
         # fig.set_size_inches(6, 3, forward=True)
         
-        fig.savefig(fig_path+'cross_section_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(fig_path+'cross_section_'+model_name+'.png', dpi=300, bbox_inches='tight')
+        
+        fig.savefig('C:/Users/ronan/Downloads/figs/'+'CROSS_SECTION'+model_name+'.png',
+                    bbox_inches='tight')
         
 #%% GRAPH DECAY COND
 
@@ -3718,3 +3754,26 @@ _dataset.y.attrs = {'standard_name': 'projection_y_coordinate',
                     'units': 'Meter'}
 _dataset.rio.write_crs("epsg:27572", inplace = True)
 _dataset.to_netcdf(output_file)  
+
+#%% Q NETCDF
+
+import xarray as xr
+p='H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/Model_01/Debits_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731.nc'
+# p='H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/Model_01/EVAPC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731.nc'
+# p='H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/Model_01/RUNOFFC_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731.nc'
+# p='H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/Model_01/SWE_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731.nc'
+# p='H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/Model_01/SWI_France_MPI-M-MPI-ESM-LR_CLMcom-CCLM4-8-17_METEO-FRANCE_ADAMONT-France_SAFRAN_MF-SIM2_Historique_day_19500801-20050731.nc'
+with xr.open_dataset(p, decode_coords = 'all') as ds:
+    ds.load()
+import geopandas
+import rioxarray
+from shapely.geometry import mapping
+
+geodf = geopandas.read_file(BV.geographic.watershed_shp)
+xds = rioxarray.open_rasterio(p)
+ds.rio.write_crs("epsg:27572", inplace = True)
+clipped = ds.rio.clip(geodf.geometry.apply(mapping), geodf.crs)
+
+
+
+

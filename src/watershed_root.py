@@ -29,7 +29,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
+from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
 from modeling import modflow, modpath, timeseries
 from display import visualization_watershed
 from tools import toolbox
@@ -193,6 +193,9 @@ class Watershed:
             if ('climatic' in BV.__dir__()) == True:
                 self.climatic = BV.climatic
                 self.elt_def.append('climatic')
+            if ('driasclimat' in BV.__dir__()) == True:
+                self.driasclimat = BV.driasclimat
+                self.elt_def.append('driasclimat')
             if ('driaseau' in BV.__dir__()) == True:
                 self.driaseau = BV.driaseau
                 self.elt_def.append('driaseau')
@@ -336,6 +339,24 @@ class Watershed:
         self.climatic = climatic.Climatic(out_path=self.watershed_folder)
         self.elt_def.append('climatic')
         self.save_object()
+    
+    def add_driasclimat(self, driasclimat_path, list_models='all', list_vars='all'):
+        """
+        Public method to add drias climat data.
+
+        Returns
+        -------
+        None.
+        """
+        self.driasclimat_path = driasclimat_path
+        self.driasclimat = driasclimat.Driasclimat(out_path=self.watershed_folder,
+                                          driaseau_path=self.driasclimat_path,
+                                          watershed_shp=self.geographic.watershed_shp,
+                                          list_models=list_models, 
+                                          list_vars=list_vars)
+        # drias.Merge(out_path=self.watershed_folder)
+        self.elt_def.append('driaseau')
+        # self.save_object()
     
     def add_driaseau(self, driaseau_path, list_models='all', list_vars='all'):
         """
@@ -630,6 +651,7 @@ class Watershed:
                                accumulation_flux: bool=True,
                                persistency_index: bool=False,
                                intermittency_monthly: bool=False,
+                               intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
                                export_all_tif: bool=False):
         """
@@ -671,6 +693,7 @@ class Watershed:
                                       accumulation_flux=accumulation_flux,
                                       persistency_index=persistency_index,
                                       intermittency_monthly=intermittency_monthly,
+                                      intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
                                       export_all_tif=export_all_tif)
 

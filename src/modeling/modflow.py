@@ -966,7 +966,7 @@ class Modflow:
                         self.dict_intermittency_daily[compt] = self.tempo
                         tempo_export[interv[k]<=0] = -9999
                         tempo_export[mask<=0] = -9999
-                        output_path = self.tifs_file+'/intermittency_daily_t('+str(compt)+').tif'
+                        output_path = self.tifs_file+'/intermittency_weekly_t('+str(compt)+').tif'
                         # if export_tif==True:
                         toolbox.export_tif(self.geographic.watershed_dem,
                                            tempo_export,

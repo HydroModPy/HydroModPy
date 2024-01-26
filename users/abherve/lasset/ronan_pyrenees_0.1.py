@@ -77,7 +77,7 @@ import importlib
 importlib.reload(src)
 
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, \
+from src.watershed import climatic, driasclimat, driaseau, geographic, geology, geometric, hydraulic, \
                           hydrography, hydrometry, intermittency, oceanic, \
                           piezometry, safransurfex, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
@@ -111,13 +111,13 @@ from_dem = None # True or False if the process start from a given DEM of xyz fil
 cell_size = None # specify new resolution from a given DEM or None
 from_shp = ['D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/_GIS/bounds/pyrenees.shp', 1]
 
-watershed_names = ['Pyrenees']
+watershed_names = ['PYRENEES']
 from_xyvs = [None]
 
 #%% LOAD
 
-# load = True
-load = False
+load = True
+# load = False
 
 for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
         
@@ -144,7 +144,67 @@ for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
 
 #%% PROJECTION DRIAS EAU
 
+# list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+#                'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+# list_vars = ['Debits','DRAINC','EVAPC','RUNOFFC','SWE','SWI'] # m3/s, mm, mm, mm, mm, -
+        
 # BV.add_driaseau('D:/Users/abherve/DRIAS_EAU/', list_models=['Model_01'], list_vars=['DRAINC']) # 'all'
-BV.add_driaseau('H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/', list_models=['all'], list_vars=['all']) # 'all'
+"""
+BV.add_driaseau('H:/SURFEX_CLIMATE_DATA/DRIAS_EAU/',
+                list_models=['all'],
+                list_vars=['DRAINC','EVAPC','RUNOFFC','SWE','SWI']) # 'all'
+"""
+#%% PROJECTION DRIAS EAU
+"""
+data_folder = stable_folder+'/driaseau/'
 
+df = pd.DataFrame()
+df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
+
+list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06','Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+
+list_of_paths = []
+for i in list_models:
+    list_of_paths_model = glob.glob(os.path.join(data_folder+i+'/', '*.nc'))
+    list_of_paths.extend(list_of_paths_model)
+
+driaseau.driaseau_extract_values(data_folder, list_of_paths, df)
+"""
+#%% PROJECTION DRIAS CLIMATE
+
+# list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
+#                'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+# list_vars = ['prtotAdjust',
+#              'prsnAdjust',
+#              'tasAdjust',
+#              'tasmaxAdjust',
+#              'tasminAdjust',
+#              'hussAdjust',
+#              'sfcWindAdjust',
+#              'rldsAdjust',
+#              'rsdsAdjust',
+#              'FAO',
+#              'Hg0175']
+"""     
+# BV.add_driaseau('D:/Users/abherve/DRIAS_EAU/', list_models=['Model_01'], list_vars=['DRAINC']) # 'all'
+BV.add_driasclimat('H:/SURFEX_CLIMATE_DATA/DRIAS_CLIMAT/',
+                   list_models=['all'],
+                   list_vars=['prtotAdjust',
+                              'prsnAdjust',
+                              'tasAdjust',
+                              'tasmaxAdjust',
+                              'tasminAdjust',
+                              'hussAdjust',
+                              'sfcWindAdjust',
+                              'rldsAdjust',
+                              'rsdsAdjust',
+                              'FAO', # # 'FAO' at the end
+                              'Hg0175']) # 'all'
+"""
+#%% PROJECTION DRIAS EAU
+"""
+df = pd.DataFrame()
+df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
+driasclimat.Driasclimat(stable_folder+'/driasclimat/', df)
+"""
 #%% ---- NOTES
