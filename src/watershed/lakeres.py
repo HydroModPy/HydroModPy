@@ -49,10 +49,10 @@ class Lakeres:
         self.ssmx:dict = {} # dict of maximum stages keyed by lake_id
         self.bdlknc:dict = {} # dict of lakebed leakance
         # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
-        self.precip:dict = {}
-        self.evap:dict = {}
-        self.runoff:dict = {}
-        self.withdraw:dict = {}
+        self.prcplk:dict = {}
+        self.evaplk:dict = {}
+        self.rnf:dict = {}
+        self.wthdrw:dict = {}
                                  
         self.data_folder = os.path.join(geographic.stable_folder,
                                    'lakeres')
@@ -126,10 +126,10 @@ class Lakeres:
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
         if new_lake_id and not new_maskmx_path: # just replace the key
             self.maskmx_paths[new_lake_id] = self.maskmx_paths.pop(lake_id)
-            self.precip[new_lake_id] = self.precip.pop(lake_id)
-            self.evap[new_lake_id] = self.evap.pop(lake_id)
-            self.runoff[new_lake_id] = self.runoff.pop(lake_id)
-            self.withdraw[new_lake_id] = self.withdraw.pop(lake_id)
+            self.prcplk[new_lake_id] = self.prcplk.pop(lake_id)
+            self.evaplk[new_lake_id] = self.evaplk.pop(lake_id)
+            self.rnf[new_lake_id] = self.rnf.pop(lake_id)
+            self.wthdrw[new_lake_id] = self.wthdrw.pop(lake_id)
             self.indexes = list(self.masks.keys())
             
         elif new_maskmx_path and not new_lake_id: # just replace the mask
@@ -138,10 +138,10 @@ class Lakeres:
         elif new_lake_id and new_maskmx_path: # replace both the mask and the key
             self.maskmx_paths[new_lake_id] = new_maskmx_path
             self.maskmx_paths.pop(lake_id)
-            self.precip[new_lake_id] = self.precip.pop(lake_id)
-            self.evap[new_lake_id] = self.evap.pop(lake_id)
-            self.runoff[new_lake_id] = self.runoff.pop(lake_id)
-            self.withdraw[new_lake_id] = self.withdraw.pop(lake_id)
+            self.prcplk[new_lake_id] = self.prcplk.pop(lake_id)
+            self.evaplk[new_lake_id] = self.evaplk.pop(lake_id)
+            self.rnf[new_lake_id] = self.rnf.pop(lake_id)
+            self.wthdrw[new_lake_id] = self.wthdrw.pop(lake_id)
             self.indexes = list(self.masks.keys())
         
         
@@ -153,22 +153,25 @@ class Lakeres:
         
     #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
     def update_precip(self, lake_id, src):
-        self.precip[lake_id] = src
+        self.prcplk[lake_id] = src
         
     def update_evap(self, lake_id, src):
-        self.evap[lake_id] = src
+        self.evaplk[lake_id] = src
         
     def update_runoff(self, lake_id, src):
-        self.runoff[lake_id] = src
+        self.rnf[lake_id] = src
         
     def update_withdraw_fill(self, lake_id, src):
-        self.flux_data[lake_id] = src
+        self.wthdrw[lake_id] = src
         
         
     #%% REMOVE A LAKE/RESERVOIR
     def remove(self, lake_id):
         self.masks.pop(lake_id)
-        self.flux_data.pop(lake_id)
+        self.prcplk.pop(lake_id)
+        self.evaplk.pop(lake_id)
+        self.rnf.pop(lake_id)
+        self.wthdrw.pop(lake_id)
         
         # Update Lakeres attributes:
         self.indexes = list(self.masks.keys())
