@@ -48,8 +48,11 @@ class Lakeres:
                                     # bathymetry)   
         self.ssmx:dict = {} # dict of maximum stages keyed by lake_id
         self.bdlknc:dict = {} # dict of lakebed leakance
-        self.flux_data:dict = {} # dict of lakes/reservoirs flux data dataframes, 
-                                 # keyed by lake_id
+        # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
+        self.precip:dict = {}
+        self.evap:dict = {}
+        self.runoff:dict = {}
+        self.withdraw:dict = {}
                                  
         self.data_folder = os.path.join(geographic.stable_folder,
                                    'lakeres')
@@ -123,7 +126,10 @@ class Lakeres:
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
         if new_lake_id and not new_maskmx_path: # just replace the key
             self.maskmx_paths[new_lake_id] = self.maskmx_paths.pop(lake_id)
-            self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
+            self.precip[new_lake_id] = self.precip.pop(lake_id)
+            self.evap[new_lake_id] = self.evap.pop(lake_id)
+            self.runoff[new_lake_id] = self.runoff.pop(lake_id)
+            self.withdraw[new_lake_id] = self.withdraw.pop(lake_id)
             self.indexes = list(self.masks.keys())
             
         elif new_maskmx_path and not new_lake_id: # just replace the mask
@@ -132,37 +138,32 @@ class Lakeres:
         elif new_lake_id and new_maskmx_path: # replace both the mask and the key
             self.maskmx_paths[new_lake_id] = new_maskmx_path
             self.maskmx_paths.pop(lake_id)
-            self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
+            self.precip[new_lake_id] = self.precip.pop(lake_id)
+            self.evap[new_lake_id] = self.evap.pop(lake_id)
+            self.runoff[new_lake_id] = self.runoff.pop(lake_id)
+            self.withdraw[new_lake_id] = self.withdraw.pop(lake_id)
             self.indexes = list(self.masks.keys())
         
         
-    #%% UPDATE
+        
+    #%% UPDATE MAXIMUM STAGES (= WATER LEVELS)
     def update_stagemax(self, lake_id, ssmx):
         self.ssmx[lake_id] = ssmx
-    
-    
+        
+        
+    #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
     def update_precip(self, lake_id, src):
-        if isinstance(src, str):
-            if src == 'from_climatic':
-                0
-            elif os.path.isdir(src):
-                0
-        else:
-            if np.size(src) == 1:
-                0
-            else:
-                self.flux_data[lake_id]['PRCPLK'] = src
+        self.precip[lake_id] = src
         
     def update_evap(self, lake_id, src):
-        self.flux_data[lake_id]['EVAPLK'] = 0
+        self.evap[lake_id] = src
         
     def update_runoff(self, lake_id, src):
-        self.flux_data[lake_id]['RNF'] = 0
+        self.runoff[lake_id] = src
         
-    
-    #%% UPDATE ANTHROPIC FLOWS IN AND OUT OF THE LAKE/RESERVOIR
-    def update_withdraw_fill(self, lake_id, withdraw_fill_ts:pd.core.series.Series):
-        self.flux_data[lake_id]['WTHDRW'] = withdraw_fill_ts
+    def update_withdraw_fill(self, lake_id, src):
+        self.flux_data[lake_id] = src
+        
         
     #%% REMOVE A LAKE/RESERVOIR
     def remove(self, lake_id):
@@ -176,6 +177,8 @@ class Lakeres:
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic):
+        #%%% Format lakarr:
+        # -----------------
         # Load masked np.array of watershed and initialize lakarr
         with rio.open(geographic.watershed_dem, 'r') as base:
             nodata = base.profile['nodata'] # value corresponding to the no data property 
@@ -212,15 +215,21 @@ class Lakeres:
 #             lakarr = np.where(maskmx==1, lake_id, lakarr)
 # =============================================================================
         
+        # Export
         with rio.open(geographic.watershed_dem, 'r') as base:
             base_profile = base.profile
             base_profile['crs'] = geographic.crs_proj
             # base_profile['nodata'] = 0
             # base_profile['dtype'] = int
-        with rio.open(os.path.join(self.data_folder, 'raster.tif'),
+        with rio.open(os.path.join(self.data_folder, 'lakarr.tif'),
                       'w', **base_profile) as dst: 
             dst.write_band(1, self.raster.astype(int))
             
+        
+        #%%% Format fluxes data
+        # ---------------------
+        if isinstance(src, pd.core.series.Series):
+            0
        
         # return stages, lakarr, bdlknc, flux_data
        
