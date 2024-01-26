@@ -41,18 +41,13 @@ class Lakeres:
     def __init__(self, geographic):
         self.n_lakeres:int = 0 # number of lakes/reservoirs
         self.indexes:list = [] # identifiers of lakes/reservoirs
-        self.raster_base = geographic.watershed_dem
-        self.crs_proj = geographic.crs_proj
-        with rio.open(self.raster_base, 'r') as base:
-            self.nodata = base.profile['nodata'] # value corresponding to the no data property 
-        self.masks:dict = {} # dict of lakes/reservoirs masks, keyed by lake_id
-        self.raster_array:np.ndarray = None
-        raster_array = toolbox.load_to_numpy(self.raster_base,
-                                              dst_crs = self.crs_proj) # np.ndarray
-        self.raster_array = np.ma.array(raster_array, 
-                                        mask = raster_array==self.nodata,
-                                        fill_value = self.nodata,
-                                        ) * 0 # masked np.ndarray with null values
+        self.maskmx_paths:dict = {} # dict of lakes/reservoirs masks paths, 
+                                    # keyed by lake_id
+                                    # masks correspond to te maximal extent of 
+                                    # the lake, or larger (see computation of 
+                                    # bathymetry)   
+        self.ssmx:dict = {} # dict of maximum stages keyed by lake_id
+        self.bdlknc:dict = {} # dict of lakebed leakance
         self.flux_data:dict = {} # dict of lakes/reservoirs flux data dataframes, 
                                  # keyed by lake_id
                                  
@@ -63,79 +58,108 @@ class Lakeres:
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
-    def new_lakeres(self, mask_path:str, lake_id:int=None, src_crs=None):
-        # can be a lake or an artificial lake
+    def new_lakeres(self, maskmx_path:str, lake_id:int=None, src_crs=None,
+                    geographic = None):
+        # NB: can be a lake or an artificial lake
+        
+        # Store/infer lake_id
         if not lake_id:
             if self.n_lakeres == 0:
                 lake_id:int = 1 # initialization
             else:
                 lake_id:int = np.max(self.indexes) + 1
-        
         print(f"\nAdding lake n°{lake_id}")
-        mask = toolbox.load_to_numpy(mask_path, 
-                                     src_crs = src_crs,
-                                     base_path = self.raster_base, 
-                                     dst_crs = self.crs_proj)
-        mask[mask == self.nodata] = 0
-        # self.masks[lake_id] = mask.astype(int)
-        self.masks[lake_id] = mask.astype(bool)
+        
+        # Lake/reservoir mask
+        self.maskmx_paths = maskmx_path
+        
+        # Check overlapping between lakes   
+        if geographic:     
+            with rio.open(geographic.watershed_dem, 'r') as base:
+                nodata = base.profile['nodata'] # value corresponding to the no data property 
+
+            maskmx = toolbox.load_to_numpy(maskmx_path, 
+                                         src_crs = src_crs,
+                                         base_path = geographic.watershed_dem, 
+                                         dst_crs = geographic.crs_proj)
+            
+            maskmx[maskmx == nodata] = 0
+            
+            for idx in self.indexes:
+                prev_maskmx = toolbox.load_to_numpy(maskmx_path, 
+                                                    src_crs = src_crs,
+                                                    base_path = geographic.watershed_dem, 
+                                                    dst_crs = geographic.crs_proj)
+                
+                intersect = (maskmx*prev_maskmx).sum()
+                if intersect > 0:
+                    print(f"\n NB: Lake n°{lake_id} overwrites lake n°{idx} on {int(intersect)} cells.")
+        
+        # Default values for required parameters
+# =============================================================================
+#         self.ssmx[lake_id] = # maximum de la topo
+# =============================================================================
+        self.bdlknc[lake_id] = 86400 # default = 1 m/s
         
 # =============================================================================
-#         self.raster_array = self.raster_array + np.ma.array(self.masks[lake_id],
-#                                                             fill_value = self.nodata
-#                                                             ) * lake_id
+#         self.flux_data[lake_id] = pd.DataFrame(
+#             data = np.array([[0], [0], [0], [0]]).transpose(), 
+#             columns = ['PRCPLK', 'EVAPLK', 'RNF', 'WTHDRW'], 
+#             index = [0])
 # =============================================================================
-        masked_newlake = np.ma.array(self.masks[lake_id],
-                                     mask = self.raster_array.mask,
-                                     fill_value = self.nodata
-                                     )
-        print('') # newline
-        for idx in self.indexes:
-            intersect = (self.raster_array[(self.raster_array==idx) & (masked_newlake==1)]).sum()
-            if intersect > 0:
-                print(f" Lake n°{lake_id} overwrites lake n°{idx} on {int(intersect)} cells.")
-        self.raster_array[masked_newlake==1] = lake_id
-        
-# =============================================================================
-#         self.raster_array = np.where(self.masks[lake_id]==1, lake_id, self.raster_array)
-# =============================================================================
-        
-        with rio.open(self.raster_base, 'r') as base:
-            base_profile = base.profile
-            base_profile['crs'] = self.crs_proj
-            # base_profile['nodata'] = 0
-            # base_profile['dtype'] = int
-        with rio.open(os.path.join(self.data_folder, 'raster_array.tif'),
-                      'w', **base_profile) as dst: 
-            dst.write_band(1, self.raster_array.astype(int))
+        self.prcplk[lake_id] = 0
+        self.evaplk[lake_id] = 0
+        self.rnf[lake_id] = 0
+        self.wthdrw[lake_id] = 0
         
         
-        self.flux_data[lake_id] = {}
         # Update Lakeres attributes:
         # self.idlist = self.idlist.append(lake_id)
         self.indexes = list(self.masks.keys())
         self.n_lakeres = len(self.indexes)
         
+        
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
-    def update_definition(self, lake_id:int, new_lake_id:int=None, new_mask_path:str=None):
-        if new_lake_id and not new_mask_path: # just replace the key
-            self.masks[new_lake_id] = self.masks.pop(lake_id)
+    def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
+        if new_lake_id and not new_maskmx_path: # just replace the key
+            self.maskmx_paths[new_lake_id] = self.maskmx_paths.pop(lake_id)
             self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
             self.indexes = list(self.masks.keys())
             
-        elif new_mask_path and not new_lake_id: # just replace the mask
-            self.masks[lake_id] = toolbox.load_to_numpy(new_mask_path,
-                                                        self.raster_base,
-                                                        self.crs_proj)
+        elif new_maskmx_path and not new_lake_id: # just replace the mask
+            self.maskmx_paths[lake_id] = new_maskmx_path
             
-        elif new_lake_id and new_mask_path: # replace both the mask and the key
-            self.masks[new_lake_id] = toolbox.load_to_numpy(new_mask_path,
-                                                            self.raster_base,
-                                                            self.crs_proj)
-            self.mask.pop(lake_id)
+        elif new_lake_id and new_maskmx_path: # replace both the mask and the key
+            self.maskmx_paths[new_lake_id] = new_maskmx_path
+            self.maskmx_paths.pop(lake_id)
             self.flux_data[new_lake_id] = self.flux_data.pop(lake_id)
             self.indexes = list(self.masks.keys())
         
+        
+    #%% UPDATE
+    def update_stagemax(self, lake_id, ssmx):
+        self.ssmx[lake_id] = ssmx
+    
+    
+    def update_precip(self, lake_id, src):
+        if isinstance(src, str):
+            if src == 'from_climatic':
+                0
+            elif os.path.isdir(src):
+                0
+        else:
+            if np.size(src) == 1:
+                0
+            else:
+                self.flux_data[lake_id]['PRCPLK'] = src
+        
+    def update_evap(self, lake_id, src):
+        self.flux_data[lake_id]['EVAPLK'] = 0
+        
+    def update_runoff(self, lake_id, src):
+        self.flux_data[lake_id]['RNF'] = 0
+        
+    
     #%% UPDATE ANTHROPIC FLOWS IN AND OUT OF THE LAKE/RESERVOIR
     def update_withdraw_fill(self, lake_id, withdraw_fill_ts:pd.core.series.Series):
         self.flux_data[lake_id]['WTHDRW'] = withdraw_fill_ts
@@ -148,6 +172,58 @@ class Lakeres:
         # Update Lakeres attributes:
         self.indexes = list(self.masks.keys())
         self.n_lakeres = len(self.indexes)
+   
+    
+   #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
+    def format_to_modflow(self, geographic, climatic):
+        # Load masked np.array of watershed and initialize lakarr
+        with rio.open(geographic.watershed_dem, 'r') as base:
+            nodata = base.profile['nodata'] # value corresponding to the no data property 
+        watershed_mask = toolbox.load_to_numpy(geographic.watershed_dem,
+                                               dst_crs = geographic.crs_proj) 
+        lakarr = np.ma.array(watershed_mask, 
+                            mask = watershed_mask==nodata,
+                            fill_value = nodata,
+                            ) * 0 # masked np.ndarray with null values
+        
+        # Format lakes maskmx (maximal extents)
+        for lake_id in self.indexes:
+            maskmx = toolbox.load_to_numpy(self.maskmx_paths[lake_id], 
+                                           src_crs = None,
+                                           base_path = geographic.watershed_dem, 
+                                           dst_crs = geographic.crs_proj)
+        
+            maskmx[maskmx == nodata] = 0
+            maskmx = maskmx.astype(bool)
+        
+# =============================================================================
+#             lakarr = lakarr + np.ma.array(maskmx,
+#                                           fill_value = nodata
+#                                           ) * lake_id
+# =============================================================================
+            maskmx = np.ma.array(maskmx,
+                                 mask = watershed_mask==nodata,
+                                 fill_value = nodata
+                                 )
+    
+            lakarr[maskmx==1] = lake_id
+        
+# =============================================================================
+#             lakarr = np.where(maskmx==1, lake_id, lakarr)
+# =============================================================================
+        
+        with rio.open(geographic.watershed_dem, 'r') as base:
+            base_profile = base.profile
+            base_profile['crs'] = geographic.crs_proj
+            # base_profile['nodata'] = 0
+            # base_profile['dtype'] = int
+        with rio.open(os.path.join(self.data_folder, 'raster.tif'),
+                      'w', **base_profile) as dst: 
+            dst.write_band(1, self.raster.astype(int))
+            
+       
+        # return stages, lakarr, bdlknc, flux_data
+       
    
     #%% DISPLAY PLOT
     
