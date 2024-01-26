@@ -265,6 +265,28 @@ ax.legend()
 
 #%% DAM
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
+
+BV.add_lakeres(BV.geographic)
+
+# Add new lakes/reservoirs
+### --- 1 --- ###
+lake_id = 1
+maskmx_path = os.path.join(root_dir, 'examples', 
+                             '99_reservoir and dam', 'data', 
+                             'Cheze_lake_75m_outside.tif')
+BV.lakeres.new_lakeres(maskmx_path, lake_id)
+
+ssmx = 90 # [m]
+BV.lakeres.update_stagemax(lake_id, ssmx)
+
+bathymetry_path = os.path.join(root_dir, 'examples', 
+                             '99_reservoir and dam', 'data', 
+                             'bathymetry_25m_NGF-elevation.tif')
+BV.lakeres.update_bathymetry(lake_id, bathymetry_path, mode = 'elevation')
+# mode can be 'elevation', 'depth', 'height' (= -depth)
+
+BV.lakeres.update_bdlknc(lake_id, 1e-4 * 24 * 3600) # [m/day] # bedlake leakance
+
 # Input data
 dam_data_path = os.path.join(os.path.split(data_path)[0], 
                              r"1- Biblio locale\14- Barrage",
@@ -278,19 +300,27 @@ dam_input_df = pd.read_csv(dam_data_path,
                            index_col = 'time',
                            parse_dates = True)
 
-mask_path = os.path.join(root_dir, 'examples', 
+# Environmental fluxes
+# By default, fluxes are set to 0. 
+# User can update these fluxes with float, file path, or "from_climatic" mode
+BV.lakeres.update_precip(lake_id, 0)
+BV.lakeres.update_evap(lake_id, 'from_climatic')
+BV.lakeres.update_runoff(lake_id, 'from_climatic')
+
+# Anthropic fluxes
+withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['meu']
+BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts, daily = False)
+# if values are daily rates, then user should indicate daily = True
+
+
+### --- 2 --- ###
+dummy_maskmx_path = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
-                             'Cheze_lake_75m_outside.tif')
+                             'Dummy_lake.shp')
+BV.lakeres.new_lakeres(dummy_maskmx_path)
 
-BV.add_lakeres(BV.geographic)
 
-lake_id = 1
-BV.lakeres.new_lakeres(mask_path, lake_id)
-
-BV.lakeres.new_lakeres(os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data', 
-                             'Dummy_lake.shp'))#, src_crs = 4326)
-
+### --- others --- ###
 # =============================================================================
 # BV.lakeres.update_definition(lake_id, new_lake_id, new_mask_path)
 # =============================================================================
@@ -299,16 +329,8 @@ BV.lakeres.new_lakeres(os.path.join(root_dir, 'examples',
 # BV.lakeres.remove(lake_id)
 # =============================================================================
 
-# =============================================================================
-# BV.lakeres.update_precip()
-# BV.lakeres.update_evap()
-# BV.lakeres.update_runoff()
-# =============================================================================
 
-# Anthropic fluxes
-withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['meu']
-BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
-
+BV.save_object()
 
 #%%% Force the return flow
 # Return flow time series
@@ -403,6 +425,8 @@ BV.add_oceanic(sea_level)
 
 # Particle tracking settings
 BV.settings.update_input_particules(zone_partic=zone_partic)
+
+BV.save_object()
 
 #%% ---- MODELING
 
