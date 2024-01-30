@@ -58,7 +58,8 @@ class Modflow:
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1., bottom: float=None, 
                  thick: float=100., hyd_cond=0.0864, cond_decay: float=0., 
-                 verti_cond=None, cond_drain: float=None, porosity=0.1, 
+                 verti_cond=None, verti_poro=None,
+                 cond_drain: float=None, porosity=0.1, 
                  poro_decay: float=0., 
                  # Boundary settings
                  sea_level: float=None, bc_left: float=None, bc_right: float=None):
@@ -101,6 +102,8 @@ class Modflow:
             Modification of hydraulic conductivity for exponentially decreasing whit depth. The default is 0..
         verti_cond : list, optional
             Depth-dependent hydraulic conductivity. The default is None.
+        verti_poro : list, optional
+            Depth-dependent porosity. The default is None.
         cond_drain : float, optional
             Fixe the conductance value of the drainage package. The default is None.
         porosity : float or 2D float, optional
@@ -188,6 +191,7 @@ class Modflow:
         self.poro_decay = poro_decay
         
         self.verti_cond = verti_cond
+        self.verti_poro = verti_poro
         self.cond_drain = cond_drain
         
         #%% Specific modifications
@@ -402,7 +406,22 @@ class Modflow:
                     mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
                     self.hk[i][mask] = k_val
                     # print(k_val)
-                       
+        
+        # Depth-dependent porosity (disconnected from the vertical discretization)
+        if self.verti_poro != None:
+            for j in range(len(self.verti_poro)):
+                # print('j', j)
+                for i in range(len(self.zbot)):
+                    # print('i', i)
+                    sy_val = self.verti_poro[j][0]
+                    d1 = self.verti_poro[j][1][0]
+                    d2 = self.verti_poro[j][1][1]
+                    poro_d1 = (self.dem - d1)
+                    poro_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
+                    self.ps[i][mask] = sy_val
+                    # print(k_val)            
+        
         # Lateral heterogeneity of hk ?
         # for i in range(0,len(self.number_structure)):
         #     for j in range(0,nlay):

@@ -42,7 +42,8 @@ class Hydraulic:
                  cond_decay_init: float=0.,
                  poro_decay_init: float=0.,
                  lay_decay_init: float=1.,
-                 verti_cond_init=None):
+                 verti_cond_init=None,
+                 verti_poro_init=None):
         """
         Parameters
         ----------
@@ -83,6 +84,9 @@ class Hydraulic:
         verti_cond_init : list, optional
             Initial value.
             Depth-dependent hydraulic conductivity. The default is None.
+        verti_poro_init : list, optional
+            Initial value.
+            Depth-dependent porosity. The default is None.
         """
         print('Init hydraulic module to set model parameter')
         
@@ -195,6 +199,16 @@ class Hydraulic:
         """
         self.verti_cond = verti_cond_value   # None or [ [1e-5, [0, 20]],
                                              #           [1e-6, [20,80]] ]
+    
+    def update_poro_vertical(self, verti_poro_value: list):
+        """
+        Parameters
+        ----------
+        verti_poro_value : list
+            List of porosity values with associated vertical depth.
+        """
+        self.verti_poro = verti_poro_value   # None or [ [0.5/100, [0, 20]],
+                                             #           [0/100, [20,80]] ]
     
     #%% UPDATE LATERAL HETEROGENEOUS
         
