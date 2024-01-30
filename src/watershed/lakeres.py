@@ -39,6 +39,20 @@ class Lakeres:
     #%% INIT
     
     def __init__(self, stable_folder):
+        """
+        Class to initialize the lake/reservoir option.
+        At this point, no lake/reservoir is defined. The process of defining
+        a lake/reservoir is done during at a later stage using new_lakeres.
+        Note that if the class lakeres is activated, but no lake/reservoir has
+        been defined when running the modflow model, then the option 
+        lake/reservoir will be automatically deactivated.
+
+        Parameters
+        ----------
+        stable_folder : str
+            Path where to store stable results for the current simulation
+
+        """
                                  
         self.data_folder = os.path.join(stable_folder, 'lakeres')
         if not os.path.exists(self.data_folder):
@@ -46,24 +60,65 @@ class Lakeres:
                 
         self.n_lakeres:int = 0, # number of lakes/reservoirs
         self.indexes:list = [], # identifiers of lakes/reservoirs
-        self.maskmx_paths:dict = {}, # dict of lakes/reservoirs masks paths, 
+        self.maskmx_file_by_lake:dict = {}, # dict of lakes/reservoirs masks paths, 
                                    # keyed by lake_id
                                    # masks correspond to te maximal extent of 
                                    # the lake, or larger (see computation of 
                                    # bathymetry)   
-        self.ssmx:dict = {}, # dict of maximum stages keyed by lake_id
-        self.bdlknc:dict = {}, # dict of lakebed leakance
+        self.mask_crs_by_lake:dict = {}, # user has the possibility to define the source
+                                         # CRS of the mask file (if not embeded in the file)
+        self.bathymetry_raster_by_lake:dict = {},
+        self.bathy_crs_by_lake:dict = {},
+        self.ssmx_by_lake:dict = {}, # dict of maximum stages keyed by lake_id
+        self.bdlknc_by_lake:dict = {}, # dict of lakebed leakance
         # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
-        self.prcplk:dict = {},
-        self.evaplk:dict = {},
-        self.rnf:dict = {},
-        self.wthdrw:dict = {},
+        self.prcplk_by_lake:dict = {},
+        self.evaplk_by_lake:dict = {},
+        self.rnf_by_lake:dict = {},
+        self.wthdrw_by_lake:dict = {},
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
-    def new_lakeres(self, maskmx_path:str, lake_id:int=None, src_crs=None,
-                    geographic = None):
-        # NB: can be a lake or an artificial lake
+    def new_lakeres(self, maskmx_file:str, lake_id:int=None, mask_crs=None,
+                    bathymetry_raster:str=None, bathy_crs=None, 
+                    ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
+                    prcplk:float=0, evaplk:float=0, rnf:float=0, wthdrw:float=0,
+                    ):
+        """
+        Note that lakeres can be a lake or a reservoir.
+        
+        Parameters
+        ----------
+        maskmx_file : str
+            DESCRIPTION.
+        lake_id : int, optional
+            DESCRIPTION. The default is None.
+        mask_crs : TYPE, optional
+            DESCRIPTION. The default is None.
+        bathymetry_raster : str, optional
+            DESCRIPTION. The default is None.
+        bathy_crs : TYPE, optional
+            DESCRIPTION. The default is None.
+        ssmx : float, optional
+            DESCRIPTION. The default is None.
+        volmx : float, optional
+            DESCRIPTION. The default is None.
+        bdlknc : float, optional
+            DESCRIPTION. The default is 86400 m/d (= 1 m/s)
+        prcplk : float, optional
+            DESCRIPTION. The default is 0 m/d                    .
+        evaplk : float, optional
+            DESCRIPTION. The default is 0 m/d
+        rnf : float, optional
+            DESCRIPTION. The default is 0 m/d
+        wthdrw : float, optional
+            DESCRIPTION. The default is 0 m/d
+
+        Returns
+        -------
+        None.
+
+        """
         
         # Store/infer lake_id
         if not lake_id:
@@ -73,105 +128,86 @@ class Lakeres:
                 lake_id:int = np.max(self.indexes) + 1
         print(f"\nAdding lake n°{lake_id}")
         
-        # Lake/reservoir mask
-        self.maskmx_paths = maskmx_path
-        
-        # Check overlapping between lakes   
-        if geographic:     
-            with rio.open(geographic.watershed_dem, 'r') as base:
-                nodata = base.profile['nodata'] # value corresponding to the no data property 
+        # Lake/reservoir geometry
+        self.maskmx_file_by_lake[lake_id] = maskmx_file
+        self.mask_crs_by_lake[lake_id] = mask_crs
+        self.bathymetry_raster_by_lake[lake_id] = bathymetry_raster
+        self.bathy_crs_by_lake[lake_id] = bathy_crs
+        self.ssmx_by_lake[lake_id] = ssmx
+        self.volmx_by_lake[lake_id] = volmx
 
-            maskmx = toolbox.load_to_numpy(maskmx_path, 
-                                         src_crs = src_crs,
-                                         base_path = geographic.watershed_dem, 
-                                         dst_crs = geographic.crs_proj)
-            
-            maskmx[maskmx == nodata] = 0
-            
-            for idx in self.indexes:
-                prev_maskmx = toolbox.load_to_numpy(maskmx_path, 
-                                                    src_crs = src_crs,
-                                                    base_path = geographic.watershed_dem, 
-                                                    dst_crs = geographic.crs_proj)
-                
-                intersect = (maskmx*prev_maskmx).sum()
-                if intersect > 0:
-                    print(f"\n NB: Lake n°{lake_id} overwrites lake n°{idx} on {int(intersect)} cells.")
-        
-        # Default values for required parameters
+        # Lake/reservoir parameters
 # =============================================================================
 #         self.ssmx[lake_id] = # maximum de la topo
 # =============================================================================
-        self.bdlknc[lake_id] = 86400 # default = 1 m/s
+        self.bdlknc_by_lake[lake_id] = bdlknc # default = 1 m/s
         
+        # Lake/reservoir inflows and outflows
 # =============================================================================
 #         self.flux_data[lake_id] = pd.DataFrame(
 #             data = np.array([[0], [0], [0], [0]]).transpose(), 
 #             columns = ['PRCPLK', 'EVAPLK', 'RNF', 'WTHDRW'], 
 #             index = [0])
 # =============================================================================
-        self.prcplk[lake_id] = 0
-        self.evaplk[lake_id] = 0
-        self.rnf[lake_id] = 0
-        self.wthdrw[lake_id] = 0
-        
-        
+        self.prcplk_by_lake[lake_id] = prcplk
+        self.evaplk_by_lake[lake_id] = evaplk
+        self.rnf_by_lake[lake_id] = rnf
+        self.wthdrw_by_lake[lake_id] = wthdrw
+
         # Update Lakeres attributes:
         # self.idlist = self.idlist.append(lake_id)
-        self.indexes = list(self.masks.keys())
+        self.indexes = list(self.maskmx_file_by_lake.keys())
         self.n_lakeres = len(self.indexes)
         
         
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
+        dict_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+                     self.bathymetry_raster_by_lake, self.bathy_crs_by_lake,
+                     self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
+                     self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
+        
         if new_lake_id and not new_maskmx_path: # just replace the key
-            self.maskmx_paths[new_lake_id] = self.maskmx_paths.pop(lake_id)
-            self.prcplk[new_lake_id] = self.prcplk.pop(lake_id)
-            self.evaplk[new_lake_id] = self.evaplk.pop(lake_id)
-            self.rnf[new_lake_id] = self.rnf.pop(lake_id)
-            self.wthdrw[new_lake_id] = self.wthdrw.pop(lake_id)
-            self.indexes = list(self.masks.keys())
+            for d in dict_list:
+                d[new_lake_id] = d.pop(lake_id)
+            self.indexes = list(self.maskmx_file_by_lake.keys())
             
         elif new_maskmx_path and not new_lake_id: # just replace the mask
-            self.maskmx_paths[lake_id] = new_maskmx_path
+            self.maskmx_file_by_lake[lake_id] = new_maskmx_path
             
         elif new_lake_id and new_maskmx_path: # replace both the mask and the key
-            self.maskmx_paths[new_lake_id] = new_maskmx_path
-            self.maskmx_paths.pop(lake_id)
-            self.prcplk[new_lake_id] = self.prcplk.pop(lake_id)
-            self.evaplk[new_lake_id] = self.evaplk.pop(lake_id)
-            self.rnf[new_lake_id] = self.rnf.pop(lake_id)
-            self.wthdrw[new_lake_id] = self.wthdrw.pop(lake_id)
-            self.indexes = list(self.masks.keys())
-        
+            for d in dict_list:
+                d[new_lake_id] = d.pop(lake_id)
+            self.maskmx_file_by_lake[new_lake_id] = new_maskmx_path
+            self.indexes = list(self.maskmx_file_by_lake.keys())
         
         
     #%% UPDATE MAXIMUM STAGES (= WATER LEVELS)
     def update_stagemax(self, lake_id, ssmx):
-        self.ssmx[lake_id] = ssmx
+        self.ssmx_by_lake[lake_id] = ssmx
         
         
     #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
     def update_precip(self, lake_id, src):
-        self.prcplk[lake_id] = src
+        self.prcplk_by_lake[lake_id] = src
         
     def update_evap(self, lake_id, src):
-        self.evaplk[lake_id] = src
+        self.evaplk_by_lake[lake_id] = src
         
     def update_runoff(self, lake_id, src):
-        self.rnf[lake_id] = src
+        self.rnf_by_lake[lake_id] = src
         
     def update_withdraw_fill(self, lake_id, src):
-        self.wthdrw[lake_id] = src
+        self.wthdrw_by_lake[lake_id] = src
         
         
     #%% REMOVE A LAKE/RESERVOIR
     def remove(self, lake_id):
-        self.masks.pop(lake_id)
-        self.prcplk.pop(lake_id)
-        self.evaplk.pop(lake_id)
-        self.rnf.pop(lake_id)
-        self.wthdrw.pop(lake_id)
+        self.maskmx_file_by_lake.pop(lake_id)
+        self.prcplk_by_lake.pop(lake_id)
+        self.evaplk_by_lake.pop(lake_id)
+        self.rnf_by_lake.pop(lake_id)
+        self.wthdrw_by_lake.pop(lake_id)
         
         # Update Lakeres attributes:
         self.indexes = list(self.masks.keys())
