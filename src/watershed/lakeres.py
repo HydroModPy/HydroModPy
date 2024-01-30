@@ -82,7 +82,7 @@ class Lakeres:
     def new_lakeres(self, maskmx_file:str, lake_id:int=None, mask_crs=None,
                     bathymetry_raster:str=None, bathy_crs=None, 
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
-                    prcplk:float=0, evaplk:float=0, rnf:float=0, wthdrw:float=0,
+                    prcplk=0, evaplk=0, rnf=0, wthdrw=0,
                     ):
         """
         Note that lakeres can be a lake or a reservoir.
@@ -90,7 +90,8 @@ class Lakeres:
         Parameters
         ----------
         maskmx_file : str
-            DESCRIPTION.
+            Path to the mask file (shapefile or raster).
+            Works with NetCDF files?
         lake_id : int, optional
             DESCRIPTION. The default is None.
         mask_crs : TYPE, optional
@@ -105,14 +106,28 @@ class Lakeres:
             DESCRIPTION. The default is None.
         bdlknc : float, optional
             DESCRIPTION. The default is 86400 m/d (= 1 m/s)
-        prcplk : float, optional
-            DESCRIPTION. The default is 0 m/d                    .
-        evaplk : float, optional
-            DESCRIPTION. The default is 0 m/d
-        rnf : float, optional
-            DESCRIPTION. The default is 0 m/d
-        wthdrw : float, optional
-            DESCRIPTION. The default is 0 m/d
+        prcplk : float|array|file_path(str), optional
+            Input for precipitations on the lake/reservoir. The default is 0 m/d 
+            As for the next 3 parameters, prcplk can be defined by a
+                - float: same value for all periods
+                - pd.DataFrame: with times as index. Choosen times should also
+                be present in watershed.climatic.recharge
+                - file path: a .csv array or a .tif map or a .nc space-time array
+        evaplk : float|array|file_path(str)|mode(str), optional
+            Input for evaporation from the lake/reservoir. The default is 0 m/d
+            As for the next parameter, evaplk can also be defined by the 
+            string indicator 'from_climatic': values are extracted from 
+            watershed.climatic.recharge < 0.
+        rnf : float|array|file_path(str)|mode(str), optional
+            Input for runoff to the lake/reservoir. The default is 0 m/d
+            As for the previous parameter, rnf can also be defined by the 
+            string indicator 'from_climatic': values are extracted from 
+            watershed.climatic.runoff.
+        wthdrw : float|array|file_path(str), optional
+            Input for anthropic fluxes on the lake (withdrawal and filling). 
+            The default is 0 m/d
+            wthdrw integrates the sum of water removal (positive values) and
+            water addition (negative values).
 
         Returns
         -------
@@ -217,8 +232,8 @@ class Lakeres:
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic):
-        #%%% Format lakarr:
-        # -----------------
+        #%%% Format lakarr
+        # ----------------
         # Load masked np.array of watershed and initialize lakarr
         with rio.open(geographic.watershed_dem, 'r') as base:
             nodata = base.profile['nodata'] # value corresponding to the no data property 
@@ -231,7 +246,7 @@ class Lakeres:
         
         # Format lakes maskmx (maximal extents)
         for lake_id in self.indexes:
-            maskmx = toolbox.load_to_numpy(self.maskmx_paths[lake_id], 
+            maskmx = toolbox.load_to_numpy(self.maskmx_file_by_lake[lake_id], 
                                            src_crs = None,
                                            base_path = geographic.watershed_dem, 
                                            dst_crs = geographic.crs_proj)
