@@ -55,7 +55,7 @@ from matplotlib.colors import LightSource
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+wbt.verbose = True
 
 # Warnings
 import warnings
@@ -321,8 +321,10 @@ def plot(shapely_objects, figure_path='fig.png'):
 #%% PATHS
 
 git_path = 'D:/Users/abherve/GITHUB/HydroModPy-0.1/'
-data_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/'
-out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
+# data_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/'
+data_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lasset/_data/'
+# out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
+out_path = 'C:/Users/ronan/OneDrive - unine.ch/SIMULATIONS/'
 
 fig_path = out_path + 'figures/'
 
@@ -334,7 +336,7 @@ from_dem = None # True or False if the process start from a given DEM of xyz fil
 cell_size = None # specify new resolution from a given DEM or None
 from_shp = None
 
-watershed_names = [ 'Lasset' ]
+watershed_names = [ 'Lassetloc' ]
 from_xyvs = [ [601020,6193860,100,50,'EPSG:2154'] ]
 
 #%% LOAD
@@ -1789,6 +1791,7 @@ iD_explo = 'e7' # with isba recharge       ==> n_decay / 0.5 ==> one model
 iD_explo = 'e8' # with isba recharge       ==> np n_decay but compartimentalized for poro ==> one model
 iD_explo = 'e9' # with isba recharge       ==> np n_decay but compartimentalized for K and poro ==> one model
 iD_explo = 'e10' # with isba recharge       ==> np n_decay but compartimentalized for K and poro ==> one model
+iD_explo = 'e12' # with isba recharge       ==> change ss
 
 decay_factor = 0.5
 
@@ -1798,7 +1801,7 @@ box = True # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = True
-nlay = 25*2
+nlay = 25
 lay_decay = 1.25 # 1 for no decay
 verti_cond = None # or [ [1e-5, [0, 20]],
 cond_drain = None # or value of conductance
@@ -1838,20 +1841,24 @@ BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 
 # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
 recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+recharge = select_period(recharge, 2021, 2021)
 recharge_w_res = recharge.resample('W', label='right').mean()
 recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
 recharge_w_int = recharge.interpolate()[::7]
 recharge_w_sli = recharge.groupby(np.arange(len(recharge))//7).mean()
-recharge_w_sli.index = recharge_w_off.iloc[:-1].index
+# recharge_w_sli.index = recharge_w_off.iloc[:-1].index
+recharge_w_sli.index = recharge_w_off.iloc[:].index
 recharge_w_sli = recharge_w_sli.iloc[:-1]
 
 # runoff = (sim2['RUNC_Q'] * norm_factor) / 1000 # mm/d to m/d
 runoff = (isba['RUN_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+runoff = select_period(runoff, 2021, 2021)
 runoff_w_res = runoff.resample('W', label='right').mean()
 runoff_w_off = runoff.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
 runoff_w_int = runoff.interpolate()[::7]
 runoff_w_sli = runoff.groupby(np.arange(len(runoff))//7).mean()
-runoff_w_sli.index = runoff_w_off.iloc[:-1].index
+# runoff_w_sli.index = runoff_w_off.iloc[:-1].index
+runoff_w_sli.index = runoff_w_off.iloc[:].index
 runoff_w_sli = runoff_w_sli.iloc[:-1]
 
 BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
@@ -1890,22 +1897,21 @@ list_cond_decay[1] = 0
 # Models
 list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 
-
-df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
+# df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
 # For transient
 list_cond_decay = list_cond_decay
 list_bottom = list_bottom
-list_koptim = df_optim['K']
+# list_koptim = df_optim['K']
 list_porosity = np.array([0.1, 0.5, 1, 2, 4, 8, 15, 30])/100
-list_kroptim = df_optim['KR']
-
+# list_kroptim = df_optim['KR']
 
 # Test compartimentalized porosity
 BV.hydraulic.update_poro_vertical([ [0.5/100, [0,30]] ])
 list_porosity = [0]
  
-BV.hydraulic.update_cond_vertical([ [2.96e-6*3600*24, [0,30]] ])
+list_koptim = [2.96e-6]
+BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,30]] ])
 
 #%% PRO PREPROCESSING
 
@@ -1913,11 +1919,10 @@ run_model = True
 # run_model = False
 
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[-1:], list_bottom[-1:], list_koptim[-1:], list_id_mod[-1:]):
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
-                                                                            list_bottom[4:5],
-                                                                            list_koptim[4:5],
-                                                                            list_id_mod[4:5],
-                                                                            list_kroptim[4:5]):
+for cond_decay_val, bottom_val, id_mod_val in zip(list_cond_decay[4:5],
+                                                              list_bottom[4:5],
+                                                              # list_koptim[4:5],
+                                                              list_id_mod[4:5]):
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:1],
 #                                                                             list_bottom[:1],
 #                                                                             list_koptim[:1],
@@ -1933,7 +1938,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
 #                                                                             list_koptim[2:3],
 #                                                                             list_id_mod[2:3],
 #                                                                             list_kroptim[2:3]):   
-    
+    print(id_mod_val)
     # print(kroptim_val)
     # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
     # print(koptim_from_kr, koptim_val)
@@ -1958,6 +1963,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     for ip, poro_val in enumerate(list_porosity[:1]):
         
         BV.hydraulic.update_porosity(poro_val)
+        BV.hydraulic.update_ss(0)
 
         if id_mod_val <=1 :
             str_cond_decay = cond_decay_val
@@ -2325,26 +2331,26 @@ BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
 
 dem_data = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
 
-list_sat_obs = []
-for type_obs in types_obs:
-    path_hydro = stable_folder + 'hydrography/' + type_obs + '.tif'
-    path_hydro = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_calibration/v6_model11_300.0-0_10-1.79e-07/_matchingstreams/obsflow.tif'
-    # path_hydro = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_calibration/e1_model4_20.0-0-3.72e-06_0_40.0-0.1/_postprocess/_rasters/persistency_index_t(-).tif'
-    obs_hydro = imageio.imread(path_hydro)
-    # obs_hydro = np.ma.masked_where(dem_data==-99999, obs_hydro)
-    obs_hydro = np.ma.masked_where(obs_hydro==-0, obs_hydro)
-    obs_hydro_masked = np.ma.masked_where(obs_hydro<0, obs_hydro)
-    dd_hydro = round(obs_hydro_masked.count() / obs_hydro.count() * 100, 2)
-    # plt.imshow(obs_hydro_masked)
-    print(dd_hydro)
-    list_sat_obs.append(dd_hydro)
+# list_sat_obs = []
+# for type_obs in types_obs:
+#     path_hydro = stable_folder + 'hydrography/' + type_obs + '.tif'
+#     path_hydro = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_calibration/v6_model11_300.0-0_10-1.79e-07/_matchingstreams/obsflow.tif'
+#     # path_hydro = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_calibration/e1_model4_20.0-0-3.72e-06_0_40.0-0.1/_postprocess/_rasters/persistency_index_t(-).tif'
+#     obs_hydro = imageio.imread(path_hydro)
+#     # obs_hydro = np.ma.masked_where(dem_data==-99999, obs_hydro)
+#     obs_hydro = np.ma.masked_where(obs_hydro==-0, obs_hydro)
+#     obs_hydro_masked = np.ma.masked_where(obs_hydro<0, obs_hydro)
+#     dd_hydro = round(obs_hydro_masked.count() / obs_hydro.count() * 100, 2)
+#     # plt.imshow(obs_hydro_masked)
+#     print(dd_hydro)
+#     list_sat_obs.append(dd_hydro)
 
 # list_sat_obs = [5,10] # 7
 list_sat_obs = [8,11] # 7
 
 i=0
 
-for id_mod_val in list_id_mod[:]:
+for id_mod_val in list_id_mod[4:5]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -2453,8 +2459,8 @@ for id_mod_val in list_id_mod[:]:
         #             'SATURATION_'+model_name+'.png'),
         #             bbox_inches='tight')
         
-        fig.savefig('C:/Users/ronan/Downloads/figs2/'+'S_'+model_name+'.png',
-                    bbox_inches='tight')
+        # fig.savefig('C:/Users/ronan/Downloads/figs2/'+'S_'+model_name+'.png',
+        #             bbox_inches='tight')
 
 # SATURATION CRITERIA
            
@@ -2466,8 +2472,8 @@ for i, j in enumerate(['OWN']):
     ax.set_title(j)
     ax.set_xlabel('Porosity [%]')
 fig.suptitle(df.model_name[0].upper(), y=1.0, fontsize=8)
-fig.savefig('C:/Users/ronan/Downloads/figs2/'+'S_'+'criteria'+'.png',
-            bbox_inches='tight')
+# fig.savefig('C:/Users/ronan/Downloads/figs2/'+'S_'+'criteria'+'.png',
+#             bbox_inches='tight')
 
 #%% CONVOLUTION PLOT
 
@@ -2561,7 +2567,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
 
 #%% CROSS SECTIONS PLOT
 
-iD_explo = 'e10'
+iD_explo = 'e12'
 
 for id_mod_val in list_id_mod[4:5]:
 
