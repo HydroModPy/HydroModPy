@@ -605,6 +605,7 @@ class Watershed:
                                         verti_poro=self.hydraulic.verti_poro,
                                         cond_drain=self.hydraulic.cond_drain,
                                         porosity=self.hydraulic.porosity,
+                                        ss=self.hydraulic.ss,
                                         poro_decay=self.hydraulic.poro_decay,
                                         # Boundary settings
                                         sea_level=self.oceanic.MSL,

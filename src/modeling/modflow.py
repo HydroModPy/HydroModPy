@@ -59,7 +59,8 @@ class Modflow:
                  nlay: int=1, lay_decay: float=1., bottom: float=None, 
                  thick: float=100., hyd_cond=0.0864, cond_decay: float=0., 
                  verti_cond=None, verti_poro=None,
-                 cond_drain: float=None, porosity=0.1, 
+                 cond_drain: float=None, porosity: float=0.1,
+                 ss: float=1e-5,
                  poro_decay: float=0., 
                  # Boundary settings
                  sea_level: float=None, bc_left: float=None, bc_right: float=None):
@@ -108,6 +109,8 @@ class Modflow:
             Fixe the conductance value of the drainage package. The default is None.
         porosity : float or 2D float, optional
             Fixe the porosity value. The default is 0.1.
+        ss : float or 2D float, optional
+            Fixe the specifc storage value. Activate for confined layers. The default is 1e-5 (1/day).
         poro_decay : float, optional
             Modification of porosity for exponentially decreasing whit depth. The default is 0..
         sea_level : float, optional
@@ -188,6 +191,7 @@ class Modflow:
         self.hyd_cond = hyd_cond
         self.cond_decay = cond_decay
         self.porosity = porosity
+        self.ss = ss
         self.poro_decay = poro_decay
         
         self.verti_cond = verti_cond
@@ -381,7 +385,8 @@ class Modflow:
             self.hk *= np.exp(-self.cond_decay*depth)
         
         self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
-        
+        self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss
+            
         if self.poro_decay != 0.:
             # print('DECAY EXPO POROSITY')
             depth = np.zeros(self.ps.shape)
@@ -430,6 +435,7 @@ class Modflow:
         self.upw = flopy.modflow.ModflowUpw(self.mf, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk, sy=self.ps,
+                                            ss=self.ss,
                                             iphdry=1, hdry=-100, vka=1, noparcheck=False,
                                             extension='upw', unitnumber=31)
         
@@ -913,7 +919,7 @@ class Modflow:
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw)>12:
+            if len(acc_npy_raw)>=12:
                 inf = 0
                 sup = 12
                 step = int(round(len(acc_npy_raw)/12))
@@ -957,7 +963,7 @@ class Modflow:
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw)>52:
+            if len(acc_npy_raw)>=52:
                 inf = 0
                 sup = 52
                 step = int(round(len(acc_npy_raw)/52))
@@ -1000,7 +1006,7 @@ class Modflow:
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw)>365:
+            if len(acc_npy_raw)>=365:
                 inf = 0
                 sup = 365
                 step = int(round(len(acc_npy_raw)/365))

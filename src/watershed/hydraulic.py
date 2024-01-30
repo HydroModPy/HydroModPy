@@ -36,7 +36,8 @@ class Hydraulic:
                  nlay_init: int=1,
                  hyd_cond_init: float=8.64,
                  cond_drain_init: float=864000,
-                 porosity_init: float=0.1, 
+                 porosity_init: float=0.1,
+                 ss_init: float=1e-5,
                  thick_init: float=50.,
                  bottom_init: float=None,
                  cond_decay_init: float=0.,
@@ -65,7 +66,10 @@ class Hydraulic:
             Considering a cell resolution of 100*100m, The default is 864000 [m3/day].
         porosity_init : float, optional
             Initial value.
-            Porosity of the aquifer. The default is 10%.
+            Porosity (specific yield) of the aquifer. The default is 10%.
+        ss_init : float, optional
+            Initial value.
+            Specifc storage of the aquifer. The default is 1e-5 (1/day).
         thick_init : float, optional
             Initial value.
             Constant aquifer thickness valid if bottom_init is None. The default is 50.
@@ -95,6 +99,7 @@ class Hydraulic:
         self.hyd_cond = np.ones((nrow, ncol)) * hyd_cond_init
         self.cond_drain = np.ones((nrow, ncol)) * cond_drain_init
         self.porosity = np.ones((nrow, ncol)) * porosity_init
+        self.ss = np.ones((nrow, ncol)) * ss_init
         self.thick = thick_init
         self.calib_zones = np.ones((nrow, ncol))
         self.bottom = bottom_init
@@ -127,10 +132,19 @@ class Hydraulic:
         Parameters
         ----------
         porosity_value : float
-            Porosity of the aquifer model.
+            Porosity (specifc yield) of the aquifer model.
         """
         self.porosity = np.ones(np.shape(self.porosity)) * porosity_value
-        
+    
+    def update_ss(self, ss_value: float):
+        """
+        Parameters
+        ----------
+        ss_value : float
+            Specific storage of the aquifer model.
+        """
+        self.ss = np.ones(np.shape(self.ss)) * ss_value    
+    
     def update_thick(self, thick_value: float):
         """
         Parameters
