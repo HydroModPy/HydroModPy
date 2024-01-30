@@ -180,6 +180,20 @@ class Lakeres:
                 d[new_lake_id] = d.pop(lake_id)
             self.maskmx_file_by_lake[new_lake_id] = new_maskmx_path
             self.indexes = list(self.maskmx_file_by_lake.keys())
+
+
+        #%% REMOVE A LAKE/RESERVOIR
+        def remove(self, lake_id):
+            dict_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+                         self.bathymetry_raster_by_lake, self.bathy_crs_by_lake,
+                         self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
+                         self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
+            for d in dict_list:
+                d.pop(lake_id)
+            
+            # Update Lakeres attributes:
+            self.indexes = list(self.masks.keys())
+            self.n_lakeres = len(self.indexes)
         
         
     #%% UPDATE MAXIMUM STAGES (= WATER LEVELS)
@@ -200,19 +214,6 @@ class Lakeres:
     def update_withdraw_fill(self, lake_id, src):
         self.wthdrw_by_lake[lake_id] = src
         
-        
-    #%% REMOVE A LAKE/RESERVOIR
-    def remove(self, lake_id):
-        self.maskmx_file_by_lake.pop(lake_id)
-        self.prcplk_by_lake.pop(lake_id)
-        self.evaplk_by_lake.pop(lake_id)
-        self.rnf_by_lake.pop(lake_id)
-        self.wthdrw_by_lake.pop(lake_id)
-        
-        # Update Lakeres attributes:
-        self.indexes = list(self.masks.keys())
-        self.n_lakeres = len(self.indexes)
-   
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic):
