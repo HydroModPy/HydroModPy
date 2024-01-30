@@ -218,6 +218,29 @@ class Lakeres:
 #             lakarr = np.where(maskmx==1, lake_id, lakarr)
 # =============================================================================
         
+        # Check overlapping between lakes   
+        if geographic:     
+            with rio.open(geographic.watershed_dem, 'r') as base:
+                nodata = base.profile['nodata'] # value corresponding to the no data property 
+
+            maskmx = toolbox.load_to_numpy(maskmx_path, 
+                                         src_crs = src_crs,
+                                         base_path = geographic.watershed_dem, 
+                                         dst_crs = geographic.crs_proj)
+            
+            maskmx[maskmx == nodata] = 0
+            
+            for idx in self.indexes:
+                prev_maskmx = toolbox.load_to_numpy(maskmx_path, 
+                                                    src_crs = src_crs,
+                                                    base_path = geographic.watershed_dem, 
+                                                    dst_crs = geographic.crs_proj)
+                
+                intersect = (maskmx*prev_maskmx).sum()
+                if intersect > 0:
+                    print(f"\n NB: Lake n°{lake_id} may overwrite lake n°{idx} on {int(intersect)} cells.")
+        
+
         # Export
         with rio.open(geographic.watershed_dem, 'r') as base:
             base_profile = base.profile
