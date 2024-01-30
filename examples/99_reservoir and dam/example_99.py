@@ -104,8 +104,13 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 
 #%%% Paths
 # Paths generated automatically but necessary for plots
-stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
-simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+stable_folder = BV.geographic.stable_folder
+simulations_folder = BV.geographic.simulations_folder
+# Or:
+# =============================================================================
+# stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
+# simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+# =============================================================================
 
 #%% DATA
 # Clip specific data at the catchment scale
@@ -128,7 +133,7 @@ BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
 BV.add_piezometry()
 
 # =============================================================================
-# BV.add_lakeres()
+# BV.add_lakeres(stable_folder)
 # =============================================================================
 
 # Extract some subbasin from data available above

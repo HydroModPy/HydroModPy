@@ -38,26 +38,26 @@ class Lakeres:
     
     #%% INIT
     
-    def __init__(self, geographic):
-        self.n_lakeres:int = 0 # number of lakes/reservoirs
-        self.indexes:list = [] # identifiers of lakes/reservoirs
-        self.maskmx_paths:dict = {} # dict of lakes/reservoirs masks paths, 
-                                    # keyed by lake_id
-                                    # masks correspond to te maximal extent of 
-                                    # the lake, or larger (see computation of 
-                                    # bathymetry)   
-        self.ssmx:dict = {} # dict of maximum stages keyed by lake_id
-        self.bdlknc:dict = {} # dict of lakebed leakance
-        # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
-        self.prcplk:dict = {}
-        self.evaplk:dict = {}
-        self.rnf:dict = {}
-        self.wthdrw:dict = {}
+    def __init__(self, stable_folder):
                                  
-        self.data_folder = os.path.join(geographic.stable_folder,
-                                   'lakeres')
+        self.data_folder = os.path.join(stable_folder, 'lakeres')
         if not os.path.exists(self.data_folder):
                 os.makedirs(self.data_folder)
+                
+        self.n_lakeres:int = 0, # number of lakes/reservoirs
+        self.indexes:list = [], # identifiers of lakes/reservoirs
+        self.maskmx_paths:dict = {}, # dict of lakes/reservoirs masks paths, 
+                                   # keyed by lake_id
+                                   # masks correspond to te maximal extent of 
+                                   # the lake, or larger (see computation of 
+                                   # bathymetry)   
+        self.ssmx:dict = {}, # dict of maximum stages keyed by lake_id
+        self.bdlknc:dict = {}, # dict of lakebed leakance
+        # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
+        self.prcplk:dict = {},
+        self.evaplk:dict = {},
+        self.rnf:dict = {},
+        self.wthdrw:dict = {},
         
 
     #%% ADD A NEW LAKE/RESERVOIR   

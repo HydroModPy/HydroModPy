@@ -550,8 +550,8 @@ class Watershed:
         self.elt_def.append('safransurfex')
         # self.save_object()
         
-    def add_lakeres(self, geographic):
-        self.lakeres = lakeres.Lakeres(geographic)
+    def add_lakeres(self, stable_folder):
+        self.lakeres = lakeres.Lakeres(stable_folder)
         self.elt_def.append('lakeres')
         self.save_object()
             
