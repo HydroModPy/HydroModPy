@@ -1227,18 +1227,18 @@ for watershed_name in watershed_names[:]:
         
         # Aquifer bottom
         list_bottom = [None, 0] # aquifer flat or not
-        list_bottom.extend([0] * 10)
+        list_bottom.extend([0] * 10) ### ATTENTION ###
 
         # Decay of K
         # list_d_values = [0, 0]
         # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
         # print(list_d_values)
-        list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200, 300]
+        list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200]
         list_cond_decay = list(1/np.array(list_d_values))
         list_cond_decay[0] = 0
         list_cond_decay[1] = 0
                 
-        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
        
         for cond_decay, bottom, id_mod in zip(list_cond_decay[:], list_bottom[:], list_id_mod[:]):
         # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
@@ -1438,6 +1438,7 @@ paths_model = sorted(raws_model,
                      key=lambda item: float(item.split('\\')[-1].split('_')[1].split('model')[-1]))
 
 for path_model in paths_model:
+    print(path_model)
 
     df = pd.read_csv(path_model, sep=';')
         
@@ -1466,7 +1467,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1516,8 +1517,8 @@ for t in cb.ax.get_yticklabels():
 # cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 # cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300], fontsize=8)
+cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205])
+cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205], fontsize=8)
 cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
                   grid_color='k', grid_alpha=0.5)
 cb.minorticks_off()
@@ -1546,7 +1547,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1614,8 +1615,8 @@ for t in cb.ax.get_yticklabels():
 # cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 # cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300], fontsize=8)
+cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205])
+cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205], fontsize=8)
 cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
                   grid_color='k', grid_alpha=0.5)
 cb.minorticks_off()
@@ -1644,7 +1645,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -1711,8 +1712,8 @@ for t in cb.ax.get_yticklabels():
 # cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 # cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205, 300], fontsize=8)
+cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205])
+cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205], fontsize=8)
 cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
                   grid_color='k', grid_alpha=0.5)
 cb.minorticks_off()
@@ -1730,7 +1731,7 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 # if vers == 'v3':
@@ -1784,8 +1785,12 @@ for index, row in dfz.iterrows():
 # iD_explo = 'e4' # with isba recharge     ==> decay = /4
 # iD_explo = 'e5' # with isba recharge       ==> decay no and aquifer constant
 iD_explo = 'e6' # with isba recharge       ==> n_decay / 2 ==> all models
+iD_explo = 'e7' # with isba recharge       ==> n_decay / 0.5 ==> one model
+iD_explo = 'e8' # with isba recharge       ==> np n_decay but compartimentalized for poro ==> one model
+iD_explo = 'e9' # with isba recharge       ==> np n_decay but compartimentalized for K and poro ==> one model
+iD_explo = 'e10' # with isba recharge       ==> np n_decay but compartimentalized for K and poro ==> one model
 
-decay_factor = 2
+decay_factor = 0.5
 
 vers = 'v7'
 
@@ -1793,7 +1798,7 @@ box = True # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = True
-nlay = 25
+nlay = 25*2
 lay_decay = 1.25 # 1 for no decay
 verti_cond = None # or [ [1e-5, [0, 20]],
 cond_drain = None # or value of conductance
@@ -1877,13 +1882,13 @@ list_bottom.extend([0] * 10)
 # Decay of K
 # list_d_values = [0, 0]
 # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
-list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200, 300]
+list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200]
 list_cond_decay = list(1/np.array(list_d_values))
 list_cond_decay[0] = 0
 list_cond_decay[1] = 0
 
 # Models
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
 
 
 df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
@@ -1895,37 +1900,53 @@ list_koptim = df_optim['K']
 list_porosity = np.array([0.1, 0.5, 1, 2, 4, 8, 15, 30])/100
 list_kroptim = df_optim['KR']
 
+
+# Test compartimentalized porosity
+BV.hydraulic.update_poro_vertical([ [0.5/100, [0,30]] ])
+list_porosity = [0]
+ 
+BV.hydraulic.update_cond_vertical([ [2.96e-6*3600*24, [0,30]] ])
+
 #%% PRO PREPROCESSING
 
 run_model = True
 # run_model = False
 
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[-1:], list_bottom[-1:], list_koptim[-1:], list_id_mod[-1:]):
-# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
-#                                                                             list_bottom[4:5],
-#                                                                             list_koptim[4:5],
-#                                                                             list_id_mod[4:5],
-#                                                                             list_kroptim[4:5]):
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
+                                                                            list_bottom[4:5],
+                                                                            list_koptim[4:5],
+                                                                            list_id_mod[4:5],
+                                                                            list_kroptim[4:5]):
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:1],
 #                                                                             list_bottom[:1],
 #                                                                             list_koptim[:1],
 #                                                                             list_id_mod[:1],
 #                                                                             list_kroptim[:1]):
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
-                                                                            list_bottom[:],
-                                                                            list_koptim[:],
-                                                                            list_id_mod[:],
-                                                                            list_kroptim[:]):    
-
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
+#                                                                             list_bottom[:],
+#                                                                             list_koptim[:],
+#                                                                             list_id_mod[:],
+#                                                                             list_kroptim[:]):    
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[2:3],
+#                                                                             list_bottom[2:3],
+#                                                                             list_koptim[2:3],
+#                                                                             list_id_mod[2:3],
+#                                                                             list_kroptim[2:3]):   
+    
     # print(kroptim_val)
     # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
     # print(koptim_from_kr, koptim_val)
     
-    BV.hydraulic.update_cond_decay(cond_decay_val) # 0
+    # BV.hydraulic.update_cond_decay(cond_decay_val) # 0
+    BV.hydraulic.update_cond_decay(0) # 0
     BV.hydraulic.update_bottom(bottom_val) # None
+    # BV.hydraulic.update_hyd_cond(koptim_val)
+    koptim_val = 0
     BV.hydraulic.update_hyd_cond(koptim_val)
     # BV.hydraulic.update_hyd_cond(koptim_from_kr)
-    BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
+    # BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
+    BV.hydraulic.update_poro_decay(0)
     
     dictio = {}
     
@@ -1934,7 +1955,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     list_model_modflow = []
         
     # for ip, poro_val in enumerate(list_porosity[-1:]):
-    for ip, poro_val in enumerate(list_porosity[:]):
+    for ip, poro_val in enumerate(list_porosity[:1]):
         
         BV.hydraulic.update_porosity(poro_val)
 
@@ -1948,6 +1969,10 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
             str_bottom = thick
         else:
             str_bottom = bottom_val
+            
+        if poro_val == 0:
+            str_poro_decay = 0
+        
         model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
                      str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
                      str(ip)+'_'+\
@@ -1975,9 +2000,9 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     
 #%% LOAD POSTPROCESS
 
-delete_files = True
+delete_files = False
 
-for id_mod_val in list_id_mod[:]:
+for id_mod_val in list_id_mod[4:5]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -2009,68 +2034,70 @@ for id_mod_val in list_id_mod[:]:
                                                           freq_time='W')
 
 # DELETE MODFLOW FILES
-
-        if delete_files == True:
-    
-            stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-            simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-            calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+        try:
+            if delete_files == True:
         
-            dir_modflow = BV.calibration_folder + '/' + model_name
-            dir_postprocess = dir_modflow + '/' + '_postprocess'
-            dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
-            dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
-            dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+                stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+                simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+                calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
             
-            files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
-            files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
-            files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
-        
-            if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+                dir_modflow = BV.calibration_folder + '/' + model_name
+                dir_postprocess = dir_modflow + '/' + '_postprocess'
+                dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+                dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+                dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+                
+                files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+                files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+                files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+            
+                if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+                    try:
+                        for file in files_rast_acc[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+                    try:
+                        for file in files_rast_out[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                if os.path.exists(dir_rasters+ '/' +'intermittency_weekly_t(0).tif'):
+                    try:
+                        for file in files_rast_int[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                    
+                if os.path.exists(dir_temporary):
+                    shutil.rmtree(dir_temporary)
+                
+                if os.path.exists(dir_figures):
+                    shutil.rmtree(dir_figures) 
+                
+                files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
                 try:
-                    for file in files_rast_acc[1:]:
-                        os.remove(file)
-                except:
-                    pass
-            if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
-                try:
-                    for file in files_rast_out[1:]:
-                        os.remove(file)
-                except:
-                    pass
-            if os.path.exists(dir_rasters+ '/' +'intermittency_weekly_t(0).tif'):
-                try:
-                    for file in files_rast_int[1:]:
+                    for file in files_npy:
                         os.remove(file)
                 except:
                     pass
                 
-            if os.path.exists(dir_temporary):
-                shutil.rmtree(dir_temporary)
-            
-            if os.path.exists(dir_figures):
-                shutil.rmtree(dir_figures) 
-            
-            files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
-            try:
-                for file in files_npy:
-                    os.remove(file)
-            except:
-                pass
-            
-            for file in glob.glob(dir_modflow+'/'+'*'):
-                if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
-                    # print(file)
-                    f = file
-                    if os.path.exists(f):
-                        try:
-                            os.rename(f, f)
-                            print('Access on file "' + f +'" is available!')
-                        except OSError as e:
-                            print('Access-error on file "' + f + '"! \n' + str(e))
-                    os.remove(file)
-                    # shutil.rmtree(file)
-
+                for file in glob.glob(dir_modflow+'/'+'*'):
+                    if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
+                        # print(file)
+                        f = file
+                        if os.path.exists(f):
+                            try:
+                                os.rename(f, f)
+                                print('Access on file "' + f +'" is available!')
+                            except OSError as e:
+                                print('Access-error on file "' + f + '"! \n' + str(e))
+                        os.remove(file)
+                        # shutil.rmtree(file)
+        except:
+            pass
+        
 #%% STREAMFLOW PLOT
 
 CRIT = 'RMSE'
@@ -2161,7 +2188,11 @@ for w, w_name in enumerate(['Lasset'][:]):
             
             df.loc[i,'aK'] = float(model_name.split('_')[2].split('-')[0])
             df.loc[i,'bottom'] = float(model_name.split('_')[2].split('-')[1])
-            df.loc[i,'K'] = float(['-'.join(model_name.split('_')[2].split('-')[-2:])][0])
+            
+            try:
+                df.loc[i,'K'] = float(['-'.join(model_name.split('_')[2].split('-')[-2:])][0])
+            except:
+                pass
             
             df.loc[i,'id_eO'] = float(model_name.split('_')[3][0])
             
@@ -2257,8 +2288,8 @@ for w, w_name in enumerate(['Lasset'][:]):
             #             'STREAMFLOW_'+model_name+'.png'),
             #             bbox_inches='tight')
             
-            fig.savefig('C:/Users/ronan/Downloads/figs/'+'Q_'+model_name+'.png',
-                        bbox_inches='tight')
+            # fig.savefig('C:/Users/ronan/Downloads/figs_e7/'+'Q_'+model_name+'.png',
+            #             bbox_inches='tight')
             
 # STREAMFLOW CRITERIA
            
@@ -2270,7 +2301,7 @@ for i, j in enumerate(['NSE','NSElog','RMSE','KGE']):
     ax.set_title(j)
     ax.set_xlabel('Porosity [%]')
 fig.suptitle(df.model_name[0].upper(), y=1.05)
-fig.savefig('C:/Users/ronan/Downloads/figs/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
+# fig.savefig('C:/Users/ronan/Downloads/figs_e7/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
 #%% SATURATION PLOT
 
@@ -2313,7 +2344,7 @@ list_sat_obs = [8,11] # 7
 
 i=0
 
-for id_mod_val in list_id_mod[4:5]:
+for id_mod_val in list_id_mod[:]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -2422,7 +2453,7 @@ for id_mod_val in list_id_mod[4:5]:
         #             'SATURATION_'+model_name+'.png'),
         #             bbox_inches='tight')
         
-        fig.savefig('C:/Users/ronan/Downloads/figs/'+'S_'+model_name+'.png',
+        fig.savefig('C:/Users/ronan/Downloads/figs2/'+'S_'+model_name+'.png',
                     bbox_inches='tight')
 
 # SATURATION CRITERIA
@@ -2435,7 +2466,7 @@ for i, j in enumerate(['OWN']):
     ax.set_title(j)
     ax.set_xlabel('Porosity [%]')
 fig.suptitle(df.model_name[0].upper(), y=1.0, fontsize=8)
-fig.savefig('C:/Users/ronan/Downloads/figs/'+'S_'+'criteria'+'.png',
+fig.savefig('C:/Users/ronan/Downloads/figs2/'+'S_'+'criteria'+'.png',
             bbox_inches='tight')
 
 #%% CONVOLUTION PLOT
@@ -2530,7 +2561,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
 
 #%% CROSS SECTIONS PLOT
 
-iD_explo = 'e2'
+iD_explo = 'e10'
 
 for id_mod_val in list_id_mod[4:5]:
 
@@ -2628,10 +2659,13 @@ for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
         # hdobj = flopy.utils.HeadFile(fname)
         # head_data = hdobj.get_data()
         val = hk_grid.array/24/3600
-        for i in range(val.shape[0]):
-            # mask = val[i] == 0
-            # val[i][mask] = 1e-100
-            val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+        try:
+            for i in range(val.shape[0]):
+                # mask = val[i] == 0
+                # val[i][mask] = 1e-100
+                val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+        except:
+            pass
         cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.1,
                                     norm=mpl.colors.LogNorm(vmin=1e-10, 
                                                             vmax=1e-5)
@@ -2671,8 +2705,8 @@ for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
         
         # fig.savefig(fig_path+'cross_section_'+model_name+'.png', dpi=300, bbox_inches='tight')
         
-        fig.savefig('C:/Users/ronan/Downloads/figs/'+'CROSS_SECTION'+model_name+'.png',
-                    bbox_inches='tight')
+        # fig.savefig('C:/Users/ronan/Downloads/figs/'+'CROSS_SECTION'+model_name+'.png',
+        #             bbox_inches='tight')
         
 #%% GRAPH DECAY COND
 
