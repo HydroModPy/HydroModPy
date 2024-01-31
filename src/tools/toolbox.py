@@ -13,12 +13,17 @@
 #%% LIBRAIRIES
 
 import os
+import re
+import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
 import rasterio as rio
 import rasterio.features # necessary to avoid a bug
 import geopandas as gpd
+import xarray as xr
+xr.set_options(keep_attrs = True)
+# import rioxarray as rio #Not necessary, the rio module from xarray is enough
 from osgeo import gdal, osr
 from pyproj import CRS
 from pyproj import Transformer
@@ -250,6 +255,92 @@ def load_to_numpy(file_path, src_crs=None,
         print(f" no data value = {base_profile['nodata']}")
     
     return val
+
+
+def read_with_xarray(file_path, src_crs=None, main_var=None):
+    if os.path.splitext(file_path)[-1].casefold() in ['.tif', '.tiff']:
+        with xr.open_dataset(file_path) as ds:
+            ds.load() # to unlock the resource
+        ds = ds.squeeze('band')
+        ds = ds.drop('band')
+        if main_var:
+            ds = ds.rename(dict(band_data = main_var))
+        
+    elif os.path.splitext(file_path)[-1].casefold() == '.nc':
+        try:
+            with xr.open_dataset(file_path, decode_coords = 'all') as ds:
+                ds.load() # to unlock the resource
+                
+        except ValueError: 
+            # Usually this error appears when unable to decode 
+            # time units 'Months since 1901-01-01' with 
+            # "calendar 'proleptic_gregorian'"
+            print("\nWarning: Unable to decode time units")
+            with xr.open_dataset(file_path, decode_coords = 'all', 
+                                 decode_times = False) as ds:
+                ds.load()
+                
+            try: ds.time.attrs['units']
+            except: 
+                print("Err: No information on time units in attributes")
+                return
+            # Build back time scale:
+            print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
+            timeunit = ds.time.attrs['units'].split()[0].casefold()
+            if timeunit in ['month', 'months', 'mois']:
+                freq = 'MS'
+                freq_info = 'monthly'
+            elif timeunit in ['day', 'days', 'jour', 'jours']:
+                freq = '1D'
+                freq_info = 'daily'
+            
+            print("   | Note that The format of the origin date is expected to be either")
+            print("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
+            print("   | MM DD YYYY will not be considered.")
+            # The format of the origin date is expected to be either 
+            # YYYY MM DD or DD MM YYYY (with any separator)
+            # The american format MM DD YYYY is not considered
+            initdate_pattern = re.compile("\d{2,4}.*\d{2,4}")
+            initdate = initdate_pattern.search(ds.time.attrs['units']).group()
+            
+            if initdate[2].isnumeric():
+                sep = initdate[4]
+                initdate = datetime.datetime.strptime(initdate, f"%Y{sep}%m{sep}%d")
+            else:
+                sep = initdate[2]
+                initdate = datetime.datetime.strptime(initdate, f"%d{sep}%m{sep}%Y")
+            
+            start_date = pd.Series(pd.date_range(
+                initdate, periods = int(ds.time[0]) + 1, freq = freq)).iloc[-1]
+            date_index = pd.date_range(start = start_date, 
+                                         periods = len(ds.time), freq = freq) 
+            print(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info})")
+            ds['time'] = date_index  
+    
+    else:
+        print(f"\nErr: Extension {os.path.splitext(file_path)[-1]} is not recognized by xarray")
+        return
+    
+    # Format spatial attributes for compatibility with QGIS
+    if 'units' in ds.x.attrs.keys() and ds.x.attrs['units'].casefold() in ['m', 'meter', 'meters', 'metre', 'metres']:
+        ds.x.attrs = {'standard_name': 'projection_x_coordinate',
+                      'long_name': 'x coordinate of projection',
+                      'units': 'Meter'}
+        ds.y.attrs = {'standard_name': 'projection_y_coordinate',
+                      'long_name': 'y coordinate of projection',
+                      'units': 'Meter'}
+    elif 'units' in ds.x.attrs.keys() and 'deg' in ds.x.attrs['units']:
+        ds.longitude.attrs = {'long_name': 'longitude',
+                              'units': 'degrees_east'}
+        ds.latitude.attrs = {'long_name': 'latitude',
+                             'units': 'degrees_north'}
+            
+    # Add Coordinate Reference System if needed
+    if 'spatial_ref' not in list(ds.coords) and src_crs:
+        ds.rio.write_crs(src_crs, inplace = True)
+    
+    return ds
+
         
 #%% EXTRACTING FEATURES
 
