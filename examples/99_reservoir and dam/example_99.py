@@ -271,7 +271,7 @@ ax.legend()
 #%% DAM
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
 
-BV.add_lakeres(BV.geographic)
+BV.add_lakeres(BV.stable_folder)
 
 # Add new lakes/reservoirs
 ### --- 1 --- ###

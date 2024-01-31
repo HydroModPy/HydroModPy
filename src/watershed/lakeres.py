@@ -58,26 +58,27 @@ class Lakeres:
         if not os.path.exists(self.data_folder):
                 os.makedirs(self.data_folder)
                 
-        self.n_lakeres:int = 0, # number of lakes/reservoirs
-        self.indexes:list = [], # identifiers of lakes/reservoirs
-        self.maskmx_file_by_lake:dict = {}, # dict of lakes/reservoirs masks paths, 
+        self.n_lakeres:int = 0 # number of lakes/reservoirs
+        self.indexes:list = [] # identifiers of lakes/reservoirs
+        self.maskmx_file_by_lake:dict = {} # dict of lakes/reservoirs masks paths, 
                                    # keyed by lake_id
                                    # masks correspond to te maximal extent of 
                                    # the lake, or larger (see computation of 
                                    # bathymetry)   
-        self.mask_crs_by_lake:dict = {}, # user has the possibility to define the source
+        self.mask_crs_by_lake:dict = {} # user has the possibility to define the source
                                          # CRS of the mask file (if not embeded in the file)
-        self.bathymetry_by_lake:dict = {}, # bathymetry raster paths, 
+        self.bathymetry_by_lake:dict = {} # bathymetry raster paths, 
                                            # or computation option such as 'cuboid' 
                                            # or nothing (topography will be used as bathymetry)
-        self.bathy_crs_by_lake:dict = {},
-        self.ssmx_by_lake:dict = {}, # dict of maximum stages keyed by lake_id
-        self.bdlknc_by_lake:dict = {}, # dict of lakebed leakance
+        self.bathy_crs_by_lake:dict = {}
+        self.ssmx_by_lake:dict = {} # dict of maximum stages keyed by lake_id
+        self.volmx_by_lake:dict = {}
+        self.bdlknc_by_lake:dict = {} # dict of lakebed leakance
         # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
-        self.prcplk_by_lake:dict = {},
-        self.evaplk_by_lake:dict = {},
-        self.rnf_by_lake:dict = {},
-        self.wthdrw_by_lake:dict = {},
+        self.prcplk_by_lake:dict = {}
+        self.evaplk_by_lake:dict = {}
+        self.rnf_by_lake:dict = {}
+        self.wthdrw_by_lake:dict = {}
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
@@ -157,12 +158,6 @@ class Lakeres:
         self.bdlknc_by_lake[lake_id] = bdlknc # default = 1 m/s
         
         # Lake/reservoir inflows and outflows
-# =============================================================================
-#         self.flux_data[lake_id] = pd.DataFrame(
-#             data = np.array([[0], [0], [0], [0]]).transpose(), 
-#             columns = ['PRCPLK', 'EVAPLK', 'RNF', 'WTHDRW'], 
-#             index = [0])
-# =============================================================================
         self.prcplk_by_lake[lake_id] = prcplk
         self.evaplk_by_lake[lake_id] = evaplk
         self.rnf_by_lake[lake_id] = rnf
@@ -176,13 +171,13 @@ class Lakeres:
         
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
-        dict_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+        attr_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
                      self.bathymetry_by_lake, self.bathy_crs_by_lake,
                      self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
                      self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
         
         if new_lake_id and not new_maskmx_path: # just replace the key
-            for d in dict_list:
+            for d in attr_list:
                 d[new_lake_id] = d.pop(lake_id)
             self.indexes = list(self.maskmx_file_by_lake.keys())
             
@@ -190,7 +185,7 @@ class Lakeres:
             self.maskmx_file_by_lake[lake_id] = new_maskmx_path
             
         elif new_lake_id and new_maskmx_path: # replace both the mask and the key
-            for d in dict_list:
+            for d in attr_list:
                 d[new_lake_id] = d.pop(lake_id)
             self.maskmx_file_by_lake[new_lake_id] = new_maskmx_path
             self.indexes = list(self.maskmx_file_by_lake.keys())
@@ -198,11 +193,11 @@ class Lakeres:
 
         #%% REMOVE A LAKE/RESERVOIR
         def remove(self, lake_id):
-            dict_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+            attr_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
                          self.bathymetry_by_lake, self.bathy_crs_by_lake,
                          self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
                          self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
-            for d in dict_list:
+            for d in attr_list:
                 d.pop(lake_id)
             
             # Update Lakeres attributes:
@@ -231,6 +226,14 @@ class Lakeres:
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic):
+        #%%% Standardize lake identifiers
+        # -------------------------------
+        # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
+        # std_id are: 0, 1, 2...
+# =============================================================================
+#         std_id_by_lake_id stages = [self.lakeres.ssmx[lake_id] for lake_id in sorted(self.lakeres.ssmx)]
+# =============================================================================
+        
         #%%% Format lakarr
         # ----------------
         # Load masked np.array of watershed and initialize lakarr
@@ -403,6 +406,22 @@ class Lakeres:
         
         #%%% Format fluxes data
         # ---------------------
+        data_by_flux = {'PRCPLK': self.prcpl_by_lake, 
+                        'EVAPLK': self.evapl_by_lake, 
+                        'RNF': self.rnf_by_lake, 
+                        'WTHDRW': self.wthdrw_by_lake}
+        attr_flux_list = [self.prcpl_by_lake, self.evapl_by_lake,
+                          self.rnf_by_lake, self.wthdrw_by_lake]
+        flux_frame = pd.DataFrame(
+            columns = list(data_by_flux.keys), 
+            index = climatic.recharge.index)
+        # Final format:
+        # {1:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
+        #  2:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
+        #  3:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list]...}
+# =============================================================================
+#         for 
+# =============================================================================
         if isinstance(src, pd.core.series.Series):
             0
        
