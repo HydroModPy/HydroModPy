@@ -149,7 +149,7 @@ def load_to_numpy(file_path, src_crs=None,
     elif isinstance(dst_crs, int): dst_crs = rio.crs.CRS.from_epsg(dst_crs)
     
     
-    if os.path.splitext(file_path)[-1] == '.shp':
+    if os.path.splitext(file_path)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
         if base_profile:
             file_vect = gpd.read_file(file_path)
             # CRS initialization
@@ -182,7 +182,7 @@ def load_to_numpy(file_path, src_crs=None,
             print('\nRasterizeError: A rasterio profile is required to convert vectoriel data into raster')
             return
             
-    else: # if input file is not a shapefile
+    else: # input file is a raster
         with rio.open(file_path, 'r') as data:
             data_profile = data.profile
             if src_crs and not data_profile['crs'].is_valid:
