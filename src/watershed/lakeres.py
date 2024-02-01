@@ -215,6 +215,9 @@ class Lakeres:
     def update_stagemax(self, lake_id, ssmx):
         self.ssmx_by_lake[lake_id] = ssmx
         
+    def update_stageinit(self, lake_id, stageinit):
+        self.stageinit_by_lake[lake_id] = stageinit
+        
     def update_lakebed_leakance(self, lake_id, bdlknc):
         self.bdlknc_by_lake[lake_id] = bdlknc
         
