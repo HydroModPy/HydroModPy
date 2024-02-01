@@ -273,26 +273,34 @@ ax.legend()
 
 BV.add_lakeres(BV.stable_folder)
 
-# Add new lakes/reservoirs
-### --- 1 --- ###
+######################
+### --- lake 1 --- ###
+######################
+# Add new lake/reservoir
+# ----------------------
 lake_id = 1
 maskmx_path = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
                              'Cheze_lake_75m_outside.tif')
 BV.lakeres.new_lakeres(maskmx_path, lake_id)
 
-ssmx = 90 # [m]
-BV.lakeres.update_stagemax(lake_id, ssmx)
-
-bathymetry_path = os.path.join(root_dir, 'examples', 
+# Geometry and physical properties
+# --------------------------------
+BV.lakeres.update_stageinit(lake_id, 70) # [m]
+BV.lakeres.update_stagemax(lake_id, 90) # [m]
+BV.lakeres.update_bedlake_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
+                                                              # here equiv. to 1e-6 m/s
+bathymetry_raster = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
                              'bathymetry_25m_NGF-elevation.tif')
-BV.lakeres.update_bathymetry(lake_id, bathymetry_path, mode = 'elevation')
-# mode can be 'elevation', 'depth', 'height' (= -depth)
+BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
+# =============================================================================
+# BV.lakeres.update_bathymetry(lake_id, bathymetry_raster, mode = 'elevation')
+# # mode can be 'elevation', 'depth', 'height' (= -depth)
+# =============================================================================
 
-BV.lakeres.update_bdlknc(lake_id, 1e-4 * 24 * 3600) # [m/day] # bedlake leakance
-
-# Input data
+# Input fluxes
+# ------------
 dam_data_path = os.path.join(os.path.split(data_path)[0], 
                              r"1- Biblio locale\14- Barrage",
                              "Documents_travail_Ronan\dam_data",
@@ -305,10 +313,9 @@ dam_input_df = pd.read_csv(dam_data_path,
                            index_col = 'time',
                            parse_dates = True)
 
-# Environmental fluxes
-# By default, fluxes are set to 0. 
+# Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
-BV.lakeres.update_precip(lake_id, 0)
+BV.lakeres.update_precip(lake_id, dam_input_df['precip'])
 BV.lakeres.update_evap(lake_id, 'from_climatic')
 BV.lakeres.update_runoff(lake_id, 'from_climatic')
 
@@ -318,14 +325,19 @@ BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts, daily = False)
 # if values are daily rates, then user should indicate daily = True
 
 
-### --- 2 --- ###
+########################
+### --- lake 412 --- ###
+########################
+lake_id = 412
 dummy_maskmx_path = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
                              'Dummy_lake.shp')
-BV.lakeres.new_lakeres(dummy_maskmx_path)
+BV.lakeres.new_lakeres(dummy_maskmx_path, lake_id)
 
 
+######################
 ### --- others --- ###
+######################
 # =============================================================================
 # BV.lakeres.update_definition(lake_id, new_lake_id, new_mask_path)
 # =============================================================================

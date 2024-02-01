@@ -19,6 +19,7 @@
 import os
 import sys
 import re
+import numbers
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -79,13 +80,14 @@ class Lakeres:
         self.evaplk_by_lake:dict = {}
         self.rnf_by_lake:dict = {}
         self.wthdrw_by_lake:dict = {}
+        self.stageinit_by_lake:dict = {} # initial stage
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
     def new_lakeres(self, maskmx_file:str, lake_id:int=None, mask_crs=None,
                     bathymetry_raster:str=None, bathy_crs=None, 
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
-                    prcplk=0, evaplk=0, rnf=0, wthdrw=0,
+                    prcplk=0, evaplk=0, rnf=0, wthdrw=0, stageinit=None,
                     ):
         """
         Note that lakeres can be a lake or a reservoir.
@@ -139,9 +141,12 @@ class Lakeres:
         """
         
         # Store/infer lake_id
+        if lake_id in self.indexes:
+            print(f"\nErr: Lake/reservoir with id {lake_id} already exists.")
+            return
         if not lake_id:
             if self.n_lakeres == 0:
-                lake_id:int = 1 # initialization
+                lake_id:int = 0 # initialization
             else:
                 lake_id:int = np.max(self.indexes) + 1
         print(f"\nAdding lake n°{lake_id}")
@@ -156,6 +161,7 @@ class Lakeres:
 
         # Lake/reservoir parameters
         self.bdlknc_by_lake[lake_id] = bdlknc # default = 1 m/s
+        self.stageinit_by_lake[lake_id] = stageinit
         
         # Lake/reservoir inflows and outflows
         self.prcplk_by_lake[lake_id] = prcplk
@@ -191,23 +197,29 @@ class Lakeres:
             self.indexes = list(self.maskmx_file_by_lake.keys())
 
 
-        #%% REMOVE A LAKE/RESERVOIR
-        def remove(self, lake_id):
-            attr_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
-                         self.bathymetry_by_lake, self.bathy_crs_by_lake,
-                         self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
-                         self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
-            for d in attr_list:
-                d.pop(lake_id)
-            
-            # Update Lakeres attributes:
-            self.indexes = list(self.masks.keys())
-            self.n_lakeres = len(self.indexes)
+    #%% REMOVE A LAKE/RESERVOIR
+    def remove(self, lake_id):
+        attr_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+                     self.bathymetry_by_lake, self.bathy_crs_by_lake,
+                     self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
+                     self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
+        for d in attr_list:
+            d.pop(lake_id)
+        
+        # Update Lakeres attributes:
+        self.indexes = list(self.masks.keys())
+        self.n_lakeres = len(self.indexes)
         
         
-    #%% UPDATE MAXIMUM STAGES (= WATER LEVELS)
+    #%% UPDATE GEOMETRY and PHYSICAL PROPERTIES OF THE LAKE/RESERVOIR
     def update_stagemax(self, lake_id, ssmx):
         self.ssmx_by_lake[lake_id] = ssmx
+        
+    def update_lakebed_leakance(self, lake_id, bdlknc):
+        self.bdlknc_by_lake[lake_id] = bdlknc
+        
+    def update_bathymetry(self, lake_id, bathymetry_raster):
+        self.bathymetry_by_lake[lake_id] = bathymetry_raster
         
         
     #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
@@ -225,14 +237,14 @@ class Lakeres:
         
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
-    def format_to_modflow(self, geographic, climatic):
+    def format_to_modflow(self, geographic, climatic, nper):
         #%%% Standardize lake identifiers
         # -------------------------------
         # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
         # std_id are: 0, 1, 2...
-# =============================================================================
-#         std_id_by_lake_id stages = [self.lakeres.ssmx[lake_id] for lake_id in sorted(self.lakeres.ssmx)]
-# =============================================================================
+        # lake_id_by_std_id = {idx: self.indexes[idx] for idx in range(0, self.n_lakeres)}
+        lake_id_by_std_id = {idx: sorted(self.indexes)[idx] for idx in range(1, self.n_lakeres+1)}
+        
         
         #%%% Format lakarr
         # ----------------
@@ -254,7 +266,9 @@ class Lakeres:
         cell_area = (dem_box.x[1] - dem_box.x[0])*(dem_box.y[0] - dem_box.y[1])        
         
         # Format lakes maskmx (maximal extents)
-        for lake_id in self.indexes:
+        for std_id in lake_id_by_std_id.keys():
+            lake_id = lake_id_by_std_id[std_id]
+            
             maskmx = toolbox.load_to_numpy(self.maskmx_file_by_lake[lake_id], 
                                            src_crs = self.mark_crs_by_lake[lake_id],
                                            base_path = geographic.watershed_dem, 
@@ -364,34 +378,46 @@ class Lakeres:
                                  fill_value = nodata
                                  )
     
-            lakarr[maskmx==1] = lake_id
+            # Check overlapping between lakes
+            for std_id2 in lake_id_by_std_id.keys():
+                lake_id2 = lake_id_by_std_id[std_id]
+                temp_lakarr = lakarr.copy()*0
+                temp_lakarr[lakarr==std_id2] = 1
+                intersect = (maskmx*temp_lakarr).sum()
+                if intersect > 0:
+                    print(f"\n NB: Lake n°{lake_id} will overwrite lake n°{lake_id2} on {int(intersect)} cells.")
+        
+            lakarr[maskmx==1] = std_id
         
 # =============================================================================
 #             lakarr = np.where(maskmx==1, lake_id, lakarr)
 # =============================================================================
-        
-        # Check overlapping between lakes   
-        if geographic:     
-            with rio.open(geographic.watershed_dem, 'r') as base:
-                nodata = base.profile['nodata'] # value corresponding to the no data property 
-
-            maskmx = toolbox.load_to_numpy(maskmx_path, 
-                                         src_crs = src_crs,
-                                         base_path = geographic.watershed_dem, 
-                                         dst_crs = geographic.crs_proj)
-            
-            maskmx[maskmx == nodata] = 0
-            
-            for idx in self.indexes:
-                prev_maskmx = toolbox.load_to_numpy(maskmx_path, 
-                                                    src_crs = src_crs,
-                                                    base_path = geographic.watershed_dem, 
-                                                    dst_crs = geographic.crs_proj)
-                
-                intersect = (maskmx*prev_maskmx).sum()
-                if intersect > 0:
-                    print(f"\n NB: Lake n°{lake_id} may overwrite lake n°{idx} on {int(intersect)} cells.")
-        
+    
+# A SUPPRIMER BIENTOT !    
+# =============================================================================
+#         # Check overlapping between lakes   
+#         if geographic:     
+#             with rio.open(geographic.watershed_dem, 'r') as base:
+#                 nodata = base.profile['nodata'] # value corresponding to the no data property 
+# 
+#             maskmx = toolbox.load_to_numpy(maskmx_path, 
+#                                          src_crs = src_crs,
+#                                          base_path = geographic.watershed_dem, 
+#                                          dst_crs = geographic.crs_proj)
+#             
+#             maskmx[maskmx == nodata] = 0
+#             
+#             for idx in self.indexes:
+#                 prev_maskmx = toolbox.load_to_numpy(maskmx_path, 
+#                                                     src_crs = src_crs,
+#                                                     base_path = geographic.watershed_dem, 
+#                                                     dst_crs = geographic.crs_proj)
+#                 
+#                 intersect = (maskmx*prev_maskmx).sum()
+#                 if intersect > 0:
+#                     print(f"\n NB: Lake n°{lake_id} may overwrite lake n°{idx} on {int(intersect)} cells.")
+#         
+# =============================================================================
 
         # Export
         with rio.open(geographic.watershed_dem, 'r') as base:
@@ -401,31 +427,97 @@ class Lakeres:
             # base_profile['dtype'] = int
         with rio.open(os.path.join(self.data_folder, 'lakarr.tif'),
                       'w', **base_profile) as dst: 
-            dst.write_band(1, self.raster.astype(int))
+            dst.write_band(1, lakarr.astype(int))
             
+        
+        #%%% Format initial stage
+        # -----------------------
+        stages = []
+        for std_id in lake_id_by_std_id.keys():
+            lake_id = lake_id_by_std_id[std_id]
+            if isinstance(self.stageinit_by_lake[lake_id], (int, float)):
+                stages.append(self.stageinit_by_lake[lake_id])
+            else:
+                print(f"\nWarning: The lake/reservoir n°{lake_id} will be initially considered dry.")
+                stages.append(float(dem_box[maskmx==1].min()))
+                
+        #%%% Format bedlake leakance
+        # --------------------------
+        bdlknc = []
+        for std_id in lake_id_by_std_id.keys():
+            lake_id = lake_id_by_std_id[std_id]
+            bdlknc.append(self.bdlknc_by_lake[lake_id])
         
         #%%% Format fluxes data
         # ---------------------
-        data_by_flux = {'PRCPLK': self.prcpl_by_lake, 
-                        'EVAPLK': self.evapl_by_lake, 
+        flux_data = {}
+        settings_by_flux = {'PRCPLK': self.prcplk_by_lake, 
+                        'EVAPLK': self.evaplk_by_lake, 
                         'RNF': self.rnf_by_lake, 
                         'WTHDRW': self.wthdrw_by_lake}
-        attr_flux_list = [self.prcpl_by_lake, self.evapl_by_lake,
-                          self.rnf_by_lake, self.wthdrw_by_lake]
-        flux_frame = pd.DataFrame(
-            columns = list(data_by_flux.keys), 
-            index = climatic.recharge.index)
         # Final format:
-        # {1:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
+        # {0:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
+        #  1:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
         #  2:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
-        #  3:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list]...}
-# =============================================================================
-#         for 
-# =============================================================================
-        if isinstance(src, pd.core.series.Series):
-            0
-       
-        # return stages, lakarr, bdlknc, flux_data
+        #  ...}
+            
+        for flux in settings_by_flux.keys():
+            flux_frame = pd.DataFrame(
+                columns = list(lake_id_by_std_id.keys()), 
+                index = climatic.recharge.index)
+            
+            for std_id in lake_id_by_std_id.keys():
+                lake_id = lake_id_by_std_id[std_id]
+                settings = settings_by_flux[flux][lake_id]
+                
+                # Constant value: same for all periods
+                if isinstance(settings, numbers.Number):
+                    flux_frame[std_id] = settings
+                
+                else:
+                    # If flux is defined by 'from_climatic' option
+                    if settings == 'from_climatic':
+                        if flux == 'rnf':
+                            try: 
+                                pd_data = climatic.runoff
+                                # flux_frame.loc[climatic.runoff.index, std_id] = climatic.runoff
+                            except: 
+                                print(f"\nErr: Runoff over lake n°{lake_id}: watershed.climatic.runoff does not exist")
+                                return
+                        elif flux == 'evaplk':
+                            pd_data = -climatic.recharge.where(climatic.recharge<0, 0)
+                            # flux_frame.loc[:, std_id] = -climatic.recharge.where(
+                            #     climatic.recharge<0, 0)
+                        else:
+                            print(f"\nErr: {flux} over lake n°{lake_id} cannot be defined from climatic")
+                            return
+                    
+                    elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() in ['.csv', '.txt']:
+                    # Array file (.csv or .txt): will be read with pandas
+                        pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
+                        
+                    elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() == '.nc':
+                    # NetCDF file: will be read with xarray
+                        ds = toolbox.read_with_xarray(settings)
+                        # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
+                        print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
+                        
+                    # Format df to flux_frame
+                    if isinstance(settings, pd.core.frame.DataFrame):
+                    # Convert pandas.core.frame.DataFrame to pandas.core.series.Series
+                        pd_data = pd_data[pd_data.columns[0]]
+                    
+                    # pd_data.set_index(pd_data.index.normalize()) 
+                    pd_data.index = pd_data.index.normalize() # To convert dates-time to midnight.
+                    flux_frame.loc[pd_data.index, std_id] = pd_data
+                    flux_frame[std_id].fillna(method = 'ffill', inplace = True) # forward fill
+                    flux_frame[std_id].fillna(0, inplace = True) # replace remaining NaN with 0
+            
+            for kper in range(0, nper):
+                flux_data[kper].append(flux_frame.iloc[kper].to_list())
+                
+
+        return stages, lakarr, bdlknc, flux_data
        
    
     #%% UPDATE DEM FILES        
