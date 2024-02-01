@@ -253,7 +253,8 @@ class Lakeres:
         # ----------------
         # Load masked np.array of watershed and initialize lakarr
         with rio.open(geographic.watershed_dem, 'r') as base:
-            nodata = base.profile['nodata'] # value corresponding to the no data property 
+            nodata = base.profile['nodata'] # value corresponding to the no data property         
+            transform = base.profile['transform']
         watershed_mask = toolbox.load_to_numpy(geographic.watershed_dem,
                                                dst_crs = geographic.crs_proj) 
         lakarr = np.ma.array(watershed_mask, 
@@ -269,7 +270,7 @@ class Lakeres:
 # =============================================================================
 #         cell_area = (dem_box[0,1] - dem_box[0,0])*(dem_box[1,0] - dem_box[0,0])   
 # =============================================================================
-        cell_area = 75*75
+        cell_area = abs(transform[0]) * abs(transform[4])
         
         # Format lakes maskmx (maximal extents)
         for std_id in lake_id_by_std_id.keys():
@@ -287,6 +288,7 @@ class Lakeres:
             # In this case, topography is used for bathymetry, using the same
             # computation as in the next case
                 self.bathymetry_by_lake[lake_id] = geographic.watershed_dem
+                self.bathy_crs_by_lake[lake_id] = geographic.crs_proj
             
             if os.path.isfile(self.bathymetry_by_lake[lake_id]):
                 bathymetry = toolbox.load_to_numpy(
@@ -339,8 +341,12 @@ class Lakeres:
                     maskmx = maskmx.astype(bool)
                     
                 # If no volmx nor ssmx is defined:
+                else:
                     # In this case, maskmx will be used as a strict mask of the
-                    # lake/reservoir, at his maximum extent.
+                    # lake/reservoir, at its maximum extent.
+                    print("\nThe lake/reservoir mask will be used as a strict mask of the lake/reservoir at its maximum extent.")
+                    self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
+                    
                     
             elif self.bathymetry_by_lake[lake_id] == 'cuboid':
             # In this case, bathymetry will be computed, based on volmx (required)
@@ -362,7 +368,7 @@ class Lakeres:
                     # In this case, maskmx will be used as a strict mask of the
                     # lake/reservoir, at his maximum extent.
                         print(f"\nComputing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
-                        self.ssmx_by_lake[lake_id] = maskmx.max() # Update ssmx (might be used in other functions)
+                        self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
                         dem_box = np.where(maskmx, self.ssmx_by_lak[lake_id] - depth, dem_box)
                         
@@ -371,8 +377,6 @@ class Lakeres:
             
                 print("Il faut update les DEM files ! (computed bathy)")
                 self.update_dem()
-            
-                #>>> reprendre ICI<<<
         
 # =============================================================================
 #             lakarr = lakarr + np.ma.array(maskmx,
@@ -394,6 +398,9 @@ class Lakeres:
                     print(f"\n NB: Lake n°{lake_id} will overwrite lake n°{lake_id2} on {int(intersect)} cells.")
         
             lakarr[maskmx==1] = std_id
+            
+        # Convert the masked array into an array
+        lakarr = lakarr.filled(0)
         
 # =============================================================================
 #             lakarr = np.where(maskmx==1, lake_id, lakarr)
@@ -435,7 +442,13 @@ class Lakeres:
                       'w', **base_profile) as dst: 
             dst.write_band(1, lakarr.astype(int))
             
-        
+        #%%% Format the top of the lake/reservoir layer
+        # ---------------------------------------------
+        laklay_top = dem_box.copy()+1
+        for std_id in lake_id_by_std_id.keys():
+            lake_id = lake_id_by_std_id[std_id]
+            laklay_top[lakarr == std_id] = self.ssmx_by_lake[lake_id]
+            
         #%%% Format initial stage
         # -----------------------
         stages = []
@@ -449,13 +462,14 @@ class Lakeres:
                 
         #%%% Format bedlake leakance
         # --------------------------
-        bdlknc = {}
-        for kper in range(0, nper):
-            bdlknc_val = []
-            for std_id in lake_id_by_std_id.keys():
-                lake_id = lake_id_by_std_id[std_id]
-                bdlknc_val.append(self.bdlknc_by_lake[lake_id])
-            bdlknc[kper] = bdlknc_val
+        # bdlknc = {}
+        # for kper in range(0, nper):
+        #     bdlknc_val = []
+        #     for std_id in lake_id_by_std_id.keys():
+        #         lake_id = lake_id_by_std_id[std_id]
+        #         bdlknc_val.append(self.bdlknc_by_lake[lake_id])
+        #     bdlknc[kper] = bdlknc_val
+        bdlknc = lakarr.copy()*0 + self.bdlknc_by_lake[lake_id]
         
         #%%% Format fluxes data
         # ---------------------
@@ -533,12 +547,14 @@ class Lakeres:
                 flux_data[kper].append(flux_frame.iloc[kper].to_list())
                 
 
-        return stages, lakarr, bdlknc, flux_data
+        return stages, lakarr, laklay_top, bdlknc, flux_data
        
    
     #%% UPDATE DEM FILES        
     def update_dem(self):
         0
+        # dem_box has been modified, and its modifications should also be applied
+        # on all dem files.
         
 
     #%% DISPLAY PLOT
