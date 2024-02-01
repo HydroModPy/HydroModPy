@@ -623,7 +623,9 @@ class Watershed:
                                         # Boundary settings
                                         sea_level=self.oceanic.MSL,
                                         bc_left=self.settings.bc_left, 
-                                        bc_right=self.settings.bc_right)
+                                        bc_right=self.settings.bc_right,
+                                        # Lakes/reservoirs
+                                        lakeres=self.lakeres)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose

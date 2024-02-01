@@ -116,13 +116,13 @@ class Lakeres:
             As for the next 3 parameters, prcplk can be defined by a
                 - float: same value for all periods
                 - pd.DataFrame: with times as index. Choosen times should also
-                be present in watershed.climatic.recharge
+                be present in watershed.climatic
                 - file path: a .csv array or a .tif map or a .nc space-time array
         evaplk : float|array|file_path(str)|mode(str), optional
             Input for evaporation from the lake/reservoir. The default is 0 m/d
             As for the next parameter, evaplk can also be defined by the 
             string indicator 'from_climatic': values are extracted from 
-            watershed.climatic.recharge < 0.
+            watershed.climatic < 0.
         rnf : float|array|file_path(str)|mode(str), optional
             Input for runoff to the lake/reservoir. The default is 0 m/d
             As for the previous parameter, rnf can also be defined by the 
@@ -207,7 +207,7 @@ class Lakeres:
             d.pop(lake_id)
         
         # Update Lakeres attributes:
-        self.indexes = list(self.masks.keys())
+        self.indexes = list(self.maskmx_file_by_lake.keys())
         self.n_lakeres = len(self.indexes)
         
         
@@ -245,8 +245,8 @@ class Lakeres:
         # -------------------------------
         # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
         # std_id are: 0, 1, 2...
-        # lake_id_by_std_id = {idx: self.indexes[idx] for idx in range(0, self.n_lakeres)}
-        lake_id_by_std_id = {idx: sorted(self.indexes)[idx] for idx in range(1, self.n_lakeres+1)}
+        lake_id_by_std_id = {idx+1: self.indexes[idx] for idx in range(0, self.n_lakeres)}
+        # lake_id_by_std_id = {idx+1: sorted(self.indexes)[idx] for idx in range(0, self.n_lakeres)}
         
         
         #%%% Format lakarr
@@ -266,14 +266,17 @@ class Lakeres:
                                         dst_crs = geographic.crs_proj) 
         
         # Cell area
-        cell_area = (dem_box.x[1] - dem_box.x[0])*(dem_box.y[0] - dem_box.y[1])        
+# =============================================================================
+#         cell_area = (dem_box[0,1] - dem_box[0,0])*(dem_box[1,0] - dem_box[0,0])   
+# =============================================================================
+        cell_area = 75*75
         
         # Format lakes maskmx (maximal extents)
         for std_id in lake_id_by_std_id.keys():
             lake_id = lake_id_by_std_id[std_id]
             
             maskmx = toolbox.load_to_numpy(self.maskmx_file_by_lake[lake_id], 
-                                           src_crs = self.mark_crs_by_lake[lake_id],
+                                           src_crs = self.mask_crs_by_lake[lake_id],
                                            base_path = geographic.watershed_dem, 
                                            dst_crs = geographic.crs_proj)
         
@@ -446,14 +449,17 @@ class Lakeres:
                 
         #%%% Format bedlake leakance
         # --------------------------
-        bdlknc = []
-        for std_id in lake_id_by_std_id.keys():
-            lake_id = lake_id_by_std_id[std_id]
-            bdlknc.append(self.bdlknc_by_lake[lake_id])
+        bdlknc = {}
+        for kper in range(0, nper):
+            bdlknc_val = []
+            for std_id in lake_id_by_std_id.keys():
+                lake_id = lake_id_by_std_id[std_id]
+                bdlknc_val.append(self.bdlknc_by_lake[lake_id])
+            bdlknc[kper] = bdlknc_val
         
         #%%% Format fluxes data
         # ---------------------
-        flux_data = {}
+        flux_data = {kper:[] for kper in range(0, nper)}
         settings_by_flux = {'PRCPLK': self.prcplk_by_lake, 
                         'EVAPLK': self.evaplk_by_lake, 
                         'RNF': self.rnf_by_lake, 
@@ -467,7 +473,7 @@ class Lakeres:
         for flux in settings_by_flux.keys():
             flux_frame = pd.DataFrame(
                 columns = list(lake_id_by_std_id.keys()), 
-                index = climatic.recharge.index)
+                index = climatic.index)
             
             for std_id in lake_id_by_std_id.keys():
                 lake_id = lake_id_by_std_id[std_id]
@@ -478,40 +484,47 @@ class Lakeres:
                     flux_frame[std_id] = settings
                 
                 else:
-                    # If flux is defined by 'from_climatic' option
-                    if settings == 'from_climatic':
-                        if flux == 'rnf':
-                            try: 
-                                pd_data = climatic.runoff
-                                # flux_frame.loc[climatic.runoff.index, std_id] = climatic.runoff
-                            except: 
-                                print(f"\nErr: Runoff over lake n°{lake_id}: watershed.climatic.runoff does not exist")
+                    if isinstance(settings, str):
+                        # If flux is defined by 'from_climatic' option
+                        if settings == 'from_climatic':
+# =============================================================================
+#                             if flux == 'rnf':
+#                                 try: 
+#                                     pd_data = climatic.runoff
+#                                     # flux_frame.loc[climatic.runoff.index, std_id] = climatic.runoff
+#                                 except: 
+#                                     print(f"\nErr: Runoff over lake n°{lake_id}: watershed.climatic.runoff does not exist")
+#                                     return
+#                             elif flux == 'evaplk':
+# =============================================================================
+                            if flux == 'EVAPLK':
+                                pd_data = -climatic.where(climatic<0, 0)
+                                # flux_frame.loc[:, std_id] = -climatic.where(
+                                #     climatic<0, 0)
+                            else:
+                                print(f"\nErr: {flux} over lake n°{lake_id} cannot be defined from climatic")
                                 return
-                        elif flux == 'evaplk':
-                            pd_data = -climatic.recharge.where(climatic.recharge<0, 0)
-                            # flux_frame.loc[:, std_id] = -climatic.recharge.where(
-                            #     climatic.recharge<0, 0)
-                        else:
-                            print(f"\nErr: {flux} over lake n°{lake_id} cannot be defined from climatic")
-                            return
-                    
-                    elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() in ['.csv', '.txt']:
-                    # Array file (.csv or .txt): will be read with pandas
-                        pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
                         
-                    elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() == '.nc':
-                    # NetCDF file: will be read with xarray
-                        ds = toolbox.read_with_xarray(settings)
-                        # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
-                        print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
-                        
+                        # Array file (.csv or .txt): will be read with pandas
+                        elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() in ['.csv', '.txt']:
+                            pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
+                            
+                        # NetCDF file: will be read with xarray
+                        elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() == '.nc':
+                            ds = toolbox.read_with_xarray(settings)
+                            # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
+                            print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
+                            
                     # Format df to flux_frame
                     if isinstance(settings, pd.core.frame.DataFrame):
                     # Convert pandas.core.frame.DataFrame to pandas.core.series.Series
                         pd_data = pd_data[pd_data.columns[0]]
+                    elif isinstance(settings, pd.core.series.Series):
+                        pd_data = settings
                     
                     # pd_data.set_index(pd_data.index.normalize()) 
                     pd_data.index = pd_data.index.normalize() # To convert dates-time to midnight.
+                    pd_data = pd_data[(pd_data.index >= climatic.index[0]) & (pd_data.index <= climatic.index[-1])]
                     flux_frame.loc[pd_data.index, std_id] = pd_data
                     flux_frame[std_id].fillna(method = 'ffill', inplace = True) # forward fill
                     flux_frame[std_id].fillna(0, inplace = True) # replace remaining NaN with 0
@@ -524,7 +537,7 @@ class Lakeres:
        
    
     #%% UPDATE DEM FILES        
-    def update_dem():
+    def update_dem(self):
         0
         
 

@@ -63,8 +63,8 @@ class Modflow:
                  hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
-                 cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None):
-
+                 cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None,
+                 lakeres:object=None):
         """
         Initialize method.
 
@@ -205,6 +205,10 @@ class Modflow:
         self.verti_cond = verti_cond
         self.verti_poro = verti_poro
         self.cond_drain = cond_drain
+        
+        #%% Lakes/reservoirs
+        
+        self.lakeres = lakeres
         
         #%% Specific modifications
         
@@ -485,13 +489,15 @@ class Modflow:
                 self.evt[self.evt>=0] = 0
                 # All negative values are set to positive values
                 self.evt = abs(self.evt)
-                # Extract ETR on the lake
-                for id_lakeres in range(0, len(self.lakeresData)): 
-                    self.evt_lakeres[id_lakeres] = self.evt[
-                        self.lakeresData[id_lakeres]['mask_largest']
-                        ].mean()
-                    # mean because LAKE package needs rates per unit area
-                    self.evt[self.lakeresData[id_lakeres]['mask_largest']] = 0
+# =============================================================================
+#                 # Extract ETR on the lake
+#                 for id_lakeres in range(0, len(self.lakeresData)): 
+#                     self.evt_lakeres[id_lakeres] = self.evt[
+#                         self.lakeresData[id_lakeres]['mask_largest']
+#                         ].mean()
+#                     # mean because LAKE package needs rates per unit area
+#                     self.evt[self.lakeresData[id_lakeres]['mask_largest']] = 0
+# =============================================================================
                 self.evtData = {}
                 # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
                 for kper in range(0, self.nper):
@@ -520,13 +526,15 @@ class Modflow:
                 
         # RECHARGE TO THE AQUIFER
             # over the surface: rch package (should always be positive)
-        # Remove recharge on the lake
-        for lake_id in self.lakeres.indexes: 
-            self.rch_lakeres[lake_id] = self.climatic[
-                self.lakeres.masks[lake_id]
-                ].sum()
-            self.climatic[self.lakeres.masks[lake_id]] = 0
-            # Usefull to store the value, in order to compare to dam leakage
+# =============================================================================
+#         # Remove recharge on the lake
+#         for lake_id in self.lakeres.indexes: 
+#             self.rch_lakeres[lake_id] = self.climatic[
+#                 self.lakeres.masks[lake_id]
+#                 ].sum()
+#             self.climatic[self.lakeres.masks[lake_id]] = 0
+#             # Usefull to store the value, in order to compare to dam leakage
+# =============================================================================
         
         self.rchData = {}
         for kper in range(0, self.nper):

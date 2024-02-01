@@ -278,7 +278,7 @@ BV.add_lakeres(BV.stable_folder)
 ######################
 # Add new lake/reservoir
 # ----------------------
-lake_id = 1
+lake_id = 'reservoir_cheze'
 maskmx_path = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
                              'Cheze_lake_75m_outside.tif')
@@ -324,7 +324,7 @@ dam_input_df= dam_input_df.divide(days_in_month.n_days, axis="index")
 # User can update these fluxes with float, file path, or "from_climatic" mode
 BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf'])
 BV.lakeres.update_evap(lake_id, 'from_climatic')
-BV.lakeres.update_runoff(lake_id, 'from_climatic')
+BV.lakeres.update_runoff(lake_id, BV.climatic.runoff)
 
 # Anthropic fluxes
 withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['meu']
@@ -449,6 +449,12 @@ BV.add_oceanic(sea_level)
 
 # Particle tracking settings
 BV.settings.update_input_particules(zone_partic=zone_partic)
+
+# Lakes/reservoir
+try:
+    BV.lakeres
+except AttributeError:
+    BV.lakeres = None
 
 BV.save_object()
 
