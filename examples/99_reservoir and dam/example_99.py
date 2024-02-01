@@ -288,7 +288,7 @@ BV.lakeres.new_lakeres(maskmx_path, lake_id)
 # --------------------------------
 BV.lakeres.update_stageinit(lake_id, 70) # [m]
 BV.lakeres.update_stagemax(lake_id, 90) # [m]
-BV.lakeres.update_bedlake_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
+BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
                                                               # here equiv. to 1e-6 m/s
 bathymetry_raster = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
@@ -313,15 +313,22 @@ dam_input_df = pd.read_csv(dam_data_path,
                            index_col = 'time',
                            parse_dates = True)
 
+# Convert values (monthly sums) into daily rates 
+days_in_month = pd.DataFrame( 
+    index = dam_input_df.index,
+    data = dam_input_df.index.days_in_month)
+days_in_month.rename(columns = {'time':'n_days'}, inplace = True)
+dam_input_df= dam_input_df.divide(days_in_month.n_days, axis="index")
+
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
-BV.lakeres.update_precip(lake_id, dam_input_df['precip'])
+BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf'])
 BV.lakeres.update_evap(lake_id, 'from_climatic')
 BV.lakeres.update_runoff(lake_id, 'from_climatic')
 
 # Anthropic fluxes
 withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['meu']
-BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts, daily = False)
+BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 # if values are daily rates, then user should indicate daily = True
 
 
