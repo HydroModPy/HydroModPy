@@ -206,9 +206,12 @@ class Modflow:
         self.verti_poro = verti_poro
         self.cond_drain = cond_drain
         
+        self.top = top
+        
         #%% Lakes/reservoirs
         
         self.lakeres = lakeres
+        
         
         #%% Specific modifications
         
@@ -249,6 +252,7 @@ class Modflow:
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
 
+        
         #%% Discreitzation
         
         ### Time step is driven by recharge
@@ -322,16 +326,35 @@ class Modflow:
             if i == 1:
                 self.zbot[i-1] = self.dem  - ((self.dem - self.bottom_layer) * p)
             else:
-                self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
+                self.zbot[i-1] = self.zbot[i-2] - ((self.dem - self.bottom_layer) * p) #self.bottom_layer * p + self.dem * (1-p)
+        
+        # Top definition
+        self.top = self.dem
+        
+        # Adding a superficial layer for lakes/reservoirs (if activated)
+        if self.lakeres.n_lakeres > 0:
+            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
+                self.geographic, self.climatic, self.nper)
             
+            self.nlay = self.nlay + 1
+            self.top = laklay_top
+            self.zbot = np.insert(self.zbot, 0, self.dem, axis=0)
+            
+            lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
+            lakarr[0] = lakarr_lay0
+            
+            bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
+            bdlknc[0] = bdlknc_lay0
+        
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
-                                            top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                            top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
                                             steady=self.steady, start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
         # proj4_str=self.dem.crs)
+
     
         #%% Boundary conditions
         
@@ -566,6 +589,7 @@ class Modflow:
             
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
+
 
         #%% Drain package
         
