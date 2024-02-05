@@ -106,6 +106,8 @@ class Hydraulic:
         self.cond_decay = cond_decay_init
         self.poro_decay = poro_decay_init
         self.lay_decay = lay_decay_init
+        self.verti_cond = verti_cond_init 
+        self.verti_poro = verti_poro_init
             
     #%% UPDATE LATERAL HOMOGENEOUS
     
