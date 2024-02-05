@@ -390,7 +390,7 @@ class Lakeres:
     
             # Check overlapping between lakes
             for std_id2 in lake_id_by_std_id.keys():
-                lake_id2 = lake_id_by_std_id[std_id]
+                lake_id2 = lake_id_by_std_id[std_id2]
                 temp_lakarr = lakarr.copy()*0
                 temp_lakarr[lakarr==std_id2] = 1
                 intersect = (maskmx*temp_lakarr).sum()
