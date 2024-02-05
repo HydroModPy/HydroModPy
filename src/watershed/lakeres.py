@@ -149,7 +149,7 @@ class Lakeres:
                 lake_id:int = 0 # initialization
             else:
                 lake_id:int = np.max(self.indexes) + 1
-        print(f"\nAdding lake n°{lake_id}")
+        print(f"\nAdding lake '{lake_id}'")
         
         # Lake/reservoir geometry
         self.maskmx_file_by_lake[lake_id] = maskmx_file
@@ -301,7 +301,7 @@ class Lakeres:
                 dem_box = np.where(bathymetry == nodata, dem_box, bathymetry)
                 
                 # Update dem files:
-                print("Il faut update les DEM files !")
+                print("Err: A faire ! Il faut update les DEM files !")
                 self.update_dem()
                 
                 # Mask dem_box with maskmx:
@@ -344,7 +344,7 @@ class Lakeres:
                 else:
                     # In this case, maskmx will be used as a strict mask of the
                     # lake/reservoir, at its maximum extent.
-                    print("\nThe lake/reservoir mask will be used as a strict mask of the lake/reservoir at its maximum extent.")
+                    print(f" Warning: The '{lake_id}' lake/reservoir mask will be used as a strict mask of the lake at its maximum extent.")
                     self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                     
                     
@@ -375,7 +375,7 @@ class Lakeres:
                 else:
                     print("\nErr: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
             
-                print("Il faut update les DEM files ! (computed bathy)")
+                print("Err: A faire ! Il faut update les DEM files ! (computed bathy)")
                 self.update_dem()
         
 # =============================================================================
@@ -395,7 +395,7 @@ class Lakeres:
                 temp_lakarr[lakarr==std_id2] = 1
                 intersect = (maskmx*temp_lakarr).sum()
                 if intersect > 0:
-                    print(f"\n NB: Lake n°{lake_id} will overwrite lake n°{lake_id2} on {int(intersect)} cells.")
+                    print(f" Warning: Lake '{lake_id}' will overwrite lake '{lake_id2}' on {int(intersect)} cells.")
         
             lakarr[maskmx==1] = std_id
             
@@ -457,7 +457,7 @@ class Lakeres:
             if isinstance(self.stageinit_by_lake[lake_id], (int, float)):
                 stages.append(self.stageinit_by_lake[lake_id])
             else:
-                print(f"\nWarning: The lake/reservoir n°{lake_id} will be initially considered dry.")
+                print(f" Warning: The lake/reservoir '{lake_id}' will be initially considered dry.")
                 stages.append(float(dem_box[maskmx==1].min()))
                 
         #%%% Format bedlake leakance
@@ -516,7 +516,7 @@ class Lakeres:
                                 # flux_frame.loc[:, std_id] = -climatic.where(
                                 #     climatic<0, 0)
                             else:
-                                print(f"\nErr: {flux} over lake n°{lake_id} cannot be defined from climatic")
+                                print(f"\nErr: {flux} over lake '{lake_id}' cannot be defined from climatic")
                                 return
                         
                         # Array file (.csv or .txt): will be read with pandas
