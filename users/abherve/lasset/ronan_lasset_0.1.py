@@ -55,7 +55,7 @@ from matplotlib.colors import LightSource
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = True
+wbt.verbose = False
 
 # Warnings
 import warnings
@@ -587,7 +587,7 @@ sim2 = pd.concat([sim2_1, sim2_2]).drop_duplicates()
 
 dfd = sim2.copy()
 
-dfm = dfd.copy() 
+dfm = dfd.copy()
 mask = dfm.resample("M").count() >= 27
 dfm = dfm.resample("M").mean()[mask]
 
@@ -1155,7 +1155,8 @@ class MatchingStreams:
 # vers = 'v4'
 # vers = 'v5'
 # vers = 'v6'
-vers = 'v7'
+# vers = 'v7' # ==> ISBA
+vers = 'v8' # ==> SIM2
 
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
 types_obs = ['stream_perennial_wetlands_points']
@@ -1195,10 +1196,11 @@ for watershed_name in watershed_names[:]:
         
         # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
         # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
-        # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
-        recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+        recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+        # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
         
         verti_cond = None # or [ [1e-5, [0, 20]],
+        verti_poro = None
         cond_drain = None # or value of conductance
         porosity = 5 / 100 # -
         poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
@@ -1221,6 +1223,7 @@ for watershed_name in watershed_names[:]:
         BV.hydraulic.update_lay_decay(lay_decay) # 1
         BV.hydraulic.update_porosity(porosity)
         BV.hydraulic.update_cond_vertical(verti_cond)
+        BV.hydraulic.update_poro_vertical(verti_poro)
         BV.hydraulic.update_cond_drain(cond_drain)
         BV.hydraulic.update_poro_decay(poro_decay)
         BV.settings.update_bc_sides(bc_left, bc_right)
@@ -1428,7 +1431,8 @@ for watershed_name in watershed_names[:]:
 # vers = 'v4'
 # vers = 'v5'
 # vers = 'v6'
-vers = 'v7'
+# vers = 'v7'
+vers = 'v8'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -1453,6 +1457,8 @@ dfs['1/K_decay'][dfs['1/K_decay'] == np.inf] = 0
 dfs.to_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
 
 #%% DICHOTOMY - GRAPH K
+
+iD_explo = 'e15'
 
 dfp = dfs.copy()
 
@@ -1742,7 +1748,9 @@ shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_osm_points.shp')
 # if vers == 'v6':
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-if vers == 'v7':
+# if vers == 'v7':
+#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
+if vers == 'v8':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
 
 
@@ -1794,11 +1802,16 @@ for index, row in dfz.iterrows():
 # iD_explo = 'e9' # with isba recharge       ==> np n_decay but compartimentalized for K and poro ==> one model
 # iD_explo = 'e10' # with isba recharge       ==> np n_decay but compartimentalized for K and poro ==> one model
 # iD_explo = 'e12' # with isba recharge       ==> change ss
-iD_explo = 'e14' # with isba recharge       ==> change ss with decay factor =2
+# iD_explo = 'e14' # with isba recharge       ==> change ss with decay factor =2
+# iD_explo = 'o14' # with isba recharge       ==> change ss with decay factor =2 with ss linked : one model
+# iD_explo = 'o15' # with isba recharge       ==> idem o14 : compartimentalized
+# iD_explo = 'o16' # with SIM2               ==> idem o14 : compartimentalized
+iD_explo = 'e15' # with isba recharge       ==> change ss with decay factor =2
 
 decay_factor = 2
 
-vers = 'v7'
+# vers = 'v7' # dichotomy isba
+vers = 'v8' # dicotohomy sim2
 
 box = True # or False
 sink_fill = False # or True
@@ -1844,8 +1857,8 @@ BV.settings.update_simulation_state(sim_state)
 thick = 30 # if bottom is None, aquifer thickness
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 
-# recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
-recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
 # recharge = select_period(recharge, 2021, 2021)
 recharge_w_res = recharge.resample('W', label='right').mean()
 recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
@@ -1853,10 +1866,10 @@ recharge_w_int = recharge.interpolate()[::7]
 recharge_w_sli = recharge.groupby(np.arange(len(recharge))//7).mean()
 recharge_w_sli.index = recharge_w_off.iloc[:-1].index
 # recharge_w_sli.index = recharge_w_off.iloc[:].index
-recharge_w_sli = recharge_w_sli.iloc[:-1]
+# recharge_w_sli = recharge_w_sli.iloc[:-1]
 
-# runoff = (sim2['RUNC_Q'] * norm_factor) / 1000 # mm/d to m/d
-runoff = (isba['RUN_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+runoff = (sim2['RUNC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# runoff = (isba['RUN_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
 # runoff = select_period(runoff, 2021, 2021)
 runoff_w_res = runoff.resample('W', label='right').mean()
 runoff_w_off = runoff.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
@@ -1864,7 +1877,7 @@ runoff_w_int = runoff.interpolate()[::7]
 runoff_w_sli = runoff.groupby(np.arange(len(runoff))//7).mean()
 runoff_w_sli.index = runoff_w_off.iloc[:-1].index
 # runoff_w_sli.index = runoff_w_off.iloc[:].index
-runoff_w_sli = runoff_w_sli.iloc[:-1]
+# runoff_w_sli = runoff_w_sli.iloc[:-1]
 
 BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
 BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
@@ -1908,17 +1921,14 @@ df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.cs
 list_cond_decay = list_cond_decay
 list_bottom = list_bottom
 list_koptim = df_optim['K']
-list_porosity = np.array([0.1, 0.5, 1, 2, 4, 8, 16])/100
 list_kroptim = df_optim['KR']
 
 # Test compartimentalized porosity
-# BV.hydraulic.update_poro_vertical([ [0.5/100, [0,30]] ])
-# list_porosity = [0]
+# BV.hydraulic.update_poro_vertical([ [1/100, [0,15]] ])
+# list_porosity = [0.1/100]
  
-# list_koptim = [2.96e-6]
-# BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,30]] ])
-
-BV.hydraulic.update_ss(0)
+# list_koptim = [4.82e-6]
+# BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,20]] ])
 
 #%% PRO PREPROCESSING
 
@@ -1935,26 +1945,31 @@ run_model = True
 #                                                                             list_koptim[:1],
 #                                                                             list_id_mod[:1],
 #                                                                             list_kroptim[:1]):
-# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
-#                                                                             list_bottom[:],
-#                                                                             list_koptim[:],
-#                                                                             list_id_mod[:],
-#                                                                             list_kroptim[:]):    
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
+                                                                            list_bottom[4:5],
+                                                                            list_koptim[4:5],
+                                                                            list_id_mod[4:5],
+                                                                            list_kroptim[4:5]):    
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[2:3],
 #                                                                             list_bottom[2:3],
 #                                                                             list_koptim[2:3],
 #                                                                             list_id_mod[2:3],
 #                                                                             list_kroptim[2:3]):
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
-                                                                            list_bottom[:],
-                                                                            list_koptim[:],
-                                                                            list_id_mod[:],
-                                                                            list_kroptim[:]):
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[3:4],
+#                                                                             list_bottom[3:4],
+#                                                                             list_koptim[3:4],
+#                                                                             list_id_mod[3:4],
+#                                                                             list_kroptim[3:4]):
 # for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[-1:],
 #                                                                             list_bottom[-1:],
 #                                                                             list_koptim[-1:],
 #                                                                             list_id_mod[-1:],
-#                                                                             list_kroptim[-1:]):  
+#                                                                             list_kroptim[-1:]):
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip([0],
+#                                                                             [0],
+#                                                                             [4.82e-6/1000],
+#                                                                             [3],
+#                                                                             [1]):  
     # print(id_mod_val)
     # print(kroptim_val)
     # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
@@ -1969,19 +1984,30 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     # BV.hydraulic.update_hyd_cond(koptim_from_kr)
     BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
     # BV.hydraulic.update_poro_decay(0)
+    BV.hydraulic.update_ss_decay(cond_decay_val/decay_factor)
     
     dictio = {}
     
     list_model_name = []
     list_model_success = []
     list_model_modflow = []
-        
+    
+    if id_mod_val in [0,2,3,4,5,6]:
+        list_porosity = np.array([0.1,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,2,4,8,16])/100
+    else:
+        list_porosity = np.array([0.1,0.5,1,2,4,8,16])/100
+
     # for ip, poro_val in enumerate(list_porosity[-1:]):
     for ip, poro_val in enumerate(list_porosity[:]):
         
         BV.hydraulic.update_porosity(poro_val)
         
-        if id_mod_val <=1 :
+        Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
+        # print(Ss_formula)
+
+        BV.hydraulic.update_ss(Ss_formula)
+        
+        if cond_decay_val == 0 :
             str_cond_decay = cond_decay_val
             str_poro_decay = cond_decay_val/decay_factor
         else:
@@ -1998,7 +2024,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
         model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
                      str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
                      str(ip)+'_'+\
-                     str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))
+                     str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))+'-'+str("{:.2e}".format(Ss_formula))
         
         print(model_name)
         
@@ -2025,7 +2051,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
 
 delete_files = False
 
-for id_mod_val in list_id_mod[:]:
+for id_mod_val in list_id_mod[4:5]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -2123,6 +2149,8 @@ for id_mod_val in list_id_mod[:]:
         
 #%% STREAMFLOW CHRONICS
 
+# iD_explo = 'e14'
+
 CRIT = 'RMSE'
 
 init_path = data_path + '_Q/'
@@ -2131,6 +2159,7 @@ Qobs_list =[
              'lasset_Q_Day.Cmd.txt',
              # 'truites_Q_Day.Cmd.txt'
             ]
+Qobs_name = Qobs_list[0]
 
 couleurs = ['navy','darkviolet']
 areas = [3.7,
@@ -2160,7 +2189,7 @@ for w, w_name in enumerate(['Lasset'][:]):
 
     i = 0
 
-    for id_mod_val in list_id_mod[:]:
+    for id_mod_val in list_id_mod[4:5]:
     
         h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
         d = dd.io.load(h5file)
@@ -2174,6 +2203,7 @@ for w, w_name in enumerate(['Lasset'][:]):
             
             Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                index_col='date', parse_dates=True)
+            # Smod.index = recharge_w_sli.index()
             
             r = runoff_w_sli.copy()
             Qmod = Smod['outflow_drain'] + r*1 # m/day
@@ -2254,8 +2284,8 @@ for w, w_name in enumerate(['Lasset'][:]):
         
             ax = a0
             ax.plot(Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
-            ax.plot(Qmod, color='darkorange', lw=1, label='Simulated')
-            ax.plot(Qmod-(r*1000), color='red', lw=1, label='Simulated')
+            ax.plot(Qmod, color='red', lw=1, label='Simulated')
+            # ax.plot(Qmod-(r*1000), color='forestgreen', lw=0.5, label='Simulated')
             ax.set_xlabel('Date')
             ax.set_ylabel('Q [mm/d]')
             ax.set_yscale('log')
@@ -2311,7 +2341,7 @@ for w, w_name in enumerate(['Lasset'][:]):
             #             'STREAMFLOW_'+model_name+'.png'),
             #             bbox_inches='tight')
             
-            plt.close()
+            # plt.close()
             
             # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'Q_'+model_name+'.png',
             #             bbox_inches='tight')
@@ -2694,8 +2724,9 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
 #%% CROSS SECTIONS PLOT
 
 iD_explo = 'e14'
+iD_explo = 'o15'
 
-for id_mod_val in list_id_mod[:]:
+for id_mod_val in list_id_mod[3:4]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -2796,8 +2827,8 @@ for id_mod_val in list_id_mod[:]:
             
             # fig.savefig(fig_path+'cross_section_'+model_name+'.png', dpi=300, bbox_inches='tight')
             
-            fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'CS_'+model_name+'.png',
-                        bbox_inches='tight')
+            # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'CS_'+model_name+'.png',
+            #             bbox_inches='tight')
         
 #%% GRAPH DECAY COND
 
