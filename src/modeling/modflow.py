@@ -63,7 +63,7 @@ class Modflow:
                  ss: float=1e-5,
                  poro_decay: float=0., 
                  # Boundary settings
-                 sea_level: float=None, bc_left: float=None, bc_right: float=None):
+                 sea_level=None, bc_left: float=None, bc_right: float=None):
         """
         Initialize method.
 
