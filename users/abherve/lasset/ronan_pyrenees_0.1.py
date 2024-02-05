@@ -185,22 +185,30 @@ driaseau.driaseau_extract_values(data_folder, list_of_paths, df)
 #              'rsdsAdjust',
 #              'FAO',
 #              'Hg0175']
-"""     
+   
 # BV.add_driaseau('D:/Users/abherve/DRIAS_EAU/', list_models=['Model_01'], list_vars=['DRAINC']) # 'all'
 BV.add_driasclimat('H:/SURFEX_CLIMATE_DATA/DRIAS_CLIMAT/',
-                   list_models=['all'],
-                   list_vars=['prtotAdjust',
-                              'prsnAdjust',
-                              'tasAdjust',
-                              'tasmaxAdjust',
-                              'tasminAdjust',
-                              'hussAdjust',
-                              'sfcWindAdjust',
-                              'rldsAdjust',
-                              'rsdsAdjust',
-                              'FAO', # # 'FAO' at the end
-                              'Hg0175']) # 'all'
-"""
+                   # list_models=['all'],
+                    # list_models=['Model_02'],
+                    list_models=['Model_03','Model_04','Model_05','Model_06',
+                                 'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12'],
+                    list_vars=['prtotAdjust',
+                               'prsnAdjust',
+                               'tasAdjust',
+                               'tasmaxAdjust',
+                               'tasminAdjust',
+                               'hussAdjust',
+                               'sfcWindAdjust',
+                               'rldsAdjust',
+                               'rsdsAdjust',
+                               'FAO', # # 'FAO' at the end
+                               'Hg0175']
+                   # list_vars=['rldsAdjust',
+                   #            'rsdsAdjust',
+                   #            'FAO', # # 'FAO' at the end
+                   #            'Hg0175']
+                   ) # 'all'
+                  
 #%% PROJECTION DRIAS EAU
 """
 df = pd.DataFrame()

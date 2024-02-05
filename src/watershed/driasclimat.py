@@ -106,20 +106,25 @@ class Driasclimat:
             
         print(list_models)
         print(list_vars)
-        
+
         for model in list_models:
             models_path = glob.glob(os.path.join(driasclimat_path, model +'*'))
             for model in models_path:
                 print('     '+model)
                 for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
-                    if (var != 'FAO') | (var != 'Hg0175'):
+                    if (var != 'FAO') & (var != 'Hg0175'):
                         files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
                     else:
                         files_path = glob.glob(model + '/' + '*' + var + '.nc') # 'QGIS.nc'
-                    for en, file_path in enumerate(files_path):
-                        if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
-                            print('          '+file_path)
-                            self.clip_netcdf(data_folder, file_path, watershed_shp, var)
+                    print(files_path)
+                    try:
+                        for en, file_path in enumerate(files_path):
+                            if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
+                                print('          '+file_path)
+                                self.clip_netcdf(data_folder, file_path, watershed_shp, var)
+                    except:
+                        print('NOT FOUND : '+model+'  -  '+var)
+                        pass
     
         # self.extract_values(data_folder, df)
     
@@ -137,23 +142,26 @@ class Driasclimat:
             ds.load()
         # ds.sel(x = 76000, y = 2273000)
         
-        # Comme les latitudes sont fausses, il vaut mieux les supprimer :
-        ds = ds.drop('lon')
-        ds = ds.drop('lat')
-        # Créer les coordonnées 'x' et 'y' à partir de i et j
-        ds = ds.assign_coords(
-            x = ('i', 52000 + ds.i.values*8000))
-        ds = ds.assign_coords(
-            y = ('j', 1609000 + ds.j.values*8000))
-        # Remplacer i et j par x et y comme coordonnées
-        ds = ds.swap_dims(i = 'x', j = 'y')
-        # Ajouter les attributs standards
-        ds.x.attrs = {'standard_name': 'projection_x_coordinate',
-                            'long_name': 'x coordinate of projection',
-                            'units': 'Meter'}
-        ds.y.attrs = {'standard_name': 'projection_y_coordinate',
-                            'long_name': 'y coordinate of projection',
-                            'units': 'Meter'}
+        try:
+            # Comme les latitudes sont fausses, il vaut mieux les supprimer :
+            ds = ds.drop('lon')
+            ds = ds.drop('lat')
+            # Créer les coordonnées 'x' et 'y' à partir de i et j
+            ds = ds.assign_coords(
+                x = ('i', 52000 + ds.i.values*8000))
+            ds = ds.assign_coords(
+                y = ('j', 1609000 + ds.j.values*8000))
+            # Remplacer i et j par x et y comme coordonnées
+            ds = ds.swap_dims(i = 'x', j = 'y')
+            # Ajouter les attributs standards
+            ds.x.attrs = {'standard_name': 'projection_x_coordinate',
+                                'long_name': 'x coordinate of projection',
+                                'units': 'Meter'}
+            ds.y.attrs = {'standard_name': 'projection_y_coordinate',
+                                'long_name': 'y coordinate of projection',
+                                'units': 'Meter'}
+        except:
+            pass
         
         ds.rio.write_crs("epsg:27572", inplace = True)
    
@@ -170,14 +178,17 @@ class Driasclimat:
                 
         outfile_path = os.path.join(data_folder, path_qgis.split('\\')[-1])
         
-        # if (var == 'tasAdjust') | (var == 'prtotAdjust') :
-        clipped_ds.lat.attrs['missing_value'] = np.nan
-        clipped_ds.lon.attrs['missing_value'] = np.nan
-        # del clipped_ds.lat.attrs['_FillValue']
-        clipped_ds['lat'] = clipped_ds['lat'].where(pd.notnull(clipped_ds['lat']), -9999).astype('int32')
-        clipped_ds['lon'] = clipped_ds['lon'].where(pd.notnull(clipped_ds['lon']), -9999).astype('int32')
-        # del clipped_ds.lon.attrs['_FillValue']
-        
+        try:
+            # if (var == 'tasAdjust') | (var == 'prtotAdjust') :
+            clipped_ds.lat.attrs['missing_value'] = np.nan
+            clipped_ds.lon.attrs['missing_value'] = np.nan
+            # del clipped_ds.lat.attrs['_FillValue']
+            clipped_ds['lat'] = clipped_ds['lat'].where(pd.notnull(clipped_ds['lat']), -9999).astype('int32')
+            clipped_ds['lon'] = clipped_ds['lon'].where(pd.notnull(clipped_ds['lon']), -9999).astype('int32')
+            # del clipped_ds.lon.attrs['_FillValue']
+        except:
+            pass
+            
         clipped_ds.to_netcdf(outfile_path)
         
         del clipped_ds

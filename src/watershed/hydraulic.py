@@ -42,6 +42,7 @@ class Hydraulic:
                  bottom_init: float=None,
                  cond_decay_init: float=0.,
                  poro_decay_init: float=0.,
+                 ss_decay_init: float=0.,
                  lay_decay_init: float=1.,
                  verti_cond_init=None,
                  verti_poro_init=None):
@@ -81,7 +82,10 @@ class Hydraulic:
             Ratio to modify the hydraulic conductivity exponentially decreasing whit depth. The default is 0.
         poro_decay_init : float, optional
             Initial value.
-            Ratio to modify the porosity exponentially decreasing whit depth. The default is 0.
+            Ratio to modify the porosity (specific yield : sy) exponentially decreasing whit depth. The default is 0.
+        ss_decay_init : float, optional
+            Initial value.
+            Ratio to modify the porosity (specific storage : ss) exponentially decreasing whit depth. The default is 0.
         lay_decay_init : float, optional
             Initial value.
             Modify vertical layer thickness exponentially decreasing whit depth. The default is 1.
@@ -105,6 +109,7 @@ class Hydraulic:
         self.bottom = bottom_init
         self.cond_decay = cond_decay_init
         self.poro_decay = poro_decay_init
+        self.ss_decay = ss_decay_init
         self.lay_decay = lay_decay_init
             
     #%% UPDATE LATERAL HOMOGENEOUS
@@ -179,11 +184,22 @@ class Hydraulic:
         Parameters
         ----------
         poro_decay_value : float
-            Exponential decay ratio of porosity.
+            Exponential decay ratio of porosity (specific storage : sy).
             For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
             Sy = Sy0 * np.exp(-poro_decay_value*z)
         """
         self.poro_decay =  poro_decay_value    
+    
+    def update_ss_decay(self, ss_decay_value: float):
+        """
+        Parameters
+        ----------
+        ss_decay_value : float
+            Exponential decay ratio of porosity (specific storage : ss).
+            For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
+            Sy = Sy0 * np.exp(-poro_decay_value*z)
+        """
+        self.ss_decay =  ss_decay_value    
     
     def update_lay_decay(self, lay_decay_value: float):
         """

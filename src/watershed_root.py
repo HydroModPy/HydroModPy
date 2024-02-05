@@ -350,7 +350,7 @@ class Watershed:
         """
         self.driasclimat_path = driasclimat_path
         self.driasclimat = driasclimat.Driasclimat(out_path=self.watershed_folder,
-                                          driaseau_path=self.driasclimat_path,
+                                          driasclimat_path=self.driasclimat_path,
                                           watershed_shp=self.geographic.watershed_shp,
                                           list_models=list_models, 
                                           list_vars=list_vars)
@@ -607,6 +607,7 @@ class Watershed:
                                         porosity=self.hydraulic.porosity,
                                         ss=self.hydraulic.ss,
                                         poro_decay=self.hydraulic.poro_decay,
+                                        ss_decay=self.hydraulic.ss_decay,
                                         # Boundary settings
                                         sea_level=self.oceanic.MSL,
                                         bc_left=self.settings.bc_left, 
