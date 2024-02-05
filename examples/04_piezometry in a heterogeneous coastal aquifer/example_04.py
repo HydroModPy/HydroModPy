@@ -102,6 +102,7 @@ data_path = example_path + "data/"
 # out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
 # out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+
 #%% ---- WATERSHED
 
 #%% OPTIONS
@@ -343,28 +344,52 @@ if success_modflow == True:
 
 #%% SIMULATED VS OBSERVED PIEZOMETRY
 
+dem_data = BV.geographic.dem_clip
+
 watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
                                             '_postprocess', 'watertable_elevation.npy'),
                                allow_pickle=True).item()
 
-sim_piezo = []
+sim_piezo_elev = []
 for t in range(len(watertable_elevation)):
-    sim_piezo.append(watertable_elevation[t][[30],[30]][0]) #[BV.piezometry.y_iloc, BV.piezometry.x_iloc]
+    sim_piezo_elev.append(watertable_elevation[t][[30],[30]][0]) #[BV.piezometry.y_iloc, BV.piezometry.x_iloc]
+df_simobs_piezo_elev = piezo_2016.copy()
+df_simobs_piezo_elev.insert(1, "Sim", sim_piezo_elev)
 
-df_simobs_piezo = piezo_2016.copy()
-df_simobs_piezo.insert(1, "Sim", sim_piezo)
+watertable_depth = np.load(os.path.join(simulations_folder, 'default',
+                                            '_postprocess', 'watertable_depth.npy'),
+                               allow_pickle=True).item()
+sim_piezo_depth = []
+for t in range(len(watertable_depth)):
+    sim_piezo_depth.append(watertable_depth[t][[30],[30]][0]) #[BV.piezometry.y_iloc, BV.piezometry.x_iloc]
+df_simobs_piezo_depth = piezo_2016.copy()
+df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-fig, ax = plt.subplots(1,1, figsize=(7,4), sharex=True)
-ax.plot(df_simobs_piezo.NGF, label='Observed', color='k', lw=2)
-ax.plot(df_simobs_piezo.Sim, label='Simulated', color='red', lw=2)
+fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
+axs = axs.ravel()
+
+ax = axs[0]
+ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
 years_maj = mdates.YearLocator()   # every year
 months_maj = mdates.MonthLocator()  # every x month
 ax.xaxis.set_major_locator(years_maj)
 ax.xaxis.set_minor_locator(months_maj)
 ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Watertable elevation [m]')
-ax.set_xlabel('Date')
-ax.set_xlim(pd.to_datetime('2015-12'), pd.to_datetime('2017-02'))
-# ax.set_ylim(0, 12)
+ax.set_ylabel('Elevation [m]')
+ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
+ax.set_title('Watertable')
+
+ax = axs[1]
+ax.axhline(dem_data[30,30], label='Topography', color='brown', lw=2)
+ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.legend(loc='upper right', fontsize=8)
+ax.set_ylabel('Depth [m]')
+ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
 
 #%% ---- NOTES
