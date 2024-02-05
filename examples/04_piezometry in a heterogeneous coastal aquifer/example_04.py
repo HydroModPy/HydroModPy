@@ -100,8 +100,8 @@ example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aq
 data_path = example_path + "data/"
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
 # out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
-out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
-
+# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
+out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 #%% ---- WATERSHED
 
 #%% OPTIONS
@@ -245,8 +245,8 @@ ax.legend()
 # sea_lev_df_fill = SHOM_df.fillna(SHOM_df.mean())
 # sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
 # plt.plot(sea_lev)
-
-BV.oceanic.update_MSL(sea_lev)
+sea_level[0] = np.mean(sea_level)
+BV.oceanic.update_MSL(sea_level)
 
 #%% ---- PARAMETRIZATION
 
@@ -318,6 +318,8 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 
 #%% MODFLOW
 
+# BV.climatic.update_first_clim('first')
+
 model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
@@ -347,7 +349,7 @@ watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
 
 sim_piezo = []
 for t in range(len(watertable_elevation)):
-    sim_piezo.append(watertable_elevation[t][BV.piezometry.x_iloc, BV.piezometry.y_iloc][0])
+    sim_piezo.append(watertable_elevation[t][[30],[30]][0]) #[BV.piezometry.y_iloc, BV.piezometry.x_iloc]
 
 df_simobs_piezo = piezo_2016.copy()
 df_simobs_piezo.insert(1, "Sim", sim_piezo)
@@ -363,6 +365,6 @@ ax.legend(loc='upper right', fontsize=8)
 ax.set_ylabel('Watertable elevation [m]')
 ax.set_xlabel('Date')
 ax.set_xlim(pd.to_datetime('2015-12'), pd.to_datetime('2017-02'))
-ax.set_ylim(0, 12)
+# ax.set_ylim(0, 12)
 
 #%% ---- NOTES
