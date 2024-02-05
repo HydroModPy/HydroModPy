@@ -70,10 +70,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-out_path = folder_root.root_folder_results()
+#out_path = folder_root.root_folder_results()
 #out_path = 'D:/results'
 #out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
-#out_path = '/home/agauvain/Documents/HydroModPy/'
+out_path = '/home/agauvain/Documents/HydroModPy/'
 #out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
@@ -160,7 +160,7 @@ if from_dem == None:
     BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/')
+    #BV.add_subbasin(data_path+'additional/')
 
 # General plot of the study site
 if from_dem == None:
