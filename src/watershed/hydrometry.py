@@ -23,10 +23,25 @@ wbt.verbose = False
 #%% CLASS
 
 class Hydrometry:
+    """
+    Add hydrometry data in the watershed object.
+    """
     
-    #%%INIT
-    
-    def __init__(self, out_path, hydrometry_path, file_name, geographic):
+    def __init__(self, out_path: str, hydrometry_path: str, file_name: str, geographic: object):
+        """
+        Parameters
+        ----------
+        out_path : str
+            Path of the HydroModPy outputs.
+        hydrometry_path : str
+            Path of the folder with the hydrometry data.
+        file_name : str
+            Shapefile name of hydrometric station.
+            Function for a specific vector at the France scale.
+        geographic : object
+            Variable object of the model domain (watershed).
+        """
+        
         print('Extract hydrometry from specific data')
         
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
@@ -52,6 +67,14 @@ class Hydrometry:
             pass
     
     def extract_hydrometry_from_watershed(self, data_folder, hydrometry_path, file_name, geographic):
+        """
+        Clip hydrometric stations at the watershed scale (model domain).
+        
+        Parameters
+        ----------
+        data_folder : str
+            Path of stable results for hydrometry.
+        """
         hydrometric_data = os.path.join(hydrometry_path, file_name)
         self.hydrometric_clip = os.path.join(data_folder, file_name)
         wbt.clip(hydrometric_data, geographic.watershed_shp, self.hydrometric_clip)

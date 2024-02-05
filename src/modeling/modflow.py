@@ -40,6 +40,7 @@ from tools import toolbox
 from modeling import downslope
 
 #%% CLASS
+
 class Modflow:
     """
     Class Modflow.
@@ -47,20 +48,22 @@ class Modflow:
     To build, run the hydrologic model and manage/format simulation outputs.
     """
     
-    def __init__(self,geographic: object,
+    def __init__(self, geographic: object,
                  # Worflow settings
-                 model_folder: str = 'HydroModPy_outputs',  model_name: str = 'Default', 
-                 bin_path: str = 'bin', box: bool = True, sink_fill: bool = False, sim_state: str = 'steady', 
-                 plot_cross: bool = True, 
+                 model_folder: str='HydroModPy_outputs',  model_name: str='Default', 
+                 bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
+                 plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, first_clim: str = 'mean', 
+                 climatic=0.001, first_clim: str='mean', 
                  # Hydraulic settings
-                 nlay: int = 1, lay_decay: float = 1., bottom: float = None, 
-                 thick: float = 100., hyd_cond = 0.0864, cond_decay: float = 0., 
-                 verti_cond = None, cond_drain: float = None, porosity = 0.1, 
-                 poro_decay: float = 0., 
+                 nlay: int=1, lay_decay: float=1., bottom: float=None, 
+                 thick: float=100., hyd_cond=0.0864, cond_decay: float=0., 
+                 verti_cond=None, verti_poro=None,
+                 cond_drain: float=None, porosity: float=0.1,
+                 ss: float=1e-5,
+                 poro_decay: float=0., 
                  # Boundary settings
-                 sea_level: float = None, bc_left: float = None, bc_right: float = None):
+                 sea_level: float=None, bc_left: float=None, bc_right: float=None):
         """
         Initialize method.
 
@@ -100,10 +103,14 @@ class Modflow:
             Modification of hydraulic conductivity for exponentially decreasing whit depth. The default is 0..
         verti_cond : list, optional
             Depth-dependent hydraulic conductivity. The default is None.
+        verti_poro : list, optional
+            Depth-dependent porosity. The default is None.
         cond_drain : float, optional
             Fixe the conductance value of the drainage package. The default is None.
         porosity : float or 2D float, optional
             Fixe the porosity value. The default is 0.1.
+        ss : float or 2D float, optional
+            Fixe the specifc storage value. Activate for confined layers. The default is 1e-5 (1/day).
         poro_decay : float, optional
             Modification of porosity for exponentially decreasing whit depth. The default is 0..
         sea_level : float, optional
@@ -112,8 +119,8 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
-
         """
+        
         #%% Initialization
         
         self.model_folder = model_folder
@@ -157,8 +164,11 @@ class Modflow:
             self.dem_path = geographic.watershed_buff_dem
         self.dem[self.dem<=-9999] = -9999
         self.dem[self.dem>=9999] = -9999
-        if self.sea_level == None:
-            self.dem[(self.dem<0)&(self.dem>-200)] = 0
+        try:
+            if self.sea_level == None:
+                self.dem[(self.dem<0)&(self.dem>-200)] = 0
+        except:
+            pass
         # Discretization: by default, the number of rows and columns is the DEM discretization
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
@@ -181,9 +191,11 @@ class Modflow:
         self.hyd_cond = hyd_cond
         self.cond_decay = cond_decay
         self.porosity = porosity
+        self.ss = ss
         self.poro_decay = poro_decay
         
         self.verti_cond = verti_cond
+        self.verti_poro = verti_poro
         self.cond_drain = cond_drain
         
         #%% Specific modifications
@@ -236,8 +248,8 @@ class Modflow:
             self.nstp = [1]             # Steps in a given period (not used here)
             self.steady = True          # Steady state
             self.start_datetime = None
-        if self.sim_state == 'transient':
             
+        if self.sim_state == 'transient':
             # Transient state
             if isinstance(self.climatic,(dict))==True:
                 self.start_datetime = 0 
@@ -275,7 +287,7 @@ class Modflow:
                     self.bottom_layer = self.bottom
                     self.bottom_layer[self.dem<=-9999]=-9999
         
-        # Modification of layer thickness for exponentially decreasing hydraulic conductivity cases
+        # Modification of layer thickness exponentially
         if self.lay_decay != 1.:
             exp_scale = 1-self.lay_decay**self.nlay
     
@@ -373,7 +385,8 @@ class Modflow:
             self.hk *= np.exp(-self.cond_decay*depth)
         
         self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
-        
+        self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss
+            
         if self.poro_decay != 0.:
             # print('DECAY EXPO POROSITY')
             depth = np.zeros(self.ps.shape)
@@ -398,7 +411,22 @@ class Modflow:
                     mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
                     self.hk[i][mask] = k_val
                     # print(k_val)
-                       
+        
+        # Depth-dependent porosity (disconnected from the vertical discretization)
+        if self.verti_poro != None:
+            for j in range(len(self.verti_poro)):
+                # print('j', j)
+                for i in range(len(self.zbot)):
+                    # print('i', i)
+                    sy_val = self.verti_poro[j][0]
+                    d1 = self.verti_poro[j][1][0]
+                    d2 = self.verti_poro[j][1][1]
+                    poro_d1 = (self.dem - d1)
+                    poro_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
+                    self.ps[i][mask] = sy_val
+                    # print(k_val)            
+        
         # Lateral heterogeneity of hk ?
         # for i in range(0,len(self.number_structure)):
         #     for j in range(0,nlay):
@@ -407,6 +435,7 @@ class Modflow:
         self.upw = flopy.modflow.ModflowUpw(self.mf, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk, sy=self.ps,
+                                            ss=self.ss,
                                             iphdry=1, hdry=-100, vka=1, noparcheck=False,
                                             extension='upw', unitnumber=31)
         
@@ -468,7 +497,7 @@ class Modflow:
                             self.rchData[kper] = self.climatic.iloc[0]
                         if isinstance(self.first_clim,(int,float)):
                             # Imposed value (if steady state: just one value)
-                            self.rchData[kper] = self.init_rech
+                            self.rchData[kper] = self.first_clim
                     else:
                         # More flexibility in the possible format of the climatic chronicles 
                         # Should only be used exceptionnaly (pandas series recommended)
@@ -596,6 +625,7 @@ class Modflow:
         return success_model
         
     #%% POST-PROCESSING
+    
     def post_processing(self, model_modflow:object,
                         watertable_elevation:bool=True,
                         watertable_depth:bool=True, 
@@ -605,7 +635,9 @@ class Modflow:
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
                         persistency_index:bool=False,
-                        intermittency_yearly:bool=False,
+                        intermittency_monthly:bool=False,
+                        intermittency_weekly:bool=False,
+                        intermittency_daily:bool=False,
                         export_all_tif:bool=False):
         """
         Create outputs files.
@@ -630,8 +662,12 @@ class Modflow:
             Write accumulation flux outputs. The default is True.
         persistency_index : bool, optional
             Write persistency index outputs. The default is False.
-        intermittency_yearly : bool, optional
-            Write intermittency yearly outputs. The default is False.
+        intermittency_monthly : bool, optional
+            Write intermittency monthly outputs. The default is False.
+        intermittency_weekly : bool, optional
+            Write intermittency weekly outputs. The default is False.
+        intermittency_daily : bool, optional
+            Write intermittency daily outputs. The default is False.
         export_all_tif : bool, optional
             Write all files .tif at each time step. The default is False.
 
@@ -696,7 +732,9 @@ class Modflow:
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
-        self.dict_intermittency_yearly = {}
+        self.dict_intermittency_monthly = {}
+        self.dict_intermittency_weekly = {}
+        self.dict_intermittency_daily = {}
         self.list_traces = []
         
         # Loop over times, fills each of the previous structures 
@@ -856,7 +894,8 @@ class Modflow:
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
             for key in range(len(acc_npy)):
-                mask = imageio.imread(self.geographic.watershed_dem)
+                # mask = imageio.imread(self.geographic.watershed_dem)
+                mask = imageio.imread(self.geographic.watershed_box_buff_dem)
                 acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
             zero = acc_npy[0] * 0
             for i in range(len(acc_npy)):
@@ -873,15 +912,14 @@ class Modflow:
             # if export_tif==True:
             toolbox.export_tif(self.dem_path, pi_export, -9999, output_path)
         
-        if persistency_index == True:
             np.save(self.save_file+'/persistency_index', self.dict_persistency_index)
                     
-        if intermittency_yearly == True:
+        if intermittency_monthly == True:
             ### Intermittency yearly
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw)>12:
+            if len(acc_npy_raw)>=12:
                 inf = 0
                 sup = 12
                 step = int(round(len(acc_npy_raw)/12))
@@ -906,10 +944,10 @@ class Modflow:
                         tempo[days_flux==12] = 1
                         tempo_export = tempo.copy()
                         self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
-                        self.dict_intermittency_yearly[compt] = self.tempo
+                        self.dict_intermittency_monthly[compt] = self.tempo
                         tempo_export[interv[k]<=0] = -9999
                         tempo_export[mask<=0] = -9999
-                        output_path = self.tifs_file+'/intermittency_yearly_t('+str(compt)+').tif'
+                        output_path = self.tifs_file+'/intermittency_monthly_t('+str(compt)+').tif'
                         # if export_tif==True:
                         toolbox.export_tif(self.geographic.watershed_dem,
                                            tempo_export,
@@ -918,7 +956,92 @@ class Modflow:
                     inf+=12
                     sup+=12
                     
-            if intermittency_yearly == True:
-                np.save(self.save_file+'/intermittency_yearly', self.dict_intermittency_yearly)
-                    
+            np.save(self.save_file+'/intermittency_monthly', self.dict_intermittency_monthly)
+        
+        if intermittency_weekly == True:
+            ### Intermittency yearly
+            acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            if len(acc_npy_raw)>=52:
+                inf = 0
+                sup = 52
+                step = int(round(len(acc_npy_raw)/52))
+                compt=0            
+                for i in range(step):
+                    print('Export intermittency: '+str(i)+' / '+str((step)))
+                    interv = list(acc_npy)[inf:sup]
+                    for key in range(len(interv)):
+                        mask = imageio.imread(self.geographic.watershed_dem)
+                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                    zero = acc_npy_raw[0] * 0                
+                    for j in range(len(interv)):
+                        tempo = interv[j].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo                    
+                    days_flux = zero.copy()
+                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                    for k in range(len(interv)):
+                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                        tempo[days_flux<52] = 0
+                        tempo[days_flux==52] = 1
+                        tempo_export = tempo.copy()
+                        self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                        self.dict_intermittency_daily[compt] = self.tempo
+                        tempo_export[interv[k]<=0] = -9999
+                        tempo_export[mask<=0] = -9999
+                        output_path = self.tifs_file+'/intermittency_weekly_t('+str(compt)+').tif'
+                        # if export_tif==True:
+                        toolbox.export_tif(self.geographic.watershed_dem,
+                                           tempo_export,
+                                           -9999, output_path)
+                        compt+=1                    
+                    inf+=52
+                    sup+=52
+            np.save(self.save_file+'/intermittency_weekly', self.dict_intermittency_weekly)
+            
+        if intermittency_daily == True:
+            ### Intermittency yearly
+            acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            if len(acc_npy_raw)>=365:
+                inf = 0
+                sup = 365
+                step = int(round(len(acc_npy_raw)/365))
+                compt=0            
+                for i in range(step):
+                    print('Export intermittency: '+str(i)+' / '+str((step)))
+                    interv = list(acc_npy)[inf:sup]
+                    for key in range(len(interv)):
+                        mask = imageio.imread(self.geographic.watershed_dem)
+                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                    zero = acc_npy_raw[0] * 0                
+                    for j in range(len(interv)):
+                        tempo = interv[j].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo                    
+                    days_flux = zero.copy()
+                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                    for k in range(len(interv)):
+                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                        tempo[days_flux<365] = 0
+                        tempo[days_flux==365] = 1
+                        tempo_export = tempo.copy()
+                        self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                        self.dict_intermittency_daily[compt] = self.tempo
+                        tempo_export[interv[k]<=0] = -9999
+                        tempo_export[mask<=0] = -9999
+                        output_path = self.tifs_file+'/intermittency_daily_t('+str(compt)+').tif'
+                        # if export_tif==True:
+                        toolbox.export_tif(self.geographic.watershed_dem,
+                                           tempo_export,
+                                           -9999, output_path)
+                        compt+=1                    
+                    inf+=365
+                    sup+=365                    
+            np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
+                                
 #%% NOTES

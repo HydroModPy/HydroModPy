@@ -27,8 +27,9 @@ from tools import toolbox
 #%% CLASS 1
 
 class Functions:
-    
-    #%% INIT
+    """
+    Class with functions to create VTU/VTK files.
+    """
     
     def __init__(self, name):
         self.name = name
@@ -87,8 +88,9 @@ class Functions:
 #%% CLASS 2
 
 class VTK():
-    
-    #%% INIT
+    """
+    Class to generate VTU/VTK files from MODFLOW/MODPATH postprocessing results.
+    """
     
     def __init__(self, watershed, modelname = None):
         

@@ -26,11 +26,26 @@ wbt.verbose = False
 #%% CLASS
 
 class Intermittency:
+    """
+    Add streamflow intermittence data from specific data at France scale.
+    """
     
-    #%% INIT
-    
-    def __init__(self, out_path, intermittency_path, file_name, geographic):
+    def __init__(self, out_path: str, intermittency_path: str, file_name: str, geographic: object):
+        """
+        Parameters
+        ----------
+        out_path : str
+            Path of the HydroModPy outputs.
+        intermittency_path : str
+            Path of the folder with the intermittency data.
+        file_name : str
+            Shapefile name of hydrometric station.
+            Function for a specific vector at the France scale.
+        geographic : object
+            Variable object of the model domain (watershed).
+        """
         print('Extract intermittency from specific data')
+        
         data_folder = os.path.join(out_path,'results_stable','intermittency')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -52,6 +67,14 @@ class Intermittency:
     #%% CLIP DATA FROM A FRANCE SCALE SHAPEFILE
     
     def extract_intermittency_from_watershed(self, data_folder, intermittency_path, file_name, geographic):
+        """
+        Select the ONDE streamflow intermittence station at the model domain (watershed) scale.
+
+        Parameters
+        ----------
+        data_folder : str
+            Path of stable results for intermittency.
+        """
         onde_data = os.path.join(intermittency_path, file_name)
         self.onde_clip = os.path.join(data_folder, file_name)
         wbt.clip(onde_data, geographic.watershed_shp, self.onde_clip)
@@ -72,6 +95,9 @@ class Intermittency:
     #%% PLOT INTERMITTENCY DATA        
     
     def load_intermittency_data(self, data_folder):
+        """
+        Load and plot ONDE streamflow intermittence data.
+        """
         self.flowing = pd.DataFrame()
         shp = gpd.read_file(self.onde_clip)
         # shp =gpd.read_file("D:/Users/abherve/HYDROMODPY/Rejet/results_stable/intermittency/onde.shp")
