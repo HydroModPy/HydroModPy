@@ -28,8 +28,8 @@ wbt.verbose = False
 
 
 # Fill in the directory where Hydromodpy codes are
-root_dir = '/home/jean.marcais/Modeles/hydromodpy/HydroModpy'
-#root_dir = 'D:/Users/abherve/GITHUB/HydroModPy/'
+# root_dir = '/home/jean.marcais/Modeles/hydromodpy/HydroModpy'
+root_dir = 'D:/Users/abherve/GITHUB/HydroModPy-0.1/'
 # Add to the path the Hydromodpy directory to recognize HydroModpy functions, classes, etc.
 sys.path.append(root_dir)
 # Define the directory where the notebook is stored as the current working directory
@@ -124,8 +124,8 @@ ax.plot(from_xyv[0],from_xyv[1],'ro')
 # In[7]:
 
 
-out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
-#out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
+out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 

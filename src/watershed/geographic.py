@@ -26,6 +26,7 @@ import geopy.geocoders
 import ssl
 import certifi
 import shutil
+import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -42,26 +43,60 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% CLASS
 
 class Geographic:
-    
-    #%% INIT
-    
+    """
+    Class to initialize the model domain object (watershed).
+    """
+        
     def __init__(self,
-                 dem_path,
-                 bottom_path,
-                 cell_size,
-                 x_outlet,
-                 y_outlet,
-                 snap_dist,
-                 buff_percent,
-                 crs_proj,
-                 out_path,
-                 stable_folder,
-                 simulations_folder,
-                 from_lib,
-                 from_dem,
-                 from_shp,
-                 from_xyv):
-
+                 dem_path: str=None,
+                 bottom_path: str=None, # path
+                 cell_size: int=None,
+                 x_outlet: float=None,
+                 y_outlet: float=None,
+                 snap_dist: int=None,
+                 buff_percent: int=None,
+                 crs_proj: str=None,
+                 out_path: str=None,
+                 stable_folder: int=None,
+                 simulations_folder: int=None,
+                 from_lib: str=None,
+                 from_dem: list=None,
+                 from_shp: list=None,
+                 from_xyv: list=None):
+        """
+        Parameters
+        ----------
+        dem_path : str
+            Path of the initial Digital Elevation Model.
+        bottom_path : str, optional
+            Path of a raster representing the bottom elevation. The default is None.
+        cell_size:
+            Resolution of the DEM. To change the initial resolution
+        x_outlet:
+            x coordinate of the watershed outlet.
+        y_outlet:
+            y coordinate of the watershed outlet.
+        snap_dist:
+            Maximum distance where the outlet can be moved.
+        buffer_size:
+            buffer distance in percentage of the model domain (value in percent).
+        crs_proj : str
+            Projection label of the workflow (ex: 'EPSG:2454').
+        out_path : str
+            Path of the HydroModPy outputs.
+        stable_folder : str
+            Path of the stable results about the model domain or watershed.
+        simulations_folder : str
+            Path of the simulation results from modeling operations.
+        from_lib : str, optional
+            Path of the watershed librairies. If None : method not used. The default is None.
+        from_dem : list, optional
+            List with two parameters: [path, cell_size]
+        from_shp : list, optional
+            List of tow parameters: [path, buffer_size] 
+        from_xyv : list, optional
+            List of four parameters: [x, y, snap_distance, buffer_size]
+        """
         print('Extract geography of the model area')
                 
         self.dem_path = dem_path
@@ -81,43 +116,32 @@ class Geographic:
         self.from_xyv = from_xyv
         
         if self.from_dem != None:
-            self.model_from_dem(dem_path, cell_size, out_path)
+            self.model_from_dem()
         else:
-            self.processing(dem_path,
-                            bottom_path,
-                            cell_size,
-                            x_outlet,
-                            y_outlet,
-                            snap_dist,
-                            buff_percent,
-                            crs_proj,
-                            out_path)
+            self.processing()
         
         self.post_processing_dem()
     
     #%% GENERATE FILES
     
-    def processing(self,
-                   dem_path,
-                   bottom_path,
-                   cell_size,
-                   x_outlet,
-                   y_outlet,
-                   snap_dist,
-                   buff_percent,
-                   crs_proj,
-                   out_path):
+    def processing(self):
+        """
+        Prepare, initialize and generate files of the model domain from geospatial functions.
+        """
         
+        """
+        Initial paths
+        """
         # Recall important folders
-        self.stable_folder = os.path.join(out_path, 'results_stable')
-        self.simulations_folder = os.path.join(out_path, 'results_simulations')
+        self.stable_folder = os.path.join(self.out_path, 'results_stable')
+        self.simulations_folder = os.path.join(self.out_path, 'results_simulations')
                 
         # Generate folder where processing files are stored
-        self.gis_path = os.path.join(out_path, 'results_stable','geographic')
+        self.gis_path = os.path.join(self.out_path, 'results_stable','geographic')
         toolbox.create_folder(self.gis_path)
         
         # Generate regional folder
-        self.reg_path = os.path.join(out_path, 'results_stable','regional')
+        self.reg_path = os.path.join(self.out_path, 'results_stable','regional')
         toolbox.create_folder(self.reg_path)
         
         """
@@ -126,7 +150,7 @@ class Geographic:
         # Correction
         fill =  os.path.join(self.reg_path, 'region_fill.tif')
         # if not os.path.exists(fill):
-        wbt.breach_depressions(dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
+        wbt.breach_depressions(self.dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
         # Flow direction
         direc =  os.path.join(self.reg_path, 'region_direc.tif')
         # if not os.path.exists(direc):
@@ -144,21 +168,23 @@ class Geographic:
             watersheds=None, 
             weights=None, 
             esri_pntr=False)
-        # Correct no data
-        wbt.modify_no_data_value(dem_path, new_value='-99999.0')
+# =============================================================================
+#         # Correct no data
+#         wbt.modify_no_data_value(self.dem_path, new_value='-99999.0')
+# =============================================================================
         
         """
         Extract watershed from an outlet
         """
         if (self.from_lib != None) | (self.from_xyv != None):
             # Create outlet shapefile from x and y coordinates
-            df = pd.DataFrame({'x': [x_outlet], 'y': [y_outlet]})
-            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=crs_proj)
+            df = pd.DataFrame({'x': [self.x_outlet], 'y': [self.y_outlet]})
+            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs_proj)
             outlet_shp = os.path.join(self.gis_path, 'outlet.shp')
             gdf.to_file(outlet_shp)
             # Snap the outlet shapefile from the flow accumulation
             outlet_snap_shp = os.path.join(self.gis_path, 'outlet_snap.shp')
-            wbt.snap_pour_points(outlet_shp, acc, outlet_snap_shp, snap_dist)
+            wbt.snap_pour_points(outlet_shp, acc, outlet_snap_shp, self.snap_dist)
             # Generate raster watershed
             self.watershed = os.path.join(self.gis_path, 'watershed.tif')
             wbt.watershed(direc, outlet_snap_shp, self.watershed, esri_pntr=False)
@@ -185,9 +211,9 @@ class Geographic:
         Buffer distance operations
         """
         # Normalize initial buffer distance value
-        dem = gdal.Open(dem_path)
+        dem = gdal.Open(self.dem_path)
         geodata = dem.GetGeoTransform()
-        buff_raw = (np.sqrt(float(self.area))) * (float(buff_percent)/100) * 1000
+        buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
         buff_raw = int(round(buff_raw))
         dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
         buff_dist = dist[np.abs(dist-buff_raw).argmin()]
@@ -219,8 +245,10 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_dem = os.path.join(self.gis_path, 'watershed_buff_dem.tif')
-        wbt.clip_raster_to_polygon(dem_path, buffer, self.watershed_buff_dem,
+        wbt.clip_raster_to_polygon(self.dem_path, buffer, self.watershed_buff_dem,
                                    maintain_dimensions=False)
+        # Correct no data
+        wbt.modify_no_data_value(self.watershed_buff_dem, new_value='-99999.0')
         # Clip corrected regional DEM from buffer watershed shapefile polygon
         self.watershed_buff_fill = os.path.join(self.gis_path, 'watershed_buff_fill.tif')
         wbt.clip_raster_to_polygon(fill, buffer, self.watershed_buff_fill,
@@ -271,8 +299,10 @@ class Geographic:
         """
         # Clip raw regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_dem = os.path.join(self.gis_path, 'watershed_box_buff_dem.tif')
-        wbt.clip_raster_to_polygon(dem_path, self.box_buff, self.watershed_box_buff_dem,
+        wbt.clip_raster_to_polygon(self.dem_path, self.box_buff, self.watershed_box_buff_dem,
                                    maintain_dimensions=False)
+        # Correct no data
+        wbt.modify_no_data_value(self.watershed_box_buff_dem, new_value='-99999.0')
         # Clip corrected regional DEM from buffer box extent watershed shapefile polygon
         self.watershed_box_buff_fill = os.path.join(self.gis_path, 'watershed_box_buff_fill.tif')
         wbt.clip_raster_to_polygon(fill, self.box_buff, self.watershed_box_buff_fill,
@@ -306,15 +336,25 @@ class Geographic:
     #%% DEM FEATURES
     
     def post_processing_dem(self):
-
+        """
+        Add and/or modify the projection of generated files.
+        """
+        
         # Open DEM used for modeling
         dem = gdal.Open(self.watershed_buff_dem)
         self.dem_data = dem.GetRasterBand(1).ReadAsArray()
         self.geodata = dem.GetGeoTransform()
         dem_box = gdal.Open(self.watershed_box_buff_dem)
         self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
+        """
+        ### DELETE GDAL ###
         bv = gdal.Open(self.watershed_dem)
         self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
+        """
+        with rasterio.open(self.watershed_dem, "r+") as src:
+            # Read the data into a numpy array
+            self.dem_clip = src.read(1)
+            self.nodata = src.nodata            
         # Open DEM depressions
         try:
             dem_dep = gdal.Open(self.depressions)
@@ -358,8 +398,11 @@ class Geographic:
         try:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-            self.dep_code = int(location.address.split(',')[-2][0:3])
-        # except OSError:
+            try:
+                self.dep_code = int(location.address.split(',')[-2][0:3])
+            except:
+                pass
+        except OSError:
             # In some cases, a SSL certificate error can occur. The next two
             # lines modify the ssl_context
             ctx = ssl.create_default_context(cafile=certifi.where())
@@ -367,20 +410,25 @@ class Geographic:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
             self.dep_code = int(location.address.split(',')[-2][0:3])
-        # else:
-        except:
+        else:
+        # except:
             pass
         
     #%% XYZ FILE TO DEM
     
-    def model_from_dem(self, dem_path, cell_size, out_path):
+    def model_from_dem(self):
+        """
+        Function activated if the model domain is directly defined by a DEM.
+        Allow to build conceptual model from a conceptual raster.
+        """
+        
         # Paths
-        print(out_path)
-        self.gis_path = os.path.join(out_path, 'results_stable/geographic/')
+        print(self.out_path)
+        self.gis_path = os.path.join(self.out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
-        if (dem_path[-3:]=='txt'):
-            x = pd.read_csv(dem_path, delim_whitespace=True, header=None)
+        if (self.dem_path[-3:]=='txt'):
+            x = pd.read_csv(self.dem_path, delim_whitespace=True, header=None)
             x.to_csv(self.gis_path+'transform_xyz'+'.csv', sep=';', index=False)
             wbt.csv_points_to_vector(self.gis_path+'transform_xyz'+'.csv', 
                                      self.gis_path+'transform_xyz'+'.shp', 
@@ -391,20 +439,20 @@ class Geographic:
                                         field=2, 
                                         assign="last", 
                                         nodata=True, 
-                                        cell_size=cell_size, 
+                                        cell_size=self.cell_size, 
                                         base=None)        
             # Create the watershed dem
             self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
             shutil.copyfile(self.watershed_raw, self.watershed_dem)
         else:
             # Find crs
-            dem = gdal.Open(dem_path)
+            dem = gdal.Open(self.dem_path)
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
             print(self.crs)
             # Copy tif
             self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
-            shutil.copyfile(dem_path, self.watershed_raw)
+            shutil.copyfile(self.dem_path, self.watershed_raw)
             # Proj layer
             self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
             shutil.copyfile(self.watershed_raw, self.watershed_dem)

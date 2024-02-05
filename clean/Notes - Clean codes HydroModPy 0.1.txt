@@ -1,0 +1,29 @@
+Codes .py commented more or less quickly at least once
+
+watershed_root			: @alexandre 		- comme déjà discuté, script intéressant mais redondance des variables avec d'autres codes
+
+climatic				: @ronan 			- pas si mal mais à compléter pour rendre plus robuste
+geographic				: @ronan 			- continuer d'harmoniser la fonction, mais cette version est ok
+geology					: @alexandre 		- certaines fonctions ou variables à reprendre
+geometric				: @etienne 			- ajout de la fonction pour convertir un modèle géologique 3D en MODFLOW model
+hydraulic				: @alexandre 		- checker la seconde partie des updates, et voir si on les paramètres dans le __init__
+hydrogrpahy				: @ronan 			- not perfect but ok
+hydrometry 				: @ronan 			- not perfect but ok
+intermittency			: @ronan 			- not perfect but ok
+oceanic					: @alexandre 		- reprendre certaines fonctions
+piezometry				: @alexandre 		- contrôler et modifier au besoin
+safransurfex			: @ronan 			- fonctionnelle (vieilles fonctions)
+settings				: @ronan 			- ok mais peut-être à mieux relier à modflow/modpath
+subbasin				: @ronan 			- fonctionne mais souvent des bugs (rendre plus robuste)
+
+folder_root				: @jean-raynald		- terminée ? garder les parties commentées ?
+toolbox					: @ronan			- pas tout à garder mais fonctionnel
+
+export_vtuvtk			: @alexandre		- pas vraiment à commenter car très complexe
+visualization_results	: @alexandre		- reprendre le 3D surtout et checker si ok avec les exemples
+visualization_watershed	: @ronan			S- plutôt ok, à retester avec les exemples
+
+downslope				: @ronan			- fonctionnel, mais à reprendre si on veut plus de fluidité
+modflow					: @alexandre		- ok, mais certainnement à mixer certaines variables avec d'autres classes (e.g. hydraulic, settings, climatic)
+modpath					: @alexandre		- ok, idem que modflow
+timeseries			    : @ronan			- fonctionnel, mais à reprendre pour mieux hamroniser

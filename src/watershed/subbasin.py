@@ -36,12 +36,33 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% CLASS
 
 class Subbasin:
+    """
+    Class to extract results in some subbasins inside the model domain (watershed).
+    """
     
-    #%% INIT
-    
-    def __init__(self, geographic, hydrometry, intermittency,
-                 add_path, sub_snap_dist,
-                 out_path=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):        
+    def __init__(self,
+                 geographic: object, 
+                 hydrometry: object, 
+                 intermittency: object,
+                 add_path: str, 
+                 sub_snap_dist: int,
+                 out_path: str=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        hydrometry : object
+            Variable object of the model domain (watershed).
+        intermittency : object
+            Variable object of the model domain (watershed).
+        add_path : str
+            Path folder with manual data list.
+        sub_snap_dist : int
+            Maximum distance where the subasin outlet can be moved.
+        out_path : str
+            Path of the HydroModPy outputs.
+        """
         print('Extract subbasin from generated and added data')
         
         self.sub_snap_dist = sub_snap_dist
@@ -60,7 +81,7 @@ class Subbasin:
             y_coord = hydrometry.y_coord
             for i in range(len(code_bh)):
                 sub_path = os.path.join(self.subbasin_path, 'hydrometry_'+code_bh[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
             print('     No hydrometry subbasin or problem')
             pass
@@ -71,25 +92,35 @@ class Subbasin:
             y_coord = intermittency.y_coord
             for i in range(len(code_onde)):
                 sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path)
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
             print('     No intermittency subbasin or problem')
             pass
         
-        # try:
-        code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
-        for i in range(len(code_sub)):
-            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
-        # except:
-        #     print('     No personnal subbasins or problem')
-        #     pass
+        try:
+            code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
+            for i in range(len(code_sub)):
+                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
+        except:
+            print('     No personnal subbasins or problem')
+            pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
     # Extract sub-catchment from existing stations : hydrometry or intermittency
     
     def extract_interest_zones(self, geographic, X, Y, outpath, sub_snap_dist):
+        """
+        Generate subassin from XY outlet with geospatial tools.
+
+        Parameters
+        ----------
+        X : float
+            X coordinate of the outlet.
+        Y : float
+            Y coordinate of the outlet..
+        """
         # Path of subbasin
         if os.path.exists(outpath):
             shutil.rmtree(outpath)
@@ -132,8 +163,11 @@ class Subbasin:
     # From a .csv file with x, y coordinates representing the outlet desired sub-catchments
     
     def add_coord_manual(self, add_path):
+        """
+        Check files in folder and extract 'code_sub','x_outlet','y_outlet'
+        """
         path_coord = glob.glob(add_path+'/'+'*')[0]
-        print(path_coord)
+        # print(path_coord)
         sub_list = pd.read_csv(path_coord, sep=';')
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()

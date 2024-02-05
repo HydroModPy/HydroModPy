@@ -27,7 +27,8 @@ import pandas as pd
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import deepdish as dd
@@ -58,7 +59,7 @@ from src import watershed_root
 from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -68,9 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-# out_path = '/home/agauvain/Documents/HydroModPy/'
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
+out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP02')
+# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -117,7 +118,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/')
+    BV.add_subbasin(data_path+'additional/', 150)
 
 # General plot of the study site
 if from_dem == None:
@@ -170,6 +171,7 @@ plot_cross = False
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
 first_clim = 'mean' # or 'first or value
+freq_time = 'M'
 
 # Hydraulic settings
 nlay = 5
@@ -246,7 +248,7 @@ for hyd_cond in list_hyd_cond:
     BV.settings.update_model_name(model_name)
     print(model_name)
     
-    model_modflow = BV.preprocessing_modflow()
+    model_modflow = BV.preprocessing_modflow(for_calib=False)
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
     
     list_model_name.append(model_name)
@@ -283,12 +285,16 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   groundwater_flux = True,
                                   groundwater_storage = True,
                                   accumulation_flux = True,
+                                  persistency_index=False,
+                                  intermittency_monthly=False,
+                                  intermittency_daily=False,
                                   export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
                                                           actual_date=True, 
-                                                          subbasin_results=True) # or None
+                                                          subbasin_results=True,
+                                                          freq_time=freq_time) # or None
 
 #%% ---- PLOT
 

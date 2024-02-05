@@ -30,7 +30,8 @@ import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import rasterio
-
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
 import imageio
 
@@ -58,7 +59,7 @@ importlib.reload(src)
 # Import HydroModPy modules
 from src import watershed_root
 from src.display import visualization_results, export_vtuvtk
-from src.tools import toolbox
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -68,8 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = example_path + "data/"
-out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
-# out_path = '/home/agauvain/Documents/HydroModPy/'
+# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP05')
+out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -110,7 +112,7 @@ if case == 'Lasset':
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]
-    from_xyv = [601020,6193860,100,50, 'EPSG:2154'] # [x, y, snap distance, buffer size]
+    from_xyv = [601020,6193860,200,50,'EPSG:2154'] # [x, y, snap distance, buffer size]
     bottom_path = None # path
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
@@ -168,6 +170,7 @@ plot_cross = True
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
 first_clim = 'mean' # or 'first or value
+freq_time = 'M'
 
 # Hydraulic settings
 nlay = 20
@@ -233,7 +236,7 @@ BV.settings.update_input_particules(zone_partic=zone_partic)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -244,6 +247,9 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
+                              persistency_index=False,
+                              intermittency_monthly=False,
+                              intermittency_daily=False,
                               export_all_tif = False)
 
 #%% MODPATH
@@ -258,14 +264,15 @@ if sim_state == 'steady':
                                   starting_point=True,
                                   pathlines_shp=True,
                                   particules_shp=True,
-                                  random_id=None) # 2000
+                                  random_id=None) # None
 
 #%% TIMESERIES
 
-# timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-#                                                   model_modpath=model_modpath,
-#                                                   actual_date=True, 
-#                                                   subbasin_results=True) # or None
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath=model_modpath,
+                                                  actual_date=True, 
+                                                  subbasin_results=True,
+                                                  freq_time=freq_time) # or None
 
 #%% ---- PLOT
 
@@ -283,9 +290,9 @@ visu.visual2D(object_list = ['map','grid',
                              (None,None),(None,None),
                              (None,None),(None,None),
                              ], 
-              lines=100)
+              lines=500)
 
-#%% RAW
+#%% RAW MAP 1
 
 lead_numb = '0'
 outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
@@ -316,6 +323,44 @@ plt.tight_layout()
 
 fig.savefig(os.path.join(simulations_folder, model_name,
                             '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
+
+#%% RAW MAP 2
+
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
+
+line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+
+dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dem_data = dem_rio.read(1)
+dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
+                    cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
+
+shp_pathlines['time'] = shp_pathlines['time'] / 365
+shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.5,
+                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
+                  zorder=1)
+
+shp_endpoints['time'] = shp_endpoints['time'] / 365
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
+                 norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
+                 zorder=2)
+
+line.plot(ax=ax, color='k', lw=3)
+
+ax.set_title('Ending residence times [y]')
+
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)  
+
+fig.tight_layout()
+
+fig.savefig(os.path.join(simulations_folder, model_name,
+                            '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
 #%% CROSS
 
@@ -374,44 +419,6 @@ if case != 'Lasset':
     
     fig.savefig(os.path.join(simulations_folder, model_name,
                                 '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
-
-#%% MAP
-
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
-
-line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
-
-dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
-dem_data = dem_rio.read(1)
-dem_data = np.ma.masked_where(dem_data < 0, dem_data)
-
-fig, ax = plt.subplots(1,1, figsize=(7,5))
-
-rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
-                    cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
-
-shp_pathlines['time'] = shp_pathlines['time'] / 365
-shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.5,
-                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
-                  zorder=1)
-
-shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
-                 norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
-                 zorder=2)
-
-line.plot(ax=ax, color='k', lw=3)
-
-ax.set_title('Residence times [y]')
-
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)  
-
-fig.tight_layout()
-
-fig.savefig(os.path.join(simulations_folder, model_name,
-                            '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
 #%% ---- NOTES
 

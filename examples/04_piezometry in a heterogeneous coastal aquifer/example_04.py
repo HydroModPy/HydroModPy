@@ -43,6 +43,8 @@ import matplotlib.pylab as pl
 import matplotlib.dates as mdates
 from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # Libraries added from 'conda forge' procedure
 from osgeo import gdal, osr # or import gdal
@@ -88,7 +90,7 @@ from src import watershed_root
 from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -96,14 +98,15 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
-# out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
+out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-dem_path = data_path + "regional_dem.tif"
+dem_path = data_path + "MNT_gouville_25m.tif"
 oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
 shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'calib_zones.shp')
@@ -139,7 +142,9 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-#%% DATA
+#%% ---- DATA
+
+#%% INIT
 
 # Clip specific data at the catchment scale
 BV.add_piezometry()
@@ -149,7 +154,7 @@ BV.add_oceanic(oceanic_path)
 visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_dem(BV)
 
-#%% PIEZOMETRIC DATA
+#%% PIEZOMETRY
 
 code = '01423X0044/F4' #BSS piezometer code
 
@@ -175,9 +180,11 @@ piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
 BV.piezometry.add_data()
 BV.piezometry.display_data()
 
-#%% RECHARGE data
+#%% RECHARGE
 
 first_clim = 'mean'
+freq_time = 'D'
+
 BV.add_climatic()
 BV.climatic.update_first_clim(first_clim)
 
@@ -186,18 +193,60 @@ BV.climatic.update_recharge_reanalysis(path_file = recharge_path,
                                        clim_sce='historic',
                                        first_year=2016,
                                        last_year=2016,
-                                       time_step='D',
+                                       time_step=freq_time,
                                        sim_state='transient')
 BV.climatic.update_first_clim(first_clim)
 rec = BV.climatic.recharge
-plt.plot(rec)
 
-#%% SEA LEVEL data
+fig, ax = plt.subplots(1,1, figsize=(7,4))
+ax.plot(rec, label='recharge_reanalysis', c='dodgerblue', lw=2)
+ax.set_xlabel('Date')
+ax.set_ylabel('Recharge [mm/d]')
+plt.xticks(rotation=45, ha="right")
+ax.legend()
+
+BV.climatic.update_recharge(rec/1000, sim_state='transient')
+
+#%% SEA LEVEL
+
 sea_lev = pd.read_csv(data_path + 'sea_level.csv', header=None)
 sea_level = sea_lev[1].values.tolist()
 BV.oceanic.update_MSL(sea_level)
 sl = BV.oceanic.MSL
-plt.plot(sl)
+
+fig, ax = plt.subplots(1,1, figsize=(7,4))
+ax.plot(sl, label='sea_level', c='navy', lw=2)
+ax.set_xlabel('Days')
+ax.set_ylabel('Sea level [m.a.s.l]')
+plt.xticks(rotation=45, ha="right")
+ax.legend()
+
+# list_filenames = os.listdir(os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo'))
+# list_path = []
+# for name in list_filenames:
+#     if name.endswith('.txt') and int(name[-8:-4])>=2016 and int(name[-8:-4])<=2016:
+#         path = os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo', name)
+#         list_path.append(path)
+
+# SHOM_df_list = []
+# for m in range(len(list_path)):
+#     SHOM_data = pd.read_csv(list_path[m], sep = ";", header = 13)
+#     SHOM_df_list.append(SHOM_data)
+
+# SHOM_df_h = pd.concat(SHOM_df_list)
+# SHOM_df_h['Valeur'] = SHOM_df_h['Valeur'] + -6.289 #hydrographic zero at nearest maregraph
+# SHOM_df_h = SHOM_df_h.rename(columns={"# Date": "Date"})
+# SHOM_df_h['Date'] = pd.to_datetime(SHOM_df_h['Date'], dayfirst=True)
+# SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).max()
+# SHOM_df = SHOM_df.drop(columns=['Source'])
+# shift = SHOM_df.mean() - SHOM_df_h.Valeur.mean()
+# SHOM_df = SHOM_df - shift
+
+# sea_lev_df_fill = SHOM_df.fillna(SHOM_df.mean())
+# sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
+# plt.plot(sea_lev)
+
+BV.oceanic.update_MSL(sea_lev)
 
 #%% ---- PARAMETRIZATION
 
@@ -221,10 +270,10 @@ cond_drain = None # or value of conductance
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Lateral heterogeneity of hydrodynamic parameters
-hyd_cond_1 = 18 # m/day
-hyd_cond_2 = 50 # m/day
+hyd_cond_1 = 21.5 # m/day
+hyd_cond_2 = 19.5 # m/day
 porosity_1 = 7 / 100 # -
-porosity_2 = 18 / 100 # -
+porosity_2 = 24 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -269,7 +318,7 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -279,6 +328,41 @@ if success_modflow == True:
                               outflow_drain = True,
                               groundwater_flux = True,
                               groundwater_storage = True,
-                              accumulation_flux = True,
+                              accumulation_flux = False,
+                              persistency_index=False,
+                              intermittency_monthly=False,
+                              intermittency_daily=False,
                               export_all_tif = False)
+    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                      model_modpath=None,
+                                                      actual_date=True, 
+                                                      subbasin_results=False,
+                                                      freq_time=freq_time)
 
+#%% SIMULATED VS OBSERVED PIEZOMETRY
+
+watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
+                                            '_postprocess', 'watertable_elevation.npy'),
+                               allow_pickle=True).item()
+
+sim_piezo = []
+for t in range(len(watertable_elevation)):
+    sim_piezo.append(watertable_elevation[t][BV.piezometry.x_iloc, BV.piezometry.y_iloc][0])
+
+df_simobs_piezo = piezo_2016.copy()
+df_simobs_piezo.insert(1, "Sim", sim_piezo)
+
+fig, ax = plt.subplots(1,1, figsize=(7,4), sharex=True)
+ax.plot(df_simobs_piezo.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo.Sim, label='Simulated', color='red', lw=2)
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.legend(loc='upper right', fontsize=8)
+ax.set_ylabel('Watertable elevation [m]')
+ax.set_xlabel('Date')
+ax.set_xlim(pd.to_datetime('2015-12'), pd.to_datetime('2017-02'))
+ax.set_ylim(0, 12)
+
+#%% ---- NOTES

@@ -29,6 +29,8 @@ import pandas as pd
 import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import imageio
@@ -47,20 +49,16 @@ if not cwd == root_dir:
     os.chdir(root_dir)
     # print("Root path directory is: {0}".format(cwd))
 
-
 #%% HYDROMODPY
 
 import src
 import importlib
 importlib.reload(src)
 
-# Import tools
-from src.tools import folder_root
-
 # Import HydroModPy modules
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -70,11 +68,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-#out_path = folder_root.root_folder_results()
-#out_path = 'D:/results'
-#out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
-out_path = '/home/agauvain/Documents/HydroModPy/'
-#out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
+out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
+# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -133,7 +129,7 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -160,7 +156,7 @@ if from_dem == None:
     BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    #BV.add_subbasin(data_path+'additional/')
+    BV.add_subbasin(data_path+'additional/', 200)
 
 # General plot of the study site
 if from_dem == None:
@@ -327,6 +323,7 @@ plot_cross = True
 # Climatic settings
 recharge = R.copy()
 first_clim = 'mean' # or 'first or value
+freq_time = 'M' # or 'D'
 
 # Hydraulic settings
 nlay = 5
@@ -389,7 +386,7 @@ BV.settings.update_input_particules(zone_partic=zone_partic)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -400,6 +397,9 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
+                              persistency_index=False,
+                              intermittency_monthly=False,
+                              intermittency_daily=False,
                               export_all_tif = False)
 
 #%% MODPATH
@@ -431,7 +431,8 @@ else:
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
                                                   actual_date=True, 
-                                                  subbasin_results=subbasin_results) # or None
+                                                  subbasin_results=subbasin_results,
+                                                  freq_time=freq_time) # or None
 
 #%% ---- PLOT
 
@@ -449,10 +450,10 @@ visu.visual2D(object_list = ['map','grid',
                              (None,None),(None,None),
                              (None,None),(None,None),
                              ], 
-              lines=100)
+              lines=250)
 
 #%% 3D
-
+"""
 if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
@@ -462,20 +463,22 @@ if from_dem == None:
                                ],
                   view='south-west',
                   lines=100, cloc=(0.7,0.1))
-
+"""
 #%% RAW
 
 lead_numb = '0'
-outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/outflow_drain_t(0).tif')
+accflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
 demData = imageio.imread(BV.geographic.watershed_dem)
 demData = np.ma.masked_array(demData, mask=demData<0)
 res = BV.geographic.resolution
 
 msk_outflow = (outflow<0)
 outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
-outflow = outflow * 1000 * 365 # mm/year
-outflow = np.log10(outflow)
+outflow = ( np.ma.masked_where(outflow==0, outflow) )
+outflow = outflow  / (res**2)
+outflow = outflow * 1000 # * 365 # mm/day or mm/year
+# outflow = np.log10(outflow)
 
 from matplotlib.colors import LightSource
 ls = LightSource(azdeg=45, altdeg=45)
@@ -487,7 +490,9 @@ ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)
 im = ax.imshow(demData, alpha=0.8, cmap=cmap)
 im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='jet', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+cf=ax.imshow(outflow, cmap='jet', alpha=1,
+             # vmin=outflow.min(), vmax=1000
+             )
 try:
     cont = imageio.imread(BV.geographic.watershed_contour_tif)
     ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
@@ -498,6 +503,7 @@ divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="1%", pad=0.05)
 fig.add_axes(cax)
 cbar = fig.colorbar(im, cax=cax, orientation="vertical")
+
 val = np.ma.masked_where(demData < 0, demData)
 minVal =  int(round(np.nanmin(val[np.nonzero(val)],0)))
 maxVal =  int(round(np.nanmax(val[np.nonzero(val)],0)))
@@ -510,10 +516,11 @@ cbar.ax.tick_params(labelsize=10)
 cax = divider.new_vertical(size="2%", pad=0.05, pack_start=True)
 fig.add_axes(cax)
 cbar = fig.colorbar(cf, cax=cax, orientation="horizontal")
-ticks = np.linspace(0, outflow.max(), 5)
+ticks = np.linspace(0, 20, 5)
 cbar.set_ticks(ticks)
-cbar.set_ticklabels(ticks.round(1))
-cbar.set_label('Seepage outflow log [mm/y]')
+# cbar.set_ticklabels(ticks.round(1))
+cbar.mappable.set_clim(0, 20)
+cbar.set_label('Seepage outflow log [mm/day]')
 
 plt.tight_layout()
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'

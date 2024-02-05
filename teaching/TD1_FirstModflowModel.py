@@ -35,8 +35,8 @@ wbt.verbose = False
 
 
 # Fill in the directory where Hydromodpy codes are
-root_dir = '/home/jean.marcais/Modeles/hydromodpy/HydroModpy'
-#root_dir = 'D:/Users/abherve/GITHUB/HydroModPy/'
+# root_dir = '/home/jean.marcais/Modeles/hydromodpy/HydroModpy'
+root_dir = 'D:/Users/abherve/GITHUB/HydroModPy-0.1/'
 # Add to the path the Hydromodpy directory to recognize HydroModpy functions, classes, etc.
 sys.path.append(root_dir)
 # Define the directory where the notebook is stored as the current working directory
@@ -82,8 +82,8 @@ watershed_name = 'Glueyre'
 # In[6]:
 
 
-out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
-#out_path = 'C:/Users/ronan/Documents/SIMULATIONS/HYDROMODPY/'
+# out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
+out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
@@ -242,7 +242,7 @@ model_name = set_simulations+'_k_'+str(round(hyd_cond,3))+'_porosity_'+str(round
 BV.settings.update_model_name(model_name)
 print(model_name)
 
-model_modflow = BV.preprocessing_modflow()
+model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -253,6 +253,9 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
+                              persistency_index=False,
+                              intermittency_monthly=False,
+                              intermittency_daily=False,
                               export_all_tif = False)
 
 list_model_name.append(model_name)
@@ -305,7 +308,8 @@ visu.visual2D(object_list = ['map','grid',
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=None,
                                                   actual_date=True, 
-                                                  subbasin_results=False)
+                                                  subbasin_results=False,
+                                                  freq_time='D')
 
 
 # In[38]:

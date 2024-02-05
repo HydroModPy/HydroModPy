@@ -20,21 +20,18 @@ from scipy.optimize import curve_fit
 
 #%% CLASS
 
-class Climatic:
-
-    #%% INIT
+class Climatic:  
+    """
+    Class to initialize the climate forcing data (recharge, runoff).
+    """
     
-    def __init__(self, out_path: str = None):
+    def __init__(self, out_path: str=None):
         """
-        Class to initialize the climate forcing data (recharge, runoff).
-
         Parameters
         ----------
         out_path : str
-            Path of the HydroModPy outputs.
-            
-        """
-        
+            Path of the HydroModPy outputs. 
+        """    
         print('Init climatic module to set model parameter')
         
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
@@ -56,9 +53,7 @@ class Climatic:
             Recharge values, float or list of float.
         sim_state : str
             Select the simulation type, steady-state or transient.
-
-        """
-        
+        """   
         self.recharge = values # recharge
         if isinstance(values,(dict))==False:
             if sim_state == 'steady':
@@ -76,9 +71,7 @@ class Climatic:
             Runoff values, float or list of float.
         sim_state : str
             Select the simulation type, steady-state or transient.
-
         """
-
         self.runoff = values # recharge
         if isinstance(values,(dict))==False:
             if sim_state == 'steady':
@@ -94,15 +87,13 @@ class Climatic:
         ----------
         first_clim
             Choice between a float, the mean or the first value in the list of values.
-
         """
-
         self.first_clim = first_clim # 'mean', 'first' or value
     
     #%% UPDATE FROM CREATED SYNTHETIC DATA
     
-    def update_recharge_synthetic(self, rech, shape, years, start_date= "2020-08", 
-                                  freq = None, dis='normal'):
+    def update_recharge_synthetic(self, rech, shape, years, start_date="2020-08", 
+                                  freq=None, dis='normal'):
         """
         Create synthetic recharge values from mathematical function.
 
@@ -120,9 +111,7 @@ class Climatic:
             Inform the time step requested ('D','M','Y'). The default is None.
         dis : str
             Distribution of the mathematical function. The default is 'normal'.
-
         """
-        
         self.freq = freq
         days = years*365
         date = pd.date_range(start_date, periods=days)
@@ -160,9 +149,7 @@ class Climatic:
             Control the number of cycles of the sinusoidal function.
         phase : TYPE
             Control the horizontal shift of the sinusoidal function.
-
-        """
-        
+        """  
         def sinusoid(x, A , offset, omega, phase):
             return A*np.sin(omega*x+phase) + offset
         def get_p0(Y, T):
@@ -194,7 +181,8 @@ class Climatic:
     #       Historical reanalysis SAFRAN-SURFEX
     #       https://rmets.onlinelibrary.wiley.com/doi/10.1002/joc.2003
     
-    def update_recharge_reanalysis(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+    def update_recharge_reanalysis(self, path_file, clim_mod, clim_sce, first_year, 
+                                   last_year, time_step, sim_state=None):
         """
         Update the recharge from a hydrometeorological reanalysis at the France scale.
 
@@ -210,11 +198,11 @@ class Climatic:
             First year of selected period.
         last_year : int
             Last year of selected period.
+        time_step : str
+            Frequency of the period ('D','W','M','Y')
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
-
-        """
-        
+        """       
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
@@ -224,7 +212,8 @@ class Climatic:
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
-    def update_runoff_reanalysis(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
+    def update_runoff_reanalysis(self, path_file, clim_mod, clim_sce, first_year,
+                                 last_year, time_step, sim_state=None):
         """
         Update the runoff from a hydrometeorological reanalysis at the France scale.
 
@@ -242,9 +231,7 @@ class Climatic:
             Last year of selected period.
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
-
-        """
-        
+        """       
         self.freq = time_step
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
@@ -261,8 +248,30 @@ class Climatic:
     #       EXPLORE 2070 : SURFEX projections (downscaled from DAYON 2015)
     #       https://professionnels.ofb.fr/fr/node/44
     
-    def update_recharge_explore1(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
-
+    def update_recharge_explore1(self, path_file, clim_mod, clim_sce,
+                                 first_year, last_year,
+                                 time_step, sim_state=None):
+        """
+        Update the recharge from a hydrometeorological hydroclimatic projection EXPLORE1 at the France scale.
+        Greenhouse effect scenarios: RCP2.6, RCP4.5, RCP6.0, RCP8.5.
+        
+        Parameters
+        ----------
+        path_file : str
+            Path of the specific file .csv, generated by a specific climatics model.
+        clim_mod : str
+            Label of the climatic model (e.g. 'REA').
+        clim_sce : str
+            Label of the scenario forecast model (e.g. 'historic').
+        first_year : int
+            First year of selected period.
+        last_year : int
+            Last year of selected period.
+        time_step : str
+            Frequency of the period ('D','W','M','Y')
+        sim_state : TYPE, optional
+            Select the simulation type, steady-state or transient.
+        """   
         self.freq = time_step
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
@@ -274,7 +283,27 @@ class Climatic:
             self.recharge = self.recharge.mean()
 
     def update_runoff_explore1(self, path_file, clim_mod, clim_sce, first_year, last_year, time_step, sim_state=None):
-        
+        """
+        Update the runoff from a hydrometeorological hydroclimatic projection EXPLORE1 at the France scale.
+        Greenhouse effect scenarios: RCP2.6, RCP4.5, RCP6.0, RCP8.5.
+
+        Parameters
+        ----------
+        path_file : str
+            Path of the specific file .csv, generated by a specific climatics model.
+        clim_mod : str
+            Label of the climatic model (e.g. 'IPS1').
+        clim_sce : str
+            Label of the scenario forecast model (e.g. 'RPC8.5').
+        first_year : int
+            First year of selected period.
+        last_year : int
+            Last year of selected period.
+        time_step : str
+            Frequency of the period ('D','W','M','Y')
+        sim_state : TYPE, optional
+            Select the simulation type, steady-state or transient.
+        """   
         self.freq = time_step
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
@@ -291,8 +320,29 @@ class Climatic:
     #       EXPLORE2-2021-SIM2 : SURFEX projections (available on DRIAS website)
     #       https://professionnels.ofb.fr/fr/node/1244
     
-    def update_recharge_explore2(self, path_file, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
+    def update_recharge_explore2(self, path_file, gcm_mod, rcm_mod, sce_mod,
+                                 first_year, last_year, sim_state=None):
+        """
+        Update the recharge from a hydrometeorological hydroclimatic projection EXPLORE2 at the France scale.
+        Greenhouse effect scenarios: RCP2.6, RCP4.5, RCP6.0, RCP8.5.
         
+        Parameters
+        ----------
+        path_file : str
+            Path of the specific file .csv, generated by a specific climatics model.
+        gcm__mod : str
+            Label of the global climatic model (e.g. 'CNR').
+        rcm_mod : str
+            Label of the regional climatic model (e.g. 'ALA').
+        clim_mod : str
+            Label of the scenario forecast model (e.g. 'historic').
+        first_year : int
+            First year of selected period.
+        last_year : int
+            Last year of selected period.
+        sim_state : TYPE, optional
+            Select the simulation type, steady-state or transient.
+        """  
         data = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
@@ -300,7 +350,27 @@ class Climatic:
             self.recharge = self.recharge.mean()
 
     def update_runoff_explore2(self, path_file, gcm_mod, rcm_mod, sce_mod, first_year, last_year, sim_state=None):
+        """
+        Update the runoff from a hydrometeorological hydroclimatic projection EXPLORE2 at the France scale.
+        Greenhouse effect scenarios: RCP2.6, RCP4.5, RCP6.0, RCP8.5.
         
+        Parameters
+        ----------
+        path_file : str
+            Path of the specific file .csv, generated by a specific climatics model.
+        gcm__mod : str
+            Label of the global climatic model (e.g. 'CNR').
+        rcm_mod : str
+            Label of the regional climatic model (e.g. 'ALA').
+        clim_mod : str
+            Label of the scenario forecast model (e.g. 'historic').
+        first_year : int
+            First year of selected period.
+        last_year : int
+            Last year of selected period.
+        sim_state : TYPE, optional
+            Select the simulation type, steady-state or transient.
+        """  
         data = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
@@ -308,10 +378,17 @@ class Climatic:
             self.runoff = self.runoff.mean()
 
     #%% SET DATA SET TO STEADY INPUTS
+    
     def set_steady_recharge(self):
+        """
+        Calculate the mean of recharge time series for steady-state simulation.
+        """
         self.recharge = self.recharge.mean()
         
     def set_steady_runoff(self):
+        """
+        Calculate the mean of runoff time series for steady-state simulation.
+        """
         self.runoff = self.runoff.mean()
             
 #%% NOTES

@@ -40,17 +40,36 @@ from tools import toolbox
 #%% CLASS
 
 class Timeseries:
-    
-    #%% INIT
+    """
+    Extract timeseries results from rasters and shapefiles created.
+    """
     
     def __init__(self,
-                 geographic,
-                 model_modflow,
-                 model_modpath,
-                 actual_date=True,
-                 subbasin_results=True):
-        
+                 geographic: object,
+                 model_modflow: object,
+                 model_modpath: object,
+                 actual_date: bool=True,
+                 subbasin_results: bool=True,
+                 freq_time: str='D'):
+        """
+        Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        model_modflow : object
+            MODFLOW model object.
+        model_modpath : object
+            MODPATH model object.
+        actual_date : bool, optional
+            Indicate if the model is actual time referenced with datetime. The default is True.
+        subbasin_results : bool, optional
+            Indicated if simulation results need to be created at subassins scale. The default is True.
+        freq_time : str, optional
+            Time frequency of the .csv file. The default is 'D'.
+        """
         print('Extract modflow and modpath results in timeseries')
+        
+        self.freq_time = freq_time
         
         self.geographic = geographic
     
@@ -158,6 +177,20 @@ class Timeseries:
     #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
     
     def extract_results(self, dem_clip, time, recharge, timeseries_file):
+        """
+        Calculate catchment-scale values and save them in a data frame (.csv)..
+
+        Parameters
+        ----------
+        dem_clip : 2D matrix
+            Masked raster data of the model domain (watershed).
+        time : DatetimeIndex or list
+            Index for time.
+        recharge : Series or list
+            Values of recharge input.
+        timeseries_file : str
+            Path folder to save .csv file results.
+        """
         
         def calc_max(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
@@ -197,7 +230,7 @@ class Timeseries:
         ### watertable_elevation
         # try:
         for key in self.watertable_elevation:
-            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', -99999)
+            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', self.geographic.nodata)
             self.mfdata.loc[key,'watertable_elevation'] = calc
         # except:
         #     pass
@@ -205,7 +238,7 @@ class Timeseries:
         ### watertable_depth
         try:
             for key in self.watertable_depth:
-                calc = calc_mean(key, 'watertable_depth', self.watertable_depth, dem_clip, '==', -99999)
+                calc = calc_mean(key, 'watertable_depth', self.watertable_depth, dem_clip, '==', self.geographic.nodata)
                 self.mfdata.loc[key,'watertable_depth'] = calc
         except:
             pass
@@ -213,7 +246,7 @@ class Timeseries:
         ### seepage_areas
         try:
             for key in self.seepage_areas:
-                calc = calc_percent(key, 'seepage_areas', self.seepage_areas, dem_clip, '==', -99999)
+                calc = calc_percent(key, 'seepage_areas', self.seepage_areas, dem_clip, '==', self.geographic.nodata)
                 self.mfdata.loc[key,'seepage_areas'] = calc
         except:
             pass    
@@ -221,7 +254,7 @@ class Timeseries:
         ### outflow_drain
         try:
             for key in self.outflow_drain:
-                calc = calc_sumnorm(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', -99999, self.resolution)
+                calc = calc_sumnorm(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', self.geographic.nodata, self.resolution)
                 self.mfdata.loc[key,'outflow_drain'] = calc
         except:
             pass
@@ -229,7 +262,7 @@ class Timeseries:
         ### groundwater_flux
         try:
             for key in self.groundwater_flux:
-                calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', -99999)  
+                calc = calc_mean(key, 'groundwater_flux', self.groundwater_flux, dem_clip, '==', self.geographic.nodata)  
                 self.mfdata.loc[key,'groundwater_flux'] = calc
         except:
             pass
@@ -237,7 +270,7 @@ class Timeseries:
         ### groundwater_storage
         try:
             for key in self.groundwater_storage:
-                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', -99999, self.resolution)
+                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
                 self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
@@ -245,48 +278,125 @@ class Timeseries:
         ### accumulation_flux
         try:
             for key in self.accumulation_flux:
-                calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', -99999)  
+                calc = calc_max(key, 'accumulation_flux', self.accumulation_flux, dem_clip, '==', self.geographic.nodata)  
                 self.mfdata.loc[key,'accumulation_flux'] = calc
         except:
             pass
         
         ### intermittency_saturation
-        try:
-            if len(self.accumulation_flux)>12:
-                inf = 0
-                sup = 12
-                step = int(round(len(self.accumulation_flux)/12))
-                compt=0            
-                for i in range(step):
-                    print('Compute intermittency: '+str(i)+' / '+str((step)))
-                    interv = list(self.accumulation_flux.items())[inf:sup]
-                    for key in range(len(interv)):
-                        mask = dem_clip.copy()
-                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
-                    zero = self.accumulation_flux[0] * 0                
-                    for j in range(len(interv)):
-                        tempo = interv[j].copy()
-                        tempo[tempo>0] = 1
-                        zero = zero + tempo                    
-                    days_flux = zero.copy()
-                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
-                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
-                    for k in range(len(interv)):
-                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
-                        tempo[days_flux<12] = 0
-                        tempo[days_flux==12] = 1
-                        tempo = np.ma.masked_where(interv[k]<=0, tempo)
-                        surflow = (((tempo >= 0).sum()) / self.cell) * 100
-                        perenn = (((tempo == 1).sum()) / self.cell) * 100
-                        intermit = (((tempo == 0).sum()) / self.cell) * 100
-                        self.mfdata.loc[compt,'total_areas'] = surflow
-                        self.mfdata.loc[compt,'perenn_areas'] = perenn
-                        self.mfdata.loc[compt,'intermit_areas'] = intermit                    
-                        compt+=1                    
-                    inf+=12
-                    sup+=12     
-        except:
-            pass
+        if self.freq_time == 'M':
+            try:
+                if len(self.accumulation_flux)>12:
+                    inf = 0
+                    sup = 12
+                    step = int(round(len(self.accumulation_flux)/12))
+                    compt=0            
+                    for i in range(step):
+                        print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        interv = list(self.accumulation_flux.items())[inf:sup]
+                        for key in range(len(interv)):
+                            mask = dem_clip.copy()
+                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                        zero = self.accumulation_flux[0] * 0                
+                        for j in range(len(interv)):
+                            tempo = interv[j].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo                    
+                        days_flux = zero.copy()
+                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                        for k in range(len(interv)):
+                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                            tempo[days_flux<12] = 0
+                            tempo[days_flux==12] = 1
+                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                            perenn = (((tempo == 1).sum()) / self.cell) * 100
+                            intermit = (((tempo == 0).sum()) / self.cell) * 100
+                            self.mfdata.loc[compt,'total_areas'] = surflow
+                            self.mfdata.loc[compt,'perenn_areas'] = perenn
+                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
+                            compt+=1                    
+                        inf+=12
+                        sup+=12     
+            except:
+                pass
+        
+        if self.freq_time == 'D':
+            try:
+                if len(self.accumulation_flux)>365:
+                    inf = 0
+                    sup = 365
+                    step = int(round(len(self.accumulation_flux)/365))
+                    compt=0            
+                    for i in range(step):
+                        print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        interv = list(self.accumulation_flux.items())[inf:sup]
+                        for key in range(len(interv)):
+                            mask = dem_clip.copy()
+                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                        zero = self.accumulation_flux[0] * 0                
+                        for j in range(len(interv)):
+                            tempo = interv[j].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo                    
+                        days_flux = zero.copy()
+                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                        for k in range(len(interv)):
+                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                            tempo[days_flux<365] = 0
+                            tempo[days_flux==365] = 1
+                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                            perenn = (((tempo == 1).sum()) / self.cell) * 100
+                            intermit = (((tempo == 0).sum()) / self.cell) * 100
+                            self.mfdata.loc[compt,'total_areas'] = surflow
+                            self.mfdata.loc[compt,'perenn_areas'] = perenn
+                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
+                            compt+=1                    
+                        inf+=365
+                        sup+=365    
+            except:
+                pass
+        
+        if self.freq_time == 'W':
+            try:
+                if len(self.accumulation_flux)>52:
+                    inf = 0
+                    sup = 52
+                    step = int(round(len(self.accumulation_flux)/52))
+                    compt=0            
+                    for i in range(step):
+                        print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        interv = list(self.accumulation_flux.items())[inf:sup]
+                        for key in range(len(interv)):
+                            mask = dem_clip.copy()
+                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                        zero = self.accumulation_flux[0] * 0                
+                        for j in range(len(interv)):
+                            tempo = interv[j].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo                    
+                        days_flux = zero.copy()
+                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                        for k in range(len(interv)):
+                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                            tempo[days_flux<52] = 0
+                            tempo[days_flux==52] = 1
+                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                            perenn = (((tempo == 1).sum()) / self.cell) * 100
+                            intermit = (((tempo == 0).sum()) / self.cell) * 100
+                            self.mfdata.loc[compt,'total_areas'] = surflow
+                            self.mfdata.loc[compt,'perenn_areas'] = perenn
+                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
+                            compt+=1                    
+                        inf+=52
+                        sup+=52
+            except:
+                pass
         
         ### residence_times
         try:
@@ -296,6 +406,10 @@ class Timeseries:
                     self.residence_times = self.residence_times.clip(shp_frame)
                 except:
                     pass
+                # filtered = self.residence_times[self.residence_times['k']<=1]
+                # filtered = filtered[filtered.i0.astype(str)+'-'+filtered.j0.astype(str)!=
+                #                     filtered.i.astype(str)+'-'+filtered.j.astype(str)]
+                # calc = np.nanmean(filtered['time'])
                 calc = np.nanmean(self.residence_times['time'])
                 self.mfdata.loc[key,'residence_times'] = calc
         except:
