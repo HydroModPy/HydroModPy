@@ -507,18 +507,18 @@ class Lakeres:
         #  2:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
         #  ...}
             
-        for flux in settings_by_flux.keys():
-            flux_frame = pd.DataFrame(
-                columns = list(lake_id_by_std_id.keys()), 
+        for std_id in lake_id_by_std_id.keys():
+            lake_id = lake_id_by_std_id[std_id]
+            lake_frame = pd.DataFrame(
+                columns = list(settings_by_flux.keys()), 
                 index = climatic.index)
-            
-            for std_id in lake_id_by_std_id.keys():
-                lake_id = lake_id_by_std_id[std_id]
+        
+            for flux in settings_by_flux.keys():
                 settings = settings_by_flux[flux][lake_id]
-                
+            
                 # Constant value: same for all periods
                 if isinstance(settings, numbers.Number):
-                    flux_frame[std_id] = settings
+                    lake_frame[flux] = settings
                 
                 else:
                     if isinstance(settings, str):
@@ -562,14 +562,14 @@ class Lakeres:
                     # pd_data.set_index(pd_data.index.normalize()) 
                     pd_data.index = pd_data.index.normalize() # To convert dates-time to midnight.
                     pd_data = pd_data[(pd_data.index >= climatic.index[0]) & (pd_data.index <= climatic.index[-1])]
-                    flux_frame.loc[pd_data.index, std_id] = pd_data
-                    flux_frame[std_id].fillna(method = 'ffill', inplace = True) # forward fill
-                    flux_frame[std_id].fillna(0, inplace = True) # replace remaining NaN with 0
+                    lake_frame.loc[pd_data.index, flux] = pd_data
+                    lake_frame[flux].fillna(method = 'ffill', inplace = True) # forward fill
+                    lake_frame[flux].fillna(0, inplace = True) # replace remaining NaN with 0
             
             for kper in range(0, nper):
-                flux_data[kper].append(flux_frame.iloc[kper].to_list())
+                flux_data[kper].append(lake_frame.iloc[kper].to_list())
                 
-
+                
         return stages, lakarr, laklay_top, bdlknc, flux_data
        
    
