@@ -248,8 +248,10 @@ class Modflow:
         
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters 
+        thickfact = 1e-05 # also used for lake/reservoir thickness computations
+        
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
-                                            thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
+                                            thickfact=thickfact, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
 
         
@@ -334,7 +336,7 @@ class Modflow:
         # Adding a superficial layer for lakes/reservoirs (if activated)
         if self.lakeres and self.lakeres.n_lakeres > 0:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper)
+                self.geographic, self.climatic, self.nper, thickfact)
             
             self.nlay = self.nlay + 1
             self.top = laklay_top

@@ -240,7 +240,7 @@ class Lakeres:
         
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
-    def format_to_modflow(self, geographic, climatic, nper):
+    def format_to_modflow(self, geographic, climatic, nper, thickfact):
         #%%% Standardize lake identifiers
         # -------------------------------
         # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
@@ -448,6 +448,29 @@ class Lakeres:
         for std_id in lake_id_by_std_id.keys():
             lake_id = lake_id_by_std_id[std_id]
             laklay_top[lakarr == std_id] = self.ssmx_by_lake[lake_id]
+            # laklay_top[(lakarr == std_id) & (laklay_top < thickfact*100)] = thickfact*100
+            # laklay_top[(laklay_top - dem_box) < thickfact*100] = laklay_top + thickfact*100
+            laklay_top = np.where(laklay_top < dem_box + thickfact*100, dem_box + thickfact*110, laklay_top)
+            
+        # Exports
+        with rio.open(geographic.watershed_dem, 'r') as base:
+            base_profile = base.profile
+            base_profile['crs'] = geographic.crs_proj
+            # base_profile['nodata'] = 0
+            # base_profile['dtype'] = int
+        with rio.open(os.path.join(self.data_folder, 'laklay_top.tif'),
+                      'w', **base_profile) as dst: 
+            dst.write_band(1, laklay_top)
+
+        with rio.open(geographic.watershed_dem, 'r') as base:
+            base_profile = base.profile
+            base_profile['crs'] = geographic.crs_proj
+            # base_profile['nodata'] = 0
+            # base_profile['dtype'] = int
+        with rio.open(os.path.join(self.data_folder, 'laklay_thick.tif'),
+                      'w', **base_profile) as dst: 
+            dst.write_band(1, laklay_top - dem_box)
+        
             
         #%%% Format initial stage
         # -----------------------
