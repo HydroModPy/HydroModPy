@@ -355,7 +355,7 @@ class Watershed:
                                           list_models=list_models, 
                                           list_vars=list_vars)
         # drias.Merge(out_path=self.watershed_folder)
-        self.elt_def.append('driaseau')
+        self.elt_def.append('driasclimat')
         # self.save_object()
     
     def add_driaseau(self, driaseau_path, list_models='all', list_vars='all'):
@@ -593,6 +593,7 @@ class Watershed:
                                         plot_cross=self.settings.plot_cross,
                                         # Climatic settings
                                         climatic=self.climatic.recharge,
+                                        runoff=self.climatic.runoff,
                                         first_clim=self.climatic.first_clim,
                                         # Hydraulic settings
                                         nlay=self.hydraulic.nlay,

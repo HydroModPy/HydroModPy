@@ -185,7 +185,7 @@ driaseau.driaseau_extract_values(data_folder, list_of_paths, df)
 #              'rsdsAdjust',
 #              'FAO',
 #              'Hg0175']
-   
+"""
 # BV.add_driaseau('D:/Users/abherve/DRIAS_EAU/', list_models=['Model_01'], list_vars=['DRAINC']) # 'all'
 BV.add_driasclimat('H:/SURFEX_CLIMATE_DATA/DRIAS_CLIMAT/',
                    # list_models=['all'],
@@ -208,11 +208,33 @@ BV.add_driasclimat('H:/SURFEX_CLIMATE_DATA/DRIAS_CLIMAT/',
                    #            'FAO', # # 'FAO' at the end
                    #            'Hg0175']
                    ) # 'all'
-                  
-#%% PROJECTION DRIAS EAU
-"""
+"""                  
+#%% PROJECTION DRIAS CLIMATE
+
+data_folder = stable_folder+'/driasclimat/'
+
 df = pd.DataFrame()
-df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
-driasclimat.Driasclimat(stable_folder+'/driasclimat/', df)
-"""
+df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
+
+list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06','Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+
+# list_models = ['Model_03']
+
+list_of_paths = []
+for i in list_models:
+    list_of_paths_model = glob.glob(os.path.join(data_folder+i+'/', '*.nc'))
+    list_of_paths.extend(list_of_paths_model)
+
+driasclimat.driasclimat_extract_values(data_folder, list_of_paths, df)
+
 #%% ---- NOTES
+
+x = pd.read_csv('D:/Users/abherve/SIMULATIONS/PYRENEES/results_stable/driasclimat/_ALL_D.csv', sep=';',
+                parse_dates=True,
+                index_col=0)
+x = x.apply(pd.to_numeric, errors='ignore')
+
+#%%
+
+
+
