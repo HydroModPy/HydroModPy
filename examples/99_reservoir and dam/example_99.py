@@ -80,7 +80,7 @@ dem_path = os.path.join(data_path,
                         r"0- MNT\IGN\MNT_fusion", 
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = 'cheze_Dam_0.6'
+watershed_name = 'cheze_Dam_1.0'
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -177,14 +177,14 @@ BV.climatic.update_runoff_reanalysis(path_file=rea_path,
 
 ### Select time period
 recharge = BV.climatic.recharge
-BV.climatic.update_recharge(recharge['2010-07-01':'2010-08-15'],
+BV.climatic.update_recharge(recharge['2010-07-01':'2011-08-15'],
                             sim_state = sim_state)
 # =============================================================================
 # BV.climatic.update_recharge(recharge['2010-07-01':'2014-12-31'],
 #                             sim_state = sim_state)
 # =============================================================================
 runoff = BV.climatic.runoff 
-BV.climatic.update_runoff(runoff['2010-07-01':'2010-08-15'],
+BV.climatic.update_runoff(runoff['2010-07-01':'2011-08-15'],
                           sim_state = sim_state)
 # =============================================================================
 # BV.climatic.update_runoff(runoff['2010-07-01':'2014-12-31'],
@@ -290,10 +290,12 @@ BV.lakeres.update_stageinit(lake_id, 70) # [m]
 BV.lakeres.update_stagemax(lake_id, 90) # [m]
 BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
                                                               # here equiv. to 1e-6 m/s
-bathymetry_raster = os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data', 
-                             'bathymetry_25m_NGF-elevation.tif')
-BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
+# =============================================================================
+# bathymetry_raster = os.path.join(root_dir, 'examples', 
+#                              '99_reservoir and dam', 'data', 
+#                              'bathymetry_25m_NGF-elevation.tif')
+# BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
+# =============================================================================
 # =============================================================================
 # BV.lakeres.update_bathymetry(lake_id, bathymetry_raster, mode = 'elevation')
 # # mode can be 'elevation', 'depth', 'height' (= -depth)
@@ -334,14 +336,16 @@ BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 # if values are daily rates, then user should indicate daily = True
 
 
-########################
-### --- lake 412 --- ###
-########################
-lake_id = 412
-dummy_maskmx_path = os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data', 
-                             'Dummy_lake.shp')
-BV.lakeres.new_lakeres(dummy_maskmx_path, lake_id)
+# =============================================================================
+# ########################
+# ### --- lake 412 --- ###
+# ########################
+# lake_id = 412
+# dummy_maskmx_path = os.path.join(root_dir, 'examples', 
+#                              '99_reservoir and dam', 'data', 
+#                              'Dummy_lake.shp')
+# BV.lakeres.new_lakeres(dummy_maskmx_path, lake_id)
+# =============================================================================
 
 
 ######################
