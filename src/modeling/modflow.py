@@ -54,7 +54,7 @@ class Modflow:
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
                  plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, first_clim: str='mean', 
+                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', 
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
@@ -86,6 +86,8 @@ class Modflow:
             if True, display a cross section of the model. The default is True.
         climatic : float or list, optional
             recharge value. The default is 0.001.
+        runoff : float or list, optional
+            runoff value. The default is 0.0001.
         first_clim : str, optional
             'mean': the first recharge value is the mean of the chronicle. 'first': the first recharge is keep. The default is 'mean'.
         nlay : int, optional
@@ -180,7 +182,8 @@ class Modflow:
             self.climatic = climatic.copy()
         else: 
             self.climatic = climatic
-        self.first_clim = first_clim    
+        self.first_clim = first_clim  
+        self.runoff = runoff
             
         #%% Model parameters 
         

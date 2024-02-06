@@ -59,7 +59,7 @@ class Driaseau:
         print('Extraction des données explore2')
         
         df = pd.DataFrame()
-        df.index = pd.date_range(start="1951-01-01",end="2099-12-31")
+        df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
         
         if list_models == ['all']:
             list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
@@ -73,15 +73,19 @@ class Driaseau:
         print(list_vars)
         
         for model in list_models:
-            models_path = glob.glob(os.path.join(driaseau_path, model +'*'))
+            models_path = glob.glob(os.path.join(driaseau_path, model + '*'))
             for model in models_path:
                 print('     '+model)
                 for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
                     files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
+                    # try:
                     for en, file_path in enumerate(files_path):
                         if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
                             print('          '+file_path)
                             self.clip_netcdf(data_folder, file_path, watershed_shp, var)
+                    # except:
+                    #     print('NOT FOUND : '+model+'  -  '+var)
+                    #     pass
     
         # self.extract_values(data_folder, df)
     
@@ -100,26 +104,41 @@ class Driaseau:
         # ds.sel(x = 76000, y = 2273000)
         
         if var != 'Debits':
-            # Comme les latitudes sont fausses, il vaut mieux les supprimer :
-            ds = ds.drop('lon')
-            ds = ds.drop('lat')
-            # Créer les coordonnées 'x' et 'y' à partir de i et j
-            ds = ds.assign_coords(
-                x = ('i', 52000 + ds.i.values*8000))
-            ds = ds.assign_coords(
-                y = ('j', 1609000 + ds.j.values*8000))
-            # Remplacer i et j par x et y comme coordonnées
-            ds = ds.swap_dims(i = 'x', j = 'y')
-            # Ajouter les attributs standards
-            ds.x.attrs = {'standard_name': 'projection_x_coordinate',
-                                'long_name': 'x coordinate of projection',
-                                'units': 'Meter'}
-            ds.y.attrs = {'standard_name': 'projection_y_coordinate',
-                                'long_name': 'y coordinate of projection',
-                                'units': 'Meter'}
+            try:
+                
+                    # Comme les latitudes sont fausses, il vaut mieux les supprimer :
+                    ds = ds.drop('lon')
+                    ds = ds.drop('lat')
+            except:
+                pass        
+            try:
+                    # Créer les coordonnées 'x' et 'y' à partir de i et j
+                    ds = ds.assign_coords(
+                        x = ('i', 52000 + ds.i.values*8000))
+                    ds = ds.assign_coords(
+                        y = ('j', 1609000 + ds.j.values*8000))
+            except:
+                pass
+            try:
+                # Remplacer i et j par x et y comme coordonnées
+                ds = ds.swap_dims(i = 'x', j = 'y')
+            except:
+                pass
+            try:
+                # Ajouter les attributs standards
+                ds.x.attrs = {'standard_name': 'projection_x_coordinate',
+                                    'long_name': 'x coordinate of projection',
+                                    'units': 'Meter'}
+                ds.y.attrs = {'standard_name': 'projection_y_coordinate',
+                                    'long_name': 'y coordinate of projection',
+                                    'units': 'Meter'}
+            except:
+                pass
+            try:
+                ds.rio.write_crs("epsg:27572", inplace = True)
+            except:
+                pass
             
-        ds.rio.write_crs("epsg:27572", inplace = True)
-   
         geodf = gpd.read_file(shp_path)
         geom = geodf.geometry.apply(mapping)
         # try :
@@ -177,6 +196,9 @@ def driaseau_extract_values(data_folder, list_of_paths, df):
             var = 'SWI'
         
         sce = path_netcdf.split('\\')[-1].split('_')[-3]
+        if (sce != 'Historique'):
+            sce = path_netcdf.split('\\')[-1].split('_')[-3].split('.')
+            sce = ''.join(sce)
         gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
         rcm_raw = path_netcdf.split('\\')[-1].split('_')[3]
         

@@ -111,7 +111,28 @@ class Timeseries:
                 else:
                     time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
                     recharge = pd.Series(np.nan, index=range(len(self.recharge)))
-               
+        
+        self.runoff = model_modflow.runoff
+
+        if self.actual_date==True:            
+            if isinstance(self.runoff,(int,float)) == True:
+                time=[0]
+                runoff = self.runoff
+            else:
+                time = self.runoff.index
+                runoff = self.runoff.squeeze().values
+        else:
+            if isinstance(self.runoff,(int,float)) == True:
+                time=[0]
+                runoff = self.runoff
+            else:
+                if isinstance(self.runoff,(dict))==False:
+                    time = np.array(range(len(self.runoff)))
+                    runoff = self.runoff.squeeze().values
+                else:
+                    time = pd.Series(range(len(self.runoff)), index=range(len(self.runoff)))
+                    runoff = pd.Series(np.nan, index=range(len(self.runoff)))        
+        
         npy_list = [] 
         for f in os.listdir(self.save_file):
              name, ext = os.path.splitext(f)
@@ -154,7 +175,7 @@ class Timeseries:
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         self.resolution = model_modflow.resolution
-        self.extract_results(dem_clip, time, recharge, self.timeseries_file)
+        self.extract_results(dem_clip, time, recharge, runoff, self.timeseries_file)
        
         if subbasin_results == True:
             try:
@@ -168,7 +189,7 @@ class Timeseries:
                         dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
                         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
                         print('Subbasin zones')
-                        self.extract_results(dem_clip, time, recharge, sub_file)
+                        self.extract_results(dem_clip, time, recharge, runoff, sub_file)
                     except:
                         pass
             except:
@@ -176,7 +197,7 @@ class Timeseries:
     
     #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
     
-    def extract_results(self, dem_clip, time, recharge, timeseries_file):
+    def extract_results(self, dem_clip, time, recharge, runoff, timeseries_file):
         """
         Calculate catchment-scale values and save them in a data frame (.csv)..
 
@@ -223,6 +244,11 @@ class Timeseries:
         
         self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, 
                                    index=range(len(time)))
+        
+        try:
+            self.mfdata['runoff'] = runoff
+        except:
+            pass
         
         if self.actual_date==True:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
