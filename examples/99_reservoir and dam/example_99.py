@@ -322,12 +322,14 @@ dam_input_df= dam_input_df.divide(days_in_month.n_days, axis="index")
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
-BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf'])
+BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e-6) # because Ronan's values were summed over 1.73 km² area
 BV.lakeres.update_evap(lake_id, 'from_climatic')
 BV.lakeres.update_runoff(lake_id, BV.climatic.runoff)
 
 # Anthropic fluxes
-withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['meu']
+withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['canut'] - dam_input_df['meu'] 
+# For now we can add here the upstream flow and substract the return fluw
+withdraw_fill_ts = withdraw_fill_ts + dam_input_df['resti'] - dam_input_df['stream']
 BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 # if values are daily rates, then user should indicate daily = True
 
