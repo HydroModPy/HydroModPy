@@ -568,7 +568,12 @@ class Lakeres:
             
             for kper in range(0, nper):
                 flux_data[kper].append(lake_frame.iloc[kper].to_list())
-                
+            
+            # export
+            lake_frame.to_csv(os.path.join(self.data_folder,
+                                           f"flux_data_lake_{lake_id}.csv"), 
+                              sep = '\t', 
+                              header = True) 
                 
         return stages, lakarr, laklay_top, bdlknc, flux_data
        
