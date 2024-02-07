@@ -367,6 +367,11 @@ for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
     # except:
     #     pass
 
+# SUBBASIN
+
+BV.add_intermittency('None','None')
+BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
+
 #%% DATA
 
 # GEOL
@@ -405,11 +410,6 @@ for watershed_name in watershed_names[:]:
     #     stable_folder+'hydrology/'+types_obs[0]+'_main'+'.tif', 
     #     esri_pntr=False, 
     #     zero_background=False)
-
-# SUBBASIN
-
-BV.add_intermittency('None','None')
-BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
 
 #%% OBSERVED
 
@@ -4108,6 +4108,12 @@ df = pd.DataFrame()
 
 dict_Q_wname = {}
 
+col_list = ['dodgerblue','red']
+sce_list = ['RCP26','RCP85']
+dict_scecol = dict(zip(sce_list, col_list))
+
+fig, ax = plt.subplots(1, 1, figsize=(10,3))
+
 for w, w_name in enumerate(['Lasset'][:]):
     
     # BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
@@ -4127,7 +4133,7 @@ for w, w_name in enumerate(['Lasset'][:]):
 
     i = 0
     
-    for sce in ['RCP26','RCP85'][:]:
+    for sce in sce_list[:]:
     
         for id_mod_val in list_id_mod[:]:
         
@@ -4144,14 +4150,17 @@ for w, w_name in enumerate(['Lasset'][:]):
                 Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
                 Smod = Smod.dropna()
-                print(Smod)
+                # print(Smod)
 
                 # Smod.index = recharge_w_sli.index()
                 
                 r = Smod['runoff']
                 Qmod = Smod['outflow_drain'] + r*1 # m/day
-                Qmod = Qmod * 1000
+                # Qmod = Smod['recharge'] + r*1 # m/day
+                Qmod = Qmod * 1000 * 30
                 # Qmod = Qmod.resample('M').mean()*4
+                
+                # Qmod = Smod['intermit_areas'] / Smod['perenn_areas']
                 
                 mix = Qobs.copy().to_frame()
                 mix.columns = ['Qobs']
@@ -4161,16 +4170,16 @@ for w, w_name in enumerate(['Lasset'][:]):
                 Qobs_stat = mix.Qobs
                 Qsim_stat = mix.Qsim
                 
-                import hydroeval as he
-                NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
-                NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
-                RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
-                KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
-                print(model_name.upper())
-                print('NSE', round(NSE,2))
-                print('NSElog', round(NSElog,2))
-                print('RMSE', round(RMSE,2))
-                print('KGE', round(KGE,2))
+                # import hydroeval as he
+                # NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+                # NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+                # RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
+                # KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+                # print(model_name.upper())
+                # print('NSE', round(NSE,2))
+                # print('NSElog', round(NSElog,2))
+                # print('RMSE', round(RMSE,2))
+                # print('KGE', round(KGE,2))
                 
                 # model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
                 #              str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
@@ -4195,10 +4204,10 @@ for w, w_name in enumerate(['Lasset'][:]):
                 df.loc[i,'aO'] = float(model_name.split('_')[3].split('-')[0])
                 df.loc[i,'O'] = float(model_name.split('_')[3].split('-')[1])
                 
-                df.loc[i,'NSE'] = float(NSE)
-                df.loc[i,'NSElog'] = float(NSElog)
-                df.loc[i,'RMSE'] = float(RMSE)
-                df.loc[i,'KGE'] = float(KGE)
+                # df.loc[i,'NSE'] = float(NSE)
+                # df.loc[i,'NSElog'] = float(NSElog)
+                # df.loc[i,'RMSE'] = float(RMSE)
+                # df.loc[i,'KGE'] = float(KGE)
                 
                 Q10_obs = Qobs_stat.quantile(0.10)
                 Q50_obs = Qobs_stat.quantile(0.50)
@@ -4215,8 +4224,9 @@ for w, w_name in enumerate(['Lasset'][:]):
                 
                 i += 1
                 
-                fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
-                                             figsize=(10,3))
+                # fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                #                              figsize=(10,3))
+                # fig, ax = plt.subplots(1, 1, figsize=(10,3))
                 
                 yearsmaj = mdates.YearLocator(1)   # every year
                 yearsmin = mdates.YearLocator(1)
@@ -4225,59 +4235,33 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
                 years_fmt = mdates.DateFormatter('%Y')
             
-                ax = a0
-                ax.plot(Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
-                ax.plot(Qmod, color='red', lw=1, label='Simulated')
+                ax = ax
+                # ax.plot(Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
+                ax.plot(Qmod, color=dict_scecol[sce], lw=1, label=sce)
+                ax.plot(select_period(Qmod, 1975, 2010), color='k', lw=1)
                 # ax.plot(Qmod-(r*1000), color='darkorange', lw=0.25, label='Simulated')
                 ax.set_xlabel('Date')
-                ax.set_ylabel('Q [mm/d]')
-                ax.set_yscale('log')
-                ax.set_ylim(0.1,100)
-                years_maj = mdates.YearLocator()   # every year
-                months_maj = mdates.MonthLocator()  # every x month
+                ax.set_ylabel('Q [mm/months]')
+                # ax.set_yscale('log')
+                # ax.set_ylim(0.1,100)
+                years_maj = mdates.YearLocator(30)   # every year
+                # months_maj = mdates.MonthLocator()  # every x month
                 ax.xaxis.set_major_locator(years_maj)
-                ax.xaxis.set_minor_locator(months_maj)
-                ax.set_xlim(pd.to_datetime('2020'), pd.to_datetime('2024'))
+                # ax.xaxis.set_minor_locator(months_maj)
+                ax.set_xlim(pd.to_datetime('1980'), pd.to_datetime('2100'))
                 ax.legend(loc='lower left')
                 ax.set_title(model_name.upper(), fontsize=10)
+                # ax.set_ylim(10,1000)
                 
-                axb = ax.twinx()
-                axb.bar(Smod.recharge.index, Smod.recharge*1000, color='dodgerblue',
-                        edgecolor='grey', width=2, lw=0)
-                # axb.bar(sim2.index, (sim2['PRELIQ_Q']+sim2['PRENEI_Q'])*1000, color='dodgerblue',
-                #         edgecolor='grey', width=2, lw=0)
-                axb.set_ylim(0,50)
-                axb.invert_yaxis()
-                axb.set_yticklabels([0,10])
-                
-                ax = a1
-                ax.scatter(mix.Qobs, mix.Qsim,
-                           s=10, edgecolor='none', alpha=0.75, facecolor='forestgreen')
-                ax.set_xscale('log')
-                ax.set_yscale('log')
-                ax.legend(loc='lower right', frameon=False)
-                # ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
-                # ax.set_xlim(1,500)
-                # ax.set_ylim(1,500)
-                
-                ax.plot((0.0001,1000),(0.0001,1000), c='k', ls='--')
-                
-                ax.set_xlim(0.1,100)
-                ax.set_ylim(0.1,100)
-    
-                ax.set_xlabel('$Q_{obs}$ [mm/d]',
-                              # fontsize=12
-                              )
-                ax.set_ylabel('$Q_{sim}$ [mm/d]',
-                              # fontsize=12
-                              )
-                
-                ax.patch.set_visible(True)
-                ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='k')
-    
-                # move ax in front
-                ax.set_zorder(axb.get_zorder() + 1)
-                
+                # axb = ax.twinx()
+                # axb.bar(Smod.recharge.index, Smod.recharge*1000*30, color='grey',
+                #         edgecolor='grey', width=3, lw=0)
+                # # axb.bar(sim2.index, (sim2['PRELIQ_Q']+sim2['PRENEI_Q'])*1000, color='dodgerblue',
+                # #         edgecolor='grey', width=2, lw=0)
+                # axb.set_ylim(0,50)
+                # axb.invert_yaxis()
+                # axb.set_yticklabels([0,10])
+            
                 fig.tight_layout()
                             
                 # fig.savefig(os.path.join(simulations_folder, '_figures',
@@ -4316,7 +4300,7 @@ BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
 dem_data = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
 
 # list_sat_obs = [5,10] # 7
-list_sat_obs = [7,18] # 7
+list_sat_obs = [8,16] # 7
 
 i=0
 
@@ -4399,21 +4383,21 @@ for sce in ['RCP26','RCP85'][:]:
                     marker=None, markeredgecolor='none',
                     markersize=5, lw=1, label='upstream',
                     where='pre')
-            ax.step(Smod.index, Smod['seepage_areas'], color='grey',
-                    marker=None, markeredgecolor='none',
-                    markersize=5, lw=1, label='upstream',
-                    where='pre')
+            # ax.step(Smod.index, Smod['seepage_areas'], color='grey',
+            #         marker=None, markeredgecolor='none',
+            #         markersize=5, lw=1, label='upstream',
+            #         where='pre')
             
-            ax.set_ylim(0,25)
-            ax.set_yticks([0, 5, 10, 15, 20,25])
+            ax.set_ylim(5,20)
+            ax.set_yticks([5, 10, 15, 20])
             ax.set_ylabel('$A_{sat}$ [%]')
-            ax.set_xlim(pd.to_datetime('2020'), pd.to_datetime('2024'))
+            ax.set_xlim(pd.to_datetime('1980'), pd.to_datetime('2100'))
             plt.xticks(rotation=0, ha="right")
         
-            years_maj = mdates.YearLocator()   # every year
-            months_maj = mdates.MonthLocator()  # every x month
+            years_maj = mdates.YearLocator(30)   # every year
+            # months_maj = mdates.MonthLocator()  # every x month
             ax.xaxis.set_major_locator(years_maj)
-            ax.xaxis.set_minor_locator(months_maj)
+            # ax.xaxis.set_minor_locator(months_maj)
             
             ax.set_title(model_name.upper(), fontsize=10)
             
@@ -4436,6 +4420,916 @@ for sce in ['RCP26','RCP85'][:]:
             #             bbox_inches='tight')
         
 dfcrit_S = df.copy()
+
+#%% ---- NEW PROJECTIONS PI
+
+#%% PI ALTITUDE
+
+sce_list = ['RCP26','RCP85']
+# sce_list = ['RCP85']
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+dem_box = imageio.imread(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+area = BV.geographic.area
+area = int(round(area))
+
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+wbt.downslope_flowpath_length(
+    stable_folder+'geographic/'+'watershed_direc.tif', 
+    stable_folder+'geographic/'+'downslope_flowpath_length.tif', 
+    watersheds=None, 
+    weights=None, 
+    esri_pntr=False)
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length.tif')
+toolbox.export_tif(stable_folder+'geographic/'+'watershed_box_buff_dem.tif',
+                   down, -99999, stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+
+fig, ax = plt.subplots(1, 1, figsize=(6,6))
+
+for ic, sce in enumerate(sce_list):
+    years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+    df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+    df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+    
+    for id_mod_val in list_id_mod[:]:
+    
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+        d = dd.io.load(h5file)
+        list_model_name = d['list_model_name'][:]
+        list_model_success = d['list_model_success'][:]
+        list_model_modflow = d['list_model_modflow'][:]
+        
+        for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                            list_model_success[:],
+                                                            list_model_modflow[:]):
+            
+            Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+                
+            # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+            Smod['recharge'] = Smod['recharge'] * 1000 * 30
+            Smod['outflow_drain'] =  ( Smod['outflow_drain'] ) * (area * 1e6) #+ Smod['runoff'] ) # * (area * 1e6)
+            Smod['groundwater_storage'] = Smod['groundwater_storage']
+            per = 1
+            Smod['dQ'] = Smod['outflow_drain'].diff()
+            Smod['dGW'] = Smod['groundwater_storage'].diff()
+            Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / Smod['outflow_drain'].diff(periods=per)))
+            Smod = select_period(Smod, 1975,2099)
+            
+            acc_npy = np.load(BV.simulations_folder+'/'+model_name+'/_postprocess/'+'accumulation_flux.npy', allow_pickle=True).item()
+            
+            pi_rast = imageio.imread(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'persistency_index_t(-).tif')
+            pi_rast = np.ma.masked_array(pi_rast, mask=(mask<0))
+            
+            acc_npy_raw = acc_npy.copy()
+            # acc_npy = list(acc_npy_raw.items())[-90*12:-60*12]
+            # acc_npy = list(acc_npy_raw.items())[-60*12:-30*12]
+            acc_npy = list(acc_npy_raw.items())[-30*12:]
+            for key in range(len(acc_npy)):
+                # mask = imageio.imread(self.geographic.watershed_dem)
+                mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
+                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+            zero = acc_npy[0] * 0
+            for i in range(len(acc_npy)):
+                tempo = acc_npy[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy() / len(acc_npy)
+            pi_export = days_flux.copy()
+            # pi_rast = np.ma.masked_where(days_flux <= 0, days_flux)
+            pi_export[days_flux <= 0] = -9999
+            pi_export[mask<=0] = -9999
+            
+            pi_rast = pi_export.copy()
+            
+            dem_box = np.ma.masked_array(dem_box, mask=(mask<0))
+            
+            flat = dem_box.copy().flatten()
+            flat = pd.DataFrame(flat, columns=['dem'])
+            flat['pi'] = pi_rast.flatten()
+            flat['pi'][flat['pi']<0] = 0.0001
+            # flat['pi'][flat['pi']<0] = 0
+            flat['down'] = down.flatten()
+            flat['down'][flat['down']<0] = np.nan
+            
+            # plt.scatter(flat['pi'], flat['dem'])
+                        
+            print(sce, flat['pi'].count())
+            
+            # flat['pi'] = (flat['pi'] / flat['pi'].count()) #(flat['pi'].count())
+                        
+            # list_vals = [0,200,400,800,1000,1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400]
+            list_vals = [1400,1600,2000,2400]
+            # list_vals = [1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400]
+            
+            # flat0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.eq(0).sum())
+            # flatN0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.ne(0).sum())
+            # flatM= flat.groupby(pd.cut(flat['down'], list_vals)).mean()
+            # flat50 = flat.groupby(pd.cut(flat['down'], list_vals)).quantile(0.5)
+            # flat10 = flat.groupby(pd.cut(flat['down'], list_vals)).quantile(0.33)
+            # flat90 = flat.groupby(pd.cut(flat['down'], list_vals)).quantile(0.50)
+            
+            flat0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.eq(0).sum())
+            flatN0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.ne(0).sum())
+            flatM = flat.groupby(pd.cut(flat['dem'], list_vals)).mean()
+            flat50 = flat.groupby(pd.cut(flat['dem'], list_vals)).quantile(0.5)
+            flat10 = flat.groupby(pd.cut(flat['dem'], list_vals)).quantile(0.25)
+            flat90 = flat.groupby(pd.cut(flat['dem'], list_vals)).quantile(0.75)
+            
+            # flat50['dem2'] = np.array(list_vals[:-1])-100
+            flat50['dem2'] = np.array([1500,1800,2200])
+            
+            cmap='jet_r'
+            if sce =='RCP26':
+                marker='^'
+                color='dodgerblue'
+                lw=3
+            if sce =='RCP85':
+                marker='v'
+                color='red'
+                lw=1
+                
+            # ax.scatter((flat0['pi']/(flat0['pi']+flatN0['pi']))*100, flat50['dem2'], c=flat50['pi'], marker=marker,
+            #            s=100, ec='k', cmap=mpl.colors.ListedColormap(color),
+            #             # vmin=0, vmax=1
+            #            )
+                
+            ax.scatter(flat50['pi'], flat50['dem2'], c=flat50['pi'], marker=marker,
+                        s=100, ec='k', cmap=mpl.colors.ListedColormap(color),
+                        # vmin=0, vmax=1
+                        )
+            
+            ax.scatter(flatM['pi'], flat50['dem2'], c=flat50['pi'], marker='o',
+                        s=100, ec='k', cmap=mpl.colors.ListedColormap(color),
+                        # vmin=0, vmax=1
+                        )
+            
+            ax.hlines(y=flat50['dem2'], 
+                        xmin=flat10['pi'], 
+                        xmax=flat90['pi'], color=color, zorder=2, lw=lw)
+            
+            # ax.set_xlim(0,1)
+            
+            # ax.vlines(x=flat50['dem2'], 
+            #             ymin=flat10['pi'], 
+            #             ymax=flat90['pi'], color=color, zorder=2, lw=lw)
+
+# ax.set_xscale('log')
+ax.invert_yaxis()
+ax.set_title(model_name, fontsize=6)
+
+            # fig, ax = plt.subplots(1, 1, figsize=(6,3))
+            
+            # from matplotlib.ticker import PercentFormatter
+            
+            # n_bins = len(flat)
+            
+            # # N is the count in each bin, bins is the lower-limit of the bin
+            # N, bins, patches = ax.hist(flat['pi'],
+            #                             bins=100,
+            #                             density=True)
+            # ax.set_ylim(0,25)
+
+#%% OUTFLOW ALTITUDE
+
+sce_list = ['RCP26','RCP85']
+# sce_list = ['RCP85']
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask_grenou = imageio.imread(stable_folder+'subbasin/subbasin_Qgrenou/'+'watershed_dem.tif')
+dem_box = imageio.imread(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+area = BV.geographic.area
+area = int(round(area))
+
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+wbt.downslope_flowpath_length(
+    stable_folder+'geographic/'+'watershed_direc.tif', 
+    stable_folder+'geographic/'+'downslope_flowpath_length.tif', 
+    watersheds=None, 
+    weights=None, 
+    esri_pntr=False)
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length.tif')
+toolbox.export_tif(stable_folder+'geographic/'+'watershed_box_buff_dem.tif',
+                   down, -99999, stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+
+fig, ax = plt.subplots(1, 1, figsize=(6,6))
+
+for ic, sce in enumerate(sce_list):
+    years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+    df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+    df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+    
+    print(sce)
+    
+    for id_mod_val in list_id_mod[:]:
+    
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+        d = dd.io.load(h5file)
+        list_model_name = d['list_model_name'][:]
+        list_model_success = d['list_model_success'][:]
+        list_model_modflow = d['list_model_modflow'][:]
+        
+        for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                            list_model_success[:],
+                                                            list_model_modflow[:]):
+            
+            Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+                
+            # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+            Smod['recharge'] = Smod['recharge'] * 1000 * 30
+            Smod['outflow_drain'] =  ( Smod['outflow_drain'] ) * (area * 1e6) #+ Smod['runoff'] ) # * (area * 1e6)
+            Smod['groundwater_storage'] = Smod['groundwater_storage']
+            per = 1
+            Smod['dQ'] = Smod['outflow_drain'].diff()
+            Smod['dGW'] = Smod['groundwater_storage'].diff()
+            Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / Smod['outflow_drain'].diff(periods=per)))
+            Smod = select_period(Smod, 1975,2099)
+            
+            # acc_npy = np.load(BV.simulations_folder+'/'+model_name+'/_postprocess/'+'accumulation_flux.npy', allow_pickle=True).item()
+            acc_npy = np.load(BV.simulations_folder+'/'+model_name+'/_postprocess/'+'outflow_drain.npy', allow_pickle=True).item()
+            
+            pi_rast = imageio.imread(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'persistency_index_t(-).tif')
+            pi_rast = np.ma.masked_array(pi_rast, mask=(mask<0))
+            
+            acc_npy_raw = acc_npy.copy()
+            # acc_npy = list(acc_npy_raw.items())[-90*12:-60*12]
+            # acc_npy = list(acc_npy_raw.items())[-60*12:-30*12]
+
+            
+            for i in range(4):
+                print(i)
+                if i == 0:
+                    themask = (mask > 1600)
+                if i == 1:
+                    themask = (mask < 1600) #| (mask > 2000)
+                if i == 2:
+                    themask = (mask < 2000)
+                if i == 3:
+                    themask = (mask_grenou < 0)
+                    
+                acc_npy = list(acc_npy_raw.items())[5*12:35*12]
+                sers = pd.DataFrame()
+                for key in range(len(acc_npy)):
+                    mask = imageio.imread(BV.geographic.watershed_dem)
+                    # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
+                    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=themask)
+                    # acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask>2000))
+                    # acc_npy[key] = acc_npy[key][1][(acc_npy[key][1] > 1600) & (acc_npy[key][1] < 2000)]
+                    # acc_npy[key][0] = np.ma.masked_where(mask < 1600)
+                    # acc_npy[key][0] = np.ma.masked_where(mask > 2000)
+                    sers[str(key)] = acc_npy[key].flatten() / (acc_npy[key].count()*25*25) * 1000
+                sers = sers.dropna(how='all', axis=0)
+                sers = sers[(sers.T != 0).any()]
+                # sers=sers.max(axis=0)
+                sers=sers.sum(axis=0)
+                sers = sers.to_frame()
+                # sers.boxplot()
+                boxprops = dict(linestyle='-', linewidth=4, color='k')
+                medianprops = dict(linestyle='-', linewidth=4, color='k')
+                ax = sers.boxplot(showfliers=False, showmeans=True,
+                        boxprops=boxprops,
+                        medianprops=medianprops, positions=[i])
+                
+                acc_npy = list(acc_npy_raw.items())[-30*12:]
+                sers = pd.DataFrame()
+                for key in range(len(acc_npy)):
+                    mask = imageio.imread(BV.geographic.watershed_dem)
+                    # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
+                    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=themask)
+                    # acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask>2000))
+                    # acc_npy[key] = acc_npy[key][1][(acc_npy[key][1] > 1600) & (acc_npy[key][1] < 2000)]
+                    # acc_npy[key][0] = np.ma.masked_where(mask < 1600)
+                    # acc_npy[key][0] = np.ma.masked_where(mask > 2000)
+                    sers[str(key)] = acc_npy[key].flatten() / (acc_npy[key].count()*25*25) * 1000
+                sers = sers.dropna(how='all', axis=0)
+                sers = sers[(sers.T != 0).any()]
+                # sers=sers.max(axis=0)
+                sers=sers.sum(axis=0)
+                sers = sers.to_frame()
+                # sers.boxplot()
+                boxprops = dict(linestyle='-', linewidth=4, color=dict_scecol[sce])
+                medianprops = dict(linestyle='-', linewidth=4, color='k')
+                ax = sers.boxplot(showfliers=False, showmeans=True,
+                        boxprops=boxprops,
+                        medianprops=medianprops, positions=[i])
+            
+            ax.set_yscale('log')
+            
+                #%%
+            zero = acc_npy[0] * 0
+            for i in range(len(acc_npy)):
+                tempo = acc_npy[i].copy()
+                tempo[tempo>0] = 1
+                zero = zero + tempo
+            days_flux = zero.copy() / len(acc_npy)
+            pi_export = days_flux.copy()
+            # pi_rast = np.ma.masked_where(days_flux <= 0, days_flux)
+            pi_export[days_flux <= 0] = -9999
+            pi_export[mask<=0] = -9999
+            
+            pi_rast = pi_export.copy()
+            
+            dem_box = np.ma.masked_array(dem_box, mask=(mask<0))
+            
+            flat = dem_box.copy().flatten()
+            flat = pd.DataFrame(flat, columns=['dem'])
+            flat['pi'] = pi_rast.flatten()
+            flat['pi'][flat['pi']<0] = 0.0001
+            # flat['pi'][flat['pi']<0] = 0
+            flat['down'] = down.flatten()
+            flat['down'][flat['down']<0] = np.nan
+            
+            # plt.scatter(flat['pi'], flat['dem'])
+                        
+            print(sce, flat['pi'].count())
+            
+            # flat['pi'] = (flat['pi'] / flat['pi'].count()) #(flat['pi'].count())
+                        
+            # list_vals = [0,200,400,800,1000,1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400]
+            list_vals = [1400,1600,2000,2400]
+            # list_vals = [1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400]
+            
+            # flat0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.eq(0).sum())
+            # flatN0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.ne(0).sum())
+            # flatM= flat.groupby(pd.cut(flat['down'], list_vals)).mean()
+            # flat50 = flat.groupby(pd.cut(flat['down'], list_vals)).quantile(0.5)
+            # flat10 = flat.groupby(pd.cut(flat['down'], list_vals)).quantile(0.33)
+            # flat90 = flat.groupby(pd.cut(flat['down'], list_vals)).quantile(0.50)
+            
+            flat0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.eq(0).sum())
+            flatN0 = flat.groupby(pd.cut(flat['dem'], list_vals)).agg(lambda x: x.ne(0).sum())
+            flatM = flat.groupby(pd.cut(flat['dem'], list_vals)).mean()
+            flat50 = flat.groupby(pd.cut(flat['dem'], list_vals)).quantile(0.5)
+            flat10 = flat.groupby(pd.cut(flat['dem'], list_vals)).quantile(0.25)
+            flat90 = flat.groupby(pd.cut(flat['dem'], list_vals)).quantile(0.75)
+            
+            # flat50['dem2'] = np.array(list_vals[:-1])-100
+            flat50['dem2'] = np.array([1500,1800,2200])
+            
+            cmap='jet_r'
+            if sce =='RCP26':
+                marker='^'
+                color='dodgerblue'
+                lw=3
+            if sce =='RCP85':
+                marker='v'
+                color='red'
+                lw=1
+                
+            # ax.scatter((flat0['pi']/(flat0['pi']+flatN0['pi']))*100, flat50['dem2'], c=flat50['pi'], marker=marker,
+            #            s=100, ec='k', cmap=mpl.colors.ListedColormap(color),
+            #             # vmin=0, vmax=1
+            #            )
+                
+            ax.scatter(flat50['pi'], flat50['dem2'], c=flat50['pi'], marker=marker,
+                        s=100, ec='k', cmap=mpl.colors.ListedColormap(color),
+                        # vmin=0, vmax=1
+                        )
+            
+            ax.scatter(flatM['pi'], flat50['dem2'], c=flat50['pi'], marker='o',
+                        s=100, ec='k', cmap=mpl.colors.ListedColormap(color),
+                        # vmin=0, vmax=1
+                        )
+            
+            ax.hlines(y=flat50['dem2'], 
+                        xmin=flat10['pi'], 
+                        xmax=flat90['pi'], color=color, zorder=2, lw=lw)
+            
+            # ax.set_xlim(0,1)
+            
+            # ax.vlines(x=flat50['dem2'], 
+            #             ymin=flat10['pi'], 
+            #             ymax=flat90['pi'], color=color, zorder=2, lw=lw)
+
+# ax.set_xscale('log')
+ax.invert_yaxis()
+ax.set_title(model_name, fontsize=6)
+
+            # fig, ax = plt.subplots(1, 1, figsize=(6,3))
+            
+            # from matplotlib.ticker import PercentFormatter
+            
+            # n_bins = len(flat)
+            
+            # # N is the count in each bin, bins is the lower-limit of the bin
+            # N, bins, patches = ax.hist(flat['pi'],
+            #                             bins=100,
+            #                             density=True)
+            # ax.set_ylim(0,25)
+
+#%% ---- BULK PROJECTIONS PI
+
+#%% PI PROJECTIONS CHRONICS
+
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['CNR-ALA']
+sce_list = ['RCP26','RCP85']
+
+# sce_list = ['RCP85']
+
+space_pi = 1
+
+# for watershed_name in watershed_names[:1]:
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+area = BV.geographic.area
+area = int(round(area))
+for ic, sce in enumerate(sce_list):
+    years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+    df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+    df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+    
+    for id_mod_val in list_id_mod[:]:
+    
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+        d = dd.io.load(h5file)
+        list_model_name = d['list_model_name'][:]
+        list_model_success = d['list_model_success'][:]
+        list_model_modflow = d['list_model_modflow'][:]
+        
+        for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                            list_model_success[:],
+                                                            list_model_modflow[:]):
+            
+            Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+                
+            # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+            Smod['recharge'] = Smod['recharge'] * 1000 * 30
+            Smod['outflow_drain'] =  ( Smod['outflow_drain'] ) * (area * 1e6) #+ Smod['runoff'] ) # * (area * 1e6)
+            # Smod['groundwater_storage'] = Smod['groundwater_storage']/(Smod['groundwater_storage'].mean())
+            Smod['groundwater_storage'] = Smod['groundwater_storage']
+            per = 1
+            Smod['dQ'] = Smod['outflow_drain'].diff()
+            Smod['dGW'] = Smod['groundwater_storage'].diff()
+            Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / Smod['outflow_drain'].diff(periods=per)))
+            Smod = select_period(Smod, 1975,2099)
+            
+            acc_npy = np.load(BV.simulations_folder+'/'+model_name+'/_postprocess/'+'accumulation_flux.npy', allow_pickle=True).item()
+            cpstart = 0
+            cpend = space_pi
+            for i in range(len(years)):
+                # cpstart = 0
+                # cpend = 30
+                year = years[i]
+                
+                acc_npy_win = list(acc_npy.items())[12*cpstart:12*cpend]
+                i_end = 12*cpend
+                if i_end<len(acc_npy):
+                    print(year)
+                    for key in range(len(acc_npy_win)):
+                        acc_npy_win[key] = np.ma.masked_array(acc_npy_win[key][1], mask=(mask<0))
+                    zero = acc_npy_win[0] * 0
+                    for i in range(len(acc_npy_win)):
+                        tempo = acc_npy_win[i].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo
+                    days_flux = zero.copy() / len(acc_npy_win)
+                    series = pd.Series(days_flux.flatten())
+                else:
+                    print('nop', year)
+                    series = pd.Series(days_flux.flatten()*np.nan)
+                df_pi[year] = series
+                # series = pd.DataFrame(series.dropna())
+                cpstart += 1
+                cpend += 1
+        
+        df_yearly=df_pi.copy()
+        # df_yearly[df_yearly==1] = np.nan
+        df_yearly=df_yearly.dropna(how='all', axis=0)
+        df_yearly[np.isnan(df_yearly)] = 0
+        df_yearly = df_yearly.loc[~(df_yearly==0).all(axis=1)]
+        df_yearly = df_yearly.iloc[:, :-space_pi]
+        
+        dtest_0e = df_yearly.mask(df_yearly > 0, np.nan).count()
+        dtest_25 = df_yearly.mask(df_yearly == 0, np.nan)
+        dtest_25 = dtest_25.mask(dtest_25 > 0.25, np.nan).count()
+        dtest_50 = df_yearly.mask(df_yearly == 0, np.nan)
+        dtest_50[(dtest_50<=0.25)|(dtest_50>0.5)] = np.nan
+        dtest_50 = dtest_50.count()
+        dtest_75 = df_yearly.mask(df_yearly == 0, np.nan)
+        dtest_75[(dtest_75<=0.50)|(dtest_75>0.75)] = np.nan
+        dtest_75 = dtest_75.count()
+        dtest_1 = df_yearly.mask(df_yearly == 0, np.nan)
+        dtest_1[(dtest_1<=0.75)|(dtest_75<1)] = np.nan
+        dtest_1 = dtest_1.count()
+        dtest_1e = df_yearly.mask(df_yearly == 0, np.nan)
+        dtest_1e[(dtest_1e<1)] = np.nan
+        dtest_1e = dtest_1e.count()
+        
+
+        fig, ax = plt.subplots(1,1, figsize=(10,4))
+        ax.plot((dtest_0e/len(df_yearly))*100)
+        ax.plot((dtest_25/len(df_yearly))*100)
+        ax.plot((dtest_50/len(df_yearly))*100)
+        ax.plot((dtest_75/len(df_yearly))*100)
+        ax.plot((dtest_1/len(df_yearly))*100)
+        ax.plot((dtest_1e/len(df_yearly))*100)
+        
+        """
+        # ax.set_yscale('log')
+        # if watershed_name == 'Canut':
+        #     ax.set_ylim(1,1000)
+        # if watershed_name == 'Nancon':
+        #     ax.set_ylim(1,1000)
+        ax.set_ylim(0,1)
+        # ax.set_yticks(np.arange(0, 20+1, 5))
+        ax.set_xlabel('Date')
+        ax.set_ylabel('PI [-]')
+        # normaliz = plt.Normalize(np.nanmin(df_yearly.median()), np.nanmax(df_yearly.median()))
+        norm = matplotlib.colors.Normalize(vmin=np.quantile(df_yearly.median(), 0.25),
+                                         vmax=np.quantile(df_yearly.median(), 0.75))
+        colors = plt.cm.jet_r(norm(df_yearly.median()))
+        # colors = plt.cm.jet_r(norm(df_yearly.median()*0+0.5))
+        medianprops = dict(linestyle='-', linewidth=1, color='black')
+        meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
+                              markerfacecolor='k', linestyle='-')
+        ax.vlines(x=years+space_pi, 
+                    ymin=df_yearly.mean(), 
+                    ymax=df_yearly.quantile(0.66), color='k', zorder=2)
+        ax.vlines(x=years+space_pi, 
+                    ymin=df_yearly.quantile(0.33), 
+                    ymax=df_yearly.mean(), color='k', zorder=2)
+        
+        # for i in range(len(years)):
+        #     boxprops = dict(linestyle='-', linewidth=1, color='k',
+        #                     facecolor=colors[i], 
+        #                     alpha=0.5)
+        #     bp = plt.boxplot(df_yearly.iloc[:,i], widths=0.75,
+        #                     positions=[df_yearly.columns[i]+space_pi],
+        #                     whis=False, showfliers=False, showmeans=False, 
+        #                     medianprops=medianprops, meanprops=meanpointprops,
+        #                     patch_artist=True,
+        #                     boxprops=boxprops)
+        ax.plot(years+space_pi, df_yearly.mean(), marker='o', mec='k', ms=1.5, lw=0,
+                mfc='k', mew=1,
+                color='k', zorder=1000)      
+        # for element in bp['whiskers']:
+        #     element.set_color('k')
+        #     element.set_linestyle('-')
+        """
+        
+        ax.set_xticks(np.arange(1980, 2100+1, 10))
+        ax.set_xticklabels(np.arange(1980, 2100+1, 10))
+        ax.set_xlim(1974,2100)
+        ax.tick_params(axis='x', which='minor')
+        from matplotlib.ticker import (MultipleLocator)
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        ax.set_axisbelow(True)
+        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
+        ax.set_title(model_name, fontsize=8)
+        plt.tight_layout()    
+
+#%% PI PROJECTIONS FCT
+
+def season_anomaly(months, begin_h, end_h, begin_f, end_f):
+    # months = [5,6,7]
+    # begin_h = 18*12
+    # end_h = 48*12
+    # begin_f = -30*12
+    # end_f = 0
+
+    # Historic
+    if begin_h == 0:
+        acc_npy_h = list(acc_npy.items())[:end_h]
+    else:
+        acc_npy_h = list(acc_npy.items())[begin_h:end_h]
+    acc_npy_1 = list(acc_npy_h)[months[0]::12]
+    acc_npy_2 = list(acc_npy_h)[months[1]::12]
+    acc_npy_3 = list(acc_npy_h)[months[2]::12]
+    acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3)
+    for key in range(len(acc_npy_h)):
+        acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<0))
+    zero = acc_npy[0] * 0
+    for i in range(len(acc_npy_h)):
+        tempo = acc_npy_h[i].copy()
+        tempo[tempo>0] = 1
+        zero = zero + tempo
+    days_flux_h = zero.copy() / len(acc_npy_h)
+
+    # To look
+    if end_f == 0:
+        acc_npy_f = list(acc_npy.items())[begin_f:]
+    else:
+        acc_npy_f = list(acc_npy.items())[begin_f:end_f]
+    acc_npy_1 = list(acc_npy_f)[months[0]::12]
+    acc_npy_2 = list(acc_npy_f)[months[0]::12]
+    acc_npy_3 = list(acc_npy_f)[months[2]::12]
+    acc_npy_f = (acc_npy_1 + acc_npy_2 + acc_npy_3)
+    for key in range(len(acc_npy_f)):
+        acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<0))
+    zero = acc_npy[0] * 0
+    for i in range(len(acc_npy_f)):
+        tempo = acc_npy_f[i].copy()
+        tempo[tempo>0] = 1
+        zero = zero + tempo
+    days_flux_f = zero.copy() / len(acc_npy_f)
+    
+    # Anomaly
+    # days_flux_ano = ( (days_flux_f - days_flux_h) ) * 100
+    days_flux_ano = ( (days_flux_f - days_flux_h) ) / days_flux_h
+    # data = np.ma.masked_where((days_flux_ano==0)&(days_flux_h==0), days_flux_ano)
+    data = np.ma.masked_where((days_flux_ano==0)|(days_flux_h==0), days_flux_ano)
+    # data = data.flatten().filled(np.nan)
+    # data = data.flatten()
+    # data = days_flux_ano[~days_flux_ano.mask]
+    # data = data.compressed()
+    # data = data[~np.isnan(data)]
+    data = days_flux_ano[~days_flux_ano.mask]
+    
+    return days_flux_h, days_flux_f, days_flux_ano, data
+
+#%% PI PROJECTIONS MAPS
+
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['CNR-ALA']
+# sce_list = ['RCP2.6','RCP8.5']
+
+sce_list = ['RCP85']
+# sce_list = ['RCP26']
+
+# for watershed_name in watershed_names[:1]:
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+
+area = BV.geographic.area
+area = int(round(area))
+
+mod='ALL'
+
+for ic, sce in enumerate(sce_list):
+    years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+    df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+    df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+
+    # for m in np.arange(0,11+1,1):
+
+    df_ano = pd.DataFrame()
+    
+    _SON_h = []
+    _DJF_h = []
+    _MAM_h = []
+    _JJA_h = []
+    
+    _SON_f = []
+    _DJF_f = []
+    _MAM_f = []
+    _JJA_f = []
+    
+    _SON_ano = []
+    _DJF_ano = []
+    _MAM_ano = []
+    _JJA_ano = []
+    
+    for id_mod_val in list_id_mod[:]:
+    
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+        d = dd.io.load(h5file)
+        list_model_name = d['list_model_name'][:]
+        list_model_success = d['list_model_success'][:]
+        list_model_modflow = d['list_model_modflow'][:]
+        
+        for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                            list_model_success[:],
+                                                            list_model_modflow[:]):
+            
+            Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+                
+            # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+            Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+            Smod['recharge'] = Smod['recharge'] * 1000 * 30
+            Smod['outflow_drain'] =  ( Smod['outflow_drain'] ) * (area * 1e6) #+ Smod['runoff'] ) # * (area * 1e6)
+            # Smod['groundwater_storage'] = Smod['groundwater_storage']/(Smod['groundwater_storage'].mean())
+            Smod['groundwater_storage'] = Smod['groundwater_storage']
+            per = 1
+            Smod['dQ'] = Smod['outflow_drain'].diff()
+            Smod['dGW'] = Smod['groundwater_storage'].diff()
+            Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / Smod['outflow_drain'].diff(periods=per)))
+            Smod = select_period(Smod, 1975,2099)
+            
+            acc_npy = np.load(BV.simulations_folder+'/'+model_name+'/_postprocess/'+'accumulation_flux.npy', allow_pickle=True).item()
+
+            begin_h = 5*12
+            end_h = 35*12
+            # begin_h = 25*12
+            # end_h = 55*12
+            # begin_h = 3*12
+            # end_h = 38*12
+            # begin_f = -60*12
+            # end_f = -30*12
+            begin_f = -30*12
+            end_f = 0
+            # begin_f = -60*12
+            # end_f = -30*12
+            
+            h_son, f_son, ano_son, son = season_anomaly([8,9,10], begin_h, end_h, begin_f, end_f)
+            # plt.plot(son)
+            # print(len(son))
+            h_djf, f_djf, ano_djf, djf = season_anomaly([11,0,1], begin_h, end_h, begin_f, end_f)
+            # plt.plot(djf)
+            # print(len(djf))
+            h_mam, f_mam, ano_mam, mam = season_anomaly([2,3,4], begin_h, end_h, begin_f, end_f)
+            # plt.plot(mam)
+            # print(len(mam))
+            h_jja, f_jja, ano_jja, jja = season_anomaly([5,6,7], begin_h, end_h, begin_f, end_f)
+            # plt.plot(jja)
+            # print(len(jja))
+            
+            # h_jja, f_jja, ano_jja, jja = season_anomaly([0,1,2,3,4,5,6,7,8,9,10,11], begin_h, end_h, begin_f, end_f)
+            # h_jja, f_jja, ano_jja, jja = season_anomaly([m,m,m], begin_h, end_h, begin_f, end_f)
+                                    
+            df_ano['SON_'+mod+'_'+sce] = pd.Series(son)
+            df_ano['DJF_'+mod+'_'+sce] = pd.Series(djf)
+            df_ano['MAM_'+mod+'_'+sce] = pd.Series(mam)
+            df_ano['JJA_'+mod+'_'+sce] = pd.Series(jja)
+          
+            _SON_h.append(h_son)
+            _DJF_h.append(h_djf)
+            _MAM_h.append(h_mam)
+            _JJA_h.append(h_jja)
+            
+            _SON_f.append(f_son)
+            _DJF_f.append(f_djf)
+            _MAM_f.append(f_mam)
+            _JJA_f.append(f_jja)
+            
+            _SON_ano.append(ano_son)
+            _DJF_ano.append(ano_djf)
+            _MAM_ano.append(ano_mam)
+            _JJA_ano.append(ano_jja)
+
+    _SON_h_mean = sum(_SON_h)/len(_SON_h)
+    _DJF_h_mean = sum(_DJF_h)/len(_DJF_h)
+    _MAM_h_mean = sum(_MAM_h)/len(_MAM_h)
+    _JJA_h_mean = sum(_JJA_h)/len(_JJA_h)
+    
+    _SON_f_mean = sum(_SON_f)/len(_SON_f)
+    _DJF_f_mean = sum(_DJF_f)/len(_DJF_f)
+    _MAM_f_mean = sum(_MAM_f)/len(_MAM_f)
+    _JJA_f_mean = sum(_JJA_f)/len(_JJA_f)
+    
+    # _SON_ano_mean = sum(_SON_ano)/len(_SON_ano)
+    # _DJF_ano_mean = sum(_DJF_ano)/len(_DJF_ano)
+    # _MAM_ano_mean = sum(_MAM_ano)/len(_MAM_ano)
+    # _JJA_ano_mean = sum(_JJA_ano)/len(_JJA_ano)
+     
+    _SON_ano_mean = ( _SON_f_mean - _SON_h_mean ) / _SON_h_mean
+    _DJF_ano_mean = ( _DJF_f_mean - _DJF_h_mean ) / _DJF_h_mean
+    _MAM_ano_mean = ( _MAM_f_mean - _MAM_h_mean ) / _MAM_h_mean
+    _JJA_ano_mean = ( _JJA_f_mean - _JJA_h_mean ) / _JJA_h_mean
+    
+    for season, days_flux_h, days_flux_f, days_flux_ano in zip(['SON', 'DJF', 'MAM', 'JJA'],
+                                                                [_SON_h_mean, _DJF_h_mean, _MAM_h_mean, _JJA_h_mean],
+                                                                [_SON_f_mean, _DJF_f_mean, _MAM_f_mean, _JJA_f_mean],
+                                                                [_SON_ano_mean, _DJF_ano_mean, _MAM_ano_mean, _JJA_ano_mean]):
+
+    # # for season, days_flux_h, days_flux_f, days_flux_ano in zip(['DJF',  'JJA'],
+    # #                                                             [_DJF_h_mean, _JJA_h_mean],
+    # #                                                             [_DJF_f_mean, _JJA_f_mean],
+    # #                                                             [_DJF_ano_mean, _JJA_ano_mean]):
+                
+    # for season, days_flux_h, days_flux_f, days_flux_ano in zip(['JJA'],
+    #                                                             [_JJA_h_mean],
+    #                                                             [_JJA_f_mean],
+    #                                                             [_JJA_ano_mean]):
+        
+        fig, ax = plt.subplots(1,1, figsize=(10,10))
+        
+        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'  # necessary for plots
+        line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+        line = np.ma.masked_where(line < 0, line)
+        mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+        
+        # cmap = plt.cm.Oranges_r
+        # cmaplist = [cmap(i) for i in range(cmap.N)]
+        # cmaplist = ['darkred','red']
+        # # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
+        # cmap = mpl.colors.LinearSegmentedColormap.from_list(
+        #     'Custom cmap', cmaplist, cmap.N)
+        # minn = -1.01 # 0 
+        # maxn = 0 # 1.1
+        # intn = 0.1 # 0.1
+        # bounds = np.arange(minn, maxn, intn)
+        # norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        # pcn = ax.imshow(np.ma.masked_where(days_flux_ano >= 0, days_flux_ano), #1
+        #                 cmap = cmap,
+        #                 norm=norm, alpha=1)
+        # # plt.imshow(days_flux_ano)
+        # # plt.colorbar()
+        
+        # cmap = plt.cm.Blues
+        # # cmap = plt.cm.winter_r
+        # cmaplist = [cmap(i) for i in range(cmap.N)]
+        # cmaplist = ['dodgerblue','navy']
+        # # cmaplist[-1] = (.5, .5, .5, 1.0) # first value
+        # cmap = mpl.colors.LinearSegmentedColormap.from_list(
+        #     'Custom cmap', cmaplist, cmap.N)
+        # minp = 0 # 1
+        # maxp = 1.01 # 2.1
+        # intp = 0.1 # 0.1
+        # bounds = np.arange(minp, maxp, intp)
+        # norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        # # pcp = ax.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano), #1
+        # #                 cmap = cmap,
+        # #                 norm=norm, alpha=1)
+        
+        # plt.imshow(np.ma.masked_where(days_flux_ano <= 0, days_flux_ano))
+        # plt.colorbar()
+        
+        pc = ax.imshow(np.ma.masked_where((days_flux_ano>-1),
+                                          days_flux_ano),
+                                    cmap = mpl.colors.ListedColormap('darkred'))
+        
+        pc = ax.imshow(np.ma.masked_where((days_flux_ano<=-1)|(days_flux_ano>=0),
+                                          days_flux_ano),
+                                    cmap = mpl.colors.ListedColormap('red'))
+        
+        pc = ax.imshow(np.ma.masked_where((days_flux_ano<=0)|(days_flux_ano>=1),
+                                          days_flux_ano),
+                                    cmap = mpl.colors.ListedColormap('dodgerblue'))
+        
+        pc = ax.imshow(np.ma.masked_where((days_flux_ano<1),
+                                          days_flux_ano),
+                                    cmap = mpl.colors.ListedColormap('dodgerblue'))
+        
+        pc = ax.imshow(np.ma.masked_where((days_flux_ano!=0)|(days_flux_h==0),
+                                          days_flux_ano),
+                                    cmap = mpl.colors.ListedColormap('grey'))
+        
+        pc = ax.imshow(np.ma.masked_where((days_flux_f==0)|(days_flux_h!=0),
+                                          days_flux_f),
+                                    cmap = mpl.colors.ListedColormap('navy'))
+        
+        # try:
+        #     days = days_flux_ano.copy()
+        #     days[(days_flux==0)|(days_flux_h!=0)] = np.nan
+        #     plt.imshow(days, cmap = mpl.colors.ListedColormap('k'))
+        # except:
+        #     pass
+        
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.axis('off')
+        
+        ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+        
+        plt.subplots_adjust(hspace = -0.6)
+                        
+        # position=fig1.add_axes([1,0.3,0.015,0.32])  ## the parameters are the specified position you set 
+        # cb = fig1.colorbar(pcp,cax=position) ##
+        # cb.set_ticks(np.arange(minp, maxp, intp))
+        # cb.set_ticklabels(np.arange(minp, maxp, intp).round(1))
+        # # cb.ax.invert_xaxis()
+        
+        # position=fig1.add_axes([1.10,0.3,0.015,0.32])  ## the parameters are the specified position you set 
+        # cb = fig1.colorbar(pcn,cax=position) ##   
+        # cb.set_ticks(np.arange(minn, maxn, intn))
+        # cb.set_ticklabels(np.arange(minn, maxn, intn).round(1))
+        
+        # ax.set_title(mod+'_'+sce+'_'+str(m), fontsize=8)
+        
+        ax.set_title(mod+'_'+sce+'_'+str(season), fontsize=8)
 
 #%% ---- RESIDENCE
 
