@@ -110,7 +110,7 @@ out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 dem_path = data_path + "MNT_gouville_25m.tif"
 oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
-shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'calib_zones.shp')
+shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'param_zones.shp')
 
 load = False
 watershed_name = 'Gouville'
@@ -222,30 +222,9 @@ ax.set_ylabel('Sea level [m.a.s.l]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 
-# list_filenames = os.listdir(os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo'))
-# list_path = []
-# for name in list_filenames:
-#     if name.endswith('.txt') and int(name[-8:-4])>=2016 and int(name[-8:-4])<=2016:
-#         path = os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo', name)
-#         list_path.append(path)
-
-# SHOM_df_list = []
-# for m in range(len(list_path)):
-#     SHOM_data = pd.read_csv(list_path[m], sep = ";", header = 13)
-#     SHOM_df_list.append(SHOM_data)
-
-# SHOM_df_h = pd.concat(SHOM_df_list)
-# SHOM_df_h['Valeur'] = SHOM_df_h['Valeur'] + -6.289 #hydrographic zero at nearest maregraph
-# SHOM_df_h = SHOM_df_h.rename(columns={"# Date": "Date"})
-# SHOM_df_h['Date'] = pd.to_datetime(SHOM_df_h['Date'], dayfirst=True)
-# SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).max()
-# SHOM_df = SHOM_df.drop(columns=['Source'])
-# shift = SHOM_df.mean() - SHOM_df_h.Valeur.mean()
-# SHOM_df = SHOM_df - shift
-
-# sea_lev_df_fill = SHOM_df.fillna(SHOM_df.mean())
-# sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
-# plt.plot(sea_lev)
+# Since initial state of transient-state simulation is obtained
+# using a permanent-state simulation based on t0 values,
+# sea level at t0 is set to its mean value.
 sea_level[0] = np.mean(sea_level)
 BV.oceanic.update_MSL(sea_level)
 
@@ -271,10 +250,10 @@ cond_drain = None # or value of conductance
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Lateral heterogeneity of hydrodynamic parameters
-hyd_cond_1 = 21.5 # m/day
-hyd_cond_2 = 19.5 # m/day
-porosity_1 = 7 / 100 # -
-porosity_2 = 24 / 100 # -
+hyd_cond_1 = 18.5 # m/day
+hyd_cond_2 = 95 # m/day
+porosity_1 = 8 / 100 # -
+porosity_2 = 45 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -352,7 +331,7 @@ watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
 
 sim_piezo_elev = []
 for t in range(len(watertable_elevation)):
-    sim_piezo_elev.append(watertable_elevation[t][[30],[30]][0]) #[BV.piezometry.y_iloc, BV.piezometry.x_iloc]
+    sim_piezo_elev.append(watertable_elevation[t][BV.piezometry.x_iloc,BV.piezometry.y_iloc][0])
 df_simobs_piezo_elev = piezo_2016.copy()
 df_simobs_piezo_elev.insert(1, "Sim", sim_piezo_elev)
 
@@ -361,7 +340,7 @@ watertable_depth = np.load(os.path.join(simulations_folder, 'default',
                                allow_pickle=True).item()
 sim_piezo_depth = []
 for t in range(len(watertable_depth)):
-    sim_piezo_depth.append(watertable_depth[t][[30],[30]][0]) #[BV.piezometry.y_iloc, BV.piezometry.x_iloc]
+    sim_piezo_depth.append(watertable_depth[t][BV.piezometry.x_iloc,BV.piezometry.y_iloc][0])
 df_simobs_piezo_depth = piezo_2016.copy()
 df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
