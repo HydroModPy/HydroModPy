@@ -24,8 +24,11 @@ Created on Wed Jan 17 16:45:57 2024
 #%% 0) Load BV and paths
 
 folder_clim = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/SIM2_MeteoFrance/'
-out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
-watershed_name = 'Lasset'
+# out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
+# watershed_name = 'Lasset'
+out_path = 'D:/Users/abherve/SIMULATIONS/'
+watershed_name = 'PETITE_EMPRISE'
+watershed_name = 'GRANDE_EMPRISE'
 
 # Import HydroModPy modules
 import os
@@ -100,68 +103,125 @@ file_meta= 'coordonnees_grille_safran_lambert-2-etendu.csv'
 # file_name= 'QUOT_SIM2_latest-20231101-20231212.csv' # novembre 2023 jusqu'au jour précédent le teléchargement
 # file_name= 'QUOT_SIM2_2010_2019.csv'
 # file_name= 'QUOT_SIM2_latest-2020-202311.csv' # janvier 2020 jusqu'au mois précédent le teléchargement
-file_name = 'SIM2_2020_2023.csv'
-file_name = 'SIM2_2023_2024.csv'
+# file_name = 'SIM2_2020_2023.csv'
 
-# Colonnes à lire (pour économiser la mémoire vive) - Les 3 premières sont obligatoires (LAMBX, LAMBY, DATE)
-usecols= ['LAMBX', 'LAMBY', 'DATE', 'PRENEI_Q', 'PRELIQ_Q', 'T_Q', 'FF_Q', 'Q_Q', 'DLI_Q', 'SSI_Q', 'HU_Q', 'EVAP_Q', 'ETP_Q', 'PE_Q', 'SWI_Q', 'DRAINC_Q', 'RUNC_Q', 'RESR_NEIGE_Q', 'RESR_NEIGE6_Q', 'HTEURNEIGE_Q', 'HTEURNEIGE6_Q', 'HTEURNEIGEX_Q', 'SNOW_FRAC_Q', 'ECOULEMENT_Q', 'WG_RACINE_Q', 'WGI_RACINE_Q', 'TINF_H_Q', 'TSUP_H_Q']
-# usecols= ['LAMBX', 'LAMBY', 'DATE', 'PRENEI_Q', 'PRELIQ_Q', 'T_Q',                'DLI_Q',          'HU_Q',           'ETP_Q',          'SWI_Q',                       'RESR_NEIGE_Q',                                                                                                                                 'TINF_H_Q', 'TSUP_H_Q']
+for file_name in ['SIM2_1958_1959.csv',
+                  'SIM2_1960_1969.csv',
+                  'SIM2_1970_1979.csv',
+                  'SIM2_1980_1989.csv',
+                  'SIM2_1990_1999.csv',
+                  'SIM2_2000_2009.csv',
+                  'SIM2_2010_2019.csv',
+                  'SIM2_2020_2023.csv',
+                  'SIM2_2023_2024.csv']:
 
-# ================ Initialisation ====================
-# Associe aux paramètres une unité et un nom long grâce à un dictionnaire (tiré de liste_parametres.odt https://www.data.gouv.fr/fr/datasets/r/d1ffaf5e-7d15-4fb5-a34c-f76aaf417b46)
-dict_units= {'Precip': ['mm', 'Précipitations totales (06-06 UTC)'], 'PRENEI_Q': ['mm', 'Précipitations solides (06-06 UTC)'], 'PRELIQ_Q': ['mm', 'Précipitations liquides (06-06 UTC))'], 
-             'T_Q': ['°C','Température moyenne'], 'FF_Q': ['m/s', 'Vit. vent'], 'Q_Q': ['g/kg','Humidité spécifique '], 'DLI_Q': ['J/cm2', 'Rayonnement atmosphérique '],
-             'SSI_Q': ['J/cm2', 'Rayonnement visible '], 'HU_Q': ['%', 'Humidité relative '], 'EVAP_Q': ['mm', 'ETR (cumul quotidien 06-06 UTC)'], 
-             'ETP_Q': ['mm', 'ETP (Penman-Monteith)'], 'PE_Q': ['mm', 'Pluies efficaces'], 'SWI_Q': ['%', 'Indice humidité des sols (06-06 UTC)'],
-             'DRAINC_Q': ['mm', 'Drainage (06-06 UTC)'], 'RUNC_Q': ['mm', 'Ruissellement (06-06 UTC)'], 'RESR_NEIGE_Q': ['mm', 'Equivalent eau manteau neigeux (06-06 UTC)'], 
-             'RESR_NEIGE6_Q': ['mm', 'Equivalent eau manteau neigeux à 06 UTC'], 'HTEURNEIGE_Q': ['m', 'Epaisseur manteau neigeux (moyenne 06-06 UTC)'], 
-             'HTEURNEIGE6_Q': ['m', 'Epaisseur du manteau neigeux à 06 UTC)'], 'HTEURNEIGEX_Q': ['m', 'Epaisseur manteau neigeux maximum dans journée'], 
-             'SNOW_FRAC_Q': ['%', 'Fraction maille recouverte par neige (moyenne 06-06 UTC)'], 'ECOULEMENT_Q': ['mm', 'Ecoulement en base manteau neigeux'], 
-             'WG_RACINE_Q': ['mm','Contenu en eau liquide dans couche racinaire à 06 UTC'], 'WGI_RACINE_Q': ['mm', 'Contenu en eau gelée dans la couche de racinaire à 06 UTC'], 
-             'TINF_H_Q': ['°C', 'Température minimale des 24 valeurs horaires'], 'TSUP_H_Q': ['°C', 'Température maximale des 24 valeurs horaires']}
-
-# ================ Lecture des données quotidiennes ====================
-# afficher l'heure 
-start = datetime.datetime.now()
-print("Heure de démarrage : ", start.strftime("%Y-%m-%d %H:%M"))
-print("Attendez l'affichage des données et soyez patient ! La lecture prend environ 13 minutes pour une décennie entière et 10 paramètres...")
-
-file_path = os.path.join(folder_in, file_name)
-# Lit un fichier csv comportant des données météo dans un dataframe pandas, en précisant les champs à lire
-df = pd.read_csv(file_path, sep=';', header=0, parse_dates=True, decimal='.', usecols= usecols)
-
-# Ajoute une colonne 'ID' avec la concaténation des 2 colonnes  LAMBX et LAMBY
-df['ID'] = df['LAMBX'].astype(str) + '_' + df['LAMBY'].astype(str)
-df.drop(['LAMBX', 'LAMBY'], axis=1, inplace=True)
-# index sur les 2 colonnes 'DATE' et 'ID'
-df['DATE']= pd.to_datetime(df["DATE"].values, format='%Y%m%d').values
-
-# df = df.set_index(['ID', 'DATE'])
-df = df.set_index(['ID', 'DATE'])
-print(df.columns)
-# afficher la durée d'éxécution
-now = datetime.datetime.now()
-print("Heure de fin : ", now.strftime("%Y-%m-%d %H:%M"))
-# affiche la différence entre les instants de début et de fin
-print("Durée d'éxécution : ", now - start)
-
-# ================ lit le fichier csv de métadonnées des coordonnées lat long des mailles
-file_path = os.path.join(fld_meta, file_meta)
-
-# Lit un fichier csv comportant des données météo dans un dataframe pandas
-df_meta = pd.read_csv(file_path, sep=';', header=0, decimal=',')
-# Ajoute une colonne 'ID' avec la concaténation des 2 colonnes  LAMBX et LAMBY
-df_meta['ID'] = df_meta['LAMBX (hm)'].astype(str) + '_' + df_meta['LAMBY (hm)'].astype(str)
-# supprime les colonnes 'LAMBX (hm)' et 'LAMBY (hm)'
-df_meta.drop(['LAMBX (hm)', 'LAMBY (hm)'], axis=1, inplace=True)
-# index sur la colonne 'ID'
-df_meta = df_meta.set_index(['ID'], drop=True)
-# display(df_meta)
-
-# jointure des 2 dataframes en plaçant les nouvelles colonnes au début
-df = df_meta.join(df, how='inner')
-
-df
+    # file_name = 'SIM2_2023_2024.csv'
+    
+    # Colonnes à lire (pour économiser la mémoire vive) - Les 3 premières sont obligatoires (LAMBX, LAMBY, DATE)
+    usecols= ['LAMBX', 'LAMBY', 'DATE', 'PRENEI_Q', 'PRELIQ_Q', 'T_Q', 'FF_Q', 'Q_Q', 'DLI_Q', 'SSI_Q', 'HU_Q', 'EVAP_Q', 'ETP_Q', 'PE_Q', 'SWI_Q', 'DRAINC_Q', 'RUNC_Q', 'RESR_NEIGE_Q', 'RESR_NEIGE6_Q', 'HTEURNEIGE_Q', 'HTEURNEIGE6_Q', 'HTEURNEIGEX_Q', 'SNOW_FRAC_Q', 'ECOULEMENT_Q', 'WG_RACINE_Q', 'WGI_RACINE_Q', 'TINF_H_Q', 'TSUP_H_Q']
+    # usecols= ['LAMBX', 'LAMBY', 'DATE', 'PRENEI_Q', 'PRELIQ_Q', 'T_Q',                'DLI_Q',          'HU_Q',           'ETP_Q',          'SWI_Q',                       'RESR_NEIGE_Q',                                                                                                                                 'TINF_H_Q', 'TSUP_H_Q']
+    
+    # ================ Initialisation ====================
+    # Associe aux paramètres une unité et un nom long grâce à un dictionnaire (tiré de liste_parametres.odt https://www.data.gouv.fr/fr/datasets/r/d1ffaf5e-7d15-4fb5-a34c-f76aaf417b46)
+    dict_units= {'Precip': ['mm', 'Précipitations totales (06-06 UTC)'], 'PRENEI_Q': ['mm', 'Précipitations solides (06-06 UTC)'], 'PRELIQ_Q': ['mm', 'Précipitations liquides (06-06 UTC))'], 
+                 'T_Q': ['°C','Température moyenne'], 'FF_Q': ['m/s', 'Vit. vent'], 'Q_Q': ['g/kg','Humidité spécifique '], 'DLI_Q': ['J/cm2', 'Rayonnement atmosphérique '],
+                 'SSI_Q': ['J/cm2', 'Rayonnement visible '], 'HU_Q': ['%', 'Humidité relative '], 'EVAP_Q': ['mm', 'ETR (cumul quotidien 06-06 UTC)'], 
+                 'ETP_Q': ['mm', 'ETP (Penman-Monteith)'], 'PE_Q': ['mm', 'Pluies efficaces'], 'SWI_Q': ['%', 'Indice humidité des sols (06-06 UTC)'],
+                 'DRAINC_Q': ['mm', 'Drainage (06-06 UTC)'], 'RUNC_Q': ['mm', 'Ruissellement (06-06 UTC)'], 'RESR_NEIGE_Q': ['mm', 'Equivalent eau manteau neigeux (06-06 UTC)'], 
+                 'RESR_NEIGE6_Q': ['mm', 'Equivalent eau manteau neigeux à 06 UTC'], 'HTEURNEIGE_Q': ['m', 'Epaisseur manteau neigeux (moyenne 06-06 UTC)'], 
+                 'HTEURNEIGE6_Q': ['m', 'Epaisseur du manteau neigeux à 06 UTC)'], 'HTEURNEIGEX_Q': ['m', 'Epaisseur manteau neigeux maximum dans journée'], 
+                 'SNOW_FRAC_Q': ['%', 'Fraction maille recouverte par neige (moyenne 06-06 UTC)'], 'ECOULEMENT_Q': ['mm', 'Ecoulement en base manteau neigeux'], 
+                 'WG_RACINE_Q': ['mm','Contenu en eau liquide dans couche racinaire à 06 UTC'], 'WGI_RACINE_Q': ['mm', 'Contenu en eau gelée dans la couche de racinaire à 06 UTC'], 
+                 'TINF_H_Q': ['°C', 'Température minimale des 24 valeurs horaires'], 'TSUP_H_Q': ['°C', 'Température maximale des 24 valeurs horaires']}
+    
+    # ================ Lecture des données quotidiennes ====================
+    # afficher l'heure 
+    start = datetime.datetime.now()
+    print("Heure de démarrage : ", start.strftime("%Y-%m-%d %H:%M"))
+    print("Attendez l'affichage des données et soyez patient ! La lecture prend environ 13 minutes pour une décennie entière et 10 paramètres...")
+    
+    file_path = os.path.join(folder_in, file_name)
+    # Lit un fichier csv comportant des données météo dans un dataframe pandas, en précisant les champs à lire
+    df = pd.read_csv(file_path, sep=';', header=0, parse_dates=True, decimal='.', usecols= usecols)
+    
+    # Ajoute une colonne 'ID' avec la concaténation des 2 colonnes  LAMBX et LAMBY
+    df['ID'] = df['LAMBX'].astype(str) + '_' + df['LAMBY'].astype(str)
+    df.drop(['LAMBX', 'LAMBY'], axis=1, inplace=True)
+    # index sur les 2 colonnes 'DATE' et 'ID'
+    df['DATE']= pd.to_datetime(df["DATE"].values, format='%Y%m%d').values
+    
+    # df = df.set_index(['ID', 'DATE'])
+    df = df.set_index(['ID', 'DATE'])
+    print(df.columns)
+    # afficher la durée d'éxécution
+    now = datetime.datetime.now()
+    print("Heure de fin : ", now.strftime("%Y-%m-%d %H:%M"))
+    # affiche la différence entre les instants de début et de fin
+    print("Durée d'éxécution : ", now - start)
+    
+    # ================ lit le fichier csv de métadonnées des coordonnées lat long des mailles
+    file_path = os.path.join(fld_meta, file_meta)
+    
+    # Lit un fichier csv comportant des données météo dans un dataframe pandas
+    df_meta = pd.read_csv(file_path, sep=';', header=0, decimal=',')
+    # Ajoute une colonne 'ID' avec la concaténation des 2 colonnes  LAMBX et LAMBY
+    df_meta['ID'] = df_meta['LAMBX (hm)'].astype(str) + '_' + df_meta['LAMBY (hm)'].astype(str)
+    # supprime les colonnes 'LAMBX (hm)' et 'LAMBY (hm)'
+    df_meta.drop(['LAMBX (hm)', 'LAMBY (hm)'], axis=1, inplace=True)
+    # index sur la colonne 'ID'
+    df_meta = df_meta.set_index(['ID'], drop=True)
+    # display(df_meta)
+    
+    # jointure des 2 dataframes en plaçant les nouvelles colonnes au début
+    df = df_meta.join(df, how='inner')
+    
+    df
+    
+    #%% 3) Extrait les lignes à partir d'un shpaefile (mailles qui intersectent le shapefile)
+    
+    import geopandas as gpd
+    import matplotlib.pyplot as plt
+    import rasterio
+    import numpy as np
+    from rasterio.plot import show
+    
+    # ================ Personalisation ====================
+    # ID cells pour lequel extraire les données
+    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+    shp_mesh = gpd.read_file(fld_meta+'maille_meteo_fr_pr93.shp')
+    shp_catch = gpd.read_file(BV.geographic.watershed_shp)
+    shp_site = gpd.read_file(BV.stable_folder+'/'+'geographic/box_buff.shp')
+    shp_clip = shp_mesh.clip(shp_catch)
+    cells_ID = list(shp_clip['ET_ID'])
+    cells_X = list((shp_clip['Xlamb']/100))
+    cells_Y = list((shp_clip['Ylamb']/100))
+    SIM_ID = []
+    for i in range(len(cells_ID)):
+        SIM_ID.append(str(int(cells_X[i]))+'_'+str(int(cells_Y[i])))
+    
+    # ================ Traitement ====================
+    # ----------- Initialisation
+    # duplique le dataframe
+    df_temp = df.copy(deep=True)
+    
+    df_temp = df_temp[df_temp.index.get_level_values(0).isin(SIM_ID)]
+    
+    fig, ax = plt.subplots(1,1, dpi=300)
+    mnt = show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+               ax=ax, transform=dem.transform,
+               cmap='terrain', alpha=0.55, zorder=0, aspect="auto")
+    shp_site.plot(ax=ax, alpha=1,facecolor='None')
+    shp_catch.plot(ax=ax, alpha=1,facecolor='None')
+    shp_clip.plot(ax=ax, facecolor='None')
+    
+    # ----------- Affichage
+    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    # display(df_temp)
+    # fig.show()
+    
+    name_end = os.path.splitext(file_name)[0][-10:]
+    
+    df_temp.to_csv(folder_out+'QUOT_SIM2' + name_end + '.csv', sep=';')
 
 #%% 2) Extrait les lignes de la maille voulue (maille la plus proches des coordonnées lat lon)
 """
@@ -217,52 +277,9 @@ name_end = os.path.splitext(file_name)[0][-10:]
 
 df_temp.to_csv(folder_out+'QUOT_SIM2' + name_end + '.csv', sep=';')
 """
-#%% 3) Extrait les lignes à partir d'un shpaefile (mailles qui intersectent le shapefile)
-"""
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import rasterio
-import numpy as np
-from rasterio.plot import show
 
-# ================ Personalisation ====================
-# ID cells pour lequel extraire les données
-dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
-shp_mesh = gpd.read_file(fld_meta+'maille_meteo_fr_pr93.shp')
-shp_catch = gpd.read_file(BV.geographic.watershed_shp)
-shp_site = gpd.read_file(BV.stable_folder+'/'+'geographic/box_buff.shp')
-shp_clip = shp_mesh.clip(shp_catch)
-cells_ID = list(shp_clip['ET_ID'])
-cells_X = list((shp_clip['Xlamb']/100))
-cells_Y = list((shp_clip['Ylamb']/100))
-SIM_ID = []
-for i in range(len(cells_ID)):
-    SIM_ID.append(str(int(cells_X[i]))+'_'+str(int(cells_Y[i])))
-
-# ================ Traitement ====================
-# ----------- Initialisation
-# duplique le dataframe
-df_temp = df.copy(deep=True)
-
-df_temp = df_temp[df_temp.index.get_level_values(0).isin(SIM_ID)]
-
-fig, ax = plt.subplots(1,1, dpi=300)
-mnt = show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
-           ax=ax, transform=dem.transform,
-           cmap='terrain', alpha=0.55, zorder=0, aspect="auto")
-shp_site.plot(ax=ax, alpha=1,facecolor='None')
-shp_catch.plot(ax=ax, alpha=1,facecolor='None')
-shp_clip.plot(ax=ax, facecolor='None')
-
-# ----------- Affichage
-print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-# display(df_temp)
-# fig.show()
-
-df_temp.to_csv(folder_out+'QUOT_SIM2' + name_end + '.csv', sep=';')
-"""
 #%% 4) Extrait les lignes à partir du centroid d'un shpaefile (maille qui intersecte le point)
-
+"""
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import rasterio
@@ -327,7 +344,7 @@ fig.show()
 name_end = os.path.splitext(file_name)[0][-10:]
 
 df_temp.to_csv(folder_out+'QUOT_SIM2' + name_end + '.csv', sep=';')
-
+"""
 #%% 5) Trace le graphique chronologique des paramètres
 
 # Affiches des subplots multiples plotly superposé de tous des paramètres
@@ -373,7 +390,7 @@ print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 fig.show()
 
 #%% 6) Sauvegarde les données et le graphique dans un fichier Excel
-
+"""
 # Enregistre le dataframe dans un fichier excel
 
 # ================ Personalisation ====================
@@ -413,7 +430,7 @@ if os.path.exists(os.path.join(folder_out, map_file + '.png')):
 
 print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 print('Enregistrement terminé du fichier excel : ', file_path)
-
+"""
 #%% Notes
 
 # x = pd.read_csv('C:/Users/ronan/Downloads/QUOT_SIM2_previous-2020-202312.csv')
