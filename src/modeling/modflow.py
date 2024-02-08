@@ -524,7 +524,7 @@ class Modflow:
             
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
-                
+
         #%% Drain package
         
         # (DRN)
@@ -701,6 +701,9 @@ class Modflow:
         
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         toolbox.create_folder(self.tifs_file)
+        
+        self.netcdf_file = os.path.join(self.full_path, '_postprocess', '_netcdf')
+        toolbox.create_folder(self.netcdf_file)
         
         self.save_fig = os.path.join(self.model_folder, '_figures')
         toolbox.create_folder(self.save_fig)
@@ -910,27 +913,51 @@ class Modflow:
             if watertable_elevation == True:
                 toolbox.export_netcdf(self.dict_watertable_elevation, 
                                       base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.save_file, 'watertable_elevation.nc'), 
+                                      out_path = os.path.join(self.netcdf_file, 'watertable_elevation.nc'), 
                                       base_crs = self.geographic.crs_proj,
-                                      times = self.climatic.index) # self.times)
+                                      times = self.climatic.index)
             if watertable_depth == True:
                 toolbox.export_netcdf(self.dict_watertable_depth, 
                                       base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.save_file, 'watertable_depth.nc'), 
+                                      out_path = os.path.join(self.netcdf_file, 'watertable_depth.nc'), 
                                       base_crs = self.geographic.crs_proj,
-                                      times = self.climatic.index) # self.times)
-# =============================================================================
-#             if seepage_areas == True:
-#                 np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
-#             if outflow_drain == True:
-#                 np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
-#             if groundwater_flux == True:
-#                 np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
-#             if groundwater_storage == True:
-#                 np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
-#             if accumulation_flux == True:
-#                 np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
-# =============================================================================
+                                      times = self.climatic.index)
+            if seepage_areas == True:
+                toolbox.export_netcdf(self.dict_seepage_areas, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'seepage_areas.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
+            if outflow_drain == True:
+                toolbox.export_netcdf(self.dict_outflow_drain, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'outflow_drain.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
+            if groundwater_flux == True:
+                toolbox.export_netcdf(self.dict_groundwater_flux, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'groundwater_flux.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
+            if groundwater_storage == True:
+                toolbox.export_netcdf(self.dict_groundwater_storage, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'groundwater_storage.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
+            if accumulation_flux == True:
+                toolbox.export_netcdf(self.dict_accumulation_flux, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
+            if lake_seepage == True:
+                toolbox.export_netcdf(self.dict_lake_seepage, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'lake_seepage.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
 
         if persistency_index == True:
             ### Persistency index
