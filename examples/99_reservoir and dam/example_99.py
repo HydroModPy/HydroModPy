@@ -324,7 +324,7 @@ dam_input_df= dam_input_df.divide(days_in_month.n_days, axis="index")
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
-BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e-6) # because Ronan's values were summed over 1.73 km² area
+BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e6) # because Ronan's values were summed over 1.73 km² area
 BV.lakeres.update_evap(lake_id, 'from_climatic')
 BV.lakeres.update_runoff(lake_id, BV.climatic.runoff)
 
