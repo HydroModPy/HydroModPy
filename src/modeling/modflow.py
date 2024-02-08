@@ -725,6 +725,7 @@ class Modflow:
                         groundwater_flux:bool=True,
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
+                        lake_seepage:bool=True,
                         persistency_index:bool=False,
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
@@ -824,6 +825,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.dict_lake_seepage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
@@ -966,6 +968,31 @@ class Modflow:
                 except:
                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
                     pass
+                    
+            if lake_seepage == True:
+                ### Flux from lake to groundwater
+                self.lake = self.cbb.get_data(text='LAKE', kstpkper=self.kstpkper, totim=time)                     
+                self.lake_seepage_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
+                # Create association between nodes and i,j
+                count = 0
+                count_to_ij = {}
+                for i in range(0, self.dis.nrow):
+                    for j in range(0, self.dis.ncol):
+                        count_to_ij[count] = (i,j)
+                        count += 1
+                
+                sim = 0
+                for count in self.lake[0].node:
+                    print(f"count = {count}")
+                    print(f"i = {i}")
+                    print(f"j = {j}")
+                    self.lake_seepage_all[sim, count_to_ij[count][0], count_to_ij[count][1]] = np.abs(self.lake[0].q[self.lake[0].node == count][0])
+                self.lake_seepage = self.lake_seepage_all[0]
+                self.lake_seepage[self.dem_mask] = -9999
+                output_path = self.tifs_file+'/lake_seepage_t('+lead_numb+').tif'
+                if export_tif==True:
+                    toolbox.export_tif(self.dem_path, self.lake_seepage, -9999, output_path)                  
+                self.dict_lake_seepage[item] = self.lake_seepage
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
