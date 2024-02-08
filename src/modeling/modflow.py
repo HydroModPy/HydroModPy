@@ -654,7 +654,8 @@ class Modflow:
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
-                        export_all_tif:bool=False):
+                        export_all_tif:bool=False,
+                        export_netcdf:bool=False):
         """
         Create outputs files.
 
@@ -791,7 +792,7 @@ class Modflow:
                 # self.wt_elev.to_hdf(self.dict_watertable_elevation, lead_numb)
                 output_path = self.tifs_file+'/watertable_elevation_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)                  
                 self.dict_watertable_elevation[item] = self.wt_elev
             
             if watertable_depth == True:
@@ -903,6 +904,33 @@ class Modflow:
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+
+        ### Save dictionaries to netcdf
+        if export_netcdf == True:
+            if watertable_elevation == True:
+                toolbox.export_netcdf(self.dict_watertable_elevation, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.save_file, 'watertable_elevation.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index) # self.times)
+            if watertable_depth == True:
+                toolbox.export_netcdf(self.dict_watertable_depth, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.save_file, 'watertable_depth.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index) # self.times)
+# =============================================================================
+#             if seepage_areas == True:
+#                 np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+#             if outflow_drain == True:
+#                 np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+#             if groundwater_flux == True:
+#                 np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
+#             if groundwater_storage == True:
+#                 np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
+#             if accumulation_flux == True:
+#                 np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+# =============================================================================
 
         if persistency_index == True:
             ### Persistency index

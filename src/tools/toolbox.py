@@ -620,6 +620,60 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
+def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
+                  times=None, y=None, x=None):
+    # Librairies
+    import rioxarray # intended to be moved to the # LIBRAIRIES section
+    
+    # Metadata
+    if isinstance(base_crs, str): base_crs = rio.crs.CRS.from_string(base_crs)
+    elif isinstance(base_crs, int): base_crs = rio.crs.CRS.from_epsg(base_crs)
+    with rio.open(base_path, 'r') as base:
+        base_profile = base.profile
+        if base_crs and not base_profile['crs'].is_valid:
+            base_profile['crs'] = base_crs
+    [reso_x, _, x_min, _, reso_y, y_max, _, _, _] = list(base_profile['transform'])
+    if not x:
+        x_val = [x for x in np.arange(x_min, x_min + reso_x*base_profile['width'], reso_x)]
+    if not y:
+        y_val = [y for y in np.arange(y_max, y_max + reso_y*base_profile['height'], reso_y)]
+    
+    # Create xarray Dataset
+    M = np.array([data[item] for item in data.keys()])
+    M = np.ma.array(M, 
+                    mask = M==base_profile['nodata'],
+                    fill_value = base_profile['nodata'],
+                    )
+    da = xr.DataArray(M, dims = ('time', 'y', 'x'))
+    da = da.assign_coords({"time": ("time", times), 
+                           "y": ("y", y_val), 
+                           "x": ("x", x_val)})
+    ds = xr.Dataset()
+    main_var = os.path.splitext(os.path.split(out_path)[-1])[0]
+    ds[main_var] = da
+    
+    # Attributes
+# =============================================================================
+#     ds = ds.transpose('time', 'y', 'x')
+# =============================================================================
+    ds.x.attrs = {'standard_name': 'projection_x_coordinate',
+              'long_name': 'x coordinate of projection',
+              'units': 'Meter'}
+    ds.y.attrs = {'standard_name': 'projection_y_coordinate',
+                  'long_name': 'y coordinate of projection',
+                  'units': 'Meter'}
+    ds.rio.write_crs(base_crs, inplace = True)
+    # Gzip compression (not lossy)
+    ds[main_var].encoding['zlib'] = True
+    ds[main_var].encoding['complevel'] = 4
+    ds[main_var].encoding['contiguous'] = False
+    ds[main_var].encoding['shuffle'] = True
+    ds[main_var].encoding['_FillValue'] = np.nan
+    
+    # Export
+    ds.to_netcdf(out_path)
+    
+
 #%% DISPLAY 
 
 def print_hydromodpy():
