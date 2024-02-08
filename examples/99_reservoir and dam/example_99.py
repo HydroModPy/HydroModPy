@@ -80,7 +80,7 @@ dem_path = os.path.join(data_path,
                         r"0- MNT\IGN\MNT_fusion", 
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = 'cheze_Dam_1.0'
+watershed_name = 'cheze_Dam_1.1'
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -499,7 +499,8 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
-                              export_all_tif = True)
+                              export_all_tif = False,
+                              export_netcdf = True,)
 
 #%% MODPATH (only in steady state)
 if sim_state == 'steady':
