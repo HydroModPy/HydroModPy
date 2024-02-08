@@ -499,6 +499,7 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
+                              lake_seepage = True,
                               export_all_tif = False,
                               export_netcdf = True,)
 

@@ -666,6 +666,7 @@ class Watershed:
                                groundwater_flux: bool=True,
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
+                               lake_seepage: bool=True,
                                persistency_index: bool=False,
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
