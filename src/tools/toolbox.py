@@ -632,22 +632,26 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
         base_profile = base.profile
         if base_crs and not base_profile['crs'].is_valid:
             base_profile['crs'] = base_crs
+        val_for_mask = base.read()[0]
     [reso_x, _, x_min, _, reso_y, y_max, _, _, _] = list(base_profile['transform'])
     if not x:
-        x_val = [x for x in np.arange(x_min, x_min + reso_x*base_profile['width'], reso_x)]
+        x_val = [x for x in np.arange(x_min + reso_x/2, x_min + reso_x*base_profile['width'] + reso_x/2, reso_x)]
     if not y:
-        y_val = [y for y in np.arange(y_max, y_max + reso_y*base_profile['height'], reso_y)]
+        y_val = [y for y in np.arange(y_max + reso_y/2, y_max + reso_y*base_profile['height'] + reso_y/2, reso_y)]
     
     # Create xarray Dataset
     M = np.array([data[item] for item in data.keys()])
-    M = np.ma.array(M, 
-                    mask = M==base_profile['nodata'],
-                    fill_value = base_profile['nodata'],
-                    )
+# =============================================================================
+#     M = np.ma.array(M, 
+#                     mask = M==base_profile['nodata'],
+#                     fill_value = base_profile['nodata'],
+#                     )
+# =============================================================================
     da = xr.DataArray(M, dims = ('time', 'y', 'x'))
     da = da.assign_coords({"time": ("time", times), 
                            "y": ("y", y_val), 
                            "x": ("x", x_val)})
+    da = da.where(val_for_mask != base_profile['nodata'])
     ds = xr.Dataset()
     main_var = os.path.splitext(os.path.split(out_path)[-1])[0]
     ds[main_var] = da
@@ -668,7 +672,7 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
     ds[main_var].encoding['complevel'] = 4
     ds[main_var].encoding['contiguous'] = False
     ds[main_var].encoding['shuffle'] = True
-    ds[main_var].encoding['_FillValue'] = np.nan
+    ds[main_var].encoding['_FillValue'] = base_profile['nodata']
     
     # Export
     ds.to_netcdf(out_path)
