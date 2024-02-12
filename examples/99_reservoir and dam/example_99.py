@@ -293,12 +293,11 @@ BV.lakeres.update_stageinit(lake_id, 70) # [m]
 BV.lakeres.update_stagemax(lake_id, 90) # [m]
 BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
                                                               # here equiv. to 1e-6 m/s
-# =============================================================================
-# bathymetry_raster = os.path.join(root_dir, 'examples', 
-#                              '99_reservoir and dam', 'data', 
-#                              'bathymetry_25m_NGF-elevation.tif')
-# BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
-# =============================================================================
+bathymetry_raster = os.path.join(root_dir, 'examples', 
+                             '99_reservoir and dam', 'data',
+                             'Cheze_bathy_1m_NGF-elevation_v2enlarged.nc')
+                             # 'bathymetry_25m_NGF-elevation.tif')
+BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 # =============================================================================
 # BV.lakeres.update_bathymetry(lake_id, bathymetry_raster, mode = 'elevation')
 # # mode can be 'elevation', 'depth', 'height' (= -depth)
