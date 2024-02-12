@@ -242,6 +242,8 @@ class Lakeres:
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic, nper, thickfact):
+        print("\nLakes/Reservoirs: formating all attributes...")
+        
         #%%% Standardize lake identifiers
         # -------------------------------
         # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
@@ -316,20 +318,22 @@ class Lakeres:
                     # In this situation, maskmx is to be considered as an enlarged
                     # maximal potential extent of the lake, similar to the mask
                     # of the valley around the lake.
-                    print(f"\nComputing the maximum lake/reservoir level to match with a volume of {self.volmx_by_lake[lake_id]} m3")
+                    print(f" Computing the maximum lake/reservoir level to match with a volume of {self.volmx_by_lake[lake_id]} m3")
                     height = np.arange(masked_dem.min(), masked_dem.max(), 0.1)
                     h = 0
                     vol = 0
-                    while vol < self.volmx_by_lake[lake_id]:
+                    while vol <= self.volmx_by_lake[lake_id]:
                         h+=1
                         vol = height[h] - np.ma.where(masked_dem <= height[h],
                                                       masked_dem).sum()*cell_area
                         h+=1
-                    
-                    maskmx = np.where(masked_dem <= height[h-1], 1, 0)
-                    maskmx = maskmx.astype(bool)
-                    # Update ssmx (might be used in other functions)
-                    self.ssmx_by_lake[lake_id] = height[h-1]
+                    if vol > self.volmx_by_lake[lake_id]:
+                        print(f" Err: The lake maximal extent (maskmx) is too small. It can only contain a volume of {vol} m3")
+                    else:
+                        maskmx = np.where(masked_dem <= height[h-1], 1, 0)
+                        maskmx = maskmx.astype(bool)
+                        # Update ssmx (might be used in other functions)
+                        self.ssmx_by_lake[lake_id] = height[h-1]
                 
                 elif self.ssmx_by_lake[lake_id]:
                     # In this case, maskmx will be adjusted to match the desired
@@ -358,7 +362,7 @@ class Lakeres:
                     # In this situation, maskmx is to be considered as an enlarged
                     # maximal potential extent of the lake, similar to the mask
                     # of the valley around the lake.
-                        print(f"\nComputing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum level of {self.ssmx_by_lake[lake_id]} m")
+                        print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum level of {self.ssmx_by_lake[lake_id]} m")
                         maskmx = np.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
                         maskmx = maskmx.astype(bool)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
@@ -367,13 +371,13 @@ class Lakeres:
                     else:
                     # In this case, maskmx will be used as a strict mask of the
                     # lake/reservoir, at his maximum extent.
-                        print(f"\nComputing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
+                        print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
                         self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
                         dem_box = np.where(maskmx, self.ssmx_by_lak[lake_id] - depth, dem_box)
                         
                 else:
-                    print("\nErr: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
+                    print(" Err: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
             
                 self.update_dem(geographic, dem_box)
         
@@ -538,7 +542,7 @@ class Lakeres:
                                 # flux_frame.loc[:, std_id] = -climatic.where(
                                 #     climatic<0, 0)
                             else:
-                                print(f"\nErr: {flux} over lake '{lake_id}' cannot be defined from climatic")
+                                print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic")
                                 return
                         
                         # Array file (.csv or .txt): will be read with pandas
