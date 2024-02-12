@@ -167,6 +167,8 @@ BV.climatic.update_recharge_reanalysis(path_file=rea_path,
                                        last_year=2021,
                                        time_step='D',
                                        sim_state='transient')
+BV.climatic.recharge = BV.climatic.recharge / 1000 # from mm to m
+
 BV.climatic.update_runoff_reanalysis(path_file=rea_path,
                                      clim_mod='REA',
                                      clim_sce='historic',
@@ -174,6 +176,7 @@ BV.climatic.update_runoff_reanalysis(path_file=rea_path,
                                      last_year=2021,
                                      time_step='D',
                                      sim_state='transient')
+BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
 
 ### Select time period
 recharge = BV.climatic.recharge
@@ -326,15 +329,17 @@ dam_input_df= dam_input_df.divide(days_in_month.n_days, axis="index")
 # User can update these fluxes with float, file path, or "from_climatic" mode
 BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e6) # because Ronan's values were summed over 1.73 km² area
 BV.lakeres.update_evap(lake_id, 'from_climatic')
-BV.lakeres.update_runoff(lake_id, BV.climatic.runoff)
+BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6)
 
 # Anthropic fluxes
 withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['canut'] - dam_input_df['meu'] 
-# For now we can add here the upstream flow and substract the return fluw
-withdraw_fill_ts = withdraw_fill_ts + dam_input_df['resti'] - dam_input_df['stream']
+# For now we can add here the upstream flow and substract the return flux
+withdraw_fill_ts = withdraw_fill_ts + dam_input_df['resti'] - 3*dam_input_df['stream'] # the x3 factor is added to account for lateral streams
 BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 # if values are daily rates, then user should indicate daily = True
 
+# Otherwise, the Cheze river discharge (en amont) can be found here:
+    # D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\10- Stations et debits\Debits\J736422001_QmnJ(n=1_non-glissant) raw_cheze_plelan-le-grand.csv
 
 # =============================================================================
 # ########################
