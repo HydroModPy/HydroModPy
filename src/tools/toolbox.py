@@ -146,7 +146,9 @@ def load_to_numpy(file_path, src_crs=None,
     """
     # Initializations:
     if base_path:
-        with rio.open(base_path, 'r') as base: base_profile = base.profile
+        with rio.open(base_path, 'r') as base: 
+            base_profile = base.profile
+            base_val = base.read(1) # base.read()[0]
     else:
         base_profile = None
     if isinstance(src_crs, str): src_crs = rio.crs.CRS.from_string(src_crs)
@@ -195,7 +197,7 @@ def load_to_numpy(file_path, src_crs=None,
                 data_profile['crs'] = src_crs
                 print(f"\n The CRS of input data has been set to 'EPSG:{data_profile['crs']}'")
             # data_crs = data.crs
-            val = data.read()[0] # extract the first layer
+            val = data.read(1) # data.read()[0] # extract the first layer
     
     # Reprojection:
     # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):    
@@ -212,18 +214,20 @@ def load_to_numpy(file_path, src_crs=None,
                 print('\nError: Destination CRS (dst_crs) is required to reproject.')
                 return
             rio.warp.reproject(source = val, 
-                                        destination = val, 
-                                        src_transform = data_profile['transform'],
-                                        src_crs = data_profile['crs'],
-                                        src_nodata = data_profile['nodata'],
-                                        dst_transform = base_profile['transform'],
-                                        dst_crs = base_profile['crs'],
-                                        dst_nodata = base_profile['nodata'],
-                                        resampling = rio.enums.Resampling(0),
-                                        # resampling = rasterio.enums.Resampling(5),
-                                        )
+                               destination = base_val, 
+                               src_transform = data_profile['transform'],
+                               src_crs = data_profile['crs'],
+                               src_nodata = data_profile['nodata'],
+                               dst_transform = base_profile['transform'],
+                               dst_crs = base_profile['crs'],
+                               dst_nodata = base_profile['nodata'],
+                               resampling = rio.enums.Resampling(0),
+                               # resampling = rasterio.enums.Resampling(5),
+                               )
             # update_profile
             data_profile = base_profile
+            # update values array
+            val = base_val
         
     
     
@@ -633,7 +637,7 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
         base_profile = base.profile
         if base_crs and not base_profile['crs'].is_valid:
             base_profile['crs'] = base_crs
-        val_for_mask = base.read()[0]
+        val_for_mask = base.read(1) # base.read()[0]
     [reso_x, _, x_min, _, reso_y, y_max, _, _, _] = list(base_profile['transform'])
     if not x:
         x_val = [x for x in np.arange(x_min + reso_x/2, x_min + reso_x*base_profile['width'] + reso_x/2, reso_x)]
