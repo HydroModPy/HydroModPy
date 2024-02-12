@@ -14,6 +14,7 @@
 
 import os
 import re
+import math
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -667,15 +668,88 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
                   'long_name': 'y coordinate of projection',
                   'units': 'Meter'}
     ds.rio.write_crs(base_crs, inplace = True)
-    # Gzip compression (not lossy)
-    ds[main_var].encoding['zlib'] = True
-    ds[main_var].encoding['complevel'] = 4
-    ds[main_var].encoding['contiguous'] = False
-    ds[main_var].encoding['shuffle'] = True
-    ds[main_var].encoding['_FillValue'] = base_profile['nodata']
+    # Gzip compression (not lossy):
+# =============================================================================
+#     ds[main_var].encoding['zlib'] = True
+#     ds[main_var].encoding['complevel'] = 4
+#     ds[main_var].encoding['contiguous'] = False
+#     ds[main_var].encoding['shuffle'] = True
+#     ds[main_var].encoding['_FillValue'] = base_profile['nodata']
+#     # Very efficient, but QGIS struggles to open these files as Mesh
+# =============================================================================
+    # Discretization compression (lossy):
+    scale_factor, add_offset = compute_scale_and_offset(ds[main_var].min(), 
+                                                        ds[main_var].max(), 
+                                                        16)
+    ds[main_var].encoding['scale_factor'] = scale_factor
+    ds[main_var].encoding['add_offset'] = add_offset
+    ds[main_var].encoding['dtype'] = 'int16'
+    ds[main_var].encoding['_FillValue'] = -9999 # should be inside the packed range
     
     # Export
     ds.to_netcdf(out_path)
+    
+#%% Packing netcdf
+"""
+Created on Wed Aug 24 16:48:29 2022
+
+@author: script based on James Hiebert's work (2015):
+    http://james.hiebert.name/blog/work/2015/04/18/NetCDF-Scale-Factors.html
+
+dtypes reminder:
+    uint8 (unsigned int.)       0 to 255
+    uint16 (unsigned int.)      0 to 65535
+    uint32 (unsigned int.)      0 to 4294967295
+    uint64 (unsigned int.)      0 to 18446744073709551615
+    
+    int8    (Bytes)             -128 to 127
+    int16   (short integer)     -32768 to 32767
+    int32   (integer)           -2147483648 to 2147483647
+    int64   (integer)           -9223372036854775808 to 9223372036854775807 
+    
+    float16 (half precision float)      10 bits mantissa, 5 bits exponent (~ 4 cs ?)
+    float32 (single precision float)    23 bits mantissa, 8 bits exponent (~ 8 cs ?)
+    float64 (double precision float)    52 bits mantissa, 11 bits exponent (~ 16 cs ?)
+"""
+
+def compute_scale_and_offset(min, max, n):
+    """
+    Computes scale and offset necessary to pack a float32 or float64 set of values
+    into a int16 or int8 set of values.
+    
+    Parameters
+    ----------
+    min : float
+        Minimum value from the data
+    max : float
+        Maximum value from the data
+    n : int
+        Number of bits into which we wish to pack (8 or 16)
+
+    Returns
+    -------
+    scale_factor : float
+        Parameter for netCDF's encoding
+    add_offset : float
+        Parameter for netCDF's encoding
+    """
+    
+    # stretch/compress data to the available packed range
+    scale_factor = (max - min) / (2 ** n - 1)
+    
+    # translate the range to be symmetric about zero
+    add_offset = min + 2 ** (n - 1) * scale_factor
+    
+    return (scale_factor, add_offset)
+
+
+def pack_value(unpacked_value, scale_factor, add_offset):
+    print(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
+    return (unpacked_value - add_offset) / scale_factor
+
+
+def unpack_value(packed_value, scale_factor, add_offset):
+    return packed_value * scale_factor + add_offset    
     
 
 #%% DISPLAY 
