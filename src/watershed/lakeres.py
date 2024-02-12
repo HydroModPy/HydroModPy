@@ -19,6 +19,7 @@
 import os
 import sys
 import re
+import shutil
 import numbers
 import pandas as pd
 import geopandas as gpd
@@ -301,8 +302,7 @@ class Lakeres:
                 dem_box = np.where(bathymetry == nodata, dem_box, bathymetry)
                 
                 # Update dem files:
-                print("Err: A faire ! Il faut update les DEM files !")
-                self.update_dem()
+                self.update_dem(geographic, dem_box)
                 
                 # Mask dem_box with maskmx:
                 masked_dem = np.ma.array(dem_box, 
@@ -375,8 +375,7 @@ class Lakeres:
                 else:
                     print("\nErr: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
             
-                print("Err: A faire ! Il faut update les DEM files ! (computed bathy)")
-                self.update_dem()
+                self.update_dem(geographic, dem_box)
         
 # =============================================================================
 #             lakarr = lakarr + np.ma.array(maskmx,
@@ -579,10 +578,23 @@ class Lakeres:
        
    
     #%% UPDATE DEM FILES        
-    def update_dem(self):
-        0
+    def update_dem(self, geographic, dem_box):
         # dem_box has been modified, and its modifications should also be applied
         # on all dem files.
+        print("Updating DEM files...")
+        # Update DEM initial file
+        # bathy_dem = os.path.join(geographic.reg_path, 'temp_DEM_with_bathymetry.tif')
+        filepath, ext = os.path.splitext(geographic.dem_path)
+        shutil.copy2(geographic.dem_path, filepath + '_temp' + ext)
+        with rio.open(geographic.dem_path, 'r+') as bathy_dem:
+            with rio.open(geographic.watershed_box_buff_dem, 'r') as box:
+                window = rio.windows.from_bounds(*box.bounds, transform=bathy_dem.transform)
+                bathy_dem.write_band(1, dem_box, window=window)
+            
+        geographic.processing()
+        
+        os.remove(geographic.dem_path)
+        os.rename(filepath + '_temp' + ext, geographic.dem_path)
         
 
     #%% DISPLAY PLOT
