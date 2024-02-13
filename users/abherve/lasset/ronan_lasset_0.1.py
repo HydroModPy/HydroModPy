@@ -5801,7 +5801,7 @@ for ic, sce in enumerate(sce_list):
                     # ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
                     ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
                     
-                    ax.set_ylim(-200,100)
+                    ax.set_ylim(-150,100)
                     
                     # ax.get_xaxis().set_visible(False)
                     ax.axes.xaxis.set_ticklabels([])
@@ -5853,6 +5853,9 @@ fig, ax = plt.subplots(1,1, figsize=(6,3.8))
 
 for ic, sce in enumerate(sce_list):
     years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+    # model_name = 'p2_model4_20.0-0-3.38e-06_40.0-0.9-1.02e-06_ALL-RCP85-1975-2099'
+    # Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+    #                    index_col='date', parse_dates=True)
     df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
     df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
     
@@ -6086,7 +6089,8 @@ for ic, sce in enumerate(sce_list):
                     # ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
                     ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
                     
-                    ax.set_ylim(-200,100)
+                    ax.set_ylim(-100,50)
+                    ax.set_yticks([-100,-75,-50,-25,0,25,50])
             
                     ax.axes.xaxis.set_ticklabels([])
             
