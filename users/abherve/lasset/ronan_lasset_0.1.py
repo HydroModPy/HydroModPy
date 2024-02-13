@@ -2053,8 +2053,8 @@ for watershed_name in watershed_names[:]:
 # vers = 'v4'
 # vers = 'v5'
 # vers = 'v6'
-# vers = 'v7'
-vers = 'v8'
+vers = 'v7'
+# vers = 'v8'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -2131,7 +2131,7 @@ im = ax.scatter(dfz[2:]['K']/24/3600, dfz[2:]['Doptim'], c=dfz[2:]['1/K_decay'],
 # ax.legend()
 ax.set_xscale('log')
 # ax.set_yscale('log')
-ax.set_xlabel('K [m/s]')
+ax.set_xlabel('$K_{0}$ [m/s]')
 ax.set_xlim(1e-8, 2e-5)
 ax.set_ylim(25, 80)
 ax.set_ylabel('$D_{optim}$ [m]')
@@ -2694,7 +2694,8 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
 
 delete_files = False
 
-list_id_mod = [1,6,7,8,9,10,11]
+# list_id_mod = [1,6,7,8,9,10,11]
+# list_id_mod = [11]
 
 for id_mod_val in list_id_mod[:]:
 
@@ -2711,7 +2712,7 @@ for id_mod_val in list_id_mod[:]:
     for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                         list_model_success[:],
                                                         list_model_modflow[:]):
-
+                
         # if model_success == True:
         BV.postprocessing_modflow(model_modflow,
                                   watertable_elevation = True,
@@ -2802,8 +2803,8 @@ for id_mod_val in list_id_mod[:]:
 
 # iD_explo = 'e14'
 
-iD_explos = ['e15','e16']
-iD_explos = ['e17']
+# iD_explos = ['e15','e16']
+iD_explos = ['e17','e18']
 
 CRIT = 'RMSE'
 
@@ -2844,7 +2845,12 @@ for w, w_name in enumerate(['Lasset'][:]):
     i = 0
     
     for iD_explo in iD_explos:
-    
+        
+        if iD_explo == 'e17':
+            list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+        if iD_explo == 'e18':
+            list_id_mod = [1,6,7,8,9,10,11]
+            
         for id_mod_val in list_id_mod[:]:
         
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
@@ -2995,7 +3001,7 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='k')
     
                 # move ax in front
-                ax.set_zorder(axb.get_zorder() + 1)
+                # ax.set_zorder(axb.get_zorder() + 1)
                 
                 fig.tight_layout()
                             
@@ -3014,9 +3020,13 @@ for w, w_name in enumerate(['Lasset'][:]):
 
 dfcrit_Q = df.copy()
 
+dfcrit_Q.to_csv(BV.simulations_folder+'dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')    
+
 #%% STREAMFLOW CRITERIA ALL
 
-iD_explos = ['e17']
+dfcrit_Q = pd.read_csv(BV.simulations_folder+'dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')
+
+iD_explos = ['e17', 'e18']
 
 df = dfcrit_Q.copy()
        
@@ -3441,7 +3451,8 @@ plt.tight_layout()
 #%% SATURATION CHRONICS ALL
 
 # iD_explos = ['e15','e16']
-iD_explos = ['e17']
+# iD_explos = ['e17']
+iD_explos = ['e17','e18']
 
 types_obs = ['stream_perennial_wetlands_points']
 
@@ -3478,14 +3489,19 @@ dem_data = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
 #     list_sat_obs.append(dd_hydro)
 
 # list_sat_obs = [5,10] # 7
-list_sat_obs = [5.2,17.8] # 7
+# list_sat_obs = [5.2,17.8] # 7
 list_sat_obs = [7.5,15] # 7
 
 
 i=0
 
 for iD_explo in iD_explos:
-
+    
+    if iD_explo == 'e17':
+        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+    if iD_explo == 'e18':
+        list_id_mod = [1,6,7,8,9,10,11]   
+        
     for id_mod_val in list_id_mod[:]:
     
         h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
@@ -3618,7 +3634,11 @@ for iD_explo in iD_explos:
         
 dfcrit_S = df.copy()
 
+dfcrit_S.to_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'.csv', sep=';')    
+
 #%% SATURATION CRITERIA ALL
+
+dfcrit_S = pd.read_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'.csv', sep=';')
 
 df = dfcrit_S.copy()
 
@@ -3641,7 +3661,7 @@ colors = pl.cm.plasma_r(np.linspace(0,1,n))
 #                         )
 # axs = axs.ravel()
 
-fig, ax = plt.subplots(1,1, figsize=(4.5,3.5),
+fig, ax = plt.subplots(1,1, figsize=(4.5,3.8),
                         # sharey=True
                         )
 # axs = axs.ravel()
@@ -3666,12 +3686,12 @@ for icri, cri in enumerate(['OWN'][:]):
         #         lw=0,
         #         color=color)
         ax.plot(dfplot.sort_values('O')['O'], dfplot.sort_values('O')[cri],
-                marker='o', ms=0, mew=0,
-                lw=1.5,
+                # marker='|', ms=6, mew=1,
+                lw=2,
                 color=color)
         # pc = ax.scatter(dfplot['O'], dfplot[cri])
         ax.set_ylabel('Ω [-]')
-        ax.set_xlabel('θ [%]')
+        ax.set_xlabel('$θ_{0}$ [%]')
         # ax.set_title(cri)
         ax.set_xscale('log')
         # ax.set_ylim(1e-3,1.5e-1)
@@ -3679,6 +3699,8 @@ for icri, cri in enumerate(['OWN'][:]):
         # if 0<=icri<=1:
             # ax.set_ylim(0,0.4)
         ax.set_yscale('log')
+        ax.set_ylim(1e-3,1)
+        ax.set_xlim(0.1,16)
         # position=fig.add_axes([1.05,0.33,0.03,0.5])  ##
         # cb = fig.colorbar(pc, cax=position, orientation='vertical')
         # cb.set_ticks(np.arange(0, 1.1, 0.25))
@@ -3694,9 +3716,9 @@ plt.tight_layout()
 
 fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'_S_'+'criteria'+'.png', bbox_inches='tight')
 
-# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
-#             'S_'+'criteria'+'.png',
-#                         bbox_inches='tight')
+fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
+            'S_'+'criteria'+'.png',
+                        bbox_inches='tight')
 
 #%% SATURATION CHRONICS ONE
 
@@ -6123,6 +6145,7 @@ mod_list = ['MPI-CCL',
             'MPI-R09']
 
 sce_list = ['RCP26','RCP45','RCP85']
+# sce_list = ['RCP85']
 
 # fig, ax = plt.subplots(1,1, figsize=(6,3))
 
@@ -6146,6 +6169,8 @@ for sce in sce_list:
         
         quant = select_period(d[var+'_'+mod+'_'+'historic'],
                               1980, 2004).quantile(val_quant)
+        print(quant)
+        # quant = 0.1
     
         cond = quant
     
@@ -6282,12 +6307,14 @@ for sce in sce_list:
     
     import matplotlib
     normaliz = plt.Normalize(df_rec.median().min(), df_rec.median().max())
-    norm = matplotlib.colors.Normalize(vmin=0, vmax=120)
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=100)
     # if sce == 'RCP2.6':
     #     to_norm = df_rec.median()
     colors = plt.cm.jet(norm(df_rec.median()))
     # colors = plt.cm.jet(norm([60] * len(df_rec.columns)))
     # colors = plt.cm.jet(norm(to_norm))
+    # colors = plt.cm.jet(norm((df_rec.median()*0)+60))
+    
     
     medianprops = dict(linestyle='-', linewidth=1, color='black')
     meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
@@ -7291,6 +7318,134 @@ for ic, sce in enumerate(sce_list):
             
             plt.tight_layout()
 
+#%% FIND DROUGHTS
+
+# all_proj = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+all_proj =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+mod = 'REA'
+sce = 'historic'
+var = 'REC'
+per = [1960,2020]
+
+d = dfd.copy()
+
+fig, ax = plt.subplots(1,1, figsize=(5,3))
+
+val_quants = [0.01, 0.1]
+# val_quants = [0, 0.25]
+# val_quants = [0.99, 0.95]
+
+for val_quant in val_quants:
+    
+    quant = select_period(d[var+'_'+mod+'_'+sce],
+                          1980 ,2010).quantile(val_quant)
+    
+    if val_quant == 0:
+        val_quant = 0
+            
+    d = d[(d.index.year>=per[0]) & (d.index.year<=per[1])]
+    d = d.filter(regex=var+'_'+mod+'_'+sce)
+    d = d.round(2)
+    
+    x = d.copy()
+    x['counter'] = x.diff().ne(0).cumsum()
+    
+    d['diff'] = d.diff()
+                          
+    # quant = d[var+'_'+mod+'_'+sce].min()
+    if var == 'ETP':
+        quant = d[var+'_'+mod+'_'+sce].quantile(val_quant)
+        # quant = d[var+'_'+mod+'_'+sce].max()
+    cond = quant
+    
+    if (var =='PPT') | (var == 'REC'):
+        cond = quant
+    
+    # cond = 0
+    
+    years = d.index.year.unique()
+    
+    # fig, ax = plt.subplots(1,1, figsize=(5,3))
+    # axs = axs.ravel()
+    n = len(years)
+    cmap = cm.get_cmap('jet', n)
+    
+    max_consec_list = []
+    min_consec_list = []
+    
+    counts = []
+    for i, year in enumerate(years):
+    
+        each = d[d.index.year==year]
+        # count = ((each['diff'] <= cond) & (each[var+'_'+mod+'_'+sce] <= cond)).astype(int).sum(axis=0)
+        count = ((each[var+'_'+mod+'_'+sce] <= cond)).astype(int).sum(axis=0)
+        if var =='ETP':
+            test = ((each['diff'] <= cond) & (each[var+'_'+mod+'_'+sce] >= cond)).astype(int)
+            count = ((each['diff'] <= cond) & (each[var+'_'+mod+'_'+sce] >= cond)).astype(int).sum(axis=0)
+        counts.append(count)
+        
+        new = x[x.index.year==year]
+        df2 = new.groupby('counter')[var+'_'+mod+'_'+sce].min().to_frame(name='value').join(new.groupby('counter')[var+'_'+mod+'_'+sce].count().rename('number'))
+        max_consec0 = df2[df2['value']<=quant]['number'].tolist()
+        if var =='ETP':
+            max_consec0 = df2[df2['value']>=quant]['number'].tolist()
+        max_consec1 = df2[df2['value']==1]['number'].tolist()
+        try:
+            max_consec_list.append(max(max_consec0))
+        except:
+            max_consec_list.append(np.nan)
+            pass
+        # min_consec_list.append(min(max_consec0))
+        
+        # ax = axs[0]
+        # ax.plot(each['diff'].values, c=cmap(i), lw=0.5)
+        # ax.set_xlim(0,365)
+        # ax.set_ylabel('Diff. day before')
+        # ax.set_title(var)
+        
+        # ax = axs[1]
+        # ax.plot(max_consec0, c=cmap(i), lw=0.5)
+        # ax.set_ylabel('Max consec. 0')
+        # ax.set_title(var)
+        
+    # ax.set_xlim(0, None)
+    # ax.set_ylim(0, None)
+        
+    # ax.plot(pd.to_datetime(years, format='%Y'), counts, c='k', lw=2)
+    if val_quant == val_quants[0]:
+        col = 'darkorange'
+        ax.bar(pd.to_datetime(years, format='%Y'), counts,
+               align='center', color=col, width=280, lw=0.5, zorder=10)
+    if val_quant == val_quants[1]:
+        col = 'lightgrey'
+        ax.bar(pd.to_datetime(years, format='%Y'), counts,
+               align='center', color=col, width=280, lw=0.5, zorder=0)
+    
+# ax.fill_between(pd.to_datetime(years, format='%Y'), counts, np.array(counts)-
+#                 np.array(max_consec_list), lw=0, color='cyan')
+# ax.bar(pd.to_datetime(years, format='%Y'), np.array(max_consec_list), color='white',
+#        width=300)
+# axb = ax.twinx()
+# ax.plot(pd.to_datetime(years, format='%Y'), np.array(counts)-
+#                 np.array(max_consec_list), c='b', lw=1)
+# axb.plot(pd.to_datetime(years, format='%Y'), max_consec_list, c='red', lw=2)
+# ax.set_ylim(1,182)
+# axb.set_ylim(1,182)
+# ax.set_ylabel('>= 2 days consec.'+' = '+str(cond))
+ax.set_title(var)
+ax.set_xlim(pd.to_datetime('1959'), pd.to_datetime('2021'))
+
+# if (var=='PPT') | (var=='REC'):
+#     ax.set_ylim(0,180)
+#     ax.set_yticks(np.arange(0, 180+1, 30))
+
+ax.set_axisbelow(True)
+# ax.grid(zorder=-1000)
+ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
+
+plt.tight_layout()
 
 #%% ---- RESIDENCE
 

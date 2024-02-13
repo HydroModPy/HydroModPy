@@ -112,9 +112,10 @@ class Timeseries:
                     time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
                     recharge = pd.Series(np.nan, index=range(len(self.recharge)))
         
-        self.runoff = model_modflow.runoff
+       
         
-        if self.runoff != None:
+        try:
+            self.runoff = model_modflow.runoff
             if self.actual_date==True:            
                 if isinstance(self.runoff,(int,float)) == True:
                     time=[0]
@@ -133,8 +134,9 @@ class Timeseries:
                     else:
                         time = pd.Series(range(len(self.runoff)), index=range(len(self.runoff)))
                         runoff = pd.Series(np.nan, index=range(len(self.runoff)))    
-        else:
+        except:
             runoff = None
+            pass
         
         npy_list = [] 
         for f in os.listdir(self.save_file):
