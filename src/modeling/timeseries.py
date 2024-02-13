@@ -113,25 +113,28 @@ class Timeseries:
                     recharge = pd.Series(np.nan, index=range(len(self.recharge)))
         
         self.runoff = model_modflow.runoff
-
-        if self.actual_date==True:            
-            if isinstance(self.runoff,(int,float)) == True:
-                time=[0]
-                runoff = self.runoff
-            else:
-                time = self.runoff.index
-                runoff = self.runoff.squeeze().values
-        else:
-            if isinstance(self.runoff,(int,float)) == True:
-                time=[0]
-                runoff = self.runoff
-            else:
-                if isinstance(self.runoff,(dict))==False:
-                    time = np.array(range(len(self.runoff)))
-                    runoff = self.runoff.squeeze().values
+        
+        if self.runoff != None:
+            if self.actual_date==True:            
+                if isinstance(self.runoff,(int,float)) == True:
+                    time=[0]
+                    runoff = self.runoff
                 else:
-                    time = pd.Series(range(len(self.runoff)), index=range(len(self.runoff)))
-                    runoff = pd.Series(np.nan, index=range(len(self.runoff)))        
+                    time = self.runoff.index
+                    runoff = self.runoff.squeeze().values
+            else:
+                if isinstance(self.runoff,(int,float)) == True:
+                    time=[0]
+                    runoff = self.runoff
+                else:
+                    if isinstance(self.runoff,(dict))==False:
+                        time = np.array(range(len(self.runoff)))
+                        runoff = self.runoff.squeeze().values
+                    else:
+                        time = pd.Series(range(len(self.runoff)), index=range(len(self.runoff)))
+                        runoff = pd.Series(np.nan, index=range(len(self.runoff)))    
+        else:
+            runoff = None
         
         npy_list = [] 
         for f in os.listdir(self.save_file):
@@ -444,7 +447,7 @@ class Timeseries:
         ### save files
         self.mfdata = self.mfdata.set_index(['date'])
         # self.mfdata = self.mfdata.round(2)
-        self.mfdata = self.mfdata.applymap(lambda x: "%.5e" % (x))
+        # self.mfdata = self.mfdata.applymap(lambda x: "%.5e" % (x))
         self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
         
         if timeseries_file == self.timeseries_file:
