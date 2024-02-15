@@ -474,6 +474,7 @@ except AttributeError:
 
 BV.save_object()
 
+
 #%% ---- MODELING
 
 #%% MODFLOW
@@ -494,6 +495,11 @@ mdflw_dict['model_modflow'] = model_modflow
 dd.io.save(h5file, mdflw_dict)
 
 #%%% Reload
+model_name = 'base'
+
+h5file = os.path.join(simulations_folder,
+                      'results_listing_' + model_name)
+
 mdflw_dict = dd.io.load(h5file)
 model_name = mdflw_dict['model_name']
 success_modflow = mdflw_dict['success_modflow']
