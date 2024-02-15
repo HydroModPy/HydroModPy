@@ -216,6 +216,9 @@ class Lakeres:
     def update_stagemax(self, lake_id, ssmx):
         self.ssmx_by_lake[lake_id] = ssmx
         
+    def update_volumemax(self, lake_id, volmx):
+        self.volmx_by_lake[lake_id] = volmx
+        
     def update_stageinit(self, lake_id, stageinit):
         self.stageinit_by_lake[lake_id] = stageinit
         
@@ -308,7 +311,7 @@ class Lakeres:
                 
                 # Mask dem_box with maskmx:
                 masked_dem = np.ma.array(dem_box, 
-                                         mask = maskmx,
+                                         mask = ~maskmx,
                                          fill_value = nodata,
                                          )
                 
@@ -319,21 +322,24 @@ class Lakeres:
                     # maximal potential extent of the lake, similar to the mask
                     # of the valley around the lake.
                     print(f" Computing the maximum lake/reservoir level to match with a volume of {self.volmx_by_lake[lake_id]} m3")
-                    height = np.arange(masked_dem.min(), masked_dem.max(), 0.1)
-                    h = 0
+                    # elev = np.arange(masked_dem.min(), masked_dem.max(), 0.1)
+                    i = 0
                     vol = 0
-                    while vol <= self.volmx_by_lake[lake_id]:
-                        h+=1
-                        vol = height[h] - np.ma.where(masked_dem <= height[h],
-                                                      masked_dem).sum()*cell_area
-                        h+=1
-                    if vol > self.volmx_by_lake[lake_id]:
-                        print(f" Err: The lake maximal extent (maskmx) is too small. It can only contain a volume of {vol} m3")
-                    else:
-                        maskmx = np.where(masked_dem <= height[h-1], 1, 0)
-                        maskmx = maskmx.astype(bool)
-                        # Update ssmx (might be used in other functions)
-                        self.ssmx_by_lake[lake_id] = height[h-1]
+                    elev = masked_dem.min()
+                    while vol < self.volmx_by_lake[lake_id]:
+                        vol = (elev - np.ma.where(masked_dem <= elev,
+                                                      masked_dem, elev)).sum()*cell_area
+                        elev+=0.1
+                        i+=1
+                    if elev > masked_dem.max():
+                        nat_vol = (masked_dem.max() - np.ma.where(masked_dem <= masked_dem.max(),
+                                                      masked_dem, masked_dem.max())).sum()*cell_area
+                        print(f" Warning: The lake maximal extent (maskmx) is likely to be too small. It can only naturally contain a volume of {nat_vol} m3. To match the required volmx of {self.volmx_by_lake[lake_id]} m3, the lake surface was considered not continuous with the surrounding topography.")
+                    
+                    maskmx = np.ma.where(masked_dem <= elev-0.1, 1, 0)
+                    maskmx = maskmx.astype(bool)
+                    # Update ssmx (might be used in other functions)
+                    self.ssmx_by_lake[lake_id] = elev-0.1
                 
                 elif self.ssmx_by_lake[lake_id]:
                     # In this case, maskmx will be adjusted to match the desired
@@ -341,7 +347,7 @@ class Lakeres:
                     # In this situation, maskmx is to be considered as an enlarged
                     # maximal potential extent of the lake, similar to the mask
                     # of the valley around the lake.
-                    maskmx = np.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
+                    maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
                     maskmx = maskmx.astype(bool)
                     
                 # If no volmx nor ssmx is defined:
@@ -363,7 +369,7 @@ class Lakeres:
                     # maximal potential extent of the lake, similar to the mask
                     # of the valley around the lake.
                         print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum level of {self.ssmx_by_lake[lake_id]} m")
-                        maskmx = np.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
+                        maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
                         maskmx = maskmx.astype(bool)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
                         dem_box = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem_box)
@@ -578,6 +584,7 @@ class Lakeres:
                               sep = '\t', 
                               header = True) 
                 
+        print('\n')
         return stages, lakarr, laklay_top, bdlknc, flux_data
        
    

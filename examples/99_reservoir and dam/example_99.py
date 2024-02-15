@@ -282,15 +282,21 @@ BV.add_lakeres(BV.stable_folder)
 # Add new lake/reservoir
 # ----------------------
 lake_id = 'reservoir_cheze'
+# =============================================================================
+# maskmx_path = os.path.join(root_dir, 'examples', 
+#                              '99_reservoir and dam', 'data', 
+#                              'Cheze_lake_75m_outside.tif')
+# =============================================================================
 maskmx_path = os.path.join(root_dir, 'examples', 
                              '99_reservoir and dam', 'data', 
-                             'Cheze_lake_75m_outside.tif')
+                             'Cheze_polygon_englob.shp')
 BV.lakeres.new_lakeres(maskmx_path, lake_id)
 
 # Geometry and physical properties
 # --------------------------------
 BV.lakeres.update_stageinit(lake_id, 70) # [m]
 BV.lakeres.update_stagemax(lake_id, 90) # [m]
+# BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
 BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
                                                               # here equiv. to 1e-6 m/s
 bathymetry_raster = os.path.join(root_dir, 'examples', 
