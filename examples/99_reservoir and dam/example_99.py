@@ -282,14 +282,14 @@ BV.add_lakeres(BV.stable_folder)
 # Add new lake/reservoir
 # ----------------------
 lake_id = 'reservoir_cheze'
+maskmx_path = os.path.join(root_dir, 'examples', 
+                             '99_reservoir and dam', 'data', 
+                             'Cheze_lake_75m_outside.tif')
 # =============================================================================
 # maskmx_path = os.path.join(root_dir, 'examples', 
 #                              '99_reservoir and dam', 'data', 
-#                              'Cheze_lake_75m_outside.tif')
+#                              'Cheze_polygon_englob.shp')
 # =============================================================================
-maskmx_path = os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data', 
-                             'Cheze_polygon_englob.shp')
 BV.lakeres.new_lakeres(maskmx_path, lake_id)
 
 # Geometry and physical properties
