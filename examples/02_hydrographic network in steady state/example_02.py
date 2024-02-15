@@ -70,8 +70,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP02')
-# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP02')
+out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
@@ -314,7 +314,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     dem_data = imageio.imread(BV.geographic.watershed_dem)
     dem_data = np.ma.masked_where(dem_data < 0, dem_data)
     
-    wt_data = imageio.imread(model_modflow.tifs_file+'/watertable_elevation_t(0).tif')
+    wt_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/watertable_elevation_t(0).tif')
     wt_data = np.ma.masked_where(wt_data < 0, wt_data)
     
     river_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif')
@@ -375,13 +375,13 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     
     fig.tight_layout
     
-    fig.savefig(os.path.join(model_modflow.figure_file,
-                'CROSS_'+model_name+'_'+str(compt)+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(model_modflow.figure_file,
+    #             'CROSS_'+model_name+'_'+str(compt)+'.png'),
+    #             bbox_inches='tight')
         
-    fig.savefig(os.path.join(model_modflow.save_fig,
-                'CROSS_'+model_name+'_'+str(compt)+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(model_modflow.save_fig,
+    #             'CROSS_'+model_name+'_'+str(compt)+'.png'),
+    #             bbox_inches='tight')
     
 #%% MAP
 
@@ -405,10 +405,10 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     obs_river_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif')
     obs_river_data = np.ma.masked_where(obs_river_data < 0, obs_river_data)
     
-    seep_river_data = imageio.imread(model_modflow.tifs_file+'/seepage_areas_t(0).tif')
+    seep_river_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/seepage_areas_t(0).tif')
     seep_river_data = np.ma.masked_where(seep_river_data <= 0, seep_river_data)
     
-    sim_river_data = imageio.imread(model_modflow.tifs_file+'/accumulation_flux_t(0).tif')
+    sim_river_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
     sim_river_data = np.ma.masked_where(sim_river_data <= 0, sim_river_data)
     
     im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
@@ -425,13 +425,13 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     
     fig.tight_layout()
 
-    fig.savefig(os.path.join(model_modflow.figure_file,
-                'MAP_'+model_name+'_'+str(compt)+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(model_modflow.figure_file,
+    #             'MAP_'+model_name+'_'+str(compt)+'.png'),
+    #             bbox_inches='tight')
     
-    fig.savefig(os.path.join(model_modflow.save_fig,
-                'MAP_'+model_name+'_'+str(compt)+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(model_modflow.save_fig,
+    #             'MAP_'+model_name+'_'+str(compt)+'.png'),
+    #             bbox_inches='tight')
     
 #%% GRAPH
 
@@ -457,9 +457,9 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     
     # fig.tight_layout()
     
-    fig.savefig(os.path.join(model_modflow.save_fig,
-                'GRAPH_sat_'+iD_set_simulations+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(model_modflow.save_fig,
+    #             'GRAPH_sat_'+iD_set_simulations+'.png'),
+    #             bbox_inches='tight')
 
 #%% ---- NOTES
 
