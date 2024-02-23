@@ -837,7 +837,7 @@ class Watershed:
             Table with all results.
         """
         if model_modflow != None:
-            timeseries_results = timeseries.Timeseries(self.geographic,
+            timeseries_results = timeseries.Timeseries(self,
                                                         model_modflow=model_modflow,
                                                         model_modpath=model_modpath,
                                                         actual_date=actual_date,
