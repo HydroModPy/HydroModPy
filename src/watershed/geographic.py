@@ -372,6 +372,7 @@ class Geographic:
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative
         self.resolution = self.resolution_x
+        self.cell_size = abs(self.resolution_x) * abs(self.resolution_y)
         # Extract bounds size
         self.xmin = self.geodata[0] # originX
         self.ymax = self.geodata[3] # originY
