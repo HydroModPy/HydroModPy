@@ -275,8 +275,9 @@ class Lakeres:
         # Cell area
 # =============================================================================
 #         cell_area = (dem_box[0,1] - dem_box[0,0])*(dem_box[1,0] - dem_box[0,0])   
+#         cell_area = abs(transform[0]) * abs(transform[4])
 # =============================================================================
-        cell_area = abs(transform[0]) * abs(transform[4])
+        cell_area = geographic.cell_size
         
         # Format lakes maskmx (maximal extents)
         for std_id in lake_id_by_std_id.keys():
