@@ -316,7 +316,28 @@ class Lakeres:
                                          fill_value = nodata,
                                          )
                 
-                if self.volmx_by_lake[lake_id]:
+                if self.ssmx_by_lake[lake_id]:
+                    # In this case, maskmx will be adjusted to match the desired
+                    # ssmx. 
+                    # In this situation, maskmx is to be considered as an enlarged
+                    # maximal potential extent of the lake, similar to the mask
+                    # of the valley around the lake.
+                    maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
+                    maskmx = maskmx.astype(bool)
+                    if maskmx.sum() == np.ma.count(masked_dem):
+                        print(f" Warning: The lake maximal level (ssmx) is likely to be too small. It can not naturally exceed {masked_dem.max()} m. To match the required ssmx of {self.ssmx_by_lake[lake_id]} m, the lake surface was considered not continuous with the surrounding topography.")
+                    
+                    if self.volmx_by_lake[lake_id]:
+                        masked_dem = np.ma.array(dem_box, 
+                                                 mask = ~maskmx,
+                                                 fill_value = nodata,
+                                                 )
+                        equiv_vol = float((self.ssmx_by_lake[lake_id] - masked_dem).sum()*cell_area)
+                        print(f" The specified maximal volume ({self.volmx_by_lake[lake_id]} m3) is discarded because redundant with the specified maximal level (equiv. to {equiv_vol} m3)")
+                        self.volmx_by_lake[lake_id] = equiv_vol
+                        
+                
+                elif self.volmx_by_lake[lake_id]:
                     # In this case, maskmx will be adjusted to match the desired
                     # volmx. 
                     # In this situation, maskmx is to be considered as an enlarged
@@ -341,15 +362,7 @@ class Lakeres:
                     maskmx = maskmx.astype(bool)
                     # Update ssmx (might be used in other functions)
                     self.ssmx_by_lake[lake_id] = elev-0.1
-                
-                elif self.ssmx_by_lake[lake_id]:
-                    # In this case, maskmx will be adjusted to match the desired
-                    # ssmx. 
-                    # In this situation, maskmx is to be considered as an enlarged
-                    # maximal potential extent of the lake, similar to the mask
-                    # of the valley around the lake.
-                    maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
-                    maskmx = maskmx.astype(bool)
+
                     
                 # If no volmx nor ssmx is defined:
                 else:
