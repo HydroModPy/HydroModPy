@@ -328,13 +328,14 @@ days_in_month = pd.DataFrame(
     index = dam_input_df.index,
     data = dam_input_df.index.days_in_month)
 days_in_month.rename(columns = {'time':'n_days'}, inplace = True)
-dam_input_df= dam_input_df.divide(days_in_month.n_days, axis="index")
+dam_input_df = dam_input_df.divide(days_in_month.n_days, axis="index")
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
 BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e6) # because Ronan's values were summed over 1.73 km² area
-BV.lakeres.update_evap(lake_id, 'from_climatic')
-BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6)
+# BV.lakeres.update_evap(lake_id, 'from_climatic')
+BV.lakeres.update_evap(lake_id, dam_input_df['ae_oudin']/1.73e6)
+BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6) # because runoff has to be a volume (summed over the area runing off towards the lake)
 
 # Anthropic fluxes
 withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['canut'] - dam_input_df['meu'] 
