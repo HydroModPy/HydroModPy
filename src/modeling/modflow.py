@@ -212,8 +212,6 @@ class Modflow:
         self.verti_poro = verti_poro
         self.cond_drain = cond_drain
         
-        self.top = top
-        
         #%% Lakes/reservoirs
         
         self.lakeres = lakeres
@@ -224,7 +222,6 @@ class Modflow:
         else:
             self.use_lakeres = False
             self.aquifer_top_layer = 0
-        
         
         #%% Specific modifications
         
@@ -267,8 +264,7 @@ class Modflow:
                                             thickfact=thickfact, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
 
-        
-        #%% Discreitzation
+        #%% Discretization
         
         ### Time step is driven by recharge
         
@@ -343,8 +339,8 @@ class Modflow:
             else:
                 self.zbot[i-1] = self.zbot[i-2] - ((self.dem - self.bottom_layer) * p) #self.bottom_layer * p + self.dem * (1-p)
         
-        # Top definition
-        self.top = self.dem
+        # Definition of top (when there are lakes, top != dem)
+        top = self.dem
         
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
@@ -352,7 +348,7 @@ class Modflow:
                 self.geographic, self.climatic, self.nper, thickfact)
             
             self.nlay = self.nlay + 1
-            self.top = laklay_top
+            top = laklay_top
             self.zbot = np.insert(self.zbot, 0, self.dem, axis=0)
             
             lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
@@ -365,11 +361,10 @@ class Modflow:
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
-                                            top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                            top=top, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
                                             steady=self.steady, start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
         # proj4_str=self.dem.crs)
-
     
         #%% Boundary conditions
         
