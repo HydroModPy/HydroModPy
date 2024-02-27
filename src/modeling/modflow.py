@@ -609,6 +609,28 @@ class Modflow:
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
 
+        #%% Lake package (LAK)
+        
+        # This function is run in #%% Discretization section:
+# =============================================================================
+#         stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
+#             self.geographic, self.climatic, self.nper, thickfact)
+# =============================================================================
+       
+        if self.use_lakeres:       
+            self.lak = flopy.modflow.ModflowLak(self.mf,
+                                                nlakes = self.lakeres.n_lakeres,
+                                                ipakcb = None,
+                                                theta = 0, # 0: explicit # 1: implicit
+                                                stages = stages,
+                                                lakarr = lakarr,
+                                                bdlknc = bdlknc,
+                                                flux_data = flux_data)
+            
+# =============================================================================
+#         #%%% To impose outflow from the lake/reservoir (return flow)
+#         self.fhb = flopy.modflow.ModflowFhb(self.mf)
+# =============================================================================
 
         #%% Drain package
     
