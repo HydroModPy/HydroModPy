@@ -54,16 +54,16 @@ class Modflow:
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
                  plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, first_clim: str='mean', 
+                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', 
                  # Hydraulic settings
-                 nlay: int=1, lay_decay: float=1., bottom: float=None, 
-                 thick: float=100., hyd_cond=0.0864, cond_decay: float=0., 
+                 nlay: int=1, lay_decay: float=1.,
+                 bottom: float=None, thick: float=100.,
                  verti_cond=None, verti_poro=None,
-                 cond_drain: float=None, porosity: float=0.1,
-                 ss: float=1e-5,
-                 poro_decay: float=0., 
+                 hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
+                 cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
-                 sea_level=None, bc_left: float=None, bc_right: float=None):
+                 cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None):
+
         """
         Initialize method.
 
@@ -87,6 +87,8 @@ class Modflow:
             if True, display a cross section of the model. The default is True.
         climatic : float or list, optional
             recharge value. The default is 0.001.
+        runoff : float or list, optional
+            runoff value. The default is 0.0001.
         first_clim : str, optional
             'mean': the first recharge value is the mean of the chronicle. 'first': the first recharge is keep. The default is 'mean'.
         nlay : int, optional
@@ -112,7 +114,9 @@ class Modflow:
         ss : float or 2D float, optional
             Fixe the specifc storage value. Activate for confined layers. The default is 1e-5 (1/day).
         poro_decay : float, optional
-            Modification of porosity for exponentially decreasing whit depth. The default is 0..
+            Modification of porosity (specific yield) for exponentially decreasing whit depth. The default is 0.
+        ss_decay : float, optional
+            Modification of porosity (specific storage) for exponentially decreasing whit depth. The default is 0.
         sea_level : float, optional
             Fixed head on each cell below this value. The default is None.
         bc_left : float, optional
@@ -179,7 +183,8 @@ class Modflow:
             self.climatic = climatic.copy()
         else: 
             self.climatic = climatic
-        self.first_clim = first_clim    
+        self.first_clim = first_clim  
+        self.runoff = runoff
             
         #%% Model parameters 
         
@@ -193,6 +198,7 @@ class Modflow:
         self.porosity = porosity
         self.ss = ss
         self.poro_decay = poro_decay
+        self.ss_decay = ss_decay
         
         self.verti_cond = verti_cond
         self.verti_poro = verti_poro
@@ -392,6 +398,16 @@ class Modflow:
             depth = np.zeros(self.ps.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             self.ps *= np.exp(-(self.poro_decay)*depth)
+            # η=2 is a coefficient related to
+            # the medium structure that we chose to be equal to 2, as com-
+            # monly reported in the literature (Cardenas and Jiang, 2010;
+            # Bernabé et al., 2003)
+
+        if self.ss_decay != 0.:
+            # print('DECAY EXPO POROSITY')
+            depth = np.zeros(self.ps.shape)
+            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
+            self.ss *= np.exp(-(self.ss_decay)*depth)
             # η=2 is a coefficient related to
             # the medium structure that we chose to be equal to 2, as com-
             # monly reported in the literature (Cardenas and Jiang, 2010;

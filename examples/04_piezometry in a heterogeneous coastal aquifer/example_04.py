@@ -101,6 +101,7 @@ data_path = example_path + "data/"
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
 # out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
 out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
+# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
 
@@ -109,7 +110,7 @@ out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
 dem_path = data_path + "MNT_gouville_25m.tif"
 oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
-shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'calib_zones.shp')
+shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'param_zones.shp')
 
 load = False
 watershed_name = 'Gouville'
@@ -221,32 +222,11 @@ ax.set_ylabel('Sea level [m.a.s.l]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 
-# list_filenames = os.listdir(os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo'))
-# list_path = []
-# for name in list_filenames:
-#     if name.endswith('.txt') and int(name[-8:-4])>=2016 and int(name[-8:-4])<=2016:
-#         path = os.path.join(r'C:\Users\Martin Le Mesnil\Travail\data\SHOM', 'St-Malo', name)
-#         list_path.append(path)
-
-# SHOM_df_list = []
-# for m in range(len(list_path)):
-#     SHOM_data = pd.read_csv(list_path[m], sep = ";", header = 13)
-#     SHOM_df_list.append(SHOM_data)
-
-# SHOM_df_h = pd.concat(SHOM_df_list)
-# SHOM_df_h['Valeur'] = SHOM_df_h['Valeur'] + -6.289 #hydrographic zero at nearest maregraph
-# SHOM_df_h = SHOM_df_h.rename(columns={"# Date": "Date"})
-# SHOM_df_h['Date'] = pd.to_datetime(SHOM_df_h['Date'], dayfirst=True)
-# SHOM_df = SHOM_df_h.groupby(pd.Grouper(key='Date',freq='D')).max()
-# SHOM_df = SHOM_df.drop(columns=['Source'])
-# shift = SHOM_df.mean() - SHOM_df_h.Valeur.mean()
-# SHOM_df = SHOM_df - shift
-
-# sea_lev_df_fill = SHOM_df.fillna(SHOM_df.mean())
-# sea_lev = sea_lev_df_fill['Valeur'].values.tolist()
-# plt.plot(sea_lev)
-
-BV.oceanic.update_MSL(sea_lev)
+# Since initial state of transient-state simulation is obtained
+# using a permanent-state simulation based on t0 values,
+# sea level at t0 is set to its mean value.
+sea_level[0] = np.mean(sea_level)
+BV.oceanic.update_MSL(sea_level)
 
 #%% ---- PARAMETRIZATION
 
@@ -270,10 +250,10 @@ cond_drain = None # or value of conductance
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Lateral heterogeneity of hydrodynamic parameters
-hyd_cond_1 = 21.5 # m/day
-hyd_cond_2 = 19.5 # m/day
-porosity_1 = 7 / 100 # -
-porosity_2 = 24 / 100 # -
+hyd_cond_1 = 18.5 # m/day
+hyd_cond_2 = 95 # m/day
+porosity_1 = 8 / 100 # -
+porosity_2 = 45 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -318,6 +298,8 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 
 #%% MODFLOW
 
+# BV.climatic.update_first_clim('first')
+
 model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 if success_modflow == True:
@@ -341,28 +323,63 @@ if success_modflow == True:
 
 #%% SIMULATED VS OBSERVED PIEZOMETRY
 
+dem_data = BV.geographic.dem_clip
+
 watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
                                             '_postprocess', 'watertable_elevation.npy'),
                                allow_pickle=True).item()
 
-sim_piezo = []
+sim_piezo_elev = []
 for t in range(len(watertable_elevation)):
-    sim_piezo.append(watertable_elevation[t][BV.piezometry.x_iloc, BV.piezometry.y_iloc][0])
+    sim_piezo_elev.append(watertable_elevation[t][BV.piezometry.x_iloc,BV.piezometry.y_iloc][0])
+df_simobs_piezo_elev = piezo_2016.copy()
+df_simobs_piezo_elev.insert(1, "Sim", sim_piezo_elev)
 
-df_simobs_piezo = piezo_2016.copy()
-df_simobs_piezo.insert(1, "Sim", sim_piezo)
+watertable_depth = np.load(os.path.join(simulations_folder, 'default',
+                                            '_postprocess', 'watertable_depth.npy'),
+                               allow_pickle=True).item()
+sim_piezo_depth = []
+for t in range(len(watertable_depth)):
+    sim_piezo_depth.append(watertable_depth[t][BV.piezometry.x_iloc,BV.piezometry.y_iloc][0])
+df_simobs_piezo_depth = piezo_2016.copy()
+df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-fig, ax = plt.subplots(1,1, figsize=(7,4), sharex=True)
-ax.plot(df_simobs_piezo.NGF, label='Observed', color='k', lw=2)
-ax.plot(df_simobs_piezo.Sim, label='Simulated', color='red', lw=2)
+fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
+axs = axs.ravel()
+
+ax = axs[0]
+ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
 years_maj = mdates.YearLocator()   # every year
 months_maj = mdates.MonthLocator()  # every x month
 ax.xaxis.set_major_locator(years_maj)
 ax.xaxis.set_minor_locator(months_maj)
 ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Watertable elevation [m]')
-ax.set_xlabel('Date')
-ax.set_xlim(pd.to_datetime('2015-12'), pd.to_datetime('2017-02'))
-ax.set_ylim(0, 12)
+ax.set_ylabel('Elevation [m]')
+ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
+ax.set_title('Watertable')
+
+ax = axs[1]
+ax.axhline(dem_data[30,30], label='Topography', color='brown', lw=2)
+ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.legend(loc='upper right', fontsize=8)
+ax.set_ylabel('Depth [m]')
+ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
+
+fig, ax = plt.subplots(1,1, figsize=(10,3))
+watertable_depth[0][watertable_depth[0]<0] = 0
+im = ax.imshow(watertable_depth[0], cmap='RdYlBu_r')
+ax.set_xlabel('Cells on X', fontsize=10)
+ax.set_ylabel('Cells on Y', fontsize=10)
+ax.set_title('Study site  -  Watertable depth [m]  -  First time step', fontsize=15)
+ax_divider = make_axes_locatable(ax)
+cax = ax_divider.append_axes("right", size="2%", pad="2%")
+cb = fig.colorbar(im, cax=cax)
+cb.set_ticks([0,5,10,15])
 
 #%% ---- NOTES
