@@ -64,7 +64,7 @@ class Modflow:
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
                  cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None,
-                 lakeres:object=None):
+                 inputflow=None, lakeres:object=None):
         """
         Initialize method.
 
@@ -124,6 +124,8 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
+        inputflow : optional
+            Boundary flow injected in the system
         lakeres : object
             Object lakeres build by HydroModPy.
         use_lakeres : bool, optional
@@ -153,6 +155,7 @@ class Modflow:
         self.bc_left = bc_left
         self.bc_right = bc_right
         self.sea_level = sea_level 
+        self.inputflow = inputflow
         
         #%% Domain definition 
         
