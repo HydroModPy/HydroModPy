@@ -812,6 +812,7 @@ class Watershed:
     #%% EXTRACT TIMESERIES
     
     def postprocessing_timeseries(self,
+                                  geographic: object,
                                   model_modflow: object,
                                   model_modpath: object,
                                   actual_date: bool=True,
@@ -822,6 +823,8 @@ class Watershed:
 
         Parameters
         ----------
+        geographic : object
+            Watershed object built by HydroModPy (model domain)
         model_modflow : object
             Modflow object.
         model_modpath : object
@@ -838,11 +841,12 @@ class Watershed:
         """
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self,
-                                                        model_modflow=model_modflow,
-                                                        model_modpath=model_modpath,
-                                                        actual_date=actual_date,
-                                                        subbasin_results=subbasin_results,
-                                                        freq_time=freq_time)
+                                                       geographic=geographic,
+                                                       model_modflow=model_modflow,
+                                                       model_modpath=model_modpath,
+                                                       actual_date=actual_date,
+                                                       subbasin_results=subbasin_results,
+                                                       freq_time=freq_time)
             
             return timeseries_results
 
