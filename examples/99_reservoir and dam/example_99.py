@@ -381,7 +381,7 @@ BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 
 BV.save_object()
 
-#%%% Force the return flow
+#%%% Input flow (used here to force a return flow)
 # Return flow time series
 return_flow_series = dam_input_df['resti']
 # return_flow_series can also be a .txt file
@@ -396,7 +396,7 @@ return_flow_coords = (331500, 6781425) # tuple or list of tuples
 
 bound_id = 0 # identifier for the cell (or cells) where the return flow will be forced
 snap_dist = 200
-BV.settings.add_flowbound(bound_id, return_flow_coords, snap_dist,
+BV.settings.add_inputflow(bound_id, return_flow_coords, snap_dist,
                           return_flow_series)
 
 # To remove a forced-flow cell or group of cells:
