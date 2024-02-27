@@ -103,21 +103,24 @@ out_path = 'D:/Users/abherve/SIMULATIONS/'
 
 fig_path = out_path + 'figures/'
 
-# dem_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
-dem_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_DEM/BDALTI_09_75m.tif'
+dem_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
+# dem_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_DEM/BDALTI_09_75m.tif'
 
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = None # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
-from_shp = ['D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/_GIS/bounds/pyrenees.shp', 1]
+# from_shp = ['D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/_GIS/bounds/pyrenees.shp', 1]
+from_shp = ['D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/4_Colleagues/Vince/Grande emprise.shp', 1]
+# from_shp = ['D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/4_Colleagues/Vince/Petite emprise.shp', 1]
 
-watershed_names = ['PYRENEES']
+watershed_names = ['GRANDE_EMPRISE']
+# watershed_names = ['PETITE_EMPRISE']
 from_xyvs = [None]
 
 #%% LOAD
 
-load = True
-# load = False
+# load = True
+load = False
 
 for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
         
