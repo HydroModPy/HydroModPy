@@ -813,6 +813,7 @@ class Watershed:
     
     def postprocessing_timeseries(self,
                                   geographic: object,
+                                  lakeres: object,
                                   model_modflow: object,
                                   model_modpath: object,
                                   actual_date: bool=True,
@@ -825,6 +826,8 @@ class Watershed:
         ----------
         geographic : object
             Watershed object built by HydroModPy (model domain)
+        lakeres : object
+            Watershed object built by HydroModPy (lakes and reservoirs)
         model_modflow : object
             Modflow object.
         model_modpath : object
@@ -842,6 +845,7 @@ class Watershed:
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self,
                                                        geographic=geographic,
+                                                       lakeres=lakeres,
                                                        model_modflow=model_modflow,
                                                        model_modpath=model_modpath,
                                                        actual_date=actual_date,
