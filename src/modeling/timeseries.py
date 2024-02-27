@@ -46,9 +46,9 @@ class Timeseries:
     
     def __init__(self,
                  geographic: object,
-                 lakeres: object,
                  model_modflow: object,
                  model_modpath: object,
+                 lakeres: object,
                  actual_date: bool=True,
                  subbasin_results: bool=True,
                  freq_time: str='D'):
@@ -464,7 +464,7 @@ class Timeseries:
             
             std_id = 0
         
-            for lakeres_idx in self.watershed.lakeres.indexes:
+            for lakeres_idx in self.lakeres.indexes:
                 std_id =+ 1
                 # Mask for the specific lake/reservoir
                 masked_accu = np.ma.array(self.accumulation_flux[0], 

@@ -544,10 +544,8 @@ if sim_state == 'steady':
 #%% TIMESERIES
 model_modpath = None # because transient
 
-timeseries_results = BV.postprocessing_timeseries(geographic=BV.geographic,
-                                                  lakeres=BV.lakeres,
-                                                  model_modflow=model_modflow,
-                                                  model_modpath=model_modpath,
+timeseries_results = BV.postprocessing_timeseries(model_modflow,
+                                                  model_modpath,
                                                   actual_date=True, 
                                                   subbasin_results=True) # or None
 
