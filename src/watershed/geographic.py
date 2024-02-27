@@ -400,10 +400,7 @@ class Geographic:
         try:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-            try:
-                self.dep_code = int(location.address.split(',')[-2][0:3])
-            except:
-                pass
+            self.dep_code = int(location.address.split(',')[-2][0:3])
         except OSError:
             # In some cases, a SSL certificate error can occur. The next two
             # lines modify the ssl_context
