@@ -45,7 +45,7 @@ class Timeseries:
     """
     
     def __init__(self,
-                 watershed: object,
+                 geographic: object,
                  model_modflow: object,
                  model_modpath: object,
                  actual_date: bool=True,
@@ -54,9 +54,8 @@ class Timeseries:
         """
         Parameters
         ----------
-        watershed : object
+        geographic : object
             Variable object of the model domain (watershed).
-			Used for retrieving objects 'geographic' and 'lakeres' built by HydroModPy
         model_modflow : object
             MODFLOW model object.
         model_modpath : object
@@ -73,9 +72,8 @@ class Timeseries:
         
         self.freq_time = freq_time
         
-        self.watershed = watershed
+        self.geographic = geographic
         
-        self.geographic = watershed.geographic
     
         self.stable_folder = self.geographic.stable_folder
         self.simulations = self.geographic.simulations_folder
