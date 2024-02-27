@@ -124,6 +124,12 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
+        lakeres : object
+            Object lakeres build by HydroModPy.
+        use_lakeres : bool, optional
+            Flag whether the system includes at least one lake/reservoir or not
+        aquifer_top_layer : int
+            Aquifer top layer identifiyer
         """
         
         #%% Initialization
@@ -211,6 +217,13 @@ class Modflow:
         #%% Lakes/reservoirs
         
         self.lakeres = lakeres
+        
+        if self.lakeres and self.lakeres.n_lakeres > 0:
+            self.use_lakeres = True
+            self.aquifer_top_layer = 1
+        else:
+            self.use_lakeres = False
+            self.aquifer_top_layer = 0
         
         
         #%% Specific modifications
@@ -334,7 +347,7 @@ class Modflow:
         self.top = self.dem
         
         # Adding a superficial layer for lakes/reservoirs (if activated)
-        if self.lakeres and self.lakeres.n_lakeres > 0:
+        if self.use_lakeres:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
                 self.geographic, self.climatic, self.nper, thickfact)
             
@@ -409,10 +422,10 @@ class Modflow:
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
                             if self.dem[i,j] < np.max(self.sea_level):
-                                if self.iboundData[0,i,j] != 0: #no-flow cells cannot be converted to specified head cells
+                                if self.iboundData[self.aquifer_top_layer,i,j] != 0: #no-flow cells cannot be converted to specified head cells
                                     self.drain_array[i,j] = 0
                                     package[kper,i,j] = 1
-                                    chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
+                                    chdKper.append([self.aquifer_top_layer,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
                             
                 flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
@@ -929,7 +942,7 @@ class Modflow:
                 if self.nlay > 1:
                     self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
                     self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
-                self.flux_top = self.flux[0]
+                self.flux_top = self.flux[self.aquifer_top_layer]
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
                 output_path = self.tifs_file+'/groundwater_flux_t('+lead_numb+').tif'
