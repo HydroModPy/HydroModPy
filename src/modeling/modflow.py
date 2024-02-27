@@ -346,7 +346,7 @@ class Modflow:
         # Top definition
         self.top = self.dem
         
-        # Adding a superficial layer for lakes/reservoirs (if activated)
+        # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
                 self.geographic, self.climatic, self.nper, thickfact)
@@ -380,7 +380,7 @@ class Modflow:
         # iboundData=-1: Values imposed at the value of strtData
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
         
-        # Correct ibound in lakes
+        # Correct ibound in the lake/reservoir layer (1st layer)
         if self.use_lakeres:
             self.iboundData[0, :, :] = 0
         
@@ -614,20 +614,22 @@ class Modflow:
 
 
         #%% Drain package
-        
+    
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
         
+        # Remove drains under lakes
+        if self.use_lakeres: 
+            self.drain_array[lakarr_lay0 != 0] = 0
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
-        # First value (0): layer number
-        self.drnData[:, 0] = 0 # layer
+        self.drnData[:, 0] = self.aquifere_top_layer # First value (0): layer number
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
                 if self.drain_array[i,j] == 1:
                     self.drnData[compt, 1] = i # Second value (1): row number
                     self.drnData[compt, 2] = j # Third value (2): column number
-                    self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
+                    self.drnData[compt, 3] = self.dem[i, j] # Fourth value (3): altitude
                     # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
                     if self.sink_fill == False:
                         if self.cond_drain != None:
@@ -648,7 +650,7 @@ class Modflow:
         # Imposes condition to Modflow through flopy
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
-        
+    
         #%% Output control
         
         # OC : output control
