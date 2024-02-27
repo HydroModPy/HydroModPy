@@ -46,6 +46,7 @@ class Timeseries:
     
     def __init__(self,
                  geographic: object,
+                 lakeres: object,
                  model_modflow: object,
                  model_modpath: object,
                  actual_date: bool=True,
@@ -56,6 +57,8 @@ class Timeseries:
         ----------
         geographic : object
             Variable object of the model domain (watershed).
+        lakeres : object
+            Object lakeres built by HydroModPy
         model_modflow : object
             MODFLOW model object.
         model_modpath : object
@@ -74,6 +77,7 @@ class Timeseries:
         
         self.geographic = geographic
         
+        self.lakeres = lakeres
     
         self.stable_folder = self.geographic.stable_folder
         self.simulations = self.geographic.simulations_folder
@@ -449,61 +453,63 @@ class Timeseries:
         except:
             pass
         
+        if self.lakeres and self.lakeres.n_lakeres > 0:
         ### lakes/reservoirs variables (stage, volume, area)
-        # All lakes/reservoirs
-        lakarr_clip = toolbox.load_to_numpy(
-            os.path.join(self.stable_folder, 'lakeres', 'lakarr.tif'),
-            # base_path = self.geographic.watershed_dem, 
-            # dst_crs = self.geographic.crs_proj,
-            )
-        
-        std_id = 0
-        for lakeres_idx in self.watershed.lakeres.indexes:
-            std_id =+ 1
-            # Mask for the specific lake/reservoir
-            masked_accu = np.ma.array(self.accumulation_flux[0], 
-                                      mask = lakarr_clip!=std_id,
-                                      fill_value = self.geographic.nodata,
-                                      ) 
-            # Outlet
-            outlet_mask = self.accumulation_flux[0] == masked_accu.max()
+            # All lakes/reservoirs
+            lakarr_clip = toolbox.load_to_numpy(
+                os.path.join(self.stable_folder, 'lakeres', 'lakarr.tif'),
+                # base_path = self.geographic.watershed_dem, 
+                # dst_crs = self.geographic.crs_proj,
+                )
             
-            try:
-                for key in self.watertable_elevation:
-                    # level
-                    level = self.watertable_elevation[key][outlet_mask].max()
-                    self.mfdata.loc[key,f'{lakeres_idx}_level'] = level
-                    
-                    # volume
-# =============================================================================
-#                     map_level = level
-# =============================================================================
-                    map_level = self.watertable_elevation[key]
-                    self.geographic.cell_size = 75*75                    
-
-                    watershed_dem = toolbox.load_to_numpy(
-                        self.geographic.watershed_dem, 
-                        dst_crs = self.geographic.crs_proj) 
-
-                    masked_level_diff = np.ma.array(
-                        map_level - watershed_dem,
-                        mask = lakarr_clip!=std_id,
-                        fill_value = self.geographic.nodata,
-                        )
-                    
-                    lake_depth = np.ma.where(
-                        masked_level_diff >= 0, masked_level_diff, 0)
-                    
-                    volume = lake_depth.sum() * self.geographic.cell_size
-                    self.mfdata.loc[key,f'{lakeres_idx}_volume'] = volume
+            std_id = 0
+        
+            for lakeres_idx in self.watershed.lakeres.indexes:
+                std_id =+ 1
+                # Mask for the specific lake/reservoir
+                masked_accu = np.ma.array(self.accumulation_flux[0], 
+                                          mask = lakarr_clip!=std_id,
+                                          fill_value = self.geographic.nodata,
+                                          ) 
+                # Outlet
+                outlet_mask = self.accumulation_flux[0] == masked_accu.max()
+                
+                try:
+                    for key in self.watertable_elevation:
+                        # level
+                        level = self.watertable_elevation[key][outlet_mask].max()
+                        self.mfdata.loc[key,f'{lakeres_idx}_level'] = level
                         
-                    # area
-                    area = np.ma.where(
-                        masked_level_diff >= 0, 1, 0).sum()*self.geographic.cell_size
-                    self.mfdata.loc[key,f'{lakeres_idx}_area'] = area
-                    
-            except:
-                pass
+                        # volume
+# =============================================================================
+#                         map_level = level
+# =============================================================================
+                        map_level = self.watertable_elevation[key]
+                        self.geographic.cell_size = 75*75                    
+    
+                        watershed_dem = toolbox.load_to_numpy(
+                            self.geographic.watershed_dem, 
+                            dst_crs = self.geographic.crs_proj) 
+    
+                        masked_level_diff = np.ma.array(
+                            map_level - watershed_dem,
+                            mask = lakarr_clip!=std_id,
+                            fill_value = self.geographic.nodata,
+                            )
+                        
+                        lake_depth = np.ma.where(
+                            masked_level_diff >= 0, masked_level_diff, 0)
+                        
+                        volume = lake_depth.sum() * self.geographic.cell_size
+                        self.mfdata.loc[key,f'{lakeres_idx}_volume'] = volume
+                            
+                        # area
+                        area = np.ma.where(
+                            masked_level_diff >= 0, 1, 0).sum()*self.geographic.cell_size
+                        self.mfdata.loc[key,f'{lakeres_idx}_area'] = area
+                        
+                except:
+                    pass
         
         
         ### save files
