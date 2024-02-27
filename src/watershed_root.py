@@ -812,8 +812,6 @@ class Watershed:
     #%% EXTRACT TIMESERIES
     
     def postprocessing_timeseries(self,
-                                  geographic: object,
-                                  lakeres: object,
                                   model_modflow: object,
                                   model_modpath: object,
                                   actual_date: bool=True,
@@ -843,11 +841,10 @@ class Watershed:
             Table with all results.
         """
         if model_modflow != None:
-            timeseries_results = timeseries.Timeseries(self,
-                                                       geographic=geographic,
-                                                       lakeres=lakeres,
-                                                       model_modflow=model_modflow,
-                                                       model_modpath=model_modpath,
+            timeseries_results = timeseries.Timeseries(self.geographic,
+                                                       model_modflow,
+                                                       model_modpath,
+                                                       self.lakeres,
                                                        actual_date=actual_date,
                                                        subbasin_results=subbasin_results,
                                                        freq_time=freq_time)

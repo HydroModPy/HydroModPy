@@ -642,7 +642,7 @@ class Modflow:
             self.drain_array[lakarr_lay0 != 0] = 0
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
-        self.drnData[:, 0] = self.aquifere_top_layer # First value (0): layer number
+        self.drnData[:, 0] = self.aquifer_top_layer # First value (0): layer number
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
                 if self.drain_array[i,j] == 1:
