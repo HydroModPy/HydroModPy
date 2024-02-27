@@ -381,8 +381,8 @@ class Modflow:
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
         
         # Correct ibound in lakes
-        if self.lakeres and self.lakeres.n_lakeres > 0:
-            self.iboundData[lakarr != 0] = 0
+        if self.use_lakeres:
+            self.iboundData[0, :, :] = 0
         
         # Free surface level is set to the surface (altitude of DEM)
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
