@@ -144,6 +144,7 @@ class Subbasin:
         wbt.watershed(os.path.join(geographic.reg_path, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
+        print(watershed_shp)
         wbt.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
