@@ -69,8 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
 # To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
+# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
 # out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
+out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
 
 #%% ---- WATERSHED
 
@@ -129,7 +130,7 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = True
+load = False
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -142,8 +143,8 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+stable_folder = os.path.join(out_path,watershed_name,"results_stable")
+simulations_folder = os.path.join(out_path,watershed_name,"results_simulations")
 
 #%% DATA
 
@@ -156,7 +157,7 @@ if from_dem == None:
     BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/', 200)
+    #BV.add_subbasin(data_path+'additional/', 200)
 
 # General plot of the study site
 if from_dem == None:
@@ -327,7 +328,7 @@ freq_time = 'M' # or 'D'
 
 # Hydraulic settings
 nlay = 5
-lay_decay = 1.25 # 1 for no decay
+lay_decay = 1 # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
 hyd_cond = 1e-5 * 24 * 3600 # m/day

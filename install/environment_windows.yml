@@ -88,6 +88,7 @@ dependencies:
   - zlib=1.2.12=h8ffe710_2
   - zstd=1.4.8=h498f385_0
   - pip:
+      - rioxarray==0.13.4
       - alabaster==0.7.13
       - anyio==4.0.0
       - argon2-cffi==23.1.0
