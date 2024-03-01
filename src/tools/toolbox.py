@@ -691,7 +691,7 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     # Create xarray Dataset
     M = np.array([data[item] for item in data.keys()])
     da = xr.DataArray(M, dims = ('time', 'y', 'x'))
-    if times:
+    if times is not None:
         da = da.assign_coords({"time": ("time", times), 
                                "y": ("y", y_val), 
                                "x": ("x", x_val)})
