@@ -625,10 +625,46 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
+def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
                   times=None, y=None, x=None):
-    # Librairies
-    import rioxarray # intended to be moved to the # LIBRAIRIES section
+    """
+    Export raw results from HydroModPy (aggregated results over times stored
+    in dict, obtained with the postprocessing_modflow method of the Watershed 
+    objects) to a netcdf file formated with the same spatial attributes 
+    (resolution, extent, CRS) as the base file.
+
+    Parameters
+    ----------
+    data : dict
+        Initial data obtained with the postprocessing_modflow method of the 
+        Watershed objects.
+    base_path : str
+        Filepath to the file that will be used as the base for the spatial
+        attributes. It is advised to use one of the files generated in the
+        \results_stable\geographic\ directory.
+    out_path : str
+        Filepath of the output file.
+    base_crs : str or int, optional (the default is none)
+        Coordinates reprojection system (both for input and output). The CRS 
+        from the base file is used first. If there is none, base_crs is used
+        instead.
+    times : sequence, optional
+        A sequence containing the dates for the time coordinate of the netcdf. 
+        It is advised to use the index from the recharge: 
+            <Watershed_object>.climatic.recharge.index (DatetimeIndex)
+        The default is None.
+    y : array, optional
+        Values for the Y-coordinate. If None (default), the values will be
+        inferred from the resolution and spatial extent of the domain.
+    x : array, optional
+        Values for the X-coordinate. If None (default), the values will be
+        inferred from the resolution and spatial extent of the domain.
+
+    Returns
+    -------
+    Create a *.nc file with the indicated out_path.
+
+    """
     
     # Metadata
     if isinstance(base_crs, str): base_crs = rio.crs.CRS.from_string(base_crs)
@@ -637,7 +673,7 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
         base_profile = base.profile
         if base_crs and not base_profile['crs'].is_valid:
             base_profile['crs'] = base_crs
-        val_for_mask = base.read(1) # base.read()[0]
+        val_for_mask = base.read(1)
     [reso_x, _, x_min, _, reso_y, y_max, _, _, _] = list(base_profile['transform'])
     if not x:
         x_val = [x for x in np.arange(x_min + reso_x/2, x_min + reso_x*base_profile['width'] + reso_x/2, reso_x)]
@@ -646,12 +682,6 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
     
     # Create xarray Dataset
     M = np.array([data[item] for item in data.keys()])
-# =============================================================================
-#     M = np.ma.array(M, 
-#                     mask = M==base_profile['nodata'],
-#                     fill_value = base_profile['nodata'],
-#                     )
-# =============================================================================
     da = xr.DataArray(M, dims = ('time', 'y', 'x'))
     da = da.assign_coords({"time": ("time", times), 
                            "y": ("y", y_val), 
@@ -662,9 +692,6 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
     ds[main_var] = da
     
     # Attributes
-# =============================================================================
-#     ds = ds.transpose('time', 'y', 'x')
-# =============================================================================
     ds.x.attrs = {'standard_name': 'projection_x_coordinate',
               'long_name': 'x coordinate of projection',
               'units': 'Meter'}
@@ -682,13 +709,17 @@ def export_netcdf(data, base_path:str, out_path:str, base_crs=None,
 #     # Very efficient, but QGIS struggles to open these files as Mesh
 # =============================================================================
     # Discretization compression (lossy):
-    scale_factor, add_offset = compute_scale_and_offset(float(ds[main_var].min()), 
-                                                        float(ds[main_var].max()), 
+    bound_min = float(ds[main_var].min())
+    if bound_min<0: bound_min = bound_min*1.1
+    else: bound_min = bound_min/1.1
+    bound_max = float(ds[main_var].max())
+    scale_factor, add_offset = compute_scale_and_offset(bound_min, 
+                                                        bound_max, 
                                                         16)
     ds[main_var].encoding['scale_factor'] = scale_factor
     ds[main_var].encoding['add_offset'] = add_offset
     ds[main_var].encoding['dtype'] = 'int16'
-    ds[main_var].encoding['_FillValue'] = -9999 # should be inside the packed range
+    ds[main_var].encoding['_FillValue'] = -32768
     
     # Export
     ds.to_netcdf(out_path)
