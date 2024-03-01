@@ -402,7 +402,7 @@ if success_modflow == True:
                               intermittency_monthly=False,
                               intermittency_daily=False,
                               export_all_tif = False,
-                              export_netcdf = False)
+                              export_netcdf = True)
 
 #%% MODPATH
 

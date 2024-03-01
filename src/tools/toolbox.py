@@ -652,6 +652,8 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
         A sequence containing the dates for the time coordinate of the netcdf. 
         It is advised to use the index from the recharge: 
             <Watershed_object>.climatic.recharge.index (DatetimeIndex)
+        If 'times' is a pandas.series, the index is extracted and used as
+        times.
         The default is None.
     y : array, optional
         Values for the Y-coordinate. If None (default), the values will be
@@ -679,13 +681,23 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
         x_val = [x for x in np.arange(x_min + reso_x/2, x_min + reso_x*base_profile['width'] + reso_x/2, reso_x)]
     if not y:
         y_val = [y for y in np.arange(y_max + reso_y/2, y_max + reso_y*base_profile['height'] + reso_y/2, reso_y)]
+    # If times is a pandas.series, then its index is used as times
+    if isinstance(times, pd.core.series.Series):
+        times = times.index
+    # If times is a number, then it is set to its default value None
+    try: len(times)
+    except TypeError: times = None
     
     # Create xarray Dataset
     M = np.array([data[item] for item in data.keys()])
     da = xr.DataArray(M, dims = ('time', 'y', 'x'))
-    da = da.assign_coords({"time": ("time", times), 
-                           "y": ("y", y_val), 
-                           "x": ("x", x_val)})
+    if times:
+        da = da.assign_coords({"time": ("time", times), 
+                               "y": ("y", y_val), 
+                               "x": ("x", x_val)})
+    else:
+        da = da.assign_coords({"y": ("y", y_val), 
+                               "x": ("x", x_val)})
     da = da.where(val_for_mask != base_profile['nodata'])
     ds = xr.Dataset()
     main_var = os.path.splitext(os.path.split(out_path)[-1])[0]
