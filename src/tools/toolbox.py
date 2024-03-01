@@ -709,10 +709,11 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
 #     # Very efficient, but QGIS struggles to open these files as Mesh
 # =============================================================================
     # Discretization compression (lossy):
+    bound_max = float(ds[main_var].max())
     bound_min = float(ds[main_var].min())
     if bound_min<0: bound_min = bound_min*1.1
-    else: bound_min = bound_min/1.1
-    bound_max = float(ds[main_var].max())
+    elif bound_min>0: bound_min = bound_min/1.1
+    else: bound_min = bound_min - 0.01*bound_max
     scale_factor, add_offset = compute_scale_and_offset(bound_min, 
                                                         bound_max, 
                                                         16)
