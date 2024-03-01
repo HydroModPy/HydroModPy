@@ -285,7 +285,8 @@ if success_modflow == True:
                               persistency_index=False,
                               intermittency_monthly=False,
                               intermittency_daily=False,
-                              export_all_tif = False)
+                              export_all_tif = False,
+                              export_netcdf = True)
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=None,
                                                       actual_date=True, 
