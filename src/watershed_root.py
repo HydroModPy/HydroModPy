@@ -202,6 +202,9 @@ class Watershed:
             if ('oceanic' in BV.__dir__()) == True:
                 self.oceanic = BV.oceanic
                 self.elt_def.append('oceanic')
+            if ('settings' in BV.__dir__()) == True:
+                self.settings = BV.settings
+                self.elt_def.append('settings')
                 
             return True 
         
