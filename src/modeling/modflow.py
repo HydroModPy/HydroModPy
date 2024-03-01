@@ -952,12 +952,6 @@ class Modflow:
                                       out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'), 
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic.index)
-            if lake_seepage == True:
-                toolbox.export_netcdf(self.dict_lake_seepage, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'lake_seepage.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic.index)
 
         if persistency_index == True:
             ### Persistency index
