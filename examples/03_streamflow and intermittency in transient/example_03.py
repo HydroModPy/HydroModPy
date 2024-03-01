@@ -67,9 +67,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/03_streamflow and intermittency in transient/"
 data_path = example_path + "data/"
-# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP03')
-out_path = '/home/agauvain/Documents/HydroModPy'
+out_path = folder_root.root_folder_results()
+# To change the folder path: out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
