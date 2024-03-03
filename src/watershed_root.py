@@ -580,7 +580,7 @@ class Watershed:
             self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
             toolbox.create_folder(self.calibration_folder)
             model_folder = self.calibration_folder
-            
+        
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
                                         # Frame settings

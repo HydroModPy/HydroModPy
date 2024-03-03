@@ -203,7 +203,7 @@ class Hydraulic:
         """
         self.ss_decay =  ss_decay_value    
     
-    def update_lay_decay(self, lay_decay_value: float):
+    def update_lay_decay(self, lay_decay_value: float or int):
         """
         Parameters
         ----------

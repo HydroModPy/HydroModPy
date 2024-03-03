@@ -299,7 +299,7 @@ class Modflow:
     
         # Parameters for proportions of bottom layer to surface values
         for i in range(1, self.nlay+1):
-            if self.lay_decay == 1.:
+            if self.lay_decay <= 1:
                 p = i / self.nlay    # Uniform thicknesses
             else:
                 p = (1-self.lay_decay**i) / exp_scale   # Increasing thicknesses with depth
@@ -307,7 +307,7 @@ class Modflow:
             if i == 1:
                 self.zbot[i-1] = self.dem  - ((self.dem - self.bottom_layer) * p)
             else:
-                self.zbot[i-1] = self.zbot[i-2] - ((self.dem - self.bottom_layer) * p) #self.bottom_layer * p + self.dem * (1-p)
+                self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
             
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
