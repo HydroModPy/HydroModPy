@@ -327,7 +327,7 @@ freq_time = 'M' # or 'D'
 
 # Hydraulic settings
 nlay = 5
-lay_decay = 1 # 1 for no decay
+lay_decay = 1. # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
 hyd_cond = 1e-5 * 24 * 3600 # m/day
@@ -373,7 +373,7 @@ BV.hydraulic.update_hyd_cond(hyd_cond)
 BV.hydraulic.update_porosity(porosity)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
+BV.hydraulic.update_poro_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -453,17 +453,12 @@ visu.visual2D(object_list = ['map','grid',
               lines=250)
 
 #%% 3D
-"""
+
 if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
-    visu.visual3D(interactive=True,
-                  object_list=['grid','watertable', 'watertable_depth',
-                               'surface_flow', 'drain_flow', 'pathlines'
-                               ],
-                  view='south-west',
-                  lines=100, cloc=(0.7,0.1))
-"""
+    visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth', 'surface_flow', 'drain_flow', 'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
+
 #%% RAW
 
 lead_numb = '0'
