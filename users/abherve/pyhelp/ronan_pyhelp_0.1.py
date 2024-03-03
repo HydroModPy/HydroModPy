@@ -579,7 +579,9 @@ for watershed_name in watershed_names[:]:
         sink_fill = False # or True
         sim_state = 'steady' # 'steady' or 'transient'
         plot_cross = False
+        
         recharge = 200 / 365 / 1000
+        
         first_clim = 'mean' # or 'first or value
         nlay = 1
         lay_decay = 1 # 1 for no decay
