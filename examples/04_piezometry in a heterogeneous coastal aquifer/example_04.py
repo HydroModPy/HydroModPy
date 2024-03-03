@@ -13,12 +13,7 @@ Created on 2023
 
 # Libraries installed by default
 import sys
-import glob
 import os
-import fnmatch
-import random
-import pickle
-from datetime import datetime
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
@@ -30,40 +25,16 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 
-# Librairies to check, needed in hydromodpy modules
-import shutil
-from geopy.geocoders import Nominatim
 
 # Libraries added from 'conda install' procedure
-import geopandas as gpd
-import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.pylab as pl
 import matplotlib.dates as mdates
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 # Libraries added from 'conda forge' procedure
-from osgeo import gdal, osr # or import gdal
-import rasterio
 
-# # Libraries added from 'pip install' procedure
-import deepdish as dd
-import flopy
-import imageio
-import vedo
-import hydroeval
-import xarray	
-import netCDF4
-import matplotlib_scalebar	
-import contextily
-import pyproj # uninstall before install
-import selenium
-import shapefile # named pyshp for install
-import jupyter
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -98,10 +69,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
-out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
-# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+out_path = folder_root.root_folder_results()
+# To change the folder path: out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -126,7 +95,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -314,7 +283,8 @@ if success_modflow == True:
                               persistency_index=False,
                               intermittency_monthly=False,
                               intermittency_daily=False,
-                              export_all_tif = False)
+                              export_all_tif = False,
+                              export_netcdf = True)
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=None,
                                                       actual_date=True, 
@@ -344,42 +314,97 @@ for t in range(len(watertable_depth)):
 df_simobs_piezo_depth = piezo_2016.copy()
 df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
-axs = axs.ravel()
+plt.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
+plt.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
+plt.legend(loc='best', fontsize=10)
+plt.ylabel('Elevation [m a.s.l.]')
+plt.title('Watertable')
+plt.show()
 
-ax = axs[0]
-ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
-ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Elevation [m]')
-ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
-ax.set_title('Watertable')
+# fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
+# axs = axs.ravel()
 
-ax = axs[1]
-ax.axhline(dem_data[30,30], label='Topography', color='brown', lw=2)
-ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
-ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Depth [m]')
-ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
+# ax = axs[0]
+# ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
+# ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
+# years_maj = mdates.YearLocator()   # every year
+# months_maj = mdates.MonthLocator()  # every x month
+# ax.xaxis.set_major_locator(years_maj)
+# ax.xaxis.set_minor_locator(months_maj)
+# ax.legend(loc='upper right', fontsize=8)
+# ax.set_ylabel('Elevation [m]')
+# ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
+# ax.set_title('Watertable')
 
-fig, ax = plt.subplots(1,1, figsize=(10,3))
-watertable_depth[0][watertable_depth[0]<0] = 0
-im = ax.imshow(watertable_depth[0], cmap='RdYlBu_r')
-ax.set_xlabel('Cells on X', fontsize=10)
-ax.set_ylabel('Cells on Y', fontsize=10)
-ax.set_title('Study site  -  Watertable depth [m]  -  First time step', fontsize=15)
-ax_divider = make_axes_locatable(ax)
-cax = ax_divider.append_axes("right", size="2%", pad="2%")
-cb = fig.colorbar(im, cax=cax)
-cb.set_ticks([0,5,10,15])
+# ax = axs[1]
+# ax.axhline(dem_data[30,30], label='Topography', color='brown', lw=2)
+# ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
+# ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
+# years_maj = mdates.YearLocator()   # every year
+# months_maj = mdates.MonthLocator()  # every x month
+# ax.xaxis.set_major_locator(years_maj)
+# ax.xaxis.set_minor_locator(months_maj)
+# ax.legend(loc='upper right', fontsize=8)
+# ax.set_ylabel('Depth [m]')
+# ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
+
+# fig, ax = plt.subplots(1,1, figsize=(10,3))
+# watertable_depth[0][watertable_depth[0]<0] = 0
+# im = ax.imshow(watertable_depth[0], cmap='RdYlBu_r')
+# ax.set_xlabel('Cells on X', fontsize=10)
+# ax.set_ylabel('Cells on Y', fontsize=10)
+# ax.set_title('Study site  -  Watertable depth [m]  -  First time step', fontsize=15)
+# ax_divider = make_axes_locatable(ax)
+# cax = ax_divider.append_axes("right", size="2%", pad="2%")
+# cb = fig.colorbar(im, cax=cax)
+# cb.set_ticks([0,5,10,15])
+
+#%% MODPATH
+
+if sim_state == 'steady':
+    if success_modflow == True:
+        model_modpath = BV.preprocessing_modpath(model_modflow)
+        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+    if success_modpath == True:
+        BV.postprocessing_modpath(model_modpath,
+                                  ending_point=True,
+                                  starting_point=True,
+                                  pathlines_shp=True,
+                                  particules_shp=True,
+                                  random_id=100)
+
+#%% TIMESERIES
+
+if from_dem == None:
+    subbasin_results = True
+else:
+    subbasin_results = False
+
+if sim_state == 'steady':
+    model_modpath = model_modpath
+else:
+    model_modpath = None
+
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath=model_modpath,
+                                                  actual_date=True, 
+                                                  subbasin_results=subbasin_results,
+                                                  freq_time=freq_time) # or None
+
+#%% 2D PLOT
+
+# # if sim_state == 'steady':
+# visu = visualization_results.Visualization(BV, model_name)
+# visu.visual2D(object_list = ['map','grid',
+#                              'watertable', 'watertable_depth',
+#                              'drain_flow','surface_flow',
+#                              'pathlines', 'residence_times'
+#                              ],
+#               color_scale = [(None,None),(None,None),
+#                              (None,None),(0,10),
+#                              (None,None),(None,None),
+#                              (None,None),(None,None),
+#                              ], 
+#               lines=250)
 
 #%% ---- NOTES
