@@ -458,8 +458,8 @@ if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
     visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
-                                                 # 'surface_flow',
-                                                 # 'drain_flow',
+                                                 'surface_flow',
+                                                 'drain_flow',
                                                  'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
 
 #%% RAW
