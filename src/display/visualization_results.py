@@ -462,8 +462,10 @@ class Visualization():
                                   '_postprocess', '_vtuvtk', 'watertable_0.vtu')
         watertable_elev = vedo.load(watertable) # 1 Elevation
         watertable_depth = vedo.load(watertable) # 3 Depth
-        surface_flow = vedo.UnstructuredGrid(watertable) # 3 Surface Flow
-        drain_flow = vedo.UnstructuredGrid(watertable) # 3 Drain Flow
+        if 'surface_flow' in object_list:
+            surface_flow = vedo.UnstructuredGrid(watertable) # 3 Surface Flow
+        if 'drain_flow' in object_list:
+            drain_flow = vedo.UnstructuredGrid(watertable) # 3 Drain Flow
         watertable_blue = vedo.load(watertable) # 4 blue
         
         zvals = watertable_elev.points()[:, 2]
@@ -486,31 +488,33 @@ class Visualization():
         watertable_blue.legend('Watertable')
         #plt += watertable_blue  
         
-        surface_flow = surface_flow.tomesh()
-        nan_loc = ~np.isnan(surface_flow.celldata['Surfaceflow_log'])
-        surface_flow = surface_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
-        surface_flow.cmap('jet', 'Surfaceflow_log', on='cells')
-        # surface_flow.add_scalarbar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=20)
-        surface_flow.add_scalarbar(pos=cloc, horizontal=False)
-        surface_flow.scale([1,1,z_scale])
-        
-        drain_flow = drain_flow.tomesh()
-        nan_loc = ~np.isnan(drain_flow.celldata['Drainflow_log'])
-        drain_flow = drain_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
-        # cmin = min(drain_flow.pointdata['Drainflow_log'])
-        # cmax = max(drain_flow.pointdata['Drainflow_log'])
-        if cscale == 'custom':
-            mi = 1
-            ma = 4
-            drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells', vmin=mi, vmax=ma)
-        else:
-            drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells')
-        # drain_flow.add_scalarbar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
-        drain_flow.add_scalarbar(pos=cloc,
-                                horizontal=False)
-        drain_flow.scale([1,1,z_scale])
-        #except:
-        #print("VTK watertable doesn't exist")
+        if 'surface_flow' in object_list:
+            surface_flow = surface_flow.tomesh()
+            nan_loc = ~np.isnan(surface_flow.celldata['Surfaceflow_log'])
+            surface_flow = surface_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
+            surface_flow.cmap('jet', 'Surfaceflow_log', on='cells')
+            # surface_flow.add_scalarbar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=20)
+            surface_flow.add_scalarbar(pos=cloc, horizontal=False)
+            surface_flow.scale([1,1,z_scale])
+            
+        if 'drain_flow' in object_list:
+            drain_flow = drain_flow.tomesh()
+            nan_loc = ~np.isnan(drain_flow.celldata['Drainflow_log'])
+            drain_flow = drain_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
+            # cmin = min(drain_flow.pointdata['Drainflow_log'])
+            # cmax = max(drain_flow.pointdata['Drainflow_log'])
+            if cscale == 'custom':
+                mi = 1
+                ma = 4
+                drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells', vmin=mi, vmax=ma)
+            else:
+                drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells')
+            # drain_flow.add_scalarbar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
+            drain_flow.add_scalarbar(pos=cloc,
+                                    horizontal=False)
+            drain_flow.scale([1,1,z_scale])
+            #except:
+            #print("VTK watertable doesn't exist")
             
         #try:
         pathlines = os.path.join(self.watershed.simulations_folder, self.modelname,
@@ -658,7 +662,7 @@ class Visualization():
         # Plot contour
         try:
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
-            main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+            main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except:
             print('Problem to plot contour')
             pass
@@ -666,7 +670,7 @@ class Visualization():
         # Plot rivers
         try:
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
-            main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'))
+            main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'), interpolation='none')
         except:
             print('Problem to plot streams')
             pass

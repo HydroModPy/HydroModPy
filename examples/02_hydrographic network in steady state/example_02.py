@@ -90,7 +90,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
