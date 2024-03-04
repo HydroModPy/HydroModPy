@@ -128,7 +128,7 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = False
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -457,13 +457,16 @@ visu.visual2D(object_list = ['map','grid',
 if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
-    visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth', 'surface_flow', 'drain_flow', 'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
+    visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
+                                                 # 'surface_flow',
+                                                 # 'drain_flow',
+                                                 'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
 
 #%% RAW
 
 lead_numb = '0'
-outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/outflow_drain_t(0).tif')
-accflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+outflow = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/outflow_drain_t(0).tif')
+accflow = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
 demData = imageio.imread(BV.geographic.watershed_dem)
 demData = np.ma.masked_array(demData, mask=demData<0)
 res = BV.geographic.resolution
@@ -531,7 +534,7 @@ if from_dem == None:
     stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
 else:
     stream_data = None
-watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
+watertable_data = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
 interactive = True
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)

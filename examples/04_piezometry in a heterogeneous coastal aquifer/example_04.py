@@ -314,12 +314,12 @@ for t in range(len(watertable_depth)):
 df_simobs_piezo_depth = piezo_2016.copy()
 df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-plt.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
-plt.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
-plt.legend(loc='best', fontsize=10)
-plt.ylabel('Elevation [m a.s.l.]')
-plt.title('Watertable')
-plt.show()
+fig, ax = plt.subplots(1,1, figsize=(8,6), sharex=True)
+ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
+ax.legend(loc='best', fontsize=10)
+ax.set_ylabel('Elevation [m a.s.l.]')
+ax.set_title('Watertable')
 
 # fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
 # axs = axs.ravel()
@@ -396,15 +396,15 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 # # if sim_state == 'steady':
 # visu = visualization_results.Visualization(BV, model_name)
 # visu.visual2D(object_list = ['map','grid',
-#                              'watertable', 'watertable_depth',
-#                              'drain_flow','surface_flow',
-#                              'pathlines', 'residence_times'
-#                              ],
+#                               'watertable', 'watertable_depth',
+#                               'drain_flow','surface_flow',
+#                               'pathlines', 'residence_times'
+#                               ],
 #               color_scale = [(None,None),(None,None),
-#                              (None,None),(0,10),
-#                              (None,None),(None,None),
-#                              (None,None),(None,None),
-#                              ], 
+#                               (None,None),(0,10),
+#                               (None,None),(None,None),
+#                               (None,None),(None,None),
+#                               ], 
 #               lines=250)
 
 #%% ---- NOTES
