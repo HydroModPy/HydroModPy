@@ -2,6 +2,7 @@ Examples
 ========
 
 .. nbgallery::
+    notebooks/example_01
     notebooks/example_02
 
 Import Modules
