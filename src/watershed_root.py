@@ -202,6 +202,9 @@ class Watershed:
             if ('oceanic' in BV.__dir__()) == True:
                 self.oceanic = BV.oceanic
                 self.elt_def.append('oceanic')
+            if ('settings' in BV.__dir__()) == True:
+                self.settings = BV.settings
+                self.elt_def.append('settings')
                 
             return True 
         
@@ -580,7 +583,7 @@ class Watershed:
             self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
             toolbox.create_folder(self.calibration_folder)
             model_folder = self.calibration_folder
-            
+        
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
                                         # Frame settings
@@ -657,7 +660,8 @@ class Watershed:
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
-                               export_all_tif: bool=False):
+                               export_all_tif: bool=False,
+                               export_netcdf: bool=False):
         """
         Public method to post-process the simulation of the model.
 
@@ -699,7 +703,8 @@ class Watershed:
                                       intermittency_monthly=intermittency_monthly,
                                       intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
-                                      export_all_tif=export_all_tif)
+                                      export_all_tif=export_all_tif,
+                                      export_netcdf=export_netcdf)
 
     #%% MODPATH MODEL        
     

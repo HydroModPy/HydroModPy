@@ -21,6 +21,8 @@ warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias f
 warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore")
+from sys import platform
+import geopandas as gpd
 
 # Libraries need to be installed if not
 import numpy as np
@@ -67,9 +69,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/03_streamflow and intermittency in transient/"
 data_path = example_path + "data/"
-# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP03')
-out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
+out_path = folder_root.root_folder_results()
+# To change the folder path: out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -292,7 +293,8 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=True,
                                   intermittency_monthly=True,
                                   intermittency_daily=False,
-                                  export_all_tif = False)
+                                  export_all_tif = False,
+                                  export_netcdf = True)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
@@ -317,7 +319,10 @@ axs = axs.ravel()
 
 for i, simul in enumerate(simul_list[:]):
     
-    model_name = simul.split('\\')[-1]
+    if platform=="linux" or platform == "linux2":
+        model_name = simul.split('/')[-1]
+    if platform=="win32" or platform == "win64":
+        model_name = simul.split('\\')[-1]
     
     ax = axs[i]
 
@@ -426,7 +431,11 @@ simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
         
 for simul in simul_list[:]:
     
-    model_name = simul.split('\\')[-1]
+    if platform=="linux" or platform == "linux2":
+        model_name = simul.split('/')[-1]
+    if platform=="win32" or platform == "win64":
+        model_name = simul.split('\\')[-1]
+        
     Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
         
@@ -515,12 +524,16 @@ axs = axs = axs.ravel()
 
 for i, simul in enumerate(simul_list[:]):
     
-    model_name = simul.split('\\')[-1]
+    if platform=="linux" or platform == "linux2":
+        model_name = simul.split('/')[-1]
+    if platform=="win32" or platform == "win64":
+        model_name = simul.split('\\')[-1]
 
     ax = axs[i]
-    
+        
     pi = imageio.imread(simul+'/_postprocess/_rasters/'+'persistency_index_t(-).tif')
     pi = np.ma.masked_where(pi==-9999, pi)
+    pi = np.ma.masked_where(mask==-99999, pi)
     
     im = ax.imshow(pi, cmap='jet')
     
@@ -537,7 +550,7 @@ for i, simul in enumerate(simul_list[:]):
     cbar_ax = fig.add_axes([0.25, 0.25, 0.5, 0.02])
     cb = fig.colorbar(im, cax=cbar_ax, orientation="horizontal", pad=0.2)
     cb.set_label('Persistency index [-]', fontsize=10)  # cax == cb.ax
-    
+        
     fig.tight_layout()
 
 fig.tight_layout
@@ -567,8 +580,11 @@ for i, simul in enumerate(simul_list[:]):
     fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
                                  figsize=(10,3))
     
-    model_name = simul.split('\\')[-1]
-    
+    if platform=="linux" or platform == "linux2":
+        model_name = simul.split('/')[-1]
+    if platform=="win32" or platform == "win64":
+        model_name = simul.split('\\')[-1]
+        
     Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
     
@@ -656,7 +672,10 @@ simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
 
 for i, simul in enumerate(simul_list[:]):
     
-    model_name = simul.split('\\')[-1]
+    if platform=="linux" or platform == "linux2":
+        model_name = simul.split('/')[-1]
+    if platform=="win32" or platform == "win64":
+        model_name = simul.split('\\')[-1]
     
     Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)

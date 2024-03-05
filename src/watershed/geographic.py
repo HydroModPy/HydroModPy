@@ -176,7 +176,7 @@ class Geographic:
         """
         Extract watershed from an outlet
         """
-        if (self.from_lib != None) | (self.from_xyv != None):
+        if (self.from_lib != None) or (self.from_xyv != None):
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [self.x_outlet], 'y': [self.y_outlet]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs_proj)

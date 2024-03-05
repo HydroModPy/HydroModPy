@@ -401,6 +401,7 @@ class Visualization():
         lines : int, optional
             the number of random pathlines displayed
         """
+        vedo.settings.default_backend= 'vtk'
         
         #vedo.settings.screeshot_scale = render
         plt = vedo.Plotter(N=len(object_list), axes=dict(xtitle='m', ytitle='m', ztitle='m', 
@@ -429,8 +430,8 @@ class Visualization():
         try:
             grid = os.path.join(self.watershed.simulations_folder, self.modelname,
                                 '_postprocess', '_vtuvtk', 'grid.vtu')
-            grid_mesh = vedo.Mesh(grid) #grid_mesh
-            grid_wireframe = vedo.Mesh(grid).wireframe() #grid_wireframe
+            grid_mesh = vedo.load(grid) #grid_mesh
+            grid_wireframe = vedo.load(grid).wireframe() #grid_wireframe
             if bg == 'white':
                 grid_wireframe.color('black')
             else:
@@ -440,9 +441,9 @@ class Visualization():
             #plt += grid_wireframe.flag()
             
             zvals = grid_mesh.points()[:, 2]
-    #        grid_mesh.add_elevation_scalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
+            # grid_mesh.add_elevation_scalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
-            # grid_mesh.addScalarBar(pos=cloc, title='Topographic elevation [m]',
+            # grid_mesh.add_scalarbar(pos=cloc, title='Topographic elevation [m]',
             #                        horizontal=False, titleFontSize=20)
             grid_mesh.add_scalarbar(pos=cloc, 
                                    horizontal=False)
@@ -456,47 +457,50 @@ class Visualization():
         except:
             print("VTK grid doesn't exist")
             
-        try: 
-            watertable = os.path.join(self.watershed.simulations_folder, self.modelname,
-                                      '_postprocess', '_vtuvtk', 'watertable_0.vtu')
-            watertable_elev = vedo.Mesh(watertable) # 1 Elevation
-            watertable_depth = vedo.Mesh(watertable) # 3 Depth
-            surface_flow = vedo.UGrid(watertable) # 3 Surface Flow
-            drain_flow = vedo.UGrid(watertable) # 3 Drain Flow
-            watertable_blue = vedo.Mesh(watertable) # 4 blue
-            
-            zvals = watertable_elev.points()[:, 2]
-            watertable_elev.cmap('Blues_r',zvals, vmin=min(zvals))
-            # watertable_elev.addScalarBar(pos=cloc, title='Watertable elevation [m]', horizontal=False, titleFontSize=20)
-            watertable_elev.addScalarBar(pos=cloc, horizontal=False)
-            watertable_elev.scale([1,1,z_scale])
-            #plt += watertable_elev
-            
-            watertable_depth.map_cells_to_points()
-            watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
-            # watertable_depth.addScalarBar(pos=cloc, title='Watertable depth [m]', horizontal=False, titleFontSize=20)
-            watertable_depth.addScalarBar(pos=cloc, 
-                                          horizontal=False)
-            watertable_depth.scale([1,1,z_scale])
-            #plt += watertable_depth
-            
-            watertable_blue.color('b')
-            watertable_blue.alpha(0.2)
-            watertable_blue.scale([1,1,z_scale])
-            watertable_blue.legend('Watertable')
-            #plt += watertable_blue  
-            
-            nan_loc = ~np.isnan(surface_flow.celldata['Surfaceflow_log'])
-            surface_flow = surface_flow.extract_cells_by_id([i for i, x in enumerate(nan_loc) if x])
+        #try: 
+        watertable = os.path.join(self.watershed.simulations_folder, self.modelname,
+                                  '_postprocess', '_vtuvtk', 'watertable_0.vtu')
+        watertable_elev = vedo.load(watertable) # 1 Elevation
+        watertable_depth = vedo.load(watertable) # 3 Depth
+        if 'surface_flow' in object_list:
+            surface_flow = vedo.UnstructuredGrid(watertable) # 3 Surface Flow
+        if 'drain_flow' in object_list:
+            drain_flow = vedo.UnstructuredGrid(watertable) # 3 Drain Flow
+        watertable_blue = vedo.load(watertable) # 4 blue
+        
+        zvals = watertable_elev.points()[:, 2]
+        watertable_elev.cmap('Blues_r',zvals, vmin=min(zvals))
+        # watertable_elev.add_scalarbar(pos=cloc, title='Watertable elevation [m]', horizontal=False, titleFontSize=20)
+        watertable_elev.add_scalarbar(pos=cloc, horizontal=False)
+        watertable_elev.scale([1,1,z_scale])
+        #plt += watertable_elev
+        
+        watertable_depth.map_cells_to_points()
+        watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
+        # watertable_depth.add_scalarbar(pos=cloc, title='Watertable depth [m]', horizontal=False, titleFontSize=20)
+        watertable_depth.add_scalarbar(pos=cloc, horizontal=False)
+        watertable_depth.scale([1,1,z_scale])
+        #plt += watertable_depth
+        
+        watertable_blue.color('b')
+        watertable_blue.alpha(0.2)
+        watertable_blue.scale([1,1,z_scale])
+        watertable_blue.legend('Watertable')
+        #plt += watertable_blue  
+        
+        if 'surface_flow' in object_list:
             surface_flow = surface_flow.tomesh()
+            nan_loc = ~np.isnan(surface_flow.celldata['Surfaceflow_log'])
+            surface_flow = surface_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
             surface_flow.cmap('jet', 'Surfaceflow_log', on='cells')
-            # surface_flow.addScalarBar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=20)
-            surface_flow.addScalarBar(pos=cloc, horizontal=False)
+            # surface_flow.add_scalarbar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=20)
+            surface_flow.add_scalarbar(pos=cloc, horizontal=False)
             surface_flow.scale([1,1,z_scale])
             
-            nan_loc = ~np.isnan(drain_flow.celldata['Drainflow_log'])
-            drain_flow = drain_flow.extract_cells_by_id([i for i, x in enumerate(nan_loc) if x])
+        if 'drain_flow' in object_list:
             drain_flow = drain_flow.tomesh()
+            nan_loc = ~np.isnan(drain_flow.celldata['Drainflow_log'])
+            drain_flow = drain_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
             # cmin = min(drain_flow.pointdata['Drainflow_log'])
             # cmax = max(drain_flow.pointdata['Drainflow_log'])
             if cscale == 'custom':
@@ -505,43 +509,43 @@ class Visualization():
                 drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells', vmin=mi, vmax=ma)
             else:
                 drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells')
-            # drain_flow.addScalarBar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
-            drain_flow.addScalarBar(pos=cloc,
+            # drain_flow.add_scalarbar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
+            drain_flow.add_scalarbar(pos=cloc,
                                     horizontal=False)
             drain_flow.scale([1,1,z_scale])
-        except:
-            print("VTK watertable doesn't exist")
+            #except:
+            #print("VTK watertable doesn't exist")
             
-        try:
-            pathlines = os.path.join(self.watershed.simulations_folder, self.modelname,
-                                     '_postprocess', '_vtuvtk', 'pathlines.vtk')
-            pathlines_mesh = vedo.Mesh(pathlines) #5
-            
-            #Pathlines
-            if cscale == 'default':
-                cmin = int(min(pathlines_mesh.pointdata['Time_log']))
-                cmax = int(max(pathlines_mesh.pointdata['Time_log']))
-            if cscale == 'custom':
-                cmin = cmin
-                cmax = cmax
-            pathlines_mesh.cmap('plasma_r', input_array='Time_log', vmin=cmin, vmax=cmax).lw(5)
-            # pathlines_mesh.addScalarBar(pos=cloc, title='Residence times log [y]', horizontal=False, titleFontSize=20)
-            pathlines_mesh.addScalarBar(pos=cloc,
-                                        horizontal=False)
-            pathlines_mesh.scale([1,1,z_scale])
-            pathlines_mesh.render_lines_as_tubes(value=True)
-            pathlines_mesh.legend('Pathlines')
-            n = lines
-            x = pathlines_mesh.lines()
-            length = max(map(len, x))
-            y=np.array([xi+[None]*(length-len(xi)) for xi in x])
-            number_of_rows = y.shape[0]
-            random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
-            y1 = y[random_indices, :].flatten()
-            pts =  y1[y1 != np.array(None)]
-            pathlines_mesh.delete_cells(pts)
-        except:
-            print("VTK pathlines doesn't exist")
+        #try:
+        pathlines = os.path.join(self.watershed.simulations_folder, self.modelname,
+                                 '_postprocess', '_vtuvtk', 'pathlines.vtk')
+        pathlines_mesh = vedo.Mesh(pathlines) #5
+        
+        #Pathlines
+        if cscale == 'default':
+            cmin = int(min(pathlines_mesh.pointdata['Time_log']))
+            cmax = int(max(pathlines_mesh.pointdata['Time_log']))
+        if cscale == 'custom':
+            cmin = cmin
+            cmax = cmax
+        pathlines_mesh.cmap('plasma_r', input_array='Time_log', vmin=cmin, vmax=cmax).lw(5)
+        # pathlines_mesh.add_scalarbar(pos=cloc, title='Residence times log [y]', horizontal=False, titleFontSize=20)
+        pathlines_mesh.add_scalarbar(pos=cloc, horizontal=False)
+        pathlines_mesh.scale([1,1,z_scale])
+        pathlines_mesh.render_lines_as_tubes(value=True)
+        pathlines_mesh.legend('Pathlines')
+        n = lines
+        #x = pathlines_mesh.lines
+        #length = max(map(len, x))
+        #y=np.array([xi+[None]*(length-len(xi)) for xi in x])
+        #number_of_rows = y.shape[0]
+        #random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
+        #y1 = y[random_indices, :].flatten()
+        #pts =  y1[y1 != np.array(None)]
+        #pathlines_mesh.delete_cells(pts)
+        #pathlines_mesh = pathlines_mesh.subsample(0.5)
+        #except:
+        #print("VTK pathlines doesn't exist")
 
         #View
         xs = max(watertable_elev.points()[:, 0]) - min(watertable_elev.points()[:, 0])
@@ -598,10 +602,10 @@ class Visualization():
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
-        
         if interactive == True:
-            plt.show(interactive=1).close()
+            plt.show(interactive=1)
         else:
+            plt += __doc__
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname,
                                         '_postprocess', '_figures', '3D_'+self.modelname+'.png')).close()
     
@@ -658,7 +662,7 @@ class Visualization():
         # Plot contour
         try:
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
-            main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']))
+            main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except:
             print('Problem to plot contour')
             pass
@@ -666,7 +670,7 @@ class Visualization():
         # Plot rivers
         try:
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
-            main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'))
+            main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'), interpolation='none')
         except:
             print('Problem to plot streams')
             pass
