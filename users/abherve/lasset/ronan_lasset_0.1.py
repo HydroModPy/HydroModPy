@@ -2957,7 +2957,7 @@ for w, w_name in enumerate(['Lasset'][:]):
                 ax.set_ylabel('Q [mm/w]')
                 ax.set_yscale('log')
                 # ax.set_ylim(0,300)
-                ax.set_ylim(0.1,1000)
+                ax.set_ylim(1,1000)
                 years_maj = mdates.YearLocator()   # every year
                 months_maj = mdates.MonthLocator()  # every x month
                 ax.xaxis.set_major_locator(years_maj)
@@ -3048,8 +3048,10 @@ colors = pl.cm.plasma_r(np.linspace(0,1,n))
 #                         # sharey=True
 #                         )
 # axs = axs.ravel()
-for icri, cri in enumerate(['NSElog','NSE','RMSE',
-                            'KGE','OWN','RMSElog'
+for icri, cri in enumerate(['NSE','RMSE',
+                            # 'KGE',
+                            # 'OWN',
+                            'NSElog','RMSElog'
                             ][:]):
     
     
@@ -3076,23 +3078,23 @@ for icri, cri in enumerate(['NSElog','NSE','RMSE',
         #         marker='o', ms=10, mew=1,
         #         lw=0,
         #         color=color)
-        if cri != 'NSElog':
-            ax.plot(dfplot.sort_values('O')['O'], dfplot.sort_values('O')[cri],
-                    marker='o', ms=1, mew=0,
-                    lw=1.5,
-                    color=color)
+        # if cri != 'NSElog':
+        ax.plot(dfplot.sort_values('O')['O'], dfplot.sort_values('O')[cri],
+                marker='o', ms=1, mew=0,
+                lw=1.5,
+                color=color)
         # pc = ax.scatter(dfplot['O'], dfplot[cri])
         if cri == 'NSE':
             ax.set_ylabel('NSE [-]')
-            # ax.set_ylim(0.25,0.40)
+            ax.set_ylim(0,None)
         if cri == 'NSElog':
             ax.set_ylabel('$NSE_{log}$ [-]')
-            # ax.set_ylim(0.25,0.40)
-            ax.plot(dfplot.sort_values('O')['O'], np.abs(1-dfplot.sort_values('O')[cri]),
-                    marker='o', ms=1, mew=0,
-                    lw=1.5,
-                    color=color)
-            ax.set_yscale('log')
+            ax.set_ylim(-0.2,None)
+            # ax.plot(dfplot.sort_values('O')['O'], np.abs(1-dfplot.sort_values('O')[cri]),
+            #         marker='o', ms=1, mew=0,
+            #         lw=1.5,
+            #         color=color)
+            # ax.set_yscale('log')
         if cri == 'RMSE':
             ax.set_ylabel('RMSE [mm/w]')
             # ax.set_ylim(28,32)
@@ -3104,8 +3106,8 @@ for icri, cri in enumerate(['NSElog','NSE','RMSE',
             # ax.set_ylim(28,32)
             ax.set_yscale('log')
         if cri == 'RMSElog':
-            ax.set_ylabel('RMSElog [mm/w]')
-            # ax.set_ylim(28,32)
+            ax.set_ylabel('$RMSE_{log}$ [mm/w]')
+            ax.set_ylim(0.75,1)
         ax.set_xlabel('θ [%]')
         # ax.set_title(cri)
         ax.set_xscale('log')
@@ -3128,13 +3130,20 @@ for icri, cri in enumerate(['NSElog','NSE','RMSE',
         #             right=False,
         #             labelleft=False,
         #             labelbottom=True)
+        ax.set_xlim(0.1,16)
+        # ax.set_yscale('log')
+        
     plt.tight_layout()
 
-    fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'_Q_'+'criteria_'+cri+'.png', bbox_inches='tight')
+    # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'_Q_'+'criteria_'+cri+'.png', bbox_inches='tight')
         
         # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
         #             'Q_'+cri+'.png',
         #                         bbox_inches='tight')
+        
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
+                '_Q_'+'criteria_'+cri+'.png',
+                            bbox_inches='tight')
         
 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
@@ -5836,8 +5845,11 @@ fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasse
 
 #%% BOX PLOT OUTFLOW - PETLANDS
 
+col_list = ['dodgerblue','darkorange','red']
 sce_list = ['RCP26','RCP45','RCP85']
 # sce_list = ['RCP85']
+dict_scecol = dict(zip(sce_list, col_list))# sce_list = ['RCP85']
+
 
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
@@ -5878,8 +5890,8 @@ for ic, sce in enumerate(sce_list):
     # model_name = 'p2_model4_20.0-0-3.38e-06_40.0-0.9-1.02e-06_ALL-RCP85-1975-2099'
     # Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
     #                    index_col='date', parse_dates=True)
-    df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
-    df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+    # df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+    # df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
     
     print(sce)
     
@@ -5989,31 +6001,32 @@ for ic, sce in enumerate(sce_list):
                     medianprops = dict(linestyle='-', linewidth=1, color='black')
                     meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
                                           markerfacecolor='k', linestyle='-')
-
+                    
+                    posbas = 0 - 0.15
                     if (interv_i==0) & (i==0) & (sce=='RCP26'):
-                        ad = 0 - 0.90
+                        ad = posbas - 0.90
                     if (interv_i==0) & (i==0) & (sce=='RCP45'):
-                        ad = 0 - 0.75
+                        ad = posbas - 0.75
                     if (interv_i==0) & (i==0) & (sce=='RCP85'):
-                        ad = 0 - 0.60
+                        ad = posbas - 0.60
                     if (interv_i==0) & (i==1) & (sce=='RCP26'):
-                        ad = 0 - 0.45
+                        ad = posbas - 0.45
                     if (interv_i==0) & (i==1) & (sce=='RCP45'):
-                        ad = 0 - 0.30
+                        ad = posbas - 0.30
                     if (interv_i==0) & (i==1) & (sce=='RCP85'):
-                        ad = 0 - 0.15
+                        ad = posbas - 0.15
                     if (interv_i==0) & (i==2) & (sce=='RCP26'):
-                        ad = 0 + 0
+                        ad = posbas + 0
                     if (interv_i==0) & (i==2) & (sce=='RCP45'):
-                        ad = 0 + 0.15
+                        ad = posbas + 0.15
                     if (interv_i==0) & (i==2) & (sce=='RCP85'):
-                        ad = 0 + 0.30
+                        ad = posbas + 0.30
                     if (interv_i==0) & (i==3) & (sce=='RCP26'):
-                        ad = 0 + 0.45
+                        ad = posbas + 0.45
                     if (interv_i==0) & (i==3) & (sce=='RCP45'):
-                        ad = 0 + 0.60
+                        ad = posbas + 0.60
                     if (interv_i==0) & (i==3) & (sce=='RCP85'):
-                        ad = 0 + 0.75
+                        ad = posbas + 0.75
 
                     if (interv_i==1) & (i==0) & (sce=='RCP26'):
                         ad = 2 - 0.90
@@ -6040,30 +6053,31 @@ for ic, sce in enumerate(sce_list):
                     if (interv_i==1) & (i==3) & (sce=='RCP85'):
                         ad = 2 + 0.75
 
+                    posbas = 4 + 0.15
                     if (interv_i==2) & (i==0) & (sce=='RCP26'):
-                        ad = 4 - 0.90
+                        ad = posbas - 0.90
                     if (interv_i==2) & (i==0) & (sce=='RCP45'):
-                        ad = 4 - 0.75
+                        ad = posbas - 0.75
                     if (interv_i==2) & (i==0) & (sce=='RCP85'):
-                        ad = 4 - 0.60
+                        ad = posbas - 0.60
                     if (interv_i==2) & (i==1) & (sce=='RCP26'):
-                        ad = 4 - 0.45
+                        ad = posbas - 0.45
                     if (interv_i==2) & (i==1) & (sce=='RCP45'):
-                        ad = 4 - 0.30
+                        ad = posbas - 0.30
                     if (interv_i==2) & (i==1) & (sce=='RCP85'):
-                        ad = 4 - 0.15
+                        ad = posbas - 0.15
                     if (interv_i==2) & (i==2) & (sce=='RCP26'):
-                        ad = 4 + 0
+                        ad = posbas + 0
                     if (interv_i==2) & (i==2) & (sce=='RCP45'):
-                        ad = 4 + 0.15
+                        ad = posbas + 0.15
                     if (interv_i==2) & (i==2) & (sce=='RCP85'):
-                        ad = 4 + 0.30
+                        ad = posbas + 0.30
                     if (interv_i==2) & (i==3) & (sce=='RCP26'):
-                        ad = 4 + 0.45
+                        ad = posbas + 0.45
                     if (interv_i==2) & (i==3) & (sce=='RCP45'):
-                        ad = 4 + 0.60
+                        ad = posbas + 0.60
                     if (interv_i==2) & (i==3) & (sce=='RCP85'):
-                        ad = 4 + 0.75
+                        ad = posbas + 0.75
                                         
                     bp = ax.boxplot(d, widths=0.15,
                                     positions=[ad],
@@ -6382,6 +6396,400 @@ for sce in sce_list:
     
     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
                 'EVOL_DAYS_DRY-'+sce+'.png',
+                            bbox_inches='tight')
+
+#%% EVOLUTION CILMAT
+ 
+if 'all_proj_clim' not in globals():
+    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+num_list = ['Model_01',
+            'Model_02',
+            'Model_03',
+            # 'Model_04',
+            'Model_05',
+            # 'Model_06',
+            'Model_07',
+            # 'Model_08',
+            # 'Model_09',
+            # 'Model_10',
+            # 'Model_11',
+            'Model_12']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list = ['MPI-CCL',
+            'ECE-RCA',
+            'ECE-RAC',
+            # 'IPS-RCA',
+            'CNR-RAC',
+            # 'NOR-R15',
+            'CNR-ALA',
+            # 'NOR-HIR',
+            # 'HAD-CCL',
+            # 'IPS-WRF',
+            # 'HAD-REG',
+            'MPI-R09']
+
+# for sce in ['historic','RCP26','RCP45','RCP85']:
+#     fig, ax = plt.subplots(1,1)
+#     for mod in mod_list:
+#         if mod in ['MPI-CCL','ECE-RCA','MPI-R09']:
+#             val = all_proj_clim['PPTT'+'_'+mod+'_'+sce].resample('Y').mean()*3600*24*365
+#         else:
+#             val = all_proj_clim['PPTT'+'_'+mod+'_'+sce].resample('Y').mean()*10
+#         plt.plot(val, label=mod)
+#         print(mod, val.mean())      
+#     plt.legend()
+
+for var in ['TASM','PPTT','SNOW'][:]:
+            
+    fig, ax = plt.subplots(1,1, figsize=(10,4))
+    
+    sce_list = ['historic','RCP26','RCP45','RCP85']
+    
+    col_list = ['dimgrey','dodgerblue','orange','red']
+    col_list_b = ['k','navy','darkorange','darkred']
+    dict_c = dict(zip(sce_list, col_list))
+    dict_c_b = dict(zip(sce_list, col_list_b))
+    
+    for sce in sce_list:
+        
+        df = pd.DataFrame()
+        dproj = all_proj_clim.copy()
+        dproj = dproj.filter(regex=mod_keep)
+        
+        if var =='PPTT':
+            for mod in mod_list:
+                if mod in ['MPI-CCL','ECE-RCA','MPI-R09']:
+                    dproj[var+'_'+mod+'_'+'historic'] = dproj[var+'_'+mod+'_'+'historic']*3600*24*365
+                    if sce != 'historic':
+                        dproj[var+'_'+mod+'_'+sce] = dproj[var+'_'+mod+'_'+sce]*3600*24*365
+                else:
+                    dproj[var+'_'+mod+'_'+'historic'] = dproj[var+'_'+mod+'_'+'historic']*10
+                    if sce != 'historic':
+                        dproj[var+'_'+mod+'_'+sce] = dproj[var+'_'+mod+'_'+sce]*10
+        
+                    print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
+        
+        d_hist = dproj.filter(regex=var).filter(regex='historic')
+        d_hist = select_period(d_hist, 1975, 2004)
+        
+        d_tot = dproj.filter(regex=var).filter(regex=sce)
+        d_tot = select_period(d_tot, 1975, 2100)
+        
+        d_fut = dproj.filter(regex=var).filter(regex=sce)
+        d_fut = select_period(d_fut, 2004, 2100)
+        
+        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / ((d_fut.mean(axis=1) + d_hist.mean(axis=1).mean())/2)
+        
+        # if sce == 'historic':
+        #     d10 = (d_hist.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_hist.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_hist.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_hist.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())   
+        #     d90 = (d_hist.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
+        # else:
+        #     d10 = (d_fut.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_fut.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_fut.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_fut.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())
+        #     d90 = (d_fut.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
+        
+        if sce == 'historic':
+            d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
+            d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
+            d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
+            d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())   
+            d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+            dm = d_hist.mean(axis=1) - d_hist.mean(axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+        else:
+            d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
+            d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
+            d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
+            d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())
+            d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+            dm = d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()
+            
+        # if sce == 'historic':
+        #     d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())   
+        #     d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
+        # else:
+        #     d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())
+        #     d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
+        
+        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / (d_hist.mean(axis=1).mean()
+        
+        # plt.plot(d25.resample('Y').mean())
+        # plt.plot(d50.resample('Y').mean())
+        # plt.plot(d75.resample('Y').mean())
+        # plt.ylim(-5,5)
+    
+        # d['MIN'] = d.filter(regex=sce).min(axis=1)
+        # d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
+        # d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
+        # d['Q25'] = d.filter(regex=sce).quantile(0.25, axis=1)
+        # d['MEAN'] = d.filter(regex=sce).mean(axis=1)
+        # d['MED'] = d.filter(regex=sce).median(axis=1)
+        # d['Q75'] = d.filter(regex=sce).quantile(0.75, axis=1)
+        # d['Q90'] = d.filter(regex=sce).quantile(0.90, axis=1)
+        # d['Q95'] = d.filter(regex=sce).quantile(0.95, axis=1)
+        # d['MAX'] = d.filter(regex=sce).max(axis=1)
+        # d = d.resample('Y').mean() #* 1000 * 365
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1])
+        # mean = select_period(d['MED'].copy(), per[0], per[1])
+        # low = select_period(d['Q75'].copy(), per[0], per[1])
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1]).rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1]).rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1]).rolling(window=5).mean()
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        
+        # ax.plot(d50.resample('Y').mean().rolling(window=5).mean(), c=dict_c_b[sce], lw=2)
+        # ax.fill_between(d50.resample('Y').mean().rolling(window=5).mean().index,
+        #                 d25.resample('Y').mean().rolling(window=5).mean(),
+        #                 d75.resample('Y').mean().rolling(window=5).mean(),
+        #                 color=dict_c[sce], alpha=0.25, ec='None')
+        if var == 'TASM':
+            ax.plot(d50.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
+            ax.plot(dm.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
+            ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
+                            d25.resample('Y').mean().rolling(window=10).mean(),
+                            d75.resample('Y').mean().rolling(window=10).mean(),
+                            color=dict_c[sce], alpha=0.25, ec='None')
+        if var == 'PPTT':
+                ax.plot(d50.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
+                ax.plot(dm.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
+                ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
+                                d25.resample('Y').mean().rolling(window=10).mean(),
+                                d75.resample('Y').mean().rolling(window=10).mean(),
+                                color=dict_c[sce], alpha=0.25, ec='None')
+        if var == 'SNOW':
+            ax.plot(d50.resample('Y').mean().rolling(window=10).mean()*3600*24*365, c=dict_c_b[sce], lw=2)
+            ax.plot(dm.resample('Y').mean().rolling(window=10).mean()*3600*24*365, c=dict_c_b[sce], lw=1)
+            ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
+                            d25.resample('Y').mean().rolling(window=10).mean()*3600*24*365,
+                            d75.resample('Y').mean().rolling(window=10).mean()*3600*24*365,
+                            color=dict_c[sce], alpha=0.25, ec='None')
+        ax.set_axisbelow(True)
+        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2100'))
+        
+        # ax.axvline(pd.to_datetime('1980'), c='k', ls='--')
+        # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
+        # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
+        
+        # ax.set_ylim(80, 350)
+        
+        yearsmaj = mdates.YearLocator(10)   # every year
+        monthsmaj = mdates.MonthLocator(12)  # every month
+        years_fmt = mdates.DateFormatter('%Y')
+        ax.xaxis.set_major_locator(yearsmaj)
+        ax.xaxis.set_minor_locator(monthsmaj)
+        ax.xaxis.set_major_formatter(years_fmt)
+        
+        # ax.axhline(y=0, color='k', lw=1.5, ls='--')
+
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+                'EVOL_'+var+'-'+sce+'.png',
+                            bbox_inches='tight')
+
+#%% EVOLUTION EAU
+ 
+if 'all_proj_clim' not in globals():
+    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+num_list = ['Model_01',
+            'Model_02',
+            'Model_03',
+            # 'Model_04',
+            'Model_05',
+            # 'Model_06',
+            'Model_07',
+            # 'Model_08',
+            # 'Model_09',
+            # 'Model_10',
+            # 'Model_11',
+            'Model_12']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list = ['MPI-CCL',
+            'ECE-RCA',
+            'ECE-RAC',
+            # 'IPS-RCA',
+            'CNR-RAC',
+            # 'NOR-R15',
+            'CNR-ALA',
+            # 'NOR-HIR',
+            # 'HAD-CCL',
+            # 'IPS-WRF',
+            # 'HAD-REG',
+            'MPI-R09']
+
+# plt.plot(all_proj_eau['SWE'+'_'+'MPI-CCL'+'_'+sce].resample('Y').mean()*365)
+# plt.plot(all_proj_clim['SNOW'+'_'+'MPI-CCL'+'_'+sce].resample('Y').mean()*3600*24*365)
+
+# for mod in mod_list:
+#     # if mod in ['MPI-CCL','ECE-RCA','MPI-R09']:
+#     val = all_proj_eau['SWE'+'_'+mod+'_'+sce].resample('Y').mean()*365/10
+#     # else:
+#     #     val = all_proj_clim['PPTT'+'_'+mod+'_'+sce].resample('Y').mean()*10
+#     plt.plot(val, label=mod)
+#     print(mod, val.mean())      
+# plt.legend()
+
+df = pd.DataFrame()
+dproj = all_proj_eau.copy()
+dproj = dproj.filter(regex=mod_keep)
+
+for var in ['ETP','RUN','REC','SWE','SWI'][1:]:
+            
+    fig, ax = plt.subplots(1,1, figsize=(10,4))
+    
+    sce_list = ['historic','RCP26','RCP45','RCP85']
+    
+    col_list = ['dimgrey','dodgerblue','orange','red']
+    col_list_b = ['k','navy','darkorange','darkred']
+    dict_c = dict(zip(sce_list, col_list))
+    dict_c_b = dict(zip(sce_list, col_list_b))
+    
+    for sce in sce_list:
+        print(var, sce)
+        
+        d_hist = dproj.filter(regex=var).filter(regex='historic')
+        d_hist = select_period(d_hist, 1975, 2004)
+        
+        d_tot = dproj.filter(regex=var).filter(regex=sce)
+        d_tot = select_period(d_tot, 1975, 2100)
+        
+        d_fut = dproj.filter(regex=var).filter(regex=sce)
+        d_fut = select_period(d_fut, 2006, 2100)
+
+        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / ((d_fut.mean(axis=1) + d_hist.mean(axis=1).mean())/2)
+        
+        # if sce == 'historic':
+        #     d10 = (d_hist.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_hist.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_hist.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_hist.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())   
+        #     d90 = (d_hist.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
+        # else:
+        #     d10 = (d_fut.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_fut.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_fut.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_fut.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())
+        #     d90 = (d_fut.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
+        
+        if sce == 'historic':
+            d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
+            d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
+            d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
+            d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())   
+            d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+            dm = d_hist.mean(axis=1) - d_hist.mean(axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+        else:
+            d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
+            d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
+            d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
+            d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())
+            d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+            dm = d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()
+            
+        # if sce == 'historic':
+        #     d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())   
+        #     d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
+        # else:
+        #     d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())
+        #     d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
+        
+        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / (d_hist.mean(axis=1).mean()
+        
+        # plt.plot(d25.resample('Y').mean())
+        # plt.plot(d50.resample('Y').mean())
+        # plt.plot(d75.resample('Y').mean())
+        # plt.ylim(-5,5)
+    
+        # d['MIN'] = d.filter(regex=sce).min(axis=1)
+        # d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
+        # d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
+        # d['Q25'] = d.filter(regex=sce).quantile(0.25, axis=1)
+        # d['MEAN'] = d.filter(regex=sce).mean(axis=1)
+        # d['MED'] = d.filter(regex=sce).median(axis=1)
+        # d['Q75'] = d.filter(regex=sce).quantile(0.75, axis=1)
+        # d['Q90'] = d.filter(regex=sce).quantile(0.90, axis=1)
+        # d['Q95'] = d.filter(regex=sce).quantile(0.95, axis=1)
+        # d['MAX'] = d.filter(regex=sce).max(axis=1)
+        # d = d.resample('Y').mean() #* 1000 * 365
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1])
+        # mean = select_period(d['MED'].copy(), per[0], per[1])
+        # low = select_period(d['Q75'].copy(), per[0], per[1])
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1]).rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1]).rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1]).rolling(window=5).mean()
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        
+        # ax.plot(d50.resample('Y').mean().rolling(window=5).mean(), c=dict_c_b[sce], lw=2)
+        # ax.fill_between(d50.resample('Y').mean().rolling(window=5).mean().index,
+        #                 d25.resample('Y').mean().rolling(window=5).mean(),
+        #                 d75.resample('Y').mean().rolling(window=5).mean(),
+        #                 color=dict_c[sce], alpha=0.25, ec='None')
+        if var != 'SWE':
+            ax.plot(d50.resample('Y').sum().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
+            ax.plot(dm.resample('Y').sum().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
+            ax.fill_between(d50.resample('Y').sum().rolling(window=10).mean().index,
+                            d25.resample('Y').sum().rolling(window=10).mean(),
+                            d75.resample('Y').sum().rolling(window=10).mean(),
+                            color=dict_c[sce], alpha=0.25, ec='None')
+        else:
+            ax.plot(d50.resample('Y').sum().rolling(window=10).mean()/10, c=dict_c_b[sce], lw=2)
+            ax.plot(dm.resample('Y').sum().rolling(window=10).mean()/10, c=dict_c_b[sce], lw=1)
+            ax.fill_between(d50.resample('Y').sum().rolling(window=10).mean().index,
+                            d25.resample('Y').sum().rolling(window=10).mean()/10,
+                            d75.resample('Y').sum().rolling(window=10).mean()/10,
+                            color=dict_c[sce], alpha=0.25, ec='None')
+        ax.set_axisbelow(True)
+        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2100'))
+        
+        # ax.axvline(pd.to_datetime('1980'), c='k', ls='--')
+        # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
+        # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
+        
+        # ax.set_ylim(80, 350)
+        
+        yearsmaj = mdates.YearLocator(10)   # every year
+        monthsmaj = mdates.MonthLocator(12)  # every month
+        years_fmt = mdates.DateFormatter('%Y')
+        ax.xaxis.set_major_locator(yearsmaj)
+        ax.xaxis.set_minor_locator(monthsmaj)
+        ax.xaxis.set_major_formatter(years_fmt)
+        
+        # ax.axhline(y=0, color='k', lw=1.5, ls='--')
+
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+                'EVOL_'+var+'-'+sce+'.png',
                             bbox_inches='tight')
 
 #%% ---- BULK PROJECTIONS PLOT
