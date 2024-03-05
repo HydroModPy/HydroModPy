@@ -80,7 +80,7 @@ dem_path = os.path.join(data_path,
                         r"0- MNT\IGN\MNT_fusion", 
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = 'cheze_Dam_3.8'
+watershed_name = 'cheze_Dam_3.9'
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -337,6 +337,10 @@ days_in_month = pd.DataFrame(
     data = dam_input_df.index.days_in_month)
 days_in_month.rename(columns = {'time':'n_days'}, inplace = True)
 dam_input_df = dam_input_df.divide(days_in_month.n_days, axis="index")
+
+dam_input_df = dam_input_df.reindex(index = BV.climatic.recharge.index)
+dam_input_df.fillna(method = 'ffill', inplace = True) # forward fill
+dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
