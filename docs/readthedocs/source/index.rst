@@ -8,14 +8,11 @@ Welcome to HydroModPy's documentation!
    :caption: Contents
    
    intro
-   test <../../../README.md>
    install
    modules
    groundwater_flow
    tools
    examples
-
-.. include:: ../../../README.md
 
 Indices and tables
 ==================
