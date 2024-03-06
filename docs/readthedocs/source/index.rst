@@ -8,7 +8,6 @@ Welcome to HydroModPy's documentation!
    :caption: Contents
    
    intro
-   install
    modules
    groundwater_flow
    tools
