@@ -59,6 +59,7 @@ extensions = [
     'sphinx.ext.autosummary',
     'nbsphinx',
     "sphinx_gallery.load_style",
+    "myst_parser",
 ]
 autoclass_content = 'both'
 nbsphinx_allow_errors = True

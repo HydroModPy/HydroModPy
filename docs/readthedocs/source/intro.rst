@@ -28,3 +28,4 @@ GitLab software: https://gitlab.com/Alex-Gauvain/HydroModPy
 ReadTheDocs: https://hydromod.readthedocs.io/en/latest/
 
 .. include:: ../../../README.md
+   :parser: myst_parser.sphinx_
