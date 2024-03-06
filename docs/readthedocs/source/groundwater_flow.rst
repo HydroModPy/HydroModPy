@@ -30,8 +30,6 @@ The ``Modflow6`` class
 Coming soon!
 
 The ``Hs1D`` class
-******************
-Coming soon!
 
 Particle Tracking Model
 -----------------------
