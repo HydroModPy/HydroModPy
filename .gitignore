@@ -1,7 +1,9 @@
-__pycache__/
-
-
-# June
-# path to outputs directory in Loopaggregation folder
-DEV_SPEC/June/LoopAggregation/modflow/outputs
-DEV_SPEC/June/LoopAggregationPrediction/.ipynb_checkpoints
+*.DS_Store
+*.pyc
+*.chk
+src/__pycache__
+src/watershed/__pycache__
+src/tools/__pycache__
+src/modeling/__pycache__
+src/display/__pycache__
+src/watershed/.DS_Store

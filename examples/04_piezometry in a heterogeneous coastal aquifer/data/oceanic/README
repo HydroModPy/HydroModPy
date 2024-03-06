@@ -1,0 +1,56 @@
+This folder contains all data on global mean sea level, regional sea level, and extreme sea level as presented in Chapter 4.
+For coastal locations, a nearest-neighbour approach can be applied to find the nearest oceanic grid point.
+
+Files are marked _XX or _XX_YYYY, where 
+XX stands for the scenario: 26=RCP2.6; 45=RCP4.5; 85=RCP8.5
+and YYYY stands for the center year of 20-year averages: 2040=2031-2050; 2055=2046-2065; 2090=2081-2100
+
+The 5th and 95th percentiles are interpreted as representing the likely range, see text (Chapter 4.2, above Table 4.4)
+
+----------
+ant_XX: time series of the contribution of the Antarctic Ice Sheet to global mean sea level rise
+Columns 05, 50, and 95 indicate the percentiles of the PDF. Values are in meters
+
+----------
+ant_longterm_XX: contribution of the Antarctic Ice Sheet in the years 2100, 2200, and 2300
+Columns 05, 50, and 95 indicate the percentiles of the PDF. Values are in meters
+
+----------
+extremes_XX_YYYY: data on changes in extremes at each tide gauge station
+Columns lon,lat: longitude and latitude in degrees. Longitude is in degrees east from the Greenwich meridian.
+RSL_05,50,95: percentiles of regional sea level rise in meters
+AF_05,50,95: percentiles of the amplification factor (increase in the average occurrence) of the historical 1-in-100 year extreme sea level event
+AF_mean: best estimate of the amplification factor, which equals the mean of the PDF
+
+----------
+extremes_GPD_parameters: Generalized Pareto Distribution parameters for each tide gauge station
+Columns lon,lat: longitude and latitude in degrees. Longitude is in degrees east from the Greenwich meridian.
+loc: location parameter which equals the 99th percentile of hourly values above mean sea level. Values in meters
+scl_05,50,95: percentiles of the scale parameter. Values in meters
+shp_05,50,95: percentiles of the shape parameter
+
+----------
+gmsl_XX: time series of global mean sea level
+Columns 05, 50, and 95 indicate the percentiles of the PDF. Values are in meters
+
+----------
+gmsl_longterm_XX: global mean sea level in the years 2100, 2200, and 2300
+Columns 05, 50, and 95 indicate the percentiles of the PDF. Values are in meters
+
+----------
+gmsl_rate_XX: time series of the rate of global mean sea level
+Columns 05, 50, and 95 indicate the percentiles of the PDF. Values are in millimeters/year
+
+----------
+rsl_XX_YYYY.nc: NetCDF4 file with regional sea level fields
+Variables x,y: longitude and latitude in degrees. Longitude is in degrees east from the Greenwich meridian.
+Variable  slr_md: median sea level change in meters
+Variables slr_he,le: standard error at the high (he) and low (le) end of the median. 5th (95th) percentiles can be found by subtracting (adding) 1.645 times the low (high) error from (to) the median. Values in meters
+
+----------
+rsl_ts_XX.nc: NetCDF4 file with time series of regional sea level fields
+Variable  time: year
+Variables x,y: longitude and latitude in degrees. Longitude is in degrees east from the Greenwich meridian.
+Variable  slr_md: median sea level change in meters
+Variables slr_he,le: standard error at the high (he) and low (le) end of the median. 5th (95th) percentiles can be found by subtracting (adding) 1.645 times the low (high) error from (to) the median. Values in meters
+
