@@ -1,0 +1,21 @@
+Readthedocs
+	files .yaml
+	install miniconda ou python
+	configuration: conf.py
+	download PDF
+	install python: requierements
+	sphinx: site format
+	
+Clone git and installation: site compilation
+
+conf.py: possibilities and template
+.rst: research the index.rst
+index.rst: site beginning
+maxdepth: arboresence
+
+Modifier des choses
+Hydromodpy/docs/source: add images
+.rst: undeline things
+autoclass: call class
+index: names of .rst
+sys.path: in conf
