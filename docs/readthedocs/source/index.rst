@@ -14,9 +14,7 @@ Welcome to HydroModPy's documentation!
    tools
    examples
 
-.. include:: ../README.md
-   :parser: myst_parser.sphinx_
-   :start-after: <!-- index.rst content start -->
+.. mdinclude:: ../../../README.md
 
 Indices and tables
 ==================
