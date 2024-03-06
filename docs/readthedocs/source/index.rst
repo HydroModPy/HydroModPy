@@ -14,7 +14,7 @@ Welcome to HydroModPy's documentation!
    tools
    examples
 
-.. mdinclude:: ../../../README.md
+.. include:: ../../../README.md
 
 Indices and tables
 ==================
