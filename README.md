@@ -1,9 +1,8 @@
-## HydroModPy [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 ![logo](docs/readthedocs/source/images/logoHydroModPy_long.png)
 
 A Python toolkit to facilitate the deployment of unconfined aquifer catchment-scale hydrogeological models.
 
-Stable current version: v0.1
+Stable current version: v0.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 
 ## Abstract
 
