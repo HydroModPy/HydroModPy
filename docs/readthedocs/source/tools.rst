@@ -15,7 +15,7 @@ Tools
 
 Visualisation 2D
 ************************
-.. autoclass:: visualization_watershed
+.. automodule:: visualization_watershed
     :members:
     :undoc-members:
     :show-inheritance:
