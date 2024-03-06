@@ -1,6 +1,3 @@
-Watershed Object
-=================
-
 .. autoclass:: watershed_root.Watershed
     :members:
     :undoc-members:
