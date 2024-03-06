@@ -9,7 +9,7 @@ Welcome to HydroModPy's documentation!
    
    intro
    modules
-   groundwater_flow
+   simulation
    tools
    examples
 
