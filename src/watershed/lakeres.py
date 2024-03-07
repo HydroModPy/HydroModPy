@@ -586,7 +586,7 @@ class Lakeres:
                     pd_data.index = pd_data.index.normalize() # To convert dates-time to midnight.
                     pd_data = pd_data[(pd_data.index >= climatic.index[0]) & (pd_data.index <= climatic.index[-1])]
                     lake_frame.loc[pd_data.index, flux] = pd_data
-                    # lake_frame[flux].fillna(method = 'ffill', inplace = True) # forward fill
+                    lake_frame[flux].fillna(method = 'ffill', inplace = True) # forward fill
                     lake_frame[flux].fillna(0, inplace = True) # replace remaining NaN with 0
             
             for kper in range(0, nper):
