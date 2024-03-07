@@ -15,6 +15,7 @@
 import os
 import re
 import math
+import numbers
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -423,6 +424,61 @@ def date_range(start, periods, freq):
     time = pd.date_range(str(start), periods=periods, freq=freq)
     return time
 
+def hydrological_mean(data, accuracy=15):
+    """
+    Compute the mean value on the longest period that meets the following
+    conditions:
+        - period should be made of full years (period is a year-multiple)
+        - period should be larger than one year
+        - end date of the period should be same day and month as the first date
+        of the period, more or less the accuracy
+
+    Parameters
+    ----------
+    data : pandas.core.series.Series or pandas.core.frame.DataFrame
+        DESCRIPTION.
+    accuracy : number, optional
+        DESCRIPTION. The default is 15.
+
+    Returns
+    -------
+    avg : float or pandas.core.series.Series
+        The average value.
+
+    """
+    
+    #% Get rid of the first and last value (there are great chances that
+    # they are irrelevant, especially in resampled data sets)
+    data = data[1:-1]
+    
+    #% Format the index to Timestamp, if needed
+    if isinstance(data.index[0], numbers.Number):
+        data.index = data['time']
+    if isinstance(data.index[0], str):
+        data.index = pd.to_datetime(data.index)
+    # Safeguard
+    if not isinstance(data.index[0], datetime.datetime):
+        print("Error: No recognized time index in data")
+        return
+    
+    #% Get the most recent date that falls within the accuracy range
+    idx = data[data.index.month == data.index[0].month][
+            abs(data[data.index.month == data.index[0].month].index.day - \
+                data.index[0].day)-3 <= 0].index[-1]
+
+    # n_years = np.mean((data.index[-1]-data.index[0])/365.2425)
+    
+    if (idx - data.index[0]).days < 350:
+        print("Error: Total time range is too short (less than 1 year)")
+        return
+    
+    print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
+
+    avg = data[data.index[0]:idx].mean(numeric_only = False)
+
+    return avg
+
+
 #%% PLOT SETTINGS
 
 def plot_params(small,interm,medium,large):
@@ -737,7 +793,7 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     # Export
     ds.to_netcdf(out_path)
     
-#%% Packing netcdf
+#%% PACKING NETCDF
 """
 Created on Wed Aug 24 16:48:29 2022
 
