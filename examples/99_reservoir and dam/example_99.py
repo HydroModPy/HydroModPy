@@ -179,28 +179,25 @@ BV.climatic.update_runoff_reanalysis(path_file=rea_path,
 BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
 
 ### Select time period
-recharge = BV.climatic.recharge
-BV.climatic.update_recharge(recharge['2004-01-01':'2004-03-01'],
+recharge = BV.climatic.recharge['2004-01-01':'2006-01-01']
+# recharge = BV.climatic.recharge['2004-01-01':'2004-03-01']
+# recharge = BV.climatic.recharge['2010-07-01':'2014-12-31']
+BV.climatic.update_recharge(recharge,
                             sim_state = sim_state)
-# =============================================================================
-# BV.climatic.update_recharge(recharge['2004-01-01':'2020-01-01'],
-#                             sim_state = sim_state)
-# =============================================================================
-# =============================================================================
-# BV.climatic.update_recharge(recharge['2010-07-01':'2014-12-31'],
-#                             sim_state = sim_state)
-# =============================================================================
-runoff = BV.climatic.runoff 
-BV.climatic.update_runoff(runoff['2004-01-01':'2004-03-01'],
+
+runoff = BV.climatic.runoff['2004-01-01':'2006-01-01']
+# runoff = BV.climatic.runoff['2004-01-01':'2004-03-01']
+# runoff = BV.climatic.runoff['2010-07-01':'2014-12-31']
+BV.climatic.update_runoff(runoff,
                           sim_state = sim_state)
-# =============================================================================
-# BV.climatic.update_runoff(runoff['2004-01-01':'2020-01-01'],
-#                           sim_state = sim_state)
-# =============================================================================
-# =============================================================================
-# BV.climatic.update_runoff(runoff['2010-07-01':'2014-12-31'],
-#                           sim_state = sim_state)
-# =============================================================================
+
+### Set the first value (which will be used for steady state) as the pluri-annual mean
+BV.climatic.recharge[0] = toolbox.hydrological_mean(BV.climatic.recharge, 4)
+BV.climatic.runoff[0] = toolbox.hydrological_mean(BV.climatic.runoff, 4)
+BV.climatic.update_recharge(BV.climatic.recharge,
+                            sim_state = sim_state)
+BV.climatic.update_runoff(BV.climatic.runoff,
+                          sim_state = sim_state)
 
 ### Figures of chronics
 # Yearly (matplotlib)
@@ -302,7 +299,7 @@ BV.lakeres.new_lakeres(maskmx_path, lake_id)
 
 # Geometry and physical properties
 # --------------------------------
-BV.lakeres.update_stageinit(lake_id, 70) # [m]
+BV.lakeres.update_stageinit(lake_id, 85) # [m]
 BV.lakeres.update_stagemax(lake_id, 90) # [m]
 # BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
 BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
@@ -341,6 +338,9 @@ dam_input_df = dam_input_df.divide(days_in_month.n_days, axis="index")
 dam_input_df = dam_input_df.reindex(index = BV.climatic.recharge.index)
 dam_input_df.fillna(method = 'ffill', inplace = True) # forward fill
 dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
+
+# Set the first value (used for steady initialization) as the average value
+dam_input_df.iloc[0] = toolbox.hydrological_mean(dam_input_df, 4)
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
@@ -416,7 +416,7 @@ sink_fill = False # or True
 plot_cross = True
 
 # Climatic settings
-first_clim = 'mean' # or 'first or value
+first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
 
 # Hydraulic settings
 nlay = 1
