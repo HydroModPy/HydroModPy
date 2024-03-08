@@ -472,7 +472,7 @@ def hydrological_mean(data, accuracy=15):
         print("Error: Total time range is too short (less than 1 year)")
         return
     
-    print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
+    # print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
 
     avg = data[data.index[0]:idx].mean(numeric_only = False)
 
