@@ -128,13 +128,13 @@ for run in ['5.8', '5.9', '6.0']:
                                         'reservoir_cheze_area'],
                              parse_dates = True)
     
-    levels_dict[idx] = timeseries[['reservoir_cheze_level']]
+    levels_dict[idx] = timeseries[['reservoir_cheze_level']].copy()
     levels_dict[idx].rename(columns = {'reservoir_cheze_level' : 'val'}, inplace = True)
     levels_dict[idx]['time'] = levels_dict[idx].index
-    volumes_dict[idx] = timeseries[['reservoir_cheze_volume']]
+    volumes_dict[idx] = timeseries[['reservoir_cheze_volume']].copy()
     volumes_dict[idx].rename(columns = {'reservoir_cheze_volume' : 'val'}, inplace = True)
     volumes_dict[idx]['time'] = volumes_dict[idx].index
-    areas_dict[idx] = timeseries[['reservoir_cheze_area']]
+    areas_dict[idx] = timeseries[['reservoir_cheze_area']].copy()
     areas_dict[idx].rename(columns = {'reservoir_cheze_area' : 'val'}, inplace = True)
     areas_dict[idx]['time'] = areas_dict[idx].index
     
@@ -184,13 +184,13 @@ metric = 'volume' # user-defined
 
 [fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [results[metric]['data'],
                                                          # results[metric][58], # cheze_58
-                                                         results[metric][59], # cheze_59
+                                                          results[metric][59], # cheze_59
                                                          results[metric][60],
                                                          ],
                                            labels = ['mesures',
                                                      # "run 5.8 daily (thick = 30m | poro = 0.1% | K = 3.4e-5 m/s)",
                                                      "run 5.9 weekly (thick = 30m | poro = 0.1% | K = 3.4e-5 m/s)",
-                                                     "run 6.0 weekly (thick = 45m | poro = 0.1% | K = 8e-5 m/s)",
+                                                     "run 60 weekly (thick = 45m | poro = 0.1% | K = 8e-5 m/s)",
                                                      ],
                                            
                                            color_map = color_map,
@@ -202,7 +202,7 @@ if metric == 'level':
 elif metric == 'volume':
     ylabel = 'volume [m3]'
     
-title = "Résolution temporelle"
+title = "Pré-calibration modèle physique"
 
 figweb.update_layout(#font_family = 'Open Sans',
                    title = {'font': {'size': 20},
@@ -222,7 +222,7 @@ figweb.update_layout(#font_family = 'Open Sans',
                                        'text': ylabel},
                                       # 'text': field_title + ' [m3/s]'},
                             'type': 'linear',
-                            # 'range': _ylim_figweb,
+                            'range': [0, 25000000],#_ylim_figweb,
                             },
                    legend = {'title': {'text': 'Légende'},
                              'xanchor': 'right',
@@ -235,6 +235,20 @@ figweb.update_layout(#font_family = 'Open Sans',
                    width = 1500,
                    height = 700,
                    )
+
+##%%% Horizontal line
+if metric == 'level':
+    val_RN = 87.3 # [m]
+elif metric == 'volume':
+    val_RN = 14400000 # [m3]'
+figweb.add_hline(y = val_RN, line_dash = "dot",
+                 line_color = 'rgba(0, 0, 0, 0.50)', line_width = 0.5,
+                 annotation_text = "limite retenue normale", # Annotation only in the first one
+                 # annotation_position = "bottom right",
+                 annotation_font_size = 11,
+                 annotation_font_color = 'rgba(0, 0, 0, 0.50)',
+                 annotation_textangle = 0,
+                 )
 
 
 
