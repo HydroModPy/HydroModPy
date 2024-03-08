@@ -91,8 +91,21 @@ levels_dict['data']['val'] = levels_dict['data'].cheze
 #                       coords = coords_, epsg_coords = epsg_coords_, 
 #                       epsg_data = 2154)
 # =============================================================================
+# run = 'Cheze_Dam_5.6'
+# cheze_56 = gc.time_series(input_file = os.path.join(
+#     r"D:\Dam_EBR_results\raw", run, 
+#     r"results_simulations\base\_postprocess\_netcdf\watertable_elevation.nc"), 
+#                       coords = coords_, epsg_coords = epsg_coords_, 
+#                       epsg_data = 2154)
 
-for run in ['2.5', '2.6', '2.7', '2.8', '3.2', '3.3', '3.4', '3.5']:
+# run = 'Cheze_Dam_5.7'
+# cheze_57 = gc.time_series(input_file = os.path.join(
+#     r"D:\Dam_EBR_results\raw", run, 
+#     r"results_simulations\base\_postprocess\_netcdf\watertable_elevation.nc"), 
+#                       coords = coords_, epsg_coords = epsg_coords_, 
+#                       epsg_data = 2154)
+
+for run in ['5.8', '5.9', '6.0']:
     name = f"Cheze_Dam_{run}"
     idx = int(run.replace('.', ''))
     
@@ -140,8 +153,8 @@ for run in ['2.5', '2.6', '2.7', '2.8', '3.2', '3.3', '3.4', '3.5']:
 # =============================================================================
 
 
-#%% VISUALISATION
-#%%%% Echelle manuelle
+#%% VISUALIZATION
+##%%% Echelle manuelle
 _cmap_catalog = [
     [1.000, 0.500, 0.000, 0.9],  # 0. orange
     [0.980, 0.691, 0.168, 0.9],  # 1. orange-jaune (pour *.html)
@@ -165,47 +178,31 @@ _cmap_catalog = [
     [0.70, 0.70, 0.70, 1],       # 19. gris clairero
     ]
 #% Color map par paires
-color_map = np.array(_cmap_catalog)[[17, 3, 2, 13, 1, 10, 11, 7, 8, 13, 2, 10, 8, 3, 11, 10, 1, 14, 13, 13, 14, 12, 9, 11, 8, 3, 4, 12, 13, 0], :]
+color_map = np.array(_cmap_catalog)[[17, 3, 13, 1, 10, 7, 16, 8, 13, 2, 10, 8, 3, 11, 10, 1, 14, 13, 13, 14, 12, 9, 11, 8, 3, 4, 12, 13, 0], :]
 
 metric = 'volume' # user-defined
 
 [fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [results[metric]['data'],
-                                                         # cheze_12,
-                                                         # cheze_17,
-                                                         # cheze_18,
-                                                         results[metric][26],
-                                                         results[metric][25],
-                                                         results[metric][32],
-                                                         results[metric][33],
-                                                         results[metric][27],
-                                                         results[metric][28],
-                                                         results[metric][34],
-                                                         results[metric][35],
+                                                         # results[metric][58], # cheze_58
+                                                         results[metric][59], # cheze_59
+                                                         results[metric][60],
                                                          ],
                                            labels = ['mesures',
-                                                     # 'run12',
-                                                     # 'run17',
-                                                     # 'run18',
-                                                     'DRN, from layer 1',
-                                                     'DRT, from layer 1 to layer 1',
-                                                     'DRN, from layer 2, reduced drain x33',
-                                                     'DRN, from layer 2, elevation +50m',
-                                                     'DRN, from layer 2',
-                                                     'DRT, from layer 2 to layer 1',
-                                                     'DRN, from layer 2 (corr)',
-                                                     'DRT, from layer 2 to layer 1 (corr)',
+                                                     # "run 5.8 daily (thick = 30m | poro = 0.1% | K = 3.4e-5 m/s)",
+                                                     "run 5.9 weekly (thick = 30m | poro = 0.1% | K = 3.4e-5 m/s)",
+                                                     "run 6.0 weekly (thick = 45m | poro = 0.1% | K = 8e-5 m/s)",
                                                      ],
                                            
                                            color_map = color_map,
                                            )
 
-#%%%### MISE EN FORME *.html (figweb)   
+##%%% MISE EN FORME *.html (figweb)   
 if metric == 'level':
     ylabel = 'elevation [m]'
 elif metric == 'volume':
     ylabel = 'volume [m3]'
     
-title = "DRN vs DRT"
+title = "Résolution temporelle"
 
 figweb.update_layout(#font_family = 'Open Sans',
                    title = {'font': {'size': 20},
@@ -243,7 +240,7 @@ figweb.update_layout(#font_family = 'Open Sans',
 
 figweb.write_html(os.path.join(r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\results\processed",
                                '_'.join([metric, 
-                                         datetime.datetime.now().strftime("%Hh%M"),
+                                         datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M"),
                                          ]) + '.html'
                                )
                   )
