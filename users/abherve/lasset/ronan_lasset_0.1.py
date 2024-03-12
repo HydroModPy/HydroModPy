@@ -459,19 +459,25 @@ for i, Qobs_name in enumerate(Qobs_list[:]):
     
     plt.tight_layout()
 
-fig, axs = plt.subplots(1,2, figsize=(9,3),
+# fig, axs = plt.subplots(1,2, figsize=(9,3),
+#                         # sharey=True
+#                         )
+# axs = axs.ravel()
+
+fig, ax = plt.subplots(1,1, figsize=(6,4),
                         # sharey=True
                         )
-axs = axs.ravel()
+# axs = axs.ravel()
 
-for i, Qobs_name in enumerate(Qobs_list):
+for i, Qobs_name in enumerate(Qobs_list[:1]):
     dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp')
 
     zo = 1
     if i == 0:
         zo=2
         
-    ax = axs[i]
+    # ax = axs[i]
+    ax = ax
     
     data_index = dfQ['q']/(areas[i]*1e6)*1000
     # data_index = select_period(data_index, 2017,2018)
@@ -495,9 +501,9 @@ for i, Qobs_name in enumerate(Qobs_list):
     std_interan_days = data_index.groupby([data_index.index.month,
                         data_index.index.day], as_index=True).std()
     q10_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.10)
+                        data_index.index.day], as_index=True).min()
     q90_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.90)
+                        data_index.index.day], as_index=True).max()
     q50_interan_days = data_index.groupby([data_index.index.month,
                         data_index.index.day], as_index=True).quantile(0.50)
     q25_interan_days = data_index.groupby([data_index.index.month,
@@ -523,7 +529,10 @@ for i, Qobs_name in enumerate(Qobs_list):
     # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
     #         lw=1, color='red', label='Mean')
     ax.plot(mean_interan_days.counts, mean_interan_days.q50,
-            lw=2, color=couleurs[i], label=Qobs_name)
+            lw=2,
+            # color=couleurs[i],
+            color='darkred',
+            label=Qobs_name)
     yerrmax = mean_interan_days.q90
     yerrmin = mean_interan_days.q10
     # ax.legend('upper right')
@@ -531,8 +540,10 @@ for i, Qobs_name in enumerate(Qobs_list):
     #                   color='cyan',edgecolor='grey',
     #                   alpha = 0.5, label='10-90th')
     
+    # ax.plot(data_index[data_index.index.year==2022], c='k')
+    
     ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-                      color='gray',edgecolor='grey', lw=0.5,
+                      color='cyan',edgecolor='grey', lw=0.5,
                       alpha = 0.25, label='10-90th')
     
     # plt.yscale('log')
@@ -561,7 +572,7 @@ for i, Qobs_name in enumerate(Qobs_list):
     if i ==0:
         ax.set_ylabel('$Q_{obs}$ [mm/d]')
     # ax.set_title('S'+str(i+1))
-    ax.legend(loc='upper right', frameon=False)
+    # ax.legend(loc='upper right', frameon=False)
     # if i==0:
     #     ax.set_ylim(0,)
     # if i==1:
@@ -576,6 +587,10 @@ for i, Qobs_name in enumerate(Qobs_list):
     
     # ax.legend(loc='upper left')
     plt.tight_layout()
+    
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/01_fig_locali/'+
+                'Q_obs'+'.png',
+                bbox_inches='tight')
 
 #%% ISBA HYDRO LOAD
 
@@ -6398,79 +6413,82 @@ for sce in sce_list:
                 'EVOL_DAYS_DRY-'+sce+'.png',
                             bbox_inches='tight')
 
-#%% EVOLUTION CILMAT
+#%% EVOLUTION CILMAT EAU
  
 if 'all_proj_clim' not in globals():
     all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
     all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
 
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+sce_list = ['historic','RCP26','RCP45','RCP85']
 mod_list = ['MPI-CCL',
             'ECE-RCA',
             'ECE-RAC',
-            # 'IPS-RCA',
             'CNR-RAC',
-            # 'NOR-R15',
             'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            # 'HAD-REG',
             'MPI-R09']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list_ppt = ['MPI-CCL',
+                'ECE-RCA',
+                'MPI-R09']
+mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
 
-# for sce in ['historic','RCP26','RCP45','RCP85']:
-#     fig, ax = plt.subplots(1,1)
-#     for mod in mod_list:
-#         if mod in ['MPI-CCL','ECE-RCA','MPI-R09']:
-#             val = all_proj_clim['PPTT'+'_'+mod+'_'+sce].resample('Y').mean()*3600*24*365
-#         else:
-#             val = all_proj_clim['PPTT'+'_'+mod+'_'+sce].resample('Y').mean()*10
-#         plt.plot(val, label=mod)
-#         print(mod, val.mean())      
-#     plt.legend()
+sce_list = ['historic','RCP26','RCP45','RCP85']
+col_list = ['dimgrey','dodgerblue','orange','red']
+col_list_b = ['k','navy','darkorange','darkred']
+dict_c = dict(zip(sce_list, col_list))
+dict_c_b = dict(zip(sce_list, col_list_b))
 
-for var in ['TASM','PPTT','SNOW'][:]:
-            
+# sce_list = ['historic','RCP85']
+# col_list = ['dimgrey','red']
+# col_list_b = ['k','darkred']
+# dict_c = dict(zip(sce_list, col_list))
+# dict_c_b = dict(zip(sce_list, col_list_b))
+
+for var in  [
+            'TASM',
+            'PPTT',
+            'SNOW',
+            'PLIQ',
+            'SWE',
+              'SNOWPROP',
+              'PE',
+              'ETP',
+              'RUN',
+              'REC',
+              'SWI'
+             ]:
+    
+    all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
+    all_proj_mix = all_proj_mix.filter(regex=mod_keep)
+    
+    for mod in mod_list:
+        for sce in sce_list:
+            if var == 'PPTT':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOW':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOWPROP':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24) / (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PLIQ':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PE':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
+
     fig, ax = plt.subplots(1,1, figsize=(10,4))
-    
-    sce_list = ['historic','RCP26','RCP45','RCP85']
-    
-    col_list = ['dimgrey','dodgerblue','orange','red']
-    col_list_b = ['k','navy','darkorange','darkred']
-    dict_c = dict(zip(sce_list, col_list))
-    dict_c_b = dict(zip(sce_list, col_list_b))
     
     for sce in sce_list:
         
         df = pd.DataFrame()
-        dproj = all_proj_clim.copy()
-        dproj = dproj.filter(regex=mod_keep)
+        dproj = all_proj_mix.copy()
         
-        if var =='PPTT':
-            for mod in mod_list:
-                if mod in ['MPI-CCL','ECE-RCA','MPI-R09']:
-                    dproj[var+'_'+mod+'_'+'historic'] = dproj[var+'_'+mod+'_'+'historic']*3600*24*365
-                    if sce != 'historic':
-                        dproj[var+'_'+mod+'_'+sce] = dproj[var+'_'+mod+'_'+sce]*3600*24*365
-                else:
-                    dproj[var+'_'+mod+'_'+'historic'] = dproj[var+'_'+mod+'_'+'historic']*10
-                    if sce != 'historic':
-                        dproj[var+'_'+mod+'_'+sce] = dproj[var+'_'+mod+'_'+sce]*10
-        
-                    print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
-        
+        if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+            dproj = dproj.filter(regex=mod_keep_pptt).filter(regex=var)
+        else:
+            dproj = dproj.filter(regex=mod_keep).filter(regex=var)
+
+        print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
+        # print('PPTT', sce, dproj['PPTT'+'_'+mod+'_'+sce].mean())
+
         d_hist = dproj.filter(regex=var).filter(regex='historic')
         d_hist = select_period(d_hist, 1975, 2004)
         
@@ -6559,215 +6577,22 @@ for var in ['TASM','PPTT','SNOW'][:]:
         #                 d25.resample('Y').mean().rolling(window=5).mean(),
         #                 d75.resample('Y').mean().rolling(window=5).mean(),
         #                 color=dict_c[sce], alpha=0.25, ec='None')
-        if var == 'TASM':
+        
+        if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE'):
             ax.plot(d50.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
             ax.plot(dm.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
             ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
                             d25.resample('Y').mean().rolling(window=10).mean(),
                             d75.resample('Y').mean().rolling(window=10).mean(),
                             color=dict_c[sce], alpha=0.25, ec='None')
-        if var == 'PPTT':
-                ax.plot(d50.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
-                ax.plot(dm.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
-                ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
-                                d25.resample('Y').mean().rolling(window=10).mean(),
-                                d75.resample('Y').mean().rolling(window=10).mean(),
-                                color=dict_c[sce], alpha=0.25, ec='None')
-        if var == 'SNOW':
-            ax.plot(d50.resample('Y').mean().rolling(window=10).mean()*3600*24*365, c=dict_c_b[sce], lw=2)
-            ax.plot(dm.resample('Y').mean().rolling(window=10).mean()*3600*24*365, c=dict_c_b[sce], lw=1)
-            ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
-                            d25.resample('Y').mean().rolling(window=10).mean()*3600*24*365,
-                            d75.resample('Y').mean().rolling(window=10).mean()*3600*24*365,
-                            color=dict_c[sce], alpha=0.25, ec='None')
-        ax.set_axisbelow(True)
-        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
-        ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2100'))
-        
-        # ax.axvline(pd.to_datetime('1980'), c='k', ls='--')
-        # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
-        # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
-        
-        # ax.set_ylim(80, 350)
-        
-        yearsmaj = mdates.YearLocator(10)   # every year
-        monthsmaj = mdates.MonthLocator(12)  # every month
-        years_fmt = mdates.DateFormatter('%Y')
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(monthsmaj)
-        ax.xaxis.set_major_formatter(years_fmt)
-        
-        # ax.axhline(y=0, color='k', lw=1.5, ls='--')
-
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
-                'EVOL_'+var+'-'+sce+'.png',
-                            bbox_inches='tight')
-
-#%% EVOLUTION EAU
- 
-if 'all_proj_clim' not in globals():
-    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
-    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
-
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            # 'IPS-RCA',
-            'CNR-RAC',
-            # 'NOR-R15',
-            'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            # 'HAD-REG',
-            'MPI-R09']
-
-# plt.plot(all_proj_eau['SWE'+'_'+'MPI-CCL'+'_'+sce].resample('Y').mean()*365)
-# plt.plot(all_proj_clim['SNOW'+'_'+'MPI-CCL'+'_'+sce].resample('Y').mean()*3600*24*365)
-
-# for mod in mod_list:
-#     # if mod in ['MPI-CCL','ECE-RCA','MPI-R09']:
-#     val = all_proj_eau['SWE'+'_'+mod+'_'+sce].resample('Y').mean()*365/10
-#     # else:
-#     #     val = all_proj_clim['PPTT'+'_'+mod+'_'+sce].resample('Y').mean()*10
-#     plt.plot(val, label=mod)
-#     print(mod, val.mean())      
-# plt.legend()
-
-df = pd.DataFrame()
-dproj = all_proj_eau.copy()
-dproj = dproj.filter(regex=mod_keep)
-
-for var in ['ETP','RUN','REC','SWE','SWI'][1:]:
-            
-    fig, ax = plt.subplots(1,1, figsize=(10,4))
-    
-    sce_list = ['historic','RCP26','RCP45','RCP85']
-    
-    col_list = ['dimgrey','dodgerblue','orange','red']
-    col_list_b = ['k','navy','darkorange','darkred']
-    dict_c = dict(zip(sce_list, col_list))
-    dict_c_b = dict(zip(sce_list, col_list_b))
-    
-    for sce in sce_list:
-        print(var, sce)
-        
-        d_hist = dproj.filter(regex=var).filter(regex='historic')
-        d_hist = select_period(d_hist, 1975, 2004)
-        
-        d_tot = dproj.filter(regex=var).filter(regex=sce)
-        d_tot = select_period(d_tot, 1975, 2100)
-        
-        d_fut = dproj.filter(regex=var).filter(regex=sce)
-        d_fut = select_period(d_fut, 2006, 2100)
-
-        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / ((d_fut.mean(axis=1) + d_hist.mean(axis=1).mean())/2)
-        
-        # if sce == 'historic':
-        #     d10 = (d_hist.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
-        #     d25 = (d_hist.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
-        #     d50 = (d_hist.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
-        #     d75 = (d_hist.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())   
-        #     d90 = (d_hist.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
-        # else:
-        #     d10 = (d_fut.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
-        #     d25 = (d_fut.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
-        #     d50 = (d_fut.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
-        #     d75 = (d_fut.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())
-        #     d90 = (d_fut.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
-        
-        if sce == 'historic':
-            d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
-            d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
-            d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
-            d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())   
-            d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
-            dm = d_hist.mean(axis=1) - d_hist.mean(axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
         else:
-            d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
-            d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
-            d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
-            d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())
-            d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
-            dm = d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()
-            
-        # if sce == 'historic':
-        #     d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
-        #     d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
-        #     d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
-        #     d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())   
-        #     d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
-        # else:
-        #     d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
-        #     d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
-        #     d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
-        #     d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())
-        #     d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
-        
-        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / (d_hist.mean(axis=1).mean()
-        
-        # plt.plot(d25.resample('Y').mean())
-        # plt.plot(d50.resample('Y').mean())
-        # plt.plot(d75.resample('Y').mean())
-        # plt.ylim(-5,5)
-    
-        # d['MIN'] = d.filter(regex=sce).min(axis=1)
-        # d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
-        # d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
-        # d['Q25'] = d.filter(regex=sce).quantile(0.25, axis=1)
-        # d['MEAN'] = d.filter(regex=sce).mean(axis=1)
-        # d['MED'] = d.filter(regex=sce).median(axis=1)
-        # d['Q75'] = d.filter(regex=sce).quantile(0.75, axis=1)
-        # d['Q90'] = d.filter(regex=sce).quantile(0.90, axis=1)
-        # d['Q95'] = d.filter(regex=sce).quantile(0.95, axis=1)
-        # d['MAX'] = d.filter(regex=sce).max(axis=1)
-        # d = d.resample('Y').mean() #* 1000 * 365
-        
-        # high = select_period(d['Q25'].copy(), per[0], per[1])
-        # mean = select_period(d['MED'].copy(), per[0], per[1])
-        # low = select_period(d['Q75'].copy(), per[0], per[1])
-        
-        # high = select_period(d['Q25'].copy(), per[0], per[1]).rolling(window=5).mean()
-        # mean = select_period(d['MED'].copy(), per[0], per[1]).rolling(window=5).mean()
-        # low = select_period(d['Q75'].copy(), per[0], per[1]).rolling(window=5).mean()
-        
-        # high = select_period(d['Q25'].copy(), per[0], per[1])#.rolling(window=5).mean()
-        # mean = select_period(d['MED'].copy(), per[0], per[1])#.rolling(window=5).mean()
-        # low = select_period(d['Q75'].copy(), per[0], per[1])#.rolling(window=5).mean()
-        
-        # ax.plot(d50.resample('Y').mean().rolling(window=5).mean(), c=dict_c_b[sce], lw=2)
-        # ax.fill_between(d50.resample('Y').mean().rolling(window=5).mean().index,
-        #                 d25.resample('Y').mean().rolling(window=5).mean(),
-        #                 d75.resample('Y').mean().rolling(window=5).mean(),
-        #                 color=dict_c[sce], alpha=0.25, ec='None')
-        if var != 'SWE':
             ax.plot(d50.resample('Y').sum().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
             ax.plot(dm.resample('Y').sum().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
             ax.fill_between(d50.resample('Y').sum().rolling(window=10).mean().index,
                             d25.resample('Y').sum().rolling(window=10).mean(),
                             d75.resample('Y').sum().rolling(window=10).mean(),
                             color=dict_c[sce], alpha=0.25, ec='None')
-        else:
-            ax.plot(d50.resample('Y').sum().rolling(window=10).mean()/10, c=dict_c_b[sce], lw=2)
-            ax.plot(dm.resample('Y').sum().rolling(window=10).mean()/10, c=dict_c_b[sce], lw=1)
-            ax.fill_between(d50.resample('Y').sum().rolling(window=10).mean().index,
-                            d25.resample('Y').sum().rolling(window=10).mean()/10,
-                            d75.resample('Y').sum().rolling(window=10).mean()/10,
-                            color=dict_c[sce], alpha=0.25, ec='None')
+
         ax.set_axisbelow(True)
         ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
         ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
@@ -6787,9 +6612,213 @@ for var in ['ETP','RUN','REC','SWE','SWI'][1:]:
         ax.xaxis.set_major_formatter(years_fmt)
         
         # ax.axhline(y=0, color='k', lw=1.5, ls='--')
-
+    
+    fig.suptitle(var,fontsize=10)
     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
                 'EVOL_'+var+'-'+sce+'.png',
+                            bbox_inches='tight')
+
+#%% INTERMENSUAL CHANGES
+
+if 'all_proj_clim' not in globals():
+    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+
+sce_list = ['historic','RCP26','RCP45','RCP85']
+mod_list = ['MPI-CCL',
+            'ECE-RCA',
+            'ECE-RAC',
+            'CNR-RAC',
+            'CNR-ALA',
+            'MPI-R09']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list_ppt = ['MPI-CCL',
+                'ECE-RCA',
+                'MPI-R09']
+mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
+
+for var in  [
+            'TASM',
+            'PPTT',
+            'SNOW',
+            'PLIQ',
+            'SWE',
+              'SNOWPROP',
+              'PE',
+              'ETP',
+              'RUN',
+             'REC',
+              'SWI'
+             ]:
+    
+    all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
+    all_proj_mix = all_proj_mix.filter(regex=mod_keep)
+    
+    for mod in mod_list:
+        for sce in sce_list:
+            if var == 'PPTT':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOW':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOWPROP':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24) / (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PLIQ':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PE':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
+                        
+    # fig, axs = plt.subplots(1,4,figsize=(17, 3), sharey=True)
+    fig, axs = plt.subplots(4,1,figsize=(4, 10), sharey=True, sharex=True)
+    axs=axs.ravel()
+    # fig.add_subplot(111, frameon=False)
+    # plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, 
+    #                 right=False) # hide tick and tick label of the big axis
+    
+    # for mod in mod_list:
+    for mod in ['MOD-MIX']:
+    # mod = 'MPI-R09'
+    
+        for axi, sce in enumerate(sce_list[:]):
+            
+            ax = axs[axi]
+            
+            print(var, mod, sce)
+        
+            # fig, ax = plt.subplots(1,1,figsize=(5, 3))
+            # fig.add_subplot(111, frameon=False)
+            # plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, 
+            #                 right=False) # hide tick and tick label of the big axis
+        
+            dproj = all_proj_mix.copy()
+            
+            if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+                dproj = dproj.filter(regex=mod_keep_pptt).filter(regex=var).filter(regex=sce)
+            else:
+                dproj = dproj.filter(regex=mod_keep).filter(regex=var).filter(regex=sce)
+            
+            df = dproj.copy()
+
+            if sce=='historic':
+                # space = 10
+                f = 1980
+                l = 2004
+            else:
+                f = 2010
+                l = 2099
+            
+            space = 10
+
+            df = select_period(df, f, l)
+            
+            dates = np.arange(f+space,l+1,1)
+            n = len(dates)
+            
+            move = df.copy()
+            move[var+'_'+'MOD-MIX'+'_'+sce] = move.mean(axis=1)
+            move = move[var+'_'+'MOD-MIX'+'_'+sce].to_frame()
+            move['year'] = move.index.year
+            move['month'] = move.index.month
+            
+            need = move.copy()
+            if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE'):
+                yearly = need.groupby([(need.index.month),(need.index.to_period("Y"))]).mean()
+                intm = df.resample('M').mean()#.groupby([lambda x: x.month]).mean()
+            else:
+                yearly = need.groupby([(need.index.month),(need.index.to_period("Y"))]).sum()
+                intm = df.resample('M').sum()#.groupby([lambda x: x.month]).mean()
+                
+            intm = intm.groupby([lambda x: x.month]).mean()
+            if sce == 'historic':
+                intmh = intm.copy()
+
+            rol = True
+            # space = 10
+            
+            dictio = {}
+            for per in range(1,12+1):
+                dictio[per] = yearly[yearly.index.get_level_values(0) == per]
+                dictio[per] = dictio[per].copy()
+                if rol == True :
+                    dictio[per] = dictio[per].rolling(window=space).mean().shift()
+                    dictio[per]['year'] = (dictio[per].index.get_level_values(1).year).astype(int)
+                    dictio[per]['bef'] = dictio[per].year - space
+                    dictio[per]['per'] = dictio[per].bef.astype(str) + '-' + dictio[per].year.astype(str)
+                else:
+                    space = 0
+                    dictio[per]['year'] = (dictio[per].index.get_level_values(1).year).astype(int)
+                    dictio[per]['bef'] = dictio[per].year
+                    dictio[per]['per'] = (dictio[per].index.get_level_values(1).year).astype(str)
+            
+            df_list = [ v for k,v in dictio.items()] 
+            df_rol = pd.concat(df_list ,axis=0)
+            df_rol = df_rol.set_index(['year'])
+            
+            df_slice = df_rol.copy()
+        
+            for k in range(len(dates)):
+                date = dates[k]
+                df_per = df_slice[df_slice.index==date] #.groupby(['month']).mean()
+                df_per = df_per.reset_index()
+                df_per = df_per.sort_values(['month'])
+                df_per = df_per.set_index('month')
+                df_per = df_per.append(df_per.iloc[[0]])
+                df_per.index = np.arange(1,14,1)
+                datetxt = str(df_per.bef.iloc[0]) + '-' + str(date)
+        
+                val = df_per[var+'_'+mod+'_'+sce]
+                if sce=='historic':
+                    cmap = cm.get_cmap('Greys', n)
+                # else: 
+                #     cmap = cm.get_cmap('jet', n)
+                    # cmap = cm.get_cmap('RdBu_r', n)
+                if sce=='RCP26':
+                    cmap = cm.get_cmap('Blues', n)
+                if sce=='RCP45':
+                    cmap = cm.get_cmap('Oranges', n)
+                if sce=='RCP85':
+                    cmap = cm.get_cmap('Reds', n)
+                        
+                ax.plot(val, color=cmap(k), lw=1, marker=None, markersize=5, label=datetxt)
+                
+                ax.yaxis.set_major_formatter(ScalarFormatter())
+                ax.set_xlim(1,12)
+        
+                ax.tick_params(axis='both', which='major', pad=10)
+                x1 = np.arange(1,12+1,1)
+        
+                squad = ['J','F','M','A','M','J','J','A','S','O','N','D']
+                ax.set_xticks(x1)
+                ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+                
+                # ax.set_title(var+'_'+mod+'_'+sce, fontsize=10)
+                
+                ax.grid(True)
+        
+            # ax.plot(val_hist, color=cmap(k), lw=2, marker=None, markersize=5, label=datetxt)
+            
+            # dprojh = all_proj_mix.copy()
+            
+            # if var == 'PPTT':
+            #     dprojh = dprojh.filter(regex=mod_keep_pptt).filter(regex=var).filter(regex='historic')
+            # else:
+            #     dprojh = dprojh.filter(regex=mod_keep).filter(regex=var).filter(regex='historic')
+            # dfh = dproj.copy()
+            # fh = 1960
+            # lh = 2010
+            # dfh = select_period(dfh, fh, lh)
+            # intmh = dfh.resample('M').sum()#.groupby([lambda x: x.month]).mean()
+            # intmh = intmh.groupby([lambda x: x.month]).mean()
+            ax.plot(intmh.mean(axis=1), color='k', lw=2, ls='--', marker=None, markersize=5, label=datetxt)
+            
+            # ax.legend(bbox_to_anchor=(1.05, 0.50), loc='center left',
+            #           frameon=True, prop={'size': 6.8})
+    
+    fig.suptitle(var,fontsize=10)
+    fig.tight_layout()
+
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+                'CHANG_'+var+'-'+sce+'.png',
                             bbox_inches='tight')
 
 #%% ---- BULK PROJECTIONS PLOT
