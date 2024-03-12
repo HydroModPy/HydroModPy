@@ -4094,7 +4094,8 @@ iD_explo = 'e14'
 iD_explo = 'o15'
 iD_explo = 't1'
 
-for id_mod_val in list_id_mod[4:5]:
+# for id_mod_val in list_id_mod[4:5]:
+for id_mod_val in [4]:
 
     # h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
@@ -6826,6 +6827,164 @@ for var in  [
     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
                 'CHANG_'+var+'-'+sce+'.png',
                             bbox_inches='tight')
+
+#%% CROSS MIN MAX
+
+for watershed_name in watershed_names[:]:
+
+    fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True,
+                                  # modflow_path=modflow_path
+                                  )
+    
+    # dem = rasterio.open(BV.geographic.watershed_dem)
+    # dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+    
+    for id_mod_val in list_id_mod[:]:
+    
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+'RCP85' 
+        d = dd.io.load(h5file)
+        list_model_name = d['list_model_name'][:]
+        list_model_success = d['list_model_success'][:]
+        list_model_modflow = d['list_model_modflow'][:]
+        
+        for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                            list_model_success[:],
+                                                            list_model_modflow[:]):
+            
+            Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                               index_col='date', parse_dates=True)
+            
+            Smod = Smod.reset_index()
+            # argmin = Smod['total_areas'].argmin()
+            # argmax = Smod['total_areas'].argmax()
+            
+            argmin = Smod['watertable_elevation'].argmin()
+            argmax = Smod['watertable_elevation'].argmax()
+            
+            mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+            
+            import itertools            
+            
+            watertable_elevation = np.load(simulations_folder+model_name+'/_postprocess/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+            
+            min_wt = dict()
+            
+            cp = 0
+            # for key in dict(itertools.islice(watertable_elevation.items(),
+            #                                  len(watertable_elevation), # ONDE 8 years
+            #                                  len(watertable_elevation))):
+            for i, key in enumerate([argmin, argmax]):
+                print(key)
+        
+                dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
+                # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
+                wt_data = watertable_elevation[key]
+                # river_data = imageio.imread(stable_folder+'/hydrography/'+'stream_perennial_wetlands_points.tif')
+            
+                xvalues = np.linspace(-1,1,dem_data.shape[1])
+                yvalues = np.linspace(-1,1,dem_data.shape[0])
+                xx, yy = np.meshgrid(xvalues,yvalues)
+                
+                cur_x = dem_data.shape[1] /2
+                cur_y = dem_data.shape[0] /2
+                
+                # cur_x = 65
+                # cur_y = 39 # 40
+                cur_y=110
+
+                # fig2, ax2 = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+                # ax2.imshow(dem_data, cmap='Greys')
+                # # ax2.imshow(river_data, cmap='Greys')
+                # ax2.axhline(cur_y)
+
+                dem_max = dem_data.max()
+                dem_prof = dem_data.astype(float)
+                dem_prof[dem_prof<0] = np.nan
+                wt_prof = wt_data.astype(float)
+                wt_prof[wt_prof<0] = np.nan
+                
+                if watershed_name == 'Lasset':
+                    dem_h_plot = dem_prof[int(cur_y),:]
+                    dem_h_plot[dem_h_plot == 0] = np.nan
+                    wt_h_plot = wt_prof[int(cur_y),:]
+                    wt_h_plot[wt_h_plot == 0] = np.nan
+                    
+                    # list_h_wt[cp] = wt_h_plot
+                    
+                if watershed_name == 'Canut':
+                    dem_v_plot = dem_prof[:,int(cur_x)]
+                    dem_v_plot[dem_v_plot == 0] = np.nan
+                    wt_v_plot = wt_prof[:,int(cur_x)]
+                    wt_v_plot[wt_v_plot == 0] = np.nan
+                    
+                    # list_v_wt[cp] = wt_v_plot
+                    
+                dem_max = dem_data.max()
+                dem_prof = dem_data.astype(float)
+                dem_prof[dem_prof<0] = np.nan
+                dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
+                
+                wt_prof = wt_data.astype(float)
+                wt_prof[wt_prof<0] = np.nan
+                
+                cp+=1
+                    
+                if watershed_name == 'Lasset':
+                    # dem_h_prof, = ax.plot(np.arange(xx.shape[1])*75,dem_h_plot, c='saddlebrown', lw=2)
+                    # wt_h_prof, = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, c='dodgerblue', lw=2)
+                    if i == 0:
+                        wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*25, dem_h_plot-100, wt_h_plot,
+                                                        color='navy', alpha=0.5, lw=0)
+                        w_prof = ax.plot(np.arange(xx.shape[1])*25, wt_h_plot, color='navy', lw=1)
+                    if i == 1:
+                        wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*25, dem_h_plot-100, wt_h_plot,
+                                                        color='dodgerblue', alpha=0.5, lw=0)
+                        w_prof = ax.plot(np.arange(xx.shape[1])*25, wt_h_plot, color='dodgerblue', lw=1)
+                        wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*25, wt_h_plot, dem_h_plot,
+                                                        color='saddlebrown', alpha=0.5, lw=0)
+                        d_prof = ax.plot(np.arange(xx.shape[1])*25, dem_h_plot, 'saddlebrown', lw=1.5)
+                    ax.fill_between(np.arange(xx.shape[1])*25, 0, dem_h_plot-100,
+                                                    color='lightgrey', alpha=0.5, lw=0)
+                    ax.plot(np.arange(xx.shape[1])*25, dem_h_plot-100, color='dimgray', lw=1.5)
+                    ax.set_xlim(0, 3800)
+                    ax.set_ylim(1400, 2300)
+                    # ax.set_yticks([130,140,150,160,170])
+                           
+                if watershed_name == 'Canut':
+                    # dem_v_prof, = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, c='saddlebrown', lw=2)
+                    # wt_v_prof, = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, c='dodgerblue', lw=2)
+                    if i == 0:
+                        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
+                                                            color='navy', alpha=0.5, lw=0)
+                        w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1)
+                        store_w_c_plot = wt_v_plot.copy()
+                        # store_w_c_plot = wt_v_plot.copy()
+                    if i == 1:
+                        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-30, wt_v_plot,
+                                                            color='dodgerblue', alpha=0.5, lw=0)
+                        w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='dodgerblue', lw=1)
+                        wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot,
+                                                        color='saddlebrown', alpha=0.5, lw=0)
+                        d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
+                    ax.fill_between(np.arange(xx.shape[0])*75, 0, dem_v_plot-30,
+                                                    color='lightgrey', alpha=0.5, lw=0)
+                    ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-30, color='dimgray', lw=1.5)
+                    ax.set_xlim(1000, 4000)
+                    ax.set_ylim(85, 130)
+                    ax.set_yticks([90,100,110,120,130])
+                    
+                # ax.set_title(str(dates[key])[:7])
+                # print((str(dates[key])[:7]))
+                
+                plt.tight_layout()
 
 #%% ---- BULK PROJECTIONS PLOT
 
