@@ -69,10 +69,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = example_path + "data/"
-# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP04')
-out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
-# out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+out_path = folder_root.root_folder_results()
+# To change the folder path: out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -285,7 +283,8 @@ if success_modflow == True:
                               persistency_index=False,
                               intermittency_monthly=False,
                               intermittency_daily=False,
-                              export_all_tif = False)
+                              export_all_tif = False,
+                              export_netcdf = True)
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=None,
                                                       actual_date=True, 
@@ -315,12 +314,12 @@ for t in range(len(watertable_depth)):
 df_simobs_piezo_depth = piezo_2016.copy()
 df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-plt.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
-plt.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
-plt.legend(loc='best', fontsize=10)
-plt.ylabel('Elevation [m a.s.l.]')
-plt.title('Watertable')
-plt.show()
+fig, ax = plt.subplots(1,1, figsize=(8,6), sharex=True)
+ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
+ax.legend(loc='best', fontsize=10)
+ax.set_ylabel('Elevation [m a.s.l.]')
+ax.set_title('Watertable')
 
 # fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
 # axs = axs.ravel()
@@ -397,15 +396,15 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 # # if sim_state == 'steady':
 # visu = visualization_results.Visualization(BV, model_name)
 # visu.visual2D(object_list = ['map','grid',
-#                              'watertable', 'watertable_depth',
-#                              'drain_flow','surface_flow',
-#                              'pathlines', 'residence_times'
-#                              ],
+#                               'watertable', 'watertable_depth',
+#                               'drain_flow','surface_flow',
+#                               'pathlines', 'residence_times'
+#                               ],
 #               color_scale = [(None,None),(None,None),
-#                              (None,None),(0,10),
-#                              (None,None),(None,None),
-#                              (None,None),(None,None),
-#                              ], 
+#                               (None,None),(0,10),
+#                               (None,None),(None,None),
+#                               (None,None),(None,None),
+#                               ], 
 #               lines=250)
 
 #%% ---- NOTES

@@ -299,7 +299,7 @@ class Modflow:
     
         # Parameters for proportions of bottom layer to surface values
         for i in range(1, self.nlay+1):
-            if self.lay_decay == 1.:
+            if self.lay_decay <= 1:
                 p = i / self.nlay    # Uniform thicknesses
             else:
                 p = (1-self.lay_decay**i) / exp_scale   # Increasing thicknesses with depth
@@ -307,7 +307,7 @@ class Modflow:
             if i == 1:
                 self.zbot[i-1] = self.dem  - ((self.dem - self.bottom_layer) * p)
             else:
-                self.zbot[i-1] = self.zbot[i-2] - ((self.dem - self.bottom_layer) * p) #self.bottom_layer * p + self.dem * (1-p)
+                self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
             
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
@@ -527,7 +527,7 @@ class Modflow:
             
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
-                
+
         #%% Drain package
         
         # (DRN)
@@ -657,7 +657,8 @@ class Modflow:
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
-                        export_all_tif:bool=False):
+                        export_all_tif:bool=False,
+                        export_netcdf:bool=False):
         """
         Create outputs files.
 
@@ -703,6 +704,9 @@ class Modflow:
         
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         toolbox.create_folder(self.tifs_file)
+        
+        self.netcdf_file = os.path.join(self.full_path, '_postprocess', '_netcdf')
+        toolbox.create_folder(self.netcdf_file)
         
         self.save_fig = os.path.join(self.model_folder, '_figures')
         toolbox.create_folder(self.save_fig)
@@ -794,7 +798,7 @@ class Modflow:
                 # self.wt_elev.to_hdf(self.dict_watertable_elevation, lead_numb)
                 output_path = self.tifs_file+'/watertable_elevation_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)                  
                 self.dict_watertable_elevation[item] = self.wt_elev
             
             if watertable_depth == True:
@@ -906,6 +910,51 @@ class Modflow:
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+
+        ### Save dictionaries to netcdf
+        if export_netcdf == True:
+            if watertable_elevation == True:
+                toolbox.export_netcdf(self.dict_watertable_elevation, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'watertable_elevation.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
+            if watertable_depth == True:
+                toolbox.export_netcdf(self.dict_watertable_depth, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'watertable_depth.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
+            if seepage_areas == True:
+                toolbox.export_netcdf(self.dict_seepage_areas, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'seepage_areas.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
+            if outflow_drain == True:
+                toolbox.export_netcdf(self.dict_outflow_drain, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'outflow_drain.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
+            if groundwater_flux == True:
+                toolbox.export_netcdf(self.dict_groundwater_flux, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'groundwater_flux.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
+            if groundwater_storage == True:
+                toolbox.export_netcdf(self.dict_groundwater_storage, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'groundwater_storage.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
+            if accumulation_flux == True:
+                toolbox.export_netcdf(self.dict_accumulation_flux, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
 
         if persistency_index == True:
             ### Persistency index

@@ -68,10 +68,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
 data_path = example_path + "data/"
-# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP01')
-# out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
-out_path = r'C:\Users\Martin Le Mesnil\Travail\HydroModPy\output_01'
+out_path = folder_root.root_folder_results()
+# To change the folder path: out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -130,7 +128,7 @@ if case == 'FromXYV':
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = False
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -328,7 +326,7 @@ freq_time = 'M' # or 'D'
 
 # Hydraulic settings
 nlay = 5
-lay_decay = 1 # 1 for no decay
+lay_decay = 1. # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
 hyd_cond = 1e-5 * 24 * 3600 # m/day
@@ -374,7 +372,7 @@ BV.hydraulic.update_hyd_cond(hyd_cond)
 BV.hydraulic.update_porosity(porosity)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
+BV.hydraulic.update_poro_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -401,7 +399,8 @@ if success_modflow == True:
                               persistency_index=False,
                               intermittency_monthly=False,
                               intermittency_daily=False,
-                              export_all_tif = False)
+                              export_all_tif = False,
+                              export_netcdf = True)
 
 #%% MODPATH
 
@@ -454,22 +453,20 @@ visu.visual2D(object_list = ['map','grid',
               lines=250)
 
 #%% 3D
-"""
+
 if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
-    visu.visual3D(interactive=True,
-                  object_list=['grid','watertable', 'watertable_depth',
-                               'surface_flow', 'drain_flow', 'pathlines'
-                               ],
-                  view='south-west',
-                  lines=100, cloc=(0.7,0.1))
-"""
+    visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
+                                                 'surface_flow',
+                                                 'drain_flow',
+                                                 'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
+
 #%% RAW
 
 lead_numb = '0'
-outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/outflow_drain_t(0).tif')
-accflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+outflow = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/outflow_drain_t(0).tif')
+accflow = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
 demData = imageio.imread(BV.geographic.watershed_dem)
 demData = np.ma.masked_array(demData, mask=demData<0)
 res = BV.geographic.resolution
@@ -537,7 +534,7 @@ if from_dem == None:
     stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
 else:
     stream_data = None
-watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
+watertable_data = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
 interactive = True
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)

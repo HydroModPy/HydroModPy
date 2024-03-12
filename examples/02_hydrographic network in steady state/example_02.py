@@ -69,9 +69,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/02_hydrographic network in steady state/"
 data_path = example_path + "data/"
-# To change the folder path: out_path = os.path.join(folder_root.update_root_folder_results(), 'EXHMP01')
-# out_path = os.path.join(folder_root.root_folder_results(), 'EXHMP02')
-out_path = 'C:/Users/ronan/Local/SIMULATIONS/HYDROMODPY/'
+out_path = folder_root.root_folder_results()
+# To change the folder path: out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -91,7 +90,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -288,7 +287,8 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=False,
                                   intermittency_monthly=False,
                                   intermittency_daily=False,
-                                  export_all_tif = False)
+                                  export_all_tif = False,
+                                  export_netcdf = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
