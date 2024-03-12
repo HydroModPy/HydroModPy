@@ -215,9 +215,9 @@ class Visualization():
                 basemap.append(1)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
-                # show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
-                #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
-                #      vmax=color_scale[i][1])
+                show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
+                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
+                      vmax=color_scale[i][1])
                 show(np.ma.masked_where(drain<= 0, (drain)), ax=axs[i], 
                      transform=dem.transform, cmap='RdYlGn_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
                      vmax=color_scale[i][1])
