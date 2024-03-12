@@ -6956,6 +6956,8 @@ for watershed_name in watershed_names[:]:
                     ax.plot(np.arange(xx.shape[1])*25, dem_h_plot-100, color='dimgray', lw=1.5)
                     ax.set_xlim(0, 3800)
                     ax.set_ylim(1400, 2300)
+                    # ax.set_xlim(2800, 3500)
+                    # ax.set_ylim(1500, 1900)
                     # ax.set_yticks([130,140,150,160,170])
                            
                 if watershed_name == 'Canut':
