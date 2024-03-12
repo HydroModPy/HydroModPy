@@ -6445,17 +6445,17 @@ dict_c_b = dict(zip(sce_list, col_list_b))
 # dict_c_b = dict(zip(sce_list, col_list_b))
 
 for var in  [
-            'TASM',
-            'PPTT',
-            'SNOW',
-            'PLIQ',
-            'SWE',
-              'SNOWPROP',
-              'PE',
+            # 'TASM',
+            # 'PPTT',
+            # 'SNOW',
+            # 'PLIQ',
+            # 'SWE',
+            #   'SNOWPROP',
+            #   'PE',
               'ETP',
-              'RUN',
-              'REC',
-              'SWI'
+              # 'RUN',
+              # 'REC',
+              # 'SWI'
              ]:
     
     all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
@@ -6481,12 +6481,15 @@ for var in  [
         df = pd.DataFrame()
         dproj = all_proj_mix.copy()
         
+        if var == 'ETP':
+            var = 'ETP_'
+        
         if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
             dproj = dproj.filter(regex=mod_keep_pptt).filter(regex=var)
         else:
             dproj = dproj.filter(regex=mod_keep).filter(regex=var)
 
-        print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
+        # print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
         # print('PPTT', sce, dproj['PPTT'+'_'+mod+'_'+sce].mean())
 
         d_hist = dproj.filter(regex=var).filter(regex='historic')
@@ -6639,17 +6642,17 @@ mod_list_ppt = ['MPI-CCL',
 mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
 
 for var in  [
-            'TASM',
-            'PPTT',
-            'SNOW',
-            'PLIQ',
-            'SWE',
-              'SNOWPROP',
-              'PE',
+            # 'TASM',
+            # 'PPTT',
+            # 'SNOW',
+            # 'PLIQ',
+            # 'SWE',
+            #   'SNOWPROP',
+            #   'PE',
               'ETP',
-              'RUN',
-             'REC',
-              'SWI'
+             #  'RUN',
+             # 'REC',
+             #  'SWI'
              ]:
     
     all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
@@ -6691,6 +6694,9 @@ for var in  [
             #                 right=False) # hide tick and tick label of the big axis
         
             dproj = all_proj_mix.copy()
+            
+            if var == 'ETP':
+                var = 'ETP_'
             
             if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
                 dproj = dproj.filter(regex=mod_keep_pptt).filter(regex=var).filter(regex=sce)
