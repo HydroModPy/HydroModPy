@@ -8,13 +8,10 @@ Welcome to HydroModPy's documentation!
    :caption: Contents
    
    intro
-   install
-   structure
    modules
-   examples
-   notebooks/example_02
-   groundwater_flow
+   simulation
    tools
+   examples
 
 Indices and tables
 ==================

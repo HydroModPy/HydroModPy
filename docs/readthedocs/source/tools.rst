@@ -13,16 +13,19 @@ Tools
 .. autofunction:: tif_masks.mask_by_dem
 .. autofunction:: to_plot.plot_params
 
-The ``Functions`` class
+Visualisation 2D
 ************************
-.. autoclass:: vtk.Functions
+.. automodule:: visualization_watershed
     :members:
     :undoc-members:
     :show-inheritance:
 
-The ``VTK`` class
+
+Visualisation 3D
 ************************
-.. autoclass:: vtk.VTK
+.. autoclass:: export_vtuvtk.VTK
     :members:
     :undoc-members:
     :show-inheritance:
+
+

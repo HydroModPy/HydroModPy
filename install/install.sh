@@ -81,7 +81,7 @@ pip install imageio==2.31.1 --quiet
 echo 'Install whitebox'
 pip install whitebox==2.3.1 --quiet
 echo 'Install vedo'
-pip install vedo==2023.4.6 --quiet
+pip install vedo==2024.5.1 --quiet
 echo 'Install hydroeval'
 pip install hydroeval==0.1.0 --quiet
 echo 'Install xarray'
