@@ -276,7 +276,11 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-            self.perlen = np.ones(len(self.climatic))
+# =============================================================================
+#             self.perlen = np.ones(len(self.climatic))
+# =============================================================================
+            self.perlen = self.climatic.index.to_series().diff().dt.days.values
+            self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
                 
