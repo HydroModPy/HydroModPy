@@ -423,6 +423,7 @@ Qobs_list =[
 couleurs = ['navy','darkviolet']
 areas = [3.7, 1.2]
 
+"""
 fig, axs = plt.subplots(2,1, figsize=(7,6), sharex=True)
 axs = axs.ravel()
 
@@ -459,12 +460,14 @@ for i, Qobs_name in enumerate(Qobs_list[:]):
     
     plt.tight_layout()
 
+"""
+
 # fig, axs = plt.subplots(1,2, figsize=(9,3),
 #                         # sharey=True
 #                         )
 # axs = axs.ravel()
 
-fig, ax = plt.subplots(1,1, figsize=(6,4),
+fig, ax = plt.subplots(1,1, figsize=(5,4),
                         # sharey=True
                         )
 # axs = axs.ravel()
@@ -531,7 +534,7 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     ax.plot(mean_interan_days.counts, mean_interan_days.q50,
             lw=2,
             # color=couleurs[i],
-            color='darkred',
+            color='blue',
             label=Qobs_name)
     yerrmax = mean_interan_days.q90
     yerrmin = mean_interan_days.q10
@@ -543,8 +546,10 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     # ax.plot(data_index[data_index.index.year==2022], c='k')
     
     ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-                      color='cyan',edgecolor='grey', lw=0.5,
-                      alpha = 0.25, label='10-90th')
+                      color='grey',edgecolor='grey', lw=0.5,
+                      alpha = 0.5, label='10-90th')
+    
+    ax.grid(alpha=0.2)
     
     # plt.yscale('log')
     # ax.yaxis.set_major_formatter(ScalarFormatter())
@@ -3039,7 +3044,7 @@ dfcrit_Q.to_csv(BV.simulations_folder+'dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')
 
 #%% STREAMFLOW CRITERIA ALL
 
-dfcrit_Q = pd.read_csv(BV.simulations_folder+'dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')
+dfcrit_Q = pd.read_csv(BV.simulations_folder+'dfcrit_Q_'+'e'+'.csv', sep=';')
 
 iD_explos = ['e17', 'e18']
 
@@ -3123,7 +3128,10 @@ for icri, cri in enumerate(['NSE','RMSE',
         if cri == 'RMSElog':
             ax.set_ylabel('$RMSE_{log}$ [mm/w]')
             ax.set_ylim(0.75,1)
-        ax.set_xlabel('θ [%]')
+        # ax.set_xlabel('θ [%]')
+        # ax.set_xlabel('Φ [%]')
+        ax.set_xlabel('$Φ_{0}$ [%]')
+        
         # ax.set_title(cri)
         ax.set_xscale('log')
         # ax.set_yscale('log')
@@ -3164,10 +3172,13 @@ for icri, cri in enumerate(['NSE','RMSE',
 
 #%% STREAMFLOW CHRONICS ONE
 
+dfcrit_Q = pd.read_csv(BV.simulations_folder+'dfcrit_Q_'+'e'+'.csv', sep=';')
+
 # iD_explo = 'e14'
 
-iD_explos = ['e15','e16']
+# iD_explos = ['e15','e16']
 # iD_explos = ['e16']
+iD_explos = ['e17','e18']
 
 CRIT = 'RMSE'
 
@@ -3209,7 +3220,8 @@ for w, w_name in enumerate(['Lasset'][:]):
     
     for iD_explo in iD_explos:
     
-        for id_mod_val in list_id_mod[4:5]:
+        # for id_mod_val in list_id_mod[4:5]:
+        for id_mod_val in list_id_mod[:]:
         
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
             d = dd.io.load(h5file)
@@ -3307,12 +3319,13 @@ for w, w_name in enumerate(['Lasset'][:]):
             
                 ax = a0
                 ax.plot(Qobs, color='k', lw=1.5, ls='-', zorder=0, label='Observed')
-                ax.plot(Qmod, color='red', lw=1.5, label='Simulated')
-                # ax.plot(Qmod-(r*1000), color='darkorange', lw=0.25, label='Simulated')
+                ax.plot(Qmod, color='red', lw=0.5, label='Simulated')
+                ax.fill_between(Qmod.index, Qmod-(r*1000*7), Qmod, color='red', alpha=0.5, label='Simulated')
+                ax.plot(Qmod-(r*1000*7), color='red', lw=1.5, label='Simulated')
                 ax.set_xlabel('Date')
                 ax.set_ylabel('Q [mm/w]')
-                # ax.set_yscale('log')
-                ax.set_ylim(0,300)
+                ax.set_yscale('log')
+                ax.set_ylim(1,1000)
                 years_maj = mdates.YearLocator()   # every year
                 months_maj = mdates.MonthLocator()  # every x month
                 ax.xaxis.set_major_locator(years_maj)
@@ -3356,7 +3369,7 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='k')
     
                 # move ax in front
-                ax.set_zorder(axb.get_zorder() + 1)
+                # ax.set_zorder(axb.get_zorder() + 1)
                 
                 fig.tight_layout()
                             
@@ -3369,16 +3382,16 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
                 #             bbox_inches='tight')
                 
-                # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
-                #             'Q_'+model_name+'.png',
-                #                         bbox_inches='tight')
+                fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all/'+
+                            'Q_'+model_name+'.png',
+                                        bbox_inches='tight')
 
-dfcrit_Q = df.copy()
+# dfcrit_Q = df.copy()
 
 #%% STREAMFLOW CRITERIA ONE
 
 iD_explos = ['e15','e16']
-# iD_explos = ['e17']
+iD_explos = ['e17']
 
 df = dfcrit_Q.copy()
        
@@ -3464,13 +3477,242 @@ for icri, cri in enumerate(['NSElog','NSE','RMSE',
         #             labelleft=False,
         #             labelbottom=True)
         
-        fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
-                    'Q_'+cri+'.png',
-                                bbox_inches='tight')
+        # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
+        #             'Q_'+cri+'.png',
+        #                         bbox_inches='tight')
         
 plt.tight_layout()
 
 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
+
+#%% STREAMFLOW VALIDATION
+
+dfcrit_S = pd.read_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'.csv', sep=';')
+
+df = dfcrit_S.copy()
+
+n = 12
+colors = pl.cm.plasma_r(np.linspace(0,1,n))
+
+# fig, axs = plt.subplots(1,2, figsize=(5*1,5),
+#                         # sharey=True
+#                         )
+# axs = axs.ravel()
+
+for w, w_name in enumerate(['Lasset'][:]):
+    
+    # BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+    BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
+    Qobs = dfQ.q / (areas[0]*1e6)
+    Qobs_w_off = Qobs.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+    Qobs_w_sli = Qobs.groupby(np.arange(len(Qobs))//7).mean()
+    Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
+    Qobs_w_sli = Qobs_w_sli.iloc[:-1]
+    Qobs = Qobs_w_sli.copy() * 1000 * 7
+    # Qobs = Qobs.resample('M').mean()*4
+
+# fig, ax = plt.subplots(1,1, figsize=(4.5,3.8),
+#                         # sharey=True
+#                         )
+# axs = axs.ravel()
+for icri, cri in enumerate(['OWN'][:]):
+    ax = ax
+    # fig, ax = plt.subplots(1,1, figsize=(5,4))
+    for imod, mod in enumerate(df['id_mod'].unique()[:]):
+        color=colors[imod-1]
+        # color='k'
+        if imod==0:
+            color='k'
+        if imod==1:
+            color='grey'
+        # imod = 4
+        dfplot = df[df['id_mod']==imod]
+        
+        amin = dfplot['OWN'].argmin()
+        model_name_min = dfplot.iloc[amin]['model_name']
+        id_explo_min = dfplot.iloc[amin]['id_explo']
+        df_mod_min = dfplot.iloc[amin]['id_mod']
+        
+        model_name = model_name_min
+        
+        # h5file = BV.calibration_folder+'/'+'results_listing_'+id_explo_min+'_'+str('model')+str(id_mod_val)
+        # d = dd.io.load(h5file)
+        # list_model_name = d['list_model_name'][:]
+        # list_model_success = d['list_model_success'][:]
+        # list_model_modflow = d['list_model_modflow'][:]
+        
+        # for model_name, model_success, model_modflow in zip(list_model_name[:],
+        #                                                     list_model_success[:],
+        #                                                     list_model_modflow[:]):
+                
+        Smod = pd.read_csv(BV.calibration_folder+'/'+model_name_min+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                           index_col='date', parse_dates=True)
+        # Smod.index = recharge_w_sli.index()
+        
+        r = runoff_w_sli.copy()
+        Qmod = Smod['outflow_drain'] + r*1 # m/day
+        Qmod = Qmod * 1000 * 7
+        # Qmod = Qmod.resample('M').mean()*4
+        
+        mix = Qobs.copy().to_frame()
+        mix.columns = ['Qobs']
+        mix['Qsim'] = Qmod
+        mix = mix.dropna()
+
+        Qobs_stat = mix.Qobs
+        Qsim_stat = mix.Qsim
+        
+        import hydroeval as he
+        NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+        NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+        RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) #/ (Qobs_stat.max()-Qobs_stat.min())
+        KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+        print(model_name.upper())
+        print('NSE', round(NSE,2))
+        print('NSElog', round(NSElog,2))
+        print('RMSE', round(RMSE,2))
+        print('KGE', round(KGE,2))
+        
+        RMSElog = np.sqrt(np.nanmean((np.log(Qobs_stat.values+1)-np.log(Qsim_stat.values+1))**2)) #/ (Qobs_stat.max()-Qobs_stat.min())
+
+        
+        # model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
+        #              str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
+        #              str(ip)+'_'+\
+        #              str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))
+        
+        df.loc[i,'model_name'] = model_name
+        
+        df.loc[i,'id_explo'] = iD_explo
+        df.loc[i, 'id_mod'] = id_mod_val
+        
+        df.loc[i,'aK'] = float(model_name.split('_')[2].split('-')[0])
+        df.loc[i,'bottom'] = float(model_name.split('_')[2].split('-')[1])
+        
+        try:
+            df.loc[i,'K'] = float(['-'.join(model_name.split('_')[2].split('-')[-2:])][0])
+        except:
+            pass
+        
+        df.loc[i,'id_eO'] = float(model_name.split('_')[3][0])
+        
+        df.loc[i,'aO'] = float(model_name.split('_')[4].split('-')[0])
+        df.loc[i,'O'] = float(model_name.split('_')[4].split('-')[1])
+        
+        df.loc[i,'NSE'] = float(NSE)
+        df.loc[i,'NSElog'] = float(NSElog)
+        df.loc[i,'RMSE'] = float(RMSE)
+        df.loc[i,'KGE'] = float(KGE)
+        
+        Q10_obs = Qobs_stat.quantile(0.10)
+        Q50_obs = Qobs_stat.quantile(0.50)
+        Q90_obs = Qobs_stat.quantile(0.90)
+        Q10_sim = Qsim_stat.quantile(0.10)
+        Q50_sim = Qsim_stat.quantile(0.50)
+        Q90_sim = Qsim_stat.quantile(0.90)
+        
+        df.loc[i,'OWN_Q10'] = float(((Q10_sim - Q10_obs)**2) / (Q10_obs**2))
+        df.loc[i,'OWN_Q50'] = float(((Q50_sim - Q50_obs)**2) / (Q50_obs**2))
+        df.loc[i,'OWN_Q90'] = float(((Q90_sim - Q90_obs)**2) / (Q90_obs**2))
+        
+        df.loc[i,'OWN'] = ( df.loc[i,'OWN_Q10'] + df.loc[i,'OWN_Q50'] + df.loc[i,'OWN_Q90'] ) / 3
+        
+        i += 1
+        
+        fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                                     figsize=(10,3))
+        
+        yearsmaj = mdates.YearLocator(1)   # every year
+        yearsmin = mdates.YearLocator(1)
+        # monthsmaj = mdates.MonthLocator(6)  # every month
+        # monthsmin = mdates.MonthLocator(3)
+        # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+        years_fmt = mdates.DateFormatter('%Y')
+    
+        ax = a0
+        ax.plot(Qobs, color='blue', lw=1.5, ls='-', zorder=0, label='Observed')
+        ax.plot(Qmod, color=color, lw=0.5, label='Simulated')
+        ax.fill_between(Qmod.index, Qmod-(r*1000*7), Qmod, color=color, alpha=0.5, lw=0, label='Simulated')
+        ax.plot(Qmod-(r*1000*7), color=color, lw=1.5, label='Simulated')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Q [mm/w]')
+        ax.set_yscale('log')
+        ax.set_ylim(1,1000)
+        years_maj = mdates.YearLocator()   # every year
+        months_maj = mdates.MonthLocator()  # every x month
+        ax.xaxis.set_major_locator(years_maj)
+        ax.xaxis.set_minor_locator(months_maj)
+        ax.set_xlim(pd.to_datetime('2020'), pd.to_datetime('2024'))
+        # ax.legend(loc='lower left')
+        ax.set_title(model_name.upper(), fontsize=10)
+        ax.grid(alpha=0.5)
+        
+        # axb = ax.twinx()
+        # axb.bar(Smod.recharge.index, Smod.recharge*1000, color='dodgerblue',
+        #         edgecolor='grey', width=2, lw=0)
+        # # axb.bar(sim2.index, (sim2['PRELIQ_Q']+sim2['PRENEI_Q'])*1000, color='dodgerblue',
+        # #         edgecolor='grey', width=2, lw=0)
+        # axb.set_ylim(0,50)
+        # axb.invert_yaxis()
+        # axb.set_yticklabels([0,10])
+        
+        ax.text(0.05,0.18, 'NSE'+' = '+str(round(NSE,2)), transform=ax.transAxes, c='k', fontsize=10)
+        ax.text(0.05,0.10, '$NSE_{log}$'+' = '+str(round(NSElog,2)), transform=ax.transAxes, c='k', fontsize=10)
+        
+        ax = a1
+        ax.scatter(mix.Qobs, mix.Qsim,
+                   s=10, edgecolor='none', alpha=0.75, facecolor=color)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.legend(loc='lower right', frameon=False)
+        # ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
+        # ax.set_xlim(1,500)
+        # ax.set_ylim(1,500)
+        
+        ax.plot((0.0001,1000),(0.0001,1000), c='k', ls='--')
+        
+        ax.set_xlim(1,1000)
+        ax.set_ylim(1,1000)
+
+        ax.set_xlabel('$Q_{obs}$ [mm/w]',
+                      # fontsize=12
+                      )
+        ax.set_ylabel('$Q_{sim}$ [mm/w]',
+                      # fontsize=12
+                      )
+        
+        ax.patch.set_visible(True)
+        # ax.set_title('$NSE_{log}$' + '  ' + str(round(NSElog,2)), fontsize=10, color='k')
+
+        # move ax in front
+        # ax.set_zorder(axb.get_zorder() + 1)
+        
+        ax.text(0.35,0.18, 'RMSE'+' = '+str(round(RMSE,2)), 
+                transform=ax.transAxes, 
+                c='k', fontsize=10)
+        ax.text(0.35,0.10, '$RMSE_{log}$'+' = '+str(round(RMSElog,2)), 
+                transform=ax.transAxes, 
+                c='k', fontsize=10)
+        
+        fig.tight_layout()
+                    
+        # fig.savefig(os.path.join(simulations_folder, '_figures',
+        #             'STREAMFLOW_'+model_name+'.png'),
+        #             bbox_inches='tight')
+        
+        # plt.close()
+        
+        # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
+        #             bbox_inches='tight')
+        
+        fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_valid/'+
+                    'Q_'+model_name+'.png',
+                                bbox_inches='tight')
 
 #%% SATURATION CHRONICS ALL
 
@@ -3715,7 +3957,8 @@ for icri, cri in enumerate(['OWN'][:]):
                 color=color)
         # pc = ax.scatter(dfplot['O'], dfplot[cri])
         ax.set_ylabel('Ω [-]')
-        ax.set_xlabel('$θ_{0}$ [%]')
+        # ax.set_xlabel('$θ_{0}$ [%]')
+        ax.set_xlabel('$Φ_{0}$ [%]')
         # ax.set_title(cri)
         ax.set_xscale('log')
         # ax.set_ylim(1e-3,1.5e-1)
@@ -3738,7 +3981,7 @@ for icri, cri in enumerate(['OWN'][:]):
         #             labelbottom=True)
 plt.tight_layout()
 
-fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'_S_'+'criteria'+'.png', bbox_inches='tight')
+# fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'_S_'+'criteria'+'.png', bbox_inches='tight')
 
 fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
             'S_'+'criteria'+'.png',
@@ -5434,7 +5677,15 @@ for ic, sce in enumerate(sce_list):
                 acc_npy_h = list(acc_npy.items())[:end_h]
             else:
                 acc_npy_h = list(acc_npy.items())[begin_h:end_h]
-            acc_npy_h = list(acc_npy_h)[:]
+            # acc_npy_1 = list(acc_npy_h)[5::12]
+            # acc_npy_2 = list(acc_npy_h)[6::12]
+            acc_npy_3 = list(acc_npy_h)[7::12]
+            acc_npy_4 = list(acc_npy_h)[8::12]
+            acc_npy_5 = list(acc_npy_h)[9::12]
+            # acc_npy_6 = list(acc_npy_h)[10::12]           
+            # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
+            acc_npy_h = (acc_npy_3 + acc_npy_4 + acc_npy_5)
+            # acc_npy_h = list(acc_npy_h)[:]
             for key in range(len(acc_npy_h)):
                 acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<-1e10))
             zero = acc_npy[0] * 0
@@ -5473,7 +5724,15 @@ for ic, sce in enumerate(sce_list):
                     acc_npy_f = list(acc_npy.items())[begin_f:]
                 else:
                     acc_npy_f = list(acc_npy.items())[begin_f:end_f]
-                acc_npy_f = list(acc_npy_f)[:]
+                # acc_npy_1 = list(acc_npy_f)[5::12]
+                # acc_npy_2 = list(acc_npy_f)[6::12]
+                acc_npy_3 = list(acc_npy_f)[7::12]
+                acc_npy_4 = list(acc_npy_f)[8::12]
+                acc_npy_5 = list(acc_npy_f)[9::12]
+                # acc_npy_6 = list(acc_npy_f)[10::12]
+                # acc_npy_f = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
+                acc_npy_f = (acc_npy_3 + acc_npy_4 + acc_npy_5)
+                # acc_npy_h = list(acc_npy_h)[:]
                 for key in range(len(acc_npy_f)):
                     acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=(mask<-1e10))
                 zero = acc_npy[0] * 0
@@ -5522,11 +5781,11 @@ for ic, sce in enumerate(sce_list):
                     
                     pc = plt.imshow(np.ma.masked_where((days_flux_ano>-1),
                                                       days_flux_ano),
-                                                cmap = mpl.colors.ListedColormap('darkred'))
+                                                cmap = mpl.colors.ListedColormap('red'))
                     
                     pc = ax.imshow(np.ma.masked_where((days_flux_ano<=-1)|(days_flux_ano>=0),
                                                       days_flux_ano),
-                                                cmap = mpl.colors.ListedColormap('red'))
+                                                cmap = mpl.colors.ListedColormap('darkorange'))
                     
                     pc = ax.imshow(np.ma.masked_where((days_flux_ano<=0)|(days_flux_ano>=1),
                                                       days_flux_ano),
@@ -5542,13 +5801,13 @@ for ic, sce in enumerate(sce_list):
                     
                     pc = ax.imshow(np.ma.masked_where((days_flux_f==0)|(days_flux_h!=0),
                                                       days_flux_f),
-                                                cmap = mpl.colors.ListedColormap('navy'))
+                                                cmap = mpl.colors.ListedColormap('forestgreen'))
                     
                     plt.imshow(box, cmap = 'Greys', alpha=0.25, zorder=-1000)
                     
                     ax.imshow(np.ma.masked_where(mask>0, mask),
                                                 cmap = mpl.colors.ListedColormap('white'),
-                                                alpha=0.5)
+                                                alpha=0.2)
                     
                     ax.get_xaxis().set_visible(False)
                     ax.get_yaxis().set_visible(False)
@@ -5561,9 +5820,14 @@ for ic, sce in enumerate(sce_list):
 
                     ax.set_title(mod+'_'+sce+'_'+str(season)+'_'+str(interv), fontsize=8)
                     
+                    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/04_fig_piproj/'+
+                    #             mod+'_'+sce+'_'+str(season)+'_'+str(interv)+'.png',
+                    #                         bbox_inches='tight')
+                    
                     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/04_fig_piproj/'+
-                                mod+'_'+sce+'_'+str(season)+'_'+str(interv)+'.png',
+                                mod+'_'+sce+'_'+str(season)+'_'+str(interv)+'_7-8-9'+'.png',
                                             bbox_inches='tight')
+
 
                     days_flux_ano = days_flux_ano * 100
                     days_flux_ano = np.ma.masked_array(days_flux_ano, mask=(mask<0))
@@ -5590,7 +5854,8 @@ for ic, sce in enumerate(sce_list):
                     
                     folder_fig = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/04_fig_piproj/'
                     
-superficie.to_csv(folder_fig + 'TABLE_PI_ANOMALY_' + str('ALL') + '.csv', sep=';')
+# superficie.to_csv(folder_fig + 'TABLE_PI_ANOMALY_' + str('ALL') + '.csv', sep=';')
+superficie.to_csv(folder_fig + 'TABLE_PI_ANOMALY_' + str('ALL') +'_7-8-9' + '.csv', sep=';')
 
 #%% BOX PLOT OUTFLOW - ALTITUDE
 
@@ -5684,17 +5949,32 @@ for ic, sce in enumerate(sce_list):
                 # if i == 3:
                 #     themask = (mask_grenou < 0)
                     
-                acc_npy = list(acc_npy_raw.items())[5*12:35*12]
+                begin_h = 5*12
+                end_h = 35*12
+                # Historic
+                if begin_h == 0:
+                    acc_npy_h = list(acc_npy_raw.items())[:end_h]
+                else:
+                    acc_npy_h = list(acc_npy_raw.items())[begin_h:end_h]
+                # acc_npy_1 = list(acc_npy_h)[5::12]
+                # acc_npy_2 = list(acc_npy_h)[6::12]
+                # acc_npy_3 = list(acc_npy_h)[7::12]
+                # acc_npy_4 = list(acc_npy_h)[8::12]
+                # acc_npy_5 = list(acc_npy_h)[9::12]
+                # acc_npy_6 = list(acc_npy_h)[10::12]           
+                # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
+                # acc_npy_h = (acc_npy_3 + acc_npy_4 + acc_npy_5)
+                acc_npy_h = list(acc_npy_h)[:]
                 sers = pd.DataFrame()
-                for key in range(len(acc_npy)):
+                for key in range(len(acc_npy_h)):
                     mask = imageio.imread(BV.geographic.watershed_dem)
                     # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
-                    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=themask)
+                    acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=themask)
                     # acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask>2000))
                     # acc_npy[key] = acc_npy[key][1][(acc_npy[key][1] > 1600) & (acc_npy[key][1] < 2000)]
                     # acc_npy[key][0] = np.ma.masked_where(mask < 1600)
                     # acc_npy[key][0] = np.ma.masked_where(mask > 2000)
-                    sers[str(key)] = acc_npy[key].flatten() / (acc_npy[key].count()*25*25) * 1000
+                    sers[str(key)] = acc_npy_h[key].flatten() / (acc_npy_h[key].count()*25*25) * 1000
                 sers = sers.dropna(how='all', axis=0)
                 sers = sers[(sers.T != 0).any()]
                 # sers=sers.max(axis=0)
@@ -5712,19 +5992,28 @@ for ic, sce in enumerate(sce_list):
                     
                     
                     if interv[1] == 0:
-                        acc_npy = list(acc_npy_raw.items())[interv[0]*12:]
+                        acc_npy_f = list(acc_npy_raw.items())[interv[0]*12:]
                     else:
-                        acc_npy = list(acc_npy_raw.items())[interv[0]*12:interv[1]*12]
+                        acc_npy_f = list(acc_npy_raw.items())[interv[0]*12:interv[1]*12]
+                    # acc_npy_1 = list(acc_npy_h)[5::12]
+                    # acc_npy_2 = list(acc_npy_h)[6::12]
+                    # acc_npy_3 = list(acc_npy_f)[7::12]
+                    # acc_npy_4 = list(acc_npy_f)[8::12]
+                    # acc_npy_5 = list(acc_npy_f)[9::12]
+                    # acc_npy_6 = list(acc_npy_h)[10::12]           
+                    # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
+                    # acc_npy_f = (acc_npy_3 + acc_npy_4 + acc_npy_5)
+                    acc_npy_f = list(acc_npy_f)[:]
                     sers = pd.DataFrame()
-                    for key in range(len(acc_npy)):
+                    for key in range(len(acc_npy_f)):
                         mask = imageio.imread(BV.geographic.watershed_dem)
                         # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
-                        acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=themask)
+                        acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=themask)
                         # acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask>2000))
                         # acc_npy[key] = acc_npy[key][1][(acc_npy[key][1] > 1600) & (acc_npy[key][1] < 2000)]
                         # acc_npy[key][0] = np.ma.masked_where(mask < 1600)
                         # acc_npy[key][0] = np.ma.masked_where(mask > 2000)
-                        sers[str(key)] = acc_npy[key].flatten() / (acc_npy[key].count()*25*25) * 1000
+                        sers[str(key)] = acc_npy_f[key].flatten() / (acc_npy_f[key].count()*25*25) * 1000
                     sers = sers.dropna(how='all', axis=0)
                     sers = sers[(sers.T != 0).any()]
                     # sers=sers.max(axis=0)
@@ -5739,8 +6028,16 @@ for ic, sce in enumerate(sce_list):
                     #         boxprops=boxprops,
                     #         medianprops=medianprops, positions=[i])
                     
-                    boxprops = dict(linestyle='-', linewidth=1, color='black',
-                                    facecolor=dict_scecol[sce], alpha=0.40)
+                    boxprops1 = dict(linestyle='-', linewidth=0, color='black',
+                                    facecolor=dict_scecol[sce],
+                                    alpha=0.7,
+                                    edgecolor='k'
+                                    )
+                    boxprops2 = dict(linestyle='-', linewidth=1, color='black',
+                                    facecolor='None',
+                                    alpha=1,
+                                    edgecolor='k',
+                                    )
                     medianprops = dict(linestyle='-', linewidth=1, color='black')
                     meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
                                           markerfacecolor='k', linestyle='-')
@@ -5806,7 +6103,12 @@ for ic, sce in enumerate(sce_list):
                                     positions=[ad],
                                       whis=False, showfliers=False, showmeans=False, 
                                       medianprops=medianprops, meanprops=meanpointprops,
-                                      patch_artist=True, boxprops=boxprops)
+                                      patch_artist=True, boxprops=boxprops1)
+                    bp = ax.boxplot(d, widths=0.15,
+                                    positions=[ad],
+                                      whis=False, showfliers=False, showmeans=False, 
+                                      medianprops=medianprops, meanprops=meanpointprops,
+                                      patch_artist=True, boxprops=boxprops2)
                     for element in bp['whiskers']:
                         element.set_color('k')
                         element.set_linestyle('-')
@@ -5817,12 +6119,12 @@ for ic, sce in enumerate(sce_list):
                     ax.vlines(x=ad, 
                                 ymin=d.quantile(0.10), 
                                 ymax=d.quantile(0.25), color='k', zorder=2)
-                    ax.plot(ad, 
-                              d.quantile(0.10), color='k', zorder=2, lw=0,
-                              marker='_', mew=1)
-                    ax.plot(ad, 
-                              d.quantile(0.90), color='k', zorder=2, lw=0,
-                              marker='_', mew=1)
+                    # ax.plot(ad, 
+                    #           d.quantile(0.10), color='k', zorder=2, lw=0,
+                    #           marker='_', mew=1)
+                    # ax.plot(ad, 
+                    #           d.quantile(0.90), color='k', zorder=2, lw=0,
+                    #           marker='_', mew=1)
                       
                     plt.plot(ad, d.mean(), marker='o', mec='k', ms=2.5, lw=0,
                             mfc='k', mew=1,
@@ -5849,6 +6151,8 @@ for ic, sce in enumerate(sce_list):
                     ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
                     
                     ax.set_ylim(-150,100)
+                    
+                    # ax.axhline(y=0, c='k', lw=0.5, ls='-', zorder=-1000)
                     
                     # ax.get_xaxis().set_visible(False)
                     ax.axes.xaxis.set_ticklabels([])
@@ -5900,6 +6204,8 @@ down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length_box
 
 # fig, ax = plt.subplots(1, 1, figsize=(6,6))
 fig, ax = plt.subplots(1,1, figsize=(6,3.8))
+
+# sce = 'RCP85'
 
 for ic, sce in enumerate(sce_list):
     years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
@@ -5958,17 +6264,32 @@ for ic, sce in enumerate(sce_list):
                 if i == 3:
                     themask = (mask_bombee < 0)
                     
-                acc_npy = list(acc_npy_raw.items())[5*12:35*12]
+                begin_h = 5*12
+                end_h = 35*12
+                # Historic
+                if begin_h == 0:
+                    acc_npy_h = list(acc_npy_raw.items())[:end_h]
+                else:
+                    acc_npy_h = list(acc_npy_raw.items())[begin_h:end_h]
+                # acc_npy_1 = list(acc_npy_h)[5::12]
+                # acc_npy_2 = list(acc_npy_h)[6::12]
+                acc_npy_3 = list(acc_npy_h)[7::12]
+                acc_npy_4 = list(acc_npy_h)[8::12]
+                acc_npy_5 = list(acc_npy_h)[9::12]
+                # acc_npy_6 = list(acc_npy_h)[10::12]           
+                # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
+                acc_npy_h = (acc_npy_3 + acc_npy_4 + acc_npy_5)
+                # acc_npy_h = list(acc_npy_h)[:]
                 sers = pd.DataFrame()
-                for key in range(len(acc_npy)):
+                for key in range(len(acc_npy_h)):
                     # mask = imageio.imread(BV.geographic.watershed_dem)
                     # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
-                    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=themask)
+                    acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=themask)
                     # acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask>2000))
                     # acc_npy[key] = acc_npy[key][1][(acc_npy[key][1] > 1600) & (acc_npy[key][1] < 2000)]
                     # acc_npy[key][0] = np.ma.masked_where(mask < 1600)
                     # acc_npy[key][0] = np.ma.masked_where(mask > 2000)
-                    sers[str(key)] = acc_npy[key].flatten() / (acc_npy[key].count()*25*25) * 1000
+                    sers[str(key)] = acc_npy_h[key].flatten() / (acc_npy_h[key].count()*25*25) * 1000
                 sers = sers.dropna(how='all', axis=0)
                 sers = sers[(sers.T != 0).any()]
                 # sers=sers.max(axis=0)
@@ -5985,19 +6306,28 @@ for ic, sce in enumerate(sce_list):
                 # for interv_i, interv in enumerate([[-90,-60]]):
                     
                     if interv[1] == 0:
-                        acc_npy = list(acc_npy_raw.items())[interv[0]*12:]
+                        acc_npy_f = list(acc_npy_raw.items())[interv[0]*12:]
                     else:
-                        acc_npy = list(acc_npy_raw.items())[interv[0]*12:interv[1]*12]
+                        acc_npy_f = list(acc_npy_raw.items())[interv[0]*12:interv[1]*12]
+                    # acc_npy_1 = list(acc_npy_h)[5::12]
+                    # acc_npy_2 = list(acc_npy_h)[6::12]
+                    acc_npy_3 = list(acc_npy_f)[7::12]
+                    acc_npy_4 = list(acc_npy_f)[8::12]
+                    acc_npy_5 = list(acc_npy_f)[9::12]
+                    # acc_npy_6 = list(acc_npy_h)[10::12]           
+                    # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
+                    acc_npy_f = (acc_npy_3 + acc_npy_4 + acc_npy_5)
+                    # acc_npy_h = list(acc_npy_h)[:]
                     sers = pd.DataFrame()
-                    for key in range(len(acc_npy)):
+                    for key in range(len(acc_npy_f)):
                         mask = imageio.imread(BV.geographic.watershed_dem)
                         # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
-                        acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=themask)
+                        acc_npy_f[key] = np.ma.masked_array(acc_npy_f[key][1], mask=themask)
                         # acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask>2000))
                         # acc_npy[key] = acc_npy[key][1][(acc_npy[key][1] > 1600) & (acc_npy[key][1] < 2000)]
                         # acc_npy[key][0] = np.ma.masked_where(mask < 1600)
                         # acc_npy[key][0] = np.ma.masked_where(mask > 2000)
-                        sers[str(key)] = acc_npy[key].flatten() / (acc_npy[key].count()*25*25) * 1000
+                        sers[str(key)] = acc_npy_f[key].flatten() / (acc_npy_f[key].count()*25*25) * 1000
                     sers = sers.dropna(how='all', axis=0)
                     sers = sers[(sers.T != 0).any()]
                     # sers=sers.max(axis=0)
@@ -6012,19 +6342,27 @@ for ic, sce in enumerate(sce_list):
                     #         boxprops=boxprops,
                     #         medianprops=medianprops, positions=[i])
                     
-                    boxprops = dict(linestyle='-', linewidth=1, color='black',
-                                    facecolor=dict_scecol[sce], alpha=0.40)
+                    boxprops1 = dict(linestyle='-', linewidth=0, color='black',
+                                    facecolor=dict_scecol[sce],
+                                    alpha=0.7,
+                                    edgecolor='k'
+                                    )
+                    boxprops2 = dict(linestyle='-', linewidth=1, color='black',
+                                    facecolor='None',
+                                    alpha=1,
+                                    edgecolor='k',
+                                    )
                     medianprops = dict(linestyle='-', linewidth=1, color='black')
                     meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
                                           markerfacecolor='k', linestyle='-')
                     
-                    posbas = 0 - 0.15
+                    posbas = 0
                     if (interv_i==0) & (i==0) & (sce=='RCP26'):
-                        ad = posbas - 0.90
+                        ad = posbas - 0.90 - 0.05
                     if (interv_i==0) & (i==0) & (sce=='RCP45'):
-                        ad = posbas - 0.75
+                        ad = posbas - 0.75 - 0.05
                     if (interv_i==0) & (i==0) & (sce=='RCP85'):
-                        ad = posbas - 0.60
+                        ad = posbas - 0.60 - 0.05
                     if (interv_i==0) & (i==1) & (sce=='RCP26'):
                         ad = posbas - 0.45
                     if (interv_i==0) & (i==1) & (sce=='RCP45'):
@@ -6032,50 +6370,51 @@ for ic, sce in enumerate(sce_list):
                     if (interv_i==0) & (i==1) & (sce=='RCP85'):
                         ad = posbas - 0.15
                     if (interv_i==0) & (i==2) & (sce=='RCP26'):
-                        ad = posbas + 0
+                        ad = posbas + 0 + 0.05
                     if (interv_i==0) & (i==2) & (sce=='RCP45'):
-                        ad = posbas + 0.15
+                        ad = posbas + 0.15 + 0.05
                     if (interv_i==0) & (i==2) & (sce=='RCP85'):
-                        ad = posbas + 0.30
+                        ad = posbas + 0.30 + 0.05
                     if (interv_i==0) & (i==3) & (sce=='RCP26'):
-                        ad = posbas + 0.45
+                        ad = posbas + 0.45 + 0.10
                     if (interv_i==0) & (i==3) & (sce=='RCP45'):
-                        ad = posbas + 0.60
+                        ad = posbas + 0.60 + 0.10
                     if (interv_i==0) & (i==3) & (sce=='RCP85'):
-                        ad = posbas + 0.75
-
+                        ad = posbas + 0.75 + 0.10
+                    
+                    posbas = 2.5
                     if (interv_i==1) & (i==0) & (sce=='RCP26'):
-                        ad = 2 - 0.90
+                        ad = posbas - 0.90 - 0.05
                     if (interv_i==1) & (i==0) & (sce=='RCP45'):
-                        ad = 2 - 0.75
+                        ad = posbas - 0.75 - 0.05
                     if (interv_i==1) & (i==0) & (sce=='RCP85'):
-                        ad = 2 - 0.60
+                        ad = posbas - 0.60 - 0.05
                     if (interv_i==1) & (i==1) & (sce=='RCP26'):
-                        ad = 2 - 0.45
+                        ad = posbas - 0.45
                     if (interv_i==1) & (i==1) & (sce=='RCP45'):
-                        ad = 2 - 0.30
+                        ad = posbas - 0.30
                     if (interv_i==1) & (i==1) & (sce=='RCP85'):
-                        ad = 2 - 0.15
+                        ad = posbas - 0.15
                     if (interv_i==1) & (i==2) & (sce=='RCP26'):
-                        ad = 2 + 0
+                        ad = posbas + 0 + 0.05
                     if (interv_i==1) & (i==2) & (sce=='RCP45'):
-                        ad = 2 + 0.15
+                        ad = posbas + 0.15 + 0.05
                     if (interv_i==1) & (i==2) & (sce=='RCP85'):
-                        ad = 2 + 0.30
+                        ad = posbas + 0.30 + 0.05
                     if (interv_i==1) & (i==3) & (sce=='RCP26'):
-                        ad = 2 + 0.45
+                        ad = posbas + 0.45 + 0.10
                     if (interv_i==1) & (i==3) & (sce=='RCP45'):
-                        ad = 2 + 0.60
+                        ad = posbas + 0.60 + 0.10
                     if (interv_i==1) & (i==3) & (sce=='RCP85'):
-                        ad = 2 + 0.75
+                        ad = posbas + 0.75 + 0.10
 
-                    posbas = 4 + 0.15
+                    posbas = 5
                     if (interv_i==2) & (i==0) & (sce=='RCP26'):
-                        ad = posbas - 0.90
+                        ad = posbas - 0.90 - 0.05
                     if (interv_i==2) & (i==0) & (sce=='RCP45'):
-                        ad = posbas - 0.75
+                        ad = posbas - 0.75 - 0.05
                     if (interv_i==2) & (i==0) & (sce=='RCP85'):
-                        ad = posbas - 0.60
+                        ad = posbas - 0.60 - 0.05
                     if (interv_i==2) & (i==1) & (sce=='RCP26'):
                         ad = posbas - 0.45
                     if (interv_i==2) & (i==1) & (sce=='RCP45'):
@@ -6083,23 +6422,30 @@ for ic, sce in enumerate(sce_list):
                     if (interv_i==2) & (i==1) & (sce=='RCP85'):
                         ad = posbas - 0.15
                     if (interv_i==2) & (i==2) & (sce=='RCP26'):
-                        ad = posbas + 0
+                        ad = posbas + 0 + 0.05
                     if (interv_i==2) & (i==2) & (sce=='RCP45'):
-                        ad = posbas + 0.15
+                        ad = posbas + 0.15 + 0.05
                     if (interv_i==2) & (i==2) & (sce=='RCP85'):
-                        ad = posbas + 0.30
+                        ad = posbas + 0.30 + 0.05
                     if (interv_i==2) & (i==3) & (sce=='RCP26'):
-                        ad = posbas + 0.45
+                        ad = posbas + 0.45 + 0.10
                     if (interv_i==2) & (i==3) & (sce=='RCP45'):
-                        ad = posbas + 0.60
+                        ad = posbas + 0.60 + 0.10
                     if (interv_i==2) & (i==3) & (sce=='RCP85'):
-                        ad = posbas + 0.75
+                        ad = posbas + 0.75 + 0.10
                                         
                     bp = ax.boxplot(d, widths=0.15,
                                     positions=[ad],
                                       whis=False, showfliers=False, showmeans=False, 
                                       medianprops=medianprops, meanprops=meanpointprops,
-                                      patch_artist=True, boxprops=boxprops)
+                                      patch_artist=True, boxprops=boxprops1)
+                    
+                    bp = ax.boxplot(d, widths=0.15,
+                                    positions=[ad],
+                                      whis=False, showfliers=False, showmeans=False, 
+                                      medianprops=medianprops, meanprops=meanpointprops,
+                                      patch_artist=True, boxprops=boxprops2)
+                    
                     for element in bp['whiskers']:
                         element.set_color('k')
                         element.set_linestyle('-')
@@ -6110,14 +6456,14 @@ for ic, sce in enumerate(sce_list):
                     ax.vlines(x=ad, 
                                 ymin=d.quantile(0.10), 
                                 ymax=d.quantile(0.25), color='k', zorder=2)
-                    ax.plot(ad, 
-                              d.quantile(0.10), color='k', zorder=2, lw=0,
-                              marker='_', mew=1)
-                    ax.plot(ad, 
-                              d.quantile(0.90), color='k', zorder=2, lw=0,
-                              marker='_', mew=1)
+                    # ax.plot(ad, 
+                    #           d.quantile(0.10), color='k', zorder=2, lw=0,
+                    #           marker='_', mew=1)
+                    # ax.plot(ad, 
+                    #           d.quantile(0.90), color='k', zorder=2, lw=0,
+                    #           marker='_', mew=1)
                       
-                    plt.plot(ad, d.mean(), marker='o', mec='k', ms=2.5, lw=0,
+                    plt.plot(ad, d.mean(), marker='o', mec='k', ms=2, lw=0,
                             mfc='k', mew=1,
                             color='k', zorder=1000)
                     
@@ -6145,11 +6491,17 @@ for ic, sce in enumerate(sce_list):
                     ax.set_yticks([-100,-75,-50,-25,0,25,50])
             
                     ax.axes.xaxis.set_ticklabels([])
+                    
+                    # ax.axhline(y=0, c='k', lw=1, ls='--', zorder=-1000)
             
             # ax.set_yscale('log')
 
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/05_fig_qproj/'+
+#             'BOXPLOT_OUTFLOW_PEATLANDS'+'.png',
+#                         bbox_inches='tight')
+
 fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/05_fig_qproj/'+
-            'BOXPLOT_OUTFLOW_PEATLANDS'+'.png',
+            'BOXPLOT_OUTFLOW_PEATLANDS'+'_7-8-9'+'.png',
                         bbox_inches='tight')
 
 #%% DAILY EVOLUTION DAYS INF Q10
@@ -6414,7 +6766,7 @@ for sce in sce_list:
                 'EVOL_DAYS_DRY-'+sce+'.png',
                             bbox_inches='tight')
 
-#%% EVOLUTION CILMAT EAU
+#%% EVOLUTION CILMAT EAU - OLD
  
 if 'all_proj_clim' not in globals():
     all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
@@ -6453,10 +6805,11 @@ for var in  [
             # 'SWE',
             #   'SNOWPROP',
             #   'PE',
-              'ETP',
-              # 'RUN',
-              # 'REC',
-              # 'SWI'
+            #    'ETP',
+            #    'RUN',
+            #    'REC',
+               # 'SWI',
+               'RECRUN'
              ]:
     
     all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
@@ -6474,6 +6827,8 @@ for var in  [
                 all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
             if var == 'PE':
                 all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
+            if var == 'RECRUN':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['REC'+'_'+mod+'_'+sce]) + (all_proj_mix['RUN'+'_'+mod+'_'+sce])
 
     fig, ax = plt.subplots(1,1, figsize=(10,4))
     
@@ -6582,7 +6937,7 @@ for var in  [
         #                 d75.resample('Y').mean().rolling(window=5).mean(),
         #                 color=dict_c[sce], alpha=0.25, ec='None')
         
-        if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE'):
+        if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
             ax.plot(d50.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
             ax.plot(dm.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
             ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
@@ -6615,12 +6970,236 @@ for var in  [
         ax.xaxis.set_minor_locator(monthsmaj)
         ax.xaxis.set_major_formatter(years_fmt)
         
+        # ax.axhline()
+        
         # ax.axhline(y=0, color='k', lw=1.5, ls='--')
-    
+        ax.axhline(y=0, color='k', lw=1, ls='-', zorder=+1000)
+
     fig.suptitle(var,fontsize=10)
     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
                 'EVOL_'+var+'-'+sce+'.png',
                             bbox_inches='tight')
+
+#%% EVOLUTION CILMAT EAU - NEW
+ 
+if 'all_proj_clim' not in globals():
+    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+sce_list = ['historic','RCP26','RCP45','RCP85']
+mod_list = ['MPI-CCL',
+            'ECE-RCA',
+            'ECE-RAC',
+            'CNR-RAC',
+            'CNR-ALA',
+            'MPI-R09']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list_ppt = ['MPI-CCL',
+                'ECE-RCA',
+                'MPI-R09']
+mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
+
+sce_list = ['historic','RCP26','RCP45','RCP85']
+col_list = ['dimgrey','dodgerblue','orange','red']
+col_list_b = ['k','navy','darkorange','darkred']
+dict_c = dict(zip(sce_list, col_list))
+dict_c_b = dict(zip(sce_list, col_list_b))
+
+sce_list = ['historic','RCP85']
+col_list = ['dimgrey','red']
+col_list_b = ['k','darkred']
+dict_c = dict(zip(sce_list, col_list))
+dict_c_b = dict(zip(sce_list, col_list_b))
+
+for var in  [
+            # 'TASM',
+            # 'PPTT',
+            # 'SNOW',
+            # 'PLIQ',
+            # 'SWE',
+            #   'SNOWPROP',
+            #   'PE',
+              # 'ETP',
+              # 'RUN',
+              # 'REC',
+              # 'SWI',
+              'RECRUN'
+             ]:
+    
+    all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
+    all_proj_mix = all_proj_mix.filter(regex=mod_keep)
+    
+    for mod in mod_list:
+        for sce in sce_list:
+            if var == 'PPTT':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOW':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOWPROP':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24) / (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PLIQ':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PE':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
+
+    fig, ax = plt.subplots(1,1, figsize=(10,4))
+    
+    for sce in sce_list:
+        
+        df = pd.DataFrame()
+        dproj = all_proj_mix.copy()
+        
+        if var == 'ETP':
+            var = 'ETP_'
+        
+        if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+            dproj = dproj.filter(regex=mod_keep_pptt).filter(regex=var)
+        else:
+            dproj = dproj.filter(regex=mod_keep).filter(regex=var)
+
+        # print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
+        # print('PPTT', sce, dproj['PPTT'+'_'+mod+'_'+sce].mean())
+        
+        if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE'):
+            dproj = dproj.resample('Y').mean().rolling(window=10).mean()
+        else:
+            dproj = dproj.resample('Y').sum().rolling(window=10).mean()
+
+        d_hist = dproj.filter(regex=var).filter(regex='historic')
+        d_hist = select_period(d_hist, 1975, 2004)
+        
+        d_tot = dproj.filter(regex=var).filter(regex=sce)
+        d_tot = select_period(d_tot, 1975, 2100)
+        
+        d_fut = dproj.filter(regex=var).filter(regex=sce)
+        d_fut = select_period(d_fut, 2004, 2100)
+        
+        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / ((d_fut.mean(axis=1) + d_hist.mean(axis=1).mean())/2)
+        
+        # if sce == 'historic':
+        #     d10 = (d_hist.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_hist.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_hist.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_hist.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())   
+        #     d90 = (d_hist.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
+        # else:
+        #     d10 = (d_fut.quantile(0.10,axis=1) - d_hist.quantile(0.10,axis=1).mean()) / (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_fut.quantile(0.25,axis=1) - d_hist.quantile(0.25,axis=1).mean()) / (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_fut.quantile(0.50,axis=1) - d_hist.quantile(0.50,axis=1).mean()) / (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_fut.quantile(0.75,axis=1) - d_hist.quantile(0.75,axis=1).mean()) / (d_hist.quantile(0.75,axis=1).mean())
+        #     d90 = (d_fut.quantile(0.90,axis=1) - d_hist.quantile(0.90,axis=1).mean()) / (d_hist.quantile(0.90,axis=1).mean())
+        
+        if sce == 'historic':
+            d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
+            d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
+            d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
+            d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())   
+            d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+            dm = d_hist.mean(axis=1) - d_hist.mean(axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+        else:
+            d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.quantile(0.10,axis=1).mean() #/ (d_hist.quantile(0.10,axis=1).mean())
+            d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.quantile(0.25,axis=1).mean() #/ (d_hist.quantile(0.25,axis=1).mean())
+            d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.quantile(0.50,axis=1).mean() #/ (d_hist.quantile(0.50,axis=1).mean())
+            d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.quantile(0.75,axis=1).mean() #/ (d_hist.quantile(0.75,axis=1).mean())
+            d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.quantile(0.90,axis=1).mean() #/ (d_hist.quantile(0.90,axis=1).mean())
+            dm = d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()
+            
+        # if sce == 'historic':
+        #     d10 = (d_hist.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_hist.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_hist.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_hist.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())   
+        #     d90 = (d_hist.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
+        # else:
+        #     d10 = (d_fut.quantile(0.10,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.10,axis=1).mean())
+        #     d25 = (d_fut.quantile(0.25,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.25,axis=1).mean())
+        #     d50 = (d_fut.quantile(0.50,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.50,axis=1).mean())
+        #     d75 = (d_fut.quantile(0.75,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.75,axis=1).mean())
+        #     d90 = (d_fut.quantile(0.90,axis=1)) - d_hist.mean(axis=1) #/ (d_hist.quantile(0.90,axis=1).mean())
+        
+        # d = (d_fut.mean(axis=1) - d_hist.mean(axis=1).mean()) / (d_hist.mean(axis=1).mean()
+        
+        # plt.plot(d25.resample('Y').mean())
+        # plt.plot(d50.resample('Y').mean())
+        # plt.plot(d75.resample('Y').mean())
+        # plt.ylim(-5,5)
+    
+        # d['MIN'] = d.filter(regex=sce).min(axis=1)
+        # d['Q5'] = d.filter(regex=sce).quantile(0.05, axis=1)
+        # d['Q10'] = d.filter(regex=sce).quantile(0.10, axis=1)
+        # d['Q25'] = d.filter(regex=sce).quantile(0.25, axis=1)
+        # d['MEAN'] = d.filter(regex=sce).mean(axis=1)
+        # d['MED'] = d.filter(regex=sce).median(axis=1)
+        # d['Q75'] = d.filter(regex=sce).quantile(0.75, axis=1)
+        # d['Q90'] = d.filter(regex=sce).quantile(0.90, axis=1)
+        # d['Q95'] = d.filter(regex=sce).quantile(0.95, axis=1)
+        # d['MAX'] = d.filter(regex=sce).max(axis=1)
+        # d = d.resample('Y').mean() #* 1000 * 365
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1])
+        # mean = select_period(d['MED'].copy(), per[0], per[1])
+        # low = select_period(d['Q75'].copy(), per[0], per[1])
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1]).rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1]).rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1]).rolling(window=5).mean()
+        
+        # high = select_period(d['Q25'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # mean = select_period(d['MED'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        # low = select_period(d['Q75'].copy(), per[0], per[1])#.rolling(window=5).mean()
+        
+        # ax.plot(d50.resample('Y').mean().rolling(window=5).mean(), c=dict_c_b[sce], lw=2)
+        # ax.fill_between(d50.resample('Y').mean().rolling(window=5).mean().index,
+        #                 d25.resample('Y').mean().rolling(window=5).mean(),
+        #                 d75.resample('Y').mean().rolling(window=5).mean(),
+        #                 color=dict_c[sce], alpha=0.25, ec='None')
+        
+        # if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE'):
+        #     ax.plot(d50.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
+        #     ax.plot(dm.resample('Y').mean().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
+        #     ax.fill_between(d50.resample('Y').mean().rolling(window=10).mean().index,
+        #                     d25.resample('Y').mean().rolling(window=10).mean(),
+        #                     d75.resample('Y').mean().rolling(window=10).mean(),
+        #                     color=dict_c[sce], alpha=0.25, ec='None')
+        # else:
+        #     ax.plot(d50.resample('Y').sum().rolling(window=10).mean(), c=dict_c_b[sce], lw=2)
+        #     ax.plot(dm.resample('Y').sum().rolling(window=10).mean(), c=dict_c_b[sce], lw=1)
+        #     ax.fill_between(d50.resample('Y').sum().rolling(window=10).mean().index,
+        #                     d25.resample('Y').sum().rolling(window=10).mean(),
+        #                     d75.resample('Y').sum().rolling(window=10).mean(),
+        #                     color=dict_c[sce], alpha=0.25, ec='None')
+        
+        ax.plot(d50, c=dict_c_b[sce], lw=2)
+        ax.plot(dm, c=dict_c_b[sce], lw=1)
+        ax.fill_between(d50.index,
+                        d25,
+                        d75,
+                        color=dict_c[sce], alpha=0.25, ec='None')
+
+        ax.set_axisbelow(True)
+        ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.set_xlim(pd.to_datetime('1975'), pd.to_datetime('2100'))
+        
+        # ax.axvline(pd.to_datetime('1980'), c='k', ls='--')
+        # ax.axvline(pd.to_datetime('2006'), c='k', ls='--')
+        # ax.axvline(pd.to_datetime('2010'), c='k', ls='--')
+        
+        # ax.set_ylim(80, 350)
+        
+        yearsmaj = mdates.YearLocator(10)   # every year
+        monthsmaj = mdates.MonthLocator(12)  # every month
+        years_fmt = mdates.DateFormatter('%Y')
+        ax.xaxis.set_major_locator(yearsmaj)
+        ax.xaxis.set_minor_locator(monthsmaj)
+        ax.xaxis.set_major_formatter(years_fmt)
+        
+        # ax.axhline(y=0, color='k', lw=1.5, ls='--')
+    
+    # fig.suptitle(var,fontsize=10)
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+    #             'EVOL_'+var+'-'+sce+'.png',
+    #                         bbox_inches='tight')
 
 #%% INTERMENSUAL CHANGES
 
@@ -6650,10 +7229,11 @@ for var in  [
             # 'SWE',
             #   'SNOWPROP',
             #   'PE',
-              'ETP',
-             #  'RUN',
-             # 'REC',
-             #  'SWI'
+            #    'ETP',
+            #    'RUN',
+            #    'REC',
+               # 'SWI',
+               'RECRUN'
              ]:
     
     all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
@@ -6671,9 +7251,11 @@ for var in  [
                 all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
             if var == 'PE':
                 all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
-                        
-    # fig, axs = plt.subplots(1,4,figsize=(17, 3), sharey=True)
-    fig, axs = plt.subplots(4,1,figsize=(4, 10), sharey=True, sharex=True)
+            if var == 'RECRUN':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['REC'+'_'+mod+'_'+sce]) + (all_proj_mix['RUN'+'_'+mod+'_'+sce])
+
+    fig, axs = plt.subplots(1,4,figsize=(17, 3), sharey=True)
+    # fig, axs = plt.subplots(4,1,figsize=(4, 10), sharey=True, sharex=True)
     axs=axs.ravel()
     # fig.add_subplot(111, frameon=False)
     # plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, 
@@ -6728,7 +7310,7 @@ for var in  [
             move['month'] = move.index.month
             
             need = move.copy()
-            if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE'):
+            if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
                 yearly = need.groupby([(need.index.month),(need.index.to_period("Y"))]).mean()
                 intm = df.resample('M').mean()#.groupby([lambda x: x.month]).mean()
             else:
@@ -6825,7 +7407,7 @@ for var in  [
     fig.tight_layout()
 
     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
-                'CHANG_'+var+'-'+sce+'.png',
+                'CHANG_'+var+'-'+sce+'_h'+'.png',
                             bbox_inches='tight')
 
 #%% CROSS MIN MAX
