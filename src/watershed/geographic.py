@@ -30,6 +30,7 @@ import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+# wbt.verbose = True
 
 # Root
 from os.path import dirname, abspath
