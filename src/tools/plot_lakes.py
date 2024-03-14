@@ -105,7 +105,7 @@ levels_dict['data']['val'] = levels_dict['data'].cheze
 #                       coords = coords_, epsg_coords = epsg_coords_, 
 #                       epsg_data = 2154)
 
-for run in ['5.8', '5.9', '6.0']:
+for run in ['6.0', '6.1']:
     name = f"Cheze_Dam_{run}"
     idx = int(run.replace('.', ''))
     
@@ -184,13 +184,13 @@ metric = 'volume' # user-defined
 
 [fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [results[metric]['data'],
                                                          # results[metric][58], # cheze_58
-                                                          results[metric][59], # cheze_59
-                                                         results[metric][60],
+                                                          results[metric][60], # cheze_59
+                                                         results[metric][61],
                                                          ],
                                            labels = ['mesures',
                                                      # "run 5.8 daily (thick = 30m | poro = 0.1% | K = 3.4e-5 m/s)",
-                                                     "run 5.9 weekly (thick = 30m | poro = 0.1% | K = 3.4e-5 m/s)",
-                                                     "run 60 weekly (thick = 45m | poro = 0.1% | K = 8e-5 m/s)",
+                                                     "run 60 weekly (weekly | thick = 45m | poro = 0.1% | K = 8e-5 m/s)",
+                                                     "run 61 weekly (weekly | thick = 45m | poro = 1% | K = 8e-5 m/s)",
                                                      ],
                                            
                                            color_map = color_map,
