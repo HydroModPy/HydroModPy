@@ -7570,6 +7570,651 @@ for watershed_name in watershed_names[:]:
                 
                 plt.tight_layout()
 
+#%% HYSTERESIS RESPONSE TIME
+
+col_list = ['k','dodgerblue','darkorange','red']
+sce_list = ['historic','RCP26','RCP45','RCP85']
+# sce_list = ['RCP2.6','RCP8.5']
+dict_scecol = dict(zip(sce_list, col_list))# sce_list = ['RCP85']
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask_grenou = imageio.imread(stable_folder+'subbasin/subbasin_Qgrenou/'+'watershed_dem.tif')
+dem_box = imageio.imread(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+area = BV.geographic.area
+area = int(round(area))
+
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+wbt.downslope_flowpath_length(
+    stable_folder+'geographic/'+'watershed_direc.tif', 
+    stable_folder+'geographic/'+'downslope_flowpath_length.tif', 
+    watersheds=None, 
+    weights=None, 
+    esri_pntr=False)
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length.tif')
+toolbox.export_tif(stable_folder+'geographic/'+'watershed_box_buff_dem.tif',
+                   down, -99999, stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+
+# fig, ax = plt.subplots(1, 1, figsize=(6,6))
+# fig, ax = plt.subplots(1,1, figsize=(4.5,4))
+# fig, ax = plt.subplots(1,1, figsize=(6,5))
+
+for ivar, var in enumerate(['total_areas', 'prop_ratio'][:]):
+# for ivar, var in enumerate(['prop_ratio'][:]):
+
+    if  ivar == 1:
+        figs, axs = plt.subplots(4,1, figsize=(4.5,13.5), sharex=True, sharey=False)
+    else:
+        figs, axs = plt.subplots(4,1, figsize=(4.5,13.5), sharex=True, sharey=False)
+    axs = axs.ravel()
+    
+    compt = 1
+    
+    for ic, sce in enumerate(sce_list):
+        years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+        # df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+        # df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+        
+        print(sce)
+        
+        for id_mod_val in list_id_mod[:]:
+            
+            if sce == 'historic':
+                h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+'RCP85'
+            else:
+                h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+            d = dd.io.load(h5file)
+            list_model_name = d['list_model_name'][:]
+            list_model_success = d['list_model_success'][:]
+            list_model_modflow = d['list_model_modflow'][:]
+            
+            for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                                list_model_success[:],
+                                                                list_model_modflow[:]):
+                
+                
+                
+                Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                                    index_col='date', parse_dates=True)
+                
+                for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qgrenou','subbasin_Qbombee']):
+                
+                    print(pzone)    
+                    ax = axs[pidx]
+                    # subbasin_Qlasset
+                    # subbasin_Qbreton
+                    # subbasin_Qgrenou
+                    # subbasin_Qbombee
+                    Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_subbasins/'+pzone+'/_simulated_timeseries.csv', sep=';',
+                                        index_col='date', parse_dates=True)
+                        
+                    # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                    Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+                    Smod['recharge'] = Smod['recharge'] #* 1000 * 30
+                    Smod['outflow_drain'] =  ( Smod['outflow_drain'] )  #+ Smod['runoff'] ) # * (area * 1e6)
+                    Smod['groundwater_storage'] = Smod['groundwater_storage']
+                    per = 1
+                    Smod['dQ'] = Smod['outflow_drain'].diff()
+                    Smod['dGW'] = Smod['groundwater_storage'].diff()
+                    Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / (Smod['outflow_drain']* (area * 1e6)).diff(periods=per)))
+                    # Smod['t'] = ((Smod['groundwater_storage'].diff(periods=per) / (Smod['outflow_drain']* (area * 1e6)).diff(periods=per)))
+                    Smod['t'][Smod['t']>1000] = np.nan
+                    
+                    
+                    if sce == 'historic':
+                        Smod = select_period(Smod, 1980, 2010)
+                    else:
+                        Smod = select_period(Smod, 2070, 2100)
+                    
+                    x = Smod['recharge'] * 1000 * 7
+                    # x = Smod['outflow_drain'] * 1000 * 7
+                    # x = Smod['t']
+                    y = Smod[var]
+                    # y = Smod['prop_ratio']
+                    c = Smod.index.month
+                    wy = pd.Series(x.index.month).replace([10,11,12,1,2,3,4,5,6,7,8,9],
+                                                            [1,2,3,4,5,6,7,8,9,10,11,12])
+                    xi = x.groupby([lambda x: x.month]).mean()
+                    yi = y.groupby([lambda y: y.month]).mean()
+                    
+                    xiq25 = x.groupby([lambda x: x.month]).quantile(0.25)
+                    yiq25 = y.groupby([lambda y: y.month]).quantile(0.25)
+                    
+                    xiq75 = x.groupby([lambda x: x.month]).quantile(0.75)
+                    yiq75 = y.groupby([lambda y: y.month]).quantile(0.75)
+                    
+                    # xi = x.groupby([lambda x: x.month]).median()
+                    # yi = y.groupby([lambda y: y.month]).median()
+                    # cmapping = mpl.colors.ListedColormap(dict_c[watershed_name])
+                    # cmapping = dict_cmap[watershed_name]
+                    
+                    # cmap = plt.cm.YlGnBu
+                    if sce == 'historic':
+                        cmap = 'Greys'
+                    if sce == 'RCP26':
+                        cmap = 'Blues'
+                    if sce == 'RCP45':
+                        cmap = 'Oranges'
+                    if sce == 'RCP85':
+                        cmap = 'Reds'
+                    # cmap = parula_map
+                    # cmaplist = [cmap(i) for i in range(cmap.N)]
+                    # if watershed_name == 'Canut':
+                    # cmaplist = ['limegreen','greenyellow']
+                    # if watershed_name == 'Nancon':
+                    #     cmaplist = ['tomato', 'lightsalmon']
+                    # cmaplist[0] = (.5, .5, .5, 1.0)
+                    # cmap = mpl.colors.LinearSegmentedColormap.from_list(
+                    #     'Custom cmap', cmaplist, cmap.N)
+                    
+                    # scat = ax.scatter(x, y, c=wy, cmap=cmap, marker="o", 
+                    #                   s=1, vmin=1, vmax=12, alpha=0.75, ec='none', zorder=-1)
+                    xiline = xi.append(xi.iloc[[0]])
+                    xiline.index = np.arange(1,14,1)
+                    yiline = yi.append(yi.iloc[[0]])
+                    yiline.index = np.arange(1,14,1)
+                    
+                    xilineq25 = xiq25.append(xiq25.iloc[[0]])
+                    xilineq25.index = np.arange(1,14,1)
+                    yilineq25 = yiq25.append(yiq25.iloc[[0]])
+                    yilineq25.index = np.arange(1,14,1)                    
+                    
+                    xilineq75 = xiq75.append(xiq75.iloc[[0]])
+                    xilineq75.index = np.arange(1,14,1)
+                    yilineq75 = yiq75.append(yiq75.iloc[[0]])
+                    yilineq75.index = np.arange(1,14,1)                  
+                    
+                    # ax.fill_between(xiline, yilineq25, yilineq75, lw=0,
+                    #                  interpolate=False,
+                    #                 color=dict_scecol[sce], alpha=0.25)
+                    
+                    # ax.plot(xi, yiq25, linestyle = '-', lw=0.5, 
+                    #         color=dict_scecol[sce], zorder=0)
+                    # ax.plot(xi, yiq75, linestyle = '-', lw=0.5, 
+                    #         color=dict_scecol[sce], zorder=0)
+                    
+                    ax.plot(xiline, yiline, linestyle = '-', lw=2, 
+                            color=dict_scecol[sce], zorder=compt)
+                    wyi = np.arange(1,12+1,1)
+                    # compt = 1
+                    for k in wyi:
+                        ax.plot(xi[k], yi[k], marker="o", lw=1, markersize=8.5, 
+                                   markeredgecolor=dict_scecol[sce], 
+                                   markerfacecolor='white', markeredgewidth=1.2,
+                                   linestyle = 'None', zorder=compt)
+                        ax.annotate(k,(xi[k],yi[k]), family='sans-serif', fontsize=5.5, 
+                                color=dict_scecol[sce], weight="bold", ha='center', va='center',
+                                zorder=compt)
+                        compt+=1
+                    xe = pd.DataFrame()
+                    xe['q25'] = (x.groupby(x.index.month).quantile(0.25))
+                    xe['q75'] = (x.groupby(x.index.month).quantile(0.75))        
+                    ye = pd.DataFrame()
+                    ye['q25'] = (y.groupby(y.index.month).quantile(0.25))
+                    ye['q75'] = (y.groupby(y.index.month).quantile(0.75))                
+                    ax.errorbar(xi, yi,
+                                  yerr=np.abs(np.vstack([yi-ye.q25, ye.q75-yi])),
+                                  # xerr=np.abs(np.vstack([xi-xe.q25, xe.q75-xi])),
+                                  ecolor = dict_scecol[sce], fmt = 'none', capsize = 1,
+                                  elinewidth=0.5, 
+                                  capthick=0, zorder=-1000)               
+                    # ax.errorbar(xi, yi,
+                    #               yerr=np.abs(np.vstack([yi-ye.q25, yi+ye.q25])),
+                    #               xerr=np.abs(np.vstack([xi-xe.q25, xi+xe.q25])),
+                    #               ecolor = dict_scecol[sce], fmt = 'none', capsize = 1, elinewidth=0.5, 
+                    #               capthick=0.5, zorder=-1000)  
+                    
+                    ax.grid(alpha=0.5)
+                    
+                    # ax.axvline(x.median(), c=dict_c[watershed_name], ls='--')
+                    # ax.axhline(y.median(), c=dict_c[watershed_name], ls='--')
+                    
+                    ax.set_xscale('log')
+                    # ax.set_yscale('log')
+                    
+                    if pidx==3:
+                        ax.set_xlabel('R [mm/week]')
+                    if ivar ==0:
+                        ax.set_ylabel('$A_{sat}$ [%]')
+                    else:
+                        ax.set_ylabel('$A_{int}$ / $A_{sat}$ [-]')
+                    
+                    # ax.set_xlim(0.7,100)
+                    # ax.set_ylim(0,25)
+                
+    figs.tight_layout()
+    
+    # figs.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/06_fig_hyster/'+
+    #             'HYSTER_'+var+'.png',
+    #                         bbox_inches='tight')
+
+#%% INTERMENSUAL RESPONSE TIME
+
+col_list = ['k','dodgerblue','darkorange','red']
+sce_list = ['historic','RCP26','RCP45','RCP85']
+# sce_list = ['RCP2.6','RCP8.5']
+dict_scecol = dict(zip(sce_list, col_list))# sce_list = ['RCP85']
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask_grenou = imageio.imread(stable_folder+'subbasin/subbasin_Qgrenou/'+'watershed_dem.tif')
+dem_box = imageio.imread(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+area = BV.geographic.area
+area = int(round(area))
+
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+wbt.downslope_flowpath_length(
+    stable_folder+'geographic/'+'watershed_direc.tif', 
+    stable_folder+'geographic/'+'downslope_flowpath_length.tif', 
+    watersheds=None, 
+    weights=None, 
+    esri_pntr=False)
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length.tif')
+toolbox.export_tif(stable_folder+'geographic/'+'watershed_box_buff_dem.tif',
+                   down, -99999, stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+
+# fig, ax = plt.subplots(1, 1, figsize=(6,6))
+# fig, ax = plt.subplots(1,1, figsize=(5.5,3.5))
+# fig, ax = plt.subplots(1,1, figsize=(6,5))
+
+
+for ivar, var in enumerate(['t'][:]):
+    
+    # if  ivar == 1:
+    #     figs, axs = plt.subplots(4,1, figsize=(4.5,13.5), sharex=True, sharey=False)
+    # else:
+    figs, axs = plt.subplots(4,1, figsize=(4.5,13.5), sharex=True, sharey=False)
+    axs = axs.ravel()
+    
+    compt = 1
+
+    for ic, sce in enumerate(sce_list):
+        years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+        # df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+        # df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+        
+        print(sce)
+        
+        for id_mod_val in list_id_mod[:]:
+            
+            if sce == 'historic':
+                h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+'RCP85'
+            else:
+                h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+            d = dd.io.load(h5file)
+            list_model_name = d['list_model_name'][:]
+            list_model_success = d['list_model_success'][:]
+            list_model_modflow = d['list_model_modflow'][:]
+            
+            for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                                list_model_success[:],
+                                                                list_model_modflow[:]):
+                
+                Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                                    index_col='date', parse_dates=True)
+                
+                for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qgrenou','subbasin_Qbombee']):
+                
+                    print(pzone)    
+                    ax = axs[pidx]
+               
+                    # subbasin_Qbreton
+                    # subbasin_Qgrenou
+                    # subbasin_Qbombee
+                    Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_subbasins/'+pzone+'/_simulated_timeseries.csv', sep=';',
+                                        index_col='date', parse_dates=True)
+                        
+                    # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                    Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+                    Smod['recharge'] = Smod['recharge'] #* 1000 * 30
+                    Smod['outflow_drain'] =  ( Smod['outflow_drain'] )  #+ Smod['runoff'] ) # * (area * 1e6)
+                    Smod['groundwater_storage'] = Smod['groundwater_storage']
+                    per = 1
+                    Smod['dQ'] = Smod['outflow_drain'].diff()
+                    Smod['dGW'] = Smod['groundwater_storage'].diff()
+                    Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / (Smod['outflow_drain']* (area * 1e6)).diff(periods=per)))
+                    # Smod['t'] = ((Smod['groundwater_storage'].diff(periods=per) / (Smod['outflow_drain']* (area * 1e6)).diff(periods=per)))
+                    Smod['t'][Smod['t']>1000] = np.nan
+        
+                    if sce == 'historic':
+                        Smod = select_period(Smod, 1980,2010)
+                    else:
+                        Smod = select_period(Smod, 2070, 2100)
+        
+                    data_index =  Smod[var].copy()
+        
+                    mean_mensual = data_index.resample('M').mean() # mensual mean
+                    mean_annual = data_index.resample('Y').mean() # annual mean
+                    Mean = round(data_index.mean(),2)
+                    Mean = data_index.mean()
+                    Min = data_index.resample('Y').min()
+                    Q10 = data_index.resample('Y').quantile(0.10)
+                    Q25 = data_index.resample('Y').quantile(0.25)
+                    Q50 = data_index.resample('Y').quantile(0.50)
+                    Q75 = data_index.resample('Y').quantile(0.75)
+                    Q90 = data_index.resample('Y').quantile(0.90)
+                    print(Q10.min())
+                    print(Q90.mean())
+                    Max = data_index.resample('Y').max()
+                    mean_interan_days = data_index.groupby([data_index.index.month], as_index=True).mean().to_frame()
+                    
+                    std_interan_days = data_index.groupby([data_index.index.month], as_index=True).std()
+                    q10_interan_days = data_index.groupby([data_index.index.month], as_index=True).min()
+                    q90_interan_days = data_index.groupby([data_index.index.month], as_index=True).max()
+                    q50_interan_days = data_index.groupby([data_index.index.month], as_index=True).quantile(0.50)
+                    q25_interan_days = data_index.groupby([data_index.index.month], as_index=True).quantile(0.25)
+                    q75_interan_days = data_index.groupby([data_index.index.month], as_index=True).quantile(0.75)
+                    themean = data_index.groupby([data_index.index.month], as_index=True).mean()
+                    mean_interan_days['std'] = std_interan_days
+                    mean_interan_days['q10'] = q10_interan_days
+                    mean_interan_days['q90'] = q90_interan_days
+                    mean_interan_days['q50'] = q50_interan_days
+                    mean_interan_days['q75'] = q75_interan_days
+                    mean_interan_days['q25'] = q25_interan_days
+                    mean_interan_days['mean'] = themean
+                    mean_interan_days.index.names = ['months']
+                    mean_interan_days = mean_interan_days.reset_index()
+                    # mean_interan_days.months = mean_interan_days.months.replace(
+                    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
+                    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
+                    mean_interan_days = mean_interan_days.sort_values(['months'])
+                    
+                    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+                    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
+                    
+                    # fig, ax = plt.subplots(figsize=(4,3))
+                    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
+                    #         lw=1, color='red', label='Mean')
+                    ax.plot(mean_interan_days.index, mean_interan_days.q50,
+                            lw=2,
+                            # color=couleurs[i],
+                            color=dict_scecol[sce],
+                            label=Qobs_name)
+                    # ax.plot(mean_interan_days.index, mean_interan_days['mean'],
+                    #         lw=0.5,
+                    #         # color=couleurs[i],
+                    #         color=dict_scecol[sce],
+                    #         label=Qobs_name)
+                    # ax.plot(mean_interan_days.counts, mean_interan_days['mean'],
+                    #         lw=0.5,
+                    #         # color=couleurs[i],
+                    #         color=dict_scecol[sce],
+                    #         label=Qobs_name)
+                    yerrmax = mean_interan_days.q75
+                    yerrmin = mean_interan_days.q25
+                    # ax.legend('upper right')
+                    # ax.fill_between(mean_interan_days.index, yerrmin, yerrmax,
+                    #                   color=dict_scecol[sce],edgecolor='None',
+                    #                   alpha = 0.1, label='10-90th')
+                    
+                    # ax.plot(data_index[data_index.index.year==2022], c='k')
+                    
+                    # ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+                    #                   color='grey',edgecolor='grey', lw=0.5,
+                    #                   alpha = 0.5, label='10-90th')
+                    
+                    ax.grid(alpha=0.5)
+                    
+                    # plt.yscale('log')
+                    # ax.yaxis.set_major_formatter(ScalarFormatter())
+                    # ax.set_xlim(0,366)
+                    # if i == 0:
+                    #     ax.set_ylim(-10,20)
+                    # if i == 1:
+                    #     ax.set_ylim(0,10)
+                    # if i == 2:
+                    #     ax.set_ylim(0,10) 
+                    # if i == 3:
+                    #     ax.set_ylim(0,10) 
+                    # if i == 4:
+                    #     ax.set_ylim(0,10) 
+                    # if i == 5:
+                    #     ax.set_ylim(0,10) 
+                    # ax.set_ylim(0.01,10)
+                    ax.tick_params(axis='both', which='major', pad=10)
+                    # x1 = np.linspace(0,366,13)
+                    x2 = np.array([0,1,2,3,4,5,6,7,8,9,10,11])
+                    squad = ['J','F','M','A','M','J','J','A','S','O','N','D']
+                    ax.set_xticks(x2)
+                    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+                    # if i == 2:
+                    if pidx==3:
+                        ax.set_xlabel('Months', labelpad=+10)
+                    if i ==0:
+                        ax.set_ylabel('$t_{r}$ [d]')
+                    ax.set_xlim(0,11)
+                    # ax.set_title('S'+str(i+1))
+                    # ax.legend(loc='upper right', frameon=False)
+                    # if i==0:
+                    #     ax.set_ylim(0,)
+                    # if i==1:
+                    #     ax.set_ylim(0,2)
+                    # ax.set_ylim(1e-1,100)
+                    # ax.set_yscale('log')
+                    # ax.set_ylim(0,15)
+                    
+                    wyi = np.arange(0,12,1)
+                    # compt = 1
+                    
+                    ax.plot(mean_interan_days.index, mean_interan_days.q50, marker="o", lw=1, markersize=8.5, 
+                               markeredgecolor=dict_scecol[sce], 
+                               markerfacecolor='white', markeredgewidth=1.2,
+                               linestyle = 'None', zorder=compt, clip_on=False)
+                    for k in wyi:
+                        ax.annotate(k+1,(mean_interan_days.index[k],mean_interan_days.q50[k]), family='sans-serif', fontsize=5.5, 
+                            color=dict_scecol[sce], weight="bold", ha='center', va='center',
+                            zorder=compt, clip_on=False)
+                    compt+=1
+
+figs.tight_layout()
+
+figs.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/06_fig_hyster/'+
+            'INTM_RESP_'+var+'.png',
+                        bbox_inches='tight')
+
+#%% BOXPLOT RESPONSE TIME
+
+col_list = ['k','dodgerblue','darkorange','red']
+sce_list = ['historic','RCP26','RCP45','RCP85']
+# sce_list = ['RCP2.6','RCP8.5']
+dict_scecol = dict(zip(sce_list, col_list))# sce_list = ['RCP85']
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+color = 'k'
+BV = watershed_root.Watershed(watershed_name=watershed_name,
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask_grenou = imageio.imread(stable_folder+'subbasin/subbasin_Qgrenou/'+'watershed_dem.tif')
+dem_box = imageio.imread(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+area = BV.geographic.area
+area = int(round(area))
+
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+wbt.downslope_flowpath_length(
+    stable_folder+'geographic/'+'watershed_direc.tif', 
+    stable_folder+'geographic/'+'downslope_flowpath_length.tif', 
+    watersheds=None, 
+    weights=None, 
+    esri_pntr=False)
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length.tif')
+toolbox.export_tif(stable_folder+'geographic/'+'watershed_box_buff_dem.tif',
+                   down, -99999, stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+down = imageio.imread(stable_folder+'geographic/'+'downslope_flowpath_length_box.tif')
+
+# fig, ax = plt.subplots(1, 1, figsize=(6,6))
+# fig, ax = plt.subplots(1,1, figsize=(5.5,3.5))
+# fig, ax = plt.subplots(1,1, figsize=(6,5))
+
+
+for ivar, var in enumerate(['t'][:]):
+    
+    # if  ivar == 1:
+    #     figs, axs = plt.subplots(4,1, figsize=(4.5,13.5), sharex=True, sharey=False)
+    # else:
+    figs, axs = plt.subplots(4,1, figsize=(2.5,13.5), sharex=True, sharey=False)
+    axs = axs.ravel()
+    
+    compt = 1
+
+    for ic, sce in enumerate(sce_list):
+        years = pd.date_range(start='01/01/1975', end='31/12/2099', freq='M').year.unique()
+        # df_yearly = pd.DataFrame(np.nan, index=Smod.index, columns=years)
+        # df_pi = pd.DataFrame(np.nan, index=range(len(mask.flatten())), columns=years)
+        
+        print(sce)
+        
+        for id_mod_val in list_id_mod[:]:
+            
+            if sce == 'historic':
+                h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+'RCP85'
+            else:
+                h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+            d = dd.io.load(h5file)
+            list_model_name = d['list_model_name'][:]
+            list_model_success = d['list_model_success'][:]
+            list_model_modflow = d['list_model_modflow'][:]
+            
+            for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                                list_model_success[:],
+                                                                list_model_modflow[:]):
+                
+                Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                                    index_col='date', parse_dates=True)
+                
+                for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qgrenou','subbasin_Qbombee']):
+                
+                    print(pzone)    
+                    ax = axs[pidx]
+               
+                    # subbasin_Qbreton
+                    # subbasin_Qgrenou
+                    # subbasin_Qbombee
+                    Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_subbasins/'+pzone+'/_simulated_timeseries.csv', sep=';',
+                                        index_col='date', parse_dates=True)
+                        
+                    # Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                    Smod['prop_ratio'] = Smod.intermit_areas / Smod.total_areas
+                    Smod['recharge'] = Smod['recharge'] #* 1000 * 30
+                    Smod['outflow_drain'] =  ( Smod['outflow_drain'] )  #+ Smod['runoff'] ) # * (area * 1e6)
+                    Smod['groundwater_storage'] = Smod['groundwater_storage']
+                    per = 1
+                    Smod['dQ'] = Smod['outflow_drain'].diff()
+                    Smod['dGW'] = Smod['groundwater_storage'].diff()
+                    Smod['t'] = abs((Smod['groundwater_storage'].diff(periods=per) / (Smod['outflow_drain']* (area * 1e6)).diff(periods=per)))
+                    # Smod['t'] = ((Smod['groundwater_storage'].diff(periods=per) / (Smod['outflow_drain']* (area * 1e6)).diff(periods=per)))
+                    Smod['t'][Smod['t']>1000] = np.nan
+        
+                    if sce == 'historic':
+                        Smod = select_period(Smod, 1980,2010)
+                    else:
+                        Smod = select_period(Smod, 2070, 2100)
+            
+                    # ax.plot(Smod['t'].resample('Y').mean().rolling(10).mean(), color=dict_scecol[sce])
+                    # ax.scatter(Smod['t'], Smod['intermit_areas']/Smod['total_areas'],  color=dict_scecol[sce], s=1)
+                    # ax.boxplot(1, Smod['t'])
+        
+                    # ax.set_yscale('log')
+                    # ax.set_xlim(0,1000)
+                    # ax.set_xscale('log')
+                    
+                    boxprops1 = dict(linestyle='-', linewidth=0, color='black',
+                                    facecolor=dict_scecol[sce],
+                                    alpha=0.7,
+                                    edgecolor='k'
+                                    )
+                    boxprops2 = dict(linestyle='-', linewidth=1.5, color='black',
+                                    facecolor='None',
+                                    alpha=1,
+                                    edgecolor='k',
+                                    )
+                    medianprops = dict(linestyle='-', linewidth=1.5, color='black')
+                    meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
+                                          markerfacecolor='k', linestyle='-')
+                    
+                    if sce == 'historic':
+                        ad = 0.30-0.10
+                    if sce == 'RCP26':
+                        ad = 0.45-0.05
+                    if sce == 'RCP45':
+                        ad = 0.60
+                    if sce == 'RCP85':
+                        ad = 0.75+0.05
+                    
+                    fil = Smod['t'][~np.isnan(Smod['t'])]
+                    bp = ax.boxplot(fil, widths=0.15,
+                                    positions=[ad],
+                                      whis=False, showfliers=False, showmeans=False, 
+                                      medianprops=medianprops, meanprops=meanpointprops,
+                                      patch_artist=True, boxprops=boxprops1)
+                    bp = ax.boxplot(fil, widths=0.15,
+                                    positions=[ad],
+                                      whis=False, showfliers=False, showmeans=False, 
+                                      medianprops=medianprops, meanprops=meanpointprops,
+                                      patch_artist=True, boxprops=boxprops2)
+                    
+                    for element in bp['whiskers']:
+                        element.set_color('k')
+                        element.set_linestyle('-')
+                                        
+                    ax.vlines(x=ad, 
+                                ymin=fil.quantile(0.75), 
+                                ymax=fil.quantile(0.90), color='k', zorder=2)
+                    ax.vlines(x=ad, 
+                                ymin=fil.quantile(0.10), 
+                                ymax=fil.quantile(0.25), color='k', zorder=2)
+                    # ax.plot(ad, 
+                    #           d.quantile(0.10), color='k', zorder=2, lw=0,
+                    #           marker='_', mew=1)
+                    # ax.plot(ad, 
+                    #           d.quantile(0.90), color='k', zorder=2, lw=0,
+                    #           marker='_', mew=1)
+                      
+                    # ax.plot(ad, fil.mean(), marker='o', mec='k', ms=3, lw=0,
+                    #         mfc='k', mew=1,
+                    #         color='k', zorder=1000)
+                    
+                    if i ==0:
+                        ax.set_ylabel('$t_{r}$ [d]')
+                    ax.set_xlim(-0,1)
+                    if pidx ==3:
+                        ax.set_xlabel('XXX')
+                            
+                    ax.grid(alpha=0.5)
+                    
+ax.set_xticklabels(ax.get_xticks().round(2))
+
+figs.tight_layout()
+
+figs.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/06_fig_hyster/'+
+            'BOXP_RESP_'+var+'.png',
+                        bbox_inches='tight')
+
 #%% ---- BULK PROJECTIONS PLOT
 
 #%% PI ALTITUDE
