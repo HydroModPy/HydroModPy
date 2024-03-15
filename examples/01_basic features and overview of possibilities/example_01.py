@@ -66,7 +66,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
+example_path = root_dir + "/examples/01_basic features and overview of possibilities/"
 data_path = example_path + "data/"
 out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
@@ -151,8 +151,8 @@ if from_dem == None:
     BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
     BV.add_hydrography(data_path, types_obs=['regional stream network'], fields_obs=['fid'])
     BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    BV.add_intermittency(data_path, 'regional onde stations.shp')
-    BV.add_piezometry()
+    # BV.add_intermittency(data_path, 'regional onde stations.shp')
+    # BV.add_piezometry()
 
     # Extract some subbasin from data available above
     #BV.add_subbasin(data_path+'additional/', 200)
@@ -171,12 +171,14 @@ visualization_watershed.watershed_dem(BV)
 BV.add_climatic()
 
 # Different cases of recharge implementation
-recharge_data = 'reanalysis'
-recharge_data = 'explore1'
-recharge_data = 'explore2'
-recharge_data = 'synthetic'
+
+# recharge_data = 'reanalysis'
+# recharge_data = 'explore1'
+# recharge_data = 'explore2'
+# recharge_data = 'synthetic'
 recharge_data = 'manual'
 # recharge_data = 'raster'
+# recharge_data = 'evapotranspiration'
 
 if recharge_data == 'reanalysis':
     BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
@@ -307,6 +309,18 @@ if recharge_data == 'raster':
     fig, ax = plt.subplots(1,1, figsize=(6,3))
     ax.imshow(R[0])
 
+if recharge_data == 'evapotranspiration':
+    
+    time_series = pd.Series([10,20,30,-20,-100,-40,20,50,40,30,20,10]) # mm/month
+    BV.climatic.update_recharge(time_series, sim_state='transient')
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    R = BV.climatic.recharge / 1000 / 30
+    r = R
+    ax.plot(R, label='effective precipitation_manual', c='dodgerblue', lw=2)
+    ax.set_xlabel('Months')
+    ax.set_ylabel('[mm/month]')
+    ax.legend()
+
 #%% ---- PARAMETRIZATION
 
 #%% DEFINE
@@ -436,6 +450,13 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 
 #%% ---- PLOT
 
+#%% CHRONICS
+
+# fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+# csv = pd.read_csv(simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv',
+#                   sep=';')
+# ax.plot(csv['outflow_drain'])
+
 #%% 2D
 
 # if sim_state == 'steady':
@@ -458,9 +479,9 @@ if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
     visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
-                                                 'surface_flow',
-                                                 'drain_flow',
-                                                 'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
+                                                  'surface_flow',
+                                                  'drain_flow',
+                                                  'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
 
 #%% RAW
 

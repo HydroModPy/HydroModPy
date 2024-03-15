@@ -488,9 +488,14 @@ class Modflow:
                         else:
                             self.evtData[kper] = self.evt[kper]
                 # expd = self.thick : ETP can take water all over the aquifer thickness
-                self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
-                                                    evtr=self.evtData, 
-                                                    surf=0, exdp=self.thick)
+                self.evt = flopy.modflow.ModflowEvt(self.mf,
+                                                    evtr=self.evtData,
+                                                    surf = self.dem,
+                                                    nevtop = 1, # default: 1 (top), 2 (layer), 3 (highest active)
+                                                    exdp = 10, # default: 1 (from surf normally)
+                                                    ievt = 1, # default: 1 (if layer)
+                                                    ipakcb = 1 # default: 0 
+                                                    )
                 # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
                 if not isinstance(self.climatic,(int,float)):
                     self.climatic[self.climatic<0] = 0

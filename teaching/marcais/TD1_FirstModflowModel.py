@@ -1,0 +1,326 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# <h1><center>TD1 - Notebook 2 : Run your first Modflow model </center></h1>
+
+# ### 1. Load Hydromodpy librairies 
+
+# In[1]:
+
+
+# Libraries installed by default
+import sys
+import os
+import warnings
+warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", message=".* .*", category=DeprecationWarning)
+# Libraries need to be installed if not
+import pandas as pd
+# Libraries added from 'conda install' procedure
+import matplotlib.pyplot as plt
+# Libraries installed from the pip procedure
+import imageio
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = False
+
+
+# ### 2. Complete your personal paths where hydromodpy sources are
+
+# In[3]:
+
+
+# Fill in the directory where Hydromodpy codes are
+# root_dir = '/home/jean.marcais/Modeles/hydromodpy/HydroModpy'
+root_dir = 'D:/Users/abherve/GITHUB/HydroModPy-0.1/'
+# Add to the path the Hydromodpy directory to recognize HydroModpy functions, classes, etc.
+sys.path.append(root_dir)
+# Define the directory where the notebook is stored as the current working directory
+cwd = os.getcwd()
+if not cwd == root_dir:
+    os.chdir(root_dir)
+    print("Root path directory is: {0}".format(cwd))
+
+
+# ##### Import the hydromodpy source files 
+
+# In[4]:
+
+
+import src # import the folder src from HydroModpy codes
+import importlib # 
+importlib.reload(src)
+# import all the classes necessary to extract the watershed from Hydromodpy source files.
+from src import watershed_root
+from src.display import visualization_results
+from src.tools import toolbox
+fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+
+# ##### Complete the paths where data are
+
+# In[5]:
+
+
+# complete the data paths
+teaching_path = root_dir + "/teaching/"
+data_path = teaching_path + "/data/"
+# complete where modflow sources are
+modflow_path = os.path.join(root_dir,'bin/')
+#
+watershed_name = 'Glueyre'
+
+
+# ### 3. Load the former watershed object
+
+# ##### Complete the folder directory where data will be stored
+
+# In[6]:
+
+
+# out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
+out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+
+
+# ##### Extract watershed contour from the watershed object created in TD1
+
+# In[9]:
+
+
+print('##### '+watershed_name.upper()+' #####')
+load=True
+BV = watershed_root.Watershed(dem_path='',
+                              out_path=out_path,
+                              load=load,
+                              watershed_name=watershed_name,
+                              save_object=False)
+
+
+# ### 4. Extract the climate forcing data of the catchment
+
+# Initialize the climatic module and fill in with the climate data stored in your data folder
+
+# In[18]:
+
+
+BV.add_climatic()
+BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS_mperday.csv',
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=1990,
+                                       last_year=2019,
+                                       time_step='D',
+                                       sim_state='transient')
+BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS_mperday.csv',
+                                     clim_mod='REA',
+                                     clim_sce='historic',
+                                     first_year=1990,
+                                     last_year=2019,
+                                     time_step='D',
+                                     sim_state='transient')
+
+
+# Visualize the climatic data available
+
+# In[19]:
+
+
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+R = BV.climatic.recharge.resample('Y').sum()*1000
+r = BV.climatic.runoff.resample('Y').sum()*1000
+ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
+ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
+ax.set_xlabel('Date')
+ax.set_ylabel('[mm/year]')
+ax.legend()
+
+
+# In[21]:
+
+
+#BV.climatic.set_steady_recharge() # already done in modflow.py depending on sim_state variable
+#BV.climatic.set_steady_runoff()
+
+
+# <em> These data consists of two time series extracted from Meteo France reanalysis and land surface model able to generate runoff and drain time series at 8x8 grid scale over France. Runoff time series represent the infiltration excess and saturation excess overland flow generated by the model. Drain time series represent the potential recharge time series occuring on this grid scale.</em>
+
+# In[22]:
+
+
+box = True # or False
+sink_fill = False # or True
+sim_state = 'transient' # 'steady' or 'transient'
+#sim_state = 'steady' # 'steady' or 'transient'
+plot_cross = False
+first_clim = 'mean'
+
+
+# In[23]:
+
+
+nlay = 1
+lay_decay = 1 # 1 for no decay
+bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+thick = 50 # if bottom is None, aquifer thickness
+cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+verti_cond = None # or [ [1e-5, [0, 20]],
+                  #      [1e-6, [20,80]] ]
+cond_drain = None # or value of conductance
+
+poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+
+
+# In[24]:
+
+
+bc_left = None # or value
+bc_right = None # or value
+sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+
+
+# In[25]:
+
+
+BV.add_settings()
+BV.add_geometric() # soon
+BV.add_hydraulic()
+
+BV.settings.update_box_model(box)
+BV.settings.update_sink_fill(sink_fill)
+BV.settings.update_simulation_state(sim_state)
+BV.settings.update_active_plot(plot_cross=plot_cross)
+
+BV.climatic.update_first_clim(first_clim)
+
+BV.hydraulic.update_nlay(nlay) # 1
+BV.hydraulic.update_lay_decay(lay_decay) # 1
+BV.hydraulic.update_bottom(bottom) # None
+BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+
+BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_cond_drain(cond_drain)
+BV.hydraulic.update_lay_decay(poro_decay)
+
+BV.settings.update_bc_sides(bc_left, bc_right)
+BV.add_oceanic(sea_level)
+
+
+# Explore parametrizations effect on the water table level
+
+# In[30]:
+
+
+porosity = 10 / 100 # -
+hyd_cond = 1e-5 * 24 * 3600 # similar unit as the recharge [m/day]
+recharge_values = toolbox.select_period(BV.climatic.recharge, 2000, 2000) # in m/day
+BV.climatic.update_recharge(recharge_values[:7], sim_state='transient')
+print(BV.climatic.recharge)
+BV.hydraulic.update_porosity(porosity)
+BV.hydraulic.update_hyd_cond(hyd_cond)
+
+
+# In[32]:
+
+
+set_simulations = 'parametrization_exploration'
+
+list_model_name = []
+list_success_modflow = []
+list_model_modflow = []
+
+
+# In[33]:
+
+
+model_name = set_simulations+'_k_'+str(round(hyd_cond,3))+'_porosity_'+str(round(porosity,2))+'_rech_'+str(round(recharge_values.mean(),2))
+BV.settings.update_model_name(model_name)
+print(model_name)
+
+model_modflow = BV.preprocessing_modflow(for_calib=False)
+success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+if success_modflow == True:
+    BV.postprocessing_modflow(model_modflow,
+                              watertable_elevation = True,
+                              watertable_depth= True, 
+                              seepage_areas = True,
+                              outflow_drain = True,
+                              groundwater_flux = True,
+                              groundwater_storage = True,
+                              accumulation_flux = True,
+                              persistency_index=False,
+                              intermittency_monthly=False,
+                              intermittency_daily=False,
+                              export_all_tif = False)
+
+list_model_name.append(model_name)
+list_success_modflow.append(success_modflow)
+list_model_modflow.append(model_modflow)
+
+
+# Simulations results are saved in your hydromodpy out_path in the results_simulation folder. You can also load the raster generated in Qgis and explore the effect of the recharge and of the hydraulic parametrization (porosity, hydraulic conductivity).
+
+# What is the effect of k ?
+# What is the effect of the porosity ?
+# What is the effect of the recharge ?
+# 
+# Considering that the recharge is known and well constrained by the recharge data provided by Meteo France services, which parameter can be estimated ? Which observable would you use to do so ? 
+# Considering the outflow_drain raster correspond to permanent positions where the water table outcrops and where the aquifer provides water to the surface, try to find the best k that enables to match outflow_drain maps with observable river reaches.
+
+# In[35]:
+
+
+dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif') # dem data
+stream_data = imageio.imread(stable_folder+'/hydrography/'+'cours_eau_V.tif') # river data
+watertable_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
+interactive = True # problem of visuqlization windows, to large in a little PC screen
+visu = visualization_results.Visualization(BV, model_name)
+visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
+
+
+# In[36]:
+
+
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid',
+                             'watertable', 'watertable_depth',
+                             #'drain_flow','surface_flow',
+                             #'pathlines', 'residence_times'
+                             ],
+              color_scale = [(None,None),(None,None),
+                             (None,None),(0,10),
+                             #(None,None),(None,None),
+                             #(None,None),(None,None),
+                             ], 
+              lines=100)
+
+
+# Explore the effects of changing parametrization and incoming fluxes on the water table
+
+# In[37]:
+
+
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath=None,
+                                                  actual_date=True, 
+                                                  subbasin_results=False,
+                                                  freq_time='D')
+
+
+# In[38]:
+
+
+timeseries = pd.read_csv(simulations_folder+model_name+'/_postprocess/'+'_timeseries/'+'_simulated_timeseries.csv', sep=';')
+print(timeseries)
+
+
+# In[ ]:
+
+
+
+
