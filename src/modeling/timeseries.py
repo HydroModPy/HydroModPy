@@ -112,8 +112,6 @@ class Timeseries:
                     time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
                     recharge = pd.Series(np.nan, index=range(len(self.recharge)))
         
-       
-        
         try:
             self.runoff = model_modflow.runoff
             if self.actual_date==True:            
