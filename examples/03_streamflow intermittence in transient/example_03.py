@@ -67,8 +67,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-data_path = example_path + "data/"
-example_path = root_dir + "/examples/03_streamflow intermittence in transient/"
+example_path = os.path.join(root_dir, r"examples/03_streamflow intermittence in transient")
+data_path = os.path.join(example_path, "data")
 out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
 
@@ -76,7 +76,7 @@ out_path = folder_root.root_folder_results()
 
 #%% OPTIONS
 
-dem_path = data_path + 'regional dem.tif'
+dem_path = os.path.join(data_path, 'regional dem.tif')
 load = False
 watershed_name = 'Nancon'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
@@ -103,8 +103,8 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
 #%% DATA
 
@@ -117,7 +117,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/', 150)
+    BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # General plot of the study site
 if from_dem == None:
@@ -132,14 +132,14 @@ visualization_watershed.watershed_dem(BV)
 # # Necessary to set model parameters
 BV.add_climatic()
 
-BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
                                        clim_mod='REA',
                                        clim_sce='historic',
                                        first_year=2000,
                                        last_year=2002,
                                        time_step='D',
                                        sim_state='transient')
-BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
                                      clim_mod='REA',
                                      clim_sce='historic',
                                      first_year=2000,
@@ -258,7 +258,7 @@ dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_success_modflow'] = list_success_modflow
 dictio['list_model_modflow'] = list_model_modflow
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
     
 dd.io.save(h5file, dictio)
 
@@ -266,7 +266,7 @@ dd.io.save(h5file, dictio)
 
 iD_set_simulations = 'explorSy_test1'
 
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
 d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_success_modflow = d['list_success_modflow'][:]
@@ -308,35 +308,33 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
 dates = pd.date_range(start='01/01/2000', end='31/12/2002', freq='M')
     
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
-simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
+simul_list = sorted(glob.glob(os.path.join(simulations_folder, iD_set_simulations+'*')),
                     key=os.path.getmtime)
 
 fig, axs = plt.subplots(3, 1, figsize=(5,10), dpi=300)
 axs = axs.ravel()
 
 for i, simul in enumerate(simul_list[:]):
-    
-    if platform=="linux" or platform == "linux2":
-        model_name = simul.split('/')[-1]
-    if platform=="win32" or platform == "win64":
-        model_name = simul.split('\\')[-1]
+        
+    model_name = os.path.split(simul)[-1]
     
     ax = axs[i]
 
-    Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
+    Smod_path = os.path.join(simul, r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
     Smod = Smod.reset_index()
     argmin = Smod['total_areas'].argmin()
     argmax = Smod['total_areas'].argmax()
     
-    mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+    mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
         
     
-    watertable_elevation = np.load(simulations_folder+model_name+'/_postprocess/'+
-                                   'watertable_elevation'+'.npy',
+    watertable_elevation = np.load(os.path.join(simulations_folder, 
+                                                model_name, '_postprocess',
+                                                'watertable_elevation'+'.npy'),
                                    allow_pickle=True).item()
     
     min_wt = dict()
@@ -348,7 +346,8 @@ for i, simul in enumerate(simul_list[:]):
 
         dem_data = imageio.imread(BV.geographic.watershed_dem)
         wt_data = watertable_elevation[key]
-        river_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif')
+        river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
+                                                 'regional stream network.tif'))
     
         xvalues = np.linspace(-1,1,dem_data.shape[1])
         yvalues = np.linspace(-1,1,dem_data.shape[0])
@@ -418,25 +417,22 @@ fig.savefig(os.path.join(simulations_folder, '_figures',
 
 dates = pd.date_range(start='01/01/2000', end='31/12/2002', freq='M')
     
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
-line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+line = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_contour.tif'))
 line = np.ma.masked_where(line <= 0, line)
 
-mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
 
-simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
+simul_list = sorted(glob.glob(os.path.join(simulations_folder, iD_set_simulations+'*')),
                    key=os.path.getmtime)
         
 for simul in simul_list[:]:
     
-    if platform=="linux" or platform == "linux2":
-        model_name = simul.split('/')[-1]
-    if platform=="win32" or platform == "win64":
-        model_name = simul.split('\\')[-1]
+    model_nam = os.path.split(simul)[-1]
         
-    Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
+    Smod_path = os.path.join(simul, r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
         
     min_area = Smod['total_areas'].min()
@@ -445,7 +441,7 @@ for simul in simul_list[:]:
     max_idx = np.argmax(Smod['total_areas'])
     max_year = Smod['total_areas'].index[max_idx]
     
-    acc_npy = np.load(os.path.join(simul, '_postprocess','accumulation_flux.npy'), allow_pickle=True).item()
+    acc_npy = np.load(os.path.join(simul, '_postprocess', 'accumulation_flux.npy'), allow_pickle=True).item()
     inf = 0
     sup = 12
     compt = 0
@@ -491,11 +487,21 @@ for simul in simul_list[:]:
         ax.axis('off')
             
         try:
-            path_sub = glob.glob(stable_folder+'subbasin/'+'/intermittency*')[0]+'/watershed_contour.shp'
+            path_sub = os.path.join(glob.glob(
+                os.path.join(stable_folder, 'subbasin','intermittency*'))[0],
+                'watershed_contour.shp')
             wbt.vector_lines_to_raster(path_sub,
-                                       glob.glob(stable_folder+'subbasin/'+'/intermittency*')[0]+'/watershed_contour.tif',
-                                       base = stable_folder+'geographic/'+'watershed_dem.tif')
-            line_sub = imageio.imread(glob.glob(stable_folder+'subbasin/'+'/intermittency*')[0]+'/watershed_contour.tif')
+                                       os.path.join(glob.glob(
+                                           os.path.join(stable_folder,
+                                                        'subbasin',
+                                                        'intermittency*'))[0],
+                                           'watershed_contour.tif'),
+                                       base = os.path.join(stable_folder,
+                                                           'geographic',
+                                                           'watershed_dem.tif'))
+            line_sub = imageio.imread(os.path.join(glob.glob(
+                os.path.join(stable_folder, 'subbasin', 'intermittency*'))[0],
+                'watershed_contour.tif'))
             line_sub = np.ma.masked_where(line_sub <= 0, line_sub)
             ax.imshow(line_sub, cmap=mpl.colors.ListedColormap('grey'))
         except:
@@ -511,27 +517,30 @@ for simul in simul_list[:]:
 
 #%% PERSISTENCY
 
-simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
+simul_list = sorted(glob.glob(os.path.join(simulations_folder, 
+                                           iD_set_simulations+'*')),
                    key=os.path.getmtime)
 
-line = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
+line = imageio.imread(os.path.join(stable_folder,
+                                   'geographic',
+                                   'watershed_contour.tif'))
 line = np.ma.masked_where(line <= 0, line)
 
-mask = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask = imageio.imread(os.path.join(stable_folder,
+                                   'geographic',
+                                   'watershed_dem.tif'))
 
 fig, axs = plt.subplots(1, 3, figsize=(7,6))
 axs = axs = axs.ravel()
 
 for i, simul in enumerate(simul_list[:]):
-    
-    if platform=="linux" or platform == "linux2":
-        model_name = simul.split('/')[-1]
-    if platform=="win32" or platform == "win64":
-        model_name = simul.split('\\')[-1]
+        
+    model_name = os.path.split(simul)[-1]
 
     ax = axs[i]
         
-    pi = imageio.imread(simul+'/_postprocess/_rasters/'+'persistency_index_t(-).tif')
+    pi = imageio.imread(os.path.join(simul, r'_postprocess/_rasters',
+                                     'persistency_index_t(-).tif'))
     pi = np.ma.masked_where(pi==-9999, pi)
     pi = np.ma.masked_where(mask==-99999, pi)
     
@@ -565,27 +574,26 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-Qobs_path = data_path + 'hydrometriy catchment Nancon.csv'
+Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
 Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
 
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
 Qobs = Qobs.resample('M').sum() * 1000 # m/day to mm/month
 
-simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
+simul_list = sorted(glob.glob(os.path.join(simulations_folder,
+                                           iD_set_simulations+'*')),
                    key=os.path.getmtime)
 
 for i, simul in enumerate(simul_list[:]):
     
     fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
                                  figsize=(10,3))
-    
-    if platform=="linux" or platform == "linux2":
-        model_name = simul.split('/')[-1]
-    if platform=="win32" or platform == "win64":
-        model_name = simul.split('\\')[-1]
+
+    model_name = os.path.split(simul)[-1]
         
-    Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
+    Smod_path = os.path.join(simul, 
+                             r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
     
     Qmod = Smod['outflow_drain'] 
@@ -660,24 +668,23 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-Qobs_path = data_path + 'hydrometriy catchment Nancon.csv'
+Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
 Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
 
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
 Qobs = Qobs.resample('M').sum() * 1000 # m/day to mm/month
 
-simul_list = sorted(glob.glob(simulations_folder+iD_set_simulations+'*'),
+simul_list = sorted(glob.glob(os.path.join(simulations_folder,
+                                           iD_set_simulations+'*')),
                    key=os.path.getmtime)
 
 for i, simul in enumerate(simul_list[:]):
     
-    if platform=="linux" or platform == "linux2":
-        model_name = simul.split('/')[-1]
-    if platform=="win32" or platform == "win64":
-        model_name = simul.split('\\')[-1]
+    model_name = os.path.split(simul)[-1]
     
-    Smod_path = simul+'/_postprocess/_timeseries/_simulated_timeseries.csv'
+    Smod_path = os.path.join(simul, 
+                             r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
     
     Qmod = Smod['outflow_drain'] 
@@ -686,7 +693,9 @@ for i, simul in enumerate(simul_list[:]):
     
     Rmod = Smod['recharge'] * 1000
         
-    Sonde_path = glob.glob(simul+'/_subbasins/intermittency_*')[0]+'/_simulated_timeseries.csv'
+    Sonde_path = os.path.join(glob.glob(
+        os.path.join(simul, r'_subbasins/intermittency_*'))[0],
+        '_simulated_timeseries.csv')
     Sonde = pd.read_csv(Sonde_path, sep=';', index_col=0, parse_dates=True)
 
     # BV.add_intermittency(data_path, 'regional onde stations.shp')
