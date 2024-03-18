@@ -67,8 +67,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/03_streamflow and intermittency in transient/"
 data_path = example_path + "data/"
+example_path = root_dir + "/examples/03_streamflow intermittence in transient/"
 out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
 
