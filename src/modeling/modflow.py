@@ -16,6 +16,7 @@
 import flopy
 import numpy as np
 import os
+import datetime
 import pandas as pd
 import sys
 import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
@@ -276,11 +277,16 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-# =============================================================================
-#             self.perlen = np.ones(len(self.climatic))
-# =============================================================================
-            self.perlen = self.climatic.index.to_series().diff().dt.days.values
-            self.perlen[0] = 1
+
+            if isinstance(self.climatic, pd.core.series.Series):
+                if isinstance(self.climatic.index[0], datetime.datetime):
+                    self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                    self.perlen[0] = 1
+                else:
+                    self.perlen = self.climatic.index.to_series().diff().values
+                    self.perlen[0] = 1
+            else:
+                self.perlen = np.ones(len(self.climatic))
                         
         ### Model Domain definition and discretization 
                 
