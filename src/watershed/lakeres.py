@@ -134,6 +134,8 @@ class Lakeres:
             The default is 0 m/d
             wthdrw integrates the sum of water removal (positive values) and
             water addition (negative values).
+        lake_id_by_std_id : 
+            Dict betwen std_id and lake_id
 
         Returns
         -------
@@ -251,8 +253,8 @@ class Lakeres:
         # -------------------------------
         # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
         # std_id are: 0, 1, 2...
-        lake_id_by_std_id = {idx+1: self.indexes[idx] for idx in range(0, self.n_lakeres)}
-        # lake_id_by_std_id = {idx+1: sorted(self.indexes)[idx] for idx in range(0, self.n_lakeres)}
+        self.lake_id_by_std_id = {idx+1: self.indexes[idx] for idx in range(0, self.n_lakeres)}
+        # self.lake_id_by_std_id = {idx+1: sorted(self.indexes)[idx] for idx in range(0, self.n_lakeres)}
         
         
         #%%% Format lakarr
@@ -280,8 +282,8 @@ class Lakeres:
         cell_area = geographic.cell_size
         
         # Format lakes maskmx (maximal extents)
-        for std_id in lake_id_by_std_id.keys():
-            lake_id = lake_id_by_std_id[std_id]
+        for std_id in self.lake_id_by_std_id.keys():
+            lake_id = self.lake_id_by_std_id[std_id]
             
             maskmx = toolbox.load_to_numpy(self.maskmx_file_by_lake[lake_id], 
                                            src_crs = self.mask_crs_by_lake[lake_id],
@@ -412,8 +414,8 @@ class Lakeres:
                                  )
     
             # Check overlapping between lakes
-            for std_id2 in lake_id_by_std_id.keys():
-                lake_id2 = lake_id_by_std_id[std_id2]
+            for std_id2 in self.lake_id_by_std_id.keys():
+                lake_id2 = self.lake_id_by_std_id[std_id2]
                 temp_lakarr = lakarr.copy()*0
                 temp_lakarr[lakarr==std_id2] = 1
                 intersect = (maskmx*temp_lakarr).sum()
@@ -468,8 +470,8 @@ class Lakeres:
         #%%% Format the top of the lake/reservoir layer
         # ---------------------------------------------
         laklay_top = dem_box.copy()+1
-        for std_id in lake_id_by_std_id.keys():
-            lake_id = lake_id_by_std_id[std_id]
+        for std_id in self.lake_id_by_std_id.keys():
+            lake_id = self.lake_id_by_std_id[std_id]
             laklay_top[lakarr == std_id] = self.ssmx_by_lake[lake_id]
             # laklay_top[(lakarr == std_id) & (laklay_top < thickfact*100)] = thickfact*100
             # laklay_top[(laklay_top - dem_box) < thickfact*100] = laklay_top + thickfact*100
@@ -498,8 +500,8 @@ class Lakeres:
         #%%% Format initial stage
         # -----------------------
         stages = []
-        for std_id in lake_id_by_std_id.keys():
-            lake_id = lake_id_by_std_id[std_id]
+        for std_id in self.lake_id_by_std_id.keys():
+            lake_id = self.lake_id_by_std_id[std_id]
             if isinstance(self.stageinit_by_lake[lake_id], (int, float)):
                 stages.append(self.stageinit_by_lake[lake_id])
             else:
@@ -511,8 +513,8 @@ class Lakeres:
         # bdlknc = {}
         # for kper in range(0, nper):
         #     bdlknc_val = []
-        #     for std_id in lake_id_by_std_id.keys():
-        #         lake_id = lake_id_by_std_id[std_id]
+        #     for std_id in self.lake_id_by_std_id.keys():
+        #         lake_id = self.lake_id_by_std_id[std_id]
         #         bdlknc_val.append(self.bdlknc_by_lake[lake_id])
         #     bdlknc[kper] = bdlknc_val
         bdlknc = lakarr.copy()*0 + self.bdlknc_by_lake[lake_id]
@@ -530,8 +532,8 @@ class Lakeres:
         #  2:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
         #  ...}
             
-        for std_id in lake_id_by_std_id.keys():
-            lake_id = lake_id_by_std_id[std_id]
+        for std_id in self.lake_id_by_std_id.keys():
+            lake_id = self.lake_id_by_std_id[std_id]
             lake_frame = pd.DataFrame(
                 columns = list(settings_by_flux.keys()), 
                 index = climatic.index)
