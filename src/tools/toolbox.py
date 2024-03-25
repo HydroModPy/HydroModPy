@@ -106,7 +106,7 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
         masked = np.ma.masked_array(target_data, mask=mask_data<value_masked)
     return masked
 
-def load_to_numpy(file_path, src_crs=None,
+def load_to_numpy(file, src_crs=None,
                   base_path:str=None, dst_crs=None, out_path:str=None):
     """
     Generate a numpy array from a source file (vector or raster) and a base
@@ -125,8 +125,8 @@ def load_to_numpy(file_path, src_crs=None,
 
     Parameters
     ----------
-    file_path : str
-        Path to the input file to process.
+    file : str or geopandas.GeoDataFrame
+        Path to the input file to process, or geopandas GoDataFrame.
     src_crs : int or str, optional (The default is None)
         If the CRS is not embeded in the input file, it is possible to 
         specify it here, as an integer (EPSG), or a str 'EPSG:<int>'
@@ -156,11 +156,15 @@ def load_to_numpy(file_path, src_crs=None,
     elif isinstance(src_crs, int): src_crs = rio.crs.CRS.from_epsg(src_crs)
     if isinstance(dst_crs, str): dst_crs = rio.crs.CRS.from_string(dst_crs)
     elif isinstance(dst_crs, int): dst_crs = rio.crs.CRS.from_epsg(dst_crs)
+
+    file_vect = None
+    if isinstance(file, gpd.geodataframe.GeoDataFrame):
+        file_vect = file
+    elif os.path.splitext(file)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
+        file_vect = gpd.read_file(file)
     
-    
-    if os.path.splitext(file_path)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
+    if file_vect is not None: # shapefile
         if base_profile:
-            file_vect = gpd.read_file(file_path)
             # CRS initialization
             if not file_vect.crs: # if not file_vect.crs.is_geographic nor file_vect.crs.is_projected:
                 if src_crs: 
@@ -192,7 +196,7 @@ def load_to_numpy(file_path, src_crs=None,
             return
             
     else: # input file is a raster
-        with rio.open(file_path, 'r') as data:
+        with rio.open(file, 'r') as data:
             data_profile = data.profile
             if src_crs and not data_profile['crs'].is_valid:
                 data_profile['crs'] = src_crs
