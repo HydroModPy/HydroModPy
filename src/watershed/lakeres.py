@@ -82,6 +82,8 @@ class Lakeres:
         self.rnf_by_lake:dict = {}
         self.wthdrw_by_lake:dict = {}
         self.stageinit_by_lake:dict = {} # initial stage
+        self.lake_id_by_std_id:dict = {} # Dict betwen std_id and lake_id
+                                          # Defined in self.format_to_modflow()
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
@@ -134,8 +136,6 @@ class Lakeres:
             The default is 0 m/d
             wthdrw integrates the sum of water removal (positive values) and
             water addition (negative values).
-        lake_id_by_std_id : 
-            Dict betwen std_id and lake_id
 
         Returns
         -------
