@@ -859,7 +859,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
-        self.dict_lake_seepage = {}
+        self.dict_lake_vertical_seepage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
@@ -1003,11 +1003,52 @@ class Modflow:
                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
                     pass
                     
+            if lake_seepage == True:
+                ### Flux from lake to groundwater
+                self.lake = self.cbb.get_data(text='LAKE', kstpkper=self.kstpkper, totim=time)                     
+                # flow left face (j-1)
+                self.lake_seepage_flf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow right face (j+1)
+                self.lake_seepage_frf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow back face (i-1)
+                self.lake_seepage_fbf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow front face (i+1)
+                self.lake_seepage_fff = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow top face (k-1)
+                self.lake_seepage_ftf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow deeper (lower) face (k+1)
+                self.lake_seepage_fdf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+
+
+                for n in range(0, len(self.lake[0])):
+                    cell = self.lake[0][n].node-1
+                    j = cell%self.dis.ncol
+                    i = cell//self.dis.ncol%self.dis.nrow
+                    k = cell//self.dis.ncol//self.dis.nrow
+    # OLD: to delete
 # =============================================================================
-#             if lake_seepage == True:
-#                 ### Flux from lake to groundwater
-#                 self.lake = self.cbb.get_data(text='LAKE', kstpkper=self.kstpkper, totim=time)                     
-#                 self.lake_seepage_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
+#                     k = cell%self.nlay
+#                     j = cell//self.nlay%self.dis.ncol
+#                     i = cell//self.nlay//self.dis.ncol
+# =============================================================================
+                    # NB: cell = self.dis.ncol*self.dis.nrow*k + self.dis.ncol*i + j
+                    lake_data = self.lake[0][n]
+                    # NB: lake_data[2] == lake_data['IFACE           ']
+                    if lake_data[2] == 1: # to the left (j-1) 
+                        self.lake_seepage_flf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 2: # to the right (j+1)
+                        self.lake_seepage_frf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 3: # towards front (i+1)
+                        self.lake_seepage_fff[k, i, j] += lake_data.q
+                    elif lake_data[2] == 4: # towards back (i-1)
+                        self.lake_seepage_fbf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 5: # to the bottom of the layer (k+1)
+                        self.lake_seepage_fdf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 6: # to the top of the layer (k-1)
+                        self.lake_seepage_ftf[k, i, j] += lake_data.q
+                    
+    # OLD: to delete
+# =============================================================================
 #                 # Create association between nodes and i,j
 #                 count = 0
 #                 count_to_ij = {}
@@ -1023,12 +1064,23 @@ class Modflow:
 #                     print(f"j = {j}")
 #                     self.lake_seepage_all[sim, count_to_ij[count][0], count_to_ij[count][1]] = np.abs(self.lake[0].q[self.lake[0].node == count][0])
 #                 self.lake_seepage = self.lake_seepage_all[0]
-#                 self.lake_seepage[self.dem_mask] = -9999
-#                 output_path = self.tifs_file+'/lake_seepage_t('+lead_numb+').tif'
-#                 if export_tif==True:
-#                     toolbox.export_tif(self.dem_path, self.lake_seepage, -9999, output_path)                  
-#                 self.dict_lake_seepage[item] = self.lake_seepage
 # =============================================================================
+                
+                self.lake_vertical_seepage = self.lake_seepage_ftf[self.aquifer_top_layer]
+# =============================================================================
+#                 # Other method:
+#                 self.lake_vertical_seepage = self.cbb.get_data(
+#                     text='LAKE', kstpkper=self.kstpkper, 
+#                     totim=time, full3D = True)[1]
+# =============================================================================
+                
+                # NB: self.lake_seepage_fbf == 0 everywhere
+
+                self.lake_vertical_seepage[self.dem_mask] = -9999
+                output_path = self.tifs_file+'/lake_vertical_seepage_t('+lead_numb+').tif'
+                if export_tif==True:
+                    toolbox.export_tif(self.dem_path, self.lake_vertical_seepage, -9999, output_path)                  
+                self.dict_lake_vertical_seepage[item] = self.lake_vertical_seepage
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
@@ -1045,10 +1097,8 @@ class Modflow:
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
-# =============================================================================
-#         if lake_seepage == True:
-#             np.save(self.save_file+'/lake_seepage', self.dict_lake_seepage)
-# =============================================================================
+        if lake_seepage == True:
+            np.save(self.save_file+'/lake_vertical_seepage', self.dict_lake_vertical_seepage)
 
         ### Save dictionaries to netcdf
         if export_netcdf == True:
@@ -1094,14 +1144,12 @@ class Modflow:
                                       out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'), 
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic)
-# =============================================================================
-#             if lake_seepage == True:
-#                 toolbox.export_netcdf(self.dict_lake_seepage, 
-#                                       base_path = self.geographic.watershed_dem, 
-#                                       out_path = os.path.join(self.netcdf_file, 'lake_seepage.nc'), 
-#                                       base_crs = self.geographic.crs_proj,
-#                                       times = self.climatic.index)
-# =============================================================================
+            if lake_seepage == True:
+                toolbox.export_netcdf(self.dict_lake_vertical_seepage, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'lake_vertical_seepage.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic.index)
 
         if persistency_index == True:
             ### Persistency index
