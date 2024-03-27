@@ -453,10 +453,10 @@ class Timeseries:
         except:
             pass
         
-        if self.lakeres and self.lakeres.n_lakeres > 0:
         ### lakes/reservoirs variables (stage, volume, area)
+        if self.lakeres and self.lakeres.n_lakeres > 0:
             # All lakes/reservoirs
-            lakarr_clip = toolbox.load_to_numpy(
+            lakarr_clip, _, _, _ = toolbox.load_to_numpy(
                 os.path.join(self.stable_folder, 'lakeres', 'lakarr.tif'),
                 # base_path = self.geographic.watershed_dem, 
                 # dst_crs = self.geographic.crs_proj,
@@ -487,7 +487,7 @@ class Timeseries:
                         map_level = self.watertable_elevation[key]
                         self.geographic.cell_size = 75*75                    
     
-                        watershed_dem = toolbox.load_to_numpy(
+                        watershed_dem, _, _, _ = toolbox.load_to_numpy(
                             self.geographic.watershed_dem, 
                             dst_crs = self.geographic.crs_proj) 
     
@@ -510,6 +510,14 @@ class Timeseries:
                         
                 except:
                     pass
+                
+            ### lake_seepage
+            try:
+                for key in self.lake_seepage:
+                    calc = calc_sum(key, 'lake_seepage', self.lake_seepage, dem_clip, '==', self.geographic.nodata)  
+                    self.mfdata.loc[key,'lake_seepage'] = calc
+            except:
+                pass
         
         
         ### save files
