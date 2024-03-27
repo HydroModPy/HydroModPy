@@ -23,6 +23,7 @@ from matplotlib.font_manager import FontProperties
 import rasterio as rio
 import rasterio.features # necessary to avoid a bug
 import geopandas as gpd
+from shapely.geometry import Point
 import xarray as xr
 xr.set_options(keep_attrs = True)
 # import rioxarray as rio #Not necessary, the rio module from xarray is enough
@@ -162,13 +163,29 @@ def load_to_numpy(file, src_crs=None,
         file_vect = file
     elif os.path.splitext(file)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
         file_vect = gpd.read_file(file)
+    elif os.path.splitext(file)[-1] in ['.txt', '.csv']: # coordinates array
+        """
+        The input file should be formated as:
+            id;x;y
+            0;34500;7456125  
+            1;35675;7991500
+            ...
+        """
+        try:
+            df = pd.read_csv(file, sep = ";")
+            geometry = [Point(xy) for xy in zip(df.x, df.y)]
+            df = df.drop(columns = ['x', 'y'])
+            file_vect = gpd.GeoDataFrame(df, geometry = geometry)
+        except:
+            print("Error: The input file should be formated as:")
+            print("    id;x;y\n    0;34500;7456125\n    1;35675;7991500\n    ...\n")
     
     if file_vect is not None: # shapefile
         if base_profile:
             # CRS initialization
             if not file_vect.crs: # if not file_vect.crs.is_geographic nor file_vect.crs.is_projected:
                 if src_crs: 
-                    file_vect.set_crs(crs = src_crs, allow_override = True)
+                    file_vect.set_crs(crs = src_crs, inplace = True, allow_override = True)
                 else: 
                     print("\nError: Source CRS (src_crs) is required to rasterize.")
                     return
@@ -194,7 +211,7 @@ def load_to_numpy(file, src_crs=None,
         else: # if there is no base_profile
             print('\nRasterizeError: A rasterio profile is required to convert vectoriel data into raster')
             return
-            
+    
     else: # input file is a raster
         with rio.open(file, 'r') as data:
             data_profile = data.profile
