@@ -280,6 +280,8 @@ def load_to_numpy(file, src_crs=None,
     if base_profile:        
         dst_crs = base_profile['crs']
         nodata = base_profile['nodata']
+    else:
+        nodata = None
     
     if file_vect is not None:
         src_crs = file_vect.crs
