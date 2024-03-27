@@ -277,11 +277,16 @@ def load_to_numpy(file, src_crs=None,
         with rio.open(out_path, 'w', **data_profile) as dst: 
             dst.write_band(1, val)
     
-    if base_profile: 
-        print(f" destination CRS = {base_profile['crs']}")
-        print(f" no data value = {base_profile['nodata']}")
+    if base_profile:        
+        dst_crs = base_profile['crs']
+        nodata = base_profile['nodata']
     
-    return val
+    if file_vect is not None:
+        src_crs = file_vect.crs
+    else:
+        src_crs = data_profile['crs']
+    
+    return val, src_crs, dst_crs, nodata
 
 
 def read_with_xarray(file_path, src_crs=None, main_var=None):
