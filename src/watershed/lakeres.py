@@ -647,21 +647,6 @@ class Lakeres:
                 i = None
                 j = None
  
-# =============================================================================
-#             elif os.path.splitext(file)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
-#                 gdf = gpd.read_file(file)
-#             elif os.path.splitext(file)[-1] in ['.csv', '.txt']: # text file with coordinates
-#                 try:
-#                     df = pd.read_csv(file, sep = ";")
-#                 except:
-#                     print("Error: The input file should be formated as:")
-#                     print('    lake_id;x;y\n    "reservoir_cheze";34500;7456125\n    1;35675;7991500\n    ...')
-#                     return
-# # =============================================================================
-# #                 gdf = convert df to gdf
-# # =============================================================================
-# =============================================================================
-            
             arr, _, _, _ = toolbox.load_to_numpy(
                 file,
                 src_crs = self.mask_crs_by_lake[lake_id],
