@@ -263,16 +263,16 @@ class Lakeres:
         with rio.open(geographic.watershed_dem, 'r') as base:
             nodata = base.profile['nodata'] # value corresponding to the no data property         
             transform = base.profile['transform']
-        watershed_mask = toolbox.load_to_numpy(geographic.watershed_dem,
-                                               dst_crs = geographic.crs_proj) 
+        watershed_mask, _, _, _ = toolbox.load_to_numpy(geographic.watershed_dem,
+                                                        dst_crs = geographic.crs_proj) 
         lakarr = np.ma.array(watershed_mask, 
                             mask = watershed_mask==nodata,
                             fill_value = nodata,
                             ) * 0 # masked np.ndarray with null values
         
         # Load topography
-        dem_box = toolbox.load_to_numpy(geographic.watershed_box_buff_dem,
-                                        dst_crs = geographic.crs_proj) 
+        dem_box, _, _, _ = toolbox.load_to_numpy(geographic.watershed_box_buff_dem,
+                                                dst_crs = geographic.crs_proj) 
         
         # Cell area
 # =============================================================================
@@ -285,11 +285,15 @@ class Lakeres:
         for std_id in self.lake_id_by_std_id.keys():
             lake_id = self.lake_id_by_std_id[std_id]
             
-            maskmx = toolbox.load_to_numpy(self.maskmx_file_by_lake[lake_id], 
-                                           src_crs = self.mask_crs_by_lake[lake_id],
-                                           base_path = geographic.watershed_dem, 
-                                           dst_crs = geographic.crs_proj)
-        
+            maskmx, src_crs, _, _ = toolbox.load_to_numpy(
+                self.maskmx_file_by_lake[lake_id], 
+                src_crs = self.mask_crs_by_lake[lake_id],
+                base_path = geographic.watershed_dem, 
+                dst_crs = geographic.crs_proj)
+            
+            if self.mask_crs_by_lake[lake_id] is None:
+                self.mask_crs_by_lake[lake_id] = src_crs
+            
             maskmx[maskmx == nodata] = 0
             maskmx = maskmx.astype(bool)
             
@@ -300,7 +304,7 @@ class Lakeres:
                 self.bathy_crs_by_lake[lake_id] = geographic.crs_proj
             
             if os.path.isfile(self.bathymetry_by_lake[lake_id]):
-                bathymetry = toolbox.load_to_numpy(
+                bathymetry, _, _, _ = toolbox.load_to_numpy(
                     self.bathymetry_by_lake[lake_id], 
                     src_crs = self.bathy_crs_by_lake[lake_id],
                     base_path = geographic.watershed_dem, 
