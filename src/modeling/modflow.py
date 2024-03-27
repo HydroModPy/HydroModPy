@@ -859,7 +859,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
-        self.dict_lake_vertical_seepage = {}
+        self.dict_lake_seepage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
@@ -1074,13 +1074,18 @@ class Modflow:
 #                     totim=time, full3D = True)[1]
 # =============================================================================
                 
-                # NB: self.lake_seepage_fbf == 0 everywhere
+                # temp (just for testing)
+                print(f"flow to the left = {self.lake_seepage_flf.sum()}")
+                print(f"flow to the right = {self.lake_seepage_frf.sum()}")
+                print(f"flow to the front = {self.lake_seepage_fff.sum()}")
+                print(f"flow to the back = {self.lake_seepage_fbf.sum()}")
+                # NB: self.lake_seepage_flf, frf, fff and fbf == 0 everywhere
 
                 self.lake_vertical_seepage[self.dem_mask] = -9999
-                output_path = self.tifs_file+'/lake_vertical_seepage_t('+lead_numb+').tif'
+                output_path = self.tifs_file+'/lake_seepage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.lake_vertical_seepage, -9999, output_path)                  
-                self.dict_lake_vertical_seepage[item] = self.lake_vertical_seepage
+                self.dict_lake_seepage[item] = self.lake_vertical_seepage
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
@@ -1098,7 +1103,7 @@ class Modflow:
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
         if lake_seepage == True:
-            np.save(self.save_file+'/lake_vertical_seepage', self.dict_lake_vertical_seepage)
+            np.save(self.save_file+'/lake_seepage', self.dict_lake_seepage)
 
         ### Save dictionaries to netcdf
         if export_netcdf == True:
@@ -1145,9 +1150,9 @@ class Modflow:
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic)
             if lake_seepage == True:
-                toolbox.export_netcdf(self.dict_lake_vertical_seepage, 
+                toolbox.export_netcdf(self.dict_lake_seepage, 
                                       base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'lake_vertical_seepage.nc'), 
+                                      out_path = os.path.join(self.netcdf_file, 'lake_seepage.nc'), 
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic.index)
 
