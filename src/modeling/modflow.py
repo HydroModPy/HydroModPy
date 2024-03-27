@@ -871,6 +871,7 @@ class Modflow:
         # Loop over times, fills each of the previous structures 
         for item, time in enumerate(self.times):
             print('    Time: ', item)
+            lake_lateralflow_count = 0
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
@@ -1019,7 +1020,6 @@ class Modflow:
                 # flow deeper (lower) face (k+1)
                 self.lake_leakage_fdf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
 
-
                 for n in range(0, len(self.lake[0])):
                     cell = self.lake[0][n].node-1
                     j = cell%self.dis.ncol
@@ -1075,10 +1075,10 @@ class Modflow:
 # =============================================================================
                 
                 # temp (just for testing)
-                print(f"flow to the left = {self.lake_leakage_flf.sum()}")
-                print(f"flow to the right = {self.lake_leakage_frf.sum()}")
-                print(f"flow to the front = {self.lake_leakage_fff.sum()}")
-                print(f"flow to the back = {self.lake_leakage_fbf.sum()}")
+                if (self.lake_leakage_flf.sum() > 0) | (self.lake_leakage_frf.sum() > 0):
+                    lake_lateralflow_count += 1
+                if (self.lake_leakage_fff.sum() > 0) | (self.lake_leakage_fbf.sum() > 0):
+                    lake_lateralflow_count += 1
                 # NB: self.lake_leakage_flf, frf, fff and fbf == 0 everywhere
 
                 self.lake_vertical_leakage[self.dem_mask] = -9999
@@ -1086,6 +1086,7 @@ class Modflow:
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.lake_vertical_leakage, -9999, output_path)                  
                 self.dict_lake_leakage[item] = self.lake_vertical_leakage
+        print(f"\nNOTE: Lake lateral flows have been non null for {lake_lateralflow_count} time steps\n")
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
