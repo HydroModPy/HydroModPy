@@ -1,0 +1,2 @@
+lake_id;x;y
+reservoir_cheze;331050;6780825
