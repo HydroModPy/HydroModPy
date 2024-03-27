@@ -84,6 +84,7 @@ class Lakeres:
         self.stageinit_by_lake:dict = {} # initial stage
         self.lake_id_by_std_id:dict = {} # Dict betwen std_id and lake_id
                                           # Defined in self.format_to_modflow()
+        self.outlet_by_lake:dict = {}
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
@@ -91,6 +92,7 @@ class Lakeres:
                     bathymetry_raster:str=None, bathy_crs=None, 
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
                     prcplk=0, evaplk=0, rnf=0, wthdrw=0, stageinit=None,
+                    outlet=None,
                     ):
         """
         Note that lakeres can be a lake or a reservoir.
@@ -136,6 +138,9 @@ class Lakeres:
             The default is 0 m/d
             wthdrw integrates the sum of water removal (positive values) and
             water addition (negative values).
+        outlet : str (optional)
+            Filepaths to outlet file (shapfile, txt with coordinates)
+        
 
         Returns
         -------
@@ -165,6 +170,7 @@ class Lakeres:
         # Lake/reservoir parameters
         self.bdlknc_by_lake[lake_id] = bdlknc # default = 1 m/s
         self.stageinit_by_lake[lake_id] = stageinit
+        self.outlet_by_lake[lake_id] = outlet
         
         # Lake/reservoir inflows and outflows
         self.prcplk_by_lake[lake_id] = prcplk
@@ -230,6 +236,8 @@ class Lakeres:
     def update_bathymetry(self, lake_id, bathymetry_raster):
         self.bathymetry_by_lake[lake_id] = bathymetry_raster
         
+    def update_outlet(self, lake_id, outlet_file):
+        self.outlet_by_lake[lake_id] = outlet_file
         
     #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
     def update_precip(self, lake_id, src):
@@ -627,6 +635,46 @@ class Lakeres:
         os.remove(geographic.dem_path)
         os.rename(filepath + '_temp' + ext, geographic.dem_path)
         
+
+    #%% FORMAT LAKE/RESERVOIR OUTLETS
+    def format_outlet(self, geographic):
+        ij_outlet_by_lake = {}
+        for std_id in self.lake_id_by_std_id.keys():
+            lake_id = self.lake_id_by_std_id[std_id]
+            file = self.outlet_by_lake[lake_id]
+            if file is None:
+                print("Calcul automatique. Pas encore implémenté")
+                i = None
+                j = None
+ 
+# =============================================================================
+#             elif os.path.splitext(file)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
+#                 gdf = gpd.read_file(file)
+#             elif os.path.splitext(file)[-1] in ['.csv', '.txt']: # text file with coordinates
+#                 try:
+#                     df = pd.read_csv(file, sep = ";")
+#                 except:
+#                     print("Error: The input file should be formated as:")
+#                     print('    lake_id;x;y\n    "reservoir_cheze";34500;7456125\n    1;35675;7991500\n    ...')
+#                     return
+# # =============================================================================
+# #                 gdf = convert df to gdf
+# # =============================================================================
+# =============================================================================
+            
+            arr, _, _, _ = toolbox.load_to_numpy(
+                file,
+                src_crs = self.mask_crs_by_lake[lake_id],
+                base_path = geographic.watershed_dem, 
+                dst_crs = geographic.crs_proj)
+            
+            i = np.argwhere(arr==std_id)[0,0] 
+            j = np.argwhere(arr==std_id)[0,1]
+            
+            ij_outlet_by_lake[lake_id] = (i,j)
+        
+        return ij_outlet_by_lake
+                
 
     #%% DISPLAY PLOT
     
