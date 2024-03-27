@@ -759,7 +759,7 @@ class Modflow:
                         groundwater_flux:bool=True,
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
-                        lake_seepage:bool=True,
+                        lake_leakage:bool=True,
                         persistency_index:bool=False,
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
@@ -859,7 +859,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
-        self.dict_lake_seepage = {}
+        self.dict_lake_leakage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
@@ -1003,21 +1003,21 @@ class Modflow:
                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
                     pass
                     
-            if lake_seepage == True:
+            if lake_leakage == True:
                 ### Flux from lake to groundwater
                 self.lake = self.cbb.get_data(text='LAKE', kstpkper=self.kstpkper, totim=time)                     
                 # flow left face (j-1)
-                self.lake_seepage_flf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                self.lake_leakage_flf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
                 # flow right face (j+1)
-                self.lake_seepage_frf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                self.lake_leakage_frf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
                 # flow back face (i-1)
-                self.lake_seepage_fbf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                self.lake_leakage_fbf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
                 # flow front face (i+1)
-                self.lake_seepage_fff = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                self.lake_leakage_fff = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
                 # flow top face (k-1)
-                self.lake_seepage_ftf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                self.lake_leakage_ftf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
                 # flow deeper (lower) face (k+1)
-                self.lake_seepage_fdf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                self.lake_leakage_fdf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
 
 
                 for n in range(0, len(self.lake[0])):
@@ -1035,17 +1035,17 @@ class Modflow:
                     lake_data = self.lake[0][n]
                     # NB: lake_data[2] == lake_data['IFACE           ']
                     if lake_data[2] == 1: # to the left (j-1) 
-                        self.lake_seepage_flf[k, i, j] += lake_data.q
+                        self.lake_leakage_flf[k, i, j] += lake_data.q
                     elif lake_data[2] == 2: # to the right (j+1)
-                        self.lake_seepage_frf[k, i, j] += lake_data.q
+                        self.lake_leakage_frf[k, i, j] += lake_data.q
                     elif lake_data[2] == 3: # towards front (i+1)
-                        self.lake_seepage_fff[k, i, j] += lake_data.q
+                        self.lake_leakage_fff[k, i, j] += lake_data.q
                     elif lake_data[2] == 4: # towards back (i-1)
-                        self.lake_seepage_fbf[k, i, j] += lake_data.q
+                        self.lake_leakage_fbf[k, i, j] += lake_data.q
                     elif lake_data[2] == 5: # to the bottom of the layer (k+1)
-                        self.lake_seepage_fdf[k, i, j] += lake_data.q
+                        self.lake_leakage_fdf[k, i, j] += lake_data.q
                     elif lake_data[2] == 6: # to the top of the layer (k-1)
-                        self.lake_seepage_ftf[k, i, j] += lake_data.q
+                        self.lake_leakage_ftf[k, i, j] += lake_data.q
                     
     # OLD: to delete
 # =============================================================================
@@ -1062,30 +1062,30 @@ class Modflow:
 #                     print(f"count = {count}")
 #                     print(f"i = {i}")
 #                     print(f"j = {j}")
-#                     self.lake_seepage_all[sim, count_to_ij[count][0], count_to_ij[count][1]] = np.abs(self.lake[0].q[self.lake[0].node == count][0])
-#                 self.lake_seepage = self.lake_seepage_all[0]
+#                     self.lake_leakage_all[sim, count_to_ij[count][0], count_to_ij[count][1]] = np.abs(self.lake[0].q[self.lake[0].node == count][0])
+#                 self.lake_leakage = self.lake_leakage_all[0]
 # =============================================================================
                 
-                self.lake_vertical_seepage = self.lake_seepage_ftf[self.aquifer_top_layer]
+                self.lake_vertical_leakage = self.lake_leakage_ftf[self.aquifer_top_layer]
 # =============================================================================
 #                 # Other method:
-#                 self.lake_vertical_seepage = self.cbb.get_data(
+#                 self.lake_vertical_leakage = self.cbb.get_data(
 #                     text='LAKE', kstpkper=self.kstpkper, 
 #                     totim=time, full3D = True)[1]
 # =============================================================================
                 
                 # temp (just for testing)
-                print(f"flow to the left = {self.lake_seepage_flf.sum()}")
-                print(f"flow to the right = {self.lake_seepage_frf.sum()}")
-                print(f"flow to the front = {self.lake_seepage_fff.sum()}")
-                print(f"flow to the back = {self.lake_seepage_fbf.sum()}")
-                # NB: self.lake_seepage_flf, frf, fff and fbf == 0 everywhere
+                print(f"flow to the left = {self.lake_leakage_flf.sum()}")
+                print(f"flow to the right = {self.lake_leakage_frf.sum()}")
+                print(f"flow to the front = {self.lake_leakage_fff.sum()}")
+                print(f"flow to the back = {self.lake_leakage_fbf.sum()}")
+                # NB: self.lake_leakage_flf, frf, fff and fbf == 0 everywhere
 
-                self.lake_vertical_seepage[self.dem_mask] = -9999
-                output_path = self.tifs_file+'/lake_seepage_t('+lead_numb+').tif'
+                self.lake_vertical_leakage[self.dem_mask] = -9999
+                output_path = self.tifs_file+'/lake_leakage_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.lake_vertical_seepage, -9999, output_path)                  
-                self.dict_lake_seepage[item] = self.lake_vertical_seepage
+                    toolbox.export_tif(self.dem_path, self.lake_vertical_leakage, -9999, output_path)                  
+                self.dict_lake_leakage[item] = self.lake_vertical_leakage
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
@@ -1102,8 +1102,8 @@ class Modflow:
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
-        if lake_seepage == True:
-            np.save(self.save_file+'/lake_seepage', self.dict_lake_seepage)
+        if lake_leakage == True:
+            np.save(self.save_file+'/lake_leakage', self.dict_lake_leakage)
 
         ### Save dictionaries to netcdf
         if export_netcdf == True:
@@ -1149,10 +1149,10 @@ class Modflow:
                                       out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'), 
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic)
-            if lake_seepage == True:
-                toolbox.export_netcdf(self.dict_lake_seepage, 
+            if lake_leakage == True:
+                toolbox.export_netcdf(self.dict_lake_leakage, 
                                       base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'lake_seepage.nc'), 
+                                      out_path = os.path.join(self.netcdf_file, 'lake_leakage.nc'), 
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic.index)
 
