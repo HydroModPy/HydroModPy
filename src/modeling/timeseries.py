@@ -257,7 +257,7 @@ class Timeseries:
             
             target_pos = np.where(target_corrected >= 0, target_corrected, 0)
             masked = toolbox.mask_by_dem(target_pos, mask_data, cond_symb, value_masked)
-            calc = (np.nansum(masked))
+            calc = np.nansum(masked)
             return calc
         
         def calc_negsum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
@@ -269,7 +269,7 @@ class Timeseries:
             
             target_neg = np.where(target_corrected <= 0, -target_corrected, 0)
             masked = toolbox.mask_by_dem(target_neg, mask_data, cond_symb, value_masked)
-            calc = (np.nansum(masked))
+            calc = np.nansum(masked)
             return calc
         
         def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):            
