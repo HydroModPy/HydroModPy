@@ -529,7 +529,7 @@ class Modflow:
                 # All negative values are set to positive values
                 self.evt = abs(self.evt)
                 # Remove aquifer evaporation on lakes/reservoirs
-                if self.lakeeres and self.lakeres.n_lakeres > 0:
+                if self.use_lakeres:
                     self.evt[lakarr_lay0 > 0] = 0
                     self.climatic[lakarr_lay0 > 0] = 0
 # Extract ETR on the lake
