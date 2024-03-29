@@ -490,13 +490,11 @@ class Timeseries:
                 # dst_crs = self.geographic.crs_proj,
                 )
             
-            std_id = 0
-        
-            for lakeres_idx in self.lakeres.indexes:
-                std_id =+ 1
+            for num_id in self.lakeres.lake_id_by_num_id.keys():
+                lake_id = self.lakeres.lake_id_by_num_id[num_id]
                 # Mask for the specific lake/reservoir
                 masked_accu = np.ma.array(self.accumulation_flux[0], 
-                                          mask = lakarr_clip!=std_id,
+                                          mask = lakarr_clip != num_id,
                                           fill_value = self.geographic.nodata,
                                           ) 
                 # Outlet
@@ -506,7 +504,7 @@ class Timeseries:
                     for key in self.watertable_elevation:
                         # level
                         level = self.watertable_elevation[key][outlet_mask].max()
-                        self.mfdata.loc[key,f'{lakeres_idx}_level'] = level
+                        self.mfdata.loc[key,f'{lake_id}_level'] = level
                         
                         # volume
 # =============================================================================
@@ -521,7 +519,7 @@ class Timeseries:
     
                         masked_level_diff = np.ma.array(
                             map_level - watershed_dem,
-                            mask = lakarr_clip!=std_id,
+                            mask = lakarr_clip != num_id,
                             fill_value = self.geographic.nodata,
                             )
                         
@@ -529,20 +527,20 @@ class Timeseries:
                             masked_level_diff >= 0, masked_level_diff, 0)
                         
                         volume = lake_depth.sum() * self.geographic.cell_size
-                        self.mfdata.loc[key,f'{lakeres_idx}_volume'] = volume
+                        self.mfdata.loc[key,f'{lake_id}_volume'] = volume
                             
                         # area
                         area = np.ma.where(
                             masked_level_diff >= 0, 1, 0).sum()*self.geographic.cell_size
-                        self.mfdata.loc[key,f'{lakeres_idx}_area'] = area
+                        self.mfdata.loc[key,f'{lake_id}_area'] = area
                         
                         # lake vertical leakage
                         lake_leakage = calc_sum(key, 'lake_leakage', self.lake_leakage, dem_clip, '==', self.geographic.nodata, self.resolution)
-                        self.mfdata.loc[key,f'{lakeres_idx}_lake_leakage'] = lake_leakage
+                        self.mfdata.loc[key,f'{lake_id}_lake_leakage'] = lake_leakage
                         lake_leakage_downwards = calc_possum(key, 'lake_leakage', self.lake_leakage, dem_clip, '==', self.geographic.nodata, self.resolution)
-                        self.mfdata.loc[key,f'{lakeres_idx}_lake_leakage_downwards'] = lake_leakage_downwards
+                        self.mfdata.loc[key,f'{lake_id}_lake_leakage_downwards'] = lake_leakage_downwards
                         lake_leakage_upwards = calc_negsum(key, 'lake_leakage', self.lake_leakage, dem_clip, '==', self.geographic.nodata, self.resolution)
-                        self.mfdata.loc[key,f'{lakeres_idx}_lake_leakage_upwards'] = lake_leakage_upwards
+                        self.mfdata.loc[key,f'{lake_id}_lake_leakage_upwards'] = lake_leakage_upwards
                     
                 except:
                     pass
