@@ -82,7 +82,7 @@ class Lakeres:
         self.rnf_by_lake:dict = {}
         self.wthdrw_by_lake:dict = {}
         self.stageinit_by_lake:dict = {} # initial stage
-        self.lake_id_by_std_id:dict = {} # Dict betwen std_id and lake_id
+        self.lake_by_num_id:dict = {} # Dict betwen num_id and lake_id
                                           # Defined in self.format_to_modflow()
         self.outlet_by_lake:dict = {}
         
@@ -259,10 +259,10 @@ class Lakeres:
         
         #%%% Standardize lake identifiers
         # -------------------------------
-        # lake_id can be anything, defined by the user: 1, 155, 10, 20, ...
-        # std_id are: 0, 1, 2...
-        self.lake_id_by_std_id = {idx+1: self.indexes[idx] for idx in range(0, self.n_lakeres)}
-        # self.lake_id_by_std_id = {idx+1: sorted(self.indexes)[idx] for idx in range(0, self.n_lakeres)}
+        # lake_id can be anything, defined by the user: 1, 10, 'lake 155', 'Cheze', ...
+        # num_id are: 1, 2, 3...
+        self.lake_by_num_id = {idx+1: self.indexes[idx] for idx in range(0, self.n_lakeres)}
+        # self.lake_by_num_id = {idx+1: sorted(self.indexes)[idx] for idx in range(0, self.n_lakeres)}
         
         
         #%%% Format lakarr
@@ -290,8 +290,8 @@ class Lakeres:
         cell_area = geographic.cell_size
         
         # Format lakes maskmx (maximal extents)
-        for std_id in self.lake_id_by_std_id.keys():
-            lake_id = self.lake_id_by_std_id[std_id]
+        for num_id in self.lake_by_num_id.keys():
+            lake_id = self.lake_by_num_id[num_id]
             
             maskmx, src_crs, _, _ = toolbox.load_to_numpy(
                 self.maskmx_file_by_lake[lake_id], 
@@ -426,15 +426,15 @@ class Lakeres:
                                  )
     
             # Check overlapping between lakes
-            for std_id2 in self.lake_id_by_std_id.keys():
-                lake_id2 = self.lake_id_by_std_id[std_id2]
+            for num_id2 in self.lake_by_num_id.keys():
+                lake_id2 = self.lake_by_num_id[num_id2]
                 temp_lakarr = lakarr.copy()*0
-                temp_lakarr[lakarr==std_id2] = 1
+                temp_lakarr[lakarr==num_id2] = 1
                 intersect = (maskmx*temp_lakarr).sum()
                 if intersect > 0:
                     print(f" Warning: Lake '{lake_id}' will overwrite lake '{lake_id2}' on {int(intersect)} cells.")
         
-            lakarr[maskmx==1] = std_id
+            lakarr[maskmx==1] = num_id
             
         # Convert the masked array into an array
         lakarr = lakarr.filled(0)
@@ -482,10 +482,10 @@ class Lakeres:
         #%%% Format the top of the lake/reservoir layer
         # ---------------------------------------------
         laklay_top = dem_box.copy()+1
-        for std_id in self.lake_id_by_std_id.keys():
-            lake_id = self.lake_id_by_std_id[std_id]
-            laklay_top[lakarr == std_id] = self.ssmx_by_lake[lake_id]
-            # laklay_top[(lakarr == std_id) & (laklay_top < thickfact*100)] = thickfact*100
+        for num_id in self.lake_by_num_id.keys():
+            lake_id = self.lake_by_num_id[num_id]
+            laklay_top[lakarr == num_id] = self.ssmx_by_lake[lake_id]
+            # laklay_top[(lakarr == num_id) & (laklay_top < thickfact*100)] = thickfact*100
             # laklay_top[(laklay_top - dem_box) < thickfact*100] = laklay_top + thickfact*100
             laklay_top = np.where(laklay_top < dem_box + thickfact*100, dem_box + thickfact*110, laklay_top)
             
@@ -512,8 +512,8 @@ class Lakeres:
         #%%% Format initial stage
         # -----------------------
         stages = []
-        for std_id in self.lake_id_by_std_id.keys():
-            lake_id = self.lake_id_by_std_id[std_id]
+        for num_id in self.lake_by_num_id.keys():
+            lake_id = self.lake_by_num_id[num_id]
             if isinstance(self.stageinit_by_lake[lake_id], (int, float)):
                 stages.append(self.stageinit_by_lake[lake_id])
             else:
@@ -525,8 +525,8 @@ class Lakeres:
         # bdlknc = {}
         # for kper in range(0, nper):
         #     bdlknc_val = []
-        #     for std_id in self.lake_id_by_std_id.keys():
-        #         lake_id = self.lake_id_by_std_id[std_id]
+        #     for num_id in self.lake_by_num_id.keys():
+        #         lake_id = self.lake_by_num_id[num_id]
         #         bdlknc_val.append(self.bdlknc_by_lake[lake_id])
         #     bdlknc[kper] = bdlknc_val
         bdlknc = lakarr.copy()*0 + self.bdlknc_by_lake[lake_id]
@@ -544,8 +544,8 @@ class Lakeres:
         #  2:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
         #  ...}
             
-        for std_id in self.lake_id_by_std_id.keys():
-            lake_id = self.lake_id_by_std_id[std_id]
+        for num_id in self.lake_by_num_id.keys():
+            lake_id = self.lake_by_num_id[num_id]
             lake_frame = pd.DataFrame(
                 columns = list(settings_by_flux.keys()), 
                 index = climatic.index)
@@ -565,7 +565,7 @@ class Lakeres:
 #                             if flux == 'rnf':
 #                                 try: 
 #                                     pd_data = climatic.runoff
-#                                     # flux_frame.loc[climatic.runoff.index, std_id] = climatic.runoff
+#                                     # flux_frame.loc[climatic.runoff.index, num_id] = climatic.runoff
 #                                 except: 
 #                                     print(f"\nErr: Runoff over lake n°{lake_id}: watershed.climatic.runoff does not exist")
 #                                     return
@@ -573,7 +573,7 @@ class Lakeres:
 # =============================================================================
                             if flux == 'EVAPLK':
                                 pd_data = -climatic.where(climatic<0, 0)
-                                # flux_frame.loc[:, std_id] = -climatic.where(
+                                # flux_frame.loc[:, num_id] = -climatic.where(
                                 #     climatic<0, 0)
                             else:
                                 print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic")
@@ -639,8 +639,8 @@ class Lakeres:
     #%% FORMAT LAKE/RESERVOIR OUTLETS
     def format_outlet(self, geographic):
         ij_outlet_by_lake = {}
-        for std_id in self.lake_id_by_std_id.keys():
-            lake_id = self.lake_id_by_std_id[std_id]
+        for num_id in self.lake_by_num_id.keys():
+            lake_id = self.lake_by_num_id[num_id]
             file = self.outlet_by_lake[lake_id]
             if file is None:
                 print("Calcul automatique. Pas encore implémenté")
@@ -653,8 +653,8 @@ class Lakeres:
                 base_path = geographic.watershed_dem, 
                 dst_crs = geographic.crs_proj)
             
-            i = np.argwhere(arr==std_id)[0,0] 
-            j = np.argwhere(arr==std_id)[0,1]
+            i = np.argwhere(arr==num_id)[0,0] 
+            j = np.argwhere(arr==num_id)[0,1]
             
             ij_outlet_by_lake[lake_id] = (i,j)
         
