@@ -490,8 +490,8 @@ class Timeseries:
                 # dst_crs = self.geographic.crs_proj,
                 )
             
-            for num_id in self.lakeres.lake_id_by_num_id.keys():
-                lake_id = self.lakeres.lake_id_by_num_id[num_id]
+            for num_id in self.lakeres.lake_by_num_id.keys():
+                lake_id = self.lakeres.lake_by_num_id[num_id]
                 # Mask for the specific lake/reservoir
                 masked_accu = np.ma.array(self.accumulation_flux[0], 
                                           mask = lakarr_clip != num_id,
