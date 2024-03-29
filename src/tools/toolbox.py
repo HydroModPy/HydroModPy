@@ -497,8 +497,8 @@ def hydrological_mean(data, accuracy=15):
     # n_years = np.mean((data.index[-1]-data.index[0])/365.2425)
     
     if (idx - data.index[0]).days < 350:
-        print("Error: Total time range is too short (less than 1 year)")
-        return
+        print("HydrologicalMean Warning: Total time range is too short (less than 1 year)")
+        print("    Simple mean is used instead")
     
     # print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
 
