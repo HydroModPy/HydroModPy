@@ -869,7 +869,7 @@ class Modflow:
                     self.flux = np.sqrt(self.frf**2 + self.fff**2)        
                 if self.nlay > 1:
                     self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
-                    self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
+                    self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
                 self.flux_top = self.flux[0]
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
