@@ -799,6 +799,10 @@ class Modflow:
             Write all files .tif at each time step. The default is False.
 
         """
+        # Correct lake_leakage condition
+        if self.use_lakeres == False:
+            lake_leakage = False
+        
         # Create folders 
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)        
