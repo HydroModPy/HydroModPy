@@ -249,25 +249,13 @@ class Timeseries:
             return calc
         
         def calc_possum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
-            # Replace -9999 values with 0:
-               # -9999 values correspond to cells where self.dem < -4000 (modflow.py) 
-               # and are not to be confused with -99999 values (masked data)
-            target_corrected = np.where(target_data[key] == -9999, 
-                                        0, target_data[key])
-            
-            target_pos = np.where(target_corrected >= 0, target_corrected, 0)
+            target_pos = np.where(target_data >= 0, target_data, 0)
             masked = toolbox.mask_by_dem(target_pos, mask_data, cond_symb, value_masked)
             calc = np.nansum(masked)
             return calc
         
-        def calc_negsum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
-            # Replace -9999 values with 0:
-               # -9999 values correspond to cells where self.dem < -4000 (modflow.py) 
-               # and are not to be confused with -99999 values (masked data)
-            target_corrected = np.where(target_data[key] == -9999, 
-                                        0, target_data[key])
-            
-            target_neg = np.where(target_corrected <= 0, -target_corrected, 0)
+        def calc_negsum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):          
+            target_neg = np.where(target_data <= 0, -target_data, 0)
             masked = toolbox.mask_by_dem(target_neg, mask_data, cond_symb, value_masked)
             calc = np.nansum(masked)
             return calc
