@@ -97,14 +97,14 @@ class Subbasin:
             print('     No intermittency subbasin or problem')
             pass
         
-        # try:
-        code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
-        for i in range(len(code_sub)):
-            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
-        # except:
-        #     print('     No personnal subbasins or problem')
-        #     pass
+        try:
+            code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
+            for i in range(len(code_sub)):
+                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
+        except:
+            print('     No personnal subbasins or problem')
+            pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
