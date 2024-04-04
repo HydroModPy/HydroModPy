@@ -204,17 +204,17 @@ class Visualization():
                 
             if obj == 'drain_flow':
                 # axs[i].set_title('Seepage rates, log(Q) [m/d]')
-                # axs[i].set_title('Seepage outflow [m$^3$/d]')
-                axs[i].set_title('Seepage outflow [m3/d]')
+                axs[i].set_title('Seepage outflow [m$^3$/d]')
+                # axs[i].set_title('Seepage outflow [m3/d]')
                 drain = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, drain_area[time_step])
                 # image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
                 #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, (drain)), 
                               cmap='RdYlGn_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
-                basemap.append(1)
+                basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
-                     transform=dem.transform, cmap='Greys', alpha=0.5, zorder=2, aspect="auto")
+                     transform=dem.transform, cmap='Greys', alpha=0.3, zorder=2, aspect="auto")
                 show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
                       transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
                       vmax=color_scale[i][1])
@@ -228,8 +228,8 @@ class Visualization():
                 
             if obj == 'surface_flow':
                 # axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
-                # axs[i].set_title('Accumulated outflow [m$^3$/d]')
-                axs[i].set_title('Accumulated outflow [m3/d]')
+                axs[i].set_title('Accumulated outflow [m$^3$/d]')
+                # axs[i].set_title('Accumulated outflow [m3/d]')
                 surface = np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, surface_area[time_step])
                 # image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, (surface)), 
@@ -237,7 +237,7 @@ class Visualization():
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
-                     transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
+                     transform=dem.transform, cmap='Greys', alpha=0.3, zorder=0, aspect="auto")
                 # show(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), ax=axs[i], 
                 #      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], 
                 #      vmax=color_scale[i][1])
@@ -250,8 +250,8 @@ class Visualization():
                     pass
                 
             if obj == 'pathlines':
-                show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
-                         transform=dem.transform, cmap='Greys', alpha=0.75, zorder=0, aspect="auto")
+                # show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                #          transform=dem.transform, cmap='Greys', alpha=0.3, zorder=0, aspect="auto")
                 # axs[i].set_title('Pathlines, log(t) [d]')
                 axs[i].set_title('Time pathlines [y]')
                 pthobj = flopy.utils.PathlineFile(os.path.join(modelfolder,self.modelname+'.mppth'))
@@ -283,7 +283,7 @@ class Visualization():
                     y = pth_data[j].y + ext[1][1]
                     points = np.array([x, y]).T.reshape(-1, 1, 2)
                     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, cmap='plasma_r', alpha=0.5)
+                    lc = LineCollection(segments, cmap='plasma_r', alpha=0.8)
                     # lc.set_array(np.log10(pth_data[j].time/365)) # log(t) in days
                     lc.set_array(pth_data[j].time / 365) # t in years
                     lc.set_linewidth(2)
@@ -311,6 +311,8 @@ class Visualization():
                 res_time = np.ma.masked_where(res_time <= 0, res_time)
                 image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time),
                                              cmap='cool', vmin=color_scale[i][0], vmax=color_scale[i][1])
+                # show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
+                #      transform=dem.transform, cmap='Greys', alpha=0.3, zorder=0, aspect="auto")
                 image.append(image_hidden)
                 basemap.append(0)
                 show(np.ma.masked_where(self.watershed.geographic.dem_clip<= 0, res_time), ax=axs[i], 
