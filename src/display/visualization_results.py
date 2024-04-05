@@ -168,11 +168,15 @@ class Visualization():
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
-                    streams.plot(ax=axs[i], lw=2, color='b', zorder=4, legend=False, label='Hydrography')
+                    streams.plot(ax=axs[i], lw=2, color='b', zorder=4, legend=False,
+                                 # label='Hydrography'
+                                 )
                 except:
                     pass
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False,
+                                 # label='Watershed'
+                                 )
                 except:
                     pass
                 
@@ -185,7 +189,7 @@ class Visualization():
                 show(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='Blues_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False)
                 except:
                     pass
                 
@@ -198,7 +202,7 @@ class Visualization():
                 show(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False)
                 except:
                     pass
                 
@@ -215,14 +219,14 @@ class Visualization():
                 basemap.append(0)
                 show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                      transform=dem.transform, cmap='Greys', alpha=0.3, zorder=2, aspect="auto")
-                show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
-                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
-                      vmax=color_scale[i][1])
+                # show(np.ma.masked_where(drain<= 0, np.log10(drain)), ax=axs[i], 
+                #       transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
+                #       vmax=color_scale[i][1])
                 show(np.ma.masked_where(drain<= 0, (drain)), ax=axs[i], 
                      transform=dem.transform, cmap='RdYlGn_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0],
                      vmax=color_scale[i][1])
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False)
                 except:
                     pass
                 
@@ -245,7 +249,7 @@ class Visualization():
                      transform=dem.transform, cmap='jet', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], 
                      vmax=color_scale[i][1])
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False)
                 except:
                     pass
                 
@@ -276,8 +280,10 @@ class Visualization():
                 max_time = []
                 min_time = []
                 for j in random_indices:
-                    max_time.append(np.max(np.log10(pth_data[j].time)))
-                    min_time.append(np.min(np.log10(pth_data[j].time)))
+                    # max_time.append(np.max(np.log10(pth_data[j].time)))
+                    # min_time.append(np.min(np.log10(pth_data[j].time)))
+                    max_time.append(np.max((pth_data[j].time)))
+                    min_time.append(np.min((pth_data[j].time)))
                 for j in random_indices:
                     x = pth_data[j].x + ext[1][0]
                     y = pth_data[j].y + ext[1][1]
@@ -295,7 +301,7 @@ class Visualization():
                 image.append(line)
                 basemap.append(0)
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False)
                 except:
                     pass
                 
@@ -319,7 +325,7 @@ class Visualization():
                      transform=dem.transform, cmap='cool', alpha=1, zorder=2, aspect="auto",
                      vmin=color_scale[i][0], vmax=color_scale[i][1])                
                 try:
-                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False, label='Watershed')
+                    contour.plot(ax=axs[i], lw=2, color='k', zorder=4, legend=False)
                 except:
                     pass
                 
@@ -478,7 +484,7 @@ class Visualization():
         #plt += watertable_elev
         
         watertable_depth.map_cells_to_points()
-        watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=1)
+        watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=10)
         # watertable_depth.add_scalarbar(pos=cloc, title='Watertable depth [m]', horizontal=False, titleFontSize=20)
         watertable_depth.add_scalarbar(pos=cloc, horizontal=False)
         watertable_depth.scale([1,1,z_scale])
@@ -537,17 +543,20 @@ class Visualization():
         pathlines_mesh.render_lines_as_tubes(value=True)
         pathlines_mesh.legend('Pathlines')
         n = lines
-        #x = pathlines_mesh.lines
-        #length = max(map(len, x))
-        #y=np.array([xi+[None]*(length-len(xi)) for xi in x])
-        #number_of_rows = y.shape[0]
-        #random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
-        #y1 = y[random_indices, :].flatten()
-        #pts =  y1[y1 != np.array(None)]
-        #pathlines_mesh.delete_cells(pts)
-        #pathlines_mesh = pathlines_mesh.subsample(0.5)
-        #except:
-        #print("VTK pathlines doesn't exist")
+        # try:
+        #     x = pathlines_mesh.lines
+        #     length = max(map(len, x))
+        #     y=np.array([xi+[None]*(length-len(xi)) for xi in x])
+        #     number_of_rows = y.shape[0]
+        #     random_indices = np.random.choice(number_of_rows, size=len(x)-n, replace=False)
+        #     y1 = y[random_indices, :].flatten()
+        #     pts =  y1[y1 != np.array(None)]
+        #     pathlines_mesh.delete_cells(pts)
+        #     pathlines_mesh = pathlines_mesh.subsample(0.5)
+        # except:
+        #     print("VTK pathlines doesn't exist")
+        #     pass
+        # 
 
         #View
         xs = max(watertable_elev.points()[:, 0]) - min(watertable_elev.points()[:, 0])
@@ -591,12 +600,12 @@ class Visualization():
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'pathlines':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines [y]",
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [d]",
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
             if obj == 'surface_flow':
-                plt.show(grid_wireframe,contour, watertable_blue, surface_flow,"Accumulated outflow log [m3/d]",
+                plt.show(grid_wireframe,contour, watertable_blue, surface_flow, "Accumulated outflow log [m3/d]",
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'drain_flow':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
@@ -659,7 +668,7 @@ class Visualization():
         
         # Plot dem
         dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
-        main_ax.imshow(dem_plot, origin='lower', cmap='terrain')
+        main_ax.imshow(dem_plot, origin='lower', cmap='terrain', alpha=0.5)
         
         # Plot contour
         try:
