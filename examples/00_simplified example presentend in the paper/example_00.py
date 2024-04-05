@@ -24,9 +24,10 @@ warnings.filterwarnings("ignore")
 # Libraries need to be installed if not
 import numpy as np
 import pandas as pd
-
+import flopy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
@@ -69,7 +70,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL
 
 example_path = os.path.join(root_dir, 
-                            r"examples/00_simplified example presentend in the paper")
+                            "examples/00_simplified example presentend in the paper")
 data_path = os.path.join(example_path, "data")
 out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
@@ -123,12 +124,107 @@ visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
+#%% STREAMFLOW
+
+Qobs = pd.read_csv(data_path+'/'+'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
+Qobs = Qobs.squeeze()
+Qobs = Qobs.rename('Q')
+
+def select_period(df, first, last):
+    df = df[(df.index.year>=first) & (df.index.year<=last)]
+    return df
+
+area = BV.geographic.area
+first = 1990
+last = 2019
+Qobs = select_period(Qobs, first, last)
+Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
+
+data_index = Qobs.copy()
+
+mean_mensual = data_index.resample('M').mean() # mensual mean
+mean_annual = data_index.resample('Y').mean() # annual mean
+Mean = round(data_index.mean(),2)
+Mean = data_index.mean()
+Min = data_index.resample('Y').min()
+Q10 = data_index.resample('Y').quantile(0.10)
+Q25 = data_index.resample('Y').quantile(0.25)
+Q50 = data_index.resample('Y').quantile(0.50)
+Q75 = data_index.resample('Y').quantile(0.75)
+Q90 = data_index.resample('Y').quantile(0.90)
+
+Max = data_index.resample('Y').max()
+mean_interan_days = data_index.groupby([data_index.index.month,
+                                data_index.index.day], as_index=True).mean().to_frame()
+std_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).std()
+q10_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).quantile(0.10)
+q90_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).quantile(0.90)
+q50_interan_days = data_index.groupby([data_index.index.month,
+                    data_index.index.day], as_index=True).quantile(0.50)
+
+mean_interan_days['std'] = std_interan_days
+mean_interan_days['q10'] = q10_interan_days
+mean_interan_days['q90'] = q90_interan_days
+mean_interan_days['q50'] = q50_interan_days
+mean_interan_days.index.names = ['months','days']
+mean_interan_days = mean_interan_days.reset_index()
+mean_interan_days = mean_interan_days.sort_values(['months','days'])
+mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
+
+fig, ax = plt.subplots(figsize=(5,4))
+ax.plot(mean_interan_days.counts, mean_interan_days.q50,
+        lw=2, color='darkred', label='Median')
+yerrmax = mean_interan_days.q90
+yerrmin = mean_interan_days.q10
+ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
+                  color='cyan',edgecolor='grey', lw=0.5,
+                  alpha = 0.5, label='10-90th')
+ax.set_yscale('log')
+ax.set_xlim(0,366)
+ax.set_ylim(0.01,10)
+ax.tick_params(axis='both', which='major', pad=10)
+x1 = np.linspace(0,366,13)
+squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
+ax.set_xticks(x1)
+ax.set_xticklabels(squad, minor=False, rotation='horizontal')
+ax.set_xlabel('Months', labelpad=+10)
+ax.set_ylabel('Q / A [mm/d]',labelpad=+10)
+ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
+ax.grid(alpha=0.25, zorder=0)
+
+# one = 2001
+# dates = np.array([one],dtype=np.int64)
+# colors = ['blue']
+# for z in np.array(range(len(dates))):
+#     onlyone = data_index[(data_index.index.year==dates[z])].to_frame()
+#     onlyone = onlyone.groupby([onlyone.index.month,
+#                                 onlyone.index.day], as_index=True).mean()
+#     onlyone['counts'] = np.array(range(1,len(onlyone)+1))
+#     ax.plot(onlyone.counts, onlyone['Q'],
+#             color=colors[z], lw=1, label = str(dates[z]))
+# one = 2003
+# dates = np.array([one],dtype=np.int64)
+# colors = ['red']
+# for z in np.array(range(len(dates))):
+#     onlyone = data_index[(data_index.index.year==dates[z])].to_frame()
+#     onlyone = onlyone.groupby([onlyone.index.month,
+#                                 onlyone.index.day], as_index=True).mean()
+#     onlyone['counts'] = np.array(range(1,len(onlyone)+1))
+#     ax.plot(onlyone.counts, onlyone['Q'],
+#             color=colors[z], lw=1, label = str(dates[z]))
+
+ax.legend(loc='lower left')
+plt.tight_layout()
+
 #%% ---- PARAMETRIZATION
 
 #%% DEFINE
 
 # Frame settings
-model_name = 'test'
+model_name = 'test_11'
 box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
@@ -142,12 +238,12 @@ first_clim = 'mean' # or 'first or value
 freq_time = 'D'
 
 # Hydraulic settings
-nlay = 1
-lay_decay = 1 # 1 for no decay
+nlay = 5
+lay_decay = 1.5 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 30 # if bottom is None, aquifer thickness
+thick = 50 # if bottom is None, aquifer thickness
 hyd_cond = 2e-5 * 24 * 3600 # m/day
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+cond_decay = 1/10 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
 porosity = 1 / 100 # -
@@ -187,9 +283,10 @@ BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_hyd_cond(hyd_cond)
 BV.hydraulic.update_porosity(porosity)
+BV.hydraulic.update_cond_decay(cond_decay)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
+BV.hydraulic.update_poro_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -204,6 +301,7 @@ BV.settings.update_input_particules(zone_partic=zone_partic)
 
 model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation = True,
@@ -242,6 +340,73 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 
 #%% ---- PLOT
 
+#%% RECHARGE
+
+BV.add_climatic()
+
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=1990,
+                                       last_year=2019,
+                                       time_step='D',
+                                       sim_state='transient')
+
+fig, ax = plt.subplots(1,1, figsize=(6,2.5), dpi=300)
+R = BV.climatic.recharge #.resample('Y').sum()#*1000
+ax.plot(R.index, R,  color='blue', lw=1)
+ax.fill_between(R.index, R*0, R, color='skyblue')
+ax.set_xlabel('Date')
+ax.set_ylabel('Recharge [mm/d]')
+ax.xaxis.set(minor_locator=mdates.YearLocator(1), major_locator=mdates.YearLocator(5))
+ax.set_ylim(0,8)
+ax.set_xlim(pd.to_datetime('1990'), pd.to_datetime('2020'))
+ax.set_yticks([0,2,4,6,8])
+
+#%% MESH
+
+mf = flopy.modflow.Modflow.load(simulations_folder+'/'+model_name+'/'+model_name+'.nam')
+gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+grid_model = mf.modelgrid
+hk_grid = mf.upw.hk
+sy_grid = mf.upw.sy
+
+fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+axs = axs.ravel()
+
+ax = axs[0]
+modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+val = hk_grid.array/24/3600
+try:
+    for i in range(val.shape[0]):
+        val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+except:
+    pass
+cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=1,
+                            norm=mpl.colors.LogNorm(vmin=1e-8, 
+                                                    vmax=1e-3))
+ax.set_title('Hydraulic conductivity [m/s] - Meshgrid West to East', fontsize=12)
+# ax.set_xlim(0, 9000)
+ax.set_ylim(50, 150)
+# ax.set_xticks([0,2000,4000,6000,8000])
+fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
+fig.colorbar(cb)
+plt.tight_layout()
+
+ax = axs[1]
+modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
+cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=1,
+                            # vmin=0, vmax=30,
+                            norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                    vmax=10))
+ax.set_title('Specific yield [%] - Meshgrid South to Noth', fontsize=12)
+# ax.set_xlim(0, 9000)
+ax.set_ylim(50, 150)
+# ax.set_xticks([0,2000,4000,6000,8000])
+fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
+fig.colorbar(cb)
+plt.tight_layout()
+
 #%% 2D
 
 # if sim_state == 'steady':
@@ -257,6 +422,30 @@ visu.visual2D(object_list = ['map','grid',
                              (0,2.5),(0,5),
                              ], 
                               lines=750)
+
+#%% 3D
+
+# export_vtuvtk.VTK(BV, model_name)
+# visu = visualization_results.Visualization(BV, model_name)
+# visu.visual3D(interactive=True, object_list=['grid',
+#                                              'watertable',
+#                                              'watertable_depth',
+#                                              'surface_flow',
+#                                              'drain_flow',
+#                                              'pathlines'], view='south-west',
+#                                               lines=100, cloc=(0.7,0.1), z_scale=10)
+
+#%% CROSS
+
+# dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
+# if from_dem == None:
+#     stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
+# else:
+#     stream_data = None
+# watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,r'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
+# interactive = True
+# visu = visualization_results.Visualization(BV, model_name)
+# visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
 #%% ---- NOTES
 

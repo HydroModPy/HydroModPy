@@ -352,7 +352,7 @@ class Modpath:
                                     direction='ending',
                                     mg=grid_model,
                                     epsg=epsg,
-                                    sr=None)
+                                    sr=None, verbose=False)
         
         if particules_shp == True:
             pthobj.write_shapefile(pathline_data=pth_data_save,
@@ -361,7 +361,7 @@ class Modpath:
                                     direction='ending',
                                     mg=grid_model,
                                     epsg=epsg,
-                                    sr=None)
+                                    sr=None, verbose=False)
         
 #%% NOTES
 
