@@ -697,8 +697,8 @@ class Visualization():
         main_ax.autoscale(enable=False)
         right_ax.autoscale(enable=False)
         top_ax.autoscale(enable=False)
-        right_ax.set_xlim(right=dem_max)
-        top_ax.set_ylim(top=dem_max)
+        right_ax.set_xlim(np.nanmin(wt_prof),dem_max)
+        top_ax.set_ylim(np.nanmin(wt_prof),dem_max)
         
         # Plot lines
         v_line = main_ax.axvline(cur_x, color='k', lw=2)
