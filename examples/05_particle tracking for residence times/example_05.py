@@ -68,9 +68,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL
 
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
-data_path = example_path + "data/"
-out_path = folder_root.root_folder_results()
+data_path = os.path.join(example_path, "data") + '/'
+out_path = folder_root.update_root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -288,7 +289,7 @@ visu.visual2D(object_list = ['map','grid',
               color_scale = [(None,None),(None,None),
                              (None,None),(0,10),
                              (None,None),(None,None),
-                             (None,None),(None,None),
+                             (0,100),(None,None),
                              ], 
               lines=500)
 
@@ -329,7 +330,10 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
 shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
 
-line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+try:
+    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+except:
+    pass
 
 dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
 dem_data = dem_rio.read(1)
@@ -350,7 +354,10 @@ shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
                  zorder=2)
 
-line.plot(ax=ax, color='k', lw=3)
+try:
+    line.plot(ax=ax, color='k', lw=3)
+except:
+    pass
 
 ax.set_title('Ending residence times [y]')
 
