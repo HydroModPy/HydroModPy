@@ -63,13 +63,13 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = os.path.join(root_dir, "teaching/abherve/")
 data_path = os.path.join(example_path, "data")
 
-out_path = 'C:/Users/ronan/Simulations/Course/'
+out_path = 'C:/Users/ronan/Simulations/Course/' # Enter your path here with the similar format
+
+watershed_name = 'Canut' # Nancon - # Choice the catchment
 
 #%% ---- EXTRACT CATCHMENT
 
 # Name of the study site
-watershed_name = 'Canut' # Nancon
-watershed_name = 'Nancon' # Nancon
 print('##### '+watershed_name.upper()+' #####')
 
 # Regional DEM
@@ -199,7 +199,7 @@ streams_clip[streams_clip['persistanc']=='Intermittent'].plot(ax=ax, lw=3, color
 catch.plot(ax=ax, facecolor='none', lw=2)
 fig.tight_layout()
 
-#%% ---- RECHARGE INPUT
+#%% ---- RECHARGE INITIAL
 
 BV.add_climatic()
 BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
@@ -209,11 +209,11 @@ BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climat
                                        last_year=2019,
                                        time_step='D',
                                        sim_state='transient')
+R = BV.climatic.recharge
 
 fig, ax = plt.subplots(1,1, figsize=(7,3), dpi=300)
 ax.patch.set_visible(False)
 axb = ax.twinx()
-R = BV.climatic.recharge
 ax.plot(R.index, R,  color='blue', lw=1, clip_on=True)
 axb.bar(R.resample('Y').sum().index, R.resample('Y').sum(),  color='red', lw=0, width=100, alpha=1, clip_on=True)
 axb.set_ylim(0,1000)
@@ -232,7 +232,12 @@ plt.setp(axb.get_yticklabels(), color="red")
 #%% ---- MODEL PARAMETRIZATION
 
 # Name of the model/simulation
-model_name = 'test_0'
+sim_state = 'steady' # 'transient' - Choice your simulation dynamics
+model_name = sim_state + '_' + '1'
+
+# Choice hydraulic parameters
+K_value = 1e-8 # m/s - hydraulic conductivity
+Sy_value = 5 # m/s - specific yield (porosity)
 
 # Import modules
 BV.add_settings()
@@ -243,23 +248,27 @@ BV.add_hydraulic()
 BV.settings.update_model_name(model_name) # Name of the model/simulation
 BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
-BV.settings.update_simulation_state('transient') # Transient
+BV.settings.update_simulation_state(sim_state) # steady or transient
 BV.settings.update_active_plot(plot_cross=False)
 
 # Climatic settings
-recharge_mensual = select_period(R.resample('M').mean()/1000, 2001, 2003)
+first = 2001
+last = 2003
+recharge_mensual = select_period(R.resample('M').mean()/1000, first, last)
+factor = (select_period(Qobs.resample('M').mean()/1000, first, last)).sum() / (recharge_mensual.sum())
+recharge_mensual = recharge_mensual * factor
 BV.climatic.update_recharge(recharge_mensual, sim_state=BV.settings.sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
 
 # Hydraulic settings
 BV.hydraulic.update_nlay(3)
-BV.hydraulic.update_lay_decay(1.5) # 1 if not activated
+BV.hydraulic.update_lay_decay(1.5) # If 1: descativated
 BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
 BV.hydraulic.update_thick(50) # Not consider if bottom != of None
-BV.hydraulic.update_hyd_cond(2e-5 * 24 * 3600) # m/d
-BV.hydraulic.update_porosity(0.1/100) # -
+BV.hydraulic.update_hyd_cond(K_value * 24 * 3600) # m/d
+BV.hydraulic.update_porosity(Sy_value/100) # -
 BV.hydraulic.update_cond_decay(1/10) # Exponential decay with depth : 1/10 (about half decrease at 10m)
-BV.hydraulic.update_poro_decay(1/10)
+BV.hydraulic.update_poro_decay(1/10) # If 0: descativated
 BV.hydraulic.update_cond_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 BV.hydraulic.update_cond_drain(None)
 
@@ -457,6 +466,7 @@ if BV.settings.sim_state == 'steady':
 
 #%% INTERACTIVE CROSS-SECTION
 
+fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
 stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
 watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
@@ -655,6 +665,7 @@ for i, simul in enumerate(simul_list[:]):
     
     Qmod = Smod['outflow_drain'] 
     Qmod = Qmod.squeeze() * 30 * 1000 # mm/month
+    # Qmod = Qmod + (Qmod * 1)
     Rmod = Smod['recharge'] * 30 * 1000
     
     yearsmaj = mdates.YearLocator(1)   # every year
@@ -686,6 +697,7 @@ for i, simul in enumerate(simul_list[:]):
     
     Qobs_stat = select_period(Qobs,2001,2003)
     Qmod_stat = select_period(Qmod,2001,2003)
+    print(Qmod_stat.sum() / Qobs_stat.sum())
     
     import hydroeval as he
     NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]

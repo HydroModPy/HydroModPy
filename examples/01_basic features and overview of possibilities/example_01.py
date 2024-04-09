@@ -70,8 +70,9 @@ example_path = os.path.join(root_dir,
                             "examples",
                             "01_basic features and overview of possibilities")
 data_path = os.path.join(example_path, "data")
-out_path = folder_root.root_folder_results()
+out_path = folder_root.update_root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -79,8 +80,8 @@ out_path = folder_root.root_folder_results()
 
 # case = 'FromLIB'
 # case = 'FromDEM'
-# case = 'FromSHP'
-case = 'FromXYV'
+case = 'FromSHP'
+# case = 'FromXYV'
 
 if case == 'FromLIB':
     dem_path = os.path.join(data_path, 'regional dem.tif')
@@ -110,7 +111,7 @@ if case == 'FromSHP':
     watershed_name = 'FromSHP'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
-    from_shp = [data_path + 'conceptual shp.shp', 10] # [path, buffer size]
+    from_shp = [data_path + '/' + 'conceptual shp.shp', 10] # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
     save_object = True
@@ -471,7 +472,7 @@ visu.visual2D(object_list = ['map','grid',
               color_scale = [(None,None),(None,None),
                              (None,None),(0,10),
                              (None,None),(None,None),
-                             (None,None),(None,None),
+                             (0,100),(None,None),
                              ], 
               lines=250)
 
