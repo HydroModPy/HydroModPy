@@ -236,8 +236,8 @@ sim_state = 'steady' # 'transient' - Choice your simulation dynamics
 model_name = sim_state + '_' + '1'
 
 # Choice hydraulic parameters
-K_value = 1e-8 # m/s - hydraulic conductivity
-Sy_value = 5 # m/s - specific yield (porosity)
+K_value = 2e-5 # m/s - hydraulic conductivity
+Sy_value = 1 # m/s - specific yield (porosity)
 
 # Import modules
 BV.add_settings()
