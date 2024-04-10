@@ -205,17 +205,17 @@ BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
 BV.hydraulic.update_thick(50) # Not consider if bottom != of None
 BV.hydraulic.update_hyd_cond(2e-5 * 24 * 3600) # m/d
 BV.hydraulic.update_porosity(1/100) # -
-BV.hydraulic.update_cond_decay(1/10) # Exponential decay with depth : 1/10 (about half decrease at 10m)
+BV.hydraulic.update_cond_decay(1/20) # Exponential decay with depth : 1/10 (about half decrease at 10m)
+BV.hydraulic.update_poro_decay(1/20)
 BV.hydraulic.update_cond_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 BV.hydraulic.update_cond_drain(None)
-BV.hydraulic.update_poro_decay(0)
 
 # Boundary settings
 BV.settings.update_bc_sides(None, None)
 BV.add_oceanic('None')
 
 # Particle tracking settings
-BV.settings.update_input_particules(zone_partic='watershed') # or 'domain'
+BV.settings.update_input_particules(zone_partic='domain') # or 'domain'
 
 #%% ---- GROUNDWATER FLOW MODEL RUN
 
@@ -281,24 +281,28 @@ BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climat
                                        time_step='D',
                                        sim_state='transient')
 
-fig, ax = plt.subplots(1,1, figsize=(7,3), dpi=300)
+fig, ax = plt.subplots(1,1, figsize=(6,2), dpi=300)
 ax.patch.set_visible(False)
-axb = ax.twinx()
+# axb = ax.twinx()
 R = BV.climatic.recharge
 ax.plot(R.index, R,  color='blue', lw=1, clip_on=True)
-axb.bar(R.resample('Y').sum().index, R.resample('Y').sum(),  color='red', lw=0, width=100, alpha=1, clip_on=True)
-axb.set_ylim(0,1000)
-axb.invert_yaxis()
+# axb.bar(R.resample('Y').sum().index, R.resample('Y').sum(),  color='red', lw=0, width=100, alpha=1, clip_on=True)
+# axb.set_ylim(0,1000)
+# axb.invert_yaxis()
 ax.fill_between(R.index, R*0, R, color='skyblue', clip_on=True, alpha=1)
 ax.set_xlabel('Date')
-ax.set_ylabel('Recharge [mm/d]', color='blue')
+# ax.set_ylabel('Recharge [mm/d]', color='blue')
 ax.xaxis.set(minor_locator=mdates.YearLocator(1), major_locator=mdates.YearLocator(5))
 ax.set_ylim(0,8)
-ax.set_xlim(pd.to_datetime('1990'), pd.to_datetime('2020'))
+ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2020'))
 ax.set_yticks([0,2,4,6,8])
-ax.set_zorder(axb.get_zorder() + 1)
 ax.grid(which='both', axis='x')
-plt.setp(axb.get_yticklabels(), color="red")
+# ax.set_zorder(axb.get_zorder() + 1)
+# plt.setp(axb.get_yticklabels(), color="red")
+ax.invert_yaxis()
+ax.set_title('Recharge [mm/d]', color='blue')
+
+fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'input_rec.png', dpi=300, bbox_inches='tight')
 
 #%% MESH DISCRETIZATION
 
@@ -319,11 +323,12 @@ try:
         val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
 except:
     pass
-cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-8,vmax=1e-3))
+cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-3,vmax=1e-8))
 ax.set_title('Hydraulic conductivity [m/s] - Meshgrid West to East', fontsize=12)
 ax.set_xlim(0, 9000)
-ax.set_ylim(50, 150)
+ax.set_ylim(40, 150)
 ax.set_xticks([0,2000,4000,6000,8000])
+ax.set_yticks([50,75,100,125,150])
 ax.set_xlabel('Distance [m]')
 ax.set_ylabel('Elevation [m]')
 fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
@@ -338,12 +343,15 @@ cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
                                                     vmax=10))
 ax.set_title('Specific yield [%] - Meshgrid South to Noth', fontsize=12)
 ax.set_xlim(0, 5500)
-ax.set_ylim(50, 150)
+ax.set_ylim(40, 150)
 ax.set_xticks([0,1000,2000,3000,4000,5000])
+ax.set_yticks([50,75,100,125,150])
 ax.set_xlabel('Distance [m]')
 fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
 fig.colorbar(cb)
 plt.tight_layout()
+
+fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'mesh_cross.png', dpi=300, bbox_inches='tight')
 
 #%% 2D VISUALIZATION
 
@@ -360,13 +368,13 @@ visu.visual2D(object_list = [
                              ],
               color_scale = [
                              (None,None),
-                             (50,140),
-                             (50,140),
+                             (80,150),
+                             (80,150),
                              (0,10),
-                             (0,300),
+                             (0,200),
                              (0,30000),
-                             (0,2.5),
-                             (0,5),
+                             (0,3),
+                             (0,3),
                              ], 
                              lines=750)
  
@@ -382,7 +390,8 @@ visu.visual3D(interactive=True, object_list=[
                                              'drain_flow',
                                              'pathlines'
                                              ],
-                                              view='south-west',
+                                               view='south-west',
+                                              # view='north',
                                               lines=None,
                                               cloc=(0.7,0.1),
                                               z_scale=10)
@@ -395,6 +404,52 @@ watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_po
 interactive = True
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
+
+#%% FIXED CROSS-SECTION
+
+fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
+print(stable_folder)
+
+mask = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
+watertable_elevation = np.load(simulations_folder+'/'+model_name+'/_postprocess/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+
+dem_data = imageio.imread(BV.geographic.watershed_dem)
+wt_data = watertable_elevation[0]
+
+xvalues = np.linspace(-1,1,dem_data.shape[1])
+yvalues = np.linspace(-1,1,dem_data.shape[0])
+xx, yy = np.meshgrid(xvalues,yvalues)
+
+cur_x = dem_data.shape[1] /2
+cur_x = 65
+
+wt_prof = wt_data.astype(float)
+wt_prof[wt_prof<0] = np.nan
+dem_max = dem_data.max()
+dem_prof = dem_data.astype(float)
+dem_prof[dem_prof<0] = np.nan
+dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
+dem_v_plot = dem_prof[:,int(cur_x)]
+dem_v_plot[dem_v_plot == 0] = np.nan
+wt_v_plot = wt_prof[:,int(cur_x)]
+wt_v_plot[wt_v_plot == 0] = np.nan
+           
+wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-20, wt_v_plot, color='dodgerblue', alpha=0.5, lw=0)
+w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1.5)
+wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot, color='saddlebrown', alpha=0.5, lw=0)
+d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
+ax.fill_between(np.arange(xx.shape[0])*75, 0, dem_v_plot-20, color='lightgrey', alpha=0.5, lw=0)
+ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-20, color='dimgray', lw=1.5)
+
+ax.set_xlim(1000, 4000)
+ax.set_ylim(90, 130)
+ax.set_yticks([90,100,110,120,130])
+ax.set_xlabel('Distance [m]')
+ax.set_ylabel('Elevation [m]')
+
+plt.tight_layout()
+
+fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'2D_cross.png', dpi=300, bbox_inches='tight')
 
 #%% ---- NOTES
 
