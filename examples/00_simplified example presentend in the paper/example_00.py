@@ -302,7 +302,7 @@ ax.grid(which='both', axis='x')
 ax.invert_yaxis()
 ax.set_title('Recharge [mm/d]', color='blue')
 
-fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'input_rec.png', dpi=300, bbox_inches='tight')
+# fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'input_rec.png', dpi=300, bbox_inches='tight')
 
 #%% MESH DISCRETIZATION
 
@@ -351,7 +351,7 @@ fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
 fig.colorbar(cb)
 plt.tight_layout()
 
-fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'mesh_cross.png', dpi=300, bbox_inches='tight')
+# fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'mesh_cross.png', dpi=300, bbox_inches='tight')
 
 #%% 2D VISUALIZATION
 
@@ -449,7 +449,7 @@ ax.set_ylabel('Elevation [m]')
 
 plt.tight_layout()
 
-fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'2D_cross.png', dpi=300, bbox_inches='tight')
+# fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'2D_cross.png', dpi=300, bbox_inches='tight')
 
 #%% ---- NOTES
 
