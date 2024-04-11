@@ -423,7 +423,7 @@ Qobs_list =[
 couleurs = ['navy','darkviolet']
 areas = [3.7, 1.2]
 
-"""
+
 fig, axs = plt.subplots(2,1, figsize=(7,6), sharex=True)
 axs = axs.ravel()
 
@@ -459,8 +459,6 @@ for i, Qobs_name in enumerate(Qobs_list[:]):
     # ax.grid()
     
     plt.tight_layout()
-
-"""
 
 # fig, axs = plt.subplots(1,2, figsize=(9,3),
 #                         # sharey=True
@@ -4919,6 +4917,7 @@ fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasse
 # iD_explo = 't1' # montly projection test
 iD_explo = 'p1' # montly projection all
 iD_explo = 'p2' # montly projection 6 models for 3 scenarios
+# iD_explo = 'r1' # montly projection 6 models for 3 scenarios
 
 decay_factor = 2
 
@@ -5031,12 +5030,17 @@ mod_list = ['MPI-CCL',
             # 'HAD-REG',
             'MPI-R09']
 
+# For reanalysis
+mod_keep = 'REA'
+mod_list = ['REA']
+
 run_model = True
 # run_model = False
 
 fig, ax = plt.subplots(1,1, figsize=(7,4))
 
-for sce in ['RCP26','RCP45','RCP85']:
+# for sce in ['RCP26','RCP45','RCP85']:
+for sce in ['historic']:
 # for sce in ['RCP45']:
     
     rec_keep = all_proj.filter(regex='REC').filter(regex=sce).filter(regex=mod_keep)
@@ -5046,8 +5050,17 @@ for sce in ['RCP26','RCP45','RCP85']:
     run_keep = run_keep.mean(skipna=True, axis=1)
     # rec_keep = select_period(rec_keep,1975,1976)
     
-    recharge_w_sli = rec_keep.resample('M').mean()
-    runoff_w_sli = run_keep.resample('M').mean()
+    # recharge_w_sli = rec_keep.resample('M').mean()
+    # runoff_w_sli = run_keep.resample('M').mean()
+    
+    recharge_w_sli = rec_keep.resample('D').mean()
+    runoff_w_sli = run_keep.resample('D').mean()
+    
+    recharge_w_sli = recharge_w_sli.dropna()
+    runoff_w_sli = runoff_w_sli.dropna()
+    
+    recharge_w_sli = select_period(recharge_w_sli, 2020, 2023)
+    runoff_w_sli = select_period(runoff_w_sli, 2020, 2023)
     
     # print(select_period(rea_recharge_isba+rea_runoff_isba, 1975, 2004).mean()*1000*365)
     # print(select_period(rec_keep+run_keep, 1975, 2004).mean()*1000*365)
@@ -5080,14 +5093,20 @@ for sce in ['RCP26','RCP45','RCP85']:
     # BV.climatic.update_recharge(select_period(recharge_w_sli, 2022, 2023), sim_state=sim_state)
     # BV.climatic.update_runoff(select_period(runoff_w_sli, 2022, 2023), sim_state=sim_state)
     
-    BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2099), sim_state=sim_state)
-    BV.climatic.update_runoff(select_period(runoff_w_sli, 1975, 2099), sim_state=sim_state)
+    ###♥ FOR REANALYSIS
+    BV.climatic.update_recharge(select_period(recharge_w_sli, 2020, 2023), sim_state=sim_state)
+    BV.climatic.update_runoff(select_period(runoff_w_sli, 2020, 2023), sim_state=sim_state)
+    
+    ### FOR 3 SCENARIOS
+    # BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2099), sim_state=sim_state)
+    # BV.climatic.update_runoff(select_period(runoff_w_sli, 1975, 2099), sim_state=sim_state)
     
     # recharge_ete = sim2[sim2.index.month.isin([7,8,9])]
     # recharge_ete = (recharge_ete['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
     # print(BV.climatic.recharge.mean())
     
-    first_clim = select_period(recharge_w_sli,1980,2004).mean() # or 'first or value
+    # first_clim = select_period(recharge_w_sli,1980,2004).mean() # or 'first or value
+    first_clim = recharge_w_sli.mean() # or 'first or value
     print(first_clim)
     BV.climatic.update_first_clim(first_clim)
     
@@ -6613,6 +6632,7 @@ for sce in sce_list:
             each = d[d.index.year==year]
             
             count = ((each['diff'] <= 0) & (each[var+'_'+mod+'_'+sce] <= cond)).astype(int).sum(axis=0)
+            # count = ((each[var+'_'+mod+'_'+sce] <= cond)).astype(int).sum(axis=0)
             
             # count = ((each[var+'_'+mod+'_'+sce] <= cond)).astype(int).sum(axis=0)
     
@@ -6777,9 +6797,9 @@ for sce in sce_list:
     
     plt.tight_layout()
     
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
-                'EVOL_DAYS_DRY-'+sce+'.png',
-                            bbox_inches='tight')
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+    #             'EVOL_DAYS_DRY-'+sce+'.png',
+    #                         bbox_inches='tight')
 
 #%% EVOLUTION CILMAT EAU - OLD
  
@@ -9525,6 +9545,310 @@ for ivar, var in enumerate(['t_wtl','L_wtl'][:]):
                 'BOXP_RESP_'+var+'_FROM WTL'+'.png',
                             bbox_inches='tight')
 
+#%% NUMBER OF DAYS UNDER Q10 HISTORIC
+
+iD_explo = 'p2'
+
+CRIT = 'RMSE'
+
+init_path = data_path + '_Q/'
+
+Qobs_list =[
+             'lasset_Q_Day.Cmd.txt',
+             # 'truites_Q_Day.Cmd.txt'
+            ]
+Qobs_name = Qobs_list[0]
+
+couleurs = ['navy','darkviolet']
+areas = [3.7,
+         # 1.2
+         ]
+
+df = pd.DataFrame()
+
+dict_Q_wname = {}
+
+col_list = ['k','dodgerblue','darkorange','red']
+sce_list = ['historic','RCP26','RCP45','RCP85']
+dict_scecol = dict(zip(sce_list, col_list))
+
+
+for w, w_name in enumerate(['Lasset'][:]):
+    
+    # BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+    BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
+    Qobs = dfQ.q / (areas[0]*1e6)
+    Qobs_w_off = Qobs.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+    Qobs_w_sli = Qobs.groupby(np.arange(len(Qobs))//7).mean()
+    Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
+    Qobs_w_sli = Qobs_w_sli.iloc[:-1]
+    Qobs = Qobs_w_sli.copy() * 1000
+    # Qobs = Qobs.resample('M').mean()*4
+
+    i = 0
+    
+    for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qgrenou','subbasin_Qbombee'][:]):
+        
+        fig, ax = plt.subplots(1, 1, figsize=(8,3))
+
+        for sce in sce_list[:]:
+            
+            df_rec = pd.DataFrame()
+        
+            for id_mod_val in list_id_mod[:]:
+                
+                if sce == 'historic':
+                    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+'RCP85'
+                else:
+                    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+                d = dd.io.load(h5file)
+                list_model_name = d['list_model_name'][:]
+                list_model_success = d['list_model_success'][:]
+                list_model_modflow = d['list_model_modflow'][:]
+                
+                for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                                    list_model_success[:],
+                                                                    list_model_modflow[:]):
+                    
+                    Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
+                                       index_col='date', parse_dates=True)
+                                
+                    print(pzone)    
+                    # ax = axs[pidx]
+                    # subbasin_Qlasset
+                    # subbasin_Qbreton
+                    # subbasin_Qgrenou
+                    # subbasin_Qbombee
+                    Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_subbasins/'+pzone+'/_simulated_timeseries.csv', sep=';',
+                                        index_col='date', parse_dates=True)
+                
+                    Smod = Smod.dropna()
+                    # print(Smod)
+    
+                    # Smod.index = recharge_w_sli.index()
+                    
+                    r = Smod['runoff']
+                    Qmod = Smod['outflow_drain'] + r*1 # m/day
+                    # Qmod = Smod['recharge'] + r*1 # m/day
+                    Qmod = Qmod * 1000 * 30
+                    # Qmod = Qmod.resample('M').mean()*4
+                    
+                    # Qmod = Smod['intermit_areas'] / Smod['perenn_areas']
+                    
+                    mix = Qobs.copy().to_frame()
+                    mix.columns = ['Qobs']
+                    mix['Qsim'] = Qmod
+                    mix = mix.dropna()
+        
+                    Qobs_stat = mix.Qobs
+                    Qsim_stat = mix.Qsim
+                    
+                    # import hydroeval as he
+                    # NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+                    # NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+                    # RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
+                    # KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+                    # print(model_name.upper())
+                    # print('NSE', round(NSE,2))
+                    # print('NSElog', round(NSElog,2))
+                    # print('RMSE', round(RMSE,2))
+                    # print('KGE', round(KGE,2))
+                    
+                    # model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
+                    #              str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
+                    #              str(ip)+'_'+\
+                    #              str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))
+                    
+                    df.loc[i,'model_name'] = model_name
+                    
+                    df.loc[i,'id_explo'] = iD_explo
+                    df.loc[i, 'id_mod'] = id_mod_val
+                    
+                    df.loc[i,'aK'] = float(model_name.split('_')[2].split('-')[0])
+                    df.loc[i,'bottom'] = float(model_name.split('_')[2].split('-')[1])
+                    
+                    try:
+                        df.loc[i,'K'] = float(['-'.join(model_name.split('_')[2].split('-')[-2:])][0])
+                    except:
+                        pass
+                    
+                    # df.loc[i,'id_eO'] = float(model_name.split('_')[3][0])
+                    
+                    df.loc[i,'aO'] = float(model_name.split('_')[3].split('-')[0])
+                    df.loc[i,'O'] = float(model_name.split('_')[3].split('-')[1])
+                    
+                    # df.loc[i,'NSE'] = float(NSE)
+                    # df.loc[i,'NSElog'] = float(NSElog)
+                    # df.loc[i,'RMSE'] = float(RMSE)
+                    # df.loc[i,'KGE'] = float(KGE)
+                    
+                    Q10_obs = Qobs_stat.quantile(0.10)
+                    Q50_obs = Qobs_stat.quantile(0.50)
+                    Q90_obs = Qobs_stat.quantile(0.90)
+                    Q10_sim = Qsim_stat.quantile(0.10)
+                    Q50_sim = Qsim_stat.quantile(0.50)
+                    Q90_sim = Qsim_stat.quantile(0.90)
+                    
+                    df.loc[i,'OWN_Q10'] = float(((Q10_sim - Q10_obs)**2) / (Q10_obs**2))
+                    df.loc[i,'OWN_Q50'] = float(((Q50_sim - Q50_obs)**2) / (Q50_obs**2))
+                    df.loc[i,'OWN_Q90'] = float(((Q90_sim - Q90_obs)**2) / (Q90_obs**2))
+                    
+                    df.loc[i,'OWN'] = ( df.loc[i,'OWN_Q10'] + df.loc[i,'OWN_Q50'] + df.loc[i,'OWN_Q90'] ) / 3
+            
+                    d = pd.DataFrame()
+                    d = Qmod.to_frame()
+                    d.columns = ['Q']
+                    d['historic'] = d['Q']
+                    d[sce] = d['Q']
+                    
+                    if sce == 'historic':
+                        d[sce][(d.index.year)>=2005] = np.nan
+                        
+                    else:
+                        d[sce][(d.index.year)<2005] = np.nan
+
+                    cond = select_period(d['Q'], 1980,2004).quantile(0.1)
+                    
+                    if sce == 'historic':
+                        d = select_period(d, 1980, 2004)
+                    else:
+                        d = select_period(d, 2004, 2099)
+                        
+                    d['diff'] = d['Q'].diff()
+                    
+                    # print(cond)
+                    
+                    years = d.index.year.unique()
+                    
+                    counts = []
+                    for i, year in enumerate(years):
+                    
+                        each = d[d.index.year==year]
+                        
+                        count = ((each[sce] <= cond)).astype(int).sum(axis=0)
+                        
+                        counts.append(count)
+                    
+                    df_rec['val'] = counts
+            
+                    df_rec.index = years
+                    
+                    df_rec = df_rec
+                    
+                    print('    ',sce,df_rec['val'].mean().round(1))
+                    
+                    step = 'pre'
+                    ax.fill_between(df_rec.index, 0, df_rec['val'],
+                                    interpolate=False,  color=dict_scecol[sce], alpha=0.1,
+                                    step=step)
+
+                    ax.step(df_rec.index, df_rec['val'], color=dict_scecol[sce], lw=2)
+                    ax.set_title(pzone, fontsize=8)
+                    
+                    ax.set_ylim(0,12)
+                    
+                    ax.set_xlim(1980,2100)
+                    ax.set_xticks(np.arange(1980, 2100+1, 10))
+                    ax.set_xticklabels(np.arange(1980, 2100+1, 10))
+                    
+                    ax.xaxis.set_minor_locator(MultipleLocator(1))
+                    
+                    ax.axhline(df_rec['val'].mean(), color=dict_scecol[sce], ls='--', lw=1)
+                    
+                    plt.tight_layout()
+                    
+                   
+                    """
+                    # fig, ax = plt.subplots(1,1, figsize=(10,4))
+                    fig, ax = plt.subplots(1,1, figsize=(9,4))
+                    
+                    ax.set_title(l, fontsize=6)
+                    
+                    import matplotlib
+                    normaliz = plt.Normalize(df_rec.median().min(), df_rec.median().max())
+                    norm = matplotlib.colors.Normalize(vmin=0, vmax=100)
+                    # if sce == 'RCP2.6':
+                    #     to_norm = df_rec.median()
+                    colors = plt.cm.jet(norm(df_rec.median()))
+                    # colors = plt.cm.jet(norm([60] * len(df_rec.columns)))
+                    # colors = plt.cm.jet(norm(to_norm))
+                    # colors = plt.cm.jet(norm((df_rec.median()*0)+60))
+                    
+                    
+                    medianprops = dict(linestyle='-', linewidth=1, color='black')
+                    meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
+                                          markerfacecolor='k', linestyle='-')
+                    
+                    ax.vlines(x=years, 
+                                ymin=df_rec.quantile(0.75), 
+                                ymax=df_rec.quantile(0.95), color='k', zorder=2)
+                    ax.vlines(x=years, 
+                                ymin=df_rec.quantile(0.05), 
+                                ymax=df_rec.quantile(0.25), color='k', zorder=2)
+                    
+                    # boxprops = dict(linestyle='-', linewidth=1, color='k',
+                    #                 facecolor='cyan', alpha=0.5)
+                    # bp = ax.boxplot(df_rec, widths=0.75,
+                    #                 positions=years,
+                    #                   whis=False, showfliers=False, showmeans=False, 
+                    #                   medianprops=medianprops, meanprops=meanpointprops,
+                    #                   patch_artist=True, boxprops=boxprops)
+                    
+                    for i in range(len(years)):
+                        # print(i)
+                        boxprops = dict(linestyle='-', linewidth=1, color='k',
+                                        facecolor=colors[i], 
+                                        alpha=0.5)
+                        bp = ax.boxplot(df_rec.iloc[:,i], widths=0.75,
+                                        positions=[df_rec.columns[i]],
+                                          whis=False, showfliers=False, showmeans=False, 
+                                          medianprops=medianprops, meanprops=meanpointprops,
+                                          patch_artist=True, boxprops=boxprops)
+                    
+                    ax.plot(years, df_rec.mean(), marker='o', mec='k', ms=1.5, lw=0,
+                            mfc='k', mew=1,
+                            color='k', zorder=1000)
+                      
+                    for element in bp['whiskers']:
+                        element.set_color('k')
+                        element.set_linestyle('-')
+                    # for patch in bp['boxes']:
+                    #     patch.set(facecolor='r')    
+                    ax.set_xticks(np.arange(1980, 2100+1, 10))
+                    ax.set_xticklabels(np.arange(1980, 2100+1, 10))
+                    
+                    # ax.get_xaxis().set_visible(False)
+                    # ax.set_yscale('log')
+                    
+                    ax.set_ylim(0, 30)
+                    # ax.set_yticks(np.arange(0, 180+1, 30))
+                    
+                    ax.set_xlim(1974,2100)
+                    ax.tick_params(axis='x', which='minor')
+                    
+                    from matplotlib.ticker import (MultipleLocator)
+                    ax.xaxis.set_minor_locator(MultipleLocator(1))
+                    
+                    ax.set_axisbelow(True)
+                    # ax.grid(zorder=-1000)
+                    ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
+                    ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
+                    
+                    # ax.set_title(var+' - '+mod)
+                    # ax.set_xlim(pd.to_datetime('1974'), pd.to_datetime('2100'))
+                    
+                    plt.tight_layout()
+                    """
+                    
+                    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+                                'EVOL_MONTHS_DRY_Q10-'+pzone+'.png',
+                                            bbox_inches='tight')
+                
 #%% ---- BULK PROJECTIONS PLOT
 
 #%% PI ALTITUDE
