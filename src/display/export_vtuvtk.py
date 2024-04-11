@@ -991,6 +991,7 @@ class VTK():
             for item in range(len(listDrainFlowCellDef)):
                 if listDrainFlowCellDef[item]>0:
                     textvalue = str(np.log10(listDrainFlowCellDef[item]))
+                    # textvalue = str((listDrainFlowCellDef[item]))
                 else:
                     textvalue = 'nan'
                 if item == 0:
@@ -1021,6 +1022,7 @@ class VTK():
             for item in range(len(listSurfaceFlowCellDef)):
                 if listSurfaceFlowCellDef[item]>0:
                     textvalue = str(np.log10(listSurfaceFlowCellDef[item]))
+                    # textvalue = str((listSurfaceFlowCellDef[item]))
                 else:
                     textvalue = 'nan'
                 if item == 0:
@@ -1210,6 +1212,7 @@ class VTK():
                     textoVtk.write(str(t_store[i][j]) + '\n')
                 else:
                     textoVtk.write(str(np.log10(t_store[i][j])) + '\n')
+                    # textoVtk.write(str((t_store[i][j])) + '\n')
     
         #textoVtk.write('SCALARS Velocity float\n')
         #textoVtk.write('LOOKUP_TABLE default\n')
