@@ -2504,6 +2504,12 @@ BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 
 # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
 recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
+# plt.plot(all_proj['REC_REA_historic'], c='blue', lw=3)
+# plt.plot(rea_recharge_isba, c='red', lw=2)
+# plt.plot(isba['REC_REA_historic']/1000, c='green')
+plt.plot(recharge, c='gold')
+# plt.yscale('log')
+# plt.xlim(pd.to_datetime('2020'), pd.to_datetime('2024'))
 # recharge = select_period(recharge, 2021, 2021)
 recharge_w_res = recharge.resample('W', label='right').mean()
 recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
@@ -3537,7 +3543,9 @@ for icri, cri in enumerate(['OWN'][:]):
         df_mod_min = dfplot.iloc[amin]['id_mod']
         
         model_name = model_name_min
-        
+        print(model_name)
+        print(float(['-'.join(model_name.split('_')[2].split('-')[-2:])][0]))
+
         # h5file = BV.calibration_folder+'/'+'results_listing_'+id_explo_min+'_'+str('model')+str(id_mod_val)
         # d = dd.io.load(h5file)
         # list_model_name = d['list_model_name'][:]
@@ -4917,7 +4925,7 @@ fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasse
 # iD_explo = 't1' # montly projection test
 iD_explo = 'p1' # montly projection all
 iD_explo = 'p2' # montly projection 6 models for 3 scenarios
-# iD_explo = 'r1' # montly projection 6 models for 3 scenarios
+iD_explo = 'r1' # montly projection 6 models for 3 scenarios
 
 decay_factor = 2
 
@@ -5062,6 +5070,8 @@ for sce in ['historic']:
     recharge_w_sli = select_period(recharge_w_sli, 2020, 2023)
     runoff_w_sli = select_period(runoff_w_sli, 2020, 2023)
     
+    # plt.plot(recharge_w_sli)
+    
     # print(select_period(rea_recharge_isba+rea_runoff_isba, 1975, 2004).mean()*1000*365)
     # print(select_period(rec_keep+run_keep, 1975, 2004).mean()*1000*365)
         
@@ -5185,12 +5195,13 @@ for sce in ['historic']:
 delete_files = False
 
 # for sce in ['RCP26','RCP85'][:]:
-for sce in ['RCP26','RCP45','RCP85']:
+# for sce in ['RCP26','RCP45','RCP85']:
 # for sce in ['RCP26']:
+for sce in ['historic']:
     
     for id_mod_val in list_id_mod[:]:
     
-        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce.upper()
         d = dd.io.load(h5file)
         list_model_name = d['list_model_name'][:]
         list_model_success = d['list_model_success'][:]
@@ -5205,39 +5216,40 @@ for sce in ['RCP26','RCP45','RCP85']:
                                                             list_model_modflow[:]):
     
             # if model_success == True:
+            BV.postprocessing_modflow(model_modflow,
+                                      watertable_elevation = True,
+                                      watertable_depth = True, 
+                                      seepage_areas = True,
+                                      outflow_drain = True,
+                                      groundwater_flux = True,
+                                      groundwater_storage = True,
+                                      accumulation_flux = True,
+                                      persistency_index = True,
+                                      intermittency_monthly = False,
+                                      intermittency_weekly = False, # True
+                                      intermittency_daily = True,
+                                      export_netcdf = True,
+                                      export_all_tif = True)
+            
             # BV.postprocessing_modflow(model_modflow,
             #                           watertable_elevation = True,
-            #                           watertable_depth = True, 
-            #                           seepage_areas = True,
-            #                           outflow_drain = True,
-            #                           groundwater_flux = True,
+            #                           watertable_depth = False, 
+            #                           seepage_areas = False,
+            #                           outflow_drain = False,
+            #                           groundwater_flux = False,
             #                           groundwater_storage = True,
-            #                           accumulation_flux = True,
-            #                           persistency_index = True,
-            #                           intermittency_monthly = True,
+            #                           accumulation_flux = False,
+            #                           persistency_index = False,
+            #                           intermittency_monthly = False,
             #                           intermittency_weekly = False, # True
             #                           intermittency_daily = False,
             #                           export_all_tif = False)
-            
-            BV.postprocessing_modflow(model_modflow,
-                                      watertable_elevation = True,
-                                      watertable_depth = False, 
-                                      seepage_areas = False,
-                                      outflow_drain = False,
-                                      groundwater_flux = False,
-                                      groundwater_storage = True,
-                                      accumulation_flux = False,
-                                      persistency_index = False,
-                                      intermittency_monthly = False,
-                                      intermittency_weekly = False, # True
-                                      intermittency_daily = False,
-                                      export_all_tif = False)
     
             timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                               model_modpath=False,
                                                               actual_date=True, 
                                                               subbasin_results=True,
-                                                              freq_time='M') # 'W'
+                                                              freq_time='D') # 'W' or 'M'
     
     # DELETE MODFLOW FILES
             try:
@@ -5307,6 +5319,7 @@ for sce in ['RCP26','RCP45','RCP85']:
 #%% STREAMFLOW CHRONICS
 
 iD_explo = 'p2'
+iD_explo = 'r1'
 
 CRIT = 'RMSE'
 
@@ -5331,7 +5344,12 @@ col_list = ['dodgerblue','darkorange','red']
 sce_list = ['RCP26','RCP45','RCP85']
 dict_scecol = dict(zip(sce_list, col_list))
 
-fig, ax = plt.subplots(1, 1, figsize=(10,3))
+col_list = ['red']
+sce_list = ['historic']
+dict_scecol = dict(zip(sce_list, col_list))
+
+# fig, ax = plt.subplots(1, 1, figsize=(10,3))
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
 
 for w, w_name in enumerate(['Lasset'][:]):
     
@@ -5343,12 +5361,14 @@ for w, w_name in enumerate(['Lasset'][:]):
     
     dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
     Qobs = dfQ.q / (areas[0]*1e6)
-    Qobs_w_off = Qobs.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
-    Qobs_w_sli = Qobs.groupby(np.arange(len(Qobs))//7).mean()
-    Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
-    Qobs_w_sli = Qobs_w_sli.iloc[:-1]
-    Qobs = Qobs_w_sli.copy() * 1000
+    # Qobs_w_off = Qobs.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+    # Qobs_w_sli = Qobs.groupby(np.arange(len(Qobs))//7).mean()
+    # Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
+    # Qobs_w_sli = Qobs_w_sli.iloc[:-1]
+    # Qobs = Qobs_w_sli.copy() * 1000
     # Qobs = Qobs.resample('M').mean()*4
+
+    Qobs = Qobs * 1000
 
     i = 0
     
@@ -5376,7 +5396,7 @@ for w, w_name in enumerate(['Lasset'][:]):
                 r = Smod['runoff']
                 Qmod = Smod['outflow_drain'] + r*1 # m/day
                 # Qmod = Smod['recharge'] + r*1 # m/day
-                Qmod = Qmod * 1000 * 30
+                Qmod = Qmod * 1000 # * 30
                 # Qmod = Qmod.resample('M').mean()*4
                 
                 # Qmod = Smod['intermit_areas'] / Smod['perenn_areas']
@@ -5389,16 +5409,16 @@ for w, w_name in enumerate(['Lasset'][:]):
                 Qobs_stat = mix.Qobs
                 Qsim_stat = mix.Qsim
                 
-                # import hydroeval as he
-                # NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
-                # NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
-                # RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
-                # KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
-                # print(model_name.upper())
-                # print('NSE', round(NSE,2))
-                # print('NSElog', round(NSElog,2))
-                # print('RMSE', round(RMSE,2))
-                # print('KGE', round(KGE,2))
+                import hydroeval as he
+                NSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
+                NSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
+                RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2)) / (Qobs_stat.max()-Qobs_stat.min())
+                KGE = he.evaluator(he.kge, Qsim_stat, Qobs_stat)[0][0]
+                print(model_name.upper())
+                print('NSE', round(NSE,2))
+                print('NSElog', round(NSElog,2))
+                print('RMSE', round(RMSE,2))
+                print('KGE', round(KGE,2))
                 
                 # model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
                 #              str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
@@ -5455,20 +5475,21 @@ for w, w_name in enumerate(['Lasset'][:]):
                 years_fmt = mdates.DateFormatter('%Y')
             
                 ax = ax
-                # ax.plot(Qobs, color='k', lw=1, ls='-', zorder=0, label='Observed')
-                ax.plot(Qmod, color=dict_scecol[sce], lw=1, label=sce)
+                ax.plot(Qobs, color='k', lw=1.5, ls='-', zorder=0, label='Observed')
+                ax.plot(Qmod, color='darkorange', lw=0.5, label='Seepage + Runoff')
                 ax.plot(select_period(Qmod, 1975, 2010), color='k', lw=1)
-                # ax.plot(Qmod-(r*1000), color='darkorange', lw=0.25, label='Simulated')
+                ax.plot(Qmod-(r*1000), color='red', lw=1, label='Seepage')
                 ax.set_xlabel('Date')
                 ax.set_ylabel('Q [mm/months]')
-                # ax.set_yscale('log')
+                ax.set_ylabel('Q [mm/d]')
+                ax.set_yscale('log')
                 # ax.set_ylim(0.1,100)
-                years_maj = mdates.YearLocator(30)   # every year
-                # months_maj = mdates.MonthLocator()  # every x month
+                years_maj = mdates.YearLocator(1)   # every year
+                months_maj = mdates.MonthLocator()  # every x month
                 ax.xaxis.set_major_locator(years_maj)
-                # ax.xaxis.set_minor_locator(months_maj)
-                ax.set_xlim(pd.to_datetime('1980'), pd.to_datetime('2100'))
-                ax.legend(loc='lower left')
+                ax.xaxis.set_minor_locator(months_maj)
+                # ax.set_xlim(pd.to_datetime('1980'), pd.to_datetime('2100'))
+                ax.legend(loc='upper right')
                 ax.set_title(model_name.upper(), fontsize=10)
                 # ax.set_ylim(10,1000)
                 
@@ -5496,7 +5517,7 @@ dfcrit_Q = df.copy()
 
 #%% SATURATION CHRONICS
 
-iD_explo = 'p2'
+iD_explo = 'r1'
 
 types_obs = ['stream_perennial_wetlands_points']
 
@@ -5523,7 +5544,9 @@ list_sat_obs = [7.5,15] # 7
 
 i=0
 
-for sce in ['RCP26','RCP45','RCP85'][:]:
+# for sce in ['RCP26','RCP45','RCP85'][:]:
+for sce in ['historic'][:]:
+
 
     fig, ax = plt.subplots(1, 1, figsize=(6,3))
 
@@ -5607,13 +5630,13 @@ for sce in ['RCP26','RCP45','RCP85'][:]:
             #         markersize=5, lw=1, label='upstream',
             #         where='pre')
             
-            ax.set_ylim(5,20)
-            ax.set_yticks([5, 10, 15, 20])
+            # ax.set_ylim(5,20)
+            # ax.set_yticks([5, 10, 15, 20])
             ax.set_ylabel('$A_{sat}$ [%]')
-            ax.set_xlim(pd.to_datetime('1980'), pd.to_datetime('2100'))
+            # ax.set_xlim(pd.to_datetime('1980'), pd.to_datetime('2100'))
             plt.xticks(rotation=0, ha="right")
         
-            years_maj = mdates.YearLocator(30)   # every year
+            years_maj = mdates.YearLocator(1)   # every year
             # months_maj = mdates.MonthLocator()  # every x month
             ax.xaxis.set_major_locator(years_maj)
             # ax.xaxis.set_minor_locator(months_maj)
