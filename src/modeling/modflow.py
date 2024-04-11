@@ -757,6 +757,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.dict_saturated_storage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
@@ -877,13 +878,18 @@ class Modflow:
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.wt_sto, -9999, output_path)
-                self.dict_groundwater_storage[item] = self.wt_sto
-                # if time == 0:
-                #     self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
-                # else:
-                #     self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper, totim=time)[0]
-                # self.gw_storage = self.sto.copy()
-                # self.dict_groundwater_storage[item] = self.gw_storage
+                self.dict_saturated_storage[item] = self.wt_sto
+
+                if item == 0:
+                    self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
+                else:
+                    self.kstpkper_bis = (self.kstp[item], time)
+                    try:
+                        self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper_bis)[0]
+                    except:
+                        pass
+                self.gw_storage = np.sum(self.sto, axis=0)
+                self.dict_groundwater_storage[item] = self.gw_storage
 
             if accumulation_flux == True:
                 ### Accumulation flux
@@ -912,6 +918,7 @@ class Modflow:
         if groundwater_flux == True:
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
+            np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
@@ -949,6 +956,11 @@ class Modflow:
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic)
             if groundwater_storage == True:
+                toolbox.export_netcdf(self.dict_groundwater_storage, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'saturated_storage.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
                 toolbox.export_netcdf(self.dict_groundwater_storage, 
                                       base_path = self.geographic.watershed_dem, 
                                       out_path = os.path.join(self.netcdf_file, 'groundwater_storage.nc'), 
