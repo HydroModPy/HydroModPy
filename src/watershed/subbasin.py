@@ -97,14 +97,14 @@ class Subbasin:
             print('     No intermittency subbasin or problem')
             pass
         
-        # try:
-        code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
-        for i in range(len(code_sub)):
-            sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-            self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
-        # except:
-        #     print('     No personnal subbasins or problem')
-        #     pass
+        try:
+            code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
+            for i in range(len(code_sub)):
+                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
+        except:
+            print('     No personnal subbasins or problem')
+            pass
     
     #%% SUB-CATCHMENT FROM STATIONS
     
@@ -144,7 +144,7 @@ class Subbasin:
         wbt.watershed(os.path.join(geographic.reg_path, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
-        print(watershed_shp)
+        # print(watershed_shp)
         wbt.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)

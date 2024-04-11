@@ -16,6 +16,7 @@
 import flopy
 import numpy as np
 import os
+import datetime
 import pandas as pd
 import sys
 import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
@@ -276,7 +277,16 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-            self.perlen = np.ones(len(self.climatic))
+
+            if isinstance(self.climatic, pd.core.series.Series):
+                if isinstance(self.climatic.index[0], datetime.datetime):
+                    self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                    self.perlen[0] = 1
+                else:
+                    self.perlen = self.climatic.index.to_series().diff().values
+                    self.perlen[0] = 1
+            else:
+                self.perlen = np.ones(len(self.climatic))
                         
         ### Model Domain definition and discretization 
                 
@@ -860,7 +870,7 @@ class Modflow:
                     self.flux = np.sqrt(self.frf**2 + self.fff**2)        
                 if self.nlay > 1:
                     self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
-                    self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
+                    self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
                 self.flux_top = self.flux[0]
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
