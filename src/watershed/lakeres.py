@@ -609,7 +609,7 @@ class Lakeres:
             # export
             lake_frame.to_csv(os.path.join(self.data_folder,
                                            f"flux_data_lake_{lake_id}.csv"), 
-                              sep = '\t', 
+                              sep = ';', 
                               header = True) 
                 
         print('\n')
