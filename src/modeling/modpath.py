@@ -322,46 +322,48 @@ class Modpath:
                                    epsg=epsg,
                                    sr=None)
         
-        path_mppth = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
-        pthobj = flopy.utils.PathlineFile(path_mppth+'.mppth')
-        pth_data = pthobj.get_alldata()
+        if (pathlines_shp == True) or (particules_shp == True):
+        
+            path_mppth = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
+            pthobj = flopy.utils.PathlineFile(path_mppth+'.mppth')
+            pth_data = pthobj.get_alldata()
+                
+            if random_id != None:
+                shp_endpoint = gpd.read_file(os.path.join(self.particules_file, 'ending.shp'))
+                keep_id = shp_endpoint.particleid
+                keep_id = keep_id.tolist()
+     
+                # if not os.path.exists(self.particules_file+'/_random_id.data'):
+                id_random_particules = random.sample(keep_id[:-1], random_id)
+                with open(self.particules_file+'/_random_id.data', 'wb') as f:
+                    pickle.dump(id_random_particules, f)
+                        
+                pth_data_save = []
+                for o, i in enumerate(id_random_particules):
+                    # print(o, i, len(id_random_particules))
+                    for j in pth_data:
+                        if i == j.particleid[0]:
+                            pth_data_save.append(j)
+            else:
+                pth_data_save = pth_data
             
-        if random_id != None:
-            shp_endpoint = gpd.read_file(os.path.join(self.particules_file, 'ending.shp'))
-            keep_id = shp_endpoint.particleid
-            keep_id = keep_id.tolist()
- 
-            # if not os.path.exists(self.particules_file+'/_random_id.data'):
-            id_random_particules = random.sample(keep_id[:-1], random_id)
-            with open(self.particules_file+'/_random_id.data', 'wb') as f:
-                pickle.dump(id_random_particules, f)
-                    
-            pth_data_save = []
-            for o, i in enumerate(id_random_particules):
-                # print(o, i, len(id_random_particules))
-                for j in pth_data:
-                    if i == j.particleid[0]:
-                        pth_data_save.append(j)
-        else:
-            pth_data_save = pth_data
-        
-        if pathlines_shp == True:
-            pthobj.write_shapefile(pathline_data=pth_data_save,
-                                    shpname=os.path.join(self.particules_file, 'pathlines.shp'),
-                                    one_per_particle=True, 
-                                    direction='ending',
-                                    mg=grid_model,
-                                    epsg=epsg,
-                                    sr=None, verbose=False)
-        
-        if particules_shp == True:
-            pthobj.write_shapefile(pathline_data=pth_data_save,
-                                    shpname=os.path.join(self.particules_file, 'particules.shp'),
-                                    one_per_particle=False, 
-                                    direction='ending',
-                                    mg=grid_model,
-                                    epsg=epsg,
-                                    sr=None, verbose=False)
+            if pathlines_shp == True:
+                pthobj.write_shapefile(pathline_data=pth_data_save,
+                                        shpname=os.path.join(self.particules_file, 'pathlines.shp'),
+                                        one_per_particle=True, 
+                                        direction='ending',
+                                        mg=grid_model,
+                                        epsg=epsg,
+                                        sr=None, verbose=False)
+            
+            if particules_shp == True:
+                pthobj.write_shapefile(pathline_data=pth_data_save,
+                                        shpname=os.path.join(self.particules_file, 'particules.shp'),
+                                        one_per_particle=False, 
+                                        direction='ending',
+                                        mg=grid_model,
+                                        epsg=epsg,
+                                        sr=None, verbose=False)
         
 #%% NOTES
 
