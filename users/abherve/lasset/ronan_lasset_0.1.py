@@ -4925,7 +4925,13 @@ fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasse
 # iD_explo = 't1' # montly projection test
 iD_explo = 'p1' # montly projection all
 iD_explo = 'p2' # montly projection 6 models for 3 scenarios
-iD_explo = 'r1' # montly projection 6 models for 3 scenarios
+iD_explo = 'r1' # reanalysis daily for recession
+
+iD_explo = 'Daily1' # test reanalysis daily
+temporal = 'D'
+
+iD_explo = 'Weekly1' # test reanalysis weekly
+temporal = 'W'
 
 decay_factor = 2
 
@@ -5058,47 +5064,49 @@ for sce in ['historic']:
     run_keep = run_keep.mean(skipna=True, axis=1)
     # rec_keep = select_period(rec_keep,1975,1976)
     
-    # recharge_w_sli = rec_keep.resample('M').mean()
-    # runoff_w_sli = run_keep.resample('M').mean()
+    if temporal == 'M':
+        recharge_w_sli = rec_keep.resample('M').mean()
+        runoff_w_sli = run_keep.resample('M').mean()
     
-    recharge_w_sli = rec_keep.resample('D').mean()
-    runoff_w_sli = run_keep.resample('D').mean()
-    
-    recharge_w_sli = recharge_w_sli.dropna()
-    runoff_w_sli = runoff_w_sli.dropna()
-    
-    recharge_w_sli = select_period(recharge_w_sli, 2020, 2023)
-    runoff_w_sli = select_period(runoff_w_sli, 2020, 2023)
-    
+    if temporal == 'D':
+        recharge_w_sli = rec_keep.resample('D').mean()
+        runoff_w_sli = run_keep.resample('D').mean()
+        
+        recharge_w_sli = select_period(recharge_w_sli, 2020, 2023)
+        runoff_w_sli = select_period(runoff_w_sli, 2020, 2023)
+        
+        recharge_w_sli = recharge_w_sli.dropna()
+        runoff_w_sli = runoff_w_sli.dropna()
+        
     # plt.plot(recharge_w_sli)
     
     # print(select_period(rea_recharge_isba+rea_runoff_isba, 1975, 2004).mean()*1000*365)
     # print(select_period(rec_keep+run_keep, 1975, 2004).mean()*1000*365)
-        
-    ### IF WEEKLY ###
-    """
-    recharge = (rec_keep) # / 1000 # mm/d to m/d
-    # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
-    # recharge = select_period(recharge, 2021, 2021)
-    recharge_w_res = recharge.resample('W', label='right').mean()
-    recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
-    recharge_w_int = recharge.interpolate()[::7]
-    recharge_w_sli = recharge.groupby(np.arange(len(recharge))//7).mean()
-    # recharge_w_sli.index = recharge_w_off.iloc[:-1].index
-    recharge_w_sli.index = recharge_w_off.iloc[:].index
-    # recharge_w_sli = recharge_w_sli.iloc[:-1]
     
-    runoff = (run_keep) #/ 1000 # mm/d to m/d
-    # runoff = (isba['RUN_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
-    # runoff = select_period(runoff, 2021, 2021)
-    runoff_w_res = runoff.resample('W', label='right').mean()
-    runoff_w_off = runoff.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
-    runoff_w_int = runoff.interpolate()[::7]
-    runoff_w_sli = runoff.groupby(np.arange(len(runoff))//7).mean()
-    # runoff_w_sli.index = runoff_w_off.iloc[:-1].index
-    runoff_w_sli.index = runoff_w_off.iloc[:].index
-    # runoff_w_sli = runoff_w_sli.iloc[:-1]
-    """
+    ### IF WEEKLY ###
+    if temporal == 'W':
+        recharge = (rec_keep) # / 1000 # mm/d to m/d
+        # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+        # recharge = select_period(recharge, 2021, 2021)
+        recharge_w_res = recharge.resample('W', label='right').mean()
+        recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+        recharge_w_int = recharge.interpolate()[::7]
+        recharge_w_sli = recharge.groupby(np.arange(len(recharge))//7).mean()
+        # recharge_w_sli.index = recharge_w_off.iloc[:-1].index
+        recharge_w_sli.index = recharge_w_off.iloc[:].index
+        # recharge_w_sli = recharge_w_sli.iloc[:-1]
+        
+        runoff = (run_keep) #/ 1000 # mm/d to m/d
+        # runoff = (isba['RUN_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+        # runoff = select_period(runoff, 2021, 2021)
+        runoff_w_res = runoff.resample('W', label='right').mean()
+        runoff_w_off = runoff.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+        runoff_w_int = runoff.interpolate()[::7]
+        runoff_w_sli = runoff.groupby(np.arange(len(runoff))//7).mean()
+        # runoff_w_sli.index = runoff_w_off.iloc[:-1].index
+        runoff_w_sli.index = runoff_w_off.iloc[:].index
+        # runoff_w_sli = runoff_w_sli.iloc[:-1]
+    
     
     # BV.climatic.update_recharge(select_period(recharge_w_sli, 2022, 2023), sim_state=sim_state)
     # BV.climatic.update_runoff(select_period(runoff_w_sli, 2022, 2023), sim_state=sim_state)
@@ -5106,6 +5114,9 @@ for sce in ['historic']:
     ###♥ FOR REANALYSIS
     BV.climatic.update_recharge(select_period(recharge_w_sli, 2020, 2023), sim_state=sim_state)
     BV.climatic.update_runoff(select_period(runoff_w_sli, 2020, 2023), sim_state=sim_state)
+
+    recharge_w_sli = recharge_w_sli.dropna()
+    runoff_w_sli = runoff_w_sli.dropna()
     
     ### FOR 3 SCENARIOS
     # BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2099), sim_state=sim_state)
@@ -5116,13 +5127,20 @@ for sce in ['historic']:
     # print(BV.climatic.recharge.mean())
     
     # first_clim = select_period(recharge_w_sli,1980,2004).mean() # or 'first or value
-    first_clim = recharge_w_sli.mean() # or 'first or value
+    # first_clim = recharge_w_sli.mean() # or 'first or value
+    ### REANALYSIS
+    first_clim = ((sim2['DRAINC_Q'] * norm_factor) / 1000).mean()
     print(first_clim)
     BV.climatic.update_first_clim(first_clim)
     
+    test_r = BV.climatic.recharge
+    test_r = test_r.to_frame()
+    test_r['1'] = np.arange(0,len(test_r),1)
     ax.plot(BV.climatic.recharge)
+    # ax.plot(select_period(recharge_w_sli, 2020, 2023))    
     ax.axhline(first_clim, c='k')
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
+    # ax.set_xlim(pd.to_datetime('2022'), pd.to_datetime('2023'))
 
     for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val, poro_val in zip(list_cond_decay[:],
                                                                                          list_bottom[:],
@@ -5214,7 +5232,17 @@ for sce in ['historic']:
         for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                             list_model_success[:],
                                                             list_model_modflow[:]):
-    
+            
+            intermittency_monthly = False
+            intermittency_weekly = False # True
+            intermittency_daily = False
+            if temporal == 'M':
+                intermittency_monthly = True
+            if temporal == 'W':
+                intermittency_weekly = True # True
+            if temporal == 'D':
+                intermittency_daily = True
+
             # if model_success == True:
             BV.postprocessing_modflow(model_modflow,
                                       watertable_elevation = True,
@@ -5225,10 +5253,10 @@ for sce in ['historic']:
                                       groundwater_storage = True,
                                       accumulation_flux = True,
                                       persistency_index = True,
-                                      intermittency_monthly = False,
-                                      intermittency_weekly = False, # True
-                                      intermittency_daily = True,
-                                      export_netcdf = True,
+                                      intermittency_monthly = intermittency_monthly,
+                                      intermittency_weekly = intermittency_weekly, # True
+                                      intermittency_daily = intermittency_daily,
+                                      export_netcdf = False,
                                       export_all_tif = True)
             
             # BV.postprocessing_modflow(model_modflow,
@@ -5249,7 +5277,7 @@ for sce in ['historic']:
                                                               model_modpath=False,
                                                               actual_date=True, 
                                                               subbasin_results=True,
-                                                              freq_time='D') # 'W' or 'M'
+                                                              freq_time=temporal) # 'W' or 'M'
     
     # DELETE MODFLOW FILES
             try:
@@ -5320,6 +5348,8 @@ for sce in ['historic']:
 
 iD_explo = 'p2'
 iD_explo = 'r1'
+iD_explo = 'Daily1'
+iD_explo = 'Weekly1'
 
 CRIT = 'RMSE'
 
@@ -5518,6 +5548,8 @@ dfcrit_Q = df.copy()
 #%% SATURATION CHRONICS
 
 iD_explo = 'r1'
+iD_explo = 'Daily1'
+iD_explo = 'Weekly1'
 
 types_obs = ['stream_perennial_wetlands_points']
 
