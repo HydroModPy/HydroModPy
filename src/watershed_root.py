@@ -545,7 +545,7 @@ class Watershed:
                                                       watershed_shp=self.geographic.box_buff)
         safransurfex.Merge(out_path=self.watershed_folder)
         self.elt_def.append('safransurfex')
-        # self.save_object()
+        self.save_object()
             
     def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """

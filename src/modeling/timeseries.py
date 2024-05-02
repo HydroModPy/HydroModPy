@@ -325,7 +325,7 @@ class Timeseries:
         ### intermittency_saturation
         if self.freq_time == 'M':
             try:
-                if len(self.accumulation_flux)>12:
+                if len(self.accumulation_flux)>=12:
                     inf = 0
                     sup = 12
                     step = int(round(len(self.accumulation_flux)/12))
@@ -363,7 +363,7 @@ class Timeseries:
         
         if self.freq_time == 'D':
             try:
-                if len(self.accumulation_flux)>365:
+                if len(self.accumulation_flux)>=365:
                     inf = 0
                     sup = 365
                     step = int(round(len(self.accumulation_flux)/365))
@@ -401,7 +401,7 @@ class Timeseries:
         
         if self.freq_time == 'W':
             try:
-                if len(self.accumulation_flux)>52:
+                if len(self.accumulation_flux)>=52:
                     inf = 0
                     sup = 52
                     step = int(round(len(self.accumulation_flux)/52))
