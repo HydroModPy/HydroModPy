@@ -244,7 +244,7 @@ class Modflow:
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
 
-        #%% Discreitzation
+        #%% Discretization
         
         ### Time step is driven by recharge
         
