@@ -568,7 +568,7 @@ class Watershed:
     
     #%% MODFLOW MODEL
     
-    def preprocessing_modflow(self, for_calib: bool=False):
+    def init_modflow(self, for_calib: bool=False):
         """
         Public method to build the hydrologic model.
 
@@ -617,8 +617,11 @@ class Watershed:
                                         bc_left=self.settings.bc_left, 
                                         bc_right=self.settings.bc_right)
         
+        return model_modflow
+    
+    def preprocessing_modflow(self, model_modflow: object, timestep=None):
         # Preprocessing Modflow
-        model_modflow.pre_processing() # verbose
+        model_modflow.pre_processing(timestep=timestep) # verbose
                 
         return model_modflow
          
@@ -705,7 +708,8 @@ class Watershed:
                                       intermittency_daily=intermittency_daily,
                                       export_all_tif=export_all_tif,
                                       export_netcdf=export_netcdf)
-
+    
+        
     #%% MODPATH MODEL        
     
     def preprocessing_modpath(self, model_modflow: object, for_calib: bool=False):
