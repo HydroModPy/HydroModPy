@@ -890,7 +890,6 @@ def pack_value(unpacked_value, scale_factor, add_offset):
 
 def unpack_value(packed_value, scale_factor, add_offset):
     return packed_value * scale_factor + add_offset    
-    
 
 #%% DISPLAY 
 

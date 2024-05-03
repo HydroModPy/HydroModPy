@@ -321,16 +321,19 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 #%% PATHS
 
-# git_path = "D:/Users/abherve/GITHUB/HydroModPy_0.1/"
-# data_path = "G:/UNINE/SIMULATIONS/VALLON/_data/"
-# out_path = 'G:/UNINE/SIMULATIONS/VALLON/'
+pc = 'laptop'
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
-# data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
-data_path = 'C:/Users/ronan/Downloads/_init/'
-# out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
-out_path = 'D:/Users/abherve/SIMULATIONS/VALLON/'
-fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_fig_path/'
+if pc == 'laptop':
+    git_path = "C:/Users/ronan/GitHub/HydroModPy-dev0.1/"
+    data_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Vallon/_data/'
+    out_path = 'C:/Users/ronan/Simulations/Vallon/'
+    fig_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Vallon/_fig_path/'
+    
+if pc == 'tower':
+    git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
+    data_path = 'C:/Users/ronan/Downloads/_init/'
+    out_path = 'D:/Users/abherve/SIMULATIONS/VALLON/'
+    fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_fig_path/'
 
 dems_path = data_path + '_gis/DEM/' # reginal DEM or conceptual DEM
 dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
@@ -342,16 +345,15 @@ from_dem = None # True or False if the process start from a given DEM of xyz fil
 cell_size = None # specify new resolution from a given DEM or None
 from_shp = None
 
-watershed_names = ['Vallons_EUDTM30m',
-                    'Vare_EUDTM30m',
-                    'Nant_EUDTM30m']
+watershed_names = ['Both_EUDTM30m',
+                   'Vare_EUDTM30m',
+                   'Nant_EUDTM30m']
 from_xyvs = [ [2572138.212,1122730.976,300,10,'EPSG:2056'],
               [2574842.267,1122488.817,150,10,'EPSG:2056'],
               [2574600.362,1122366.973,150,10,'EPSG:2056'] ]
 
-# watershed_names = ['Nant_EUDTM30m','Vare_EUDTM30m']
-# from_xyvs = [ [2574600.362,1122366.973,150,10,'EPSG:2056'],
-#               [2574842.267,1122488.817,150,10,'EPSG:2056'] ]
+watershed_names = ['Nant_EUDTM30m']
+from_xyvs = [ [2574600.362,1122366.973,150,10,'EPSG:2056'] ]
 
 #%% LOAD
 
@@ -442,7 +444,7 @@ raw_path = work_dir + 'france/'
 clip_path = work_dir + 'vallon/'
 mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93_2056.shp'
 # site_path = data_path + '_gis/SIG/boxbuff_ref.shp'
-site_path = 'D:/Users/abherve/SIMULATIONS/VALLON/Vallons_EUDTM30m/results_stable/geographic/box_buff.shp'
+site_path = BV.stable_folder+'/geographic/box_buff.shp'
 mesh = gpd.read_file(mesh_path)
 site = gpd.read_file(site_path)
 site_mesh = mesh.clip(site)
@@ -507,15 +509,15 @@ for sim in simulations:
 mod = 'REA'
 sce = 'historic'
 
-BV = watershed_root.Watershed(watershed_name='Vallons_EUDTM30m',
+BV = watershed_root.Watershed(watershed_name='Nant_EUDTM30m',
                               dem_path=dem_path, 
                               out_path=out_path,
                               load=True)
 
-stable_folder = out_path+'/'+'Vallons_EUDTM30m'+'/'+'results_stable/'
+stable_folder = out_path+'/'+'Nant_EUDTM30m'+'/'+'results_stable/'
 surfex_data = stable_folder + 'climatic/'
 
-if not os.path.exists(stable_folder+'climatic/REA.H5'):
+if not os.path.exists(stable_folder+'climatic/REA.h5'):
     BV.add_safransurfex(clip_path)
 
 dfd_both = pd.DataFrame()
@@ -606,7 +608,7 @@ wy = sum_wy(dfm)
 ### HGS - CLIP / EXTRACT / DATA
 
 # init_path = data_path + '_hgs/Additional Clement/Catchment_water_balance/'
-init_path = data_path + 'Additional Clement/Catchment_water_balance/'
+init_path = data_path + '_hgs/Additional Clement/Catchment_water_balance/'
 
 hgs_wb = pd.read_csv(init_path + 'nant_v100fo.water_balance - Copie.dat', 
                        delim_whitespace=True, 
@@ -626,7 +628,7 @@ hgs_wb.index = hgs_wb['datetime']
 ### HGS - DATA MIX
 
 # init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
-init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/Q/'
+init_path = data_path + '_hgs/Additional Clement/Observed_time_series/Daily/Q/'
 
 Qobs_list =['1_q_vdn_u_s1_obs_NAs_removed.smp',
             '1_q_weir_s2_obs_NAs_removed.smp',
@@ -646,7 +648,7 @@ for Sn, Qobs_name in zip(['S1','S2','S3'], Qobs_list[:]):
     i += 1
 
 # init_path = data_path + '_hgs/Supplementary Information Thornton/full_model/'
-init_path = 'C:/Users/ronan/Downloads/_init/Additional Clement/Observed_time_series/Daily/GWls/'
+init_path = data_path + '_hgs/Additional Clement/Observed_time_series/Daily/GWls/'
 
 Pobs_list = ['1_gwl_n1_obs_NAs_removed.smp',
              '1_gwl_n2_obs_NAs_removed.smp',
@@ -1922,11 +1924,11 @@ for watershed_name in watershed_names[:]:
 
 #%% PREPROCESSING
 
-iD_iter='t1'
-dfs = pd.read_csv(out_path+'/'+'_calib_'+iD_iter+'_'+'all'+'.csv', sep=';')
-watershed_names = ['Nant_EUDTM30m',
-                   'Vare_EUDTM30m',
-                   ]
+iD_iter = 't1'
+
+# dfs = pd.read_csv(out_path+'/'+'_calib_'+iD_iter+'_'+'all'+'.csv', sep=';')
+
+watershed_names = ['Nant_EUDTM30m']
 types_obs = ['perennial_natural_streams',
              # 'fully_natural_streams',
              # 'fully_natural_streams_springs',
@@ -1936,20 +1938,23 @@ types_obs = ['perennial_natural_streams',
 # recharge = select_period(dfd['REC_REA_historic'],2016,2018)/1000
 # runoff = select_period(dfd['RUN_REA_historic'],2016,2018)/1000
 
-recharge = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018)
-runoff = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018)
+recharge = select_period(hgs_wb['PPT-AET_m/d_sim1'],2017,2017)
+runoff = select_period(hgs_wb['PPT-AET_m/d_sim1'],2017,2017)
 
-dic_K = {}
-for watershed_name in watershed_names[:]:
-    d1 = dfs[dfs['watershed_name']==watershed_name]
-    for type_obs in types_obs[:]:
-        d2 = d1[d1['type_obs']==type_obs]
-        d3 = d2.iloc[-1:]
-        val_K = d3.K.values[0]
-        val_KR = d3.KR.values[0]
-        # dic_K[watershed_name] = val_K
-        dic_K[watershed_name] = val_KR * recharge.mean()
-        print(val_KR, val_KR * recharge.mean() / 3600 / 24)
+# recharge = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018).resample('M').mean()
+# runoff = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018).resample('M').mean()
+
+# dic_K = {}
+# for watershed_name in watershed_names[:]:
+#     d1 = dfs[dfs['watershed_name']==watershed_name]
+#     for type_obs in types_obs[:]:
+#         d2 = d1[d1['type_obs']==type_obs]
+#         d3 = d2.iloc[-1:]
+#         val_K = d3.K.values[0]
+#         val_KR = d3.KR.values[0]
+#         # dic_K[watershed_name] = val_K
+#         dic_K[watershed_name] = val_KR * recharge.mean()
+#         print(val_KR, val_KR * recharge.mean() / 3600 / 24)
         
 box = True # or False
 sink_fill = False # or True
@@ -1959,7 +1964,7 @@ first_clim = 'mean' # or 'first or value
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 30 # if bottom is None, aquifer thickness
+thick = 400 # if bottom is None, aquifer thickness
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]],
 cond_drain = None # or value of conductance
@@ -1969,10 +1974,12 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'domain' # or watershed
 
-list_porosity = np.array([0.1, 0.5, 1, 2, 5, 10, 30]) / 100
+# list_porosity = np.array([0.1, 0.5, 1, 2, 5, 10, 30]) / 100
+list_porosity = np.array([0.1]) / 100
+hyd_cond = 1.8e-6 * 3600 * 24
 
 # iD_set_simulations = 'explorSy_test1'
-iD_set_simulations = 'explorSy_pptaet1'
+iD_set_simulations = 't1'
 
 #%% PROCESSING RUN
 
@@ -1996,6 +2003,7 @@ for watershed_name in watershed_names[:]:
     BV.settings.update_simulation_state(sim_state)
     BV.settings.update_active_plot(plot_cross=plot_cross)
     BV.climatic.update_recharge(recharge, sim_state=sim_state)
+    print(hyd_cond/BV.climatic.recharge)
     BV.climatic.update_runoff(runoff, sim_state=sim_state)
     BV.climatic.update_first_clim(first_clim)
     BV.hydraulic.update_nlay(nlay) # 1
@@ -2009,7 +2017,7 @@ for watershed_name in watershed_names[:]:
     BV.add_oceanic(sea_level)
     BV.settings.update_input_particules(zone_partic=zone_partic)
     
-    hyd_cond = dic_K[watershed_name]
+    # hyd_cond = dic_K[watershed_name]
     BV.hydraulic.update_hyd_cond(hyd_cond)
     
     compt = 0
@@ -2017,6 +2025,11 @@ for watershed_name in watershed_names[:]:
     for i, porosity in enumerate(list_porosity[:]):
         
         BV.hydraulic.update_porosity(porosity)
+        
+        Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
+        # print(Ss_formula)
+
+        BV.hydraulic.update_ss(Ss_formula)
         
         now = datetime.now()
         oclock = now.strftime("%Y%m%d_%Hh%Mm%Ss")
@@ -2060,11 +2073,11 @@ for watershed_name in watershed_names[:]:
         list_success_modflow = d['list_success_modflow'][:]
         list_model_modflow = d['list_model_modflow'][:]
     
-    if watershed_name == 'Vare_EUDTM30m':
+    # if watershed_name == 'Vare_EUDTM30m':
         
-        list_model_name = d['list_model_name'][7:]
-        list_success_modflow = d['list_success_modflow'][7:]
-        list_model_modflow = d['list_model_modflow'][7:]
+    #     list_model_name = d['list_model_name'][7:]
+    #     list_success_modflow = d['list_success_modflow'][7:]
+    #     list_model_modflow = d['list_model_modflow'][7:]
 
 #%% POSTPROCESSING
 
@@ -2097,6 +2110,7 @@ for watershed_name in watershed_names[:]:
                                       accumulation_flux = True,
                                       persistency_index=True,
                                       intermittency_monthly=False,
+                                      intermittency_weekly=False,
                                       intermittency_daily=True,
                                       export_all_tif = False)
     
@@ -2108,18 +2122,50 @@ for watershed_name in watershed_names[:]:
 
 #%% ---- RESULTS MODELING
 
+#%% SEEPAGE
+
+iD_set_simulations = 't1'
+
+
+for watershed_name in ['Nant_EUDTM30m'][:]:
+    
+    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+    area = BV.geographic.area
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+
+    h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_success_modflow = d['list_success_modflow'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+    
+    simul_list = []
+    for si in list_model_name:
+        simul_list.append(os.path.join(simulations_folder,si))
+
+    for i, simul in enumerate(simul_list[-1:]):
+        
+
+        model_name = simul.split('/')[-1]
+        print(i, model_name)
+        
+        Smod_path = simul+'/_postprocess/_rasters/seepage_areas_t(0).tif'
+        im = imageio.imread(Smod_path)
+
+        plt.imshow(np.ma.masked_where(im==0,im))
+
 #%% STREAMFLOW
 
 iD_set_simulations = 'explorSy_test1'
 iD_set_simulations = 'explorSy_pptaet1'
+iD_set_simulations = 't1'
 
 def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
     
-
-
-for watershed_name in ['Nant_EUDTM30m','Vare_EUDTM30m'][:]:
+for watershed_name in ['Nant_EUDTM30m'][:]:
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
@@ -2233,10 +2279,10 @@ for watershed_name in ['Nant_EUDTM30m','Vare_EUDTM30m'][:]:
         RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
         KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
         # print(model_name.upper())
-        print('NSE', round(NSE,2))
-        print('NSElog', round(NSElog,2))
-        print('RMSE', round(RMSE,2))
-        print('KGE', round(KGE,2))
+        # print('NSE', round(NSE,2))
+        # print('NSElog', round(NSElog,2))
+        # print('RMSE', round(RMSE,2))
+        # print('KGE', round(KGE,2))
         hgsNSE = he.evaluator(he.nse, Qsim_stat, Qobs_stat)[0]
         hgsNSElog = he.evaluator(he.nse, Qsim_stat, Qobs_stat, transform='log')[0]
         hgsRMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qsim_stat.values)**2))
@@ -2283,9 +2329,9 @@ for watershed_name in ['Nant_EUDTM30m','Vare_EUDTM30m'][:]:
         
         fig.tight_layout()
                     
-        fig.savefig(os.path.join(simulations_folder, '_figures',
-                    'STREAMFLOW_'+model_name+'.png'),
-                    bbox_inches='tight')
+        # fig.savefig(os.path.join(simulations_folder, '_figures',
+        #             'STREAMFLOW_'+model_name+'.png'),
+        #             bbox_inches='tight')
 
 #%% SATURATION
 
@@ -2296,6 +2342,7 @@ types_obs = ['perennial_natural_streams',
 
 iD_set_simulations = 'explorSy_test1'
 iD_set_simulations = 'explorSy_pptaet1'
+iD_set_simulations = 't1'
 
 def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
@@ -2369,7 +2416,7 @@ for w, watershed_name in enumerate(watershed_names[:]):
                 where='pre')
         
         if watershed_name == 'Nant_EUDTM30m':
-            ax.set_ylim(0,50)
+            ax.set_ylim(0,None)
         if watershed_name == 'Vare_EUDTM30m':
             ax.set_ylim(0,6)
         # ax.set_yticks(np.arange(0,15.05,2.5))
@@ -2393,16 +2440,15 @@ for w, watershed_name in enumerate(watershed_names[:]):
             
         fig.tight_layout()
                     
-        fig.savefig(os.path.join(simulations_folder, '_figures',
-                    'SATURATION_'+model_name+'.png'),
-                    bbox_inches='tight')
+        # fig.savefig(os.path.join(simulations_folder, '_figures',
+        #             'SATURATION_'+model_name+'.png'),
+        #             bbox_inches='tight')
           
 #%% ---- EXPLORATION
 
 #%% PREPROCESSING
 
-watershed_names = ['Nant_EUDTM30m',
-                   'Vare_EUDTM30m']
+watershed_names = ['Nant_EUDTM30m']
         
 box = False # or False
 sink_fill = False # or True
@@ -3695,6 +3741,609 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     plt.tight_layout()  
     
     fig.savefig(fig_path+'CONVOL_'+w_name+'_mix_per-med-ful'+'_'+sat_typ+'.png', dpi=300, bbox_inches='tight')
+
+
+#%% ---- EXTRACT K
+
+#%% CREATE LIST CLIPPED
+
+# f = open("C:/Users/ronan/OneDrive/UNINE/8_Modeling/Vallon/_data/_hgs/Prop/k_tecplot.dat", "r")
+# data = f.read()
+
+path = data_path + "_hgs/Prop/k_tecplot.dat"
+datall = [i.strip().split() for i in open(path).readlines()]
+
+start = datall.index(['#', 'x'])
+dat = datall[start:]
+super_list_X = []
+print('X')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'y']:
+        super_list_X.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'y'])
+dat = datall[start:]
+super_list_Y = []
+print('Y')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'z']:
+        super_list_Y.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'z'])
+dat = datall[start:]
+super_list_Z = []
+print('Z')
+for i in range(len(dat[start:])):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'zone(cell-centered)']:
+        super_list_Z.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'zone(cell-centered)'])
+dat = datall[start:]
+super_list_ZONE = []
+print('ZONE')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'kxx', '(cell-centered)']:
+        super_list_ZONE.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'kxx', '(cell-centered)'])
+dat = datall[start:]
+super_list_KXX = []
+print('KXX')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'kyy', '(cell-centered)']:
+        super_list_KXX.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'kyy', '(cell-centered)'])
+dat = datall[start:]
+super_list_KYY = []
+print('KYY')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'kzz', '(cell-centered)']:
+        super_list_KYY.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'kzz', '(cell-centered)'])
+dat = datall[start+1:]
+super_list_KZZ = []
+super_list_ELEM = []
+print('KZZ + ELEM')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i][0].isdigit() != True:
+        super_list_KZZ.extend(dat[i][:])
+        # super_list_KZZ.append(dat[i][:])
+    else:
+        # super_list_ELEM.extend(dat[i][:])
+        super_list_ELEM.append(dat[i][:3]+dat[i][4:-1])
+        # super_list_ELEM.extend(dat[i][:3]+dat[i][4:-1])
+# print(len(pd.Series(super_list_ELEM).unique()))
+
+nodes = pd.DataFrame(columns=['X','Y','Z'])
+nodes['X'] = super_list_X
+nodes['Y'] = super_list_Y
+nodes['Z'] = super_list_Z
+nodes['ID'] = np.arange(1, len(nodes)+1, 1)
+
+# if 'clipped' not in globals():
+shp = nodes.copy()
+geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
+gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
+gdf.to_file(data_path + "_hgs/Prop/points_mesh.shp")
+nant = gpd.read_file(data_path + "_hgs/Supplementary Information Thornton/full_model/Nant_shape.shp")
+clipped = gdf.clip(nant)
+clipped.to_file(data_path + "_hgs/Prop/points_mesh_nant.shp")
+clipped.plot()
+
+nodes = clipped.copy()
+nodes = nodes.reset_index()
+
+super_list_ELEM_clip = []
+elem_to_keep = []
+elem_to_delete = []
+for n, m in enumerate(super_list_ELEM):
+    print(n)
+    if all(s in nodes['ID'].values for s in np.array(m).astype(int)):
+        super_list_ELEM_clip.append(m)
+        elem_to_keep.append(n)
+    else:
+        elem_to_delete.append(n)
+    
+# super_list_ZONE_clip = [x for i, x in enumerate(super_list_ZONE) if i in elem_to_keep]
+super_list_ZONE_clip = []
+for i, x in enumerate(super_list_ZONE):
+    print(i)
+    if i in elem_to_keep:
+        super_list_ZONE_clip.append(x)
+        
+# super_list_KXX_clip = [x for i, x in enumerate(super_list_KXX) if i in elem_to_keep]
+super_list_KXX_clip = []
+for i, x in enumerate(super_list_KXX):
+    print(i)
+    if i in elem_to_keep:
+        super_list_KXX_clip.append(x)
+        
+# super_list_KYY_clip = [x for i, x in enumerate(super_list_KYY) if i in elem_to_keep]
+super_list_KYY_clip = []
+for i, x in enumerate(super_list_KYY):
+    print(i)
+    if i in elem_to_keep:
+        super_list_KYY_clip.append(x)
+        
+# super_list_KZZ_clip = [x for i, x in enumerate(super_list_KZZ) if i in elem_to_keep]
+super_list_KZZ_clip = []
+for i, x in enumerate(super_list_KZZ):
+    print(i)
+    if i in elem_to_keep:
+        super_list_KZZ_clip.append(x)
+        
+#%% IMPORT LIST CLIPPED
+
+alls = pd.DataFrame(columns=['ID'])
+alls['ID'] = super_list_ELEM_clip
+
+alls.to_csv(data_path + "_hgs/Prop/alls_k_nodes.csv", sep=';')
+
+elem = pd.DataFrame(columns=['ZONE','KXX','KYY','KZZ',
+                             'ID1','X1','Y1','Z1',
+                             'ID2','X2','Y2','Z2',
+                             'ID3','X3','Y3','Z3',
+                             'ID4','X4','Y4','Z4',
+                             'ID5','X5','Y5','Z5',
+                             'ID6','X6','Y6','Z6',])
+
+elem['ZONE'] = super_list_ZONE_clip
+elem['KXX'] = super_list_KXX_clip
+elem['KYY'] = super_list_KYY_clip
+elem['KZZ'] = super_list_KZZ_clip
+
+elem.to_csv(data_path + "_hgs/Prop/elem_k_init.csv", sep=';')
+
+#%% COORDINATES LIST VOLUME
+
+elem = pd.read_csv(data_path + "_hgs/Prop/elem_k_init.csv", sep=';')
+alls = pd.read_csv(data_path + "_hgs/Prop/alls_k_nodes.csv", sep=';')
+alls = alls['ID']
+
+import time
+import ast
+start = time.process_time()
+
+delo = []
+manu = []
+
+cp = 0
+for i in range(len(elem)):
+    print(i, len(elem))
+    for j in np.arange(1,6+1,1):
+        # print('     ', j)
+        val_id = int(ast.literal_eval(alls[i])[j-1])
+        if np.isnan(val_id):
+            elem_id = np.nan
+            elem.loc[i,'ID'+str(j)] = val_id
+            elem.loc[i,'X'+str(j)] = np.nan
+            elem.loc[i,'Y'+str(j)] = np.nan
+            elem.loc[i,'Z'+str(j)] = np.nan
+        else:
+            elem.loc[i,'ID'+str(j)] = int(val_id)
+            elem.loc[i,'X'+str(j)] = nodes[nodes['ID']==elem.loc[i,'ID'+str(j)]]['X'].values[0]
+            elem.loc[i,'Y'+str(j)] = nodes[nodes['ID']==elem.loc[i,'ID'+str(j)]]['Y'].values[0]
+            elem.loc[i,'Z'+str(j)] = nodes[nodes['ID']==elem.loc[i,'ID'+str(j)]]['Z'].values[0]
+    cp += 6
+    # i = 0
+    xdo = [float(elem.loc[i,'X1']), float(elem.loc[i,'X2']), float(elem.loc[i,'X3'])]
+    ydo = [float(elem.loc[i,'Y1']), float(elem.loc[i,'Y2']), float(elem.loc[i,'Y3'])]
+    zdo = [float(elem.loc[i,'Z1']), float(elem.loc[i,'Z2']), float(elem.loc[i,'Z3'])]
+    xup = [float(elem.loc[i,'X4']), float(elem.loc[i,'X5']), float(elem.loc[i,'X6'])]
+    yup = [float(elem.loc[i,'Y4']), float(elem.loc[i,'Y5']), float(elem.loc[i,'Y6'])]
+    zup = [float(elem.loc[i,'Z4']), float(elem.loc[i,'Z5']), float(elem.loc[i,'Z6'])]
+    area_up = 0.5 * (xup[0] * (yup[1] - yup[2]) + xup[1] * (yup[2] - yup[0]) + xup[2] * (yup[0] - yup[1]))
+    area_do = 0.5 * (xdo[0] * (ydo[1] - ydo[2]) + xdo[1] * (ydo[2] - ydo[0]) + xdo[2] * (ydo[0] - ydo[1]))
+    z_diff = [zup[0]-zdo[0], zup[1]-zdo[1], zup[2]-zdo[2]]
+    # print(z_diff, np.array(z_diff).mean())
+       
+    corners = np.array([
+        [xdo[0],ydo[0],zdo[0]], [xdo[1],ydo[1],zdo[1]], [xdo[2],ydo[2],zdo[2]], # lower rectangle
+        [xup[0],yup[0],zup[0]], [xup[1],yup[1],zup[1]], [xup[2],yup[2],zup[2]]  # upper rectangle
+        ])
+    
+    from scipy.spatial import Delaunay
+    
+    try:
+        tri = Delaunay(corners)
+        tetrahedra = corners[tri.simplices]
+        def volume_tetrahedron(tetrahedron):
+            matrix = np.array([tetrahedron[0] - tetrahedron[3],
+                               tetrahedron[1] - tetrahedron[3],
+                                tetrahedron[2] - tetrahedron[3],
+                               ])
+            return abs(np.linalg.det(matrix))/6
+        volumes = np.array([volume_tetrahedron(t) for t in tetrahedra])
+        volume = np.nansum(volumes)
+    except:
+        volume = np.nan
+        pass
+    
+    manu_min = np.nanmin(area_up*np.array(z_diff))
+    manu_mean = np.nanmean(area_up*np.array(z_diff))
+    manu_max = np.nanmax(area_up*np.array(z_diff))
+
+    elem.loc[i,'AREA'] = area_up
+    elem.loc[i,'ZDIFF1'] = z_diff[0]
+    elem.loc[i,'ZDIFF2'] = z_diff[1]
+    elem.loc[i,'ZDIFF3'] = z_diff[2]
+    elem.loc[i,'VOL_DELAUNAY'] = volume
+    elem.loc[i,'VOL_MANUMIN'] = manu_min
+    elem.loc[i,'VOL_MANUMEAN'] = manu_mean
+    elem.loc[i,'VOL_MANUMAX'] = manu_max
+    
+    # if i == 10:
+    #     print(time.process_time() - start)
+    # if i == 10:
+    #     break
+
+elem_k = elem.copy()
+elem_k.to_csv(data_path + "_hgs/Prop/elem_k_fill.csv", sep=';')
+
+#%% ---- EXTRACT POROSITY P
+
+#%% CREATE LIST CLIPPED
+
+# f = open("C:/Users/ronan/OneDrive/UNINE/8_Modeling/Vallon/_data/_hgs/Prop/k_tecplot.dat", "r")
+# data = f.read()
+
+path = data_path + "_hgs/Prop/por_tecplot.dat"
+datall = [i.strip().split() for i in open(path).readlines()]
+
+start = datall.index(['#', 'x'])
+dat = datall[start:]
+super_list_X = []
+print('X')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'y']:
+        super_list_X.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'y'])
+dat = datall[start:]
+super_list_Y = []
+print('Y')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'z']:
+        super_list_Y.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'z'])
+dat = datall[start:]
+super_list_Z = []
+print('Z')
+for i in range(len(dat[start:])):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'zone(cell-centered)']:
+        super_list_Z.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'zone(cell-centered)'])
+dat = datall[start:]
+super_list_ZONE = []
+print('ZONE')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'por(cell-centered)']:
+        super_list_ZONE.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'por(cell-centered)'])
+dat = datall[start+1:]
+super_list_POR = []
+super_list_ELEM = []
+print('POR + ELEM')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i][0].isdigit() != True:
+        super_list_POR.extend(dat[i][:])
+        # super_list_KZZ.append(dat[i][:])
+    else:
+        # super_list_ELEM.extend(dat[i][:])
+        super_list_ELEM.append(dat[i][:3]+dat[i][4:-1])
+        # super_list_ELEM.extend(dat[i][:3]+dat[i][4:-1])
+# print(len(pd.Series(super_list_ELEM).unique()))
+
+nodes = pd.DataFrame(columns=['X','Y','Z'])
+nodes['X'] = super_list_X
+nodes['Y'] = super_list_Y
+nodes['Z'] = super_list_Z
+nodes['ID'] = np.arange(1, len(nodes)+1, 1)
+
+# if 'clipped' not in globals():
+shp = nodes.copy()
+geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
+gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
+gdf.to_file(data_path + "_hgs/Prop/points_mesh.shp")
+nant = gpd.read_file(data_path + "_hgs/Supplementary Information Thornton/full_model/Nant_shape.shp")
+clipped = gdf.clip(nant)
+clipped.to_file(data_path + "_hgs/Prop/points_mesh_nant.shp")
+clipped.plot()
+
+nodes = clipped.copy()
+nodes = nodes.reset_index()
+
+super_list_ELEM_clip = []
+elem_to_keep = []
+elem_to_delete = []
+for n, m in enumerate(super_list_ELEM):
+    print(n)
+    if all(s in nodes['ID'].values for s in np.array(m).astype(int)):
+        super_list_ELEM_clip.append(m)
+        elem_to_keep.append(n)
+    else:
+        elem_to_delete.append(n)
+
+# super_list_ZONE_clip = [x for i, x in enumerate(super_list_ZONE) if i in elem_to_keep]
+super_list_ZONE_clip = []
+for i, x in enumerate(super_list_ZONE):
+    print(i)
+    if i in elem_to_keep:
+        super_list_ZONE_clip.append(x)
+        
+# super_list_KXX_clip = [x for i, x in enumerate(super_list_KXX) if i in elem_to_keep]
+super_list_POR_clip = []
+for i, x in enumerate(super_list_POR):
+    print(i)
+    if i in elem_to_keep:
+        super_list_POR_clip.append(x)
+   
+#%% IMPORT LIST CLIPPED
+
+alls = pd.DataFrame(columns=['ID'])
+alls['ID'] = super_list_ELEM_clip
+
+alls.to_csv(data_path + "_hgs/Prop/alls_p_nodes.csv", sep=';')
+
+elem = pd.DataFrame(columns=['ZONE','POR',
+                             'ID1','X1','Y1','Z1',
+                             'ID2','X2','Y2','Z2',
+                             'ID3','X3','Y3','Z3',
+                             'ID4','X4','Y4','Z4',
+                             'ID5','X5','Y5','Z5',
+                             'ID6','X6','Y6','Z6'])
+
+elem['ZONE'] = super_list_ZONE_clip
+elem['POR'] = super_list_POR_clip
+
+elem.to_csv(data_path + "_hgs/Prop/elem_p_init.csv", sep=';')
+
+#%% COORDINATES LIST VOLUME
+
+from scipy.spatial import Delaunay
+
+elem = pd.read_csv(data_path + "_hgs/Prop/elem_p_init.csv", sep=';')
+alls = pd.read_csv(data_path + "_hgs/Prop/alls_p_nodes.csv", sep=';')
+alls = alls['ID']
+
+import time
+import ast
+start = time.process_time()
+
+delo = []
+manu = []
+
+cp = 0
+for i in range(len(elem)):
+    print(i, len(elem))
+    for j in np.arange(1,6+1,1):
+        # print('     ', j)
+        val_id = int(ast.literal_eval(alls[i])[j-1])
+        if np.isnan(val_id):
+            elem_id = np.nan
+            elem.loc[i,'ID'+str(j)] = val_id
+            elem.loc[i,'X'+str(j)] = np.nan
+            elem.loc[i,'Y'+str(j)] = np.nan
+            elem.loc[i,'Z'+str(j)] = np.nan
+        else:
+            elem.loc[i,'ID'+str(j)] = int(val_id)
+            elem.loc[i,'X'+str(j)] = nodes[nodes['ID']==elem.loc[i,'ID'+str(j)]]['X'].values[0]
+            elem.loc[i,'Y'+str(j)] = nodes[nodes['ID']==elem.loc[i,'ID'+str(j)]]['Y'].values[0]
+            elem.loc[i,'Z'+str(j)] = nodes[nodes['ID']==elem.loc[i,'ID'+str(j)]]['Z'].values[0]
+    cp += 6
+    # i = 0
+    xdo = [float(elem.loc[i,'X1']), float(elem.loc[i,'X2']), float(elem.loc[i,'X3'])]
+    ydo = [float(elem.loc[i,'Y1']), float(elem.loc[i,'Y2']), float(elem.loc[i,'Y3'])]
+    zdo = [float(elem.loc[i,'Z1']), float(elem.loc[i,'Z2']), float(elem.loc[i,'Z3'])]
+    xup = [float(elem.loc[i,'X4']), float(elem.loc[i,'X5']), float(elem.loc[i,'X6'])]
+    yup = [float(elem.loc[i,'Y4']), float(elem.loc[i,'Y5']), float(elem.loc[i,'Y6'])]
+    zup = [float(elem.loc[i,'Z4']), float(elem.loc[i,'Z5']), float(elem.loc[i,'Z6'])]
+    area_up = 0.5 * (xup[0] * (yup[1] - yup[2]) + xup[1] * (yup[2] - yup[0]) + xup[2] * (yup[0] - yup[1]))
+    area_do = 0.5 * (xdo[0] * (ydo[1] - ydo[2]) + xdo[1] * (ydo[2] - ydo[0]) + xdo[2] * (ydo[0] - ydo[1]))
+    z_diff = [zup[0]-zdo[0], zup[1]-zdo[1], zup[2]-zdo[2]]
+    # print(z_diff, np.array(z_diff).mean())
+       
+    corners = np.array([
+        [xdo[0],ydo[0],zdo[0]], [xdo[1],ydo[1],zdo[1]], [xdo[2],ydo[2],zdo[2]], # lower rectangle
+        [xup[0],yup[0],zup[0]], [xup[1],yup[1],zup[1]], [xup[2],yup[2],zup[2]]  # upper rectangle
+        ])
+    
+    try:
+        tri = Delaunay(corners)
+        tetrahedra = corners[tri.simplices]
+        def volume_tetrahedron(tetrahedron):
+            matrix = np.array([tetrahedron[0] - tetrahedron[3],
+                               tetrahedron[1] - tetrahedron[3],
+                                tetrahedron[2] - tetrahedron[3],
+                               ])
+            return abs(np.linalg.det(matrix))/6
+        volumes = np.array([volume_tetrahedron(t) for t in tetrahedra])
+        volume = np.nansum(volumes)
+    except:
+        volume = np.nan
+        pass
+    
+    manu_min = np.nanmin(area_up*np.array(z_diff))
+    manu_mean = np.nanmean(area_up*np.array(z_diff))
+    manu_max = np.nanmax(area_up*np.array(z_diff))
+
+    elem.loc[i,'AREA'] = area_up
+    elem.loc[i,'ZDIFF1'] = z_diff[0]
+    elem.loc[i,'ZDIFF2'] = z_diff[1]
+    elem.loc[i,'ZDIFF3'] = z_diff[2]
+    elem.loc[i,'VOL_DELAUNAY'] = volume
+    elem.loc[i,'VOL_MANUMIN'] = manu_min
+    elem.loc[i,'VOL_MANUMEAN'] = manu_mean
+    elem.loc[i,'VOL_MANUMAX'] = manu_max
+    
+    # if i == 10:
+    #     print(time.process_time() - start)
+    # if i ==10:
+    #     break
+
+elem_p = elem.copy()
+elem_p.to_csv(data_path + "_hgs/Prop/elem_p_fill.csv", sep=';')
+
+#%% ---- MIX PROP
+
+elem_k = pd.read_csv(data_path + "_hgs/Prop/elem_k_fill.csv", sep=';')
+elem_p = pd.read_csv(data_path + "_hgs/Prop/elem_p_fill.csv", sep=';')
+
+df_k = pd.DataFrame()
+for i, z in enumerate(elem_k['ZONE'].unique()):
+    mask = elem_k[elem_k['ZONE']==z]
+    # print(z, mask['KXX'].mean()/24/300, mask['VOL_DELAUNAY'].sum())
+    df_k.loc[i,'ZONE'] = int(z)
+    df_k.loc[i,'KXX_mean'] = mask['KXX'].mean()/24/300
+    df_k.loc[i,'VOL_DELAUNAY_sum'] = mask['VOL_DELAUNAY'].sum()
+    df_k.loc[i,'Z_mean'] = (mask['Z1'].mean()+mask['Z2'].mean()+mask['Z3'].mean()+mask['Z4'].mean()+mask['Z5'].mean()+mask['Z6'].mean())/6
+    df_k.loc[i,'Z_max'] = np.array([mask['Z4'].max(),mask['Z5'].max(),mask['Z6'].max()]).max()
+df_k['fac'] = df_k['VOL_DELAUNAY_sum'] / (df_k['VOL_DELAUNAY_sum'].sum())
+df_k['KXX_mean_w'] = (df_k['KXX_mean'] * df_k['VOL_DELAUNAY_sum']) #/ (df_k['VOL_DELAUNAY_sum'].sum())
+    
+# plt.scatter(df_k['ZONE'], df_k['KXX_mean_w'])
+plt.yscale('log')
+plt.boxplot(df_k['KXX_mean_w'])
+plt.scatter(1, df_k['KXX_mean_w'].mean())
+print(np.sum(df_k['KXX_mean_w']) / df_k['VOL_DELAUNAY_sum'].sum())
+
+df_p = pd.DataFrame()
+for i, z in enumerate(elem_p['ZONE'].unique()):
+    mask = elem_p[elem_p['ZONE']==z]
+    # print(z, mask['KXX'].mean()/24/300, mask['VOL_DELAUNAY'].sum())
+    df_p.loc[i,'ZONE'] = int(z)
+    df_p.loc[i,'POR_mean'] = mask['POR'].mean()*100
+    df_p.loc[i,'VOL_DELAUNAY_sum'] = mask['VOL_DELAUNAY'].sum()
+    df_p.loc[i,'Z_mean'] = (mask['Z1'].mean()+mask['Z2'].mean()+mask['Z3'].mean()+mask['Z4'].mean()+mask['Z5'].mean()+mask['Z6'].mean())/6
+    df_p.loc[i,'Z_max'] = np.array([mask['Z4'].max(),mask['Z5'].max(),mask['Z6'].max()]).max()
+df_p['fac'] = df_p['VOL_DELAUNAY_sum'] / (df_p['VOL_DELAUNAY_sum'].sum())
+df_p['POR_mean_w'] = (df_p['POR_mean'] * df_p['VOL_DELAUNAY_sum']) #/ (df_p['VOL_DELAUNAY_sum'].sum())
+
+plt.yscale('log')
+plt.boxplot(df_p['POR_mean_w'])
+plt.scatter(1, df_p['POR_mean_w'].mean())
+print(np.sum(df_p['POR_mean_w']) / df_p['VOL_DELAUNAY_sum'].sum())
+
+# plt.scatter(df_k['KXX_mean_w'], df_k['Z_mean'])
+# plt.xscale('log')
+
+
+# elem_k['KXX_w'] = (elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+
+# df_k = elem_k.groupby('ZONE')['KXX'].unique()
+
+
+# df_k = elem_k.groupby(['ZONE']).sum()#.groupby(level='ZONE').mean()
+
+# geomean_kxx = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+# # geomean_kyy = np.sum(elem_k['KYY'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+# geomean_kzz = np.sum(elem_k['KZZ'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+
+# print(geomean_kxx/24/3600)
+# # print(geomean_kyy/24/3600)
+# # print(geomean_kzz/24/3600)
+
+# geomean_poro = np.sum(elem_p['POR'] * elem_p['VOL_DELAUNAY']) / np.sum(elem_p['VOL_DELAUNAY'])
+
+# print(geomean_poro*100
+#       # elem_p['POR'].mean()*100
+#       )
+
+# elem_k['KXX'] = ( (elem_k['KXX']/24/3600) )
+# # elem_k.boxplot(column='KXX')
+# # plt.yscale('log')
+
+# import matplotlib.pyplot as plt
+
+# weighted_appearances = []
+# for index, row in elem_k.iterrows():
+#     weighted_row = row['KXX']*row['VOL_DELAUNAY']
+#     weighted_appearances.append(weighted_row)
+
+# plt.boxplot(weighted_appearances)
+# plt.yscale('log')
+# plt.show()
 
 #%% ---- NOTES
     

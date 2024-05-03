@@ -70,20 +70,25 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = os.path.join(root_dir, 
                             r"examples/02_hydrographic network in steady state")
 data_path = os.path.join(example_path, "data")
-out_path = folder_root.root_folder_results()
+data_path = os.path.join(example_path, "data")
+out_path = folder_root.update_root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
 dem_path = os.path.join(data_path, 'regional dem.tif')
-load = True
+# dem_path = 'C:/Users/ronan/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
+load = False
 watershed_name = 'Canut'
+# watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+# from_xyv = [1019446, 6797493, 500, 10, 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
