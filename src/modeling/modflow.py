@@ -132,6 +132,18 @@ class Modflow:
             Flag whether the system includes at least one lake/reservoir or not
         aquifer_top_layer : int
             Aquifer top layer identifiyer
+        stages:
+            0
+        lakarr:
+            0
+        bdlknc:
+            0
+        flux_data:
+            0
+        timestep:
+            0
+        init:
+            0
         """
         
         #%% Initialization
