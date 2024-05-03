@@ -342,7 +342,7 @@ class Modflow:
                 self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
         
         # Definition of top (when there are lakes, top != dem)
-        top = self.dem
+        self.top = self.dem
         
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
@@ -350,7 +350,7 @@ class Modflow:
                 self.geographic, self.climatic, self.nper, thickfact)
             
             self.nlay = self.nlay + 1
-            top = laklay_top
+            self.top = laklay_top
             self.zbot = np.insert(self.zbot, 0, self.dem, axis=0)
             
             lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
@@ -363,7 +363,7 @@ class Modflow:
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
-                                            top=top, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                            top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
                                             steady=self.steady, start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
         # proj4_str=self.dem.crs)
