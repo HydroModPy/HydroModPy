@@ -24,11 +24,13 @@ Created on Wed Jan 17 16:45:57 2024
 #%% 0) Load BV and paths
 
 folder_clim = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/SIM2_MeteoFrance/'
-# out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
-# watershed_name = 'Lasset'
-out_path = 'D:/Users/abherve/SIMULATIONS/'
-watershed_name = 'PETITE_EMPRISE'
-watershed_name = 'GRANDE_EMPRISE'
+
+out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
+watershed_name = 'Lasset'
+# out_path = 'D:/Users/abherve/SIMULATIONS/'
+# watershed_name = 'PETITE_EMPRISE'
+# watershed_name = 'GRANDE_EMPRISE'
+# # watershed_name
 
 # Import HydroModPy modules
 import os
@@ -213,6 +215,8 @@ for file_name in ['SIM2_1958_1959.csv',
     shp_site.plot(ax=ax, alpha=1,facecolor='None')
     shp_catch.plot(ax=ax, alpha=1,facecolor='None')
     shp_clip.plot(ax=ax, facecolor='None')
+    mesh_clip = shp_mesh.clip(shp_site)
+    mesh_clip.plot(ax=ax, facecolor='None')
     
     # ----------- Affichage
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))

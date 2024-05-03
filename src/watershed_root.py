@@ -548,7 +548,7 @@ class Watershed:
                                                       watershed_shp=self.geographic.box_buff)
         safransurfex.Merge(out_path=self.watershed_folder)
         self.elt_def.append('safransurfex')
-        # self.save_object()
+        self.save_object()
         
     def add_lakeres(self, stable_folder):
         self.lakeres = lakeres.Lakeres(stable_folder)
@@ -744,7 +744,7 @@ class Watershed:
                                         model_modflow,
                                         # Frame settings
                                         model_folder=model_folder,
-                                        model_name=self.settings.model_name,
+                                        model_name=model_modflow.model_name,
                                         bin_path = self.bin_path,
                                         # Specific settings  
                                         zone_partic=self.settings.zone_partic)

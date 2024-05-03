@@ -29,7 +29,7 @@ wbt.verbose = False
 
 # Fill in the directory where Hydromodpy codes are
 # root_dir = '/home/jean.marcais/Modeles/hydromodpy/HydroModpy'
-root_dir = 'D:/Users/abherve/GITHUB/HydroModPy-0.1/'
+root_dir = 'C:/Users/ronan/GitHub/HydroModPy-0.1/'
 # Add to the path the Hydromodpy directory to recognize HydroModpy functions, classes, etc.
 sys.path.append(root_dir)
 # Define the directory where the notebook is stored as the current working directory
@@ -60,7 +60,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 
 # complete the data paths
-teaching_path = root_dir + "/teaching/"
+teaching_path = root_dir + "/teaching/marcais/"
 data_path = teaching_path + "/data/"
 # complete where modflow sources are
 modflow_path = os.path.join(root_dir,'bin/')
@@ -126,6 +126,7 @@ ax.plot(from_xyv[0],from_xyv[1],'ro')
 
 # out_path = '/home/jean.marcais/Bureau/tmp/hydromodpy/'
 out_path = 'D:/Users/abherve/SIMULATIONS/HYDROMODPY/'
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
