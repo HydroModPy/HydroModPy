@@ -320,11 +320,14 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 #%% PATHS
 
-git_path = 'D:/Users/abherve/GITHUB/HydroModPy-0.1/'
-data_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/'
-# data_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lasset/_data/'
-out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
-# out_path = 'C:/Users/ronan/OneDrive - unine.ch/SIMULATIONS/'
+pc = 'tower'
+
+if pc == 'tower':
+
+    git_path = 'D:/Users/abherve/GITHUB/HydroModPy-dev0.1/'
+    data_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/'
+    out_path = 'E:/_RONAN/_E_SIMULATIONS/LASSET/'
+    # out_path = 'C:/Users/ronan/OneDrive - unine.ch/SIMULATIONS/'
 
 fig_path = out_path + 'figures/'
 
@@ -336,7 +339,7 @@ from_dem = None # True or False if the process start from a given DEM of xyz fil
 cell_size = None # specify new resolution from a given DEM or None
 from_shp = None
 
-watershed_names = [ 'Lasset' ]
+watershed_names = [ 'Lasset_25m' ]
 from_xyvs = [ [601020,6193860,100,50,'EPSG:2154'] ]
 
 #%% LOAD
@@ -481,7 +484,10 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     ax = ax
     
     data_index = dfQ['q']/(areas[i]*1e6)*1000
-    # data_index = select_period(data_index, 2017,2018)
+    plt.plot(data_index)
+    plt.yscale('log')
+
+    # data_index = select_period(data_index, 2021,2021)
     # data_index = data_index[(data_index.index>='2016-09') & (data_index.index<='2017-06')]
             
     mean_mensual = data_index.resample('M').mean() # mensual mean
@@ -494,8 +500,10 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     Q50 = data_index.resample('Y').quantile(0.50)
     Q75 = data_index.resample('Y').quantile(0.75)
     Q90 = data_index.resample('Y').quantile(0.90)
-    print(Q10.min())
-    print(Q90.mean())
+    # print(Q10.min())
+    # print(Q50)
+    # print(Q90.mean())
+    # print(data_index.resample('Y').sum())
     Max = data_index.resample('Y').max()
     mean_interan_days = data_index.groupby([data_index.index.month,
                                     data_index.index.day], as_index=True).mean().to_frame()
@@ -707,9 +715,13 @@ dfFTP['OBSER'] = dfQ
 dfFTP['DRAIN'] = dfd['REC_REA_historic']/1000
 dfFTP['RUNOF'] = dfd['RUN_REA_historic']/1000
 
+dfFTP = dfFTP.query("index >= '2021-08' and index <= '2023-07'")
+# dfFTP = dfFTP.query("index >= '2023-01' and index <= '2023-12'")
+
 # f = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']+dfSIM2['ECSNOW']).mean()
 # f = dfSIM2['OBSER'].mean() / dfSIM2['PPT'].mean()
-norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
+# norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
+norm_factor = dfFTP['OBSER'].sum() / (dfFTP['DRAIN']+dfFTP['RUNOF']).sum()
 print(norm_factor)
 
 dfFTP['INPUT'] = (dfFTP['DRAIN']+dfFTP['RUNOF']) * norm_factor
@@ -911,8 +923,10 @@ for i, var in enumerate(var_list):
     Q50 = data_index.resample('Y').quantile(0.50)
     Q75 = data_index.resample('Y').quantile(0.75)
     Q90 = data_index.resample('Y').quantile(0.90)
+    print(var)
     print(Q10.min())
     print(Q90.mean())
+    # print(data_index.resample('Y').sum()+data_index.resample('Y').sum())
     Max = data_index.resample('Y').max()
     mean_interan_days = data_index.groupby([data_index.index.month,
                                     data_index.index.day], as_index=True).mean().to_frame()
@@ -1008,6 +1022,7 @@ for i, Qobs_name in enumerate(Qobs_list[:]):
 
 dfSIM2 = pd.DataFrame()
 dfSIM2['OBSER'] = dfQ
+dfSIM2['PE'] = sim2['PE_Q']/1000
 dfSIM2['PPT'] = (sim2['PRENEI_Q']+sim2['PRELIQ_Q'])/1000
 dfSIM2['DRAIN'] = sim2['DRAINC_Q']/1000
 dfSIM2['RUNOF'] = sim2['RUNC_Q']/1000
@@ -1026,7 +1041,7 @@ ax.plot(dfSIM2['DRAIN'], label='R', c='forestgreen')
 ax.plot(dfSIM2['OBSER'], label='Q', c='k')
 ax.plot(dfSIM2['INPUT'], label='INPUT', c='red')
 ax.legend()
-ax.set_yscale('log')
+# ax.set_yscale('log')
 import matplotlib.dates as mdates
 years_maj = mdates.YearLocator()   # every year
 months_maj = mdates.MonthLocator()  # every x month
@@ -1836,8 +1851,10 @@ for watershed_name in watershed_names[:]:
         
         # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
         # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
-        recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+        # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
+        recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
+        print((recharge).mean()*365*1000)
         
         verti_cond = None # or [ [1e-5, [0, 20]],
         verti_poro = None
@@ -2638,10 +2655,10 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     # else:
     #     list_porosity = np.array([0.1,0.5,1.0,2.0,4.0,8.0,16.0])/100
     
-    ### e18
+    ## e18
     if id_mod_val in [1,6,7,8,9,10,11]:
         list_porosity = np.array([0.05,0.2,0.3,0.4,0.6,0.7,0.8,0.9,1.1,1.2,1.3,1.4,1.5])/100
-       
+
         # print(id_mod_val)
         # print(kroptim_val)
         # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
@@ -3035,8 +3052,8 @@ for w, w_name in enumerate(['Lasset'][:]):
                 
                 plt.close()
                 
-                fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
-                            bbox_inches='tight')
+                # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
+                #             bbox_inches='tight')
                 
                 # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
                 #             'Q_'+model_name+'.png',
@@ -3044,7 +3061,7 @@ for w, w_name in enumerate(['Lasset'][:]):
 
 dfcrit_Q = df.copy()
 
-dfcrit_Q.to_csv(BV.simulations_folder+'dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')    
+# dfcrit_Q.to_csv(BV.simulations_folder+'dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')    
 
 #%% STREAMFLOW CRITERIA ALL
 
@@ -5058,6 +5075,8 @@ for sce in ['historic']:
 # for sce in ['RCP45']:
     
     rec_keep = all_proj.filter(regex='REC').filter(regex=sce).filter(regex=mod_keep)
+    # plt.plot(select_period(rec_keep,2020,2024))
+    # plt.plot(select_period((isba['REC_REA_historic'] * rea_facnorm_isba) / 1000, 2020, 2024))
     rec_keep = rec_keep.mean(skipna=True, axis=1)
     # rec_keep = select_period(rec_keep,1975,1976)
     run_keep = all_proj.filter(regex='RUN').filter(regex=sce).filter(regex=mod_keep)
