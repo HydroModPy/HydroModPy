@@ -710,7 +710,7 @@ def select_period(df, first, last):
     return df
 
 def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
-                  times=None, y=None, x=None):
+                  times=None, y=None, x=None, append:bool=False):
     """
     Export raw results from HydroModPy (aggregated results over times stored
     in dict, obtained with the postprocessing_modflow method of the Watershed 
@@ -745,6 +745,9 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     x : array, optional
         Values for the X-coordinate. If None (default), the values will be
         inferred from the resolution and spatial extent of the domain.
+    append : bool
+        Option to append values to existing netcdf file (used in sequential 
+        coupling of modflow simulation).
 
     Returns
     -------
@@ -786,6 +789,11 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     ds = xr.Dataset()
     main_var = os.path.splitext(os.path.split(out_path)[-1])[0]
     ds[main_var] = da
+    
+    if append:
+        with xr.open_dataset(
+                out_path, decode_coords = 'all', decode_times = True) as ds_prev:
+            ds = xr.concat([ds_prev, ds], dim = 'time')
     
     # Attributes
     ds.x.attrs = {'standard_name': 'projection_x_coordinate',
