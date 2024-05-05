@@ -203,6 +203,7 @@ class Climatic:
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
         """       
+        self.freq = time_step
         climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
         climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
