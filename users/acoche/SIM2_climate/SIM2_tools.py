@@ -57,7 +57,7 @@ def to_netcdf(csv_file_path):
 # =============================================================================
     
     # Needed columns
-    usecols = ['LAMBX', 'LAMBY', 'DATE'] 
+    usecols = ['LAMBX', 'LAMBY', 'DATE']
 
     # Units and long names (from liste_parametres.odt https://www.data.gouv.fr/fr/datasets/r/d1ffaf5e-7d15-4fb5-a34c-f76aaf417b46)
     units_by_var = {
