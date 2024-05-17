@@ -244,7 +244,7 @@ class Modflow:
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
 
-        #%% Discreitzation
+        #%% Discretization
         
         ### Time step is driven by recharge
         
@@ -281,12 +281,12 @@ class Modflow:
             if isinstance(self.climatic, pd.core.series.Series):
                 if isinstance(self.climatic.index[0], datetime.datetime):
                     self.perlen = self.climatic.index.to_series().diff().dt.days.values
-                    self.perlen[0] = 1
                 else:
                     self.perlen = self.climatic.index.to_series().diff().values
-                    self.perlen[0] = 1
             else:
                 self.perlen = np.ones(len(self.climatic))
+            # First timestep is steady state:
+            self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
                 
