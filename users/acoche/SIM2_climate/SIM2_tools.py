@@ -153,6 +153,9 @@ def to_netcdf(csv_file_path):
     print("\nExporting...")
     sub_time = datetime.datetime.now()
     
+    if not os.path.exists(os.path.join(root_folder, "netcdf")):
+        os.mkdir(os.path.join(root_folder, "netcdf"))
+    
     for var in list(ds.data_vars): # batch_var: 
         # Include metadata
         ds[var].attrs = {'standard_name': var,
@@ -177,6 +180,18 @@ def to_netcdf(csv_file_path):
 
 #%% Convert whole folder to netcdf
 def folder_to_netcdf(folder):
+    """
+    Parameters
+    ----------
+    folder : str
+        Folder containing the .csv files.
+
+    Returns
+    -------
+    None. Creates the .nc files in the folder 'netcdf'
+
+    """
+    
     filelist = [f for f in os.listdir(folder) 
                 if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.csv')]
     
@@ -219,7 +234,10 @@ def merge(filelist):
         filename = os.path.splitext(f)[0]
         var, years = sim_pattern.split(filename)
         yearset.update(year_pattern.findall(years))
-        
+    
+    if not os.path.exists(os.path.join(root_folder, "merged")):
+        os.mkdir(os.path.join(root_folder, "merged"))
+    
     new_filepath = os.path.join(
         root_folder, 
         "merged", 
@@ -296,6 +314,9 @@ def compress(filepath):
     print("   Compression x4 (lossy)")
     
     # Export
+    if not os.path.exists(os.path.join(root_folder, "compressed")):
+        os.mkdir(os.path.join(root_folder, "compressed"))
+    
     filename = os.path.splitext(os.path.split(filepath)[-1])[0]
     new_filepath = os.path.join(
         root_folder, 'compressed', filename + '_comp.nc')
@@ -342,6 +363,9 @@ def clip(filepath, maskpath):
                              mask.crs, all_touched = True)
 
     # Export
+    if not os.path.exists(os.path.join(root_folder, "clipped")):
+        os.mkdir(os.path.join(root_folder, "clipped"))
+        
     filename = os.path.splitext(os.path.split(filepath)[-1])[0]
     new_filepath = os.path.join(
         root_folder, 'clipped', filename + '_clipped.nc')
