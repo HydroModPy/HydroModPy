@@ -157,7 +157,7 @@ class Lakeres:
                 lake_id:int = 0 # initialization
             else:
                 lake_id:int = np.max(self.indexes) + 1
-        print(f"\nAdding lake '{lake_id}'")
+        print(f"Adding lake '{lake_id}'")
         
         # Lake/reservoir geometry
         self.maskmx_file_by_lake[lake_id] = maskmx_file
