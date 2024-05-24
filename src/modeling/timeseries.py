@@ -508,8 +508,7 @@ class Timeseries:
 # =============================================================================
 #                         map_level = level
 # =============================================================================
-                        map_level = self.watertable_elevation[key]
-                        self.geographic.cell_size = 75*75                    
+                        map_level = self.watertable_elevation[key]                  
     
                         watershed_dem, _, _, _ = toolbox.load_to_numpy(
                             self.geographic.watershed_dem, 
