@@ -533,7 +533,7 @@ class Timeseries:
                         self.mfdata.loc[key,f'{lake_id}_volume'] = volume
                             
                         # area
-                        area = (masked_level_diff > 0).sum()*self.geographic.cell_size
+                        area = (masked_level_diff > 0.01).sum()*self.geographic.cell_size
                         self.mfdata.loc[key,f'{lake_id}_area'] = area
                         
                         # lake vertical leakage
