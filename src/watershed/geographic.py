@@ -30,6 +30,7 @@ import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+# wbt.verbose = True
 
 # Root
 from os.path import dirname, abspath
@@ -168,10 +169,6 @@ class Geographic:
             watersheds=None, 
             weights=None, 
             esri_pntr=False)
-# =============================================================================
-#         # Correct no data
-#         wbt.modify_no_data_value(self.dem_path, new_value='-99999.0')
-# =============================================================================
         
         """
         Extract watershed from an outlet

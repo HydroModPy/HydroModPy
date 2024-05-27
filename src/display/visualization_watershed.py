@@ -258,12 +258,12 @@ def watershed_geology(BV):
         color = data['hex'].iloc[0]
         data.plot(color=color,
               ax=ax,alpha=0.5, edgecolor='dimgrey', zorder=2,
-              label=ctype)
+              label=ctype.upper())
     for ctype, data in geol.groupby('NATURE'):
         color = data['hex'].iloc[0]
         if ctype.find('Partie marine')!=0:
             ctype = ctype.split(':')[0]
-            patch = mpatches.Patch(facecolor=color, alpha=0.5, label=ctype, edgecolor='k')
+            patch = mpatches.Patch(facecolor=color, alpha=0.5, label=ctype.upper(), edgecolor='k')
             handles.append(patch)
     l1 = ax.legend(handles=handles, loc='best', ncol=1, fancybox=False,prop={'size':6.5})
     leg = ax.get_legend()
@@ -284,7 +284,7 @@ def watershed_geology(BV):
                         edgecolor='k',legend=True, label='Piezometers: continue')
     except:
         pass
-    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
     ax.add_artist(scalebar)
     l2 = plt.legend( loc='lower right', title = BV.watershed_name,framealpha=0.8)
     plt.gca().add_artist(l1)
