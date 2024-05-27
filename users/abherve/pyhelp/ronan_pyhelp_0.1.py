@@ -325,15 +325,15 @@ def plot(shapely_objects, figure_path='fig.png'):
 # data_path = "G:/UNINE/SIMULATIONS/VALLON/_data/"
 # out_path = 'G:/UNINE/SIMULATIONS/VALLON/'
 
-git_path = "D:/Users/abherve/GITHUB/HydroModPy-0.1/"
+git_path = "C:/Users/abherve/GITHUB/HydroModPy-0.1/"
 # data_path = "I:/UNINE/SIMULATIONS/VALLON/_data/"
 data_path = 'C:/Users/ronan/OneDrive/UNINE/14_Softwares/PyHelp/_data/'
 # out_path = 'I:/UNINE/SIMULATIONS/VALLON/'
-out_path = 'C:/Users/ronan/Local/SIMULATIONS/PYHELP/'
+out_path = 'C:/Users/ronan/Simulations/PyHelp/'
 # fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_fig_path/'
 
 dems_path = data_path # reginal DEM or conceptual DEM
-dem_name = 'DEM_SRTM30m_Quebec_1_UTM19.TIF' # EUDTM_Alps_30m_vallon
+dem_name = 'DEM_SRTM30m_Quebec_1_UTM19.tif' # EUDTM_Alps_30m_vallon
 dem_path = dems_path + dem_name
 # dem_data = imageio.imread(dem_path)
 

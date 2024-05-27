@@ -16,6 +16,7 @@
 import flopy
 import numpy as np
 import os
+import datetime
 import pandas as pd
 import sys
 import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
@@ -243,7 +244,7 @@ class Modflow:
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
 
-        #%% Discreitzation
+        #%% Discretization
         
         ### Time step is driven by recharge
         
@@ -276,7 +277,17 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-            self.perlen = np.ones(len(self.climatic))
+
+            if isinstance(self.climatic, pd.core.series.Series):
+                if isinstance(self.climatic.index[0], datetime.datetime):
+                    # self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                    self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+                else:
+                    self.perlen = self.climatic.index.to_series().diff().values
+            else:
+                self.perlen = np.ones(len(self.climatic))
+            # First timestep is steady state:
+            self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
                 
@@ -488,9 +499,14 @@ class Modflow:
                         else:
                             self.evtData[kper] = self.evt[kper]
                 # expd = self.thick : ETP can take water all over the aquifer thickness
-                self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
-                                                    evtr=self.evtData, 
-                                                    surf=0, exdp=self.thick)
+                self.evt = flopy.modflow.ModflowEvt(self.mf,
+                                                    evtr=self.evtData,
+                                                    surf = self.dem,
+                                                    nevtop = 1, # default: 1 (top), 2 (layer), 3 (highest active)
+                                                    exdp = 10, # default: 1 (from surf normally)
+                                                    ievt = 1, # default: 1 (if layer)
+                                                    ipakcb = 1 # default: 0 
+                                                    )
                 # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
                 if not isinstance(self.climatic,(int,float)):
                     self.climatic[self.climatic<0] = 0
@@ -752,6 +768,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.dict_saturated_storage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
         self.dict_persistency_index = {}
@@ -854,7 +871,7 @@ class Modflow:
                     self.flux = np.sqrt(self.frf**2 + self.fff**2)        
                 if self.nlay > 1:
                     self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
-                    self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
+                    self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
                 self.flux_top = self.flux[0]
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
@@ -872,13 +889,18 @@ class Modflow:
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.wt_sto, -9999, output_path)
-                self.dict_groundwater_storage[item] = self.wt_sto
-                # if time == 0:
-                #     self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
-                # else:
-                #     self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper, totim=time)[0]
-                # self.gw_storage = self.sto.copy()
-                # self.dict_groundwater_storage[item] = self.gw_storage
+                self.dict_saturated_storage[item] = self.wt_sto
+
+                if item == 0:
+                    self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
+                else:
+                    self.kstpkper_bis = (self.kstp[item], time)
+                    try:
+                        self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper_bis)[0]
+                    except:
+                        pass
+                self.gw_storage = np.sum(self.sto, axis=0)
+                self.dict_groundwater_storage[item] = self.gw_storage
 
             if accumulation_flux == True:
                 ### Accumulation flux
@@ -907,6 +929,7 @@ class Modflow:
         if groundwater_flux == True:
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
+            np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
@@ -944,6 +967,11 @@ class Modflow:
                                       base_crs = self.geographic.crs_proj,
                                       times = self.climatic)
             if groundwater_storage == True:
+                toolbox.export_netcdf(self.dict_groundwater_storage, 
+                                      base_path = self.geographic.watershed_dem, 
+                                      out_path = os.path.join(self.netcdf_file, 'saturated_storage.nc'), 
+                                      base_crs = self.geographic.crs_proj,
+                                      times = self.climatic)
                 toolbox.export_netcdf(self.dict_groundwater_storage, 
                                       base_path = self.geographic.watershed_dem, 
                                       out_path = os.path.join(self.netcdf_file, 'groundwater_storage.nc'), 

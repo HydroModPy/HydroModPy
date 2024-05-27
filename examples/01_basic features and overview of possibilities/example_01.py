@@ -66,10 +66,13 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/01_basic examples with overview of possibilities/"
-data_path = example_path + "data/"
-out_path = folder_root.root_folder_results()
+example_path = os.path.join(root_dir, 
+                            "examples",
+                            "01_basic features and overview of possibilities")
+data_path = os.path.join(example_path, "data")
+out_path = folder_root.update_root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -77,11 +80,11 @@ out_path = folder_root.root_folder_results()
 
 # case = 'FromLIB'
 # case = 'FromDEM'
-# case = 'FromSHP'
-case = 'FromXYV'
+case = 'FromSHP'
+# case = 'FromXYV'
 
 if case == 'FromLIB':
-    dem_path = data_path + 'regional dem.tif'
+    dem_path = os.path.join(data_path, 'regional dem.tif')
     load = False
     watershed_name = 'FromLIB'
     from_lib = os.path.join(data_path,'watershed_library.csv')
@@ -92,7 +95,7 @@ if case == 'FromLIB':
     save_object = True
 
 if case == 'FromDEM':
-    dem_path = data_path + 'conceptual dem.tif'
+    dem_path = os.path.join(data_path, 'conceptual dem.tif')
     load = False
     watershed_name = 'FromDEM'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
@@ -103,18 +106,18 @@ if case == 'FromDEM':
     save_object = True
 
 if case == 'FromSHP':
-    dem_path = data_path + 'regional dem.tif'
+    dem_path = os.path.join(data_path, 'regional dem.tif')
     load = False
     watershed_name = 'FromSHP'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
-    from_shp = [data_path + 'conceptual shp.shp', 10] # [path, buffer size]
+    from_shp = [data_path + '/' + 'conceptual shp.shp', 10] # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
     bottom_path = None # path
     save_object = True
 
 if case == 'FromXYV':
-    dem_path = data_path + 'regional dem.tif'
+    dem_path = os.path.join(data_path, 'regional dem.tif')
     load = False
     watershed_name = 'FromXYV'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
@@ -151,8 +154,8 @@ if from_dem == None:
     BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
     BV.add_hydrography(data_path, types_obs=['regional stream network'], fields_obs=['fid'])
     BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    BV.add_intermittency(data_path, 'regional onde stations.shp')
-    BV.add_piezometry()
+    # BV.add_intermittency(data_path, 'regional onde stations.shp')
+    # BV.add_piezometry()
 
     # Extract some subbasin from data available above
     #BV.add_subbasin(data_path+'additional/', 200)
@@ -171,22 +174,24 @@ visualization_watershed.watershed_dem(BV)
 BV.add_climatic()
 
 # Different cases of recharge implementation
-recharge_data = 'reanalysis'
-recharge_data = 'explore1'
-recharge_data = 'explore2'
-recharge_data = 'synthetic'
+
+# recharge_data = 'reanalysis'
+# recharge_data = 'explore1'
+# recharge_data = 'explore2'
+# recharge_data = 'synthetic'
 recharge_data = 'manual'
 # recharge_data = 'raster'
+# recharge_data = 'evapotranspiration'
 
 if recharge_data == 'reanalysis':
-    BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+    BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
                                            clim_mod='REA',
                                            clim_sce='historic',
                                            first_year=1990,
                                            last_year=2019,
                                            time_step='D',
                                            sim_state='transient')
-    BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+    BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
                                          clim_mod='REA',
                                          clim_sce='historic',
                                          first_year=1990,
@@ -203,14 +208,14 @@ if recharge_data == 'reanalysis':
     ax.legend()
 
 if recharge_data == 'explore1':
-    BV.climatic.update_recharge_explore1(path_file=data_path+'_climate_EXPLORE1.csv',
+    BV.climatic.update_recharge_explore1(path_file=os.path.join(data_path,'_climate_EXPLORE1.csv'),
                                          clim_mod='IPS1',
                                          clim_sce='RCP8.5',
                                          first_year=2020,
                                          last_year=2099,
                                          time_step='D',
                                          sim_state='transient')
-    BV.climatic.update_runoff_explore1(path_file=data_path+'_climate_EXPLORE1.csv',
+    BV.climatic.update_runoff_explore1(path_file=os.path.join(data_path,'_climate_EXPLORE1.csv'),
                                          clim_mod='IPS1',
                                          clim_sce='RCP8.5',
                                          first_year=2020,
@@ -227,14 +232,14 @@ if recharge_data == 'explore1':
     ax.legend()
 
 if recharge_data == 'explore2':
-    BV.climatic.update_recharge_explore2(path_file=data_path+'_climate_EXPLORE2.csv',
+    BV.climatic.update_recharge_explore2(path_file=os.path.join(data_path,'_climate_EXPLORE2.csv'),
                                          gcm_mod='CNR',
                                          rcm_mod='ALA',
                                          sce_mod='RCP8.5',
                                          first_year=2020,
                                          last_year=2099,
                                          sim_state='transient')
-    BV.climatic.update_runoff_explore2(path_file=data_path+'_climate_EXPLORE2.csv',
+    BV.climatic.update_runoff_explore2(path_file=os.path.join(data_path,'_climate_EXPLORE2.csv'),
                                          gcm_mod='CNR',
                                          rcm_mod='ALA',
                                          sce_mod='RCP8.5',
@@ -287,7 +292,7 @@ if recharge_data == 'manual':
 
 if recharge_data == 'raster':
     
-    dem_struct = imageio.imread(stable_folder+'geographic/watershed_box_buff_dem.tif') * 0
+    dem_struct = imageio.imread(os.path.join(stable_folder,r'geographic/watershed_box_buff_dem.tif')) * 0
     dem_struct = dem_struct + 10/1000/30
     dem_struct[:,int(dem_struct.shape[1]/2):] = dem_struct[:,int(dem_struct.shape[1]/2):] + 1000/1000/30
     
@@ -306,6 +311,18 @@ if recharge_data == 'raster':
     
     fig, ax = plt.subplots(1,1, figsize=(6,3))
     ax.imshow(R[0])
+
+if recharge_data == 'evapotranspiration':
+    
+    time_series = pd.Series([10,20,30,-20,-100,-40,20,50,40,30,20,10]) # mm/month
+    BV.climatic.update_recharge(time_series, sim_state='transient')
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    R = BV.climatic.recharge / 1000 / 30
+    r = R
+    ax.plot(R, label='effective precipitation_manual', c='dodgerblue', lw=2)
+    ax.set_xlabel('Months')
+    ax.set_ylabel('[mm/month]')
+    ax.legend()
 
 #%% ---- PARAMETRIZATION
 
@@ -436,6 +453,13 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 
 #%% ---- PLOT
 
+#%% CHRONICS
+
+# fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+# csv = pd.read_csv(simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv',
+#                   sep=';')
+# ax.plot(csv['outflow_drain'])
+
 #%% 2D
 
 # if sim_state == 'steady':
@@ -448,7 +472,7 @@ visu.visual2D(object_list = ['map','grid',
               color_scale = [(None,None),(None,None),
                              (None,None),(0,10),
                              (None,None),(None,None),
-                             (None,None),(None,None),
+                             (0,100),(None,None),
                              ], 
               lines=250)
 
@@ -458,15 +482,15 @@ if from_dem == None:
     export_vtuvtk.VTK(BV, model_name)
     visu = visualization_results.Visualization(BV, model_name)
     visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
-                                                 'surface_flow',
-                                                 'drain_flow',
-                                                 'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
+                                                  'surface_flow',
+                                                  'drain_flow',
+                                                  'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
 
 #%% RAW
 
 lead_numb = '0'
-outflow = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/outflow_drain_t(0).tif')
-accflow = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+outflow = imageio.imread(os.path.join(simulations_folder,model_name,r'_postprocess/_rasters/outflow_drain_t(0).tif'))
+accflow = imageio.imread(os.path.join(simulations_folder,model_name,r'_postprocess/_rasters/accumulation_flux_t(0).tif'))
 demData = imageio.imread(BV.geographic.watershed_dem)
 demData = np.ma.masked_array(demData, mask=demData<0)
 res = BV.geographic.resolution
@@ -529,12 +553,12 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 
 #%% CROSS
 
-dem_data = imageio.imread(stable_folder+'/geographic/'+'watershed_box_buff_dem.tif') # dem data
+dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
 if from_dem == None:
-    stream_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif') # river data
+    stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
 else:
     stream_data = None
-watertable_data = imageio.imread(os.path.join(simulations_folder,model_name)+'/_postprocess/_rasters/'+'watertable_elevation_t(0).tif') # watertable data
+watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,r'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
 interactive = True
 visu = visualization_results.Visualization(BV, model_name)
 visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)

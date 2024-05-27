@@ -15,6 +15,7 @@
 import os
 import re
 import math
+import numbers
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -22,6 +23,7 @@ from matplotlib.font_manager import FontProperties
 import rasterio as rio
 import rasterio.features # necessary to avoid a bug
 import geopandas as gpd
+from shapely.geometry import Point
 import xarray as xr
 xr.set_options(keep_attrs = True)
 # import rioxarray as rio #Not necessary, the rio module from xarray is enough
@@ -105,7 +107,7 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
         masked = np.ma.masked_array(target_data, mask=mask_data<value_masked)
     return masked
 
-def load_to_numpy(file_path, src_crs=None,
+def load_to_numpy(file, src_crs=None,
                   base_path:str=None, dst_crs=None, out_path:str=None):
     """
     Generate a numpy array from a source file (vector or raster) and a base
@@ -124,8 +126,8 @@ def load_to_numpy(file_path, src_crs=None,
 
     Parameters
     ----------
-    file_path : str
-        Path to the input file to process.
+    file : str or geopandas.GeoDataFrame
+        Path to the input file to process, or geopandas GoDataFrame.
     src_crs : int or str, optional (The default is None)
         If the CRS is not embeded in the input file, it is possible to 
         specify it here, as an integer (EPSG), or a str 'EPSG:<int>'
@@ -155,15 +157,35 @@ def load_to_numpy(file_path, src_crs=None,
     elif isinstance(src_crs, int): src_crs = rio.crs.CRS.from_epsg(src_crs)
     if isinstance(dst_crs, str): dst_crs = rio.crs.CRS.from_string(dst_crs)
     elif isinstance(dst_crs, int): dst_crs = rio.crs.CRS.from_epsg(dst_crs)
+
+    file_vect = None
+    if isinstance(file, gpd.geodataframe.GeoDataFrame):
+        file_vect = file
+    elif os.path.splitext(file)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
+        file_vect = gpd.read_file(file)
+    elif os.path.splitext(file)[-1] in ['.txt', '.csv']: # coordinates array
+        """
+        The input file should be formated as:
+            id;x;y
+            0;34500;7456125  
+            1;35675;7991500
+            ...
+        """
+        try:
+            df = pd.read_csv(file, sep = ";")
+            geometry = [Point(xy) for xy in zip(df.x, df.y)]
+            df = df.drop(columns = ['x', 'y'])
+            file_vect = gpd.GeoDataFrame(df, geometry = geometry)
+        except:
+            print("Error: The input file should be formated as:")
+            print("    id;x;y\n    0;34500;7456125\n    1;35675;7991500\n    ...\n")
     
-    
-    if os.path.splitext(file_path)[-1] in ['.shp', '.dbf', '.shx']: # shapefile
+    if file_vect is not None: # shapefile
         if base_profile:
-            file_vect = gpd.read_file(file_path)
             # CRS initialization
             if not file_vect.crs: # if not file_vect.crs.is_geographic nor file_vect.crs.is_projected:
                 if src_crs: 
-                    file_vect.set_crs(crs = src_crs, allow_override = True)
+                    file_vect.set_crs(crs = src_crs, inplace = True, allow_override = True)
                 else: 
                     print("\nError: Source CRS (src_crs) is required to rasterize.")
                     return
@@ -189,9 +211,9 @@ def load_to_numpy(file_path, src_crs=None,
         else: # if there is no base_profile
             print('\nRasterizeError: A rasterio profile is required to convert vectoriel data into raster')
             return
-            
+    
     else: # input file is a raster
-        with rio.open(file_path, 'r') as data:
+        with rio.open(file, 'r') as data:
             data_profile = data.profile
             if src_crs and not data_profile['crs'].is_valid:
                 data_profile['crs'] = src_crs
@@ -255,11 +277,18 @@ def load_to_numpy(file_path, src_crs=None,
         with rio.open(out_path, 'w', **data_profile) as dst: 
             dst.write_band(1, val)
     
-    if base_profile: 
-        print(f" destination CRS = {base_profile['crs']}")
-        print(f" no data value = {base_profile['nodata']}")
+    if base_profile:        
+        dst_crs = base_profile['crs']
+        nodata = base_profile['nodata']
+    else:
+        nodata = None
     
-    return val
+    if file_vect is not None:
+        src_crs = file_vect.crs
+    else:
+        src_crs = data_profile['crs']
+    
+    return val, src_crs, dst_crs, nodata
 
 
 def read_with_xarray(file_path, src_crs=None, main_var=None):
@@ -422,6 +451,61 @@ def date_range(start, periods, freq):
     """
     time = pd.date_range(str(start), periods=periods, freq=freq)
     return time
+
+def hydrological_mean(data, accuracy=15):
+    """
+    Compute the mean value on the longest period that meets the following
+    conditions:
+        - period should be made of full years (period is a year-multiple)
+        - period should be larger than one year
+        - end date of the period should be same day and month as the first date
+        of the period, more or less the accuracy
+
+    Parameters
+    ----------
+    data : pandas.core.series.Series or pandas.core.frame.DataFrame
+        DESCRIPTION.
+    accuracy : number, optional
+        DESCRIPTION. The default is 15.
+
+    Returns
+    -------
+    avg : float or pandas.core.series.Series
+        The average value.
+
+    """
+    
+    #% Get rid of the first and last value (there are great chances that
+    # they are irrelevant, especially in resampled data sets)
+    data = data[1:-1]
+    
+    #% Format the index to Timestamp, if needed
+    if isinstance(data.index[0], numbers.Number):
+        data.index = data['time']
+    if isinstance(data.index[0], str):
+        data.index = pd.to_datetime(data.index)
+    # Safeguard
+    if not isinstance(data.index[0], datetime.datetime):
+        print("Error: No recognized time index in data")
+        return
+    
+    #% Get the most recent date that falls within the accuracy range
+    idx = data[data.index.month == data.index[0].month][
+            abs(data[data.index.month == data.index[0].month].index.day - \
+                data.index[0].day)-3 <= 0].index[-1]
+
+    # n_years = np.mean((data.index[-1]-data.index[0])/365.2425)
+    
+    if (idx - data.index[0]).days < 350:
+        print("HydrologicalMean Warning: Total time range is too short (less than 1 year)")
+        print("    Simple mean is used instead")
+    
+    # print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
+
+    avg = data[data.index[0]:idx].mean(numeric_only = False)
+
+    return avg
+
 
 #%% PLOT SETTINGS
 
@@ -626,7 +710,7 @@ def select_period(df, first, last):
     return df
 
 def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
-                  times=None, y=None, x=None):
+                  times=None, y=None, x=None, append:bool=False):
     """
     Export raw results from HydroModPy (aggregated results over times stored
     in dict, obtained with the postprocessing_modflow method of the Watershed 
@@ -661,6 +745,9 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     x : array, optional
         Values for the X-coordinate. If None (default), the values will be
         inferred from the resolution and spatial extent of the domain.
+    append : bool
+        Option to append values to existing netcdf file (used in sequential 
+        coupling of modflow simulation).
 
     Returns
     -------
@@ -703,6 +790,11 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     main_var = os.path.splitext(os.path.split(out_path)[-1])[0]
     ds[main_var] = da
     
+    if append:
+        with xr.open_dataset(
+                out_path, decode_coords = 'all', decode_times = True) as ds_prev:
+            ds = xr.concat([ds_prev, ds], dim = 'time')
+    
     # Attributes
     ds.x.attrs = {'standard_name': 'projection_x_coordinate',
               'long_name': 'x coordinate of projection',
@@ -737,7 +829,7 @@ def export_netcdf(data, *, base_path:str, out_path:str, base_crs=None,
     # Export
     ds.to_netcdf(out_path)
     
-#%% Packing netcdf
+#%% PACKING NETCDF
 """
 Created on Wed Aug 24 16:48:29 2022
 
@@ -798,7 +890,6 @@ def pack_value(unpacked_value, scale_factor, add_offset):
 
 def unpack_value(packed_value, scale_factor, add_offset):
     return packed_value * scale_factor + add_offset    
-    
 
 #%% DISPLAY 
 

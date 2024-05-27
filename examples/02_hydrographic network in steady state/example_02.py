@@ -67,22 +67,28 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/02_hydrographic network in steady state/"
-data_path = example_path + "data/"
-out_path = folder_root.root_folder_results()
+example_path = os.path.join(root_dir, 
+                            r"examples/02_hydrographic network in steady state")
+data_path = os.path.join(example_path, "data")
+data_path = os.path.join(example_path, "data")
+out_path = folder_root.update_root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-dem_path = data_path + 'regional dem.tif'
-load = True
+dem_path = os.path.join(data_path, 'regional dem.tif')
+# dem_path = 'C:/Users/ronan/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
+load = False
 watershed_name = 'Canut'
+# watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+# from_xyv = [1019446, 6797493, 500, 10, 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
@@ -103,8 +109,8 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
 #%% DATA
 
@@ -117,7 +123,7 @@ if from_dem == None:
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(data_path+'additional/', 150)
+    BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # General plot of the study site
 if from_dem == None:
@@ -132,14 +138,14 @@ visualization_watershed.watershed_dem(BV)
 # # Necessary to set model parameters
 BV.add_climatic()
 
-BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
                                        clim_mod='REA',
                                        clim_sce='historic',
                                        first_year=1990,
                                        last_year=2019,
                                        time_step='D',
                                        sim_state='transient')
-BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
                                      clim_mod='REA',
                                      clim_sce='historic',
                                      first_year=1990,
@@ -258,13 +264,13 @@ dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_success_modflow'] = list_success_modflow
 dictio['list_model_modflow'] = list_model_modflow
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+h5file = os.path.join(simulations_folder,'results_listing_'+iD_set_simulations)
     
 dd.io.save(h5file, dictio)
 
 #%% RELOAD
 
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+h5file = os.path.join(simulations_folder,'results_listing_'+iD_set_simulations)
 d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_success_modflow = d['list_success_modflow'][:]
@@ -308,16 +314,18 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
     fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
 
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+    simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
     dem_data = imageio.imread(BV.geographic.watershed_dem)
     dem_data = np.ma.masked_where(dem_data < 0, dem_data)
     
-    wt_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/watertable_elevation_t(0).tif')
+    wt_data = imageio.imread(os.path.join(simulations_folder, model_name, 
+                                          r'_postprocess/_rasters/watertable_elevation_t(0).tif'))
     wt_data = np.ma.masked_where(wt_data < 0, wt_data)
     
-    river_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif')
+    river_data = imageio.imread(os.path.join(stable_folder, 'hydrography', 
+                                             'regional stream network.tif'))
 
     xvalues = np.linspace(-1,1,dem_data.shape[1])
     yvalues = np.linspace(-1,1,dem_data.shape[0])
@@ -393,8 +401,8 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
     fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
 
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+    simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
     dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
     dem_data = np.ma.masked_where(dem_data < 0, dem_data)
@@ -402,13 +410,16 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     contour = imageio.imread(BV.geographic.watershed_contour_tif)
     contour = np.ma.masked_where(contour < 0, contour)
     
-    obs_river_data = imageio.imread(stable_folder+'/hydrography/'+'regional stream network.tif')
+    obs_river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
+                                                 'regional stream network.tif'))
     obs_river_data = np.ma.masked_where(obs_river_data < 0, obs_river_data)
     
-    seep_river_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/seepage_areas_t(0).tif')
+    seep_river_data = imageio.imread(os.path.join(simulations_folder, model_name,
+                                                  r'_postprocess/_rasters/seepage_areas_t(0).tif'))
     seep_river_data = np.ma.masked_where(seep_river_data <= 0, seep_river_data)
     
-    sim_river_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+    sim_river_data = imageio.imread(os.path.join(simulations_folder, model_name,
+                                                 r'_postprocess/_rasters/accumulation_flux_t(0).tif'))
     sim_river_data = np.ma.masked_where(sim_river_data <= 0, sim_river_data)
     
     im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
@@ -441,10 +452,11 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,
                                                       list_model_modflow):
     
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
+    simulations_folder = os.path.join(out_path, watershed_name, 
+                                      'results_simulations')
     
-    simul_csv = pd.read_csv(simulations_folder+model_name+
-                            '/_postprocess/_timeseries/'+'_simulated_timeseries.csv',
+    simul_csv = pd.read_csv(os.path.join(simulations_folder, model_name,
+                            r'_postprocess/_timeseries/', '_simulated_timeseries.csv'),
                             sep=';')
     
     ax.plot(model_modflow.hyd_cond.mean()/24/3600,
