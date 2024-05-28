@@ -534,6 +534,9 @@ class Timeseries:
                             
                         # area
                         area = (masked_level_diff > 0.01).sum()*self.geographic.cell_size
+                        # The threshold of 0.01 m (1 cm) is used instead of 0,
+                        # in order to actually visualize area variations.
+                        # Otherwise, area variations are too small to be detected.
                         self.mfdata.loc[key,f'{lake_id}_area'] = area
                         
                         # lake vertical leakage
