@@ -352,7 +352,7 @@ cell_size = None # specify new resolution from a given DEM or None
 from_xyv = None
 
 watershed_name = 'Poschiavino'
-watershed_name = 'Poschiavino_100m'
+# watershed_name = 'Poschiavino_100m'
 
 from_shp = [data_path + 'Catchment_Poschiavino.shp',
             1] # specify a path if process start from a given shapefile
@@ -360,7 +360,7 @@ from_shp = [data_path + 'Catchment_Poschiavino.shp',
 #%% LOAD
 
 load = True
-load = False
+# load = False
 
 print('##### '+watershed_name.upper()+' #####')
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -420,7 +420,7 @@ for type_obs, field_obs in zip(types_obs, fields_obs):
 #%% UPDATE
 
 iD_explo = 'e1' # with isba recharge ==> change ss with decay factor (details for bad models)
-iD_explo = 'o1'
+# iD_explo = 'o1'
 
 box = False # or False
 sink_fill = False # or True
@@ -897,11 +897,112 @@ fig.savefig(fig_path + 'elevation_obs.png', dpi=300, bbox_inches='tight', transp
 
 #%% SCATTER PLOTS
 
-df = pd.read_csv('C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_datapaper/FIG2_Water_Chemistry_python.csv',
+dfs = pd.read_csv('C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_datapaper/FIG2_Water_Chemistry_python.csv',
+                 sep=';', decimal=',', encoding='unicode_escape')
+
+dfw = pd.read_csv('C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_datapaper/FIG2_Water_Chemistry_inclWinter_python.csv',
                  sep=';', decimal=',', encoding='unicode_escape')
 
 fig, axs = plt.subplots(2,2, figsize=(8,7), dpi=300)
 axs = axs.ravel()
+
+df = dfw.copy()
+
+ax=axs[0]
+xlab = 'Sodium_mEq'
+ylab = 'Chloride_mEq'
+mask = df['CAMPAIGN_ID'].isin(['MIX'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=100, marker='o', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
+mask = df['CAMPAIGN_ID'].isin(['END_3'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['END_2'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['trib_A'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
+ax.set_xlabel('Na [mEq/L]')
+ax.set_ylabel('Cl [mEq/L]')
+# ax.set_xlim(0,0.40)
+# ax.set_xticks([0,0.10,0.2,0.3,0.4])
+# ax.set_ylim(0,0.40)
+# ax.set_yticks([0,0.10,0.2,0.3,0.4])
+
+ax=axs[1]
+xlab1 = 'Sodium_mEq'
+xlab2 = 'Potassium_mEq'
+ylab1 = 'Calcium_mEq'
+ylab2 = 'Magnesium_mEq'
+mask = df['CAMPAIGN_ID'].isin(['MIX'])
+ax.scatter(df[xlab1][mask] + df[xlab2][mask],
+           df[ylab1][mask] + df[ylab2][mask], 
+           s=100, marker='o', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
+mask = df['CAMPAIGN_ID'].isin(['END_3'])
+ax.scatter(df[xlab1][mask] + df[xlab2][mask],
+           df[ylab1][mask] + df[ylab2][mask], 
+           s=200, marker='o', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['END_2'])
+ax.scatter(df[xlab1][mask] + df[xlab2][mask],
+           df[ylab1][mask] + df[ylab2][mask], 
+           s=200, marker='o', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['trib_A'])
+ax.scatter(df[xlab1][mask] + df[xlab2][mask],
+           df[ylab1][mask] + df[ylab2][mask], 
+           s=200, marker='o', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
+ax.set_xlabel('Na + K [mEq/L]')
+ax.set_ylabel('Ca + Mg [mEq/L]')
+# ax.set_xlim(0,0.5)
+# # ax.set_xticks([0,0.10,0.2,0.3,0.4])
+# ax.set_ylim(0,25)
+# ax.set_yticks([0,0.10,0.2,0.3,0.4])
+#
+ax=axs[2]
+xlab = 'Chloride_mEq'
+ylab = 'Sulphate_mEq'
+mask = df['CAMPAIGN_ID'].isin(['MIX'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=100, marker='o', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
+mask = df['CAMPAIGN_ID'].isin(['END_3'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['END_2'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['trib_A'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
+ax.set_xlabel('Cl [mEq/L]')
+ax.set_ylabel('SO${_4}$ [mEq/L]')
+# ax.set_xlim(0,0.40)
+# ax.set_xticks([0,0.10,0.2,0.3,0.4])
+# ax.set_ylim(0,25)
+# ax.set_yticks([0,0.10,0.2,0.3,0.4])
+
+ax=axs[3]
+xlab = 'Nitrate_mEq'
+ylab = 'Sulphate_mEq'
+mask = df['CAMPAIGN_ID'].isin(['MIX'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=100, marker='o', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
+mask = df['CAMPAIGN_ID'].isin(['END_3'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['END_2'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
+mask = df['CAMPAIGN_ID'].isin(['trib_A'])
+ax.scatter(df[xlab][mask], df[ylab][mask], 
+           s=200, marker='o', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
+ax.set_xlabel('NO${_3}$ [mEq/L]')
+ax.set_ylabel('SO${_4}$ [mEq/L]')
+# ax.set_xlim(0,0.025)
+# ax.set_xticks([0,0.010,0.020])
+# ax.set_ylim(0,25)
+# ax.set_yticks([0,0.10,0.2,0.3,0.4])
+
+df = dfs.copy()
 
 ax=axs[0]
 xlab = 'Sodium.1'
@@ -909,17 +1010,17 @@ ylab = 'Chloride.1'
 ax.scatter(df[xlab][~df['Poschiavino '].isin(['B','F','G','H','I','M'])], df[ylab][~df['Poschiavino '].isin(['B','F','G','H','I','M'])], 
            s=100, marker='^', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
 ax.scatter(df[xlab][df['Poschiavino ']=='B'], df[ylab][df['Poschiavino ']=='B'], 
-           s=200, marker='^', color='grey', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab][df['Poschiavino '].isin(['F','G','H','I'])], df[ylab][df['Poschiavino '].isin(['F','G','H','I'])], 
-           s=200, marker='^', color='salmon', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab][df['Poschiavino '].isin(['M'])], df[ylab][df['Poschiavino '].isin(['M'])], 
-           s=200, marker='^', color='forestgreen', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
 ax.set_xlabel('Na [mEq/L]')
 ax.set_ylabel('Cl [mEq/L]')
-ax.set_xlim(0,0.40)
-ax.set_xticks([0,0.10,0.2,0.3,0.4])
-ax.set_ylim(0,0.40)
-ax.set_yticks([0,0.10,0.2,0.3,0.4])
+ax.set_xlim(0,0.25)
+# ax.set_xticks([0,0.10,0.2,0.3,0.4])
+ax.set_ylim(0,0.25)
+# ax.set_yticks([0,0.10,0.2,0.3,0.4])
 
 ax=axs[1]
 xlab1 = 'Sodium.1'
@@ -931,16 +1032,16 @@ ax.scatter(df[xlab1][~df['Poschiavino '].isin(['B','F','G','H','I','M'])] + df[x
            s=100, marker='^', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
 ax.scatter(df[xlab1][df['Poschiavino ']=='B'] + df[xlab2][df['Poschiavino ']=='B'],
            df[ylab1][df['Poschiavino ']=='B'] + df[ylab2][df['Poschiavino ']=='B'], 
-           s=200, marker='^', color='grey', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab1][df['Poschiavino '].isin(['F','G','H','I'])] + df[xlab2][df['Poschiavino '].isin(['F','G','H','I'])],
            df[ylab1][df['Poschiavino '].isin(['F','G','H','I'])] + df[ylab2][df['Poschiavino '].isin(['F','G','H','I'])], 
-           s=200, marker='^', color='salmon', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab1][df['Poschiavino '].isin(['M'])] + df[xlab2][df['Poschiavino '].isin(['M'])],
            df[ylab1][df['Poschiavino '].isin(['M'])] + df[ylab2][df['Poschiavino '].isin(['M'])], 
-           s=200, marker='^', color='forestgreen', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
 ax.set_xlabel('Na + K [mEq/L]')
 ax.set_ylabel('Ca + Mg [mEq/L]')
-ax.set_xlim(0,0.6)
+ax.set_xlim(0,0.5)
 # ax.set_xticks([0,0.10,0.2,0.3,0.4])
 ax.set_ylim(0,25)
 # ax.set_yticks([0,0.10,0.2,0.3,0.4])
@@ -951,15 +1052,15 @@ ylab = 'Sulphate.1'
 ax.scatter(df[xlab][~df['Poschiavino '].isin(['B','F','G','H','I','M'])], df[ylab][~df['Poschiavino '].isin(['B','F','G','H','I','M'])], 
            s=100, marker='^', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
 ax.scatter(df[xlab][df['Poschiavino ']=='B'], df[ylab][df['Poschiavino ']=='B'], 
-           s=200, marker='^', color='grey', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab][df['Poschiavino '].isin(['F','G','H','I'])], df[ylab][df['Poschiavino '].isin(['F','G','H','I'])], 
-           s=200, marker='^', color='salmon', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab][df['Poschiavino '].isin(['M'])], df[ylab][df['Poschiavino '].isin(['M'])], 
-           s=200, marker='^', color='forestgreen', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
 ax.set_xlabel('Cl [mEq/L]')
 ax.set_ylabel('SO${_4}$ [mEq/L]')
-ax.set_xlim(0,0.40)
-ax.set_xticks([0,0.10,0.2,0.3,0.4])
+ax.set_xlim(0,0.25)
+# ax.set_xticks([0,0.10,0.2,0.3,0.4])
 ax.set_ylim(0,25)
 # ax.set_yticks([0,0.10,0.2,0.3,0.4])
 
@@ -969,15 +1070,15 @@ ylab = 'Sulphate.1'
 ax.scatter(df[xlab][~df['Poschiavino '].isin(['B','F','G','H','I','M'])], df[ylab][~df['Poschiavino '].isin(['B','F','G','H','I','M'])], 
            s=100, marker='^', color='None', lw=2, ec='dodgerblue', clip_on=False, zorder=100)
 ax.scatter(df[xlab][df['Poschiavino '].isin(['F','G','H','I'])], df[ylab][df['Poschiavino '].isin(['F','G','H','I'])], 
-           s=200, marker='^', color='salmon', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='lightgrey', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab][df['Poschiavino ']=='B'], df[ylab][df['Poschiavino ']=='B'], 
-           s=200, marker='^', color='grey', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='pink', lw=2, ec='k', clip_on=False, zorder=200)
 ax.scatter(df[xlab][df['Poschiavino '].isin(['M'])], df[ylab][df['Poschiavino '].isin(['M'])], 
-           s=200, marker='^', color='forestgreen', lw=2, ec='k', clip_on=False, zorder=100)
+           s=200, marker='^', color='seagreen', lw=2, ec='k', clip_on=False, zorder=200)
 ax.set_xlabel('NO${_3}$ [mEq/L]')
 ax.set_ylabel('SO${_4}$ [mEq/L]')
-ax.set_xlim(0,0.025)
-ax.set_xticks([0,0.010,0.020])
+ax.set_xlim(0,0.05)
+# ax.set_xticks([0,0.010,0.020])
 ax.set_ylim(0,25)
 # ax.set_yticks([0,0.10,0.2,0.3,0.4])
 
@@ -995,6 +1096,68 @@ import imageio
 
 #nos dirigimos al sitio del formato
 img = imageio.imread("C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_datapaper/HowtomakeaPiperDiagramwithPython/HowtomakeaPiperDiagramwithPython/Figures/PiperCompleto.png")
+
+fig, ax = plt.subplots(1,1, figsize=(20,15), dpi=600)
+ax.imshow(np.flipud(img),zorder=0)
+
+datosQuimica = pd.read_csv('C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_datapaper/FIG2_Water_Chemistry_inclWinter_python.csv',
+                 sep=';', decimal=',', encoding='unicode_escape')
+    
+# datosQuimica['SO4_norm'] = datosQuimica['Sulphate.1']
+# datosQuimica['HCO3_CO3_norm'] = datosQuimica['Alkalinitaet.1']
+# datosQuimica['Cl_norm'] = datosQuimica['Chloride.1']
+# datosQuimica['Mg_norm'] = datosQuimica['Magnesium.1']
+# datosQuimica['Na_K_norm'] = (datosQuimica['Potassium.1']+datosQuimica['Sodium.1'])
+# datosQuimica['Ca_norm'] = datosQuimica['Calcium.1']
+
+datosQuimica['SO4_norm'] = datosQuimica['Sulphate_mEq'] / (datosQuimica['Sulphate_mEq'] +
+                            datosQuimica['Alkalinitaet_mEq']+datosQuimica['Chloride_mEq']) * 100
+datosQuimica['HCO3_CO3_norm'] = (datosQuimica['Alkalinitaet_mEq']) / (datosQuimica['Sulphate_mEq'] +
+                            datosQuimica['Alkalinitaet_mEq']+datosQuimica['Chloride_mEq']) * 100
+datosQuimica['Cl_norm'] = datosQuimica['Chloride_mEq'] / (datosQuimica['Sulphate_mEq'] +
+                            datosQuimica['Alkalinitaet_mEq']+datosQuimica['Chloride_mEq']) * 100
+datosQuimica['Mg_norm'] = datosQuimica['Magnesium_mEq'] / (datosQuimica['Magnesium_mEq'] +
+                            datosQuimica['Calcium_mEq']+datosQuimica['Potassium_mEq']+datosQuimica['Sodium_mEq']) * 100
+datosQuimica['Na_K_norm'] = (datosQuimica['Potassium_mEq']+datosQuimica['Sodium_mEq']) / (datosQuimica['Magnesium_mEq'] +
+                            datosQuimica['Calcium_mEq']+datosQuimica['Potassium_mEq']+datosQuimica['Sodium_mEq']) * 100
+datosQuimica['Ca_norm'] = datosQuimica['Calcium_mEq'] / (datosQuimica['Magnesium_mEq'] +
+                            datosQuimica['Calcium_mEq']+datosQuimica['Potassium_mEq']+datosQuimica['Sodium_mEq']) * 100
+
+#funcion de las coordenadas
+def coordenada(Ca,Mg,Cl,SO4,Label, facecolor, edgecolor, lw, zorder):
+    xcation = 40 + 360 - (Ca + Mg / 2) * 3.6
+    ycation = 40 + (math.sqrt(3) * Mg / 2)* 3.6
+    xanion = 40 + 360 + 100 + (Cl + SO4 / 2) * 3.6
+    yanion = 40 + (SO4 * math.sqrt(3) / 2)* 3.6
+    xdiam = 0.5 * (xcation + xanion + (yanion - ycation) / math.sqrt(3))
+    ydiam = 0.5 * (yanion + ycation + math.sqrt(3) * (xanion - xcation))
+    #print(str(xanion) + ' ' + str(yanion))
+    c=np.random.rand(3,1).ravel()
+    listagraph=[]
+    s = 300
+    # if ycation>50:
+    listagraph.append(plt.scatter(xcation,ycation, s=s, marker='o', facecolor=facecolor, edgecolors=edgecolor,label=Label, lw=lw, zorder=zorder))
+    listagraph.append(plt.scatter(xanion,yanion, marker='o', s=s, facecolor=facecolor, edgecolors=edgecolor, lw=lw, zorder=zorder))
+    listagraph.append(plt.scatter(xdiam,ydiam, marker='o', s=s, facecolor=facecolor, edgecolors=edgecolor, lw=lw, zorder=zorder))
+    return listagraph
+
+mask = datosQuimica['CAMPAIGN_ID'].isin(['MIX'])
+toplt = datosQuimica[mask]
+toplt = toplt[toplt['Ca_norm']>50]
+for index, row in toplt.iterrows():
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'None', 'dodgerblue', lw=2, zorder=1)
+mask = datosQuimica['CAMPAIGN_ID'].isin(['END_3'])
+toplt = datosQuimica[mask]
+for index, row in toplt.iterrows():
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'lightgrey', 'k', lw=2, zorder=2)
+mask = datosQuimica['CAMPAIGN_ID'].isin(['END_2'])
+toplt = datosQuimica[mask]
+for index, row in toplt.iterrows():
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'pink', 'k', lw=2, zorder=2)
+mask = datosQuimica['CAMPAIGN_ID'].isin(['trib_A'])
+toplt = datosQuimica[mask]
+for index, row in toplt.iterrows():
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'seagreen', 'k', lw=2, zorder=2)
 
 datosQuimica = pd.read_csv('C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_datapaper/FIG2_Water_Chemistry_python.csv',
                  sep=';', decimal=',', encoding='unicode_escape')
@@ -1020,7 +1183,7 @@ datosQuimica['Ca_norm'] = datosQuimica['Calcium.1'] / (datosQuimica['Magnesium.1
                             datosQuimica['Calcium.1']+datosQuimica['Potassium.1']+datosQuimica['Sodium.1']) * 100
 
 #funcion de las coordenadas
-def coordenada(Ca,Mg,Cl,SO4,Label, facecolor, edgecolor, lw):
+def coordenada(Ca,Mg,Cl,SO4,Label, facecolor, edgecolor, lw, zorder):
     xcation = 40 + 360 - (Ca + Mg / 2) * 3.6
     ycation = 40 + (math.sqrt(3) * Mg / 2)* 3.6
     xanion = 40 + 360 + 100 + (Cl + SO4 / 2) * 3.6
@@ -1031,26 +1194,25 @@ def coordenada(Ca,Mg,Cl,SO4,Label, facecolor, edgecolor, lw):
     c=np.random.rand(3,1).ravel()
     listagraph=[]
     s = 300
-    listagraph.append(plt.scatter(xcation,ycation,zorder=1, s=s, marker='^', facecolor=facecolor, edgecolors=edgecolor,label=Label, lw=lw))
-    listagraph.append(plt.scatter(xanion,yanion,zorder=1, marker='^', s=s, facecolor=facecolor, edgecolors=edgecolor, lw=lw))
-    listagraph.append(plt.scatter(xdiam,ydiam,zorder=1, marker='^', s=s, facecolor=facecolor, edgecolors=edgecolor, lw=lw))
+    # if 
+    listagraph.append(plt.scatter(xcation,ycation, s=s, marker='^', facecolor=facecolor, edgecolors=edgecolor,label=Label, lw=lw, zorder=zorder))
+    listagraph.append(plt.scatter(xanion,yanion, marker='^', s=s, facecolor=facecolor, edgecolors=edgecolor, lw=lw, zorder=zorder))
+    listagraph.append(plt.scatter(xdiam,ydiam, marker='^', s=s, facecolor=facecolor, edgecolors=edgecolor, lw=lw, zorder=zorder))
     return listagraph
 
-fig, ax = plt.subplots(1,1, figsize=(20,15), dpi=600)
-ax.imshow(np.flipud(img),zorder=0)
-
 toplt = datosQuimica[~datosQuimica['Poschiavino '].isin(['B','F','G','H','I','M'])]
+toplt = toplt[toplt['Ca_norm']>50]
 for index, row in toplt.iterrows():
-    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'None', 'dodgerblue', lw=2)
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'None', 'dodgerblue', lw=2, zorder=1)
 toplt = datosQuimica[datosQuimica['Poschiavino ']=='B']
 for index, row in toplt.iterrows():
-    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'grey', 'k', lw=2)
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'lightgrey', 'k', lw=2, zorder=2)
 toplt = datosQuimica[datosQuimica['Poschiavino '].isin(['F','G','H','I'])]
 for index, row in toplt.iterrows():
-    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'salmon', 'k', lw=2)
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'pink', 'k', lw=2, zorder=2)
 toplt = datosQuimica[datosQuimica['Poschiavino '].isin(['M'])]
 for index, row in toplt.iterrows():
-    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'forestgreen', 'k', lw=2)
+    coordenada(row['Ca_norm'],row['Mg_norm'],row['Cl_norm'],row['SO4_norm'], index, 'seagreen', 'k', lw=2, zorder=2)
 
 ax.set_ylim(0,830)
 ax.set_xlim(0,900)
@@ -1076,9 +1238,10 @@ axs = axs.ravel()
 ax = axs[0]
 # cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["darkviolet",'gold',"darkgreen"])
 cmap = 'PiYG'
+cmap = 'cividis'
 ax.scatter(dfb.index, dfb['Z_Mean'], c=dfb['d_EC'], cmap=cmap, #
-           marker='o', vmin=-10, vmax=+10, s=100, lw=0.1)
-ax.plot(dfb.index[:-1], dfb['Z_Mean'][:-1], color='k')
+           marker='o', vmin=-10, vmax=+10, s=75, lw=0.3, alpha=1)
+# ax.plot(dfb.index[:-1], dfb['Z_Mean'][:-1], color='k')
 ax.invert_xaxis()
 ax.set_ylim(1850,2200)
 ax.axes.get_xaxis().set_visible(False)
@@ -1086,8 +1249,8 @@ ax.set_ylabel('Elevation [m]')
 ax.set_xlim(None,0)
 
 # springs = gpd.read_file(data_path+'Springs_Poschiavino.shp')
-ax.axvspan(154, 103, lw=0,
-            zorder=-1000, alpha=0.2, color='grey')
+# ax.axvspan(154, 103, lw=0,
+#             zorder=-1000, alpha=0.2, color='grey')
 # ax.scatter(springs['down_value'], springs['dem_value'], ec='k', 
 #             lw= 1, marker='o', s=15,
 #             facecolor='white', zorder=10)
@@ -1109,9 +1272,9 @@ x = dfc['Distance'][dfc['INFO']=='SU_2019']
 y1 = dfc['Q_C'][dfc['INFO']=='SU_2019'] # crys high
 y2 = dfc['Q_B'][dfc['INFO']=='SU_2019'] # gyps
 y3 = dfc['Q_A'][dfc['INFO']=='SU_2019'] # crys low
-ax.bar(x, y1, color='grey', width=100, lw=0, alpha=1)
-ax.bar(x, y2, bottom=y1, color='darkgreen', width=100, lw=0, alpha=1)
-ax.bar(x, y3, bottom=y1+y2, color='salmon', width=100, lw=0, alpha=1)
+ax.bar(x, y1, color='lightgrey', width=100, lw=0, alpha=1)
+ax.bar(x, y2, bottom=y1, color='seagreen', width=100, lw=0, alpha=1)
+ax.bar(x, y3, bottom=y1+y2, color='lightpink', width=100, lw=0, alpha=1)
 # ax.bar(x, y4, bottom=y1+y2+y3, color='g')
 
 y1 = dfc['Q_C'][dfc['INFO']=='WI_2016'] # crys high
@@ -1125,11 +1288,12 @@ y3 = dfc['Q_A'][dfc['INFO']=='WI_2016'] # crys low
 # # ax.plot(dfc['Distance'][dfc['INFO']=='SU_2019'], dfc['Q_C'][dfc['INFO']=='SU_2019'], color='grey', lw=2, ls='-', marker='o', mec='None', ms=4)
 # ax.plot(dfc['ï»¿Distance_UP'][dfc['INFO']=='WI_2016'], y1+y2+y3, color='salmon', lw=0, ls='-', marker='s', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
 
-ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1, color='grey', lw=0, ls='-', marker='s', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
+ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1, color='lightgrey', lw=0, ls='-', marker='D', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
+
 # ax.plot(dfc['Distance'][dfc['INFO']=='SU_2019'], dfc['Q_B'][dfc['INFO']=='SU_2019'], color='salmon', lw=2, ls='-', marker='o', mec='None', ms=4)
-ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1+y2, color='darkgreen', lw=0, ls='-', marker='s', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
+ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1+y2, color='seagreen', lw=0, ls='-', marker='D', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
 # ax.plot(dfc['Distance'][dfc['INFO']=='SU_2019'], dfc['Q_C'][dfc['INFO']=='SU_2019'], color='grey', lw=2, ls='-', marker='o', mec='None', ms=4)
-ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1+y2+y3, color='salmon', lw=0, ls='-', marker='s', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
+ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1+y2+y3, color='lightpink', lw=0, ls='-', marker='D', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
 
 ax.invert_xaxis()
 
@@ -1230,7 +1394,7 @@ for id_mod_val in [2]:
                 
         ax.invert_xaxis()
         
-        fig.savefig(fig_path + 'flow sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
+        # fig.savefig(fig_path + 'flow sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
         
 #%% NOTES
         

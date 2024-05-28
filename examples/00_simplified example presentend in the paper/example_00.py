@@ -341,7 +341,7 @@ cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
                             # vmin=0, vmax=30,
                             norm=mpl.colors.LogNorm(vmin=0.1, 
                                                     vmax=10))
-ax.set_title('Specific yield [%] - Meshgrid South to Noth', fontsize=12)
+ax.set_title('Specific yield [%] - Meshgrid South to North', fontsize=12)
 ax.set_xlim(0, 5500)
 ax.set_ylim(40, 150)
 ax.set_xticks([0,1000,2000,3000,4000,5000])
