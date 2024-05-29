@@ -333,7 +333,7 @@ class Netcdf:
         float64 (double precision float)    52 bits mantissa, 11 bits exponent (~ 16 cs ?)
     """
 
-    def compute_scale_and_offset(min, max, n):
+    def compute_scale_and_offset(self, min, max, n):
         """
         Computes scale and offset necessary to pack a float32 or float64 set of values
         into a int16 or int8 set of values.
