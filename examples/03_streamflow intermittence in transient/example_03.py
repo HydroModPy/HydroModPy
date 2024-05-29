@@ -294,14 +294,16 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=True,
                                   intermittency_monthly=True,
                                   intermittency_daily=False,
-                                  export_all_tif = False,
-                                  export_netcdf = True)
+                                  export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
                                                           actual_date=True, 
                                                           subbasin_results=True,
                                                           freq_time=freq_time) # or None
+        
+        netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                                  actual_date=True)
 
 #%% ---- PLOT
 
