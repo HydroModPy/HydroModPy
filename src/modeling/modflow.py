@@ -297,7 +297,7 @@ class Modflow:
                 #       Extracts from climatic data the time steps (self.perlen)
                 if isinstance(self.climatic, pd.core.series.Series): # pd.dataframe
                     if isinstance(self.climatic.index[0], datetime.datetime):
-                        self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                        self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
                     else:
                         self.perlen = self.climatic.index.to_series().diff().values
                 else:
