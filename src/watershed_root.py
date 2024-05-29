@@ -837,10 +837,7 @@ class Watershed:
     
     def postprocessing_netcdf(self,
                                   model_modflow: object,
-                                  model_modpath: object,
-                                  actual_date: bool=True,
-                                  subbasin_results: bool=True,
-                                  freq_time: str='D'):
+                                  actual_date: bool=True):
         """
         Public method to postprocess the watershed timeseries.
 
@@ -848,12 +845,8 @@ class Watershed:
         ----------
         model_modflow : object
             Modflow object.
-        model_modpath : object
-            Modpath object.
         actual_date : bool, optional
             True if data are referenced temporally. The default is True.
-        subbasin_results : bool, optional
-            Generate all results for each subbassin. The default is True.
 
         Returns
         -------
@@ -863,10 +856,7 @@ class Watershed:
         if model_modflow != None:
             netcdf_results = netcdf.Netcdf(self.geographic,
                                            model_modflow=model_modflow,
-                                           model_modpath=model_modpath,
-                                           actual_date=actual_date,
-                                           subbasin_results=subbasin_results,
-                                           freq_time=freq_time)
+                                           actual_date=actual_date)
             
             return netcdf_results
 
