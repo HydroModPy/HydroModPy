@@ -660,8 +660,7 @@ class Watershed:
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
-                               export_all_tif: bool=False,
-                               export_netcdf: bool=False):
+                               export_all_tif: bool=False):
         """
         Public method to post-process the simulation of the model.
 
@@ -703,8 +702,7 @@ class Watershed:
                                       intermittency_monthly=intermittency_monthly,
                                       intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
-                                      export_all_tif=export_all_tif,
-                                      export_netcdf=export_netcdf)
+                                      export_all_tif=export_all_tif)
 
     #%% MODPATH MODEL        
     
