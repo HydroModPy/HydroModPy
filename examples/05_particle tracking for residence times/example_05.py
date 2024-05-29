@@ -250,8 +250,7 @@ if success_modflow == True:
                               persistency_index=False,
                               intermittency_monthly=False,
                               intermittency_daily=False,
-                              export_all_tif = False,
-                              export_netcdf = False)
+                              export_all_tif = False)
 
 #%% MODPATH
 

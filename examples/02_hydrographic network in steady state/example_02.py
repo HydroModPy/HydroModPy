@@ -293,8 +293,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=False,
                                   intermittency_monthly=False,
                                   intermittency_daily=False,
-                                  export_all_tif = False,
-                                  export_netcdf = False)
+                                  export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
