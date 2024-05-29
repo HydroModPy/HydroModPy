@@ -30,7 +30,7 @@ sys.path.append(root_dir)
 
 # HydroModPy
 from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
-from modeling import modflow, modpath, timeseries
+from modeling import modflow, modpath, timeseries, netcdf
 from display import visualization_watershed
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -834,5 +834,42 @@ class Watershed:
                                                         freq_time=freq_time)
             
             return timeseries_results
+        
+    #%% EXTRACT NETCDF
+    
+    def postprocessing_netcdf(self,
+                                  model_modflow: object,
+                                  model_modpath: object,
+                                  actual_date: bool=True,
+                                  subbasin_results: bool=True,
+                                  freq_time: str='D'):
+        """
+        Public method to postprocess the watershed timeseries.
+
+        Parameters
+        ----------
+        model_modflow : object
+            Modflow object.
+        model_modpath : object
+            Modpath object.
+        actual_date : bool, optional
+            True if data are referenced temporally. The default is True.
+        subbasin_results : bool, optional
+            Generate all results for each subbassin. The default is True.
+
+        Returns
+        -------
+        timeseries_results : pandas.dataframe
+            Table with all results.
+        """
+        if model_modflow != None:
+            netcdf_results = netcdf.Netcdf(self.geographic,
+                                           model_modflow=model_modflow,
+                                           model_modpath=model_modpath,
+                                           actual_date=actual_date,
+                                           subbasin_results=subbasin_results,
+                                           freq_time=freq_time)
+            
+            return netcdf_results
 
 #%% NOTES
