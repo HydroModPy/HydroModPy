@@ -30,7 +30,7 @@ sys.path.append(root_dir)
 
 # HydroModPy
 from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
-from modeling import modflow, modpath, timeseries
+from modeling import modflow, modpath, timeseries, netcdf
 from display import visualization_watershed
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -663,8 +663,7 @@ class Watershed:
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
-                               export_all_tif: bool=False,
-                               export_netcdf: bool=False):
+                               export_all_tif: bool=False):
         """
         Public method to post-process the simulation of the model.
 
@@ -706,10 +705,8 @@ class Watershed:
                                       intermittency_monthly=intermittency_monthly,
                                       intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
-                                      export_all_tif=export_all_tif,
-                                      export_netcdf=export_netcdf)
-    
-        
+                                      export_all_tif=export_all_tif)
+
     #%% MODPATH MODEL        
     
     def preprocessing_modpath(self, model_modflow: object, for_calib: bool=False):
@@ -838,5 +835,32 @@ class Watershed:
                                                         freq_time=freq_time)
             
             return timeseries_results
+        
+    #%% EXTRACT NETCDF
+    
+    def postprocessing_netcdf(self,
+                                  model_modflow: object,
+                                  actual_date: bool=True):
+        """
+        Public method to postprocess the watershed timeseries.
+
+        Parameters
+        ----------
+        model_modflow : object
+            Modflow object.
+        actual_date : bool, optional
+            True if data are referenced temporally. The default is True.
+
+        Returns
+        -------
+        timeseries_results : pandas.dataframe
+            Table with all results.
+        """
+        if model_modflow != None:
+            netcdf_results = netcdf.Netcdf(self.geographic,
+                                           model_modflow=model_modflow,
+                                           actual_date=actual_date)
+            
+            return netcdf_results
 
 #%% NOTES
