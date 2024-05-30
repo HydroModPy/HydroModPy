@@ -69,9 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = os.path.join(root_dir, r"examples/03_streamflow intermittence in transient")
 data_path = os.path.join(example_path, "data")
-out_path = folder_root.update_root_folder_results()
+# To get or initialize the folder path:
+out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
-# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -294,14 +294,16 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=True,
                                   intermittency_monthly=True,
                                   intermittency_daily=False,
-                                  export_all_tif = False,
-                                  export_netcdf = True)
+                                  export_all_tif = False)
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
                                                           actual_date=True, 
                                                           subbasin_results=True,
                                                           freq_time=freq_time) # or None
+        
+        netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                                  actual_date=True)
 
 #%% ---- PLOT
 

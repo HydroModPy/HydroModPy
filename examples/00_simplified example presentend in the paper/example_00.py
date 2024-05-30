@@ -59,9 +59,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = os.path.join(root_dir, "examples/00_simplified example presentend in the paper")
 data_path = os.path.join(example_path, "data")
-out_path = folder_root.update_root_folder_results()
+# To get or initialize the folder path:
+out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
-# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- EXTRACT CATCHMENT
 
@@ -239,8 +239,7 @@ if success_modflow == True:
                               intermittency_monthly=False, # only in transient
                               intermittency_weekly=False, # only in transient
                               intermittency_daily=False, # only in transient
-                              export_all_tif=False,
-                              export_netcdf=True)
+                              export_all_tif=False)
 
 #%% ---- PARTICLE TRACKING RUN
 
@@ -267,6 +266,10 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   actual_date=True, 
                                                   subbasin_results=True,
                                                   freq_time='D') # or 'M' or None
+
+#%% ---- GENERATE NETCDF FILES
+netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                          actual_date=True)
 
 #%% ---- PLOT RESULTS
 
