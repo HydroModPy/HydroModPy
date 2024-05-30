@@ -70,9 +70,9 @@ example_path = os.path.join(root_dir,
                             "examples",
                             "01_basic features and overview of possibilities")
 data_path = os.path.join(example_path, "data")
-out_path = folder_root.update_root_folder_results()
+# To get or initialize the folder path:
+out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
-# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
