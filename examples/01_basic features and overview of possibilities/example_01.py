@@ -70,9 +70,9 @@ example_path = os.path.join(root_dir,
                             "examples",
                             "01_basic features and overview of possibilities")
 data_path = os.path.join(example_path, "data")
-out_path = folder_root.update_root_folder_results()
+# To get or initialize the folder path:
+out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
-# To search folder path: out_path = folder_root.root_folder_results()
 
 #%% ---- WATERSHED
 
@@ -416,8 +416,7 @@ if success_modflow == True:
                               persistency_index=False,
                               intermittency_monthly=False,
                               intermittency_daily=False,
-                              export_all_tif = False,
-                              export_netcdf = True)
+                              export_all_tif = False)
 
 #%% MODPATH
 
@@ -433,7 +432,7 @@ if sim_state == 'steady':
                                   particules_shp=True,
                                   random_id=100)
 
-#%% TIMESERIES
+#%% TIMESERIES & NETCDF
 
 if from_dem == None:
     subbasin_results = True
@@ -450,6 +449,9 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   actual_date=True, 
                                                   subbasin_results=subbasin_results,
                                                   freq_time=freq_time) # or None
+
+netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                          actual_date=True)
 
 #%% ---- PLOT
 
