@@ -332,8 +332,9 @@ class Netcdf:
         float32 (single precision float)    23 bits mantissa, 8 bits exponent (~ 8 cs ?)
         float64 (double precision float)    52 bits mantissa, 11 bits exponent (~ 16 cs ?)
     """
-
-    def compute_scale_and_offset(self, min, max, n):
+    
+    @staticmethod
+    def compute_scale_and_offset(min, max, n):
         """
         Computes scale and offset necessary to pack a float32 or float64 set of values
         into a int16 or int8 set of values.
@@ -363,12 +364,12 @@ class Netcdf:
         
         return (scale_factor, add_offset)
 
-
+    @staticmethod
     def pack_value(unpacked_value, scale_factor, add_offset):
         print(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
         return (unpacked_value - add_offset) / scale_factor
 
-
+    @staticmethod
     def unpack_value(packed_value, scale_factor, add_offset):
         return packed_value * scale_factor + add_offset  
         
