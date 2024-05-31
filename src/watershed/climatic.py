@@ -389,7 +389,7 @@ class Climatic:
 
     #%% UPDATE FROM SIM2 REANALYSIS (online)
     
-    def update_sim2_reanalysis(self, *, var_list, path_nc_data=None,
+    def update_sim2_reanalysis(self, *, var_list, path_nc_data,
                                first_year, last_year=None, time_step='D', 
                                sim_state='transient', spatial_mean=False):
         """
@@ -403,7 +403,7 @@ class Climatic:
             DESCRIPTION.
         var_list : TYPE
             DESCRIPTION.
-        path_nc_data : TYPE, optional
+        path_nc_data : TYPE,
             DESCRIPTION. The default is None.
         first_year : TYPE
             DESCRIPTION.
