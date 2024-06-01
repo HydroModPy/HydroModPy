@@ -391,7 +391,8 @@ class Climatic:
     
     def update_sim2_reanalysis(self, *, var_list, path_nc_data,
                                first_year, last_year=None, time_step='D', 
-                               sim_state='transient', spatial_mean=False):
+                               sim_state='transient', spatial_mean=False,
+                               crs):
         """
         Download the SIM2 historical reanalysis data into watershed.climatic
         objects and save them to netCDF files (not compressed, clipped on
@@ -413,7 +414,11 @@ class Climatic:
             DESCRIPTION. The default is 'D'.
         sim_state : TYPE, optional
             DESCRIPTION. The default is 'transient'.
-            spatial_mean :
+        spatial_mean : bool
+            0
+        crs : str
+            Coordinate reference system of the model.
+                
 
         Returns
         -------
@@ -427,7 +432,7 @@ class Climatic:
         reanalysis = sim2.Sim2(var_list=var_list, path_nc_data=path_nc_data, 
                                first_year=first_year, last_year=last_year,
                                time_step=time_step, sim_state=sim_state,
-                               spatial_mean=spatial_mean)
+                               spatial_mean=spatial_mean, crs=crs)
         # Note: values are available through reanalysis.data
         
         for var in var_list:
