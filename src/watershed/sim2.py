@@ -53,7 +53,7 @@ class Sim2:
                  var_list, path_nc_data: str,
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
-                 spatial_mean=False, crs: str):
+                 spatial_mean=False, geographic):
         """
         Parameters
         ----------
@@ -79,8 +79,8 @@ class Sim2:
         spatial_mean : bool
             False (default). If True, data will be spatially averaged and returned
             as a pandas.DataFrame instead of an xarray.DataSet.
-        crs : str
-            Coordinates referecen system of the model.
+        geographic : object
+            Watershed.geographic object including infos such as crs, mask...
 
         Returns
         -------
@@ -98,7 +98,9 @@ class Sim2:
         self.time_step = time_step
         self.sim_state = sim_state
         self.spatial_mean = spatial_mean
-        self.crs = crs
+        self.geographic = geographic
+        self.values = {}
+        self.final_filelist = {}
         
         varnames_dict = {
         'DRAINC_Q': 'recharge',
@@ -130,17 +132,21 @@ class Sim2:
 # =============================================================================
         self.local_data = pd.DataFrame(index = var_list, columns = ['nc_file',
                                                                     'start_date',
-                                                                    'end_date'])
+                                                                    'end_date',
+                                                                    'extent'])
+        self.local_data.extent = False
 
         sim_pattern = re.compile('.*_SIM2_')
         # year_pattern = re.compile('\d{4,8}')
-        filelist = [os.path.join(self.path_nc_data, f) for f in os.listdir(self.path_nc_data) if os.path.isfile(os.path.join(self.path_nc_data, f))]
+        filelist = [os.path.join(self.path_nc_data, f) \
+                    for f in os.listdir(self.path_nc_data) \
+                        if os.path.isfile(os.path.join(self.path_nc_data, f))]
         if len(filelist) > 0: # folder is not empty
             for file in filelist:
                 filename = os.path.split(file)[-1]
                 sim_match = sim_pattern.findall(filename)
                 # years = year_pattern.findall(filename)
-                if len(sim_match) > 0:
+                if (len(sim_match) > 0) & (os.path.splitext(file)[-1] == '.nc'):
                     sim_var = sim_match[0][0:-6]
                     var = self.HyMoPy_var_by_sim_var.loc[sim_var, 'HyMoPy_var']
                     self.local_data.loc[var, 'nc_file'] = file
@@ -150,11 +156,23 @@ class Sim2:
                     
                     # Dates:
                     with xr.open_dataset(file, decode_coords = 'all', decode_times = True) as ds_temp:
-                        if pd.date_range(start = ds_temp.time[0].values, 
-                                         end = ds_temp.time[-1].values, 
+                        if pd.date_range(start = ds_temp.time[0].item(), 
+                                         end = ds_temp.time[-1].item(), 
                                          freq = 'D').size == ds_temp.time.size: # all time values are contiguous
-                            self.local_data.loc[var, 'start_date'] = ds_temp.time[0].values
-                            self.local_data.loc[var, 'end_date'] = ds_temp.time[-1].values
+                            self.local_data.loc[var, 'start_date'] = pd.to_datetime(ds_temp.time[0].item())
+                            self.local_data.loc[var, 'end_date'] = pd.to_datetime(ds_temp.time[-1].item())
+                        mask = gpd.read_file(self.geographic.watershed_box_shp)
+                        resolution = abs(ds_temp.rio.transform()[0])
+                        ds_extent = np.array(ds_temp.rio.bounds())
+                        mask_extent = mask.buffer(resolution).total_bounds
+                        
+                        if (ds_extent[0:2] < mask_extent[0:2]).any() | (ds_extent[2:4] > mask_extent[2:4]).any() :
+                            self.local_data.loc[var, 'extent'] = True
+                        else:
+                            print(f"   Local data {os.path.split(file)[-1]} does not cover desired spatial extent")
+                            os.remove(file)
+                            
+            self.local_data.iloc[:, 0:3][self.local_data.extent == True] = np.nan
                             
         self.download()
         
@@ -162,10 +180,17 @@ class Sim2:
 #         # Ici il faudrait clipper avec le /geographic/watershed_box_buff_dem.tif
 #         self.clip_folder(os.path.join(self.path_nc_data, 'merged'))
 # =============================================================================
-        self.clip_folder(os.path.join(self.path_nc_data, 'merged'), 
-                         r"D:\Dam_EBR_results\raw\cheze_Dam_8.5\results_stable\geographic\watershed_box.shp")
+        self.clip_folder(self.path_nc_data, 
+                          self.geographic.watershed_box_shp)
         
-        self.merge_folder(os.path.join(self.path_nc_data, 'temp_single_netcdf'))
+        self.merge_folder(self.path_nc_data)
+        
+        for var in self.final_filelist:
+            self.values[var] = toolbox.read_with_xarray(self.final_filelist[var])
+            self.values[var] = self.values[var].loc[
+                {'time' : slice(self.first_date, self.last_date)}]
+            if self.sim_state == 'steady':
+                self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
         
         
 
@@ -202,9 +227,9 @@ class Sim2:
                                     pd.to_datetime('2019-12-31', format = "%Y-%m-%d")),
             'QUOT_SIM2_latest_period': ('https://www.data.gouv.fr/fr/datasets/r/92065ec0-ea6f-4f5e-8827-4344179c0a7f', 
                                         1.1, pd.to_datetime('2020-01-01', format = "%Y-%m-%d"),
-                                        pd.to_datetime('today').normalize().replace(day = 1) - pd.Timedelta(1, 'D')),
+                                        (pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')).replace(day = 1) - pd.Timedelta(1, 'D')),
             'QUOT_SIM2_latests_days': ('https://www.data.gouv.fr/fr/datasets/r/ff8e9fc6-d269-45e8-a3c3-a738195ea92a', 
-                                       0.1, pd.to_datetime('today').normalize().replace(day = 1),
+                                       0.1, (pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')).replace(day = 1),
                                        pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')),
             }
         
@@ -228,7 +253,7 @@ class Sim2:
                 ((self.available_data.start_date < min_core_date) & (self.available_data.end_date > self.first_date)) \
                     | ((self.available_data.end_date > max_core_date) & (self.available_data.start_date < self.last_date))]
         
-        # ---- Download the required files
+        # Files to download to cover the times and extent
         if len(to_download) > 0:
             # print(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + self.available_data.loc[dataname, 'size_Go'] + ')' for dataname in to_download])}")
             ram_space = self.available_data.loc[to_download, 'size_Go'].max()
@@ -237,12 +262,20 @@ class Sim2:
                       for f in os.listdir(self.path_nc_data) \
                           if os.path.isfile(os.path.join(self.path_nc_data, f)))/1073741824 
             disk_space = np.max([0, disk_space])
-            print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files: {', '.join(to_download)}")
-            print(f"(required RAM: {ram_space} Go, required space: {disk_space:.2f} Go)\n")
-            self.path_csv = os.path.join(self.path_nc_data, "csv_temp")
-            if not os.path.exists(self.path_csv):
-                os.mkdir(self.path_csv)
+            print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files to cover the required period and area: {', '.join(to_download)}")
+            print(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)\n")
             
+# =============================================================================
+#         # Files to download to cover the spatial extent
+#         to_download = set(to_download)
+#         to_download_diff = set(self.available_data.index) - to_download
+#         to_download_add = set()
+#         for dataname in to_download_diff:
+#             with xr.open_dataset(os.path.join(self.path_nc_data, ), decode_coords = 'all', decode_times = True) as ds_temp:
+# =============================================================================
+          
+        # ---- Download the required files
+        if len(to_download) > 0:
             for dataname in to_download: 
                 print(f"Downloading {dataname}...")
                 print("   (can take several min, depending on internet speed)")
@@ -261,6 +294,10 @@ class Sim2:
                         self.to_netcdf(f, dataname, var_sublist)         
                 else:
                     print(f"   Error while downloading the file {dataname}.csv")
+                    
+        else:
+            print("No additional .csv dataset need to be downloaded.")
+                
         
     
     #%% Convert to NetCDF
@@ -343,8 +380,10 @@ class Sim2:
         
         #%%% Export 
         print("Exporting as netcdf...")
-        if not os.path.exists(os.path.join(self.path_nc_data, "temp_single_netcdf")):
-            os.mkdir(os.path.join(self.path_nc_data, "temp_single_netcdf"))
+# =============================================================================
+#         if not os.path.exists(os.path.join(self.path_nc_data, "temp_netcdf_indiv")):
+#             os.mkdir(os.path.join(self.path_nc_data, "temp_netcdf_indiv"))
+# =============================================================================
         
         for var in list(ds.data_vars): # batch_var: 
             # Include metadata
@@ -356,7 +395,7 @@ class Sim2:
             
             csv_name = os.path.splitext(os.path.split(dataname)[-1])[0].replace('QUOT_', '')
             
-            ds_var.to_netcdf(os.path.join(self.path_nc_data, 'temp_single_netcdf', '_'.join([var, csv_name]) + '.nc'))     
+            ds_var.to_netcdf(os.path.join(self.path_nc_data, '_'.join([var, csv_name]) + '.nc'))     
             print(f"   {var} exported")
 
     
@@ -387,9 +426,14 @@ class Sim2:
     
     #%% Merge
     def merge(self, filelist):
-        root_folder = os.path.split(os.path.split(filelist[0])[0])[0]
+        root_folder = os.path.split(filelist[0])[0]
         
-        print('\nMerging files...')
+        sim_pattern = re.compile('.*_SIM2_')
+        filename = os.path.split(os.path.splitext(filelist[0])[0])[-1]
+        sim_var = sim_pattern.findall(filename)[0][0:-6]
+        HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[sim_var].item()
+        
+        print(f'\nMerging {sim_var} ({HyMoPy_var}) files...')
         
         with xr.open_dataset(
                 filelist[0], decode_coords = 'all', decode_times = True) as ds_merged:
@@ -410,22 +454,37 @@ class Sim2:
         ds_merged[list(ds_merged.data_vars)[0]].encoding = encod
         
         yearset = set()
-        sim_pattern = re.compile('_SIM2_')
-        year_pattern = re.compile('\d{4,6}')
+# =============================================================================
+#         year_pattern = re.compile('\d{4,8}')
+#         for f in filelist:
+#             filename = os.path.split(os.path.splitext(f)[0])[-1]
+#             var, years = sim_pattern.split(filename)
+#             yearset.update(year_pattern.findall(years))
+# ============================================================================= 
+        yearset.update([pd.to_datetime(ds_merged.time[0].item()),
+                        pd.to_datetime(ds_merged.time[-1].item())])
+        
+# =============================================================================
+#         if not os.path.exists(os.path.join(root_folder, "merged")):
+#             os.mkdir(os.path.join(root_folder, "merged"))
+# =============================================================================
+        
+        # Delete previous files
         for f in filelist:
-            filename = os.path.split(os.path.splitext(f)[0])[-1]
-            var, years = sim_pattern.split(filename)
-            yearset.update(year_pattern.findall(years))
-        
-        if not os.path.exists(os.path.join(root_folder, "merged")):
-            os.mkdir(os.path.join(root_folder, "merged"))
-        
+            os.remove(f)
+
         new_filepath = os.path.join(
             root_folder, 
             # "merged", 
-            '_'.join([var, 'SIM2', sorted(yearset)[0], sorted(yearset)[-1]]) + '.nc'
+            '_'.join([sim_var, 'SIM2', sorted(yearset)[0].strftime("%Y%m%d"), sorted(yearset)[-1].strftime("%Y%m%d")]) + '.nc'
             )
         ds_merged.to_netcdf(new_filepath)
+        
+        self.final_filelist[HyMoPy_var] = new_filepath
+        
+# =============================================================================
+#         self.values[HyMoPy_var] = ds_merged
+# =============================================================================
         
     
     #%% Merge whole folder netcdf files
@@ -437,23 +496,32 @@ class Sim2:
         # Extract all variables
         for f in filelist:
             filename = os.path.splitext(f)[0]
-            sim_pattern = re.compile('_SIM2_')
-            var, _ = sim_pattern.split(filename)
-            varlist.add(var)
+            sim_pattern = re.compile('.*_SIM2_')
+            var = sim_pattern.findall(filename)
+            if len(var) > 0:
+                var = var[0][0:-6]
+                varlist.add(var)
             
         for v in varlist:
-            print(f"\n{'-'*len(v)}\n{v}\n{'-'*len(v)}")
+# =============================================================================
+#             HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[v].item()
+#             print(f"\n{'-'*(len(v)+len(HyMoPy_var)+3)}\n{v} ({HyMoPy_var})\n{'-'*(len(v)+len(HyMoPy_var)+3)}")
+# =============================================================================
             
             # Extract all years
             yearlist = []
             sim_pattern = re.compile('_SIM2_')
             for f in filelist:
                 filename = os.path.splitext(f)[0]
-                var, years = sim_pattern.split(filename)
+                res = sim_pattern.split(filename)
+                if len(res) > 1:
+                    var, years = res 
                 if var == v:
                     yearlist.append(years)
                 
-            print(f"   {', '.join(yearlist)}")
+# =============================================================================
+#             print(f"   {', '.join(yearlist)}")
+# =============================================================================
             
             files_to_merge = [os.path.join(folder, v + '_SIM2_' + y + '.nc') for y in yearlist]
             self.merge(files_to_merge)        
@@ -509,30 +577,55 @@ class Sim2:
         
     #%% Clip
     def clip(self, filepath, maskpath):
-        root_folder = os.path.split(os.path.split(filepath)[0])[0]
+        root_folder = os.path.split(filepath)[0]
         
+        # Load polygon
         mask = gpd.read_file(maskpath)
+        # Reproject
+        src_epsg = rio.crs.CRS.from_string(self.geographic.crs_proj).to_epsg()
+        mask.set_crs(epsg = src_epsg, 
+                     inplace = True, allow_override = True)
+        mask.to_crs(epsg = 27572, inplace = True)
+        # epsg = rio.crs.CRS.from_epsg(27572)
+        
+# =============================================================================
+#         # Expand polygon
+#         # because if clipped raster is smaller than 2 pixels (on any of its
+#         # dimensions), visualization softwares will have trouble to display it.
+#         mask.scale(xfact = 1, yfact = 1, origin = 'center')
+# =============================================================================
+        
         with xr.open_dataset(filepath, decode_times = True,
                              decode_coords = 'all') as ds:
             ds.load() # to unlock the resource
-            
-        clipped_ds = ds.rio.clip(mask.geometry.apply(mapping), 
-                                 self.crs, all_touched = True)
+        
+        resolution = abs(ds.rio.transform()[0])
+        
+        clipped_ds = ds.rio.clip(mask.buffer(resolution).geometry.apply(mapping), 
+                                 mask.crs, all_touched = True)
     
         # Export
-        if not os.path.exists(os.path.join(root_folder, "clipped")):
-            os.mkdir(os.path.join(root_folder, "clipped"))
-            
+# =============================================================================
+#         if not os.path.exists(os.path.join(root_folder, "clipped")):
+#             os.mkdir(os.path.join(root_folder, "clipped"))
+# =============================================================================
+
+        
         filename = os.path.splitext(os.path.split(filepath)[-1])[0]
         new_filepath = os.path.join(
-            root_folder, 'clipped', filename + '_clipped.nc')
+            root_folder, 
+            # 'clipped', 
+            filename + '.nc')
         clipped_ds.to_netcdf(new_filepath)
         
     
     #%% Clip whole folder
-    def clip_folder(self, folder, maskpath):    
+    def clip_folder(self, folder, maskpath):   
+        sim_pattern = re.compile('.*_SIM2_')
         filelist = [f for f in os.listdir(folder) 
-                    if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
+                    if (os.path.isfile(os.path.join(folder, f))) \
+                        & (os.path.splitext(f)[-1] == '.nc') \
+                            & (len(sim_pattern.findall(f)) > 0)]
         
         maskname = os.path.splitext(os.path.split(maskpath)[-1])[0]
         
@@ -541,7 +634,7 @@ class Sim2:
         i = 0
         for f in filelist:
             i += 1
-            print(f"\n {'-'*len(f)}\n {f} ({i}/{len(filelist)})\n {'-'*len(f)}")
+            print(f"   {f} ({i}/{len(filelist)})")
             
             self.clip(os.path.join(folder, f), maskpath)
 
