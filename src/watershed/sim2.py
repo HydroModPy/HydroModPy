@@ -190,6 +190,8 @@ class Sim2:
             self.values[var] = self.values[var].loc[
                 {'time' : slice(self.first_date, self.last_date)}]
             if self.sim_state == 'steady':
+                self.values[var] = self.values[var].mean(dim = 'time')
+            if self.spatial_mean == True:
                 self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
         
         
