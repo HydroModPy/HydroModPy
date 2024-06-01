@@ -47,6 +47,10 @@ class Sim2:
     (tab "Données climatologiques de référence pour le changement climatique",
      then "Données changement climatique - SIM quotidienne" : 
      https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7 )
+        
+    Note: Data values stored in HydroModPy variables are reprojected and 
+    selected according to user requirements (period, time_step, ...) but
+    generated netcdf files are kept in original data spatial profile.
     """
     
     def __init__(self, *,
@@ -186,9 +190,14 @@ class Sim2:
         self.merge_folder(self.path_nc_data)
         
         for var in self.final_filelist:
-            self.values[var] = toolbox.read_with_xarray(self.final_filelist[var])
+            self.values[var] = toolbox.load_to_xarray(self.final_filelist[var])
+            # Apply timestep
+            self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
+            self.values[var].rio.write_crs(self.geographic.crs_proj, inplace = True)
+            # Refine period with accurate user dates
             self.values[var] = self.values[var].loc[
                 {'time' : slice(self.first_date, self.last_date)}]
+            # Apply sim_state and spatial_mean options
             if self.sim_state == 'steady':
                 self.values[var] = self.values[var].mean(dim = 'time')
             if self.spatial_mean == True:
@@ -265,7 +274,7 @@ class Sim2:
                           if os.path.isfile(os.path.join(self.path_nc_data, f)))/1073741824 
             disk_space = np.max([0, disk_space])
             print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files to cover the required period and area: {', '.join(to_download)}")
-            print(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)\n")
+            print(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)")
             
 # =============================================================================
 #         # Files to download to cover the spatial extent
@@ -279,7 +288,7 @@ class Sim2:
         # ---- Download the required files
         if len(to_download) > 0:
             for dataname in to_download: 
-                print(f"Downloading {dataname}...")
+                print(f"\nDownloading {dataname}...")
                 print("   (can take several min, depending on internet speed)")
                 response = requests.get(self.available_data.loc[dataname, 'url'])
         
