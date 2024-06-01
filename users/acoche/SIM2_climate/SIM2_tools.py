@@ -229,7 +229,7 @@ def merge(filelist):
     
     yearset = set()
     sim_pattern = re.compile('_SIM2_')
-    year_pattern = re.compile('\d{4,6}')
+    year_pattern = re.compile('\d{4,8}')
     for f in filelist:
         filename = os.path.split(os.path.splitext(f)[0])[-1]
         var, years = sim_pattern.split(filename)
