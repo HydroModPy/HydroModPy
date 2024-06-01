@@ -53,7 +53,7 @@ class Sim2:
                  var_list, path_nc_data: str,
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
-                 spatial_mean=False):
+                 spatial_mean=False, crs: str):
         """
         Parameters
         ----------
@@ -79,6 +79,8 @@ class Sim2:
         spatial_mean : bool
             False (default). If True, data will be spatially averaged and returned
             as a pandas.DataFrame instead of an xarray.DataSet.
+        crs : str
+            Coordinates referecen system of the model.
 
         Returns
         -------
@@ -96,20 +98,29 @@ class Sim2:
         self.time_step = time_step
         self.sim_state = sim_state
         self.spatial_mean = spatial_mean
+        self.crs = crs
         
-        self.HyMoPy_var_by_sim_var = {
-            'DRAINC_Q': 'recharge',
-            'RUNC_Q': 'runoff',
-            'EVAP_Q': 'evt',
-            'PRETOT_Q': 'precip',
-            'PRENEI_Q': 'rain',
-            'PRELIQ_Q': 'snow',
-            'T_Q': 'temp',
-            'FF_Q': 'wind',
-            'SWI_Q': 'swi',
-            'ETP_Q': 'etp',
-            }
-        self.sim_var_by_HyMoPy_var = {val: k for k, val in self.HyMoPy_var_by_sim_var.items()}
+        varnames_dict = {
+        'DRAINC_Q': 'recharge',
+        'RUNC_Q': 'runoff',
+        'EVAP_Q': 'evt',
+        'PRETOT_Q': 'precip',
+        'PRENEI_Q': 'rain',
+        'PRELIQ_Q': 'snow',
+        'T_Q': 'temp',
+        'FF_Q': 'wind',
+        'SWI_Q': 'swi',
+        'ETP_Q': 'etp',
+        }
+        self.HyMoPy_var_by_sim_var = pd.DataFrame.from_dict(
+            data = varnames_dict,
+            orient = 'index',
+            columns = ['HyMoPy_var'])
+        self.sim_var_by_HyMoPy_var = pd.DataFrame(
+            index = self.HyMoPy_var_by_sim_var.HyMoPy_var.copy(),
+            columns = ['sim_var'],
+            data = self.HyMoPy_var_by_sim_var.index.copy())
+        
         
         # Data already available for each variable 
 # =============================================================================
@@ -123,14 +134,15 @@ class Sim2:
 
         sim_pattern = re.compile('.*_SIM2_')
         # year_pattern = re.compile('\d{4,8}')
-        if len(os.listdir(self.path_nc_data)) > 0: # folder is not empty
-            for file in os.listdir(self.path_nc_data):
+        filelist = [os.path.join(self.path_nc_data, f) for f in os.listdir(self.path_nc_data) if os.path.isfile(os.path.join(self.path_nc_data, f))]
+        if len(filelist) > 0: # folder is not empty
+            for file in filelist:
                 filename = os.path.split(file)[-1]
                 sim_match = sim_pattern.findall(filename)
                 # years = year_pattern.findall(filename)
                 if len(sim_match) > 0:
                     sim_var = sim_match[0][0:-6]
-                    var = self.HyMoPy_var_by_sim_var[sim_var]
+                    var = self.HyMoPy_var_by_sim_var.loc[sim_var, 'HyMoPy_var']
                     self.local_data.loc[var, 'nc_file'] = file
                     # if len(years[0]) == 4:
                     #     date_i = pd.to_datetime(f"{years[0]-01-01}", format = "%Y-%m-%d")
@@ -145,7 +157,17 @@ class Sim2:
                             self.local_data.loc[var, 'end_date'] = ds_temp.time[-1].values
                             
         self.download()
-
+        
+# =============================================================================
+#         # Ici il faudrait clipper avec le /geographic/watershed_box_buff_dem.tif
+#         self.clip_folder(os.path.join(self.path_nc_data, 'merged'))
+# =============================================================================
+        self.clip_folder(os.path.join(self.path_nc_data, 'merged'), 
+                         r"D:\Dam_EBR_results\raw\cheze_Dam_8.5\results_stable\geographic\watershed_box.shp")
+        
+        self.merge_folder(os.path.join(self.path_nc_data, 'temp_single_netcdf'))
+        
+        
 
     #%% Download                
     def download(self):
@@ -178,12 +200,12 @@ class Sim2:
             'QUOT_SIM2_2010-2019': ('https://www.data.gouv.fr/fr/datasets/r/da6cd598-498b-4e39-96ea-fae89a4a8a46', 
                                     1.1, pd.to_datetime('2010-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('2019-12-31', format = "%Y-%m-%d")),
-            'latest_period': ('https://www.data.gouv.fr/fr/datasets/r/92065ec0-ea6f-4f5e-8827-4344179c0a7f', 
-                              1.1, pd.to_datetime('2020-01-01', format = "%Y-%m-%d"),
-                              pd.to_datetime('today').normalize().replace(day = 1) - pd.Timedelta(1, 'D')),
-            'latests_days': ('https://www.data.gouv.fr/fr/datasets/r/ff8e9fc6-d269-45e8-a3c3-a738195ea92a', 
-                             0.1, pd.to_datetime('today').normalize().replace(day = 1),
-                             pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')),
+            'QUOT_SIM2_latest_period': ('https://www.data.gouv.fr/fr/datasets/r/92065ec0-ea6f-4f5e-8827-4344179c0a7f', 
+                                        1.1, pd.to_datetime('2020-01-01', format = "%Y-%m-%d"),
+                                        pd.to_datetime('today').normalize().replace(day = 1) - pd.Timedelta(1, 'D')),
+            'QUOT_SIM2_latests_days': ('https://www.data.gouv.fr/fr/datasets/r/ff8e9fc6-d269-45e8-a3c3-a738195ea92a', 
+                                       0.1, pd.to_datetime('today').normalize().replace(day = 1),
+                                       pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')),
             }
         
         self.available_data = pd.DataFrame.from_dict(
@@ -210,19 +232,20 @@ class Sim2:
         if len(to_download) > 0:
             # print(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + self.available_data.loc[dataname, 'size_Go'] + ')' for dataname in to_download])}")
             ram_space = self.available_data.loc[to_download, 'size_Go'].max()
-            disk_space = self.available_data.loc[to_download, 'size_Go'].sum()/6.5*len(self.var_list) \
-                - sum(os.path.join(self.path_nc_data, f) \
+            disk_space = self.available_data.loc[to_download, 'size_Go'].sum()/2.5*len(self.var_list) \
+                - sum(os.path.getsize(os.path.join(self.path_nc_data, f)) \
                       for f in os.listdir(self.path_nc_data) \
                           if os.path.isfile(os.path.join(self.path_nc_data, f)))/1073741824 
-            print(f"The following .csv datasets will be downloaded into RAM and exported to netcdf files: {', '.join(to_download)}")
+            disk_space = np.max([0, disk_space])
+            print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files: {', '.join(to_download)}")
             print(f"(required RAM: {ram_space} Go, required space: {disk_space:.2f} Go)\n")
             self.path_csv = os.path.join(self.path_nc_data, "csv_temp")
             if not os.path.exists(self.path_csv):
                 os.mkdir(self.path_csv)
             
             for dataname in to_download: 
-                time_i = pd.to_datetime('today')
                 print(f"Downloading {dataname}...")
+                print("   (can take several min, depending on internet speed)")
                 response = requests.get(self.available_data.loc[dataname, 'url'])
         
                 if response.status_code == 200:
@@ -232,12 +255,12 @@ class Sim2:
                         var_sublist = self.local_data.index[
                             (self.local_data.start_date > self.available_data.loc[dataname, 'start_date']) \
                                 | (self.local_data.end_date < self.available_data.loc[dataname, 'end_date'])]
+                        var_sublist = var_sublist.to_list() + self.local_data.nc_file.isnull().index.to_list()
+
                         # Read .csv file and export to .nc files (one for each variable)
                         self.to_netcdf(f, dataname, var_sublist)         
                 else:
                     print(f"   Error while downloading the file {dataname}.csv")
-                time_f = pd.to_datetime('today')
-                print(f"Downloading time = {time_f - time_i}")
         
     
     #%% Convert to NetCDF
@@ -247,7 +270,7 @@ class Sim2:
     #     coords_filepath = os.path.join(
     #         root_folder, 'coordonnees_grille_safran_lambert-2-etendu.csv')
     # =============================================================================
-        
+
         # Needed columns
         usecols = ['LAMBX', 'LAMBY', 'DATE']
     
@@ -284,11 +307,11 @@ class Sim2:
         # Therefore, days correspond to Central Standard Time days.
     
         #%%% Loading
-        print("Loading...")
-        print("   (Can take > 1 min per parameter for a whole decade)")
+        print("Loading as DataFrame...")
+        print("   (can take > 1 min per parameter for a whole decade)")
         
         df = pd.read_csv(csv_file, sep=';', 
-                         usecols=usecols + var_sublist,
+                         usecols=usecols + self.sim_var_by_HyMoPy_var.loc[var_sublist, 'sim_var'].to_list(),
                          header=0, decimal='.',
                          parse_dates=['DATE'],
                          # date_format='%Y%m%d', # Not available before pandas 2.0.0
@@ -318,7 +341,8 @@ class Sim2:
                       'long_name': 'y coordinate of projection',
                       'units': 'Meter'}
         
-        #%%% Export    
+        #%%% Export 
+        print("Exporting as netcdf...")
         if not os.path.exists(os.path.join(self.path_nc_data, "temp_single_netcdf")):
             os.mkdir(os.path.join(self.path_nc_data, "temp_single_netcdf"))
         
@@ -334,7 +358,7 @@ class Sim2:
             
             ds_var.to_netcdf(os.path.join(self.path_nc_data, 'temp_single_netcdf', '_'.join([var, csv_name]) + '.nc'))     
             print(f"   {var} exported")
-    
+
     
     #%% Convert whole folder to netcdf
     def folder_to_netcdf(self, folder):
@@ -398,7 +422,7 @@ class Sim2:
         
         new_filepath = os.path.join(
             root_folder, 
-            "merged", 
+            # "merged", 
             '_'.join([var, 'SIM2', sorted(yearset)[0], sorted(yearset)[-1]]) + '.nc'
             )
         ds_merged.to_netcdf(new_filepath)
@@ -493,7 +517,7 @@ class Sim2:
             ds.load() # to unlock the resource
             
         clipped_ds = ds.rio.clip(mask.geometry.apply(mapping), 
-                                 mask.crs, all_touched = True)
+                                 self.crs, all_touched = True)
     
         # Export
         if not os.path.exists(os.path.join(root_folder, "clipped")):
