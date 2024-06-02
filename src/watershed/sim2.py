@@ -104,6 +104,7 @@ class Sim2:
         self.spatial_mean = spatial_mean
         self.geographic = geographic
         self.values = {}
+        self.raw_values = {} # unformatted xarray.Datasets
         self.final_filelist = {}
         
         varnames_dict = {
@@ -189,20 +190,42 @@ class Sim2:
         
         self.merge_folder(self.path_nc_data)
         
+        print("\nFormatting results for HydroModPy model...")
         for var in self.final_filelist:
-            self.values[var] = toolbox.load_to_xarray(self.final_filelist[var])
-            # Apply timestep
-            self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
-            self.values[var].rio.write_crs(self.geographic.crs_proj, inplace = True)
+            print(f"   {var}")
             # Refine period with accurate user dates
-            self.values[var] = self.values[var].loc[
+            print("      . refining period...")
+            self.values[var] = self.raw_values[var].loc[
                 {'time' : slice(self.first_date, self.last_date)}]
             # Apply sim_state and spatial_mean options
+            print("      . simplify dimensions...")
             if self.sim_state == 'steady':
                 self.values[var] = self.values[var].mean(dim = 'time')
             if self.spatial_mean == True:
                 self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
-        
+            # Apply timestep
+            if (self.sim_state == 'transient') & (self.time_step != 'D'):
+                print("      . resampling time...")
+                if self.spatial_mean == False:
+                    self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
+# =============================================================================
+#                     # Very slow. Attempt to have a quicker resolution:
+#                     temp_df = self.values[var].to_dataframe().reset_index([1,2]).resample(self.time_step).mean()
+#                     temp_df.reset_index()
+#                     self.values[var] = temp_df.set_index(['time', 'y', 'x']).to_xarray()
+# =============================================================================
+                    self.values[var].rio.write_crs(self.geographic.crs_proj, inplace = True)
+                elif self.spatial_mean == True:
+                    self.values[var] = self.values[var].resample(self.time_step).mean()
+            # Reprojection
+            if self.spatial_mean == False:
+                print("      . reprojecting...")
+                self.values[var] = toolbox.load_to_xarray(
+                    # self.final_filelist[var],
+                    self.values[var],
+                    base_path = self.geographic.watershed_box_buff_dem,
+                    dst_crs = self.geographic.crs_proj)
+            
         
 
     #%% Download                
@@ -492,6 +515,8 @@ class Sim2:
         ds_merged.to_netcdf(new_filepath)
         
         self.final_filelist[HyMoPy_var] = new_filepath
+        
+        self.raw_values[HyMoPy_var] = ds_merged
         
 # =============================================================================
 #         self.values[HyMoPy_var] = ds_merged
