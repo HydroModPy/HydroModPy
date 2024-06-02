@@ -262,7 +262,7 @@ class Sim2:
             'QUOT_SIM2_latest_period': ('https://www.data.gouv.fr/fr/datasets/r/92065ec0-ea6f-4f5e-8827-4344179c0a7f', 
                                         1.1, pd.to_datetime('2020-01-01', format = "%Y-%m-%d"),
                                         (pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')).replace(day = 1) - pd.Timedelta(1, 'D')),
-            'QUOT_SIM2_latests_days': ('https://www.data.gouv.fr/fr/datasets/r/ff8e9fc6-d269-45e8-a3c3-a738195ea92a', 
+            'QUOT_SIM2_latest_days': ('https://www.data.gouv.fr/fr/datasets/r/ff8e9fc6-d269-45e8-a3c3-a738195ea92a', 
                                        0.1, (pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')).replace(day = 1),
                                        pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')),
             }
