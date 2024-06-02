@@ -203,6 +203,7 @@ class Sim2:
                 self.values[var] = self.values[var].mean(dim = 'time')
             if self.spatial_mean == True:
                 self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
+                self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']] # convert Dataframe to Series
             # Apply timestep
             if (self.sim_state == 'transient') & (self.time_step != 'D'):
                 print("      . resampling time...")
