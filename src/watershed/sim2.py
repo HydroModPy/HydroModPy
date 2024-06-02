@@ -57,7 +57,8 @@ class Sim2:
                  var_list, path_nc_data: str,
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
-                 spatial_mean=False, geographic):
+                 spatial_mean=False, geographic, 
+                 disk_clip: str='watershed'):
         """
         Parameters
         ----------
@@ -85,6 +86,10 @@ class Sim2:
             as a pandas.DataFrame instead of an xarray.DataSet.
         geographic : object
             Watershed.geographic object including infos such as crs, mask...
+        disk_clip : str
+            Shapefile path or flag ('watershed' | False) to indicate how to clip
+            the netcdf files that are stored on the path_nc_data folder.
+            The only purpose of clipping these files is to save disk space
 
         Returns
         -------
@@ -106,6 +111,16 @@ class Sim2:
         self.values = {}
         self.raw_values = {} # unformatted xarray.Datasets
         self.final_filelist = {}
+        if disk_clip == 'watershed':
+            self.clip_mask = self.geographic.watershed_box_shp
+        elif disk_clip == False:
+            self.clip_mask = False
+        else:
+            if os.path.splitext(disk_clip)[-1] == '.shp':
+                self.clip_mask = disk_clip
+            else:
+                print("Error: The disk_clip value should point to a .shp file. Otherwise, use the flags disk_clip='watershed' or disk_clip=False")
+                return
         
         varnames_dict = {
         'DRAINC_Q': 'recharge',
@@ -159,17 +174,21 @@ class Sim2:
                     #     date_i = pd.to_datetime(f"{years[0]-01-01}", format = "%Y-%m-%d")
                     # self.dates_by_var[self.HyMoPy_var_by_sim_var[sim_var]] = date_i
                     
-                    # Dates:
                     with xr.open_dataset(file, decode_coords = 'all', decode_times = True) as ds_temp:
+                        # Dates
                         if pd.date_range(start = ds_temp.time[0].item(), 
                                          end = ds_temp.time[-1].item(), 
                                          freq = 'D').size == ds_temp.time.size: # all time values are contiguous
                             self.local_data.loc[var, 'start_date'] = pd.to_datetime(ds_temp.time[0].item())
                             self.local_data.loc[var, 'end_date'] = pd.to_datetime(ds_temp.time[-1].item())
-                        mask = gpd.read_file(self.geographic.watershed_box_shp)
+                        # Spatial extent
                         resolution = abs(ds_temp.rio.transform()[0])
                         ds_extent = np.array(ds_temp.rio.bounds())
-                        mask_extent = mask.buffer(resolution).total_bounds
+                        if self.clip_mask == False:
+                            mask_extent = (56000.0, 1613000.0, 1200000.0, 2685000.0) # whole France
+                        else:
+                            mask = gpd.read_file(self.clip_mask)
+                            mask_extent = mask.buffer(resolution).total_bounds
                         
                         if (ds_extent[0:2] < mask_extent[0:2]).any() | (ds_extent[2:4] > mask_extent[2:4]).any() :
                             self.local_data.loc[var, 'extent'] = True
@@ -186,7 +205,7 @@ class Sim2:
 #         self.clip_folder(os.path.join(self.path_nc_data, 'merged'))
 # =============================================================================
         self.clip_folder(self.path_nc_data, 
-                          self.geographic.watershed_box_shp)
+                          self.clip_mask)
         
         self.merge_folder(self.path_nc_data)
         
