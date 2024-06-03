@@ -389,7 +389,7 @@ class Climatic:
 
     #%% UPDATE FROM SIM2 REANALYSIS (online)
     
-    def update_sim2_reanalysis(self, *, var_list, path_nc_data,
+    def update_sim2_reanalysis(self, *, var_list, nc_data_path,
                                first_year, last_year=None, time_step='D', 
                                sim_state='transient', spatial_mean=False,
                                geographic, disk_clip='watershed'):
@@ -404,7 +404,7 @@ class Climatic:
             DESCRIPTION.
         var_list : TYPE
             DESCRIPTION.
-        path_nc_data : TYPE,
+        nc_data_path : TYPE,
             DESCRIPTION. The default is None.
         first_year : TYPE
             DESCRIPTION.
@@ -420,7 +420,7 @@ class Climatic:
             Watershed.geographic object, including info such as crs, mask...
         disk_clip : str
             Shapefile_path or flag ('watershed' | False) to indicate how to clip
-            the netcdf files that are stored on the path_nc_data folder.
+            the netcdf files that are stored on the nc_data_path folder.
             The only purpose of clipping these files is to save disk space.
                 
 
@@ -433,7 +433,7 @@ class Climatic:
         if isinstance(var_list, str): var_list = [var_list]
         
         # Creation of SIM2 reanalysis object:
-        self.reanalysis = sim2.Sim2(var_list=var_list, path_nc_data=path_nc_data, 
+        self.reanalysis = sim2.Sim2(var_list=var_list, nc_data_path=nc_data_path, 
                                     first_year=first_year, last_year=last_year,
                                     time_step=time_step, sim_state=sim_state,
                                     spatial_mean=spatial_mean, geographic=geographic,
