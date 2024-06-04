@@ -16,7 +16,7 @@ WORKFLOW:
  début de la fonction to_netcdf()
  <2> smt.folder_to_netcdf(os.path.join(sim_folder, "csv"))
  <3> smt.merge_folder(os.path.join(sim_folder, "netcdf"))
- <4> Déplacer les merged (\netcdf\ -> \merged\), supprimer les autres
+ <4> Supprimer si besoin les fichiers dans \netcdf\
  <5> smt.compress_folder(os.path.join(sim_folder, "merged"))
  <6> smt.clip_folder(os.path.join(sim_folder, "compressed"), 
                      os.path.join(sim_folder, "Bretagne_rectangle.shp"))
@@ -229,9 +229,9 @@ def merge(filelist):
     
     yearset = set()
     sim_pattern = re.compile('_SIM2_')
-    year_pattern = re.compile('\d{4,6}')
+    year_pattern = re.compile('\d{4,8}')
     for f in filelist:
-        filename = os.path.splitext(f)[0]
+        filename = os.path.split(os.path.splitext(f)[0])[-1]
         var, years = sim_pattern.split(filename)
         yearset.update(year_pattern.findall(years))
     
