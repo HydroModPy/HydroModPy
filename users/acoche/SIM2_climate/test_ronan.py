@@ -15,7 +15,7 @@ sim_folder = r"C:\Users\ronan\GitHub\HydroModPy-dev0.1\users\acoche\SIM2_climate
 # début de la fonction to_netcdf()
 smt.folder_to_netcdf(os.path.join(sim_folder, "csv"))
 smt.merge_folder(os.path.join(sim_folder, "netcdf"))
-# Déplacer les merged (\netcdf\ -> \merged\), supprimer les autres
+# Supprimer si besoin les fichiers dans \netcdf\
 smt.compress_folder(os.path.join(sim_folder, "merged"))
 smt.clip_folder(os.path.join(sim_folder, "compressed"), 
                 os.path.join(sim_folder, "watershed.shp"))
