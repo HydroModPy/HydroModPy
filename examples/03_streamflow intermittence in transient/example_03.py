@@ -133,20 +133,15 @@ visualization_watershed.watershed_dem(BV)
 # # Necessary to set model parameters
 BV.add_climatic()
 
-BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
+BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',], 
+                                       nc_data_path=data_path,
                                        first_year=2000,
                                        last_year=2002,
                                        time_step='D',
-                                       sim_state='transient')
-BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
-                                     clim_mod='REA',
-                                     clim_sce='historic',
-                                     first_year=2000,
-                                     last_year=2002,
-                                     time_step='D',
-                                     sim_state='transient')
+                                       sim_state='transient',
+                                       spatial_mean=True,
+                                       geographic=BV.geographic,
+                                       disk_clip='watershed')
 
 fig, ax = plt.subplots(1,1, figsize=(6,3))
 R = BV.climatic.recharge.resample('M').sum() /1000
