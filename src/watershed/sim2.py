@@ -343,7 +343,10 @@ class Sim2:
                             (self.local_data.start_date > self.available_data.loc[dataname, 'start_date']) \
                                 | (self.local_data.end_date < self.available_data.loc[dataname, 'end_date'])]
                         var_sublist = var_sublist.to_list() + self.local_data.nc_file.isnull().index.to_list()
-
+                        # Replace 'precip' with 'rain' and 'snow'
+                        if len(set(var_sublist).intersection(['precip'])) > 0:
+                            var_sublist = set(var_sublist) - set(['precip'])
+                            var_sublist = list(var_sublist.union(['rain', 'snow']))    
                         # Read .csv file and export to .nc files (one for each variable)
                         self.to_netcdf(f, dataname, var_sublist)         
                 else:
