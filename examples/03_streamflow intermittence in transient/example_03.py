@@ -143,9 +143,13 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',],
                                        geographic=BV.geographic,
                                        disk_clip='watershed')
 
+### Units
+BV.climatic.recharge = BV.climatic.recharge / 1000 # from mm to m
+BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
+
 fig, ax = plt.subplots(1,1, figsize=(6,3))
-R = BV.climatic.recharge.resample('M').sum() /1000
-r = BV.climatic.runoff.resample('M').sum() /1000
+R = BV.climatic.recharge.resample('M').sum()
+r = BV.climatic.runoff.resample('M').sum()
 ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
 ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
 ax.set_xlabel('Date')
