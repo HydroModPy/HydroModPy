@@ -200,10 +200,7 @@ class Sim2:
                             
         self.download()
         
-# =============================================================================
-#         # Ici il faudrait clipper avec le /geographic/watershed_box_buff_dem.tif
-#         self.clip_folder(os.path.join(self.nc_data_path, 'merged'))
-# =============================================================================
+
         self.clip_folder(self.nc_data_path, 
                           self.clip_mask)
         
@@ -216,35 +213,48 @@ class Sim2:
             print("      . refining period...")
             self.values[var] = self.raw_values[var].loc[
                 {'time' : slice(self.first_date, self.last_date)}]
-            # Apply sim_state and spatial_mean options
-            print("      . simplify dimensions...")
+            # Apply sim_stat option
             if self.sim_state == 'steady':
+                print("      . simplify time dimension...")
                 self.values[var] = self.values[var].mean(dim = 'time')
+            # Reprojection
+            print("      . reprojecting...")
+            self.values[var].rio.write_crs(rio.crs.CRS.from_epsg(27572), inplace = True)
+            self.values[var] = toolbox.load_to_xarray(
+                # self.final_filelist[var],
+                self.values[var],
+                base_path = self.geographic.watershed_box_buff_dem,
+                dst_crs = self.geographic.crs_proj)
+            mask, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_dem,
+                                                       dst_crs = self.geographic.crs_proj) 
+            encodings = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding
+            self.values[var] = self.values[var].where(mask != self.geographic.nodata)
+            self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
+            # Apply spatial_mean option:
             if self.spatial_mean == True:
-                self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
-                self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']] # convert Dataframe to Series
+                print("      . simplify spatial dimensions...")
+                self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas() # convert xr.Dataset to pd.Dataframe
+                # convert pd.Dataframe to pd.Series or to single value:
+                if self.sim_state == 'transient':
+                    self.values[var] = self.values[var].iloc[:, 0]
+                elif self.sim_state == 'steady':
+                    self.values[var] = self.values[var].iloc[0]
+                # Otherwise instead of .iloc[:,0]: self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']] 
             # Apply timestep
             if (self.sim_state == 'transient') & (self.time_step != 'D'):
                 print("      . resampling time...")
                 if self.spatial_mean == False:
                     self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
+                    self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
 # =============================================================================
 #                     # Very slow. Attempt to have a quicker resolution:
 #                     temp_df = self.values[var].to_dataframe().reset_index([1,2]).resample(self.time_step).mean()
 #                     temp_df.reset_index()
 #                     self.values[var] = temp_df.set_index(['time', 'y', 'x']).to_xarray()
 # =============================================================================
-                    self.values[var].rio.write_crs(self.geographic.crs_proj, inplace = True)
                 elif self.spatial_mean == True:
                     self.values[var] = self.values[var].resample(self.time_step).mean()
-            # Reprojection
-            if self.spatial_mean == False:
-                print("      . reprojecting...")
-                self.values[var] = toolbox.load_to_xarray(
-                    # self.final_filelist[var],
-                    self.values[var],
-                    base_path = self.geographic.watershed_box_buff_dem,
-                    dst_crs = self.geographic.crs_proj)
+            
             
         
 
@@ -343,7 +353,10 @@ class Sim2:
                             (self.local_data.start_date > self.available_data.loc[dataname, 'start_date']) \
                                 | (self.local_data.end_date < self.available_data.loc[dataname, 'end_date'])]
                         var_sublist = var_sublist.to_list() + self.local_data.nc_file.isnull().index.to_list()
-
+                        # Replace 'precip' with 'rain' and 'snow'
+                        if len(set(var_sublist).intersection(['precip'])) > 0:
+                            var_sublist = set(var_sublist) - set(['precip'])
+                            var_sublist = list(var_sublist.union(['rain', 'snow']))    
                         # Read .csv file and export to .nc files (one for each variable)
                         self.to_netcdf(f, dataname, var_sublist)         
                 else:

@@ -342,8 +342,8 @@ wbt.resample(
     base=None, 
     method="cc")
 
-# dem_name = 'DEM_10m_transf.tif' # EUDTM_Alps_30m_vallon
-dem_name = 'DEM_100m_transf.tif' # EUDTM_Alps_30m_vallon
+dem_name = 'DEM_10m_transf.tif' # EUDTM_Alps_30m_vallon
+# dem_name = 'DEM_100m_transf.tif' # EUDTM_Alps_30m_vallon
 dem_path = data_path + dem_name
 
 subbasin_path = True # generate subbasins from stations or manual points
@@ -353,6 +353,7 @@ from_xyv = None
 
 watershed_name = 'Poschiavino'
 # watershed_name = 'Poschiavino_100m'
+# watershed_name = 'Poschiavino_10m'
 
 from_shp = [data_path + 'Catchment_Poschiavino.shp',
             1] # specify a path if process start from a given shapefile
@@ -822,9 +823,9 @@ springs.to_file(springs_path)
 
 #%% ELEVATION OBS
 
-# import whitebox
-# wbt = whitebox.WhiteboxTools()
-# wbt.verbose = False
+import whitebox
+wbt = whitebox.WhiteboxTools()
+wbt.verbose = True
 
 wbt.downslope_flowpath_length(
     BV.geographic.watershed_buff_direc, 
@@ -1239,14 +1240,23 @@ ax = axs[0]
 # cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["darkviolet",'gold',"darkgreen"])
 cmap = 'PiYG'
 cmap = 'cividis'
-ax.scatter(dfb.index, dfb['Z_Mean'], c=dfb['d_EC'], cmap=cmap, #
-           marker='o', vmin=-10, vmax=+10, s=75, lw=0.3, alpha=1)
+cmap = 'viridis'
+# ax.plot(str_down['VALUE1'], str_dem['VALUE1'], lw=0, marker='.',
+#         markeredgewidth=1, markersize = 1, color='lightskyblue',
+#         label='tributary streams', zorder=-1000)
+ax.scatter(dfb[dfb['Z_Mean']<2200].index*29, dfb[dfb['Z_Mean']<2200]['Z_Mean']+0,
+            c=dfb[dfb['Z_Mean']<2200]['d_EC'], cmap=cmap, #
+            marker='|', vmin=-10, vmax=+10, s=100, lw=2.5, alpha=1)
+# ax.plot(main_down['VALUE1'], main_dem['VALUE1'], lw=0, marker='.',
+#         markeredgewidth=1, markersize = 5, color='blue',
+#         label='main streams')
 # ax.plot(dfb.index[:-1], dfb['Z_Mean'][:-1], color='k')
 ax.invert_xaxis()
 ax.set_ylim(1850,2200)
-ax.axes.get_xaxis().set_visible(False)
+# ax.axes.get_xaxis().set_visible(False)
 ax.set_ylabel('Elevation [m]')
 ax.set_xlim(None,0)
+ax.set_xlim(5000,0)
 
 # springs = gpd.read_file(data_path+'Springs_Poschiavino.shp')
 # ax.axvspan(154, 103, lw=0,
@@ -1295,6 +1305,8 @@ ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1+y2, color='seagreen', lw=0, 
 # ax.plot(dfc['Distance'][dfc['INFO']=='SU_2019'], dfc['Q_C'][dfc['INFO']=='SU_2019'], color='grey', lw=2, ls='-', marker='o', mec='None', ms=4)
 ax.plot(dfc['Distance'][dfc['INFO']=='WI_2016'], y1+y2+y3, color='lightpink', lw=0, ls='-', marker='D', mec='k', mew=1, ms=7, clip_on=False, zorder=100)
 
+ax.set_xlim(0,5000)
+
 ax.invert_xaxis()
 
 plt.tight_layout()
@@ -1323,10 +1335,35 @@ for id_mod_val in [2]:
 
         springs = gpd.read_file(data_path+'Springs_Poschiavino.shp')
         one = values_accumul.copy()
+        
+        alls = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0).shp')
+        
+        alls_down = alls.copy()
+        alls_down.to_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0)_down.shp')
+        
+        wbt.extract_raster_values_at_points(
+            stable_folder+'geographic/watershed_downslope.tif', 
+            BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0)_down.shp', 
+            out_text=False)
+        
+        alls_down = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0)_down.shp')
+        
+        alls_dem = alls.copy()
+        alls_dem.to_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0)_dem.shp')
+        
+        wbt.extract_raster_values_at_points(
+            stable_folder+'geographic/watershed_dem.tif', 
+            BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0)_dem.shp', 
+            out_text=False)
+        
+        alls_dem = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'accumulation_flux_t(0)_dem.shp')
+       
 
         fig, ax = plt.subplots(1,1, figsize=(6,1.5))
         s = ax.plot(one['down_value']-1000, one['dem_value'], 
                     c='saddlebrown', lw=3)
+        ax.plot(alls_down['VALUE1'], alls_dem['VALUE1']-4, 
+                    c='lightskyblue', lw=0, mew=1, marker='_', ms=3, zorder=-1000)
         ax.set_xlim(0,5000)
         ax.set_ylim(1800, 2250)
         ax.invert_xaxis()
