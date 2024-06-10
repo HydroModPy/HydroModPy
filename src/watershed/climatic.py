@@ -433,15 +433,15 @@ class Climatic:
         if isinstance(var_list, str): var_list = [var_list]
         
         # Creation of SIM2 reanalysis object:
-        self.reanalysis = sim2.Sim2(var_list=var_list, nc_data_path=nc_data_path, 
-                                    first_year=first_year, last_year=last_year,
-                                    time_step=time_step, sim_state=sim_state,
-                                    spatial_mean=spatial_mean, geographic=geographic,
-                                    disk_clip=disk_clip)
+        self.sim2_rea = sim2.Sim2(var_list=var_list, nc_data_path=nc_data_path, 
+                                  first_year=first_year, last_year=last_year,
+                                  time_step=time_step, sim_state=sim_state,
+                                  spatial_mean=spatial_mean, geographic=geographic,
+                                  disk_clip=disk_clip)
         # Note: values are available through reanalysis.data
         
         for var in var_list:
-            exec(f"self.{var} = self.reanalysis.values[var]")
+            exec(f"self.{var} = self.sim2_rea.values[var]")
         
 
     #%% SET DATA SET TO STEADY INPUTS
