@@ -40,6 +40,8 @@ import hydroeval
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+import xarray as xr
+xr.set_options(keep_attrs = True)
 
 #%% ROOT
 
@@ -147,15 +149,26 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',],
 BV.climatic.recharge = BV.climatic.recharge / 1000 # from mm to m
 BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
 
-fig, ax = plt.subplots(1,1, figsize=(6,3))
-R = BV.climatic.recharge.resample('M').sum()
-r = BV.climatic.runoff.resample('M').sum()
-ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
-ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
-ax.set_xlabel('Date')
-ax.set_ylabel('[m/month]')
-plt.xticks(rotation=45, ha="right")
-ax.legend()
+### Figures of time series
+if isinstance(BV.climatic.recharge, float):
+    print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
+    print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
+else:
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
+        R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+        r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+        R = R.resample('M').sum()
+        r = r.resample('M').sum()
+    elif isinstance(BV.climatic.recharge, pd.core.series.Series):  
+        R = BV.climatic.recharge.resample('M').sum()
+        r = BV.climatic.runoff.resample('M').sum()
+    ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
+    ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('[m/month]')
+    plt.xticks(rotation=45, ha="right")
+    ax.legend()
 
 #%% ---- PARAMETRIZATION
 
