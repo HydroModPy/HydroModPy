@@ -54,7 +54,7 @@ class Sim2:
     """
     
     def __init__(self, *,
-                 var_list, path_nc_data: str,
+                 var_list, nc_data_path: str,
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
                  spatial_mean=False, geographic, 
@@ -66,7 +66,7 @@ class Sim2:
             List of variable names.
             HydroModPy variable names: 'recharge' | 'runoff' | 'evt' | 'precip' | 'temp'
             Also works with SIM2 variable names: 'DRAINC_Q' | 'RUNC_Q' | 'EVAP_Q' | 'PRETOT_Q' | 'T_Q' ...
-        path_nc_data : str
+        nc_data_path : str
             Path to the folder containing the clipped SIM2 .nc files.
         first_year : int
             Data will be extracted from 1st January of first_year to 31st December of last_year.
@@ -88,7 +88,7 @@ class Sim2:
             Watershed.geographic object including infos such as crs, mask...
         disk_clip : str
             Shapefile path or flag ('watershed' | False) to indicate how to clip
-            the netcdf files that are stored on the path_nc_data folder.
+            the netcdf files that are stored on the nc_data_path folder.
             The only purpose of clipping these files is to save disk space
 
         Returns
@@ -98,7 +98,7 @@ class Sim2:
         """
         
         self.var_list = var_list
-        self.path_nc_data = path_nc_data
+        self.nc_data_path = nc_data_path
         self.first_date = pd.to_datetime(f"{first_year}-01-01", format = "%Y-%m-%d")
         if last_year is None:
             self.last_date = pd.to_datetime('today').normalize()
@@ -158,9 +158,9 @@ class Sim2:
 
         sim_pattern = re.compile('.*_SIM2_')
         # year_pattern = re.compile('\d{4,8}')
-        filelist = [os.path.join(self.path_nc_data, f) \
-                    for f in os.listdir(self.path_nc_data) \
-                        if os.path.isfile(os.path.join(self.path_nc_data, f))]
+        filelist = [os.path.join(self.nc_data_path, f) \
+                    for f in os.listdir(self.nc_data_path) \
+                        if os.path.isfile(os.path.join(self.nc_data_path, f))]
         if len(filelist) > 0: # folder is not empty
             for file in filelist:
                 filename = os.path.split(file)[-1]
@@ -202,12 +202,12 @@ class Sim2:
         
 # =============================================================================
 #         # Ici il faudrait clipper avec le /geographic/watershed_box_buff_dem.tif
-#         self.clip_folder(os.path.join(self.path_nc_data, 'merged'))
+#         self.clip_folder(os.path.join(self.nc_data_path, 'merged'))
 # =============================================================================
-        self.clip_folder(self.path_nc_data, 
+        self.clip_folder(self.nc_data_path, 
                           self.clip_mask)
         
-        self.merge_folder(self.path_nc_data)
+        self.merge_folder(self.nc_data_path)
         
         print("\nFormatting results for HydroModPy model...")
         for var in self.final_filelist:
@@ -312,9 +312,9 @@ class Sim2:
             # print(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + self.available_data.loc[dataname, 'size_Go'] + ')' for dataname in to_download])}")
             ram_space = self.available_data.loc[to_download, 'size_Go'].max()
             disk_space = self.available_data.loc[to_download, 'size_Go'].sum()/2.5*len(self.var_list) \
-                - sum(os.path.getsize(os.path.join(self.path_nc_data, f)) \
-                      for f in os.listdir(self.path_nc_data) \
-                          if os.path.isfile(os.path.join(self.path_nc_data, f)))/1073741824 
+                - sum(os.path.getsize(os.path.join(self.nc_data_path, f)) \
+                      for f in os.listdir(self.nc_data_path) \
+                          if os.path.isfile(os.path.join(self.nc_data_path, f)))/1073741824 
             disk_space = np.max([0, disk_space])
             print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files to cover the required period and area: {', '.join(to_download)}")
             print(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)")
@@ -325,7 +325,7 @@ class Sim2:
 #         to_download_diff = set(self.available_data.index) - to_download
 #         to_download_add = set()
 #         for dataname in to_download_diff:
-#             with xr.open_dataset(os.path.join(self.path_nc_data, ), decode_coords = 'all', decode_times = True) as ds_temp:
+#             with xr.open_dataset(os.path.join(self.nc_data_path, ), decode_coords = 'all', decode_times = True) as ds_temp:
 # =============================================================================
           
         # ---- Download the required files
@@ -343,7 +343,10 @@ class Sim2:
                             (self.local_data.start_date > self.available_data.loc[dataname, 'start_date']) \
                                 | (self.local_data.end_date < self.available_data.loc[dataname, 'end_date'])]
                         var_sublist = var_sublist.to_list() + self.local_data.nc_file.isnull().index.to_list()
-
+                        # Replace 'precip' with 'rain' and 'snow'
+                        if len(set(var_sublist).intersection(['precip'])) > 0:
+                            var_sublist = set(var_sublist) - set(['precip'])
+                            var_sublist = list(var_sublist.union(['rain', 'snow']))    
                         # Read .csv file and export to .nc files (one for each variable)
                         self.to_netcdf(f, dataname, var_sublist)         
                 else:
@@ -435,8 +438,8 @@ class Sim2:
         #%%% Export 
         print("Exporting as netcdf...")
 # =============================================================================
-#         if not os.path.exists(os.path.join(self.path_nc_data, "temp_netcdf_indiv")):
-#             os.mkdir(os.path.join(self.path_nc_data, "temp_netcdf_indiv"))
+#         if not os.path.exists(os.path.join(self.nc_data_path, "temp_netcdf_indiv")):
+#             os.mkdir(os.path.join(self.nc_data_path, "temp_netcdf_indiv"))
 # =============================================================================
         
         for var in list(ds.data_vars): # batch_var: 
@@ -449,7 +452,7 @@ class Sim2:
             
             csv_name = os.path.splitext(os.path.split(dataname)[-1])[0].replace('QUOT_', '')
             
-            ds_var.to_netcdf(os.path.join(self.path_nc_data, '_'.join([var, csv_name]) + '.nc'))     
+            ds_var.to_netcdf(os.path.join(self.nc_data_path, '_'.join([var, csv_name]) + '.nc'))     
             print(f"   {var} exported")
 
     
