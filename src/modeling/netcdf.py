@@ -43,7 +43,6 @@ class Netcdf:
     def __init__(self,
                  geographic: object,
                  model_modflow: object,
-                 lakeres: object,
                  actual_date: bool=True):
         """
         Parameters
@@ -52,8 +51,6 @@ class Netcdf:
             Variable object of the model domain (watershed).
         model_modflow : object
             MODFLOW model object.
-        lakeres : object
-            Object lakeres built by HydroModPy
         actual_date : bool, optional
             Indicate if the model is actual time referenced with datetime. The default is True.
         subbasin_results : bool, optional
@@ -63,8 +60,6 @@ class Netcdf:
         print('Extract modflow results in netcdf')
         
         self.geographic = geographic
-        
-        self.lakeres = lakeres
     
         self.stable_folder = self.geographic.stable_folder
         self.simulations = self.geographic.simulations_folder
