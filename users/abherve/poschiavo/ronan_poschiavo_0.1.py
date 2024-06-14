@@ -1241,6 +1241,7 @@ ax = axs[0]
 cmap = 'PiYG'
 cmap = 'cividis'
 cmap = 'viridis'
+cmap = 'RdYlBu'
 # ax.plot(str_down['VALUE1'], str_dem['VALUE1'], lw=0, marker='.',
 #         markeredgewidth=1, markersize = 1, color='lightskyblue',
 #         label='tributary streams', zorder=-1000)
@@ -1311,7 +1312,7 @@ ax.invert_xaxis()
 
 plt.tight_layout()
 
-fig.savefig(fig_path + 'along_stream.png', dpi=300, bbox_inches='tight', transparent=False)
+# fig.savefig(fig_path + 'along_stream.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% ELEVATION SIM
 
