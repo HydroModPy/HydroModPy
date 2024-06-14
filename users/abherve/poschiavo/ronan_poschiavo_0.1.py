@@ -1392,6 +1392,11 @@ for id_mod_val in [2]:
     for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                         list_model_success[:],
                                                         list_model_modflow[:]):
+        
+        # wbt.extract_raster_values_at_points(
+        #     stable_folder+'geographic/watershed_slope.tif', 
+        #     BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'z_outflow_drain_values.shp', 
+        #     out_text=False)
 
         # values_outflow_path = BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'z_outflow_drain_values.shp'
         values_outflow_path_clipman = BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'z_outflow_drain_values.shp'
@@ -1433,7 +1438,48 @@ for id_mod_val in [2]:
         ax.invert_xaxis()
         
         # fig.savefig(fig_path + 'flow sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
-        
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
+ax.scatter((values_outflow['drain_valu'][values_outflow['VALUE1']>0]*1000)/3600/24, values_outflow['VALUE1'][values_outflow['VALUE1']>0],
+           # c=values_outflow['down_value'][values_outflow['VALUE1']>0]-1000
+           )
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('debit')
+ax.set_ylabel('pente')
+
+#%% GEOMORPHO
+
+wbt.surface_area_ratio(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/surface_area_ratio.tif')   
+
+wbt.ruggedness_index(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/ruggedness_index.tif')
+
+wbt.multiscale_roughness(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/multiscale_roughness_mag.tif',
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/multiscale_roughness_scale.tif',
+    max_scale=3, 
+    min_scale=1, 
+    step=1)
+
+wbt.edge_density(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/edge_density.tif',
+    filter=11, 
+    norm_diff=10, 
+    zfactor=None)
+
+wbt.wetness_index(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_slope.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/wetness_index.tif')
+
+
+
 #%% NOTES
         
 wbt.raster_to_vector_points('C:/Users/ronan/Simulations/Poschiavino/results_simulations/e1_model_2_2.7397_1000.0/_postprocess/_rasters/accumulation_flux_t(0).tif',
