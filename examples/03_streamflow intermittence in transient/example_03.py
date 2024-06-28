@@ -146,8 +146,8 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',],
                                        disk_clip='watershed')
 
 ### Units
-BV.climatic.update_recharge(BV.climatic.recharge / 1000) # from mm to m
-BV.climatic.update_runoff(BV.climatic.runoff / 1000) # from mm to m
+BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state='transient') # from mm to m
+BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state='transient') # from mm to m
 
 ### Figures of time series
 if isinstance(BV.climatic.recharge, float):
