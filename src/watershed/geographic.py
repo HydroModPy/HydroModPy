@@ -63,7 +63,8 @@ class Geographic:
                  from_lib: str=None,
                  from_dem: list=None,
                  from_shp: list=None,
-                 from_xyv: list=None):
+                 from_xyv: list=None,
+                 reg_fold: str=None):
         """
         Parameters
         ----------
@@ -115,6 +116,7 @@ class Geographic:
         self.from_dem = from_dem
         self.from_shp = from_shp
         self.from_xyv = from_xyv
+        self.reg_fold = reg_fold
         
         if self.from_dem != None:
             self.model_from_dem()
@@ -148,27 +150,34 @@ class Geographic:
         """
         Raw regional DEM
         """
-        # Correction
-        fill =  os.path.join(self.reg_path, 'region_fill.tif')
-        # if not os.path.exists(fill):
-        wbt.breach_depressions(self.dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
-        # Flow direction
-        direc =  os.path.join(self.reg_path, 'region_direc.tif')
-        # if not os.path.exists(direc):
-        wbt.d8_pointer(fill, direc, esri_pntr=False)
-        # Flow accumulation
-        acc =  os.path.join(self.reg_path, 'region_acc.tif')
-        # if not os.path.exists(acc):
-        wbt.d8_flow_accumulation(fill, acc, log=True)
-        # Flow accumulation
-        down =  os.path.join(self.reg_path, 'region_down.tif')
-        # if not os.path.exists(down):
-        wbt.downslope_flowpath_length(
-            direc, 
-            down, 
-            watersheds=None, 
-            weights=None, 
-            esri_pntr=False)
+        # if isinstance(self.regio_path, (str))==False:
+        if self.reg_fold == None:
+            # Correction
+            fill =  os.path.join(self.reg_path, 'region_fill.tif')
+            # if not os.path.exists(fill):
+            wbt.breach_depressions(self.dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
+            # Flow direction
+            direc =  os.path.join(self.reg_path, 'region_direc.tif')
+            # if not os.path.exists(direc):
+            wbt.d8_pointer(fill, direc, esri_pntr=False)
+            # Flow accumulation
+            acc =  os.path.join(self.reg_path, 'region_acc.tif')
+            # if not os.path.exists(acc):
+            wbt.d8_flow_accumulation(fill, acc, log=True)
+            # Flow accumulation
+            down =  os.path.join(self.reg_path, 'region_down.tif')
+            # if not os.path.exists(down):
+            wbt.downslope_flowpath_length(
+                direc, 
+                down, 
+                watersheds=None, 
+                weights=None, 
+                esri_pntr=False)
+        else:
+            fill = os.path.join(self.reg_fold, 'region_fill.tif')
+            direc = os.path.join(self.reg_fold, 'region_direc.tif')
+            acc = os.path.join(self.reg_fold, 'region_acc.tif')
+            down = os.path.join(self.reg_fold, 'region_down.tif')
         
         """
         Extract watershed from an outlet
