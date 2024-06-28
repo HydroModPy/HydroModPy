@@ -894,7 +894,7 @@ ax.spines[['right', 'top']].set_visible(False)
 ax.get_xaxis().tick_bottom()
 ax.get_yaxis().tick_left()
 
-fig.savefig(fig_path + 'elevation_obs.png', dpi=300, bbox_inches='tight', transparent=False)
+# fig.savefig(fig_path + 'elevation_obs.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% SCATTER PLOTS
 
@@ -1376,7 +1376,7 @@ for id_mod_val in [2]:
         # ax.invert_yaxis()
         ax.set_yticks([1900,2000,2100,2200])
         
-        fig.savefig(fig_path + 'elevation sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
+        # fig.savefig(fig_path + 'elevation sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% SEEPAGE ALONG
 
@@ -1439,16 +1439,65 @@ for id_mod_val in [2]:
         
         # fig.savefig(fig_path + 'flow sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
 
-fig, ax = plt.subplots(1,1, figsize=(5,5))
-ax.scatter((values_outflow['drain_valu'][values_outflow['VALUE1']>0]*1000)/3600/24, values_outflow['VALUE1'][values_outflow['VALUE1']>0],
-           # c=values_outflow['down_value'][values_outflow['VALUE1']>0]-1000
-           )
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.set_xlabel('debit')
-ax.set_ylabel('pente')
+# fig, ax = plt.subplots(1,1, figsize=(5,5))
+# ax.scatter((values_outflow['drain_valu'][values_outflow['VALUE1']>0]*1000)/3600/24, values_outflow['VALUE1'][values_outflow['VALUE1']>0],
+#            # c=values_outflow['down_value'][values_outflow['VALUE1']>0]-1000
+#            )
+# ax.set_xscale('log')
+# ax.set_yscale('log')
+# ax.set_xlabel('debit')
+# ax.set_ylabel('pente')
 
-#%% GEOMORPHO
+#%% GEOMORPHO XY
+
+ones = one.copy()
+ones['x1'] = np.nan
+
+ones = values_outflow.copy()
+ones = values_accumul.copy()
+
+ones = ones.iloc[:, :-1]
+
+ones[ones['dem_value'] <= 0] = np.nan
+
+ones = ones[(ones['down_value']>2500+1000)&(ones['down_value']<4000+1000)]
+
+# ones = ones.rolling(window=0).mean()
+
+# n_steps = 10
+# ones['x1'] = ones['dem_value'].rolling(window=n_steps).apply(lambda x: x.iloc[1] - x.iloc[0])
+# ones['x2'] = ones['drain_valu'].rolling(window=n_steps).apply(lambda x: x.iloc[1] - x.iloc[0])
+
+# fig, ax = plt.subplots(1,1, figsize=(5,5))
+# axb = ax.twinx()
+# ax.scatter(ones['down_value'], ones['dem_value'])
+# axb.scatter(ones['down_value'], ones['drain_valu'])
+
+ones = ones[ones['drain_valu']>ones['drain_valu'].mean()]
+
+V = 1
+W = 1
+
+ones['dem_diff'] = ones['dem_value'].diff(V)
+ones['acc_diff'] = ones['acc_value'].diff(V)
+ones['drn_diff'] = ones['drain_valu'].diff(V)
+ones['drn_win'] = ones['drain_valu'].rolling(window=W).sum()
+ones['acc_win'] = ones['acc_value'].rolling(window=W).sum()
+
+ones = ones[ones['dem_diff']<0]
+ones[ones<0] = ones*-1
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
+ax.scatter(ones['dem_diff'], ones['drn_win'],
+           # c=ones['acc_win']
+           )
+# ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlim(0,5)
+ax.set_xlabel('elevation diff between 2 pixels [m]')
+ax.set_ylabel('discharge on 1 pixel [L/T]')
+
+#%% GEOMORPHO RASTERS
 
 wbt.surface_area_ratio(
     'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
@@ -1477,8 +1526,6 @@ wbt.wetness_index(
     'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
     'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_slope.tif', 
     'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/wetness_index.tif')
-
-
 
 #%% NOTES
         
