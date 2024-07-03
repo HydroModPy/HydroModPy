@@ -166,14 +166,21 @@ class extract_surfex:
 
 #%% LAUNCH
 
-extract_surfex(path='D:/Users/abherve/FTP_ISBA/',
-               shapefile='D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_stable/geographic/watershed.shp',
+# extract_surfex(path='D:/Users/abherve/FTP_ISBA/',
+#                shapefile='D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_stable/geographic/watershed.shp',
+#                cells_number=list(np.arange(0,9892,1)),
+#                save_data=True,
+#                output_path='D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_h5_safransurfex/lasset/REA.h5')
+
+extract_surfex(path='H:/SURFEX_CLIMATE_DATA/FTP_ISBA/',
+               shapefile='D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/12_Data/_GIS/bounds/ma.shp',
                cells_number=list(np.arange(0,9892,1)),
                save_data=True,
-               output_path='D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_h5_safransurfex/lasset/REA.h5')
+               output_path='D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/SHARED/Heterogeneity/Data inputs/Climate/ftp_isba/REA.h5')
 
 #%% CONTROL
 
+"""
 h5 = dd.io.load('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_h5_safransurfex/lasset/REA.h5')
 
 fig, ax = plt.subplots(figsize=(10,5))
@@ -184,4 +191,4 @@ for i, j in enumerate(['RUN','REC']):
     ax.set_ylim(0,30)
     ax.legend(loc='lower left')
     # ax.set_yscale('log')
-
+"""
