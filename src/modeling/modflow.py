@@ -789,14 +789,17 @@ class Modflow:
             
             # Search watertable data positive values
             self.head = self.head_fpu.get_data(totim=time)
-            head_final = np.zeros([self.nrow,self.ncol])
-            for i in range(0,self.nrow):
-                for j in range (0,self.ncol):
-                    for k in range(0,self.nlay): 
-                        if self.head[k,i,j] > 0:
-                            head_final[i,j] = self.head[k,i,j]
-                            break   
-            self.head_data = head_final.copy()
+            if self.nlay == 1:
+                self.head_data = self.head[0]
+            else:
+                head_final = np.zeros([self.nrow,self.ncol])
+                for i in range(0,self.nrow):
+                    for j in range (0,self.ncol):
+                        for k in range(0,self.nlay): 
+                            if self.head[k,i,j] > 0:
+                                head_final[i,j] = self.head[k,i,j]
+                                break   
+                self.head_data = head_final.copy()
             # if self.nlay > 1:
             #     self.head_all = self.head_fpu.get_alldata() # mflay=None
             #     self.head_data = self.head_all[item][0]

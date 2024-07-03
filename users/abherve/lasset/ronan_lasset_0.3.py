@@ -326,8 +326,8 @@ if pc == 'tower':
 
     git_path = 'D:/Users/abherve/GITHUB/HydroModPy-dev0.1/'
     data_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/'
-    # out_path = 'E:/_RONAN/_E_SIMULATIONS/LASSET/'
-    out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
+    out_path = 'E:/_RONAN/_E_SIMULATIONS/LASSET/'
+    # out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
 
 fig_path = out_path + 'figures/'
 
@@ -340,7 +340,7 @@ cell_size = None # specify new resolution from a given DEM or None
 from_shp = None
 
 watershed_names = [ 'Lasset_25m' ]
-watershed_names = [ 'Lasset' ]
+# watershed_names = [ 'Lasset' ]
 
 from_xyvs = [ [601020,6193860,100,50,'EPSG:2154'] ]
 
@@ -377,45 +377,105 @@ for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
 BV.add_intermittency('None','None')
 BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
 
-#%% DATA
-
 # GEOL
 
-BV.add_geology(data_path+'_mix/', types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-visualization_watershed.watershed_geology(BV)
+# BV.add_geology(data_path+'_mix/', types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+# visualization_watershed.watershed_geology(BV)
+
+#%% HYDRO
+
+wbt.verbose = True
 
 # HYDRO
 
-hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
+wbt.vector_lines_to_raster(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1.shp', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1.tif', 
+    field="FID", 
+    nodata=True, 
+    cell_size=None, 
+    base=BV.geographic.watershed_dem)
 
-types_obs = ['stream_perennial_wetlands_points']
+wbt.vector_lines_to_raster(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1.shp', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1.tif', 
+    field="FID", 
+    nodata=True, 
+    cell_size=None, 
+    base=BV.geographic.watershed_dem)
+
+wbt.vector_polygons_to_raster(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1.shp', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1.tif', 
+    field="fid", 
+    nodata=True, 
+    cell_size=None, 
+    base=BV.geographic.watershed_dem)
+
+wbt.vector_polygons_to_raster(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1.shp', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1.tif', 
+    field="osm_id", 
+    nodata=True, 
+    cell_size=None, 
+    base=BV.geographic.watershed_dem)
+
+wbt.raster_to_vector_points(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1.tif', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1_pt.shp')
+
+wbt.raster_to_vector_points(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1.tif', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1_pt.shp')
+
+wbt.raster_to_vector_points(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1.tif', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1_pt.shp')
+
+wbt.raster_to_vector_points(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1.tif', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1_pt.shp')
+
+wbt.merge_vectors(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1_pt.shp', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/hydrographic_mix_peren_upv1_pt.shp')
+
+wbt.merge_vectors(
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1_pt.shp', 
+    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/hydrographic_mix_inter_upv1_pt.shp')
+
+hydrography_path = data_path + '_hydrography/_newhydro_v1/' # add hydrographic shapefiles
+
+dem_data = imageio.imread(BV.geographic.watershed_dem)
+print(np.sum(dem_data >= 0))
+
+types_obs = ['hydrographic_mix_peren_upv1_pt','hydrographic_mix_inter_upv1_pt']
 # types_obs = ['stream_perennial_wetlands_osm_points']
-fields_obs = ['fid']
+fields_obs = ['fid','fid']
 
 for watershed_name in watershed_names[:]:
-    
-    print('##### '+watershed_name.upper()+' #####')
-               
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True)
-
-    BV.add_hydrography(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
+                              dem_path=dem_path, 
+                              out_path=out_path,
+                              load=True)
+    for type_obs, field_obs in zip(types_obs, fields_obs):
     
-    try:
-        visualization_watershed.watershed_local(dem_path, BV)
-        visualization_watershed.watershed_dem(BV)
-    except:
-        pass
-    
-    # wbt.find_main_stem(
-    #     stable_folder+'geographic/'+'watershed_buff_direc.tif', 
-    #     BV.hydrology.tif_streams, 
-    #     stable_folder+'hydrology/'+types_obs[0]+'_main'+'.tif', 
-    #     esri_pntr=False, 
-    #     zero_background=False)
-
+        # print('##### '+watershed_name.upper()+' #####')
+                   
+        BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
+        
+        try:
+            # visualization_watershed.watershed_local(dem_path, BV)
+            visualization_watershed.watershed_dem(BV)
+        except:
+            pass
+        
+    shp_per = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv1_pt_pt.shp')
+    shp_int = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_inter_upv1_pt_pt.shp')
+        
+    print(len(shp_per)/np.sum(dem_data >= 0)*100)
+    print(len(shp_int)/np.sum(dem_data >= 0)*100)
+        
 #%% OBSERVED
 
 init_path = data_path + '_Q/'
@@ -601,9 +661,9 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     # ax.legend(loc='upper left')
     plt.tight_layout()
     
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/01_fig_locali/'+
-                'Q_obs'+'.png',
-                bbox_inches='tight')
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/01_fig_locali/'+
+    #             'Q_obs'+'.png',
+    #             bbox_inches='tight')
 
 #%% ISBA HYDRO LOAD
 
@@ -1042,8 +1102,9 @@ ax.plot(dfSIM2['DRAIN']+dfSIM2['RUNOF'], label='R + r', c='darkorange')
 ax.plot(dfSIM2['DRAIN'], label='R', c='forestgreen')
 ax.plot(dfSIM2['OBSER'], label='Q', c='k')
 ax.plot(dfSIM2['INPUT'], label='INPUT', c='red')
+
 ax.legend()
-# ax.set_yscale('log')
+ax.set_yscale('log')
 import matplotlib.dates as mdates
 years_maj = mdates.YearLocator()   # every year
 months_maj = mdates.MonthLocator()  # every x month
@@ -1167,8 +1228,11 @@ for mod in mod_list:
         R_mod = BV.climatic.recharge.resample('D').mean()
         r_mod = BV.climatic.runoff.resample('D').mean()
     
-        R_rea = select_period(rea_recharge_isba, 1975, 2023)
-        r_rea = select_period(rea_runoff_isba, 1975, 2023)
+        # R_rea = select_period(rea_recharge_isba, 1975, 2023)
+        # r_rea = select_period(rea_runoff_isba, 1975, 2023)
+        
+        R_rea = select_period(rea_recharge_sim2, 1975, 2023)
+        r_rea = select_period(rea_runoff_sim2, 1975, 2023)
         
         Fnorm = ( np.nanmean(R_rea) + np.nanmean(r_rea) )  / ( np.nanmean(R_mod) + np.nanmean(r_mod) )
         print(Fnorm)
@@ -1481,6 +1545,7 @@ for sce in sce_list:
     ax2.plot(select_period(d.mean(skipna=True, axis=1),2020,2024), c=dict_scecol[sce], lw=1, label=sce)
 # ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
 ax2.plot(select_period(rea_recharge_isba,2020,2024), c='k', label='isba')
+ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
 ax2.set_yscale('log')
 ax2.legend()
 
@@ -1806,17 +1871,11 @@ class MatchingStreams:
 
 #%% DICHOTOMY - RUN
 
-# vers = 'v1'
-# vers = 'v2'
-# vers = 'v3'
-# vers = 'v4'
-# vers = 'v5'
-# vers = 'v6'
-# vers = 'v7' # ==> ISBA
-vers = 'v8' # ==> SIM2
+vers = 'isba1'
 
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
-types_obs = ['stream_perennial_wetlands_points']
+
+types_obs = ['hydrographic_mix_peren_upv1_pt']
 # types_obs = ['stream_perennial_wetlands_osm_points']
 fields_obs = ['fid']
 
@@ -1836,8 +1895,12 @@ for watershed_name in watershed_names[:]:
         BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
         toolbox.create_folder(BV.calibration_folder)
         
-        BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
-        
+        if not os.path.exists(stable_folder + 'hydrography/' + type_obs + '.tif'):
+            BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
+        else:
+            BV.hydrography.streams = stable_folder + 'hydrography/' + type_obs + '.shp'
+            BV.hydrography.tif_streams = stable_folder + 'hydrography/' + type_obs + '.tif'
+                
         box = True # or False
         sink_fill = False # or True
         sim_state = 'steady' # 'steady' or 'transient'
@@ -1855,7 +1918,8 @@ for watershed_name in watershed_names[:]:
         # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
-        recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
+        # recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
+        recharge = select_period(rea_recharge_isba, 2020, 2023)
         print((recharge).mean()*365*1000)
         
         verti_cond = None # or [ [1e-5, [0, 20]],
@@ -2084,14 +2148,7 @@ for watershed_name in watershed_names[:]:
             
 #%% DICHOTOMY - APPEND
 
-# vers = 'v1'
-# vers = 'v2'
-# vers = 'v3'
-# vers = 'v4'
-# vers = 'v5'
-# vers = 'v6'
-vers = 'v7'
-# vers = 'v8'
+vers = 'isba1'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -2116,8 +2173,6 @@ dfs['1/K_decay'][dfs['1/K_decay'] == np.inf] = 0
 dfs.to_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
 
 #%% DICHOTOMY - GRAPH K
-
-iD_explo = 'e15'
 
 dfp = dfs.copy()
 
@@ -2293,8 +2348,8 @@ cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 # ax.set_yscale('log')
 
-fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'DICHOTOMY_TMAX'+'.png',
-            bbox_inches='tight')
+# fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'DICHOTOMY_TMAX'+'.png',
+#             bbox_inches='tight')
 
 #%% DICHOTOMY - GRAPH T WITH WT
 
@@ -2390,8 +2445,8 @@ cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 # ax.set_yscale('log')
 
-fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'DICHOTOMY_TWT'+'.png',
-            bbox_inches='tight')
+# fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'DICHOTOMY_TWT'+'.png',
+#             bbox_inches='tight')
 
 #%% DICHOTOMY - MAPS
 
@@ -2410,10 +2465,11 @@ shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
 # if vers == 'v7':
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-if vers == 'v8':
-    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-
-
+# if vers == 'v8':
+#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
+if vers == 'isba1':
+    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv1_pt.shp')
+    
 # types_obs = ['stream_perennial_wetlands_points']
 # types_obs = ['stream_perennial_wetlands_osm_points']
 
@@ -2440,8 +2496,8 @@ for index, row in dfz.iterrows():
     # fig.savefig('C:/Users/ronan/Downloads/figs/'+'MAPS_'+model_name+'.png',
     #             bbox_inches='tight')
     
-    fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'MAPS_'+model_name+'.png',
-                bbox_inches='tight')
+    # fig.savefig('C:/Users/ronan/Downloads/figs_'+vers+'/'+'MAPS_'+model_name+'.png',
+    #             bbox_inches='tight')
 
 #%% ---- EXPLORATION
 
