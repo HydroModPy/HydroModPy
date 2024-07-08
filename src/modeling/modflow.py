@@ -287,9 +287,7 @@ class Modflow:
             else:
                 self.perlen = np.ones(len(self.climatic))
             # First timestep is steady state:
-            # #########################################
             # self.perlen = np.ones(len(self.climatic))
-            # #########################################
             self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
