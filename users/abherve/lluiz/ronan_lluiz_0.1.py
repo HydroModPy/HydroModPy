@@ -346,7 +346,7 @@ fig_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_figures/'
 
 
 watershed_name = 'Molieres'
-watershed_name = 'Peatland'
+watershed_name = 'Peatland_large'
 # watershed_name = 'Poschiavino_100m'
 # watershed_name = 'Poschiavino_10m'
 
@@ -363,7 +363,7 @@ if watershed_name == 'Molieres':
     #             1] # specify a path if process start from a given shapefile
     from_shp = None
 
-if watershed_name == 'Peatland':
+if watershed_name == 'Peatland_large':
     dem_name = 'DEM_larger_study_catchment_2m_ETRS89.tif'
     # dem_name = 'DEM_100m_transf.tif' # EUDTM_Alps_30m_vallon
     dem_path = data_path + 'DEM_30m_10m_2m_large_catchment/' + dem_name
@@ -374,14 +374,14 @@ if watershed_name == 'Peatland':
     # from_shp = [data_path + 'Catchment_Poschiavino.shp',
     #             1] # specify a path if process start from a given shapefile
     from_shp = ['C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Catchment polygons/peatland_basin/molieres_peatland.shp',
-                10]
+                '500']
 
 watershed_names = [watershed_name]
 
 #%% LOAD
 
 load = True
-# load = False
+load = False
 
 print('##### '+watershed_name.upper()+' #####')
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -691,7 +691,7 @@ for watershed_name in watershed_names[:]:
         first_clim = 'mean' # or 'first or value
         nlay = 1
         lay_decay = 1 # 1 for no decay
-        thick = 30 # if bottom is None, aquifer thickness
+        thick = 20 # if bottom is None, aquifer thickness
         bottom = None
         
         # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
@@ -736,7 +736,7 @@ for watershed_name in watershed_names[:]:
         BV.hydraulic.update_bottom(bottom) # 0
         
         params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-        params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+        params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
         
         params_file = 'calib_dicot_hom_1v_k1'
         params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
