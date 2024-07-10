@@ -70,8 +70,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = os.path.join(example_path, "data") + '/'
 # To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
+# out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
 
 #%% ---- WATERSHED
 
