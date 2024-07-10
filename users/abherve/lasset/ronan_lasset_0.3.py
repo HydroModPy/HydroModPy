@@ -632,6 +632,8 @@ fig, ax = plt.subplots(1,1, figsize=(5,4),
 for i, Qobs_name in enumerate(Qobs_list[:1]):
     dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp')
 
+    dfQ = select_period(dfQ, 2022, 2022)
+
     zo = 1
     if i == 0:
         zo=2
@@ -1322,11 +1324,11 @@ for mod in mod_list:
         R_mod = BV.climatic.recharge.resample('D').mean()
         r_mod = BV.climatic.runoff.resample('D').mean()
     
-        # R_rea = select_period(rea_recharge_isba, 1975, 2023)
-        # r_rea = select_period(rea_runoff_isba, 1975, 2023)
+        R_rea = select_period(rea_recharge_isba, 1975, 2023)
+        r_rea = select_period(rea_runoff_isba, 1975, 2023)
         
-        R_rea = select_period(rea_recharge_sim2, 1975, 2023)
-        r_rea = select_period(rea_runoff_sim2, 1975, 2023)
+        # R_rea = select_period(rea_recharge_sim2, 1975, 2023)
+        # r_rea = select_period(rea_runoff_sim2, 1975, 2023)
         
         Fnorm = ( np.nanmean(R_rea) + np.nanmean(r_rea) )  / ( np.nanmean(R_mod) + np.nanmean(r_mod) )
         print(Fnorm)
@@ -1639,15 +1641,127 @@ for sce in sce_list:
     ax2.plot(select_period(d.mean(skipna=True, axis=1),2020,2024), c=dict_scecol[sce], lw=1, label=sce)
 # ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
 ax2.plot(select_period(rea_recharge_isba,2020,2024), c='k', label='isba')
-ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
+# ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
 ax2.set_yscale('log')
 ax2.legend()
 
 #%% DRIAS CLIMAT DATA
 
-all_proj = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+all_proj = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True) 
 
 all_proj2 =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+#%% PLOT ALL MODELS
+
+# For 3
+num_list = ['Model_01',
+            'Model_02',
+            'Model_03',
+            # 'Model_04',
+            'Model_05',
+            # 'Model_06',
+            'Model_07',
+            # 'Model_08',
+            # 'Model_09',
+            # 'Model_10',
+            # 'Model_11',
+            'Model_12']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list = ['MPI-CCL',
+            'ECE-RCA',
+            'ECE-RAC',
+            # 'IPS-RCA',
+            'CNR-RAC',
+            # 'NOR-R15',
+            'CNR-ALA',
+            # 'NOR-HIR',
+            # 'HAD-CCL',
+            # 'IPS-WRF',
+            # 'HAD-REG',
+            'MPI-R09']
+
+mod_dict = dict(zip(mod_list, num_list))
+
+# mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+#             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+
+# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
+# mod_list = ['CNR-ALA']
+
+sce_list = ['RCP26','RCP45','RCP85']
+col_list = ['dodgerblue','darkorange','red']
+dict_scecol = dict(zip(sce_list, col_list))
+
+# var_list = ['PPTT','SNOW','TASM','TASX','TASN','HUSS','WIND','RAYI','RAYV','ETPF','ETPH',
+#             'DRAINC','EVAPC','RUNOFFC','SWE','SWI']
+
+var_list = ['PPTT','SNOW','TASM',
+            'REC','ETP','RUN','SWE']
+
+var_list = ['REC']
+
+for var in var_list[:]:
+    
+    print(var)
+    
+    for sce in sce_list:
+        
+    
+        print('    '+sce)
+    
+        for mod in mod_list: 
+            
+            fig, ax = plt.subplots(1,1, figsize=(6,3))
+
+            print('        '+mod)
+            
+            if var in ['PPTT','SNOW','TASM']:
+                d = all_proj.copy()
+            if var in ['REC','ETP','RUN','SWE']:
+                d = all_proj2.copy()
+                
+            d = d.filter(regex=var).filter(regex=sce).filter(regex=mod)
+            
+            dmean = d.mean(skipna=True, axis=1)
+            dmean = dmean.resample('Y').mean() #* 365
+            dmean = dmean.rolling(window=30).mean()
+            
+            # cols  = [col for col in d.columns if d[col].dtype == 'float64']
+            
+            # d25 = d[cols].astype(float).quantile(0.25, axis = 1)
+            # d25 = d25.resample('Y').mean() * 1000 * 365
+            # d25 = d25.rolling(window=30).mean()
+            
+            # d50 = d[cols].astype(float).quantile(0.5, axis = 1)
+            # d50 = d50.resample('Y').mean() * 1000 * 365
+            # d50 = d50.rolling(window=30).mean()
+            
+            # d75 = d[cols].astype(float).quantile(0.75, axis = 1)
+            # d75 = d75.resample('Y').mean() * 1000 * 365
+            # d75 = d75.rolling(window=30).mean()
+            
+            ax.plot(dmean, c=dict_scecol[sce], lw=3, label=mod)
+            # ax.plot(d25, c=dict_scecol[sce], lw=1, label=mod)
+            # ax.plot(d50, c=dict_scecol[sce], lw=2, label=mod)
+            # ax.plot(d75, c=dict_scecol[sce], lw=1, label=mod)
+            
+            # ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
+            ax.set_title(sce+' - '+var+' - '+mod)
+            
+            yearsmaj = mdates.YearLocator(20)   # every year
+            monthsmaj = mdates.MonthLocator(12)  # every month
+            years_fmt = mdates.DateFormatter('%Y')
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(monthsmaj)
+            ax.xaxis.set_major_formatter(years_fmt)
+        
+            # ax.set_yscale('log')
+            
+            # fig.savefig(fig_path + watershed_name +
+            #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+            
+            ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
 
 #%% PLOT MEDIAN MODELS
 
@@ -1779,7 +1893,7 @@ dict_scecol = dict(zip(sce_list, col_list))
 var_list = ['PPTT','SNOW','TASM',
             'REC','ETP','RUN','SWE']
 
-var_list = ['REC']
+var_list = ['PPTT']
 
 for var in var_list[:]:
     
@@ -1841,7 +1955,130 @@ for var in var_list[:]:
         #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
         
         ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
+
+#%% TABLEAU DELTA
+
+if 'all_proj_clim' not in globals():
+    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+
+sce_list = ['historic','RCP26','RCP45','RCP85']
+mod_list = ['MPI-CCL',
+            'ECE-RCA',
+            'ECE-RAC',
+            'CNR-RAC',
+            'CNR-ALA',
+            'MPI-R09']
+mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+mod_list_ppt = ['MPI-CCL',
+                'ECE-RCA',
+                'MPI-R09']
+mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
+
+sce_list = ['historic','RCP26','RCP45','RCP85']
+col_list = ['dimgrey','dodgerblue','orange','red']
+col_list_b = ['k','navy','darkorange','darkred']
+dict_c = dict(zip(sce_list, col_list))
+dict_c_b = dict(zip(sce_list, col_list_b))
+
+# sce_list = ['historic','RCP85']
+# col_list = ['dimgrey','red']
+# col_list_b = ['k','darkred']
+# dict_c = dict(zip(sce_list, col_list))
+# dict_c_b = dict(zip(sce_list, col_list_b))
+
+for var in  [
+            # 'TASM',
+            # 'PPTT',
+            # 'SNOW',
+            # 'PLIQ',
+            # 'SWE',
+              # 'SNOWPROP',
+            #   'PE',
+                # 'ETP',
+                'RUN',
+                'REC',
+               # 'SWI',
+                # 'RECRUN'
+             ]:
+    
+    all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
+    
+    if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+        mod_list_good = mod_list_ppt
+        mod_keep_good = mod_keep_pptt
+    else:
+        mod_list_good = mod_list
+        mod_keep_good = mod_keep
+        
+    all_proj_mix = all_proj_mix.filter(regex=mod_keep_good)
+    
+    for sce in sce_list[-1:]:
+        
+        for mod in mod_list_good:
+        
+            if var == 'PPTT':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOW':
+                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+            if var == 'SNOWPROP':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24) / (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PLIQ':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
+            if var == 'PE':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
+            if var == 'RECRUN':
+                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['REC'+'_'+mod+'_'+sce]) + (all_proj_mix['RUN'+'_'+mod+'_'+sce])
+
+    # fig, ax = plt.subplots(1,1, figsize=(10,4))
+        
+        # for sce in sce_list:
             
+            df = pd.DataFrame()
+            dproj = all_proj_mix.copy()
+            
+            # if var == 'ETP':
+                # var = 'ETP_'
+            
+            if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+                dproj = dproj.filter(regex=mod_keep_good).filter(regex=var)
+            else:
+                dproj = dproj.filter(regex=mod_keep_good).filter(regex=var)
+        
+            # print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
+            # print('PPTT', sce, dproj['PPTT'+'_'+mod+'_'+sce].mean())
+        
+            d_hist = dproj.filter(regex=var).filter(regex='historic')
+            d_hist = select_period(d_hist, 1975, 2004)
+            
+            d_tot = dproj.filter(regex=var).filter(regex=sce)
+            d_tot = select_period(d_tot, 1975, 2100)
+            
+            d_fut = dproj.filter(regex=var).filter(regex=sce)
+            d_fut = select_period(d_fut, 2070, 2100)
+            
+            mean_hist = d_hist[var+'_'+mod+'_'+'historic'].mean()
+            mean_fut = d_fut[var+'_'+mod+'_'+sce].mean()
+            
+            if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
+                print(mod, var, sce, round((d_fut[var+'_'+mod+'_'+sce].mean()-d_hist[var+'_'+mod+'_'+'historic'].mean()), 1),
+                                     round(100*((mean_fut-mean_hist))/mean_hist, 1))
+            else:
+                print(mod, var, sce, round((d_fut[var+'_'+mod+'_'+sce].mean()-d_hist[var+'_'+mod+'_'+'historic'].mean())*365, 1),
+                                     round(100*((mean_fut-mean_hist))/mean_hist, 1))
+        
+        d_hist['all'] = d_hist.mean(axis=1)
+        d_fut['all'] = d_fut.mean(axis=1)
+        d_hist_all = d_hist['all'].mean()
+        d_fut_all = d_fut['all'].mean()
+        
+        if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
+            print('ALL', var, sce, round((d_fut['all'].mean()-d_hist['all'].mean()), 1),
+                                   round(100*((d_fut_all-d_hist_all))/d_hist_all, 1))
+        else:
+            print('ALL', var, sce, round((d_fut['all'].mean()-d_hist['all'].mean())*365, 1),
+                                   round(100*((d_fut_all-d_hist_all))/d_hist_all, 1))
+
 #%% ---- CALIB
 
 #%% DICHOTOMY - FUNCTION
@@ -1965,14 +2202,16 @@ class MatchingStreams:
 
 #%% DICHOTOMY - RUN
 
+run = True
+
 # vers = 'isba1'
 # vers = 'isbaint1'
 
 vers = 'isba2'
 types_obs = ['hydrographic_mix_peren_upv2_pt']
 
-# vers = 'isbaint2'
-# types_obs = ['hydrographic_mix_inter_upv2_pt']
+vers = 'isbaint2'
+types_obs = ['hydrographic_mix_inter_upv2_pt']
 
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
 
@@ -2061,35 +2300,30 @@ for watershed_name in watershed_names[:]:
         # list_d_values = [0, 0]
         # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
         # print(list_d_values)
-        list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200]
+        list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
         list_cond_decay = list(1/np.array(list_d_values))
         list_cond_decay[0] = 0
         list_cond_decay[1] = 0
                 
-        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
        
         # for cond_decay, bottom, id_mod in zip(list_cond_decay[4:5], list_bottom[4:5], list_id_mod[4:5]):
-        for cond_decay, bottom, id_mod in zip(list_cond_decay[:], list_bottom[:], list_id_mod[:]):
+        for cond_decay, bottom, id_mod in zip(list_cond_decay[6:7], list_bottom[6:7], list_id_mod[6:7]):
         # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
             BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
             BV.hydraulic.update_cond_decay(cond_decay) # 0
             BV.hydraulic.update_bottom(bottom) # 0
             
             params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-            # params_df.loc[0] = ['k1','?',8.64e-04,8.64e-01,'m/j','lin']
             if id_mod == 0:
                 params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod == 1:
                 params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod >= 2:
                 params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if (id_mod >= 2) & (id_mod <= 4):
-                print('Y')
-                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod >= 9:
-                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            # if id_mod >= 10:
-            #     params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+                params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            # params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-4*3600*24,'m/j','lin']
             params_file = 'calib_dicot_hom_1v_k1'
             params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
             p_min = params_df['lower_bounds'].values[0]
@@ -2126,23 +2360,25 @@ for watershed_name in watershed_names[:]:
                 BV.settings.update_model_name(model_name)
                 # print(model_name)
                 
-                model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
-                success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+                if run == True:
                 
-                BV.postprocessing_modflow(model_modflow,
-                                          watertable_elevation = True,
-                                          watertable_depth= True, 
-                                          seepage_areas = True,
-                                          outflow_drain = True,
-                                          groundwater_flux = True,
-                                          groundwater_storage = True,
-                                          accumulation_flux = True,
-                                          export_all_tif = False)
-    
-                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                                  model_modpath=None,
-                                                                  actual_date=True, 
-                                                                  subbasin_results=True) # or None
+                    model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
+                    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+                    
+                    BV.postprocessing_modflow(model_modflow,
+                                              watertable_elevation = True,
+                                              watertable_depth= True, 
+                                              seepage_areas = True,
+                                              outflow_drain = True,
+                                              groundwater_flux = True,
+                                              groundwater_storage = True,
+                                              accumulation_flux = True,
+                                              export_all_tif = False)
+        
+                    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                                      model_modpath=None,
+                                                                      actual_date=True, 
+                                                                      subbasin_results=True) # or None
             
                 iter_results = MatchingStreams(BV, iteration_label=model_name)
                 
@@ -2249,7 +2485,7 @@ for watershed_name in watershed_names[:]:
             
 #%% DICHOTOMY - APPEND
 
-vers = 'isba1'
+vers = 'isba2'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -2290,7 +2526,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -2299,11 +2535,12 @@ for i in list_id_mod[:]:
  
 dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
     
-fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
+# fig, ax = plt.subplots(1,1, figsize=(3.6,2.6), dpi=600)
+fig, ax = plt.subplots(1,1, figsize=(4,4), dpi=600)
 
 # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
 ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'], s=100, 
-            marker='s', lw=2, color='white', ec='k'
+            marker='s', lw=1.5, color='white', ec='k', zorder=1000
             # cmap=mpl.colors.ListedColormap('k'),
             # label=dfz['1/K_decay'].values[0]
             )
@@ -2311,48 +2548,65 @@ ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'], s=100,
 ax.scatter(dfz[1:2]['K']/24/3600, dfz[1:2]['Doptim'],
             c=dfz[1:2]['1/K_decay'],
             s=100, 
-             marker='^', lw=2,
-             cmap=mpl.colors.ListedColormap('gray'),
+             marker='^', lw=1.5,
+             cmap=mpl.colors.ListedColormap('gray'), zorder=1000
             # label='0'
             )
 im = ax.scatter(dfz[2:]['K']/24/3600, dfz[2:]['Doptim'], c=dfz[2:]['1/K_decay'], s=100, 
                 cmap='plasma_r',
-                norm=mpl.colors.LogNorm(vmin=10, vmax=200),
-                lw=2,
+                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
+                lw=1.5,
                 # label=df['1/cond_decay'] 
                 )
+
+dftempo = dfz.sort_values('K')
+ax.plot(dftempo[:]['K']/24/3600, dftempo[:]['Doptim'],
+             # c=dfz[2:]['1/K_decay'], s=100, 
+             #    cmap='plasma_r',
+             #    norm=mpl.colors.LogNorm(vmin=10, vmax=300),
+                lw=1, c='grey', zorder=-10, ls='-'
+                # label=df['1/cond_decay'] 
+                )
+
 # ax.legend()
 ax.set_xscale('log')
 # ax.set_yscale('log')
 ax.set_xlabel('$K_{0}$ [m/s]')
-ax.set_xlim(2e-8, 2e-5)
-ax.set_ylim(25, 80)
+# ax.set_xlim(2e-8, 2e-5)
+ax.set_ylim(30 , 90)
 ax.set_ylabel('$D_{optim}$ [m]')
 # cb = plt.colorbar()
 from matplotlib.ticker import LogFormatter 
 formatter = LogFormatter(10, labelOnlyBase=True) 
 cb = plt.colorbar(im, ax=ax,
                   cax = fig.add_axes([0.95, 0.10, 0.03, 0.8]))
-for t in cb.ax.get_yticklabels():
-     t.set_fontsize(10)
+# for t in cb.ax.get_yticklabels():
+#      t.set_fontsize(10)
 # cb.set_clim(10,500)
 # cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 # cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 200])
-cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 200], fontsize=8)
+cb.set_ticks([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300])
+cb.set_ticklabels([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300], fontsize=8)
 cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
                   grid_color='k', grid_alpha=0.5)
-cb.minorticks_off()
+for t in cb.ax.get_yticklabels():
+     t.set_fontsize(5.5)
+# cb.minorticks_off()
 # cb.clim()
 cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
+ax.axvline(x=(dfz[6:7]['K']/24/3600).values, c='darkgreen', zorder=-1000, ls='-', lw=1)
+ax.axhline(y=(dfz[6:7]['Doptim']).values, c='darkgreen', zorder=-1000, ls='-', lw=1)
+
+# ax.grid()
+
 # ax.set_yscale('log')
 
-fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/'+
-            'DICHOTOMY_K'+'.png',
-            bbox_inches='tight')
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/'+
+#             'DICHOTOMY_K'+'.png',
+#             bbox_inches='tight')
 
 #%% DICHOTOMY - GRAPH T WITH DEPTH
 
@@ -2555,7 +2809,7 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 # if vers == 'v3':
@@ -2570,7 +2824,9 @@ shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 #     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
 if vers == 'isba1':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv1_pt.shp')
-    
+if vers == 'isba2':
+    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt.shp')    
+
 # types_obs = ['stream_perennial_wetlands_points']
 # types_obs = ['stream_perennial_wetlands_osm_points']
 
@@ -2600,9 +2856,9 @@ for index, row in dfz.iterrows():
     # fig.savefig('C:/Users/ronan/Downloads/figs_'+vers+'/'+'MAPS_'+model_name+'.png',
     #             bbox_inches='tight')
 
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps/'+
-                model_name+'_DICHOTOMY_MAP'+'.png',
-                bbox_inches='tight')
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps/'+
+    #             model_name+'_DICHOTOMY_MAP'+'.png',
+    #             bbox_inches='tight')
 
 
 #%% ---- EXPLORATION
@@ -2614,6 +2870,9 @@ for index, row in dfz.iterrows():
 
 vers = 'isba1' # dichotomy isba
 iD_explo = 'e_isba1' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba2' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 decay_factor = 2
 
@@ -2714,18 +2973,18 @@ plt.axhline(first_clim, c='k')
 
 # Aquifer bottom
 list_bottom = [None, 0] # aquifer flat or not
-list_bottom.extend([0] * 10)
+list_bottom.extend([0] * 13) ### ATTENTION ###
 
 # Decay of K
 # list_d_values = [0, 0]
 # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
-list_d_values = [0, 0, 10, 15, 20, 25, 30, 45, 65, 100, 140, 200]
+# print(list_d_values)
+list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
 list_cond_decay = list(1/np.array(list_d_values))
 list_cond_decay[0] = 0
 list_cond_decay[1] = 0
-
-# Models
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+        
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
@@ -2742,16 +3001,18 @@ list_kroptim = df_optim['KR']
 # list_koptim = [4.82e-6]
 # BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,20]] ])
 
+list_porosity = np.arange(0.2, 10.2, 0.2)/100
+
 #%% PRO PREPROCESSING
 
 run_model = True
 # run_model = False
  
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[4:5],
-                                                                            list_bottom[4:5],
-                                                                            list_koptim[4:5],
-                                                                            list_id_mod[4:5],
-                                                                            list_kroptim[4:5]):    
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[6:7],
+                                                                            list_bottom[6:7],
+                                                                            list_koptim[6:7],
+                                                                            list_id_mod[6:7],
+                                                                            list_kroptim[6:7]):    
    
     # if id_mod_val in [0,2,3,4,5,6]:
     #     list_porosity = np.array([0.1,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,2,4,8,16])/100
@@ -2765,8 +3026,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     #     list_porosity = np.array([0.1,0.5,1.0,2.0,4.0,8.0,16.0])/100
     
     ## isba1
-    if id_mod_val in [1,2,3,4,5,6,7,8,9,10,11]:
-        list_porosity = np.arange(0.2, 10.2, 0.2)/100
+    if id_mod_val in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
 
         # print(id_mod_val)
         # print(kroptim_val)
@@ -2847,7 +3107,7 @@ delete_files = False
 # list_id_mod = [1,6,7,8,9,10,11]
 # list_id_mod = [11]
 
-for id_mod_val in list_id_mod[4:5]:
+for id_mod_val in list_id_mod[6:7]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -2954,6 +3214,7 @@ for id_mod_val in list_id_mod[4:5]:
 # iD_explo = 'e14'
 
 iD_explos = ['e_isba1']
+iD_explos = ['e_isba2']
 
 CRIT = 'RMSE'
 
@@ -2997,11 +3258,16 @@ for w, w_name in enumerate(['Lasset'][:]):
         
         if iD_explo == 'e_isba1':
             list_id_mod = [4]
-        
+
+        if iD_explo == 'e_isba2':
+            list_id_mod = [6]
+
         for id_mod_val in list_id_mod[:]:
         
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            d = dd.io.load(h5file)
+            ######
+            # d = dd.io.load(h5file)
+            ######
             list_model_name = d['list_model_name'][:]
             list_model_success = d['list_model_success'][:]
             list_model_modflow = d['list_model_modflow'][:]
@@ -3022,11 +3288,15 @@ for w, w_name in enumerate(['Lasset'][:]):
                 Qmod = Qmod * 1000 * 7
                 # Qmod = Qmod.resample('M').mean()*4
                 
+                # Qobs_n = Qobs[Qobs<Qobs.median()]
+                
                 mix = Qobs.copy().to_frame()
-                mix = mix[(mix.index.month >= 6) & (mix.index.month <= 10)]
+                mix = mix[(mix.index.month >= 5) & (mix.index.month <= 10)]
                 mix.columns = ['Qobs']
                 mix['Qsim'] = Qmod
+                mix = select_period(mix,2022,2022)
                 mix = mix.dropna()
+                
     
                 Qobs_stat = mix.Qobs
                 Qsim_stat = mix.Qsim
@@ -3099,6 +3369,7 @@ for w, w_name in enumerate(['Lasset'][:]):
             
                 ax = a0
                 ax.plot(Qobs, color='k', lw=1.5, ls='-', zorder=0, label='Observed')
+                # ax.plot(Qobs_n, color='grey', lw=1.5, ls='-', zorder=0, label='Observed')
                 ax.plot(Qmod, color='red', lw=1.5, label='Simulated')
                 # ax.plot(Qmod-(r*1000), color='darkorange', lw=0.25, label='Simulated')
                 ax.set_xlabel('Date')
@@ -3151,18 +3422,22 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # move ax in front
                 # ax.set_zorder(axb.get_zorder() + 1)
                 
+                ax.text(0.42,0.20, 'NSE'+' = '+str(round(NSE,2)), transform=ax.transAxes, c='k', fontsize=10)
+                ax.text(0.42,0.10, '$NSE_{log}$'+' = '+str(round(NSElog,2)), transform=ax.transAxes, c='k', fontsize=10)
+            
+                
                 fig.tight_layout()
                             
                 # fig.savefig(os.path.join(simulations_folder, '_figures',
                 #             'STREAMFLOW_'+model_name+'.png'),
                 #             bbox_inches='tight')
                 
-                plt.close()
+                # plt.close()
                 
                 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
                 #             bbox_inches='tight')
                 
-                fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all2/'+
+                fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all4/'+
                             'Q_'+model_name+'.png',
                                         bbox_inches='tight')
 
@@ -3174,7 +3449,7 @@ dfcrit_Q.to_csv(BV.simulations_folder+'_dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')
 
 dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
 
-iD_explos = ['e_isba1']
+iD_explos = ['e_isba2']
 
 df = dfcrit_Q.copy()
        
@@ -3188,7 +3463,7 @@ df = dfcrit_Q.copy()
 # # fig.suptitle(df.model_name[0].upper(), y=1.05)
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
-n = 12
+n = 15
 colors = pl.cm.jet(np.linspace(0,1,n))
 colors = pl.cm.plasma_r(np.linspace(0,1,n))
 
@@ -3211,7 +3486,7 @@ for icri, cri in enumerate(['NSE','RMSE',
     # fig, ax = plt.subplots(1,1, figsize=(5,4))
     for imod, mod in enumerate(df['id_mod'].unique()):
     # for imod, mod in enumerate([4]):
-        imod=4
+        imod=6
         color=colors[imod-1]
         if imod==0:
             color='k'
@@ -3256,7 +3531,7 @@ for icri, cri in enumerate(['NSE','RMSE',
             ax.set_yscale('log')
         if cri == 'RMSElog':
             ax.set_ylabel('$RMSE_{log}$ [mm/w]')
-            ax.set_ylim(0.75,1)
+            # ax.set_ylim(0.75,1)
         # ax.set_xlabel('θ [%]')
         # ax.set_xlabel('Φ [%]')
         ax.set_xlabel('$Φ_{0}$ [%]')
@@ -3307,7 +3582,7 @@ dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
 
 # iD_explos = ['e15','e16']
 # iD_explos = ['e16']
-iD_explos = ['e_isba1']
+iD_explos = ['e_isba2']
 
 CRIT = 'RMSE'
 
@@ -3353,7 +3628,7 @@ for w, w_name in enumerate(['Lasset'][:]):
         for id_mod_val in list_id_mod[:]:
         
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            d = dd.io.load(h5file)
+            # d = dd.io.load(h5file)
             list_model_name = d['list_model_name'][:]
             list_model_success = d['list_model_success'][:]
             list_model_modflow = d['list_model_modflow'][:]
@@ -3361,9 +3636,9 @@ for w, w_name in enumerate(['Lasset'][:]):
             for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                                 list_model_success[:],
                                                                 list_model_modflow[:]):
-            # for model_name, model_success, model_modflow in zip(list_model_name[7:8],
-            #                                                     list_model_success[7:8],
-            #                                                     list_model_modflow[7:8]):
+            # for model_name, model_success, model_modflow in zip(list_model_name[:10],
+            #                                                     list_model_success[:10],
+            #                                                     list_model_modflow[:10]):
                     
                 Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
@@ -3377,6 +3652,9 @@ for w, w_name in enumerate(['Lasset'][:]):
                 mix = Qobs.copy().to_frame()
                 mix.columns = ['Qobs']
                 mix['Qsim'] = Qmod
+                mix2 = mix.copy()
+                mix = mix[(mix.index.month >= 6) & (mix.index.month <= 10)]
+                mix = select_period(mix,2022,2022)
                 mix = mix.dropna()
     
                 Qobs_stat = mix.Qobs
@@ -3473,8 +3751,10 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # axb.set_yticklabels([0,10])
                 
                 ax = a1
+                ax.scatter(mix2.Qobs, mix2.Qsim,
+                           s=20, edgecolor='none', alpha=0.75, facecolor='grey', zorder=1000)
                 ax.scatter(mix.Qobs, mix.Qsim,
-                           s=10, edgecolor='none', alpha=0.75, facecolor='gray')
+                           s=20, edgecolor='none', alpha=0.75, facecolor='forestgreen', zorder=1000)
                 ax.set_xscale('log')
                 ax.set_yscale('log')
                 ax.legend(loc='lower right', frameon=False)
@@ -3500,6 +3780,10 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # move ax in front
                 # ax.set_zorder(axb.get_zorder() + 1)
                 
+                # ax.text(0.42,0.20, 'NSE'+' = '+str(round(NSE,2)), transform=ax.transAxes, c='k', fontsize=10)
+                ax.text(0.42,0.10, '$NSE_{log}$'+' = '+str(round(NSElog,2)), transform=ax.transAxes, c='k', fontsize=10)
+            
+                
                 fig.tight_layout()
                             
                 # fig.savefig(os.path.join(simulations_folder, '_figures',
@@ -3511,15 +3795,15 @@ for w, w_name in enumerate(['Lasset'][:]):
                 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
                 #             bbox_inches='tight')
                 
-                fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all3/'+
+                fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all5/'+
                             'Q_'+model_name+'.png',
                                         bbox_inches='tight')
 
-# dfcrit_Q = df.copy()
+dfcrit_Q = df.copy()
 
 #%% STREAMFLOW CRITERIA ONE
 
-iD_explos = ['e_isba1']
+iD_explos = ['e_isba2']
 
 df = dfcrit_Q.copy()
        
@@ -3533,26 +3817,27 @@ df = dfcrit_Q.copy()
 # # fig.suptitle(df.model_name[0].upper(), y=1.05)
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
-n = 12
+n = 15
 colors = pl.cm.jet(np.linspace(0,1,n))
 
 # fig, axs = plt.subplots(1,5, figsize=(5*6,5),
 #                         # sharey=True
 #                         )
 # axs = axs.ravel()
-for icri, cri in enumerate(['NSElog','NSE','RMSE',
+for icri, cri in enumerate(['NSElog',
+                            # 'NSE','RMSE',
                             # 'KGE','OWN'
                             ][:]):
     
     
-    fig, ax = plt.subplots(1,1, figsize=(4.5,3.5),
+    fig, ax = plt.subplots(1,1, figsize=(4.5,4),
                             # sharey=True
                             )
     
     # ax = axs[icri]
     # fig, ax = plt.subplots(1,1, figsize=(5,4))
     for imod, mod in enumerate(df['id_mod'].unique()):
-        imod=4
+        imod=6
         color=colors[imod]
         if imod==0:
             color='k'
@@ -3568,8 +3853,8 @@ for icri, cri in enumerate(['NSElog','NSE','RMSE',
         #         marker='o', ms=10, mew=1,
         #         lw=0,
         #         color=color)
-        ax.plot(dfplot.sort_values('O')['O'], dfplot.sort_values('O')[cri],
-                marker='o', ms=6, mew=1,
+        ax.plot(dfplot.sort_values('O')['O'], abs(1-dfplot.sort_values('O')[cri]),
+                marker='o', ms=4, mew=1,
                 lw=2,
                 color='gray')
         # pc = ax.scatter(dfplot['O'], dfplot[cri])
@@ -3578,16 +3863,20 @@ for icri, cri in enumerate(['NSElog','NSE','RMSE',
             # ax.set_ylim(0.25,0.40)
             print('NSE', dfplot.sort_values('O')['O'][np.argmax(dfplot.sort_values('O')[cri])])
         if cri == 'NSElog':
-            ax.set_ylabel('$NSE_{log}$ [-]')
-            # ax.set_ylim(0.25,0.40)
+            ax.set_ylabel('1 - $NSE_{log}$ [-]')
+            ax.set_ylim(0.25,2.2)
+            ax.set_yticks(np.arange(0.2,2.26,0.2))
+            ax.set_xticks(np.arange(0,10.1,1))
             print('NSElog',dfplot.sort_values('O')['O'][np.argmax(dfplot.sort_values('O')[cri])])
+            ax.axhline(y=0.32, c='forestgreen', zorder=-1)
+            ax.axvline(x=1, c='forestgreen', zorder=-1)
         if cri == 'RMSE':
             ax.set_ylabel('RMSE [mm/w]')
             # ax.set_ylim(28,32)
             print('RMSE', dfplot.sort_values('O')['O'][np.argmin(dfplot.sort_values('O')[cri])])
-        ax.set_xlabel('θ [%]')
+        ax.set_xlabel('Φ [%]')
         # ax.set_title(cri)
-        ax.set_xscale('log')
+        # ax.set_xscale('log')
         # ax.set_yscale('log')
         """
         if 0<=icri<=1:
@@ -3849,7 +4138,7 @@ for icri, cri in enumerate(['OWN'][:]):
 
 #%% SATURATION CHRONICS ALL
 
-iD_explos = ['e_isba1']
+iD_explos = ['e_isba2']
 
 types_obs = ['hydrographic_mix_peren_upv1_pt']
 
@@ -3887,13 +4176,13 @@ dem_data = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
 
 # list_sat_obs = [5,10] # 7
 # list_sat_obs = [5.2,17.8] # 7
-list_sat_obs = [6,18] # 7
+list_sat_obs = [6,8] # 7
 
 i=0
 
 for iD_explo in iD_explos:
     
-    list_id_mod = [4]
+    list_id_mod = [6]
 
     for id_mod_val in list_id_mod[:]:
     
@@ -4023,7 +4312,7 @@ for iD_explo in iD_explos:
             # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'S_'+model_name+'.png',
             #             bbox_inches='tight')
             
-            fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/_all_sat/'+
+            fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/_all_sat2/'+
                         'S_'+model_name+'.png',
                                     bbox_inches='tight')
         
@@ -4048,7 +4337,7 @@ df = dfcrit_S.copy()
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'S_'+'criteria'+'.png',
 # #             bbox_inches='tight')
 
-n = 12
+n = 15
 colors = pl.cm.plasma_r(np.linspace(0,1,n))
 
 # fig, axs = plt.subplots(1,2, figsize=(5*1,5),
@@ -4066,7 +4355,7 @@ for icri, cri in enumerate(['OWN'][:]):
     for imod, mod in enumerate(df['id_mod'].unique()):
         color=colors[imod-1]
         # color='k'
-        imod = 4
+        imod = 6
         if imod==0:
             color='k'
         if imod==1:
@@ -4463,6 +4752,8 @@ plt.tight_layout()
 wbt.verbose = False
 
 iD_explos = ['e_isba1']
+iD_explos = ['e_isba2']
+
 
 init_path = data_path + '_Q/'
 
@@ -4480,6 +4771,11 @@ list_por = []
 list_doptim_per = []
 list_doptim_int = []
 list_doptim_bot = []
+
+list_pso_per = []
+list_pos_per = []
+list_iso_int = []
+list_ios_int = []
 
 for w, w_name in enumerate(['Lasset'][:]):
     
@@ -4541,18 +4837,20 @@ for w, w_name in enumerate(['Lasset'][:]):
         
         if iD_explo == 'e_isba1':
             list_id_mod = [4]
+        if iD_explo == 'e_isba2':
+            list_id_mod = [6]
         
         for id_mod_val in list_id_mod[:]:
         
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            d = dd.io.load(h5file)
+            # d = dd.io.load(h5file)
             list_model_name = d['list_model_name'][:]
             list_model_success = d['list_model_success'][:]
             list_model_modflow = d['list_model_modflow'][:]
             
-            for model_name, model_success, model_modflow in zip(list_model_name[:],
-                                                                list_model_success[:],
-                                                                list_model_modflow[:]):
+            for model_name, model_success, model_modflow in zip(list_model_name[:20],
+                                                                list_model_success[:20],
+                                                                list_model_modflow[:20]):
                 print(model_name)
                 Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
@@ -4566,6 +4864,7 @@ for w, w_name in enumerate(['Lasset'][:]):
                 pi_masked_per = np.ma.masked_array(pi_masked, mask=pi_masked<0.5)
                 # pi_masked_int = np.ma.masked_array(pi_masked, mask=pi_masked>=0.5)
                 pi_masked_int = pi_masked.copy()
+                # pi_masked_int = np.ma.masked_array(pi_masked, mask=pi_masked<0.33)
                 pi_cell_per = pi_masked_per.count()
                 pi_cell_int = pi_masked_int.count()
                 # pi_cell_per>0 = 1
@@ -4619,17 +4918,31 @@ for w, w_name in enumerate(['Lasset'][:]):
                 p_os = imageio.v2.imread(dist_to_sim_per_path)
                 i_os = imageio.v2.imread(dist_to_sim_int_path)
                 
-                print('     ',(np.nanmean(p_so)+np.nanmean(p_os))/2, (np.nanmean(i_so)+np.nanmean(i_os))/2, (((np.nanmean(p_so)+np.nanmean(p_os))/2)+((np.nanmean(i_so)+np.nanmean(i_os))/2))/2)
+                # print('     ',(np.nanmean(p_so)+np.nanmean(p_os))/2, (np.nanmean(i_so)+np.nanmean(i_os))/2, (((np.nanmean(p_so)+np.nanmean(p_os))/2)+((np.nanmean(i_so)+np.nanmean(i_os))/2))/2)
+                
+                list_pso_per.append(np.nanmean(p_so))
+                list_pos_per.append(np.nanmean(p_os))
+                list_iso_int.append(np.nanmean(i_so))
+                list_ios_int.append(np.nanmean(i_os))
                 
                 list_doptim_per.append((np.nanmean(p_so)+np.nanmean(p_os))/2)
                 list_doptim_int.append((np.nanmean(i_so)+np.nanmean(i_os))/2)
                 list_doptim_bot.append((((np.nanmean(p_so)+np.nanmean(p_os))/2)+((np.nanmean(i_so)+np.nanmean(i_os))/2))/2)
 
-#%% TEST
+# TEST
 
-plt.plot(list_porosity, np.array(list_doptim_per), c='b')
-plt.plot(list_porosity, np.array(list_doptim_int), c='r')
-plt.plot(list_porosity, np.array(list_doptim_bot), c='k')
+plt.plot(list_porosity[:20], np.array(list_doptim_per), c='b', label='list_doptim_per')
+plt.plot(list_porosity[:20], np.array(list_doptim_int), c='r', label='list_doptim_int')
+plt.plot(list_porosity[:20], np.array(list_doptim_bot), c='k', label='list_doptim_bot')
+
+plt.plot(list_porosity[:20], np.array(list_pso_per), c='green', label='list_pso_per')
+plt.plot(list_porosity[:20], np.array(list_pos_per), c='limegreen', label='list_pos_per')
+plt.plot(list_porosity[:20], np.array(list_iso_int), c='darkorange', label='list_iso_int')
+plt.plot(list_porosity[:20], np.array(list_ios_int), c='gold', label='list_ios_int')
+
+plt.axvline(1.6/100)
+
+plt.legend()
 
 #%% ---- METHODOLOGY
 
@@ -5221,8 +5534,8 @@ fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasse
 #%% UPDATE PARAMETERS
 
 # iD_explo = 't1' # montly projection test
-iD_explo = 'p1' # montly projection all
-iD_explo = 'p2' # montly projection 6 models for 3 scenarios
+iD_explo = 'pisba1' # montly projection all
+# iD_explo = 'p2' # montly projection 6 models for 3 scenarios
 # iD_explo = 'r1' # reanalysis daily for recession
 
 # iD_explo = 'Daily1' # test reanalysis daily
@@ -5231,9 +5544,11 @@ iD_explo = 'p2' # montly projection 6 models for 3 scenarios
 # iD_explo = 'Weekly1' # test reanalysis weekly
 # temporal = 'W'
 
+temporal = 'M'
+
 decay_factor = 2
 
-vers = 'v7' # dichotomy isba
+vers = 'isba2' # dichotomy isba
 # vers = 'v8' # dicotohomy sim2
 
 box = True # or False
@@ -5286,21 +5601,21 @@ list_bottom = [0] # aquifer flat or not
 # Decay of K
 # list_d_values = [0, 0]
 # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
-list_d_values = [20]
+list_d_values = [30]
 list_cond_decay = list(1/np.array(list_d_values))
 
 # Models
-list_id_mod = [4]
+list_id_mod = [6]
 
 df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
 # For transient
 list_cond_decay = list_cond_decay
 list_bottom = list_bottom
-list_koptim = df_optim['K'][4:5]
-list_kroptim = df_optim['KR'][4:5]
+list_koptim = df_optim['K'][6:7]
+list_kroptim = df_optim['KR'][6:7]
 
-list_porosity = [0.9/100]
+list_porosity = [1.0/100]
 
 all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
 
@@ -5343,16 +5658,16 @@ mod_list = ['MPI-CCL',
             'MPI-R09']
 
 # For reanalysis
-mod_keep = 'REA'
-mod_list = ['REA']
+# mod_keep = 'REA'
+# mod_list = ['REA']
 
 run_model = True
 # run_model = False
 
 fig, ax = plt.subplots(1,1, figsize=(7,4))
 
-# for sce in ['RCP26','RCP45','RCP85']:
-for sce in ['historic']:
+for sce in ['RCP26','RCP45','RCP85']:
+# for sce in ['historic']:
 # for sce in ['RCP45']:
     
     rec_keep = all_proj.filter(regex='REC').filter(regex=sce).filter(regex=mod_keep)
@@ -5412,15 +5727,15 @@ for sce in ['historic']:
     # BV.climatic.update_runoff(select_period(runoff_w_sli, 2022, 2023), sim_state=sim_state)
     
     ###♥ FOR REANALYSIS
-    BV.climatic.update_recharge(select_period(recharge_w_sli, 2020, 2023), sim_state=sim_state)
-    BV.climatic.update_runoff(select_period(runoff_w_sli, 2020, 2023), sim_state=sim_state)
+    # BV.climatic.update_recharge(select_period(recharge_w_sli, 2020, 2023), sim_state=sim_state)
+    # BV.climatic.update_runoff(select_period(runoff_w_sli, 2020, 2023), sim_state=sim_state)
 
-    recharge_w_sli = recharge_w_sli.dropna()
-    runoff_w_sli = runoff_w_sli.dropna()
+    # recharge_w_sli = recharge_w_sli.dropna()
+    # runoff_w_sli = runoff_w_sli.dropna()
     
     ### FOR 3 SCENARIOS
-    # BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2099), sim_state=sim_state)
-    # BV.climatic.update_runoff(select_period(runoff_w_sli, 1975, 2099), sim_state=sim_state)
+    BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2099), sim_state=sim_state)
+    BV.climatic.update_runoff(select_period(runoff_w_sli, 1975, 2099), sim_state=sim_state)
     
     # recharge_ete = sim2[sim2.index.month.isin([7,8,9])]
     # recharge_ete = (recharge_ete['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
@@ -5429,7 +5744,8 @@ for sce in ['historic']:
     # first_clim = select_period(recharge_w_sli,1980,2004).mean() # or 'first or value
     # first_clim = recharge_w_sli.mean() # or 'first or value
     ### REANALYSIS
-    first_clim = ((sim2['DRAINC_Q'] * norm_factor) / 1000).mean()
+    # first_clim = ((sim2['DRAINC_Q'] * norm_factor) / 1000).mean()
+    first_clim = select_period(rea_recharge_isba, 2020, 2023).mean()
     print(first_clim)
     BV.climatic.update_first_clim(first_clim)
     
@@ -5439,7 +5755,7 @@ for sce in ['historic']:
     ax.plot(BV.climatic.recharge)
     # ax.plot(select_period(recharge_w_sli, 2020, 2023))    
     ax.axhline(first_clim, c='k')
-    # ax.set_yscale('log')
+    ax.set_yscale('log')
     # ax.set_xlim(pd.to_datetime('2022'), pd.to_datetime('2023'))
 
     for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val, poro_val in zip(list_cond_decay[:],
@@ -5513,9 +5829,9 @@ for sce in ['historic']:
 delete_files = False
 
 # for sce in ['RCP26','RCP85'][:]:
-# for sce in ['RCP26','RCP45','RCP85']:
+for sce in ['RCP26','RCP45','RCP85']:
 # for sce in ['RCP26']:
-for sce in ['historic']:
+# for sce in ['historic']:
     
     for id_mod_val in list_id_mod[:]:
     
@@ -7366,9 +7682,9 @@ for var in  [
         ax.axhline(y=0, color='k', lw=1, ls='-', zorder=+1000)
 
     fig.suptitle(var,fontsize=10)
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
-                'EVOL_'+var+'-'+sce+'.png',
-                            bbox_inches='tight')
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
+    #             'EVOL_'+var+'-'+sce+'.png',
+    #                         bbox_inches='tight')
 
 #%% EVOLUTION CILMAT EAU - NEW
  
