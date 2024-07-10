@@ -219,11 +219,16 @@ class Geographic:
         # Normalize initial buffer distance value
         dem = gdal.Open(self.dem_path)
         geodata = dem.GetGeoTransform()
-        buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
-        buff_raw = int(round(buff_raw))
-        dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
-        buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+        if isinstance(self.buff_percent,(str))!=True:
+            buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
+            buff_raw = int(round(buff_raw))
+            # print(buff_raw)
+            dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
+            buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+        # print(buff_dist)
         # Buffer the watershed shapefile polygon
+        else:
+            buff_dist = float(self.buff_percent)
         site_polyg = gpd.read_file(self.watershed_shp)
         site_polyg.to_file(self.watershed_shp)
         site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
