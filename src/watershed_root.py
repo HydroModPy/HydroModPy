@@ -737,7 +737,9 @@ class Watershed:
                                         model_name=model_modflow.model_name,
                                         bin_path = self.bin_path,
                                         # Specific settings  
-                                        zone_partic=self.settings.zone_partic)
+                                        zone_partic=self.settings.zone_partic,
+                                        path = self.settings.path,
+                                        tracking_direction = self.settings.tracking_direction)
         
         # Preprocessing Modflow
         model_modpath.pre_processing() # verbose
