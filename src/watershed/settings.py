@@ -104,7 +104,7 @@ class Settings:
         """
         self.plot_cross = plot_cross
     
-    def update_input_particules(self, zone_partic='domain'):
+    def update_input_particules(self, zone_partic='domain', path='', tracking_direction='forward'):
         """
         Select the limited area to inject particles onto the surface..
 
@@ -113,8 +113,15 @@ class Settings:
         zone_partic : str, optional
             'watershed':inject particles only in cells inside watershed boundaries.
             'domain': inject particles in all cells. The default is 'domain'.
+            'path': path of .tif file
+        path : str, optional
+            Path of .tif file
+        tracking_direction: str, otpional
+            'forward' or 'backward'
         """
         self.zone_partic = zone_partic
+        self.path = path
+        self.tracking_direction = tracking_direction
     
 #%% NOTES
         
