@@ -277,7 +277,8 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-
+            ### DISCUSS WITH ALEXANDREFOR THIS PART
+            """
             if isinstance(self.climatic, pd.core.series.Series):
                 if isinstance(self.climatic.index[0], datetime.datetime):
                     # self.perlen = self.climatic.index.to_series().diff().dt.days.values
@@ -286,8 +287,9 @@ class Modflow:
                     self.perlen = self.climatic.index.to_series().diff().values
             else:
                 self.perlen = np.ones(len(self.climatic))
+            """
             # First timestep is steady state:
-            # self.perlen = np.ones(len(self.climatic))
+            self.perlen = np.ones(len(self.climatic))
             self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
