@@ -7122,8 +7122,8 @@ for sce in ['RCP85']:
 delete_files = False
 
 # for sce in ['RCP26','RCP85'][:]:
-for sce in ['RCP26','RCP45','RCP85']:
-# for sce in ['RCP26']:
+# for sce in ['RCP26','RCP45','RCP85']:
+for sce in ['RCP85']:
 # for sce in ['historic']:
     
     for id_mod_val in list_id_mod[:]:
@@ -9622,7 +9622,7 @@ for watershed_name in watershed_names[:]:
 
 #%% HYSTERESIS TIME - FROM PHY
 
-iD_explo = 'pisba1'
+# iD_explo = 'pisba1'
 # iD_explo = 'pisba2'
 
 
@@ -9640,6 +9640,11 @@ iD_explo = 'pisba1'
 
 col_list = ['k','dodgerblue','darkorange','red']
 sce_list = ['historic','RCP26','RCP45','RCP85']
+# sce_list = ['RCP2.6','RCP8.5']
+dict_scecol = dict(zip(sce_list, col_list))# sce_list = ['RCP85']
+
+col_list = ['k','red']
+sce_list = ['historic','RCP85']
 # sce_list = ['RCP2.6','RCP8.5']
 dict_scecol = dict(zip(sce_list, col_list))# sce_list = ['RCP85']
 
