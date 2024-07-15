@@ -55,7 +55,7 @@ class Modflow:
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
                  plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', 
+                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', split_temp: bool=False,
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
@@ -186,6 +186,7 @@ class Modflow:
             self.climatic = climatic
         self.first_clim = first_clim  
         self.runoff = runoff
+        self.split_temp = split_temp
             
         #%% Model parameters 
         
@@ -243,6 +244,7 @@ class Modflow:
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+        # Change headtol and fluxtol with results ==> convergency criteria
 
         #%% Discretization
         
@@ -277,19 +279,20 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-            ### DISCUSS WITH ALEXANDREFOR THIS PART
-            """
-            if isinstance(self.climatic, pd.core.series.Series):
-                if isinstance(self.climatic.index[0], datetime.datetime):
-                    # self.perlen = self.climatic.index.to_series().diff().dt.days.values
-                    self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+            
+            if self.split_temp == True:
+                ### DISCUSS WITH ALEXANDREFOR THIS PART
+                if isinstance(self.climatic, pd.core.series.Series):
+                    if isinstance(self.climatic.index[0], datetime.datetime):
+                        # self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                        self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+                    else:
+                        self.perlen = self.climatic.index.to_series().diff().values
                 else:
-                    self.perlen = self.climatic.index.to_series().diff().values
+                    self.perlen = np.ones(len(self.climatic))
+            # First timestep is steady state:
             else:
                 self.perlen = np.ones(len(self.climatic))
-            """
-            # First timestep is steady state:
-            self.perlen = np.ones(len(self.climatic))
             self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
