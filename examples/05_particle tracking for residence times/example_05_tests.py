@@ -232,11 +232,11 @@ thick = 30 # if bottom is None, aquifer thickness
 # if watershed_name == 'Lasset':
 #     hyd_cond = 1e-8 * 24 * 3600 # m/day
 # else:
-hyd_cond = 1e-6 * 24 * 3600 # m/day
+hyd_cond = 1e-5 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 0.5 / 100 # -
+porosity = 0.1 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
@@ -539,7 +539,8 @@ for i in range(len(kstpkper)):
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 # ax.plot(abs(pd.Series(list_CH)))
-ax.plot(abs(pd.Series(list_D)))
+ax.plot(abs(pd.Series(list_D)), marker='o')
+ax.plot(abs(pd.Series(list_R)), marker='o')
 ax.set_xlabel('time')
 ax.set_ylabel('discharge')
 # plt.yscale('log')
