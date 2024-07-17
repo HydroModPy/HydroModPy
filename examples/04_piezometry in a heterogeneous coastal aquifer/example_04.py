@@ -253,6 +253,7 @@ BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
+BV.settings.update_split_temporal(split_temp=False)
 
 # Lateral heterogeneity
 BV.hydraulic.update_calib_zones_from_shp(shape_calib_zones_path)

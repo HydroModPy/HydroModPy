@@ -287,15 +287,22 @@ axs[1].legend()
 axs[1].set_ylabel('GW store [mm]')
 axs[1].set_xlim([start, end])
 
-axs[2].plot(t, output['pr'], 'b')
+axs[2].plot(t, output['pr'], 'b', lw=0.5)
 axs[2].set_ylabel('percolation to routing store [mm/d]')
 axs[2].set_xlim([start, end])
+# print(output['pr'].mean())
+# print(output['pr'].mean())
+# axs[2].set_yscale('log')
 
 # Save the plot
 figure_filename = os.path.join(figure_path, 'model_results_outputs.png')
 plt.tight_layout()
 plt.savefig(figure_filename)
 plt.show()
+
+fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+ax.boxplot(output['pr'])
+ax.set_yscale('log')
 
 #%% Convert the output dict into a dataframe including t and csv file with the model outputs
 output_df = pd.DataFrame(output_f)

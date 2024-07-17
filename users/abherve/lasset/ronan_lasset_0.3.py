@@ -2888,11 +2888,20 @@ iD_explo = 'e_isba2' # with isba recharge ==> change ss with decay factor (detai
 vers = 'isba2' # dichotomy isba
 iD_explo = 'e_isba4' # with isba recharge ==> change ss with decay factor (details for bad models)
 
-# vers = 'isba2' # dichotomy isba
-# iD_explo = 'e_isba5' # with isba recharge ==> change ss with decay factor (details for bad models)
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba5' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 # vers = 'isba2' # dichotomy isba
-# iD_explo = 'e_isba7' # with isba recharge ==> change ss with decay factor (details for bad models)
+# iD_explo = 'e_isba6' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+# # vers = 'isba2' # dichotomy isba
+# # iD_explo = 'e_isba7' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba8' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba9' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 decay_factor = 2
 
@@ -2912,7 +2921,7 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'domain' # or watershed
 
-split_temp = False
+split_temp = True
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 area = BV.geographic.area
@@ -2974,11 +2983,11 @@ runoff_w_sli.index = runoff_w_off.iloc[:-1].index
 # runoff_w_sli.index = runoff_w_off.iloc[:].index
 # runoff_w_sli = runoff_w_sli.iloc[:-1]
 
-# BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
-# BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
+BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
+BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
 
-BV.climatic.update_recharge(recharge, sim_state=sim_state)
-BV.climatic.update_runoff(runoff, sim_state=sim_state)
+# BV.climatic.update_recharge(recharge, sim_state=sim_state)
+# BV.climatic.update_runoff(runoff, sim_state=sim_state)
 
 if iD_explo == 't_isba2':
     BV.climatic.update_recharge(recharge_w_sli[:2], sim_state=sim_state)
@@ -3077,6 +3086,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
         BV.hydraulic.update_bottom(bottom_val) # None
         # BV.hydraulic.update_hyd_cond(koptim_val)
         # koptim_val = 0
+        koptim_val = 4e-6 * 24 * 3600
         BV.hydraulic.update_hyd_cond(koptim_val)
         # BV.hydraulic.update_hyd_cond(koptim_from_kr)
         BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
@@ -3627,7 +3637,7 @@ iD_explos = ['et_isba3']
 
 iD_explos = ['e_isba4']
 
-# iD_explos = ['e_isba6']
+iD_explos = ['e_isba9']
 
 CRIT = 'RMSE'
 
@@ -3662,7 +3672,8 @@ for w, w_name in enumerate(['Lasset'][:]):
     Qobs_w_sli = Qobs.groupby(np.arange(len(Qobs))//7).mean()
     Qobs_w_sli.index = Qobs_w_off.iloc[:-1].index
     Qobs_w_sli = Qobs_w_sli.iloc[:-1]
-    Qobs = Qobs_w_sli.copy() * 1000 * 7
+    Qobs = Qobs_w_sli.copy() * 1000 #* 7
+    # Qobs = Qobs.copy() * 1000
     # Qobs = Qobs.resample('M').mean()*4
 
     i = 0
@@ -3676,7 +3687,7 @@ for w, w_name in enumerate(['Lasset'][:]):
             # id_mod_val = 6
             
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            # d = dd.io.load(h5file)
+            d = dd.io.load(h5file)
             list_model_name = d['list_model_name'][:]
             list_model_success = d['list_model_success'][:]
             list_model_modflow = d['list_model_modflow'][:]
@@ -3684,9 +3695,9 @@ for w, w_name in enumerate(['Lasset'][:]):
             # for model_name, model_success, model_modflow in zip(list_model_name[:],
             #                                                     list_model_success[:],
             #                                                     list_model_modflow[:]):
-            for model_name, model_success, model_modflow in zip(list_model_name[4:5],
-                                                                list_model_success[4:5],
-                                                                list_model_modflow[4:5]):
+            for model_name, model_success, model_modflow in zip(list_model_name[:8],
+                                                                list_model_success[:8],
+                                                                list_model_modflow[:8]):
                     
                 Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
@@ -3783,7 +3794,7 @@ for w, w_name in enumerate(['Lasset'][:]):
                 ax.set_xlabel('Date')
                 ax.set_ylabel('Q [mm/w]')
                 ax.set_yscale('log')
-                ax.set_ylim(1,1000)
+                ax.set_ylim(0.1,1000)
                 years_maj = mdates.YearLocator()   # every year
                 months_maj = mdates.MonthLocator()  # every x month
                 ax.xaxis.set_major_locator(years_maj)
@@ -3815,8 +3826,8 @@ for w, w_name in enumerate(['Lasset'][:]):
                 
                 ax.plot((0.0001,1000),(0.0001,1000), c='k', ls='--')
                 
-                ax.set_xlim(1,1000)
-                ax.set_ylim(1,1000)
+                ax.set_xlim(0.1,1000)
+                ax.set_ylim(0.1,1000)
     
                 ax.set_xlabel('$Q_{obs}$ [mm/w]',
                               # fontsize=12
@@ -4354,7 +4365,7 @@ for icri, cri in enumerate(['OWN'][:]):
 
 #%% SATURATION CHRONICS ALL
 
-iD_explos = ['e_isba4']
+iD_explos = ['e_isba8']
 
 types_obs = ['hydrographic_mix_peren_upv1_pt']
 
@@ -4409,9 +4420,9 @@ for iD_explo in iD_explos:
         list_model_success = d['list_model_success'][:]
         list_model_modflow = d['list_model_modflow'][:]
         
-        for model_name, model_success, model_modflow in zip(list_model_name[4:5],
-                                                            list_model_success[4:5],
-                                                            list_model_modflow[4:5]):
+        for model_name, model_success, model_modflow in zip(list_model_name[:10],
+                                                            list_model_success[:10],
+                                                            list_model_modflow[:10]):
         # for model_name, model_success, model_modflow in zip(list_model_name[7:8],
         #                                                     list_model_success[7:8],
         #                                                     list_model_modflow[7:8]):
@@ -4532,6 +4543,125 @@ for iD_explo in iD_explos:
             # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/_all_sat2/'+
             #             'S_'+model_name+'.png',
             #                         bbox_inches='tight')
+        
+            fig, ax = plt.subplots(1, 1, figsize=(5,5))
+
+            x = Smod['recharge'] * 1000 * 30
+            # x = Smod['outflow_drain'] * 1000 * 7
+            # x = Smod['t']
+            y = Smod['total_areas']
+            y = y.fillna(0)
+# y                    plt.plot(y)
+            # y = Smod['prop_ratio']
+            c = Smod.index.month
+            wy = pd.Series(x.index.month).replace([10,11,12,1,2,3,4,5,6,7,8,9],
+                                                    [1,2,3,4,5,6,7,8,9,10,11,12])
+            xi = x.groupby([lambda x: x.month]).mean()
+            yi = y.groupby([lambda y: y.month]).mean()
+            
+            xiq25 = x.groupby([lambda x: x.month]).quantile(0.25)
+            yiq25 = y.groupby([lambda y: y.month]).quantile(0.25)
+            
+            xiq75 = x.groupby([lambda x: x.month]).quantile(0.75)
+            yiq75 = y.groupby([lambda y: y.month]).quantile(0.75)
+            
+            # xi = x.groupby([lambda x: x.month]).median()
+            # yi = y.groupby([lambda y: y.month]).median()
+            # cmapping = mpl.colors.ListedColormap(dict_c[watershed_name])
+            # cmapping = dict_cmap[watershed_name]
+            
+            # cmap = plt.cm.YlGnBu
+            if sce == 'historic':
+                cmap = 'Greys'
+            if sce == 'RCP26':
+                cmap = 'Blues'
+            if sce == 'RCP45':
+                cmap = 'Oranges'
+            if sce == 'RCP85':
+                cmap = 'Reds'
+            # cmap = parula_map
+            # cmaplist = [cmap(i) for i in range(cmap.N)]
+            # if watershed_name == 'Canut':
+            # cmaplist = ['limegreen','greenyellow']
+            # if watershed_name == 'Nancon':
+            #     cmaplist = ['tomato', 'lightsalmon']
+            # cmaplist[0] = (.5, .5, .5, 1.0)
+            # cmap = mpl.colors.LinearSegmentedColormap.from_list(
+            #     'Custom cmap', cmaplist, cmap.N)
+            
+            # scat = ax.scatter(x, y, c=wy, cmap=cmap, marker="o", 
+            #                   s=1, vmin=1, vmax=12, alpha=0.75, ec='none', zorder=-1)
+            xiline = xi.append(xi.iloc[[0]])
+            xiline.index = np.arange(1,14,1)
+            yiline = yi.append(yi.iloc[[0]])
+            yiline.index = np.arange(1,14,1)
+            
+            xilineq25 = xiq25.append(xiq25.iloc[[0]])
+            xilineq25.index = np.arange(1,14,1)
+            yilineq25 = yiq25.append(yiq25.iloc[[0]])
+            yilineq25.index = np.arange(1,14,1)                    
+            
+            xilineq75 = xiq75.append(xiq75.iloc[[0]])
+            xilineq75.index = np.arange(1,14,1)
+            yilineq75 = yiq75.append(yiq75.iloc[[0]])
+            yilineq75.index = np.arange(1,14,1)                  
+            
+            # ax.fill_between(xiline, yilineq25, yilineq75, lw=0,
+            #                  interpolate=False,
+            #                 color=dict_scecol[sce], alpha=0.25)
+            
+            # ax.plot(xi, yiq25, linestyle = '-', lw=0.5, 
+            #         color=dict_scecol[sce], zorder=0)
+            # ax.plot(xi, yiq75, linestyle = '-', lw=0.5, 
+            #         color=dict_scecol[sce], zorder=0)
+            compt=0
+
+            ax.plot(xiline, yiline, linestyle = '-', lw=2, 
+                    color='k', zorder=compt)
+            wyi = np.arange(1,12+1,1)
+            # compt = 1
+            for k in wyi:
+                ax.plot(xi[k], yi[k], marker="o", lw=1, markersize=10.5, 
+                           markeredgecolor='k', 
+                           markerfacecolor='white', markeredgewidth=1.2,
+                           linestyle = 'None', zorder=compt)
+                ax.annotate(k,(xi[k],yi[k]), family='sans-serif', fontsize=7, 
+                        color='k', weight="bold", ha='center', va='center',
+                        zorder=compt)
+                compt+=1
+            xe = pd.DataFrame()
+            xe['q25'] = (x.groupby(x.index.month).quantile(0.25))
+            xe['q75'] = (x.groupby(x.index.month).quantile(0.75))        
+            ye = pd.DataFrame()
+            ye['q25'] = (y.groupby(y.index.month).quantile(0.25))
+            ye['q75'] = (y.groupby(y.index.month).quantile(0.75))                
+            ax.errorbar(xi, yi,
+                          yerr=np.abs(np.vstack([yi-ye.q25, ye.q75-yi])),
+                          # xerr=np.abs(np.vstack([xi-xe.q25, xe.q75-xi])),
+                          ecolor = 'k', fmt = 'none', capsize = 1,
+                          elinewidth=0.5, 
+                          capthick=0, zorder=-1000)               
+            # ax.errorbar(xi, yi,
+            #               yerr=np.abs(np.vstack([yi-ye.q25, yi+ye.q25])),
+            #               xerr=np.abs(np.vstack([xi-xe.q25, xi+xe.q25])),
+            #               ecolor = dict_scecol[sce], fmt = 'none', capsize = 1, elinewidth=0.5, 
+            #               capthick=0.5, zorder=-1000)  
+            
+            ax.grid(alpha=0.5)
+            
+            # ax.axvline(x.median(), c=dict_c[watershed_name], ls='--')
+            # ax.axhline(y.median(), c=dict_c[watershed_name], ls='--')
+            
+            ax.set_xscale('log')
+            # ax.set_yscale('log')
+            
+            # if pidx==3:
+            #     ax.set_xlabel('R [mm/week]')
+            # if ivar ==0:
+            #     ax.set_ylabel('$A_{sat}$ [%]')
+            # else:
+            #     ax.set_ylabel('$A_{int}$ / $A_{sat}$ [-]')
+                    
         
 dfcrit_S = df.copy()
 

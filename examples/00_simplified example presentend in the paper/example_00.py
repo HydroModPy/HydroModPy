@@ -193,6 +193,7 @@ BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
 BV.settings.update_simulation_state('steady') # Transient
 BV.settings.update_active_plot(plot_cross=False)
+BV.settings.update_split_temporal(split_temp=False)
 
 # Climatic settings
 BV.climatic.update_recharge(350 / 1000 / 365, sim_state=BV.settings.sim_state)
