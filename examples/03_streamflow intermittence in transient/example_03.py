@@ -98,7 +98,6 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -116,7 +115,6 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 #%% DATA
 
-"""
 if from_dem == None:
     # Clip specific data at the catchment scale
     BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
@@ -133,7 +131,6 @@ if from_dem == None:
     visualization_watershed.watershed_local(dem_path, BV)
     visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
-"""
 
 #%% ---- RECHARGE
 
@@ -179,10 +176,9 @@ BV.add_climatic()
 #         plt.xticks(rotation=45, ha="right")
 #         ax.legend()
 
-x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', parse_dates=True, index_col=0)       
+x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', parse_dates=True, index_col=0)
+x = x.sort_index()
 x = select_period(x, 2000, 2002)
-x = x.resample('M').sum()
-# x = x.resample('M').mean()
 BV.climatic.update_recharge(x['REC_REA_historic'] / 1000, sim_state='transient') # from mm to m
 BV.climatic.update_runoff(x['RUN_REA_historic'] / 1000, sim_state='transient') # from mm to m
 R = BV.climatic.recharge
@@ -192,10 +188,7 @@ r = BV.climatic.runoff
 
 #%% DEFINE
 
-iD_set_simulations = 'explorSy_mperday_monthly_steady'
-iD_set_simulations = 'explorSy_mperday_monthly_transient'
-iD_set_simulations = 'explorSy_mpermonth_monthly_transient'
-iD_set_simulations = 'explorSy_mpermonth_monthly_steady'
+iD_set_simulations = 'explorSy_test1'
 
 # Frame settings
 box = True # or False
@@ -205,7 +198,7 @@ sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
 
 # Climatic settings
-first_clim = 'mean' # or 'first or value
+first_clim = 'first' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
@@ -213,15 +206,14 @@ nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-hyd_cond = 5e-5 * 3600 * 24 * 30  # m/day
+hyd_cond = 5e-5 * 3600 * 24 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 ########## LOOP ##########
-# list_porosity = np.array([0.1, 5, 30]) / 100 # [-]
-list_porosity = np.array([0.1]) / 100 # [-]
+list_porosity = np.array([0.1, 5, 30]) / 100 # [-]
 
 # Boundary settings
 bc_left = None # or value
@@ -231,6 +223,8 @@ split_temp = False
 
 # Particle tracking settings
 zone_partic = 'domain' # or watershed
+
+plt.plot(hyd_cond/R)
 
 #%% UPDATE
 
@@ -301,7 +295,7 @@ dd.io.save(h5file, dictio)
 
 #%% RELOAD
 
-# iD_set_simulations = 'explorSy_test1'
+iD_set_simulations = 'explorSy_test1'
 
 h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
 d = dd.io.load(h5file)
@@ -609,8 +603,11 @@ fig.tight_layout
     
 #%% STREAMFLOW
 
-iD_set_simulations = 'explorSy_mperday_monthly_steady'
-iD_set_simulations = 'explorSy_mperday_monthly_transient'
+# iD_set_simulations = 'explorSy_mperday_monthly_steady'
+# iD_set_simulations = 'explorSy_mperday_monthly_transient'
+# iD_set_simulations = 'explorSy_mpermonth_monthly_transient'
+# iD_set_simulations = 'explorSy_mpermonth_monthly_steady'
+
 
 Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
 Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
@@ -636,9 +633,9 @@ for i, simul in enumerate(simul_list[:]):
     
     Qmod = Smod['outflow_drain'] 
     Qmod = Qmod.squeeze() * 1000
-    Qmod = (Qmod + (r * 1000)) * 2
+    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
     
-    Rmod = Smod['recharge'] * 1000
+    Rmod = Smod['recharge'] * Qmod.index.day
     
     yearsmaj = mdates.YearLocator(1)   # every year
     yearsmin = mdates.YearLocator(1)
@@ -650,9 +647,10 @@ for i, simul in enumerate(simul_list[:]):
     ax = a0
     ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='observed')
     ax.plot(Qmod, color='red', lw=2, label='modeled')
+    ax.plot(Rmod.index, Rmod, color='blue', lw=2.5)
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/month]')
-    # ax.set_yscale('log')
+    ax.set_yscale('log')
     ax.set_ylim(0,200)
     ax.xaxis.set_major_locator(yearsmaj)
     ax.xaxis.set_minor_locator(yearsmin)
@@ -701,9 +699,6 @@ for i, simul in enumerate(simul_list[:]):
     #             bbox_inches='tight')
 
 #%% SATURATION
-
-# iD_set_simulations = 'explorSy_mperday_monthly_steady'
-# iD_set_simulations = 'explorSy_mperday_monthly_transient'
 
 def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]

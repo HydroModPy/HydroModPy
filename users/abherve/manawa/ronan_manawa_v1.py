@@ -320,10 +320,16 @@ def plot(shapely_objects, figure_path='fig.png'):
 
 #%% PATHS
 
-git_path = 'C:/Users/ronan/GitHub/HydroModPy-dev0.1/'
-data_path = 'C:/Users/ronan/OneDrive/UNINE/3_Teaching/Internships/Wilfried/_data/'
-out_path = 'C:/Users/ronan/Simulations/Manawa/'
-# out_path = 'C:/Users/ronan/OneDrive - unine.ch/SIMULATIONS/'
+# git_path = 'C:/Users/ronan/GitHub/HydroModPy-dev0.1/'
+# data_path = 'C:/Users/ronan/OneDrive/UNINE/3_Teaching/Internships/Wilfried/_data/'
+# out_path = 'C:/Users/ronan/Simulations/Manawa/'
+# # out_path = 'C:/Users/ronan/OneDrive - unine.ch/SIMULATIONS/'
+
+###
+git_path = 'D:/Users/abherve/GITHUB/HydroModPy-dev0.1/'
+data_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/3_Teaching/Internships/Wilfried/_data/'
+out_path = 'E:/_RONAN/_E_SIMULATIONS/'
+###
 
 fig_path = out_path + 'figures/'
 
@@ -361,7 +367,7 @@ from_xyvs = [ [339306.855,6896239.212,300,5,'EPSG:32736'] ]
 #%% LOAD
 
 load = True
-# load = False
+load = False
 
 for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
         
@@ -579,6 +585,10 @@ types_obs = ["riv_8to9","riv_6to9","riv_4to9"]
 # types_obs = ['stream_perennial_wetlands_osm_points']
 fields_obs = ['fid','fid','fid']
 
+types_obs = ["riv_8to9"]
+# types_obs = ['stream_perennial_wetlands_osm_points']
+fields_obs = ['fid']
+
 df = pd.DataFrame()
 
 for watershed_name in watershed_names[:]:
@@ -617,7 +627,7 @@ for watershed_name in watershed_names[:]:
         # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
-        recharge = 50 / 1000 / 365 # mm/d to m/d
+        recharge = 50 / 1000 / 365 # mm/y to m/d
         
         verti_cond = None # or [ [1e-5, [0, 20]],
         verti_poro = None
@@ -629,6 +639,7 @@ for watershed_name in watershed_names[:]:
         bc_right = None # or value
         sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
         zone_partic = 'domain' # or watershed
+        split_temp = False
         
         BV.add_settings()
         BV.add_climatic()
@@ -638,6 +649,7 @@ for watershed_name in watershed_names[:]:
         BV.settings.update_sink_fill(sink_fill)
         BV.settings.update_simulation_state(sim_state)
         BV.settings.update_active_plot(plot_cross=plot_cross)
+        BV.settings.update_split_temporal(split_temp=split_temp)
         BV.climatic.update_recharge(recharge, sim_state=sim_state)
         BV.climatic.update_first_clim(first_clim)
         BV.hydraulic.update_nlay(nlay) # 1
@@ -821,6 +833,11 @@ types_obs = ["riv_8to9","riv_6to9","riv_4to9"]
 # types_obs = ['stream_perennial_wetlands_osm_points']
 fields_obs = ['fid','fid','fid']
 
+types_obs = ["riv_8to9"]
+# types_obs = ['stream_perennial_wetlands_osm_points']
+fields_obs = ['fid']
+
+
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 df = pd.read_csv(BV.calibration_folder+'/'+vers+'_'+str('models')+'_dichotomy.csv', sep=';')
 
@@ -845,6 +862,7 @@ for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
                 )
     K_wil = 7.2e-6*3600*24 # from transmissivity map
     print(dfp.iloc[-1]['KR'], 1/(dfp.iloc[-1]['KR']/K_wil)*365*1000)
+    ax.axvline(7.2e-6)
     ax.set_xscale('log')
     # ax.set_yscale('log')
     ax.set_xlabel('K [m/s]')

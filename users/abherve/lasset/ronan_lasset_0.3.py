@@ -2885,6 +2885,15 @@ iD_explo = 'e_isba2' # with isba recharge ==> change ss with decay factor (detai
 # vers = 'isba2' # dichotomy isba
 # iD_explo = 't_isba2' # with isba recharge ==> change ss with decay factor (details for bad models)
 
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba4' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba5' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+vers = 'isba2' # dichotomy isba
+iD_explo = 'e_isba7' # with isba recharge ==> change ss with decay factor (details for bad models)
+
 decay_factor = 2
 
 box = True # or False
@@ -2902,7 +2911,9 @@ bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'domain' # or watershed
-        
+
+split_temp = False
+
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 area = BV.geographic.area
 
@@ -2914,6 +2925,8 @@ BV.add_settings()
 BV.add_climatic()
 BV.add_geometric() # soon
 BV.add_hydraulic()
+
+BV.settings.update_split_temporal(split_temp)
 
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
@@ -2961,8 +2974,11 @@ runoff_w_sli.index = runoff_w_off.iloc[:-1].index
 # runoff_w_sli.index = runoff_w_off.iloc[:].index
 # runoff_w_sli = runoff_w_sli.iloc[:-1]
 
-BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
-BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
+# BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
+# BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
+
+BV.climatic.update_recharge(recharge, sim_state=sim_state)
+BV.climatic.update_runoff(runoff, sim_state=sim_state)
 
 if iD_explo == 't_isba2':
     BV.climatic.update_recharge(recharge_w_sli[:2], sim_state=sim_state)
@@ -3018,11 +3034,12 @@ list_kroptim = df_optim['KR']
 # BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,20]] ])
 
 list_porosity = np.arange(0.2, 10.2, 0.2)/100
+# list_porosity = np.array([1])/100
 
 #%% PRO PREPROCESSING
 
 run_model = True
-run_model = False
+# run_model = False
  
 for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[6:7],
                                                                             list_bottom[6:7],
@@ -3073,13 +3090,13 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
         list_model_modflow = []
             
         # for ip, poro_val in enumerate(list_porosity[-1:]):
-        for ip, poro_val in enumerate(list_porosity[:]):
+        for ip, poro_val in enumerate(list_porosity[4:5]):
             
             BV.hydraulic.update_porosity(poro_val)
             
             Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
-            # print(Ss_formula)
-    
+            print(Ss_formula)
+
             BV.hydraulic.update_ss(Ss_formula)
             
             if cond_decay_val == 0 :
@@ -3141,9 +3158,9 @@ for id_mod_val in list_id_mod[6:7]:
     #                                                     list_model_success[8:],
     #                                                     list_model_modflow[8:]):
 
-    for model_name, model_success, model_modflow in zip(list_model_name[4:5],
-                                                        list_model_success[4:5],
-                                                        list_model_modflow[4:5]):
+    for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                        list_model_success[:],
+                                                        list_model_modflow[:]):
                 
         # if model_success == True:
         BV.postprocessing_modflow(model_modflow,
@@ -3598,13 +3615,19 @@ for icri, cri in enumerate(['NSE','RMSE',
 
 #%% STREAMFLOW CHRONICS ONE
 
-dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
+# dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
 
 # iD_explo = 'e14'
 
 # iD_explos = ['e15','e16']
 # iD_explos = ['e16']
 iD_explos = ['e_isba2']
+
+iD_explos = ['et_isba3']
+
+iD_explos = ['e_isba4']
+
+iD_explos = ['e_isba6']
 
 CRIT = 'RMSE'
 
@@ -3661,18 +3684,20 @@ for w, w_name in enumerate(['Lasset'][:]):
             for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                                 list_model_success[:],
                                                                 list_model_modflow[:]):
-            # for model_name, model_success, model_modflow in zip(list_model_name[:10],
-            #                                                     list_model_success[:10],
-            #                                                     list_model_modflow[:10]):
+            # for model_name, model_success, model_modflow in zip(list_model_name[4:5],
+            #                                                     list_model_success[4:5],
+            #                                                     list_model_modflow[4:5]):
                     
                 Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
                 # Smod.index = recharge_w_sli.index()
                 
-                r = runoff_w_sli.copy()
-                Qmod = Smod['outflow_drain'] + r*1 # m/day
-                Qmod = Qmod * 1000 * 7
+                r = Smod['runoff'] * 1000 * 7
+                Qout = Smod['outflow_drain']  * 1000 * 7 # m/day
+                Qmod = Qout + r
                 # Qmod = Qmod.resample('M').mean()*4
+                
+                Rmod = Smod.recharge * 1000 * 7 
                 
                 mix = Qobs.copy().to_frame()
                 mix.columns = ['Qobs']
@@ -3752,8 +3777,9 @@ for w, w_name in enumerate(['Lasset'][:]):
                 ax = a0
                 ax.plot(Qobs, color='k', lw=1.5, ls='-', zorder=0, label='Observed')
                 ax.plot(Qmod, color='red', lw=0.5, label='Simulated')
-                ax.fill_between(Qmod.index, Qmod-(r*1000*7), Qmod, color='red', alpha=0.5, label='Simulated')
-                ax.plot(Qmod-(r*1000*7), color='red', lw=1.5, label='Simulated')
+                ax.fill_between(Qmod.index, Qmod-(r), Qmod, color='red', alpha=0.5, label='Simulated')
+                # ax.plot(Qmod-(r), color='red', lw=1.5, label='Simulated')
+                ax.plot(Rmod, color='blue', lw=1.5, label='Simulated')
                 ax.set_xlabel('Date')
                 ax.set_ylabel('Q [mm/w]')
                 ax.set_yscale('log')
@@ -3815,24 +3841,24 @@ for w, w_name in enumerate(['Lasset'][:]):
                 #             'STREAMFLOW_'+model_name+'.png'),
                 #             bbox_inches='tight')
                 
-                plt.close()
+                # plt.close()
                 
                 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+model_name+'.png',
                 #             bbox_inches='tight')
                 
-                fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all5/'+
-                            'Q_'+model_name+'.png',
-                                        bbox_inches='tight')
+                # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/_all5/'+
+                #             'Q_'+model_name+'.png',
+                #                         bbox_inches='tight')
 
 dfcrit_Q = df.copy()
 
-dfcrit_Q.to_csv(BV.simulations_folder+'_dfcrit_Q_'+iD_explo[0]+'.csv', sep=';') 
+# dfcrit_Q.to_csv(BV.simulations_folder+'_dfcrit_Q_'+iD_explo[0]+'.csv', sep=';') 
 
 #%% STREAMFLOW CRITERIA ONE
 
-dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
+# dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
 
-iD_explos = ['e_isba2']
+iD_explos = ['e_isba4']
 
 df = dfcrit_Q.copy()
        
@@ -3948,9 +3974,9 @@ for icri, cri in enumerate(['NSElog',
         
     plt.tight_layout()
     
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
-                'Q_'+cri+'_2'+'.png',
-                            bbox_inches='tight')
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
+    #             'Q_'+cri+'_2'+'.png',
+    #                         bbox_inches='tight')
 
 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
@@ -4328,7 +4354,7 @@ for icri, cri in enumerate(['OWN'][:]):
 
 #%% SATURATION CHRONICS ALL
 
-iD_explos = ['e_isba2']
+iD_explos = ['e_isba6']
 
 types_obs = ['hydrographic_mix_peren_upv1_pt']
 
@@ -4498,14 +4524,14 @@ for iD_explo in iD_explos:
             #             'SATURATION_'+model_name+'.png'),
             #             bbox_inches='tight')
             
-            plt.close()
+            # plt.close()
             
             # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'S_'+model_name+'.png',
             #             bbox_inches='tight')
             
-            fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/_all_sat2/'+
-                        'S_'+model_name+'.png',
-                                    bbox_inches='tight')
+            # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/_all_sat2/'+
+            #             'S_'+model_name+'.png',
+            #                         bbox_inches='tight')
         
 dfcrit_S = df.copy()
 
@@ -6823,6 +6849,7 @@ iD_explo = 'pisba2' # montly projection all
 
 iD_explo = 'pisbatest1' # montly projection all
 iD_explo = 'pisbatest2' # montly projection all
+iD_explo = 'pisbatest3' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 # iD_explo = 'Daily1' # test reanalysis daily
 # temporal = 'D'
@@ -6899,12 +6926,14 @@ df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.cs
 # For transient
 list_cond_decay = list_cond_decay
 list_bottom = list_bottom
-list_koptim = df_optim['K'][6:7]
+list_koptim = df_optim['K'][6:7] * 30
 list_kroptim = df_optim['KR'][6:7]
 # list_koptim = [3.38e-6 * 3600 * 24]
 # list_kroptim = [None]
 
-list_porosity = [1.6/100]
+list_porosity = [1.0/100]
+
+BV.settings.update_split_temporal(False)
 
 all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
 
@@ -7025,10 +7054,10 @@ for sce in ['RCP85']:
     ### FOR 3 SCENARIOS
     # BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2099), sim_state=sim_state)
     # BV.climatic.update_runoff(select_period(runoff_w_sli, 1975, 2099), sim_state=sim_state)
-    BV.climatic.update_recharge(select_period(recharge_w_sli, 1975, 2000), sim_state=sim_state)
-    BV.climatic.update_runoff(select_period(runoff_w_sli, 1975, 2000), sim_state=sim_state)
+    BV.climatic.update_recharge(select_period(recharge_w_sli*30, 1975, 2100), sim_state=sim_state)
+    BV.climatic.update_runoff(select_period(runoff_w_sli*30, 1975, 2100), sim_state=sim_state)
     
-    print(select_period(BV.climatic.recharge, 1975, 2100).mean()*365*1000)
+    # print(select_period(BV.climatic.recharge, 1975, 2100).mean()*365*1000)
     
     # recharge_ete = sim2[sim2.index.month.isin([7,8,9])]
     # recharge_ete = (recharge_ete['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
@@ -7040,7 +7069,7 @@ for sce in ['RCP85']:
     # first_clim = ((sim2['DRAINC_Q'] * norm_factor) / 1000).mean()
     first_clim = select_period(rea_recharge_isba, 2020, 2023).mean()
     print(first_clim)
-    BV.climatic.update_first_clim(first_clim)
+    BV.climatic.update_first_clim(first_clim*30)
     
     test_r = BV.climatic.recharge
     test_r = test_r.to_frame()
@@ -9623,7 +9652,9 @@ for watershed_name in watershed_names[:]:
 #%% HYSTERESIS TIME - FROM PHY
 
 # iD_explo = 'pisba1'
-# iD_explo = 'pisba2'
+iD_explo = 'pisba2'
+
+# iD_explo = 'pisbatest2' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 
 # test = pd.read_csv('D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/Lasset/results_simulations/p2_model4_20.0-0-3.38e-06_40.0-0.9-1.02e-06_ALL-RCP26-1975-2099/_postprocess/_timeseries/_simulated_timeseries.csv',
@@ -13557,4 +13588,8 @@ test3 = np.ma.masked_where(dem<0, test2)
 plt.imshow((test3))
 plt.colorbar()
 print((test3).sum())
+
+#%% REC
+
+plt.plot(select_period(rea_recharge_isba,2000,2002))
 
