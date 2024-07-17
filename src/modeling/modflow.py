@@ -327,12 +327,14 @@ class Modflow:
                 self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
             
         # Imposes discretization to modflow model through flopy
-        self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
+        self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
                                             top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
-                                            steady=self.steady, start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
+                                            steady=self.steady, start_datetime=self.start_datetime) 
+                                            # itmuni = 0 ==> undefined
+                                            # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
         # proj4_str=self.dem.crs)
     
         #%% Boundary conditions
@@ -473,7 +475,10 @@ class Modflow:
                                             hk=self.hk, sy=self.ps,
                                             ss=self.ss,
                                             iphdry=1, hdry=-100, vka=1, noparcheck=False,
-                                            extension='upw', unitnumber=31)
+                                            extension='upw',
+                                            # unitnumber=31
+                                            unitnumber=None
+                                            )
         
         #%% Source terms
         
@@ -596,7 +601,9 @@ class Modflow:
             # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
             stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
-                                unitnumber=[14, 51, 52, 53, 0], compact=True)
+                                # unitnumber=[14, 51, 52, 53, 0],
+                                unitnumber=None,
+                                compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
