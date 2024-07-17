@@ -91,8 +91,8 @@ if case == 'Hillslope_1D':
     dem_path = data_path + 'hillslope_1D.tif'
     
     x = imageio.imread(dem_path)
-    # x = x*0
-    # x = x+100
+    x = x*0
+    x = x+100
     # # x = x.reshape((1,100))
     x[1,:] = -99999
     # x = x[1,:]
@@ -186,6 +186,7 @@ y = y.sort_index()
 y = select_period(y, 2001, 2003)
 y = y['REA_historic'] / 1000
 rd = y.copy()
+rw = y.resample('M').mean()
 rm = y.resample('M').mean()
 # plt.plot(x)
 # plt.plot(y)
@@ -203,44 +204,60 @@ plt.yscale('log')
 #%% DEFINE
 
 # Frame settings
-model_name = 'default_Rm'
+model_name = 'default_Rm_md_split'
 # model_name = 'default_m-month'
 box = True # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
+
+plot = False
+
+
+# split_temp = 30
+# split_temp = True
 split_temp = False
 
 # Climatic settings
 # recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000/10
 # recharge = 100 / 365 / 1000
 # recharge = pd.Series([0]*30) / 365 / 1000
-recharge = Rm.copy()
-recharge = pd.Series([50,200,200,200,
-                      0,0,0,0,0,0,0,0,0,0,
-                      0,0,0,0,0,0,0,0,0,0,
-                      0,0,0,0,0,0,0,0,0,0,])/30/1000
-first_clim = 'first' # or 'first or value
+# recharge = Rd.copy()
+# kr = 10
+hyd_cond = 1 #e-5 * 24 * 3600
+# recharge = Rw.copy()
+# rval = hyd_cond / kr
+# rval = 1
+rval = 0.5
+# recharge = pd.Series([rval,rval,rval,rval,rval,rval,rval,rval,rval,rval,
+#                       0,0,0,0,0,0,0,0,0,0,
+#                       0,0,0,0,0,0,0,0,0,0,
+#                       0,0,0,0,0,0,0,0,0,0,])#/30/1000 #* 30
+recharge = np.ones(1000)*0
+recharge[:30] = rval
+recharge = pd.Series(recharge)
+first_clim = 'mean' # or 'first or value
 # first_clim = 100 / 365 / 1000 # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
-nlay = 5
+nlay = 10
 lay_decay = 1 # 1 for no decay
-bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+bottom = 0 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
 # if watershed_name == 'Lasset':
 #     hyd_cond = 1e-8 * 24 * 3600 # m/day
 # else:
-hyd_cond = 1e-5 * 24 * 3600 # m/day
+# hyd_cond = 1e-4 * 24 * 3600 #* 30 # m/day
+
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 0.1 / 100 # -
+porosity = 1.0 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
-bc_left = None # or value
+bc_left = 0 # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 
@@ -248,8 +265,6 @@ sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'watershed' # domain or watershed or path
 tif_file = '/home/agauvain/Documents/HydroModPy/Lasset/results_simulations/default/_postprocess/_rasters/seepage_areas_t(0).tif'
 tracking_dir = 'forward' # backward or forward
-
-plot = True
 
 #%% UPDATE
 
@@ -284,7 +299,7 @@ BV.hydraulic.update_lay_decay(poro_decay)
 # Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
 # print(Ss_formula)
 # BV.hydraulic.update_ss(Ss_formula)
-BV.hydraulic.update_ss(1e-10)
+BV.hydraulic.update_ss(1e-15)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -300,6 +315,7 @@ BV.settings.update_input_particules(zone_partic=zone_partic, path=tif_file, trac
 
 model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+"""
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation = True,
@@ -313,9 +329,9 @@ if success_modflow == True:
                               intermittency_monthly=False,
                               intermittency_daily=False,
                               export_all_tif = True)
-
+"""
 #%% MODPATH
-
+"""
 if sim_state == 'steady':
     if success_modflow == True:
         model_modpath = BV.preprocessing_modpath(model_modflow)
@@ -327,9 +343,9 @@ if sim_state == 'steady':
                                   pathlines_shp=True,
                                   particules_shp=True,
                                   random_id=None) # None
-
+"""
 #%% TIMESERIES
-
+"""
 if sim_state == 'steady':
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=model_modpath,
@@ -342,7 +358,7 @@ else:
                                                       actual_date=True, 
                                                       subbasin_results=True,
                                                       freq_time=freq_time) # or None
-
+"""
 #%% ---- PLOT
 """
 #%% 2D
@@ -450,9 +466,10 @@ if plot == True:
     ml = flopy.modflow.Modflow.load(fname+'.nam')
     hdobj = flopy.utils.HeadFile(fname + '.hds')
     times = hdobj.get_times()
+    print('LOAD')
     
 
-    for i, t in enumerate(times[:]):
+    for i, t in enumerate([times[0],times[-1]]):
         i = int(i)
         head = hdobj.get_data(totim=t)
         
@@ -506,12 +523,16 @@ if plot == True:
             cbsc = plt.colorbar(sc, shrink=0.75)
             cbsc.set_label('Residence times [y]', labelpad=+10)
         
-        ax.set_ylim(70,200)
+        # ax.set_ylim(70,200)
+        ax.set_ylim(0,100)
+
         
         # fig.savefig(os.path.join(simulations_folder, model_name,
         #                             '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
 
 #%% RECESSION
+
+fname = simulations_folder+model_name+'/'+model_name
 
 import flopy.utils.binaryfile as fpu
 import flopy.utils.binaryfile as bf
@@ -534,31 +555,72 @@ for i in range(len(kstpkper)):
     # print(drain[0][-1][-1])
     # list_D.append(drain[0][-1][0])
     list_D.append(drain[0]['q'].sum())
-    # list_CH.append(ch[0][-1][0])
-    list_R.append(rec[0][-1][0].sum())    
+    list_CH.append(ch[0]['q'].sum())
+    list_R.append(rec[0][-1][0].sum())
+    
+    Qx = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=(0,i))
+    Qy = np.ones(shape=(10,1,100))
+    Qz = cbb.get_data(text='FLOW LOWER FACE', kstpkper=(0,i))
+    # Q = np.sqrt(Qx**2 + Qz**2) # ???
+    # Q_print = Q[0,0,0] # m/m
+
+
+fac = 1
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 # ax.plot(abs(pd.Series(list_CH)))
-ax.plot(abs(pd.Series(list_D)), marker='o')
-ax.plot(abs(pd.Series(list_R)), marker='o')
+ax.plot(abs(pd.Series(list_R))/fac, marker='o', ms=1, c='b')
+ax.plot(abs(pd.Series(list_CH))/fac, c='red')
 ax.set_xlabel('time')
-ax.set_ylabel('discharge')
+ax.set_ylabel('discharge, rehcarge')
 # plt.yscale('log')
+
+df = pd.DataFrame()
+df = abs(pd.Series(list_CH).to_frame())
+df.columns = ['Q']
+df['Q'] = 2*df['Q']/10
+df['R'] = pd.Series(list_R)
+df = df[30:]
+df['t'] = np.arange(1,len(df)+1,1)
+df['dQ'] = df['Q'].diff()
+df['dt'] = df['t'].diff()
+df['dQ/dt'] = abs(df['dQ'] / df['dt'])
+df['a'] = ( 4.804*(hyd_cond**0.5)*1 ) / ( porosity*((2*1000)**1.5) )
+df['B'] = df['a'] * (df['Q']**1.5)
+df['a6'] = (3.14**2 * 1 * hyd_cond * 100 * 1 ) / ( porosity*((2*1000)**2) )
+df['B6'] = df['a6'] * (df['Q']**1)
+
+fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
+# ax.set_title('K/R = '+str(kr))
+ax.plot(np.log10(df['Q']), np.log10(df['dQ/dt']), c='r', label='simulated')
+ax.plot(np.log10(df['Q']), np.log10(df['B']), c='k', label='analytic')
+# ax.plot(np.log10(df['Q']), np.log10(df['B6']), c='grey', label='analytic lin')
+
+ax.set_xlabel('log(Q)')
+ax.set_ylabel('log(-dQ/dt)')
+# ax.set_yscale('log')
+# ax.set_xscale('log')
+
+fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
+ax.plot(np.log10(df['Q']), np.log10(df['dQ/dt']) - np.log10(df['B']))
+
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 # ax.plot(pd.Series(list_R), abs(pd.Series(list_CH)))
-ax.plot(abs(pd.Series(list_R)), abs(pd.Series(list_D)), marker='o', lw=1)
-print(abs(pd.Series(list_D)).sum() / abs(pd.Series(list_R)).sum())
+ax.plot(abs(pd.Series(list_R))/fac, abs(pd.Series(list_CH))/fac, marker='o', lw=1)
+print(abs(pd.Series(list_CH)/fac).sum() / abs(pd.Series(list_R)/fac).sum())
 ax.set_xlabel('recharge')
 ax.set_ylabel('discharge')
 # plt.yscale('log')
 # plt.xscale('log')
 
+#%% SMOD
+"""
 Smod = pd.read_csv(simulations_folder+model_name+'/'+'_postprocess/_timeseries/_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 # ax.plot(pd.Series(list_R), abs(pd.Series(list_CH)))
-ax.plot(Smod['recharge']*1000, Smod['total_areas'], marker='o')
+ax.plot((Smod['recharge']/fac)*1000, Smod['total_areas'], marker='o')
 ax.set_xlabel('recharge')
 ax.set_ylabel('seepage')
 from matplotlib.ticker import FormatStrFormatter
@@ -566,7 +628,7 @@ ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
 mf_list = flopy.utils.MfListBudget(simulations_folder+model_name+'/'+model_name+".list")
 incremental, cumulative = mf_list.get_budget()
-
+"""
 #%% ---- NOTES
 
 os.chdir(root_dir)
