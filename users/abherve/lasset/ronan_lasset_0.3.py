@@ -2888,11 +2888,11 @@ iD_explo = 'e_isba2' # with isba recharge ==> change ss with decay factor (detai
 vers = 'isba2' # dichotomy isba
 iD_explo = 'e_isba4' # with isba recharge ==> change ss with decay factor (details for bad models)
 
-vers = 'isba2' # dichotomy isba
-iD_explo = 'e_isba5' # with isba recharge ==> change ss with decay factor (details for bad models)
+# vers = 'isba2' # dichotomy isba
+# iD_explo = 'e_isba5' # with isba recharge ==> change ss with decay factor (details for bad models)
 
-vers = 'isba2' # dichotomy isba
-iD_explo = 'e_isba7' # with isba recharge ==> change ss with decay factor (details for bad models)
+# vers = 'isba2' # dichotomy isba
+# iD_explo = 'e_isba7' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 decay_factor = 2
 
@@ -3627,7 +3627,7 @@ iD_explos = ['et_isba3']
 
 iD_explos = ['e_isba4']
 
-iD_explos = ['e_isba6']
+# iD_explos = ['e_isba6']
 
 CRIT = 'RMSE'
 
@@ -3676,28 +3676,28 @@ for w, w_name in enumerate(['Lasset'][:]):
             # id_mod_val = 6
             
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            d = dd.io.load(h5file)
+            # d = dd.io.load(h5file)
             list_model_name = d['list_model_name'][:]
             list_model_success = d['list_model_success'][:]
             list_model_modflow = d['list_model_modflow'][:]
             
-            for model_name, model_success, model_modflow in zip(list_model_name[:],
-                                                                list_model_success[:],
-                                                                list_model_modflow[:]):
-            # for model_name, model_success, model_modflow in zip(list_model_name[4:5],
-            #                                                     list_model_success[4:5],
-            #                                                     list_model_modflow[4:5]):
+            # for model_name, model_success, model_modflow in zip(list_model_name[:],
+            #                                                     list_model_success[:],
+            #                                                     list_model_modflow[:]):
+            for model_name, model_success, model_modflow in zip(list_model_name[4:5],
+                                                                list_model_success[4:5],
+                                                                list_model_modflow[4:5]):
                     
                 Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
                 # Smod.index = recharge_w_sli.index()
                 
-                r = Smod['runoff'] * 1000 * 7
-                Qout = Smod['outflow_drain']  * 1000 * 7 # m/day
+                r = Smod['runoff'] * 1000 #* 7
+                Qout = Smod['outflow_drain']  * 1000 #* 7 # m/day
                 Qmod = Qout + r
                 # Qmod = Qmod.resample('M').mean()*4
                 
-                Rmod = Smod.recharge * 1000 * 7 
+                Rmod = Smod.recharge * 1000 #* 7 
                 
                 mix = Qobs.copy().to_frame()
                 mix.columns = ['Qobs']
@@ -4354,7 +4354,7 @@ for icri, cri in enumerate(['OWN'][:]):
 
 #%% SATURATION CHRONICS ALL
 
-iD_explos = ['e_isba6']
+iD_explos = ['e_isba4']
 
 types_obs = ['hydrographic_mix_peren_upv1_pt']
 
@@ -4409,9 +4409,9 @@ for iD_explo in iD_explos:
         list_model_success = d['list_model_success'][:]
         list_model_modflow = d['list_model_modflow'][:]
         
-        for model_name, model_success, model_modflow in zip(list_model_name[:],
-                                                            list_model_success[:],
-                                                            list_model_modflow[:]):
+        for model_name, model_success, model_modflow in zip(list_model_name[4:5],
+                                                            list_model_success[4:5],
+                                                            list_model_modflow[4:5]):
         # for model_name, model_success, model_modflow in zip(list_model_name[7:8],
         #                                                     list_model_success[7:8],
         #                                                     list_model_modflow[7:8]):
