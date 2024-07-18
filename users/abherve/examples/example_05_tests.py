@@ -221,18 +221,8 @@ plt.yscale('log')
 
 #%% DEFINE
 
-split = False
-split = True
-
-if split == False:
-    model_name = 'default_daily_mperday_nosplit'
-    split_temp = True
-    recharge = Rd.copy()
-    
-if split == True:
-    model_name = 'default_weekly_mperday_split'
-    split_temp = True
-    recharge = Rw.copy()
+model_name = 'default_daily_mperday_nosplit'
+model_name = 'default_weekly_mperday_split'
 
 # Frame settings
 # model_name = 'default_Rm_md'
@@ -250,17 +240,30 @@ plot = True
 # recharge = pd.Series([0]*30) / 365 / 1000
 # recharge = Rm.copy()
 # kr = 10
-hyd_cond = 1e-5 * 24 * 3600
+# hyd_cond = 1e-8 * 24 * 3600
+# hyd_cond = 1e-5 * 24 * 3600
+hyd_cond = 10 /30
+# hyd_cond = 1
 # recharge = Rw.copy()
 # rval = hyd_cond / kr
 # rval = 1
-# rval = 1
+# rval = 100 / 1000 / 365
+rval = 1 /30
+print(hyd_cond/rval)
+
 # recharge = pd.Series([rval,rval,rval,rval,rval,rval,rval,rval,rval,rval,
 #                       0,0,0,0,0,0,0,0,0,0,
 #                       0,0,0,0,0,0,0,0,0,0,
 #                       0,0,0,0,0,0,0,0,0,0,])#/30/1000 #* 30
-# recharge = np.ones(1000)*0
-# recharge[:30] = rval
+
+recharge = pd.Series(np.ones(1000)*0)
+recharge[:30] = rval
+split_temp =  False
+
+# recharge = pd.Series(np.ones(int(1000/12))*0)
+# recharge[:2] = rval
+# split_temp = list(np.ones(int(1000/12))*30)
+
 # recharge = pd.Series(recharge)
 first_clim = 'mean' # or 'first or value
 # first_clim = 100 / 365 / 1000 # or 'first or value
@@ -327,7 +330,7 @@ BV.hydraulic.update_lay_decay(poro_decay)
 # Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
 # print(Ss_formula)
 # BV.hydraulic.update_ss(Ss_formula)
-BV.hydraulic.update_ss(1e-15)
+BV.hydraulic.update_ss(1e-10)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -609,7 +612,7 @@ df = abs(pd.Series(list_CH).to_frame())
 df.columns = ['Q']
 df['Q'] = 2*df['Q']/resamp_res
 df['R'] = pd.Series(list_R)
-df = df[30:]
+df = df[30*3:]
 df['t'] = np.arange(1,len(df)+1,1)
 df['dQ'] = df['Q'].diff()
 df['dt'] = df['t'].diff()
