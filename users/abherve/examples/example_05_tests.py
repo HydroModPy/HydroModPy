@@ -34,15 +34,16 @@ from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
 import imageio
+from osgeo import gdal
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+wbt.verbose = True
 
 #%% ROOT
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+root_dir = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root_dir)
 
 cwd = os.getcwd()
@@ -88,18 +89,35 @@ out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
 case = 'Hillslope_1D'
 
 if case == 'Hillslope_1D':
-    dem_path = data_path + 'hillslope_1D.tif'
+    dem_path_ref = data_path + 'hillslope_1D.tif'
     
-    x = imageio.imread(dem_path)
-    x = x*0
-    x = x+100
-    # # x = x.reshape((1,100))
-    x[1,:] = -99999
-    # x = x[1,:]
-    toolbox.export_tif(dem_path, x, -99999, data_path + 'hillslope_1D_modified.tif')
-    # x = x.transpose()
-    y = imageio.imread(data_path + 'hillslope_1D_modified.tif')
-    dem_path = data_path + 'hillslope_1D_modified.tif'
+    resamp_res = 20
+    dem_path_res = data_path + 'hillslope_1D_resampled'+str(resamp_res)+'.tif'
+    
+    if not os.path.exists(dem_path_res):
+        # open reference file and get resolution
+        x_res = resamp_res
+        y_res = resamp_res  # make sure this value is positive
+        # specify input and output filenames
+        inputFile = dem_path_ref
+        outputFile = dem_path_res
+        # call gdal Warp
+        kwargs = {"format": "GTiff", "xRes": x_res, "yRes": y_res}
+        ds = gdal.Warp(outputFile, inputFile, **kwargs)
+        del(ds)
+    # wbt.verbose = True
+    # wbt.resample(
+    #     dem_path_ref, 
+    #     dem_path_res, 
+    #     cell_size=100, 
+    #     base=None, 
+    #     method="cc")
+    
+    x = imageio.imread(dem_path_res)
+    x = (x*0)+100
+    # x[1,:] = -99999
+    toolbox.export_tif(dem_path_res, x, -99999, data_path + 'hillslope_1D_userdefined.tif')
+    dem_path = data_path + 'hillslope_1D_userdefined.tif'
     
     load = False
     watershed_name = case
@@ -224,11 +242,11 @@ split_temp = False
 # recharge = pd.Series([0]*30) / 365 / 1000
 # recharge = Rd.copy()
 # kr = 10
-hyd_cond = 1 #e-5 * 24 * 3600
+hyd_cond = 10 #e-5 * 24 * 3600
 # recharge = Rw.copy()
 # rval = hyd_cond / kr
 # rval = 1
-rval = 0.5
+rval = 1
 # recharge = pd.Series([rval,rval,rval,rval,rval,rval,rval,rval,rval,rval,
 #                       0,0,0,0,0,0,0,0,0,0,
 #                       0,0,0,0,0,0,0,0,0,0,
@@ -253,7 +271,7 @@ thick = 30 # if bottom is None, aquifer thickness
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 1.0 / 100 # -
+porosity = 10 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
@@ -457,7 +475,8 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 
 # if case != 'Lasset':
 
-if plot == True:    
+plot = True
+if plot == True:
 
     import flopy.utils.binaryfile as fpu
     
@@ -578,7 +597,7 @@ ax.set_ylabel('discharge, rehcarge')
 df = pd.DataFrame()
 df = abs(pd.Series(list_CH).to_frame())
 df.columns = ['Q']
-df['Q'] = 2*df['Q']/10
+df['Q'] = 2*df['Q']/resamp_res
 df['R'] = pd.Series(list_R)
 df = df[30:]
 df['t'] = np.arange(1,len(df)+1,1)
