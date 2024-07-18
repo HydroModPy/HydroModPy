@@ -221,42 +221,52 @@ plt.yscale('log')
 
 #%% DEFINE
 
+split = False
+split = True
+
+if split == False:
+    model_name = 'default_daily_mperday_nosplit'
+    split_temp = True
+    recharge = Rd.copy()
+    
+if split == True:
+    model_name = 'default_weekly_mperday_split'
+    split_temp = True
+    recharge = Rw.copy()
+
 # Frame settings
-model_name = 'default_Rm_md_split'
+# model_name = 'default_Rm_md'
 # model_name = 'default_m-month'
 box = True # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
 
-plot = False
-
-
-# split_temp = 30
-# split_temp = True
-split_temp = False
+plot = True
 
 # Climatic settings
 # recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000/10
 # recharge = 100 / 365 / 1000
 # recharge = pd.Series([0]*30) / 365 / 1000
-# recharge = Rd.copy()
+# recharge = Rm.copy()
 # kr = 10
-hyd_cond = 10 #e-5 * 24 * 3600
+hyd_cond = 1e-5 * 24 * 3600
 # recharge = Rw.copy()
 # rval = hyd_cond / kr
 # rval = 1
-rval = 1
+# rval = 1
 # recharge = pd.Series([rval,rval,rval,rval,rval,rval,rval,rval,rval,rval,
 #                       0,0,0,0,0,0,0,0,0,0,
 #                       0,0,0,0,0,0,0,0,0,0,
 #                       0,0,0,0,0,0,0,0,0,0,])#/30/1000 #* 30
-recharge = np.ones(1000)*0
-recharge[:30] = rval
-recharge = pd.Series(recharge)
+# recharge = np.ones(1000)*0
+# recharge[:30] = rval
+# recharge = pd.Series(recharge)
 first_clim = 'mean' # or 'first or value
 # first_clim = 100 / 365 / 1000 # or 'first or value
 freq_time = 'M'
+
+# split_temp = [30]
 
 # Hydraulic settings
 nlay = 10
@@ -271,7 +281,7 @@ thick = 30 # if bottom is None, aquifer thickness
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
+porosity = 1 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
@@ -475,7 +485,7 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 
 # if case != 'Lasset':
 
-plot = True
+# plot = True
 if plot == True:
 
     import flopy.utils.binaryfile as fpu
@@ -606,8 +616,8 @@ df['dt'] = df['t'].diff()
 df['dQ/dt'] = abs(df['dQ'] / df['dt'])
 df['a'] = ( 4.804*(hyd_cond**0.5)*1 ) / ( porosity*((2*1000)**1.5) )
 df['B'] = df['a'] * (df['Q']**1.5)
-df['a6'] = (3.14**2 * 1 * hyd_cond * 100 * 1 ) / ( porosity*((2*1000)**2) )
-df['B6'] = df['a6'] * (df['Q']**1)
+# df['a6'] = (3.14**2 * 1 * hyd_cond * 100 * 1 ) / ( porosity*((2*1000)**2) )
+# df['B6'] = df['a6'] * (df['Q']**1)
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 # ax.set_title('K/R = '+str(kr))

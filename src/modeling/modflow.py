@@ -288,15 +288,11 @@ class Modflow:
                         self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
                     else:
                         self.perlen = self.climatic.index.to_series().diff().values
-                else:
-                    self.perlen = np.ones(len(self.climatic))
-            if isinstance(self.split_temp, int) == True:
-                self.perlen = np.ones(len(self.climatic)) * self.split_temp
-            else:
-                self.perlen = np.ones(len(self.climatic))
+            if isinstance(self.split_temp, list) == True:
+                self.perlen = self.split_temp
             if self.split_temp == False:
                 self.perlen = np.ones(len(self.climatic))
-            print(self.split_temp)
+            # print(self.split_temp)
             # First timestep is steady state:
             self.perlen[0] = 1
                         
