@@ -172,8 +172,14 @@ def watershed_dem(BV):
     cbar.ax.tick_params(size=2)
     # cbar.set_label('Elevation (m)', size=12, rotation=270)
     fig.tight_layout()
-    fig.savefig(os.path.join(BV.figure_folder,'watershed_dem.png'), dpi=300, 
-                bbox_inches='tight', transparent=False)
+    try:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_dem'+'_'+
+                    BV.hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, 
+                    bbox_inches='tight', transparent=False)
+    except:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_dem'+'.png'), dpi=300, 
+                    bbox_inches='tight', transparent=False)
+        pass
 
 def watershed_local(regional_dem_path, BV):
     """
@@ -289,7 +295,12 @@ def watershed_geology(BV):
     l2 = plt.legend( loc='lower right', title = BV.watershed_name,framealpha=0.8)
     plt.gca().add_artist(l1)
     fig.tight_layout()
-    fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
+    try:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_geology'+'_'+
+                    BV.hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, bbox_inches='tight', transparent=False)
+    except:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
+        pass
 
 def watershed_zones(BV):
     fontprop = toolbox.plot_params(8,15,18,20)

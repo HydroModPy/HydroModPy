@@ -9,7 +9,7 @@ Created on Tue Apr 23 10:04:34 2024
 """
 Created on Wed Jan 26 10:49:18 2022
 
-@author: ronan
+@author: ronan ab
 """
 
 #%% LIBRARIES MODULES
@@ -894,7 +894,7 @@ ax.spines[['right', 'top']].set_visible(False)
 ax.get_xaxis().tick_bottom()
 ax.get_yaxis().tick_left()
 
-fig.savefig(fig_path + 'elevation_obs.png', dpi=300, bbox_inches='tight', transparent=False)
+# fig.savefig(fig_path + 'elevation_obs.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% SCATTER PLOTS
 
@@ -1241,6 +1241,7 @@ ax = axs[0]
 cmap = 'PiYG'
 cmap = 'cividis'
 cmap = 'viridis'
+cmap = 'RdYlBu'
 # ax.plot(str_down['VALUE1'], str_dem['VALUE1'], lw=0, marker='.',
 #         markeredgewidth=1, markersize = 1, color='lightskyblue',
 #         label='tributary streams', zorder=-1000)
@@ -1311,7 +1312,7 @@ ax.invert_xaxis()
 
 plt.tight_layout()
 
-fig.savefig(fig_path + 'along_stream.png', dpi=300, bbox_inches='tight', transparent=False)
+# fig.savefig(fig_path + 'along_stream.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% ELEVATION SIM
 
@@ -1375,7 +1376,7 @@ for id_mod_val in [2]:
         # ax.invert_yaxis()
         ax.set_yticks([1900,2000,2100,2200])
         
-        fig.savefig(fig_path + 'elevation sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
+        # fig.savefig(fig_path + 'elevation sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
 
 #%% SEEPAGE ALONG
 
@@ -1391,6 +1392,11 @@ for id_mod_val in [2]:
     for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                         list_model_success[:],
                                                         list_model_modflow[:]):
+        
+        # wbt.extract_raster_values_at_points(
+        #     stable_folder+'geographic/watershed_slope.tif', 
+        #     BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'z_outflow_drain_values.shp', 
+        #     out_text=False)
 
         # values_outflow_path = BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'z_outflow_drain_values.shp'
         values_outflow_path_clipman = BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/'+'z_outflow_drain_values.shp'
@@ -1432,7 +1438,95 @@ for id_mod_val in [2]:
         ax.invert_xaxis()
         
         # fig.savefig(fig_path + 'flow sim_KR1000.png', dpi=300, bbox_inches='tight', transparent=False)
-        
+
+# fig, ax = plt.subplots(1,1, figsize=(5,5))
+# ax.scatter((values_outflow['drain_valu'][values_outflow['VALUE1']>0]*1000)/3600/24, values_outflow['VALUE1'][values_outflow['VALUE1']>0],
+#            # c=values_outflow['down_value'][values_outflow['VALUE1']>0]-1000
+#            )
+# ax.set_xscale('log')
+# ax.set_yscale('log')
+# ax.set_xlabel('debit')
+# ax.set_ylabel('pente')
+
+#%% GEOMORPHO XY
+
+ones = one.copy()
+ones['x1'] = np.nan
+
+ones = values_outflow.copy()
+ones = values_accumul.copy()
+
+ones = ones.iloc[:, :-1]
+
+ones[ones['dem_value'] <= 0] = np.nan
+
+ones = ones[(ones['down_value']>2500+1000)&(ones['down_value']<4000+1000)]
+
+# ones = ones.rolling(window=0).mean()
+
+# n_steps = 10
+# ones['x1'] = ones['dem_value'].rolling(window=n_steps).apply(lambda x: x.iloc[1] - x.iloc[0])
+# ones['x2'] = ones['drain_valu'].rolling(window=n_steps).apply(lambda x: x.iloc[1] - x.iloc[0])
+
+# fig, ax = plt.subplots(1,1, figsize=(5,5))
+# axb = ax.twinx()
+# ax.scatter(ones['down_value'], ones['dem_value'])
+# axb.scatter(ones['down_value'], ones['drain_valu'])
+
+ones = ones[ones['drain_valu']>ones['drain_valu'].mean()]
+
+V = 1
+W = 1
+
+ones['dem_diff'] = ones['dem_value'].diff(V)
+ones['acc_diff'] = ones['acc_value'].diff(V)
+ones['drn_diff'] = ones['drain_valu'].diff(V)
+ones['drn_win'] = ones['drain_valu'].rolling(window=W).sum()
+ones['acc_win'] = ones['acc_value'].rolling(window=W).sum()
+
+ones = ones[ones['dem_diff']<0]
+ones[ones<0] = ones*-1
+
+fig, ax = plt.subplots(1,1, figsize=(5,5))
+ax.scatter(ones['dem_diff'], ones['drn_win'],
+           # c=ones['acc_win']
+           )
+# ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.set_xlim(0,5)
+ax.set_xlabel('elevation diff between 2 pixels [m]')
+ax.set_ylabel('discharge on 1 pixel [L/T]')
+
+#%% GEOMORPHO RASTERS
+
+wbt.surface_area_ratio(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/surface_area_ratio.tif')   
+
+wbt.ruggedness_index(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/ruggedness_index.tif')
+
+wbt.multiscale_roughness(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/multiscale_roughness_mag.tif',
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/multiscale_roughness_scale.tif',
+    max_scale=3, 
+    min_scale=1, 
+    step=1)
+
+wbt.edge_density(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/edge_density.tif',
+    filter=11, 
+    norm_diff=10, 
+    zfactor=None)
+
+wbt.wetness_index(
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_dem.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/watershed_slope.tif', 
+    'C:/Users/ronan/Simulations/Poschiavino_10m/results_stable/geographic/wetness_index.tif')
+
 #%% NOTES
         
 wbt.raster_to_vector_points('C:/Users/ronan/Simulations/Poschiavino/results_simulations/e1_model_2_2.7397_1000.0/_postprocess/_rasters/accumulation_flux_t(0).tif',

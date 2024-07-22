@@ -22,6 +22,7 @@ from os.path import dirname, abspath
 import random
 import pickle
 import geopandas as gpd
+import imageio
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -47,7 +48,9 @@ class Modpath:
                  model_name: str='Default_modpath',
                  bin_path: str=os.path.join(os.getcwd(),'bin'),
                  # Specific settings
-                 zone_partic: str='domain'):
+                 zone_partic: str='domain',
+                 path: str='',
+                 tracking_direction: str='forward'):
         """
         Initialize method.
 
@@ -68,6 +71,8 @@ class Modpath:
 
         """
         self.zone_partic = zone_partic
+        self.tracking_direction = tracking_direction
+        self.path = path
         self.model_name = model_name
         self.geographic = geographic
         self.model_folder = model_folder
@@ -152,8 +157,28 @@ class Modpath:
         self.mp.dis_file = dis_file
         self.mp.head_file = head_file
         self.mp.budget_file = bud_file
-
-        flopy.modpath.Modpath6Sim(model=self.mp, option_flags=[2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 1, 1],
+        
+        if self.tracking_direction == 'backward':
+            track = 2
+        elif self.tracking_direction == 'forward':
+            track = 1
+        else:           
+            track = 1 #Forward by default
+        
+        flags = option_flags=[2, # SimulationType : 1 = Endpoint simulation; 2 = Pathline simulation; 3 = Timeseries simulation
+                              track, # TrackingDirection : 1 = Forward tracking; 2 = Backward tracking
+                              1, # WeakSinkOption : 1 = Allow particles to pass through cells that contain weak sinks; 2 = Stop particles when they enter cells that contain weak sinks.
+                              1, # WeakSourceOption : 1 = Allow particles to pass through cells that contain weak sources; 2 = Stop particles when they enter cells that contain weak sources.
+                              1, # ReferenceTimeOption : 1 = Specify a value for reference time; 2 = Specify a stress period, time step, and relative time position within the time step to use to compute the reference time.
+                              2, # StopOption : 1 = For forward tracking simulations, stop at the end of the MODFLOW simulation. For backward tracking simulations, stop at the beginning of the MODFLOW simulation. 2 = Extend the initial or final steady-state MODFLOW time step as far as necessary to track all particles through to their termination points. For forward tracking simulations, this option would have an effect whenever the final MODFLOW stress period is steady-state. For backward tracking simulations, this option would have an effect whenever the first MODFLOW stress period is steady-state. If all MODFLOW stress periods are transient, option 2 produces the same result as option 1. 3 = Specify a value of tracking time at which to stop the particle-tracking computation.
+                              2, # ParticleGenerationOption : 1 = Specify information to automatically generate particles for a collection of cells. 2 = Read particle locations from a starting locations file.
+                              1, # TimePointOption : 1 = Time points are not specified. 2 = A specified number of time points are calculated for a fixed time increment. 3 = An array of time point values is specified.
+                              1, # BudgetOutputOption : 1 = No budget checking 2 = A summary of cell-by-cell budgets is printed in the Listing File 3 = A list of cells is specified for which detailed budget information is summarized in the Listing File 4 = Trace mode is in effect
+                              2, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
+                              1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
+                              1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.
+        
+        flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
                                   group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=szone)
         
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
@@ -167,7 +192,10 @@ class Modpath:
         if self.zone_partic == 'domain':
             mask_dem = self.geographic.dem_clip
             stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem >= self.geographic.nodata)*pcol*prow)
-
+        if self.zone_partic == 'path':
+            mask_dem = imageio.imread(self.path)
+            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem > 0)*pcol*prow)
+        
         hds_1c = fpu.HeadFile(head_file)
         head_1c = hds_1c.get_alldata(mflay=None)
 
@@ -180,6 +208,7 @@ class Modpath:
                         break
 
         compt = 0
+        
         for i in range(0, nrow):
             for j in range(0, ncol):
                 if self.zone_partic == 'watershed':
@@ -207,6 +236,23 @@ class Modpath:
                                     for k in range(0, nlay):
                                         if head_1c[0][k, i, j] > 0:
                                             stldata[compt]['k0'] = k
+                                            break
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    stldata[compt]['zloc0'] = 1
+                                    stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
+                                    stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
+                                    # print(compt)
+                                    compt = compt + 1
+                if self.zone_partic == 'path':
+                    if mask_dem[i,j] > 0: # active or note
+                        if head_1c[0][0][i][j] != 0.48:
+                            for ii in range (0, prow):
+                                for jj in range (0, pcol):
+                                    stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
+                                    for k in range(0, nlay):
+                                        if head_1c[0][k, i, j] > 0:
+                                            stldata[compt]['k0'] = k+1 # AG : Paticules injected 
                                             break
                                     stldata[compt]['j0'] = j
                                     stldata[compt]['i0'] = i

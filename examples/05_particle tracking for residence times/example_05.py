@@ -70,8 +70,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = os.path.join(example_path, "data") + '/'
 # To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
+# out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
+out_path = '/home/agauvain/Documents/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -193,7 +194,9 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 
 # Particle tracking settings
-zone_partic = 'domain' # or watershed
+zone_partic = 'path' # domain or watershed or path
+tif_file = '/home/agauvain/Documents/HydroModPy/Lasset/results_simulations/default/_postprocess/_rasters/seepage_areas_t(0).tif'
+tracking_dir = 'backward' # backward or forward
 
 #%% UPDATE
 
@@ -228,9 +231,10 @@ BV.hydraulic.update_lay_decay(poro_decay)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
+BV.settings.update_split_temporal(split_temp=False)
 
 # Particle tracking settings
-BV.settings.update_input_particules(zone_partic=zone_partic)
+BV.settings.update_input_particules(zone_partic=zone_partic, path = tif_file, tracking_direction=tracking_dir)
 
 #%% ---- MODELING
 
