@@ -52,6 +52,7 @@ class Watershed:
                  from_dem: list=None, # [path, cell size]
                  from_shp: list=None, # [path, buffer size]
                  from_xyv: list=None, # [x, y, snap distance, buffer size]
+                 reg_fold: str=None,
                  bottom_path: str=None, # path
                  save_object: bool=True):
         """        
@@ -98,6 +99,7 @@ class Watershed:
         self.from_dem = from_dem
         self.from_shp = from_shp
         self.from_xyv = from_xyv
+        self.reg_fold = reg_fold
         self.bottom_path = bottom_path
         self.bin_path = os.path.join(os.path.dirname(root_dir), 'bin/')
         
@@ -234,7 +236,7 @@ class Watershed:
             self.y_outlet = watershed_info.iloc[0]['y_outlet']
             self.snap_dist = watershed_info.iloc[0]['snap_dist']
             self.buff_percent = watershed_info.iloc[0]['buff_percent']
-            self.crs_proj = watershed_info.iloc[0]['crs_proj']
+            self.crs_proj = watershed_info.iloc[0]['crs_proj']     
             
         if self.from_dem != None:
             dem = gdal.Open(self.from_dem[0])
@@ -293,7 +295,8 @@ class Watershed:
                                                 self.from_lib,
                                                 self.from_dem,
                                                 self.from_shp,
-                                                self.from_xyv)
+                                                self.from_xyv,
+                                                self.reg_fold)
         
         self.elt_def.append('geographic')
 
@@ -624,6 +627,7 @@ class Watershed:
                                         sea_level=self.oceanic.MSL,
                                         bc_left=self.settings.bc_left, 
                                         bc_right=self.settings.bc_right,
+										split_temp=self.settings.split_temp,
                                         # Lakes/reservoirs
                                         lakeres=self.lakeres)
         
@@ -745,7 +749,9 @@ class Watershed:
                                         model_name=model_modflow.model_name,
                                         bin_path = self.bin_path,
                                         # Specific settings  
-                                        zone_partic=self.settings.zone_partic)
+                                        zone_partic=self.settings.zone_partic,
+                                        path = self.settings.path,
+                                        tracking_direction = self.settings.tracking_direction)
         
         # Preprocessing Modflow
         model_modpath.pre_processing() # verbose

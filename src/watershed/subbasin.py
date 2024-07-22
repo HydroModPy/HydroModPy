@@ -133,15 +133,27 @@ class Subbasin:
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
         outlet_snap_shp = outpath + 'outlet_snap.shp'
-        wbt.snap_pour_points(outlet_shp,
-                             os.path.join(geographic.reg_path, 'region_acc.tif'),
-                             outlet_snap_shp,
-                             sub_snap_dist
-                             # geographic.snap_dist
-                             )
+        if geographic.reg_fold == None:
+            wbt.snap_pour_points(outlet_shp,
+                                 os.path.join(geographic.reg_path, 'region_acc.tif'),
+                                 outlet_snap_shp,
+                                 sub_snap_dist
+                                 # geographic.snap_dist
+                                 )
+        else:
+            wbt.snap_pour_points(outlet_shp,
+                                 os.path.join(geographic.reg_fold, 'region_acc.tif'),
+                                 outlet_snap_shp,
+                                 sub_snap_dist
+                                 # geographic.snap_dist
+                                 )
+        # print(os.path.join(geographic.reg_fold, 'region_acc.tif'))
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
-        wbt.watershed(os.path.join(geographic.reg_path, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
+        if geographic.reg_fold == None:
+            wbt.watershed(os.path.join(geographic.reg_path, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
+        else:
+            wbt.watershed(os.path.join(geographic.reg_fold, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
         # print(watershed_shp)
