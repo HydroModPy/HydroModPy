@@ -2,7 +2,7 @@
 """
 Created on Wed Dec  6 22:19:57 2023
 
-Launch code for HydroModPy.
+Launch code for HydroModPy simulation of Cheze reservoir for EBR
 @author: coche
 
 HydroModPy:
@@ -17,10 +17,10 @@ HydroModPy:
 """
 
 
-#%% LIBRAIRIES
+#%% CHARGEMENT DES BIBLIOTHEQUES ET MODULES
 
 #% PYTHON
-# Libraries installed by default
+# Bibliothèques installées par défaut
 import sys
 import os
 import warnings
@@ -30,19 +30,19 @@ warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", ca
 warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore")
 
-# Libraries need to be installed if not
+# Bibliothèques additionnelles installées dans l'environnement
 import numpy as np
 import pandas as pd
 import flopy
 import requests
 import datetime
 
-# Libraries added from 'conda install' procedure
-import matplotlib as mpl        # install automatically by geopandas
+# Bibliothèques installées par la procédure 'conda install'
+import matplotlib as mpl        # installé automatiquement par geopandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# # Libraries added from 'pip install' procedure
+# # Bibliothèques installées par la procédure 'pip install'
 import deepdish as dd
 import imageio
 import whitebox
@@ -51,7 +51,7 @@ wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
 
-#% ROOT
+#% DOSSIER RACINE
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 root_dir = os.path.join(root_dir, "HydroModPy")
@@ -63,12 +63,10 @@ if not cwd == root_dir:
     # print("Root path directory is: {0}".format(cwd))
 
 
-#% HYDROMODPY
+#% Modules HydroModPy
 import src
 import importlib
 importlib.reload(src)
-
-# Import HydroModPy modules
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
@@ -76,7 +74,7 @@ from src.tools import toolbox, folder_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 
-#%% PERSONAL PATHS
+#%% DOSSIERS UTILISATEUR
 data_path = os.path.join(os.path.split(os.path.split(root_dir)[0])[0], r"1- Veille", r"4- Donnees")
 # =============================================================================
 # example_path = root_dir + "/examples/99_reservoir and dam/"
@@ -87,7 +85,7 @@ out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
 
 
-#%% WATERSHED 
+#%% BASSIN VERSANT 
 ##%%% Options
 dem_path = os.path.join(data_path, 
                         r"0- MNT\IGN\MNT_fusion", 
@@ -99,7 +97,7 @@ from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buff
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
 save_object = True
 
-#%%% Create GEOGRAPHIC
+#%%% Créer GEOGRAPHIC
 print('##### '+watershed_name.upper()+' #####')
 
 BV = watershed_root.Watershed(dem_path=dem_path,
@@ -113,7 +111,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = BV.geographic.stable_folder
 simulations_folder = BV.geographic.simulations_folder
 
-#%%% Reload GEOGRAPHIC
+#%%% Recharger GEOGRAPHIC
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               watershed_name=watershed_name,
@@ -123,23 +121,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = BV.geographic.stable_folder
 simulations_folder = BV.geographic.simulations_folder
 
-#%% (DATA)
-# Clip specific data at the catchment scale
-geol_path = os.path.join(data_path,
-                         r"14- Geologie\GEO1M")
-BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-
-hydrography_path = os.path.join(data_path,
-                                r"5- Rivieres\BD Topage CoursEau_FXX-shp")
-BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
-
-BV.add_piezometry()
-
-# =============================================================================
-# BV.add_lakeres(stable_folder)
-# =============================================================================
-
-#%% SUBBASIN
+#%% SOUS-BASSINS
 # Extract some subbasin from data available above
 # =============================================================================
 # BV.add_subbasin(os.path.join(data_path,"additional"), 200)
@@ -156,13 +138,23 @@ BV.add_subbasin(os.path.join(root_dir, 'examples',
                              '99_reservoir and dam', 'data', 'additional'), 200)
 # Normalement pas besoin car c'est déjà un point d'intérêt
 
-#%% STUDY SITE VISUALIZATION
+#%% (VISUALISATIONS DU SITE D'ETUDE)
+# Clip specific data at the catchment scale
+geol_path = os.path.join(data_path,
+                         r"14- Geologie\GEO1M")
+BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+hydrography_path = os.path.join(data_path,
+                                r"5- Rivieres\BD Topage CoursEau_FXX-shp")
+BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
+
+BV.add_piezometry()
+
 # General plot of the study site
 visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
-#%% RECHARGE and RUNOFF (Input data)
+#%% RECHARGE et RUISSELLEMENT DE SURFACE (données d'entrée)
 BV.add_climatic()
 sim_state = 'transient'
 freq_input = 'W'
@@ -337,18 +329,19 @@ else:
 # ax.legend()
 # =============================================================================
 
-#%% DAM
+#%% BARRAGE
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
 
-# ---- Add a new lake
+# ---- Activer le module lac/réservoir
 BV.add_lakeres(BV.stable_folder)
 
 ######################
 ### --- lake 1 --- ###
 ######################
-# Add new lake/reservoir
+# Ajouter un nouveau réservoir
 # ----------------------
 lake_id = 'reservoir_cheze'
+
 print("\n-----------" + "-"*len(lake_id))
 print(f"Ajout de '{lake_id}'")
 print("-----------" + "-"*len(lake_id))
@@ -364,8 +357,8 @@ maskmx_path = os.path.join(root_dir, 'examples',
 # =============================================================================
 BV.lakeres.new_lakeres(maskmx_path, lake_id)
 
-# Geometry and physical properties
-# --------------------------------
+# Géométrie et propriétés physiques
+# ---------------------------------
 # BV.lakeres.update_stageinit(lake_id, 85) # [m] # initialized later
 BV.lakeres.update_stagemax(lake_id, 87.3) # [m]
 # BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
@@ -386,7 +379,7 @@ outlet_file = os.path.join(root_dir, 'examples',
                            'lakeres_outlets.shp')
 BV.lakeres.update_outlet(lake_id, outlet_file)
 
-# ---- Load input fluxes from monthly data
+# ---- Chargement des flux d'entrée à partir des données mensuelles
 print("   . Chargement des flux d'entrée mensuels")
 
 dam_data_path = os.path.join(os.path.split(data_path)[0], 
@@ -401,7 +394,7 @@ dam_input_df = pd.read_csv(dam_data_path,
                            index_col = 'time',
                            parse_dates = True)
 
-# Convert values (monthly sums) into daily rates 
+# Conversion des valeurs (sommes mensuelles) en flux journaliers
 days_in_month = pd.DataFrame( 
     index = dam_input_df.index,
     data = dam_input_df.index.days_in_month)
@@ -411,14 +404,14 @@ sum_col = dam_input_df.columns != 'cheze'
 dam_input_df.loc[:, sum_col] = dam_input_df.loc[:, sum_col].divide(
     days_in_month.n_days, axis="index")
 
-# Subsample like recharge
+# Sous-échantillonage des données d'entrée selon la temporalité de la recharge
 # =============================================================================
 # # interpolation method
 # dam_input_df = dam_input_df.shift(periods = -15, freq = 'D') # 15 should be replaced with a more accurate value
 # dam_input_df = dam_input_df.resample('D').mean()
 # dam_input_df.interpolate(method = "time", limit_direction = 'backward', inplace = True)
 # =============================================================================
-# to daily
+# d'abord en journalier
 daily_index = pd.date_range(start = BV.climatic.recharge.index[0], 
                              periods = (BV.climatic.recharge.index[-1] \
                                  - BV.climatic.recharge.index[0]).days + 1,
@@ -430,7 +423,7 @@ dam_input_df = dam_input_df.reindex(index = daily_index)
 # =============================================================================
 dam_input_df.fillna(method = 'bfill', inplace = True) # backward fill
 dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
-# and to weekly
+# puis en hebdomadaire
 rules = {
     'cheze': 'mean',
     'canut':'mean',
@@ -443,11 +436,11 @@ rules = {
     }
 dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 
-# ---- Enhance Cheze river discharge
+# ---- Raffinage des débits de la Chèze
 print("   . Raffinage des débits de la Chèze à partir de eaufrance.fr")
 
 code_station = 'J736422001' # La Chèze à Plélan-le-Grand - L'Enlevrier
-# Details on the station:
+# Details sur la station:
 # -----------------------
 url = r"https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations"
 params = {
@@ -484,15 +477,15 @@ else:
         header = 0,
         index_col = 0)
     print("        error on station info update")
-# Update file:
+# Mise à jour des fichiers
 stations_info.to_csv(os.path.join(
     os.path.split(data_path)[0],
     r"4- Donnees\10- Stations et debits\Debits",
     "stations_list.csv"), 
     sep = ";")
 
-# Values of daily flow:
-# ---------------------
+# Valeurs de flux journaliers :
+# -----------------------------
 url = r"https://hubeau.eaufrance.fr/api/v1/hydrometrie/obs_elab"
 # idx = stations_info.index[stations_info['code_station'] == code_station][0]
 # date_ini = stations_info.loc[idx, 'date_ouverture_station']
@@ -550,7 +543,7 @@ discharge.iloc[0] = toolbox.hydrological_mean(discharge, 4)
 dam_input_df['stream'].update(discharge.val)
 
 
-# ---- Enhance initial stage
+# ---- Raffinage du niveau initial
 print("   . Raffinage du niveau initial de la retenue")
 
 abaque = pd.read_csv(os.path.join(
@@ -579,8 +572,8 @@ abaque = pd.read_csv(os.path.join(
 # data_volumes = data[['cheze']].copy()
 data_volumes = dam_input_df[['cheze']].copy()
 
-# Weekly data
-# -----------
+# Données hebdomadaires
+# ---------------------
 Stock_Cheze_xls_folder = os.path.join(
     os.path.split(data_path)[0],
     r"1- Biblio locale\14- Barrage\Donnees journalieres Cheze\Niveaux")
@@ -632,15 +625,15 @@ data_volumes = data_volumes.reindex(
 
 data_volumes.interpolate(method = 'time', inplace = True)
 
-# Update inputs (optional)
-# -------------
+# Mise à jour des données d'entrées (optionnel)
+# ---------------------------------------------
 data_volumes = data_volumes.resample(freq_input).mean()
 data_volumes.fillna(method = 'bfill', inplace = True) # backward fill
 data_volumes.fillna(0, inplace = True) # replace remaining NaN with 0
 dam_input_df['cheze'].update(data_volumes.vol)
 
-# Convert volumes into stages
-# ---------------------------
+# Conversion des volumes en stages
+# --------------------------------
 data_levels = data_volumes.copy()
 data_levels.rename(columns = {'vol': 'lvl'}, inplace = True)
 for t in data_levels.index:
@@ -682,7 +675,7 @@ BV.lakeres.update_stageinit(
     level_init) # [m]
 
 
-# ---- Enhance recent input flows with daily data
+# ---- Raffinage des flux d'entrée récents à partir des données journalières
 print("   . Raffinage des flux d'entrée avec les données journalières :")
 
 Flux_Cheze_xls_folder = os.path.join(
@@ -736,8 +729,8 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                 
                 data = data.resample(freq_input).agg({var:rules[var] for var in data.columns})
 
-                # Convert levels into volumes
-                # ---------------------------
+                # Conversion des niveaux en volumes
+                # ---------------------------------
                 for t in data.index:
                     if not abaque[abaque.level <= data.cheze.loc[t].item()].empty:
                         data.cheze.loc[t] = abaque[abaque.level <= data.cheze.loc[t].item()].iloc[-1].volume
@@ -759,13 +752,13 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                 # dam_input_df[['cheze', 'resti', 'meu', 'usine']].update(data)
 
 
-# ---- Update lake/reservoir input data
+# ---- Mise-à-jour des données d'entrée du réservoir
 print("   . Mise à jour des paramètres du réservoir")
 
 # Set the first value (used for steady initialization) as the average value
 dam_input_df.iloc[0] = toolbox.hydrological_mean(dam_input_df, 4)
 
-##%%% Update flux
+##%%% Mise-à-jour des flux
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # User can update these fluxes with float, file path, or "from_climatic" mode
@@ -827,18 +820,18 @@ BV.settings.add_inputflow(bound_id, return_flow_coords, snap_dist,
 # BV.lakeres.remove_flowbound(bound_id)
 
 
-#%% PARAMETRIZATION
-##%%% Define
+#%% PARAMETRISATION
 
-# Frame settings
+##%%% Définitions :
+# Paramètres cadres
 box = True # or False
 sink_fill = False # or True
 plot_cross = True
 
-# Climatic settings
+# Paramètres climatiques
 first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
 
-# Hydraulic settings
+# Paramètres hydrauliques
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
@@ -850,56 +843,53 @@ cond_drain = None # or value of conductance
 porosity = 0.1 / 100 # [%]
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
-# Boundary settings
+# Conditions aux limites
 bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 
-# Particle tracking settings
+# Paramètres de suivi des particules
 zone_partic = 'watershed' # or 'domain''
 
-##%%% Update
-
-# Import modules
+##%%% Mise à jour :
 BV.add_settings()
 
-# Model name
+# Nom du modèle
 model_name = 'base'
 BV.settings.update_model_name(model_name)
 
-# BV.add_climatic()
 BV.add_geometric() # soon
 BV.add_hydraulic()
 
-# Frame settings
+# Paramètres cadre
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
 BV.settings.update_active_plot(plot_cross=plot_cross)
 
-# Climatic settings
+# Paramètres climatiques
 # BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_first_clim(first_clim)
 
-# Hydraulic settings
+# Paramètres hydrauliques
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
-BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+BV.hydraulic.update_thick(thick) # 30 / n'intervient pas si bottom != None
 BV.hydraulic.update_hyd_cond(hyd_cond)
 BV.hydraulic.update_porosity(porosity)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
 
-# Boundary settings
+# Conditions aux limites
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
 
-# Particle tracking settings
+# Paramètres du suivi des particules
 BV.settings.update_input_particules(zone_partic=zone_partic)
 
-# Lakes/reservoir
+# Lacs/reservoirs
 try:
     BV.lakeres
 except AttributeError:
@@ -907,7 +897,7 @@ except AttributeError:
 
 BV.save_object()
 
-#%% MESH VISUALIZATION
+#%% VISUALISATION DU MAILLAGE
 
 mf = flopy.modflow.Modflow.load(os.path.join(
     simulations_folder, model_name, model_name+'.nam'))
@@ -955,7 +945,7 @@ fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
 fig.colorbar(cb)
 plt.tight_layout()
 
-#%% MODFLOW
+#%% SIMULATION DU MODELE (Modflow)
 model_name = BV.settings.model_name
 sim_state = BV.settings.sim_state
 
@@ -976,7 +966,7 @@ mdflw_dict['model_modflow'] = model_modflow
 
 dd.io.save(h5file, mdflw_dict)
 
-#%%% Reload
+#%%% Rechargement des résultats du modèle Modflow
 model_name = 'base'
 
 h5file = os.path.join(simulations_folder,
