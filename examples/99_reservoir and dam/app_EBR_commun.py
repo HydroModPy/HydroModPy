@@ -54,7 +54,7 @@ xr.set_options(keep_attrs = True)
 #% DOSSIER RACINE
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
-root_dir = os.path.join(root_dir, "HydroModPy")
+root_dir = os.path.join(root_dir)
 sys.path.append(root_dir)
 
 cwd = os.getcwd()
@@ -88,7 +88,7 @@ out_path = folder_root.root_folder_results()
 #%% BASSIN VERSANT 
 ##%%% Options
 dem_path = os.path.join(data_path, 
-                        r"0- MNT\IGN\MNT_fusion", 
+                        "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
 watershed_name = '_'.join(['Cheze_dam', pd.to_datetime("today").strftime("%Y-%m-%d")])
