@@ -200,10 +200,10 @@ else:
     elif isinstance(BV.climatic.recharge, pd.core.series.Series):
         R = BV.climatic.recharge.resample('Y').sum()*1000 # [m] -> [mm]
         r = BV.climatic.runoff.resample('Y').sum()*1000 # [m] -> [mm]
-    ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=1)
-    ax.plot(r, label='runoff_reanalysis', c='navy', lw=1)
-    ax.set_xlabel('Time')
-    ax.set_ylabel('[mm/year]')
+    ax.plot(R, label='recharge (réanalyse)', c='dodgerblue', lw=1)
+    ax.plot(r, label='ruissellement de surface (réanalyse)', c='navy', lw=1)
+    ax.set_xlabel('Temps')
+    ax.set_ylabel('[mm/an]')
     ax.legend()
     
     # Daily (or weekly) (matplotlib)
@@ -221,10 +221,10 @@ else:
     # R = recharge*1000 # [m] -> [mm]
     # r = runoff*1000 # [m] -> [mm]
     # =============================================================================
-    ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=1)
-    ax.plot(r, label='runoff_reanalysis', c='navy', lw=1)
-    ax.set_xlabel('Time')
-    ax.set_ylabel('[mm/day]')
+    ax.plot(R, label='recharge (réanalyse)', c='dodgerblue', lw=1)
+    ax.plot(r, label='ruissellement de surface (réanalyse)', c='navy', lw=1)
+    ax.set_xlabel('Temps')
+    ax.set_ylabel('[mm/j]')
     ax.legend()
 
 #%% BARRAGE
