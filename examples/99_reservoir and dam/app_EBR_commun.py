@@ -23,6 +23,8 @@ HydroModPy:
 # Bibliothèques installées par défaut
 import sys
 import os
+import requests
+import datetime
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
@@ -34,15 +36,9 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import flopy
-import requests
-import datetime
-
-# Bibliothèques installées par la procédure 'conda install'
-import matplotlib as mpl        # installé automatiquement par geopandas
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-# # Bibliothèques installées par la procédure 'pip install'
 import deepdish as dd
 import imageio
 import whitebox
@@ -75,15 +71,16 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 
 #%% DOSSIERS UTILISATEUR
-data_path = os.path.join(os.path.split(os.path.split(root_dir)[0])[0], r"1- Veille", r"4- Donnees")
-# =============================================================================
-# example_path = root_dir + "/examples/99_reservoir and dam/"
-# data_path = example_path + "data/"
-# =============================================================================
-# out_path = os.path.join(folder_root.root_folder_results(), 'cheze_0.1')
 out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# Pour modifier ce chemin : out_path = folder_root.update_root_folder_results()
 
+print(f"Les résultats des simulations seront stockés dans le dossier {out_path}\n")
+
+data_path = os.path.join(out_path, 'data')
+if not os.path.exists(data_path):
+    os.makedirs(data_path)
+if len(os.listdir(data_path)) == 0:
+    print(f"Warning : Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)\n")
 
 #%% BASSIN VERSANT 
 ##%%% Options
@@ -91,7 +88,7 @@ dem_path = os.path.join(data_path,
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = '_'.join(['Cheze_dam', pd.to_datetime("today").strftime("%Y-%m-%d")])
+watershed_name = '_'.join(['barrage_Cheze', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -156,81 +153,34 @@ visualization_watershed.watershed_dem(BV)
 
 #%% RECHARGE et RUISSELLEMENT DE SURFACE (données d'entrée)
 BV.add_climatic()
-sim_state = 'transient'
-freq_input = 'W'
-clim_mode = 'web' # 'csv', 'web'
+sim_state = 'transient' # transitoire
+freq_input = 'W' # hebdomadaire
 
 ##%%% Reanalyse
-if clim_mode == 'csv':
-    rea_path = os.path.join(data_path,
-                            r"8- Meteo\Surfex",
-                            "_climate_REANALYSIS.csv")
-    BV.climatic.update_recharge_reanalysis(path_file=rea_path,
-                                           clim_mod='REA',
-                                           clim_sce='historic',
-                                           first_year=1990,
-                                           last_year=2021,
-                                           time_step='D',
-                                           sim_state=sim_state)
-    
-    BV.climatic.update_runoff_reanalysis(path_file=rea_path,
-                                         clim_mod='REA',
-                                         clim_sce='historic',
-                                         first_year=1990,
-                                         last_year=2021,
-                                         time_step='D',
-                                         sim_state=sim_state)
-    
-    ### Select more precisely time period
-    recharge = BV.climatic.recharge['2004-01-01':'2020-01-01'] # '2020-01-01'
-    BV.climatic.update_recharge(recharge,
-                                sim_state = sim_state)
+BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 
+                                              'evt', 'etp', 'precip', 'temp'],
+                                       nc_data_path=os.path.join(
+                                           data_path,
+                                           r"Meteo"),
+                                       first_year=pd.to_datetime('today').year-15,
+                                       # last_year=2021,
+                                       time_step=freq_input,
+                                       sim_state=sim_state,
+                                       spatial_mean=True,
+                                       geographic=BV.geographic,
+                                       disk_clip='watershed') # for clipping the netcdf files saved on disk
+                                                                # can be a shapefile path or a flag: 'watershed' or False
 
-    runoff = BV.climatic.runoff['2004-01-01':'2020-01-01']
-    BV.climatic.update_runoff(runoff,
-                              sim_state = sim_state)
-    
-    ### Downsample to weekly sums
-    BV.climatic.update_recharge(BV.climatic.recharge.resample(freq_input).mean(),
-                                sim_state = sim_state)
-    BV.climatic.update_runoff(BV.climatic.runoff.resample(freq_input).mean(),
-                              sim_state = sim_state)
-
-    ### Set the first value (which will be used for steady state) as the pluri-annual mean
-    BV.climatic.recharge[0] = toolbox.hydrological_mean(BV.climatic.recharge, 4)
-    BV.climatic.runoff[0] = toolbox.hydrological_mean(BV.climatic.runoff, 4)
-    BV.climatic.update_recharge(BV.climatic.recharge,
-                                sim_state = sim_state)
-    BV.climatic.update_runoff(BV.climatic.runoff,
-                              sim_state = sim_state)
-
-elif clim_mode == 'web':
-    BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 
-                                                  'evt', 'etp', 'precip', 'temp'],
-                                           nc_data_path=os.path.join(
-                                               data_path,
-                                               r"8- Meteo\Surfex\SIM2\Cheze"),
-                                           first_year=pd.to_datetime('today').year-15,
-                                           # last_year=2021,
-                                           time_step=freq_input,
-                                           sim_state=sim_state,
-                                           spatial_mean=True,
-                                           geographic=BV.geographic,
-                                           disk_clip='watershed') # for clipping the netcdf files saved on disk
-                                                                    # can be a shapefile path or a flag: 'watershed' or False
-
-    # Units
-    BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
-    BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
-    BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-    BV.climatic.temp = BV.climatic.temp / 1000 # from mm to m
-
-### Units
-BV.climatic.update_recharge(BV.climatic.recharge / 1000) # from mm to m
-BV.climatic.update_runoff(BV.climatic.runoff / 1000) # from mm to m
+# Units
+BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
+BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
+BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
+BV.climatic.temp = BV.climatic.temp / 1000 # from mm to m
+BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
+BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
 
 
-### Figures of chronics
+### Figures des chroniques
 if isinstance(BV.climatic.recharge, float):
     print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
     print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
@@ -276,68 +226,13 @@ else:
     ax.set_ylabel('[mm/day]')
     ax.legend()
 
-# =============================================================================
-# #%%% (Safran Surfex)
-# BV.add_safransurfex(clip_path)
-# 
-# #%%% (Explore 1)
-# BV.climatic.update_recharge_explore1(path_file=data_path+'_climate_EXPLORE1.csv',
-#                                      clim_mod='IPS1',
-#                                      clim_sce='RCP8.5',
-#                                      first_year=2020,
-#                                      last_year=2099,
-#                                      time_step='D',
-#                                      sim_state='transient')
-# BV.climatic.update_runoff_explore1(path_file=data_path+'_climate_EXPLORE1.csv',
-#                                      clim_mod='IPS1',
-#                                      clim_sce='RCP8.5',
-#                                      first_year=2020,
-#                                      last_year=2099,
-#                                      time_step='D',
-#                                      sim_state='transient')
-# fig, ax = plt.subplots(1,1, figsize=(6,3))
-# R = BV.climatic.recharge.resample('Y').sum()*1000
-# r = BV.climatic.runoff.resample('Y').sum()*1000
-# ax.plot(R, label='recharge_explore1', c='dodgerblue', lw=2)
-# ax.plot(r, label='runoff_explore1', c='navy', lw=2)
-# ax.set_xlabel('Date')
-# ax.set_ylabel('[mm/year]')
-# ax.legend()
-# 
-# #%%% (Explore 2)
-# BV.climatic.update_recharge_explore2(path_file=data_path+'_climate_EXPLORE2.csv',
-#                                      gcm_mod='CNR',
-#                                      rcm_mod='ALA',
-#                                      sce_mod='RCP8.5',
-#                                      first_year=2020,
-#                                      last_year=2099,
-#                                      sim_state='transient')
-# BV.climatic.update_runoff_explore2(path_file=data_path+'_climate_EXPLORE2.csv',
-#                                      gcm_mod='CNR',
-#                                      rcm_mod='ALA',
-#                                      sce_mod='RCP8.5',
-#                                      first_year=2020,
-#                                      last_year=2099,
-#                                      sim_state='transient')
-# fig, ax = plt.subplots(1,1, figsize=(6,3))
-# R = BV.climatic.recharge.resample('Y').sum()*1000
-# r = BV.climatic.runoff.resample('Y').sum()*1000
-# ax.plot(R, label='recharge_explore2', c='dodgerblue', lw=2)
-# ax.plot(r, label='runoff_explore2', c='navy', lw=2)
-# ax.set_xlabel('Date')
-# ax.set_ylabel('[mm/year]')
-# ax.legend()
-# =============================================================================
-
 #%% BARRAGE
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
 
 # ---- Activer le module lac/réservoir
 BV.add_lakeres(BV.stable_folder)
 
-######################
-### --- lake 1 --- ###
-######################
+
 # Ajouter un nouveau réservoir
 # ----------------------
 lake_id = 'reservoir_cheze'
