@@ -119,32 +119,33 @@ stable_folder = BV.geographic.stable_folder
 simulations_folder = BV.geographic.simulations_folder
 
 #%% SOUS-BASSINS
-# Extract some subbasin from data available above
-# =============================================================================
-# BV.add_subbasin(os.path.join(data_path,"additional"), 200)
-# =============================================================================
 hydrometry_path = os.path.join(data_path,
-                               r"10- Stations et debits\Stations jaugeage\HydroModPy")
+                               "Stations jaugeage")
 BV.add_hydrometry(hydrometry_path, 'france hydrometric stations.shp')
 
 intermittency_path= os.path.join(data_path,
-                                 r"10- Stations et debits\ONDE")
+                                 "Stations ONDE")
 BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
 
-BV.add_subbasin(os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data', 'additional'), 200)
+# =============================================================================
+# BV.add_subbasin(os.path.join(root_dir, 'examples', 
+#                              '99_reservoir and dam', 'data', 'additional'), 200)
+# =============================================================================
 # Normalement pas besoin car c'est déjà un point d'intérêt
 
 #%% (VISUALISATIONS DU SITE D'ETUDE)
 # Clip specific data at the catchment scale
 geol_path = os.path.join(data_path,
-                         r"14- Geologie\GEO1M")
+                         "Geologie")
 BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 hydrography_path = os.path.join(data_path,
-                                r"5- Rivieres\BD Topage CoursEau_FXX-shp")
+                                r"Hydrographie")
 BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
 
-BV.add_piezometry()
+# =============================================================================
+# BV.add_piezometry()
+# =============================================================================
+# Erreur en cours
 
 # General plot of the study site
 visualization_watershed.watershed_local(dem_path, BV)
@@ -182,8 +183,8 @@ BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from
 
 ### Figures des chroniques
 if isinstance(BV.climatic.recharge, float):
-    print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
-    print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
+    print(f"Recharge moyenne = {BV.climatic.recharge} m")
+    print(f"Ruissellement de surface moyen = {BV.climatic.runoff} m")
 else:
     # Yearly (matplotlib)
     fig, ax = plt.subplots(1,1, figsize=(6,3))
