@@ -3,7 +3,7 @@
 Created on Wed Dec  6 22:19:57 2023
 
 Launch code for HydroModPy.
-@author: coche
+@author: Alexandre Coche
 
 HydroModPy:
     * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
@@ -54,7 +54,7 @@ xr.set_options(keep_attrs = True)
 #% ROOT
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
-root_dir = os.path.join(root_dir, "HydroModPy")
+# root_dir = os.path.join(root_dir, "HydroModPy")
 sys.path.append(root_dir)
 
 cwd = os.getcwd()
@@ -77,7 +77,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 
 #%% PERSONAL PATHS
+#ALEXANDRE: adresse du répertoire de données (générique)
 data_path = os.path.join(os.path.split(os.path.split(root_dir)[0])[0], r"1- Veille", r"4- Donnees")
+data_path = r"C:\OneDrive\OneDrive - Université de Rennes\data-JRDD-shared\LakeRes"
 # =============================================================================
 # example_path = root_dir + "/examples/99_reservoir and dam/"
 # data_path = example_path + "data/"
@@ -88,9 +90,9 @@ out_path = folder_root.root_folder_results()
 
 
 #%% WATERSHED 
-##%%% Options
+##%%% Options: load MNT
 dem_path = os.path.join(data_path, 
-                        r"0- MNT\IGN\MNT_fusion", 
+                        "MNT", 
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
 watershed_name = 'cheze_Dam_10.7'
@@ -215,9 +217,7 @@ if clim_mode == 'csv':
 elif clim_mode == 'web':
     BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 
                                                   'evt', 'etp', 'precip', 'temp'],
-                                           nc_data_path=os.path.join(
-                                               data_path,
-                                               r"8- Meteo\Surfex\SIM2\Cheze"),
+                                           nc_data_path=r'C:\results',
                                            first_year=pd.to_datetime('today').year-15,
                                            # last_year=2021,
                                            time_step=freq_input,
@@ -226,7 +226,7 @@ elif clim_mode == 'web':
                                            geographic=BV.geographic,
                                            disk_clip='watershed') # for clipping the netcdf files saved on disk
                                                                     # can be a shapefile path or a flag: 'watershed' or False
-
+    # os.path.join(data_path,"Meteo")
     # Units
     BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
     BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
