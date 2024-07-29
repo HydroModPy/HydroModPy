@@ -62,7 +62,7 @@ class Lakeres:
                 
         self.n_lakeres:int = 0 # number of lakes/reservoirs
         self.indexes:list = [] # identifiers of lakes/reservoirs
-        self.maskmx_file_by_lake:dict = {} # dict of lakes/reservoirs masks paths, 
+        self.maskmx_by_lake:dict = {} # dict of lakes/reservoirs masks paths, 
                                    # keyed by lake_id
                                    # masks correspond to te maximal extent of 
                                    # the lake, or larger (see computation of 
@@ -88,7 +88,7 @@ class Lakeres:
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
-    def new_lakeres(self, maskmx_file:str, lake_id:int=None, mask_crs=None,
+    def new_lakeres(self, maskmx:str, lake_id:int=None, mask_crs=None,
                     bathymetry_raster:str=None, bathy_crs=None, 
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
                     prcplk=0, evaplk=0, rnf=0, wthdrw=0, stageinit=None,
@@ -99,7 +99,10 @@ class Lakeres:
         
         Parameters
         ----------
-        maskmx_file : str
+        All values should be expressed in the spatial and temporal units of the
+        model.
+        
+        maskmx : str
             Path to the mask file (shapefile or raster).
             Works with NetCDF files?
         lake_id : int, optional
@@ -111,9 +114,11 @@ class Lakeres:
         bathy_crs : TYPE, optional
             DESCRIPTION. The default is None.
         ssmx : float, optional
-            DESCRIPTION. The default is None.
+            Maximal stage (level) of the lake/reservoir
+            The default is None.
         volmx : float, optional
-            DESCRIPTION. The default is None.
+            Maxaimal volume of the lake. 
+            The default is None.
         bdlknc : float, optional
             DESCRIPTION. The default is 86400 m/d (= 1 m/s)
         prcplk : float|array|file_path(str), optional
@@ -160,7 +165,7 @@ class Lakeres:
         print(f"Adding lake '{lake_id}'")
         
         # Lake/reservoir geometry
-        self.maskmx_file_by_lake[lake_id] = maskmx_file
+        self.maskmx_by_lake[lake_id] = maskmx
         self.mask_crs_by_lake[lake_id] = mask_crs
         self.bathymetry_by_lake[lake_id] = bathymetry_raster
         self.bathy_crs_by_lake[lake_id] = bathy_crs
@@ -180,13 +185,13 @@ class Lakeres:
 
         # Update Lakeres attributes:
         # self.idlist = self.idlist.append(lake_id)
-        self.indexes = list(self.maskmx_file_by_lake.keys())
+        self.indexes = list(self.maskmx_by_lake.keys())
         self.n_lakeres = len(self.indexes)
         
         
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
-        attr_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+        attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
                      self.bathymetry_by_lake, self.bathy_crs_by_lake,
                      self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
                      self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
@@ -194,21 +199,21 @@ class Lakeres:
         if new_lake_id and not new_maskmx_path: # just replace the key
             for d in attr_list:
                 d[new_lake_id] = d.pop(lake_id)
-            self.indexes = list(self.maskmx_file_by_lake.keys())
+            self.indexes = list(self.maskmx_by_lake.keys())
             
         elif new_maskmx_path and not new_lake_id: # just replace the mask
-            self.maskmx_file_by_lake[lake_id] = new_maskmx_path
+            self.maskmx_by_lake[lake_id] = new_maskmx_path
             
         elif new_lake_id and new_maskmx_path: # replace both the mask and the key
             for d in attr_list:
                 d[new_lake_id] = d.pop(lake_id)
-            self.maskmx_file_by_lake[new_lake_id] = new_maskmx_path
-            self.indexes = list(self.maskmx_file_by_lake.keys())
+            self.maskmx_by_lake[new_lake_id] = new_maskmx_path
+            self.indexes = list(self.maskmx_by_lake.keys())
 
 
     #%% REMOVE A LAKE/RESERVOIR
     def remove(self, lake_id):
-        attr_list = [self.maskmx_file_by_lake, self.mask_crs_by_lake, 
+        attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
                      self.bathymetry_by_lake, self.bathy_crs_by_lake,
                      self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
                      self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
@@ -216,7 +221,7 @@ class Lakeres:
             d.pop(lake_id)
         
         # Update Lakeres attributes:
-        self.indexes = list(self.maskmx_file_by_lake.keys())
+        self.indexes = list(self.maskmx_by_lake.keys())
         self.n_lakeres = len(self.indexes)
         
         
@@ -294,7 +299,7 @@ class Lakeres:
             lake_id = self.lake_by_num_id[num_id]
             
             maskmx, src_crs, _, _ = toolbox.load_to_numpy(
-                self.maskmx_file_by_lake[lake_id], 
+                self.maskmx_by_lake[lake_id], 
                 src_crs = self.mask_crs_by_lake[lake_id],
                 base_path = geographic.watershed_dem, 
                 dst_crs = geographic.crs_proj)
@@ -404,11 +409,11 @@ class Lakeres:
                         
                     else:
                     # In this case, maskmx will be used as a strict mask of the
-                    # lake/reservoir, at his maximum extent.
+                    # lake/reservoir, at its maximum extent.
                         print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
                         self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
-                        dem_box = np.where(maskmx, self.ssmx_by_lak[lake_id] - depth, dem_box)
+                        dem_box = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem_box)
                         
                 else:
                     print(" Err: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
