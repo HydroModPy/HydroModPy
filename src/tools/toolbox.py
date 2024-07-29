@@ -110,9 +110,9 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
 def load_to_numpy(file, src_crs=None,
                   base_path:str=None, dst_crs=None, out_path:str=None):
     """
-    Generate a numpy array from a source file (vector or raster) and a base
-    raster. The numpy array profile (shape, resolution, extent...) matches 
-    with the base one.
+    Generate a numpy array from a source file (vector or raster) or a geopandas 
+    and a base raster. The numpy array profile (shape, resolution, extent...) 
+    matches with the base one.
     If the base raster is not specified (base_path), then the generated numpy
     array has the same profile as the source file.
     
