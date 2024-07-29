@@ -231,7 +231,7 @@ else:
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
 
 # ---- Activer le module lac/réservoir
-BV.add_lakeres(BV.stable_folder)
+BV.add_lakeres()
 
 
 # Ajouter un nouveau réservoir
