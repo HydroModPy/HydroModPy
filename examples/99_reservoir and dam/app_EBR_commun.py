@@ -104,19 +104,11 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               save_object=save_object)
 
-# Get paths from geographic (paths generated automatically but necessary for plots)
-stable_folder = BV.geographic.stable_folder
-simulations_folder = BV.geographic.simulations_folder
-
 #%%% Recharger GEOGRAPHIC
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               watershed_name=watershed_name,
                               load=True)
-
-# Get paths from geographic (paths generated automatically but necessary for plots)
-stable_folder = BV.geographic.stable_folder
-simulations_folder = BV.geographic.simulations_folder
 
 #%% SOUS-BASSINS
 hydrometry_path = os.path.join(data_path,
@@ -243,44 +235,36 @@ print(f"Ajout de '{lake_id}'")
 print("-----------" + "-"*len(lake_id))
 print("   . Définition de la géographie du réservoir :")
 
-maskmx_path = os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data', 
-                             'Cheze_lake_75m_outside.tif')
-# =============================================================================
-# maskmx_path = os.path.join(root_dir, 'examples', 
-#                              '99_reservoir and dam', 'data', 
-#                              'Cheze_polygon_englob.shp')
-# =============================================================================
-BV.lakeres.new_lakeres(maskmx_path, lake_id)
+maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_lake_75m_larger.tif")
+# maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_polygon_larger.shp")
+
+BV.lakeres.new_lakeres(maskmx, lake_id)
 
 # Géométrie et propriétés physiques
 # ---------------------------------
-# BV.lakeres.update_stageinit(lake_id, 85) # [m] # initialized later
+# BV.lakeres.update_stageinit(lake_id, 85) # [m] # initialisé plus tard
 BV.lakeres.update_stagemax(lake_id, 87.3) # [m]
 # BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
-BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # bedlake leakance [m/day]
-                                                              # here equiv. to 1e-6 m/s
-bathymetry_raster = os.path.join(root_dir, 'examples', 
-                             '99_reservoir and dam', 'data',
-                             'Cheze_bathy_1m_NGF-elevation_v2enlarged.nc')
-                             # 'bathymetry_25m_NGF-elevation.tif')
+BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # débit de fuite du lit du réservoir [m/day]
+                                                              # ici équiv. à 1e-6 m/s
+bathymetry_raster = os.path.join(data_path, "Reservoir", "Bathymetrie",
+                             "Cheze_bathy_1m_NGF-elevation_v2enlarged.nc")
+                             # "bathymetry_25m_NGF-elevation.tif")
 BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 # =============================================================================
 # BV.lakeres.update_bathymetry(lake_id, bathymetry_raster, mode = 'elevation')
 # # mode can be 'elevation', 'depth', 'height' (= -depth)
 # =============================================================================
 
-outlet_file = os.path.join(root_dir, 'examples', 
-                           '99_reservoir and dam', 'data', 'additional',
-                           'lakeres_outlets.shp')
+outlet_file = os.path.join(data_path, "Reservoir", 
+                           "Exutoire", "lakeres_outlets.shp")
 BV.lakeres.update_outlet(lake_id, outlet_file)
 
 # ---- Chargement des flux d'entrée à partir des données mensuelles
 print("   . Chargement des flux d'entrée mensuels")
 
-dam_data_path = os.path.join(os.path.split(data_path)[0], 
-                             r"1- Biblio locale\14- Barrage",
-                             "Documents_travail_Ronan\dam_data",
+dam_data_path = os.path.join(data_path, "Reservoir", 
+                             "Donnees mensuelles base historique",
                              r"dam_cheze_volume_raw_2000-2022.csv")
 
 dam_input_df = pd.read_csv(dam_data_path,
@@ -365,19 +349,13 @@ if 'data' in res.json().keys():
     stations_info = pd.DataFrame.from_dict(res.json()['data'])
 else:
 # elif ('code' in res.json().keys()) or (res.json()['code'] == 'Internal server error'):
-    stations_info = pd.read_csv(os.path.join(
-        os.path.split(data_path)[0],
-        r"4- Donnees\10- Stations et debits\Debits",
-        "stations_list.csv"),
+    stations_info = pd.read_csv(os.path.join(data_path, "Debits", "stations_list.csv"),
         sep = ";",
         header = 0,
         index_col = 0)
-    print("        error on station info update")
+    print("        Erreur sur la mise-à-jour des infos des stations de jaugeage")
 # Mise à jour des fichiers
-stations_info.to_csv(os.path.join(
-    os.path.split(data_path)[0],
-    r"4- Donnees\10- Stations et debits\Debits",
-    "stations_list.csv"), 
+stations_info.to_csv(os.path.join(data_path, "Debits", "stations_list.csv"), 
     sep = ";")
 
 # Valeurs de flux journaliers :
@@ -399,7 +377,7 @@ params = {
     "size": 10000, # max
     "code_entite": code_station,
     "date_debut_obs_elab": date_start,
-    "date_fin_obs_elab": date_today, # NB: the latest week is usually missing
+    "date_fin_obs_elab": date_today, # NB: la dernière semaine est généralement manquante
     "grandeur_hydro_elab": quantity,
           }
 res = requests.get(url, 
@@ -408,25 +386,20 @@ res = requests.get(url,
 if 'data' in res.json().keys():
     discharge = pd.DataFrame.from_dict(res.json()['data'])
 else:
-# elif ('code' in res.json().keys()) or (res.json()['code'] == 'Internal server error'):
-    discharge = pd.read_csv(os.path.join(
-        os.path.split(data_path)[0],
-        r"4- Donnees\10- Stations et debits\Debits",
+    discharge = pd.read_csv(os.path.join(data_path, "Debits",
         "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
         sep = ";",
         header = 0,
         index_col = 0)
-    print("        error on discharge update")
+    print("        Erreur sur la mise-à-jour du débit")
 # Update file:
-discharge.to_csv(os.path.join(
-    os.path.split(data_path)[0],
-    r"4- Donnees\10- Stations et debits\Debits",
+discharge.to_csv(os.path.join(data_path, "Debits",
     "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
     sep = ";")    
 
 discharge = discharge.loc[:, ['date_obs_elab', 'resultat_obs_elab']]
 discharge.columns = ['time', 'val']
-discharge['val'] = discharge['val']*1e-3*60*60*24 # convert [l/s] -> [m3/d]
+discharge['val'] = discharge['val']*1e-3*60*60*24 # convertit [l/s] -> [m3/d]
 discharge['time'] = pd.to_datetime(discharge['time'])
 discharge.index = discharge.time
 discharge = discharge.reindex(index = daily_index)
@@ -440,11 +413,9 @@ dam_input_df['stream'].update(discharge.val)
 
 
 # ---- Raffinage du niveau initial
-print("   . Raffinage du niveau initial de la retenue")
+print("   . Raffinage du niveau initial de la retenue avec l'abaque")
 
-abaque = pd.read_csv(os.path.join(
-    os.path.split(data_path)[0], 
-    r"1- Biblio locale\14- Barrage\abaque Cheze",
+abaque = pd.read_csv(os.path.join(data_path, "Reservoir", "Abaque",
     "abaque_cheze_2020.csv"),
                      sep = "\t",
                      header = 0,
@@ -470,9 +441,8 @@ data_volumes = dam_input_df[['cheze']].copy()
 
 # Données hebdomadaires
 # ---------------------
-Stock_Cheze_xls_folder = os.path.join(
-    os.path.split(data_path)[0],
-    r"1- Biblio locale\14- Barrage\Donnees journalieres Cheze\Niveaux")
+Stock_Cheze_xls_folder = os.path.join(data_path, "Reservoir", 
+                                      "Donnees journalieres EBR", "Niveaux")
 try:
     Stock_Cheze_xls_path = os.path.join(
         Stock_Cheze_xls_folder,
@@ -574,9 +544,8 @@ BV.lakeres.update_stageinit(
 # ---- Raffinage des flux d'entrée récents à partir des données journalières
 print("   . Raffinage des flux d'entrée avec les données journalières :")
 
-Flux_Cheze_xls_folder = os.path.join(
-    os.path.split(data_path)[0],
-    r"1- Biblio locale\14- Barrage\Donnees journalieres Cheze\Flux")
+Flux_Cheze_xls_folder = os.path.join(data_path, "Reservoir",
+                                     "Donnees journalieres EBR", "Flux")
 
 for path, folders, files in os.walk(Flux_Cheze_xls_folder):
     if len(files) > 0:
@@ -796,8 +765,8 @@ BV.save_object()
 #%% VISUALISATION DU MAILLAGE
 
 mf = flopy.modflow.Modflow.load(os.path.join(
-    simulations_folder, model_name, model_name+'.nam'))
-gridname = os.path.join(simulations_folder+model_name, model_name+'.dis')
+    BV.simulations_folder, model_name, model_name+'.nam'))
+gridname = os.path.join(BV.simulations_folder+model_name, model_name+'.dis')
 grid_model = mf.modelgrid
 hk_grid = mf.upw.hk
 sy_grid = mf.upw.sy
@@ -851,7 +820,7 @@ BV.save_object() # because self.lakeres.lake_by_num_id has been updated
 
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 
-h5file = os.path.join(simulations_folder,
+h5file = os.path.join(BV.simulations_folder,
                       'results_listing_' + model_name)
 
 ##%%% Save
@@ -865,7 +834,7 @@ dd.io.save(h5file, mdflw_dict)
 #%%% Rechargement des résultats du modèle Modflow
 model_name = 'base'
 
-h5file = os.path.join(simulations_folder,
+h5file = os.path.join(BV.simulations_folder,
                       'results_listing_' + model_name)
 
 mdflw_dict = dd.io.load(h5file)
