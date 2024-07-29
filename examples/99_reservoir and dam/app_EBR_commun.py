@@ -3,7 +3,7 @@
 Created on Wed Dec  6 22:19:57 2023
 
 Launch code for HydroModPy simulation of Cheze reservoir for EBR
-@author: coche
+@author: Alexnadre Coche
 
 HydroModPy:
     * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
@@ -50,7 +50,6 @@ xr.set_options(keep_attrs = True)
 #% DOSSIER RACINE
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
-root_dir = os.path.join(root_dir)
 sys.path.append(root_dir)
 
 cwd = os.getcwd()
@@ -83,7 +82,7 @@ if len(os.listdir(data_path)) == 0:
     print(f"Warning : Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)\n")
 
 #%% BASSIN VERSANT 
-##%%% Options
+##%%% Options: Charger MNT
 dem_path = os.path.join(data_path, 
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
