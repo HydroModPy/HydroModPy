@@ -396,14 +396,21 @@ class Lakeres:
             # and ssmx (optional)
                 if self.volmx_by_lake[lake_id]:
                     if self.ssmx_by_lake[lake_id]:
-                    # In this case, maskmx will be adjusted to match the desired
-                    # volmx and ssmx.
-                    # In this situation, maskmx is to be considered as an enlarged
-                    # maximal potential extent of the lake, similar to the mask
-                    # of the valley around the lake.
+# =============================================================================
+#                     # In this case, maskmx will be adjusted to match the desired
+#                     # volmx and ssmx.
+#                     # In this situation, maskmx is to be considered as an enlarged
+#                     # maximal potential extent of the lake, similar to the mask
+#                     # of the valley around the lake.
+# =============================================================================
+                    # In this case, maskmx will be used as a strick mask of the
+                    # lake/reservoir, at its maximal extent.
                         print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum level of {self.ssmx_by_lake[lake_id]} m")
-                        maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
-                        maskmx = maskmx.astype(bool)
+                        # The commented following part is about adjusting the lake extent, using ssmx
+# =============================================================================
+#                         maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
+#                         maskmx = maskmx.astype(bool)
+# =============================================================================
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
                         dem_box = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem_box)
                         
