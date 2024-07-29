@@ -716,6 +716,9 @@ sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 # Paramètres de suivi des particules
 zone_partic = 'watershed' # or 'domain''
 
+# "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
+split_temp = True
+
 ##%%% Mise à jour :
 BV.add_settings()
 
@@ -759,6 +762,9 @@ try:
     BV.lakeres
 except AttributeError:
     BV.lakeres = None
+    
+# "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
+BV.settings.update_split_temporal(split_temp)
 
 BV.save_object()
 
