@@ -417,7 +417,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     var : str
         SIM2 variables:
           'ETP' | 'EVAP' | 'PRELIQ' | 'PRENEI' | 'PRETOT' | 'DRAINC' | 'RUNC' | 
-          'T' | 'TINF' | 'TSUP' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' | ...
+          'T' | 'TINF_H' | 'TSUP_H' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' | ...
     mode : str, optional
         'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip'. The default is "sum".
     timemode : str, optional
@@ -438,10 +438,11 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
     file_folder = os.path.join(root_folder, "compressed")
     
+    var_pattern = re.compile(var)
     filelist = [f for f in os.listdir(file_folder) 
                 if (os.path.isfile(os.path.join(file_folder, f))) \
                     & (os.path.splitext(f)[-1] == '.nc') \
-                        & (f.split('_')[0] == var)]
+                        & (len(var_pattern.findall(f)) > 0)]
     
     years = 0
     for f in filelist:
@@ -449,7 +450,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         years2 = int(sim_pattern.findall(f)[-1])
         if years2 > years:
             years = years2
-            file_suffix = '_'.join(f.split('_')[1:])    
+            file_suffix = var_pattern.split(f)[1][1:]    
     print(f"   . File suffix: {file_suffix}")
     filename = f"{var}_{file_suffix}"
     filepath = os.path.join(file_folder, filename)
