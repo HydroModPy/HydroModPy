@@ -2848,6 +2848,12 @@ cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 #%% DICHOTOMY - MAPS
 
+vers = 'isba2'
+
+BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
+
+dfs = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
+
 dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
@@ -2879,17 +2885,30 @@ for i in list_id_mod[:]:
     # dfz = pd.concat([dfz, dft.iloc[-1:]])
     dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
 
-for index, row in dfz.iterrows():
+for index, row in dfz[:].iterrows():
     model_name = row['model_name']
     print(model_name)
     
-    fig, ax = plt.subplots(1,1, figsize=(5,10))
+    fig, ax = plt.subplots(1,1, figsize=(10,10))
+    
+    dem = rasterio.open('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_dem.tif')
+    # hil = rasterio.open('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/hillshade_classic.tif')
+
+    # rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+    #                           ax=ax, transform=dem.transform,
+    #                           cmap='Greys_r', alpha=1, zorder=-5)
+
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+                              ax=ax, transform=dem.transform,
+                              cmap='Greys', alpha=0.25, zorder=-5)
     
     shp = gpd.read_file(BV.calibration_folder+'/'+str(model_name)+'/'+'_matchingstreams/'+'sim_pt.shp')
     
-    shp_bv.plot(ax=ax, facecolor='None')
+    shp_bv.plot(ax=ax, facecolor='None', lw=3)
     shp_hydro.plot(ax=ax, color='navy', lw=0)
     shp.plot(ax=ax, color='darkorange', lw=0)
+    
+    plt.yticks(rotation=90, ha='right')
     
     ax.set_title(model_name, fontsize=7)
     
@@ -2898,10 +2917,14 @@ for index, row in dfz.iterrows():
     
     # fig.savefig('C:/Users/ronan/Downloads/figs_'+vers+'/'+'MAPS_'+model_name+'.png',
     #             bbox_inches='tight')
+    
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.axis('off')
 
-    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps/'+
-    #             model_name+'_DICHOTOMY_MAP'+'.png',
-    #             bbox_inches='tight')
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps2/'+
+                model_name+'_DICHOTOMY_MAP'+'.png',
+                bbox_inches='tight')
 
 
 #%% ---- EXPLORATION
@@ -3727,12 +3750,12 @@ for w, w_name in enumerate(['Lasset'][:]):
             list_model_success = d['list_model_success'][:]
             list_model_modflow = d['list_model_modflow'][:]
             
-            # for model_name, model_success, model_modflow in zip(list_model_name[:],
-            #                                                     list_model_success[:],
-            #                                                     list_model_modflow[:]):
-            for model_name, model_success, model_modflow in zip(list_model_name[4:5],
-                                                                list_model_success[4:5],
-                                                                list_model_modflow[4:5]):
+            for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                                list_model_success[:],
+                                                                list_model_modflow[:]):
+            # for model_name, model_success, model_modflow in zip(list_model_name[4:5],
+            #                                                     list_model_success[4:5],
+            #                                                     list_model_modflow[4:5]):
                     
                 Smod = pd.read_csv(BV.calibration_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                                    index_col='date', parse_dates=True)
@@ -3902,7 +3925,7 @@ dfcrit_Q.to_csv(BV.simulations_folder+'_dfcrit_Q_'+iD_explo[0]+'.csv', sep=';')
 
 #%% STREAMFLOW CRITERIA ONE
 
-# dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
+dfcrit_Q = pd.read_csv(BV.simulations_folder+'_dfcrit_Q_'+'e'+'.csv', sep=';')
 
 iD_explos = ['e_isba2']
 
@@ -3979,7 +4002,7 @@ for icri, cri in enumerate(['NSElog',
             # ax.set_ylim(0.25,0.40)
             print('NSE', dfplot.sort_values('O')['O'][np.argmax(dfplot.sort_values('O')[cri])])
         if cri == 'NSElog':
-            ax.set_ylabel('1 - $NSE_{log}$ [-]')
+            ax.set_ylabel('|1 - $NSE_{log}$| [-]')
             ax.set_ylim(0.2,2.2)
             ax.set_yticks(np.arange(0.2,2.26,0.2))
             ax.set_xticks(np.arange(0,10.1,1))
@@ -4020,9 +4043,9 @@ for icri, cri in enumerate(['NSElog',
         
     plt.tight_layout()
     
-    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
-    #             'Q_'+cri+'_2'+'.png',
-    #                         bbox_inches='tight')
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
+                'Q_'+cri+'_2'+'.png',
+                            bbox_inches='tight')
 
 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
@@ -4104,7 +4127,7 @@ for icri, cri in enumerate([
                     color=color)
         # pc = ax.scatter(dfplot['O'], dfplot[cri])
         if cri == 'NSE':
-            ax.set_ylabel('NSE [-]')
+            ax.set_ylabel('|1-NSE| [-]')
             # ax.set_ylim(0.25,0.40)
             print('NSE', x[np.argmax(y)])
             ax.axhline(y[np.argmin(y)], zorder=-1000, c='darkorange')
@@ -10198,9 +10221,9 @@ for ivar, var in enumerate([
                     # if pidx==3:
                     ax.set_xlabel('R [mm/month]')
                     if (ivar == 0) and (pidx ==0):
-                        ax.set_ylabel('$A_{sat}$ [%]')
+                        ax.set_ylabel('$A_{sim,tot}$ [%]')
                     if (ivar == 1) and (pidx ==0):
-                        ax.set_ylabel('$A_{sea}$ / $A_{sat}$ [-]')
+                        ax.set_ylabel('$A_{sim,sea}$ / $A_{sim,tot}$ [-]')
                     
                     # ax.set_xlim(1,1000)
                     if ivar == 0:
