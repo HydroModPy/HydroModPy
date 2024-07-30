@@ -450,7 +450,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         if years2 > years:
             years = years2
             file_suffix = '_'.join(f.split('_')[1:])    
-    print(f"   File suffix: {file_suffix}")
+    print(f"   . File suffix: {file_suffix}")
     filename = f"{var}_{file_suffix}"
     filepath = os.path.join(file_folder, filename)
     
@@ -467,6 +467,15 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     
     #%%% Initializations
     last_year = ds.time.max().dt.year.item()
+    # The last incomplete hydrological year is not taken into account
+    if timemode == 'ONDJFM':
+        if ds.time.max() < pd.to_datetime(f"{last_year}-03-31", format = "%Y-%m-%d"):
+            last_year = last_year-1
+    else:
+        if ds.time.max() < pd.to_datetime(f"{last_year}-09-30", format = "%Y-%m-%d"):
+            last_year = last_year-1
+        
+    # Hydrological years (start and end years for each decade)
     annual_bins = [
         ((1958, 1959), (1969, 1970)),
         ((1965, 1966), (1974, 1975)),
@@ -576,19 +585,86 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         colorscale = "Viridis_r"
     
     #%%% Prepare data
-    # Add traces, one for each period
-    for dates in annual_bins:
-        temp_map = ds[main_var].sel(
-            time = slice(f"{str(dates[0][0])}-10-01", f"{str(dates[1][1])}-09-30")
-            ).copy()
+    # ---- Exclude non-wanted months
+    ds = ds[main_var].sel(
+        time = slice(f"{str(annual_bins[0][0][0])}-10-01", f"{str(annual_bins[-1][1][1])}-09-30")
+        )
+    
+    if timemode == 'ONDJFM':
+        final_map = ds[(ds.time.dt.month <= 3) | (ds.time.dt.month >= 10)].copy()
+    elif timemode == 'AMJJAS':
+        final_map = ds[(ds.time.dt.month >= 4) & (ds.time.dt.month <= 9)].copy()
+    elif timemode == 'annual':
+        final_map = ds.copy()
+        
+# =============================================================================
+#             group = (temp_map.time.dt.year - (dates[0]-1))*2 + ((temp_map.time.dt.month - 6.01)/6 + 1).round() - 1
+# =============================================================================
+    
+    # ---- Groups 
+    # <group> correspond to the start year (year n) of the hydrological year
+    # Hydrological years are considered to start in october (year n) and end in september (year n+1)
+    group = final_map.time.dt.year \
+        + np.floor((final_map.time.dt.month + 2)/12) - 1
+    group = group.astype(int)
+    
+    # ---- Aggregate values:
+    if mode == 'sum':
+        final_map = final_map.groupby(group).sum(min_count = 1)
+    
+    elif mode == 'min':
+        final_map = final_map.groupby(group).min()
+        
+    elif mode == 'max':
+        final_map = final_map.groupby(group).max()
+        
+    elif mode == 'mean':
+        final_map = final_map.groupby(group).mean()
+    
+    elif mode == 'ratio_precip': # values expressed as pourcentages of annual PRETOT
+        filename_pretot = f"PRETOT_{file_suffix}"
+        filepath_pretot = os.path.join(file_folder, filename_pretot)    
+        with xr.open_dataset(filepath_pretot, 
+                             decode_coords = 'all', 
+                             decode_times = True) as pretot:
+            pretot = pretot['PRETOT_Q'].sel(
+                time = slice(f"{str(annual_bins[0][0][0])}-10-01", f"{str(annual_bins[-1][1][1])}-09-30")
+                )
             
+            allmonths_group = pretot.time.dt.year \
+                + np.floor((pretot.time.dt.month + 2)/12) - 1
+            allmonths_group = allmonths_group.astype(int)  
+            
+            final_map = ( final_map.groupby(group).sum(min_count = 1) \
+                / pretot.groupby(allmonths_group).sum(min_count = 1) )*100
+    
+        zmax = max([zmax, float(final_map.max())])
+        print("   . Color scale has been adjusted")
+    
+    elif mode == 'ratio': # values expressed as pourcentages of annual sums      
+        allmonths_group = ds.time.dt.year \
+            + np.floor((ds.time.dt.month + 2)/12) - 1
+        allmonths_group = allmonths_group.astype(int)    
+        
+        final_map = ( final_map.groupby(group).sum(min_count = 1) \
+            / ds.groupby(allmonths_group).sum(min_count = 1) )*100
+
+        zmax = max([zmax, float(final_map.max())])
+        print("   . Color scale has been adjusted")
+    
+    
+    #%%% Heatmap plot
+    # Add traces, one for each period
+    for dates in annual_bins:  
+        # ---- Compute the decade average
+        temp_map = final_map.loc[{'group': slice(dates[0][0], dates[1][0])}].mean(dim = 'group')
+
+        # ---- Update texts and plot annotations
         if timemode == 'ONDJFM':
-            temp_map = temp_map[(temp_map.time.dt.month <= 3) | (temp_map.time.dt.month >= 10)]
             suf_title.append((f"oct. {dates[0][0]}", f"mar. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
             dst_dir2 = 'semestriels'
         elif timemode == 'AMJJAS':
-            temp_map = temp_map[(temp_map.time.dt.month >= 4) & (temp_map.time.dt.month <= 9)]
             suf_title.append((f"avr. {dates[0][1]}", f"sep. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
             dst_dir2 = 'semestriels'
@@ -596,62 +672,6 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             suf_title.append((f"oct. {dates[0][0]}", f"sep. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
             dst_dir2 = 'annuels'
-        
-# =============================================================================
-#             group = (temp_map.time.dt.year - (dates[0]-1))*2 + ((temp_map.time.dt.month - 6.01)/6 + 1).round() - 1
-# =============================================================================
-            
-        group = temp_map.time.dt.year \
-            + np.floor((temp_map.time.dt.month + 2)/12) - 1
-        group = group.astype(int)
-        
-        if mode == 'ratio_precip': # values expressed as pourcentages of PRETOT
-            filename_pretot = f"PRETOT_{file_suffix}"
-            filepath_pretot = os.path.join(file_folder, filename_pretot)    
-            with xr.open_dataset(filepath_pretot, 
-                                 decode_coords = 'all', 
-                                 decode_times = True) as pretot:
-                pretot = pretot['PRETOT_Q'].sel(
-                    time = slice(f"{str(dates[0][0])}-10-01", f"{str(dates[1][1])}-09-30")
-                    )
-                
-                yearly_group = pretot.time.dt.year \
-                    + np.floor((pretot.time.dt.month + 2)/12) - 1
-                yearly_group = yearly_group.astype(int)  
-                
-                temp_map = ( temp_map.groupby(group).sum(min_count = 1) \
-                    / pretot.groupby(yearly_group).sum(min_count = 1) ).mean(dim = 'group')*100
-        
-            zmax = max([zmax, float(temp_map.max())])
-            print("   Color scale has been adjusted")
-        
-        if mode == 'ratio': # values expressed as pourcentages of year sums
-            yearly_ds = ds[main_var].sel(
-                time = slice(f"{str(dates[0][0])}-10-01", f"{str(dates[1][1])}-09-30")
-                ).copy()
-            
-            yearly_group = yearly_ds.time.dt.year \
-                + np.floor((yearly_ds.time.dt.month + 2)/12) - 1
-            yearly_group = yearly_group.astype(int)    
-            
-            temp_map = ( temp_map.groupby(group).sum(min_count = 1) \
-                / yearly_ds.groupby(yearly_group).sum(min_count = 1) ).mean(dim = 'group')*100
-    
-            zmax = max([zmax, float(temp_map.max())])
-            print("   Color scale has been adjusted")
-        
-        if mode == 'sum':
-            temp_map = temp_map.groupby(group).sum(min_count = 1).mean(dim = 'group')
-        
-        if mode == 'min':
-            temp_map = temp_map.groupby(group).min().mean(dim = 'group')
-            
-        if mode == 'max':
-            temp_map = temp_map.groupby(group).max().mean(dim = 'group')
-            
-        if mode == 'mean':
-            temp_map = temp_map.groupby(group).mean().mean(dim = 'group')
-                
 
 # =============================================================================
 #         elif timemode == 'annual':
@@ -675,14 +695,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
 #             
 # =============================================================================
             
-        #%%% Heatmap plot
-        """
-        Other related functions:
-            https://plotly.com/python/choropleth-maps/
-            https://plotly.com/python/mapbox-county-choropleth/ (idem but with layout)
-            https://plotly.com/python/mapbox-density-heatmaps/
-        """
-        
+        # ---- Add the traces
         fig.add_trace(go.Heatmap(
             z = temp_map.values,
             x = temp_map.x.values,
@@ -698,8 +711,14 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             hoverinfo = 'all',
             hovertemplate = "<b>%{z} " + unit + "</b> <br> %{x} m <br> %{y} m <br>"
             )
+        """
+        Other related functions:
+            https://plotly.com/python/choropleth-maps/
+            https://plotly.com/python/mapbox-county-choropleth/ (idem but with layout)
+            https://plotly.com/python/mapbox-density-heatmaps/
+        """
                    
-    # Create and add slider
+    # ---- Create and add slider
     """
     cf https://plotly.com/python/sliders/
     """
@@ -726,6 +745,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         steps = steps,
     )]
 
+    # ---- Layout
     fig.update_layout(
         sliders = sliders,
         title = {'font': {'size': 20},
@@ -826,25 +846,25 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
                         showarrow = False
                         )
 
-    # Enregistrement de la figure *.html
+    # ---- Save the .html figures
     version = 'v6'
     if not os.path.exists(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2)):
         os.makedirs(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2))
     
-    fig.write_html(os.path.join(root_folder,
-                                "cartes", version, dst_dir1, dst_dir2,
-                                   '_'.join([var,
-                                             timemode,
-                                             mode,
-                                             datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M"),
-                                             ]) + '.html'
-                                   )
-                      )
+    fig.write_html(os.path.join(
+        root_folder, "cartes", version, dst_dir1, dst_dir2,
+        '_'.join([var,
+                  timemode,
+                  mode,
+                  datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M"),
+                  ]) + '.html'
+        )
+    )
     
     # This creates the figure AND open it in the web browser
 # =============================================================================
 #     offline.plot(fig, filename = os.path.join(root_folder,
-#                                 "cartes", version,
+#                                 "cartes", version, dst_dir1, dst_dir2,
 #                                    '_'.join([var,
 #                                              timemode,
 #                                              mode,
