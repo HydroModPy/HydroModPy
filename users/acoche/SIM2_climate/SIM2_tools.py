@@ -597,10 +597,6 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     elif timemode == 'annual':
         final_map = ds.copy()
         
-# =============================================================================
-#             group = (temp_map.time.dt.year - (dates[0]-1))*2 + ((temp_map.time.dt.month - 6.01)/6 + 1).round() - 1
-# =============================================================================
-    
     # ---- Groups 
     # <group> correspond to the start year (year n) of the hydrological year
     # Hydrological years are considered to start in october (year n) and end in september (year n+1)
@@ -673,28 +669,6 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
             dst_dir2 = 'annuels'
 
-# =============================================================================
-#         elif timemode == 'annual':
-#             
-#             if mode == 'ratio': # values expressed as pourcentages of PRETOT
-#                 filename_pretot = "PRETOT_Q_SIM2_1958_202402_comp.nc"
-#                 file_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
-#                 filepath_pretot = os.path.join(file_folder, filename_pretot)    
-#                 with xr.open_dataset(filepath_pretot, 
-#                                      decode_coords = 'all', 
-#                                      decode_times = True) as pretot:
-#                     pretot = pretot['PRETOT_Q'].sel(time = slice(str(dates[0]), 
-#                                                                  str(dates[1])))
-#                     temp_map = (temp_map.groupby(
-#                             temp_map.time.dt.year).sum(min_count = 1) \
-#                                 / pretot.groupby(
-#                             temp_map.time.dt.year).sum(min_count = 1)
-#                             ).mean(dim = 'year') * 100
-#                         
-#                     # temp_map = temp_map/(pretot['PRETOT_Q'].sel(time = slice(str(dates[0]), str(dates[1]))).mean(dim = 'time')*summed_period[timemode])*100
-#             
-# =============================================================================
-            
         # ---- Add the traces
         fig.add_trace(go.Heatmap(
             z = temp_map.values,
