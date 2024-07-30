@@ -435,10 +435,11 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     
     #%%% Loading
     # Finding the most recent file
-    root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2\compressed"
+    root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
+    file_folder = os.path.join(root_folder, "compressed")
     
-    filelist = [f for f in os.listdir(root_folder) 
-                if (os.path.isfile(os.path.join(root_folder, f))) \
+    filelist = [f for f in os.listdir(file_folder) 
+                if (os.path.isfile(os.path.join(file_folder, f))) \
                     & (os.path.splitext(f)[-1] == '.nc') \
                         & (f.split('_')[0] == var)]
     
@@ -451,7 +452,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             file_suffix = '_'.join(f.split('_')[1:])    
     print(f"   File suffix: {file_suffix}")
     filename = f"{var}_{file_suffix}"
-    filepath = os.path.join(root_folder, filename)
+    filepath = os.path.join(file_folder, filename)
     
     # Loading as xarray.dataset
     with xr.open_dataset(
@@ -538,6 +539,8 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     
     
     #%%% Units & colorscale
+    dst_dir1 = 'valeurs'
+    
     if mode in ["sum", "min", "max", "mean"]:
         unit = metadata_by_var[main_var][0]
         if mode == "sum":
@@ -565,6 +568,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         unit = "%"
         zmin = 0
         zmax = 100
+        dst_dir1 = 'pourcentages'
         
     if var in ['T', 'TSUP_H', 'TINF_H']:
         colorscale = "Plasma_r"
@@ -582,13 +586,16 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             temp_map = temp_map[(temp_map.time.dt.month <= 3) | (temp_map.time.dt.month >= 10)]
             suf_title.append((f"oct. {dates[0][0]}", f"mar. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
+            dst_dir2 = 'semestriels'
         elif timemode == 'AMJJAS':
             temp_map = temp_map[(temp_map.time.dt.month >= 4) & (temp_map.time.dt.month <= 9)]
             suf_title.append((f"avr. {dates[0][1]}", f"sep. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
+            dst_dir2 = 'semestriels'
         elif timemode == 'annual':
             suf_title.append((f"oct. {dates[0][0]}", f"sep. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
+            dst_dir2 = 'annuels'
         
 # =============================================================================
 #             group = (temp_map.time.dt.year - (dates[0]-1))*2 + ((temp_map.time.dt.month - 6.01)/6 + 1).round() - 1
@@ -600,7 +607,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         
         if mode == 'ratio_precip': # values expressed as pourcentages of PRETOT
             filename_pretot = f"PRETOT_{file_suffix}"
-            filepath_pretot = os.path.join(root_folder, filename_pretot)    
+            filepath_pretot = os.path.join(file_folder, filename_pretot)    
             with xr.open_dataset(filepath_pretot, 
                                  decode_coords = 'all', 
                                  decode_times = True) as pretot:
@@ -651,8 +658,8 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
 #             
 #             if mode == 'ratio': # values expressed as pourcentages of PRETOT
 #                 filename_pretot = "PRETOT_Q_SIM2_1958_202402_comp.nc"
-#                 root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
-#                 filepath_pretot = os.path.join(root_folder, filename_pretot)    
+#                 file_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
+#                 filepath_pretot = os.path.join(file_folder, filename_pretot)    
 #                 with xr.open_dataset(filepath_pretot, 
 #                                      decode_coords = 'all', 
 #                                      decode_times = True) as pretot:
@@ -821,11 +828,11 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
 
     # Enregistrement de la figure *.html
     version = 'v6'
-    if not os.path.exists(os.path.join(root_folder, "cartes", version)):
-        os.mkdir(os.path.join(root_folder, "cartes", version))
+    if not os.path.exists(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2)):
+        os.makedirs(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2))
     
     fig.write_html(os.path.join(root_folder,
-                                "cartes", version,
+                                "cartes", version, dst_dir1, dst_dir2,
                                    '_'.join([var,
                                              timemode,
                                              mode,
