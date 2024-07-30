@@ -34,6 +34,7 @@ import os
 import re
 import datetime
 import pandas as pd
+import numpy as np
 import xarray as xr
 xr.set_options(keep_attrs = True)
 import rioxarray as rio #Not necessary, the rio module from xarray is enough
@@ -413,52 +414,75 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
 
     Parameters
     ----------
-    var : TYPE
-        DESCRIPTION.
-    mode : TYPE, optional
-        'sum' | 'min' | 'max' | 'mean' | 'ratio'. The default is "sum".
-    timemode : TYPE, optional
+    var : str
+        SIM2 variables:
+          'ETP' | 'EVAP' | 'PRELIQ' | 'PRENEI' | 'PRETOT' | 'DRAINC' | 'RUNC' | 
+          'T' | 'TINF' | 'TSUP' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' | ...
+    mode : str, optional
+        'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip'. The default is "sum".
+    timemode : str, optional
         'annual' | 'ONDJFM' | 'AMJJAS. The default is 'annual'.
 
     Returns
     -------
-    None.
+    None. Creates the html maps.
 
     """
+    
     start_time = datetime.datetime.now()
     # print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
     print("The generation of the interactive graphic file can take 1 min")
     
     #%%% Loading
-    filename = f"{var}_Q_SIM2_1958_202402_comp.nc"
-    root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
-    filepath = os.path.join(root_folder, 'compressed', filename)
+    # Finding the most recent file
+    root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2\compressed"
     
+    filelist = [f for f in os.listdir(root_folder) 
+                if (os.path.isfile(os.path.join(root_folder, f))) \
+                    & (os.path.splitext(f)[-1] == '.nc') \
+                        & (f.split('_')[0] == var)]
+    
+    years = 0
+    for f in filelist:
+        sim_pattern = re.compile('\d{4,6}')
+        years2 = int(sim_pattern.findall(f)[-1])
+        if years2 > years:
+            years = years2
+            file_suffix = '_'.join(f.split('_')[1:])    
+    print(f"   File suffix: {file_suffix}")
+    filename = f"{var}_{file_suffix}"
+    filepath = os.path.join(root_folder, filename)
+    
+    # Loading as xarray.dataset
     with xr.open_dataset(
             filepath, decode_coords = 'all', decode_times = True) as ds:
         ds.load()
+        
     main_var = list(ds.data_vars)[0]
-    
-    xres = float(ds.x[1] - ds.x[0])
-    yres = float(ds.y[1] - ds.y[0])
+    # xres = float(ds.x[1] - ds.x[0])
+    xres = ds.rio.transform()[0]
+    # yres = float(ds.y[1] - ds.y[0])
+    yres = ds.rio.transform()[4]
     
     #%%% Initializations
+    last_year = ds.time.max().dt.year.item()
     annual_bins = [
-        (1959, 1969),
-        (1965, 1974),
-        (1970, 1979),
-        (1975, 1984),
-        (1980, 1989),
-        (1985, 1994),
-        (1990, 1999),
-        (1995, 2004),
-        (2000, 2009),
-        (2005, 2014),
-        (2010, 2019),
-        (2015, 2023),
+        ((1958, 1959), (1969, 1970)),
+        ((1965, 1966), (1974, 1975)),
+        ((1970, 1971), (1979, 1980)),
+        ((1975, 1976), (1984, 1985)),
+        ((1980, 1981), (1989, 1990)),
+        ((1985, 1986), (1994, 1995)),
+        ((1990, 1991), (1999, 2000)),
+        ((1995, 1996), (2004, 2005)),
+        ((2000, 2001), (2009, 2010)),
+        ((2005, 2006), (2014, 2015)),
+        ((2010, 2011), (2019, 2020)),
+        ((2015, 2016), (last_year - 1, last_year)),
         ]
     
-    suf_bins = []
+    suf_title = []
+    suf_slider = []
     
     suf_timemode = {
         'sum': {'annual': 'cumuls annuels',
@@ -473,9 +497,12 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         'mean': {'annual': 'moyennes annuelles',
                 'ONDJFM': 'moyennes oct-mar',
                 'AMJJAS': 'moyennes avr-sep'},
-        'ratio': {'annual': 'cumuls annuels / précipitations annuelles',
-                  'ONDJFM': 'cumuls oct-mar / précipitations oct-mar',
-                  'AMJJAS': 'cumuls avr-sep / précipitations avr-sep'},        
+        'ratio': {'annual': 'obsolète (cumuls annuels / cumuls annuels)',
+                  'ONDJFM': 'cumuls oct-mar / cumuls annuels',
+                  'AMJJAS': 'cumuls avr-sep / cumuls annuels'},
+        'ratio_precip': {'annual': 'cumuls annuels / précipitations annuelles',
+                         'ONDJFM': 'cumuls oct-mar / précipitations annuelles',
+                         'AMJJAS': 'cumuls avr-sep / précipitations annuelles'},          
         }
     
     metadata_by_var = {
@@ -507,6 +534,8 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
                  'PRETOT_Q': ['mm', 'Précipitations totales'], 
                  }
     
+    fig = go.Figure()
+    
     
     #%%% Units & colorscale
     if mode in ["sum", "min", "max", "mean"]:
@@ -532,7 +561,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             zmax = float(ds[main_var].groupby(
                 ds.time.dt.year).mean().max(dim = ['x', 'y', 'year']))
         
-    elif mode == "ratio":
+    elif mode in ["ratio", "ratio_precip"]:
         unit = "%"
         zmin = 0
         zmax = 100
@@ -545,90 +574,99 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     #%%% Prepare data
     # Add traces, one for each period
     for dates in annual_bins:
-        if timemode in ['ONDJFM', 'AMJJAS']:
-            temp_map = ds[main_var].sel(
-                time = slice(f"{str(dates[0]-1)}-10-01", f"{str(dates[1])}-09-30")
-                )
+        temp_map = ds[main_var].sel(
+            time = slice(f"{str(dates[0][0])}-10-01", f"{str(dates[1][1])}-09-30")
+            ).copy()
             
-            if timemode == 'ONDJFM':
-                temp_map = temp_map[(temp_map.time.dt.month <= 3) | (temp_map.time.dt.month >= 10)]
-                suf_bins.append((f"oct. {dates[0]-1}", f"mar. {dates[1]}"))
-            elif timemode == 'AMJJAS':
-                temp_map = temp_map[(temp_map.time.dt.month >= 4) & (temp_map.time.dt.month <= 9)]
-                suf_bins.append((f"avr. {dates[0]-1}", f"sep. {dates[1]}"))
+        if timemode == 'ONDJFM':
+            temp_map = temp_map[(temp_map.time.dt.month <= 3) | (temp_map.time.dt.month >= 10)]
+            suf_title.append((f"oct. {dates[0][0]}", f"mar. {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
+        elif timemode == 'AMJJAS':
+            temp_map = temp_map[(temp_map.time.dt.month >= 4) & (temp_map.time.dt.month <= 9)]
+            suf_title.append((f"avr. {dates[0][1]}", f"sep. {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
+        elif timemode == 'annual':
+            suf_title.append((f"oct. {dates[0][0]}", f"sep. {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
+        
+# =============================================================================
+#             group = (temp_map.time.dt.year - (dates[0]-1))*2 + ((temp_map.time.dt.month - 6.01)/6 + 1).round() - 1
+# =============================================================================
             
-            group = (temp_map.time.dt.year - (dates[0]-1))*2 + ((temp_map.time.dt.month - 6.01)/6 + 1).round() - 1
-            
-            if mode == 'ratio': # values expressed as pourcentages of PRETOT
-                filename_pretot = "PRETOT_Q_SIM2_1958_202402_comp.nc"
-                root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
-                filepath_pretot = os.path.join(root_folder, 'compressed', filename_pretot)    
-                with xr.open_dataset(filepath_pretot, 
-                                     decode_coords = 'all', 
-                                     decode_times = True) as pretot:
-                    pretot = pretot['PRETOT_Q'].sel(
-                        time = slice(f"{str(dates[0]-1)}-10-01", f"{str(dates[1])}-09-30")
-                        )
-                    
-                    if timemode == 'ONDJFM':
-                        pretot = pretot[(pretot.time.dt.month <= 3) | (pretot.time.dt.month >= 10)]
-                    elif timemode == 'AMJJAS':
-                        pretot = pretot[(pretot.time.dt.month >= 4) & (pretot.time.dt.month <= 9)]
-                    
-                    temp_map = (temp_map.groupby(group).sum(min_count = 1) \
-                        / pretot.groupby(group).sum(min_count = 1)).mean(dim = 'group')*100
-            
+        group = temp_map.time.dt.year \
+            + np.floor((temp_map.time.dt.month + 2)/12) - 1
+        group = group.astype(int)
+        
+        if mode == 'ratio_precip': # values expressed as pourcentages of PRETOT
+            filename_pretot = f"PRETOT_{file_suffix}"
+            filepath_pretot = os.path.join(root_folder, filename_pretot)    
+            with xr.open_dataset(filepath_pretot, 
+                                 decode_coords = 'all', 
+                                 decode_times = True) as pretot:
+                pretot = pretot['PRETOT_Q'].sel(
+                    time = slice(f"{str(dates[0][0])}-10-01", f"{str(dates[1][1])}-09-30")
+                    )
+                
+                yearly_group = pretot.time.dt.year \
+                    + np.floor((pretot.time.dt.month + 2)/12) - 1
+                yearly_group = yearly_group.astype(int)  
+                
+                temp_map = ( temp_map.groupby(group).sum(min_count = 1) \
+                    / pretot.groupby(yearly_group).sum(min_count = 1) ).mean(dim = 'group')*100
+        
             zmax = max([zmax, float(temp_map.max())])
+            print("   Color scale has been adjusted")
+        
+        if mode == 'ratio': # values expressed as pourcentages of year sums
+            yearly_ds = ds[main_var].sel(
+                time = slice(f"{str(dates[0][0])}-10-01", f"{str(dates[1][1])}-09-30")
+                ).copy()
             
-            if mode == 'sum':
-                temp_map = temp_map.groupby(group).sum(min_count = 1).mean(dim = 'group')
+            yearly_group = yearly_ds.time.dt.year \
+                + np.floor((yearly_ds.time.dt.month + 2)/12) - 1
+            yearly_group = yearly_group.astype(int)    
             
-            if mode == 'min':
-                temp_map = temp_map.groupby(group).min().mean(dim = 'group')
-                
-            if mode == 'max':
-                temp_map = temp_map.groupby(group).max().mean(dim = 'group')
-                
-            if mode == 'mean':
-                temp_map = temp_map.groupby(group).mean().mean(dim = 'group')
+            temp_map = ( temp_map.groupby(group).sum(min_count = 1) \
+                / yearly_ds.groupby(yearly_group).sum(min_count = 1) ).mean(dim = 'group')*100
+    
+            zmax = max([zmax, float(temp_map.max())])
+            print("   Color scale has been adjusted")
+        
+        if mode == 'sum':
+            temp_map = temp_map.groupby(group).sum(min_count = 1).mean(dim = 'group')
+        
+        if mode == 'min':
+            temp_map = temp_map.groupby(group).min().mean(dim = 'group')
+            
+        if mode == 'max':
+            temp_map = temp_map.groupby(group).max().mean(dim = 'group')
+            
+        if mode == 'mean':
+            temp_map = temp_map.groupby(group).mean().mean(dim = 'group')
                 
 
-        elif timemode == 'annual':
-            temp_map = ds[main_var].sel(
-                time = slice(str(dates[0]), str(dates[1]))
-                )
-            
-            # suf_bins.append((temp_map.time.min().dt.year.values, temp_map.time.max().dt.year.values))
-            suf_bins.append(dates)
-            
-            if mode == 'ratio': # values expressed as pourcentages of PRETOT
-                filename_pretot = "PRETOT_Q_SIM2_1958_202402_comp.nc"
-                root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
-                filepath_pretot = os.path.join(root_folder, 'compressed', filename_pretot)    
-                with xr.open_dataset(filepath_pretot, 
-                                     decode_coords = 'all', 
-                                     decode_times = True) as pretot:
-                    pretot = pretot['PRETOT_Q'].sel(time = slice(str(dates[0]), 
-                                                                 str(dates[1])))
-                    temp_map = (temp_map.groupby(
-                            temp_map.time.dt.year).sum(min_count = 1) \
-                                / pretot.groupby(
-                            temp_map.time.dt.year).sum(min_count = 1)
-                            ).mean(dim = 'year') * 100
-                        
-                    # temp_map = temp_map/(pretot['PRETOT_Q'].sel(time = slice(str(dates[0]), str(dates[1]))).mean(dim = 'time')*summed_period[timemode])*100
-            
-            if mode == 'sum':
-                temp_map = temp_map.groupby(temp_map.time.dt.year).sum(min_count = 1).mean(dim = 'year')
-            
-            if mode == 'min':
-                temp_map = temp_map.groupby(temp_map.time.dt.year).min().mean(dim = 'year')
-                
-            if mode == 'max':
-                temp_map = temp_map.groupby(temp_map.time.dt.year).max().mean(dim = 'year')
-                
-            if mode == 'mean':
-                temp_map = temp_map.groupby(temp_map.time.dt.year).mean().mean(dim = 'year')
+# =============================================================================
+#         elif timemode == 'annual':
+#             
+#             if mode == 'ratio': # values expressed as pourcentages of PRETOT
+#                 filename_pretot = "PRETOT_Q_SIM2_1958_202402_comp.nc"
+#                 root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
+#                 filepath_pretot = os.path.join(root_folder, filename_pretot)    
+#                 with xr.open_dataset(filepath_pretot, 
+#                                      decode_coords = 'all', 
+#                                      decode_times = True) as pretot:
+#                     pretot = pretot['PRETOT_Q'].sel(time = slice(str(dates[0]), 
+#                                                                  str(dates[1])))
+#                     temp_map = (temp_map.groupby(
+#                             temp_map.time.dt.year).sum(min_count = 1) \
+#                                 / pretot.groupby(
+#                             temp_map.time.dt.year).sum(min_count = 1)
+#                             ).mean(dim = 'year') * 100
+#                         
+#                     # temp_map = temp_map/(pretot['PRETOT_Q'].sel(time = slice(str(dates[0]), str(dates[1]))).mean(dim = 'time')*summed_period[timemode])*100
+#             
+# =============================================================================
             
         #%%% Heatmap plot
         """
@@ -637,7 +675,6 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             https://plotly.com/python/mapbox-county-choropleth/ (idem but with layout)
             https://plotly.com/python/mapbox-density-heatmaps/
         """
-        fig = go.Figure()
         
         fig.add_trace(go.Heatmap(
             z = temp_map.values,
@@ -664,9 +701,9 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         step = dict(
             method="update",
             args=[{"visible": [False] * len(fig.data)},
-                  {"title": f'<b>{metadata_by_var[main_var][1]}<br>(moyennes des {suf_timemode[mode][timemode]})</b><br>de {suf_bins[i][0]} à {suf_bins[i][1]}'},
+                  {"title": f'<b>{metadata_by_var[main_var][1]}<br>(moyennes des {suf_timemode[mode][timemode]})</b><br>de {suf_title[i][0]} à {suf_title[i][1]}'},
                   ],  # layout attribute
-            label = f"{suf_bins[i][0]}-{suf_bins[i][1]}",
+            label = suf_slider[i],
             # style = {'transform': 'rotate(45deg)'},
         )
         step["args"][0]["visible"][i] = True  # Toggle i'th trace to "visible"
@@ -685,7 +722,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     fig.update_layout(
         sliders = sliders,
         title = {'font': {'size': 20},
-                 'text': f'<b>{metadata_by_var[main_var][1]}<br>(moyenne des {suf_timemode[mode][timemode]})</b><br>de {suf_bins[0][0]} à {suf_bins[0][1]}', # title on the first appearing step
+                 'text': f'<b>{metadata_by_var[main_var][1]}<br>(moyenne des {suf_timemode[mode][timemode]})</b><br>de {suf_title[0][0]} à {suf_title[0][1]}', # title on the first appearing step
                  'xanchor': 'center',
                  'x': 0.5,
                  'yanchor': 'bottom',
@@ -783,7 +820,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
                         )
 
     # Enregistrement de la figure *.html
-    version = 'v4'
+    version = 'v6'
     if not os.path.exists(os.path.join(root_folder, "cartes", version)):
         os.mkdir(os.path.join(root_folder, "cartes", version))
     
