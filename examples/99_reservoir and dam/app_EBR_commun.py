@@ -75,7 +75,7 @@ out_path = folder_root.root_folder_results()
 
 print(f"Les résultats des simulations seront stockés dans le dossier {out_path}\n")
 
-data_path = os.path.join(out_path, 'data')
+data_path = os.path.join(out_path, 'data_Cheze')
 if not os.path.exists(data_path):
     os.makedirs(data_path)
 if len(os.listdir(data_path)) == 0:
