@@ -592,6 +592,83 @@ class Modflow:
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
 
+        #%% Streamflow Routing package
+        istcb2 = 1 # or 81? option for output files format
+        
+        # Not needed because nstrm > 0:
+        isfropt = 0 # No infiltration beneath streams, and stream variables are
+                  # read for each stress period.
+        
+# =============================================================================
+#         isfropt = 1 # No infiltration beneath streams, and stream parameters are
+#                   # only read once at the beginning of the simulation. 
+#         # In that case, it is required to fill strtop	and slope in
+#         # ex3_test1_reach_data.csv.
+# =============================================================================
+
+        # No computation of flow thickness and width:
+        icalc = 0
+
+        # Deactivation of the transient routing computation through kinematic-wave equation:
+        irtflg = 0
+        
+        # Stream parameters:
+        temp_data_folder = r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\dev_perso\couplage lac-riviere\SFR"
+        reach_data_path = os.path.join(temp_data_folder, 
+                                       r"ex3_test1_reach_data.csv")
+        reach_data = np.genfromtxt(reach_data_path, delimiter=';', names=True)
+        
+        segment_data_path = os.path.join(temp_data_folder, 
+                                         r"ex3_test1_segment_data.csv")
+        segment_data_1 = np.genfromtxt(segment_data_path, delimiter=';', names=True)
+        segment_data = {0: segment_data_1}
+        
+        nstrm = len(reach_data) # > 0
+        nss = len(segment_data_1)
+        
+        itmp = nss
+        irdflag = 0 # to print input data
+        iptflag = 0 # to print streamflow routing outputs
+        dataset_5 = {per: [-1, irdflag, iptflag] for per in range(0, self.nper)}
+        dataset_5[0][0] = itmp
+        # dataset_5 = {0: [itmp, irdflag, iptflag]}
+            # dataset_5 = {0: [itmp, irdflag, iptflag],
+            #              1: [-1,   irdflag, iptflag],
+            #              2: [-1,   irdflag, iptflag],
+            #              ...}
+        
+        nsfrpar = 0 # number of parameters
+        nparseg = 0 # number of parameters per segment
+        
+        self.sfr2 = flopy.modflow.ModflowSfr2(
+            self.mf, nstrm=nstrm, nss=nss, nsfrpar=nsfrpar, nparseg=nparseg,
+            istcb2=istcb2, isfropt=isfropt, irtflg=irtflg, dataset_5=dataset_5,
+            # streams parameters:
+            reach_data=reach_data, segment_data=segment_data, 
+            # default values:
+            numtim=2, weight=0.75,
+# =============================================================================
+#             # no infiltration:
+#             dleak, ipakcb, nstrail, isuzn, nsfrsets,
+# =============================================================================
+# =============================================================================
+#             # no kinematic-wave used for transient routing:
+#             flwtol,
+# =============================================================================
+# =============================================================================
+#             # No stream channel geometry (when icalc=2) (see item 6d)
+#             channel_geometry_data,
+# =============================================================================
+# =============================================================================
+#             # No calibration curve ("courbe de tarage") (when icalc=4) (see item 6e)
+#             channel_flow_data,
+# =============================================================================
+            # not sure if used or not:
+            const=86400,
+            )
+        
+        self.sfr2.check()
+
         #%% Output control
         
         # OC : output control
