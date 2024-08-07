@@ -561,13 +561,14 @@ class Modflow:
         
         # Not needed because nstrm > 0:
         isfropt = 0 # No infiltration beneath streams, and stream variables are
-                  # read for each stress period.
+                    # read for each stress period.
         
 # =============================================================================
 #         isfropt = 1 # No infiltration beneath streams, and stream parameters are
 #                   # only read once at the beginning of the simulation. 
 #         # In that case, it is required to fill strtop	and slope in
 #         # ex3_test1_reach_data.csv.
+#         # Apparently also when isforpt = 0 and nstrm > 0
 # =============================================================================
 
         # No computation of flow thickness and width:
@@ -585,6 +586,43 @@ class Modflow:
         segment_data_path = os.path.join(temp_data_folder, 
                                          r"ex3_test1_segment_data.csv")
         segment_data_1 = np.genfromtxt(segment_data_path, delimiter=';', names=True)
+        
+        # Stream mask:
+        sfr_map, _, _, nodata = toolbox.load_to_numpy(
+            self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
+            base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
+        sfr_map[sfr_map > nodata] = 0
+        for r in reach_data:
+            sfr_map[int(r['i']), int(r['j'])] = r['iseg']
+        stream_map_path = os.path.join(self.geographic.stable_folder, "streams")
+        if not os.path.exists(stream_map_path):
+            os.makedirs(stream_map_path)
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           sfr_map, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "streams_map.tif"))
+        
+# =============================================================================
+#         # Update elevdn and elevup in segment_data_1:
+#         for seg in segment_data_1['nseg']:
+#         # for seg in set(np.unique(sfr_map)) - set([0, nodata]):
+#             segment_data_1['elevdn'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].min() - 1.5
+#             segment_data_1['elevup'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].max() - 1.5
+# =============================================================================
+        
+# =============================================================================
+#         # Update strtop in reach_data:
+#         for r in reach_data:
+#             r['strtop'] = self.dem[int(r['i']), int(r['j'])] - 1.5
+# =============================================================================
+        
+        # Correct HCOND in segment_data_1:
+        for s in segment_data_1:
+            s['hcond1'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
+            s['hcond2'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
+
+        # Correct drain_array
+        self.drain_array[sfr_map > 0] = 0
+
         segment_data = {0: segment_data_1}
         
         nstrm = len(reach_data) # > 0
@@ -595,7 +633,8 @@ class Modflow:
         iptflag = 0 # to print streamflow routing outputs
         dataset_5 = {per: [-1, irdflag, iptflag] for per in range(0, self.nper)}
         dataset_5[0][0] = itmp
-        # dataset_5 = {0: [itmp, irdflag, iptflag]}
+            # dataset_5 = {0: [itmp, irdflag, iptflag]}
+            # or
             # dataset_5 = {0: [itmp, irdflag, iptflag],
             #              1: [-1,   irdflag, iptflag],
             #              2: [-1,   irdflag, iptflag],
@@ -627,14 +666,12 @@ class Modflow:
 #             # No calibration curve ("courbe de tarage") (when icalc=4) (see item 6e)
 #             channel_flow_data,
 # =============================================================================
-            # not sure if used or not:
-            const=86400,
+            const=0, # 86400, # value is not used because no Manning
             )
         
         self.sfr2.check()
 
         #%% Drain package
-        
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
         
