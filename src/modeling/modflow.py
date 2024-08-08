@@ -557,7 +557,8 @@ class Modflow:
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
 
         #%% Streamflow Routing package
-        istcb2 = 1 # or 81? option for output files format
+        istcb2 = 81 # or 81? option for output files format
+        ipakcb = 53
         
         # Not needed because nstrm > 0:
         isfropt = 0 # No infiltration beneath streams, and stream variables are
@@ -577,7 +578,7 @@ class Modflow:
         # Deactivation of the transient routing computation through kinematic-wave equation:
         irtflg = 0
         
-        # Stream parameters:
+        # ---- Load Stream parameters
         temp_data_folder = r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\dev_perso\couplage lac-riviere\SFR"
         reach_data_path = os.path.join(temp_data_folder, 
                                        r"ex3_test1_reach_data.csv")
@@ -587,33 +588,99 @@ class Modflow:
                                          r"ex3_test1_segment_data.csv")
         segment_data_1 = np.genfromtxt(segment_data_path, delimiter=';', names=True)
         
-        # Stream mask:
+        # ---- Compute Stream parameters
+        ref_sim_folder = r"D:\Dam_EBR_results\raw\test_SFR_sans_2024-08-02"
+        
+        acc_flux_nc = os.path.join(
+            ref_sim_folder, 
+            r"results_simulations\base\_postprocess\_netcdf",
+            "accumulation_flux.nc")
+        
+        acc_flux_tif = os.path.join(
+            ref_sim_folder, 
+            r"results_simulations\base\_postprocess\_rasters",
+            "accumulation_flux_t(0).tif")
+        
+        if os.path.isfile(acc_flux_nc):
+            # with xr.open_dataset(acc_flux_nc,
+            #                      decode_coords = 'all', 
+            #                      decode_times = True) as acc_flux_ds:
+            #     acc_flux_ds.load() # to unlock the resource
+            # val, _, crs, nodata = toolbox.load_to_numpy(
+            #     acc_flux_nc, 
+            #     base_path = self.geographic.watershed_dem, 
+            #     dst_crs = self.geographic.crs_proj)
+            acc_flux_ds = toolbox.load_to_xarray(acc_flux_nc)
+            acc_flux_ds = acc_flux_ds.mean(dim = 'time') # time average
+            # acc_flux_ds = acc_flux_ds.where(acc_flux_ds > 0.1*acc_flux_ds.max()) # keep only the cells with significant flow 
+            # acc_flux_ds = acc_flux_ds*0+1 # set the value 1 to these cells (nan on the others)                               
+            rivers = acc_flux_ds.accumulation_flux.values # keep only the values as a np.array
+            rivers = np.ma.MaskedArray(
+                data = rivers, 
+                mask = (rivers <= 0.1*np.nanmax(rivers)) | (np.isnan(rivers)),
+                )
+            rivers = np.ma.where(rivers > 0, 1, 0)
+        elif os.path.isfile(acc_flux_tif):
+            print(r"Not fully implemented yet! (the watershed mask is not applied...)")
+            rivers, _, _, _ = toolbox.load_to_numpy(acc_flux_tif)
+            rivers = np.ma.MaskedArray(
+                data = rivers, 
+                mask = rivers <= 0.1*rivers.max()) # rivers = rivers[rivers != 0]
+            rivers = np.ma.where(rivers > 0, 1, 0) # rivers = rivers*0+1
+        else:
+            print("Err: A reference accumulation flux map (either a .tif or a .nc file) is required to compute the stream network")
+            return
+        
+        reach_data = np.recarray(
+            shape = (rivers.count(),),
+            dtype=[('k', '<f8'), ('i', '<f8'), ('j', '<f8'), 
+                   ('iseg', '<f8'), ('ireach', '<f8'), ('rchlen', '<f8'), 
+                   ('strtop', '<f8'), ('slope', '<f8')])
+        r=0
+        for ij, val in np.ma.ndenumerate(rivers):
+            reach_data[r] = (0, ij[0], ij[1], r+1, 1, 0, 0, 0.1)
+            r+=1
+        
+        # ---- Filling and correcting parameters
+        # Translate recarray into map
         sfr_map, _, _, nodata = toolbox.load_to_numpy(
             self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
             base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
         sfr_map[sfr_map > nodata] = 0
-        for r in reach_data:
+        for r in self.sfr2.reach_data:
             sfr_map[int(r['i']), int(r['j'])] = r['iseg']
-        stream_map_path = os.path.join(self.geographic.stable_folder, "streams")
-        if not os.path.exists(stream_map_path):
-            os.makedirs(stream_map_path)
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           sfr_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "streams_map.tif"))
         
 # =============================================================================
-#         # Update elevdn and elevup in segment_data_1:
-#         for seg in segment_data_1['nseg']:
-#         # for seg in set(np.unique(sfr_map)) - set([0, nodata]):
-#             segment_data_1['elevdn'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].min() - 1.5
-#             segment_data_1['elevup'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].max() - 1.5
+#         # Remove multiple reaches collocated on the same cell
+#         for cell in np.unique(reach_data[['i', 'j']]):
+#             while len(reach_data[reach_data[['i', 'j']] == cell]) > 1:
+#                 iseg = reach_data[reach_data[['i', 'j']] == cell]['iseg'].min()
+#                 reach_data = reach_data[
+#                     (reach_data['i'] != cell[0]) | (reach_data['j'] != cell[1]) | (reach_data['iseg'] != iseg)
+#                     ]
+#                 print(f"row {cell[0]}, {cell[1]}, {iseg} removed")
 # =============================================================================
+                # iseg = set(reach_data[reach_data[['i', 'j']] == cell]['iseg']) \
+                #     - set([reach_data[reach_data[['i', 'j']] == cell]['iseg'].max()])
         
-# =============================================================================
-#         # Update strtop in reach_data:
-#         for r in reach_data:
-#             r['strtop'] = self.dem[int(r['i']), int(r['j'])] - 1.5
-# =============================================================================
+        # Update strtop in reach_data:
+        for r in reach_data:
+            r['strtop'] = self.dem[int(r['i']), int(r['j'])]
+        
+        # Update rchlen in reach_data:
+        rchlen = self.geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # Average straight euclidien length
+        reach_data['rchlen'] = rchlen
+        
+        reach_data['k'] = 0
+        
+        # Compute segment_data_1
+        
+        
+        # Update elevdn and elevup in segment_data_1:
+        for seg in segment_data_1['nseg']:
+        # for seg in set(np.unique(sfr_map)) - set([0, nodata]):
+            segment_data_1['elevdn'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].min() - 1.5
+            segment_data_1['elevup'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].max() - 1.5
         
         # Correct HCOND in segment_data_1:
         for s in segment_data_1:
@@ -622,7 +689,8 @@ class Modflow:
 
         # Correct drain_array
         self.drain_array[sfr_map > 0] = 0
-
+        
+        # ---- SFR2 function call
         segment_data = {0: segment_data_1}
         
         nstrm = len(reach_data) # > 0
@@ -645,11 +713,15 @@ class Modflow:
         
         self.sfr2 = flopy.modflow.ModflowSfr2(
             self.mf, nstrm=nstrm, nss=nss, nsfrpar=nsfrpar, nparseg=nparseg,
-            istcb2=istcb2, isfropt=isfropt, irtflg=irtflg, dataset_5=dataset_5,
+            isfropt=isfropt, irtflg=irtflg, dataset_5=dataset_5,
             # streams parameters:
             reach_data=reach_data, segment_data=segment_data, 
             # default values:
             numtim=2, weight=0.75,
+# =============================================================================
+#             # uncertain how to use:
+#             ipakcb=ipakcb, istcb2=istcb2,
+# =============================================================================
 # =============================================================================
 #             # no infiltration:
 #             dleak, ipakcb, nstrail, isuzn, nsfrsets,
@@ -669,8 +741,42 @@ class Modflow:
             const=0, # 86400, # value is not used because no Manning
             )
         
+        # ---- sfr2 correct, repair & check
+        # Compute slopes
+        self.sfr2.get_slopes(default_slope=0.005)
+        
+        # Repair segments ordering and outsegs
+        self.sfr2.renumber_segments()
+        self.sfr2.repair_outsegs()
+        
+        self.sfr2.set_outreaches()
+        
+        # Verbose verification
         self.sfr2.check()
-
+        
+        # ---- Export
+        stream_map_path = os.path.join(self.geographic.stable_folder, "streams")
+        if not os.path.exists(stream_map_path):
+            os.makedirs(stream_map_path)
+            
+        self.sfr2.export_linkages(
+            os.path.join(stream_map_path, "streams_map.shp"), 
+            epsg=int(self.geographic.crs_proj.split(':')[-1]))
+        self.sfr2.export_outlets(
+            os.path.join(stream_map_path, "outlets.shp"), 
+            epsg=int(self.geographic.crs_proj.split(':')[-1]))
+        
+        # Correct stream mask:
+        sfr_map, _, _, nodata = toolbox.load_to_numpy(
+            self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
+            base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
+        sfr_map[sfr_map > nodata] = 0
+        for r in self.sfr2.reach_data:
+            sfr_map[int(r['i']), int(r['j'])] = r['iseg']
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           sfr_map, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "streams_map.tif"))
+        
         #%% Drain package
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
