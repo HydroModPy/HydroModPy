@@ -631,15 +631,142 @@ class Modflow:
             print("Err: A reference accumulation flux map (either a .tif or a .nc file) is required to compute the stream network")
             return
         
+        ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
+        rivers = rivers*ldd
+        
         reach_data = np.recarray(
             shape = (rivers.count(),),
             dtype=[('k', '<f8'), ('i', '<f8'), ('j', '<f8'), 
                    ('iseg', '<f8'), ('ireach', '<f8'), ('rchlen', '<f8'), 
                    ('strtop', '<f8'), ('slope', '<f8')])
-        r=0
-        for ij, val in np.ma.ndenumerate(rivers):
-            reach_data[r] = (0, ij[0], ij[1], r+1, 1, 0, 0, 0.1)
-            r+=1
+        reach_data['ireach'] = 1
+        reach_data['iseg'] = range(1, rivers.count()+1)
+        reach_data['slope'] = 0.1
+        ilist = [ij[0] for ij, _ in np.ma.ndenumerate(rivers)]
+        jlist = [ij[1] for ij, _ in np.ma.ndenumerate(rivers)]
+        reach_data['i'] = ilist
+        reach_data['j'] = jlist
+        
+        # k, rchlen, strtop and slope are corrected in the next sections
+        
+# =============================================================================
+#         r = 0
+#         for ij, val in np.ma.ndenumerate(rivers):
+#             i, j = ij[:]
+# 
+#             reach_data[r] = (0, i, j, r+1, 1, 0, 0, 0.1)
+#             r+=1
+# =============================================================================
+            
+        for r in reach_data:
+            i = int(r['i'])
+            j = int(r['j'])
+            val = rivers[i, j]
+            
+            # Convert D8 local direction codes into indexes i and j:
+                # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
+            if val == 2: #1
+                i2 = i
+                j2 = j+1     
+            elif val == 4: #2
+                i2 = i+1
+                j2 = j+1
+            elif val == 8: #4
+                i2 = i+1
+                j2 = j
+            elif val == 16: #8
+                i2 = i+1
+                j2 = j-1
+            elif val == 32: #16
+                i2 = i
+                j2 = j-1
+            elif val == 64: #32
+                i2 = i-1
+                j2 = j-1
+            elif val == 128: #64
+                i2 = i-1
+                j2 = j
+            elif val == 1: #128
+                i2 = i-1
+                j2 = j+1
+            
+            # if the downstream cell is part of river cells:
+            if not np.ma.is_masked(rivers[i2, j2]):
+                print(f'cellule de rivière : i,j = {i},{j}, i2,j2={i2},{j2}')
+                print(f"   r[iseg] = {r['iseg']} | r[ireach] = {r['ireach']}")
+            # if rivers.mask[i2, j2]:
+                # 1. if the downstream cell is the first of its segment...
+                if reach_data['ireach'][
+                        (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                        ] == 1:
+                    print('   cas 1')
+                    # ...then it will be incorporated into the upstream 
+                    # segment, as well as all cells from this segment...
+# =============================================================================
+#                     reach_data['iseg'][
+#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
+#                         ] = r['iseg']
+# =============================================================================
+                    reach_data['iseg'][
+                        reach_data['iseg'] == reach_data['iseg'][
+                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                            ]] = r['iseg']
+                    # and reach number will be corrected
+# =============================================================================
+#                     reach_data['ireach'][
+#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
+#                         ] = r['ireach'] + 1
+# =============================================================================
+                    print(reach_data['ireach'][
+                        reach_data['iseg'] == reach_data['iseg'][
+                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                            ]])
+                    reach_data['ireach'][
+                        reach_data['iseg'] == reach_data['iseg'][
+                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                            ]] += r['ireach']
+# =============================================================================
+#                     print(f"   r[iseg] = {r['iseg']} | r[ireach] = {r['ireach']}")
+# =============================================================================
+                # 2. if the downstream cell is not the first of its segment...
+                else:
+                    print('   cas 2')
+                    # ...then this cell will be the start of a new segment
+# =============================================================================
+#                     reach_data['iseg'][
+#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
+#                         ] = r['iseg']+rivers.count() # new iseg
+# =============================================================================
+                    reach_data['iseg'][
+                        reach_data['iseg'] == reach_data['iseg'][
+                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                            ]] = r['iseg']+rivers.count() # new iseg
+                    # and reach number will be reinitialized:
+# =============================================================================
+#                     reach_data['ireach'][
+#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
+#                         ] = 1
+# =============================================================================
+                    reach_data['ireach'][
+                        reach_data['iseg'] == reach_data['iseg'][
+                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                            ]] -= reach_data['ireach'][
+                                    (reach_data['i'] == i2) & (reach_data['j'] == j2)
+                                    ] -1
+        
+        print(len(np.unique(reach_data['iseg'])))
+                                
+        segment_data = np.recarray(
+            shape = (len(np.unique(reach_data['iseg'])),),
+            dtype=[('nseg', '<f8'), ('icalc', '<f8'), ('outseg', '<f8'), 
+                   ('iupseg', '<f8'), ('nstrpts', '<f8'), ('flow', '<f8'), 
+                   ('roughch', '<f8'), ('roughbk', '<f8'), ('cdpth', '<f8'), 
+                   ('fdpth', '<f8'), ('awdth', '<f8'), ('bwdth', '<f8'), 
+                   ('hcond1', '<f8'), ('thickm1', '<f8'), ('elevup', '<f8'), 
+                   ('width1', '<f8'), ('depth1', '<f8'), ('hcond2', '<f8'), 
+                   ('thickm2', '<f8'), ('elevdn', '<f8'), ('width2', '<f8'), 
+                   ('depth2', '<f8')])
+        segment_data[:] = 0
         
         # ---- Filling and correcting parameters
         # Translate recarray into map
@@ -647,8 +774,19 @@ class Modflow:
             self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
             base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
         sfr_map[sfr_map > nodata] = 0
-        for r in self.sfr2.reach_data:
+        for r in reach_data:
             sfr_map[int(r['i']), int(r['j'])] = r['iseg']
+        #### TEMP #####
+        stream_map_path = os.path.join(self.geographic.stable_folder, "streams")
+        if not os.path.exists(stream_map_path):
+            os.makedirs(stream_map_path)
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           sfr_map, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "streams_map.tif"))
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           rivers, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "rivers_ldd.tif"))
+        #### TEMP #####
         
 # =============================================================================
 #         # Remove multiple reaches collocated on the same cell
@@ -663,16 +801,16 @@ class Modflow:
                 # iseg = set(reach_data[reach_data[['i', 'j']] == cell]['iseg']) \
                 #     - set([reach_data[reach_data[['i', 'j']] == cell]['iseg'].max()])
         
+        # Update layer:
+        reach_data['k'] = 0
         # Update strtop in reach_data:
         for r in reach_data:
             r['strtop'] = self.dem[int(r['i']), int(r['j'])]
-        
         # Update rchlen in reach_data:
         rchlen = self.geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # Average straight euclidien length
         reach_data['rchlen'] = rchlen
         
-        reach_data['k'] = 0
-        
+
         # Compute segment_data_1
         
         
