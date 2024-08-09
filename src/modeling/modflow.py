@@ -649,15 +649,6 @@ class Modflow:
         
         # k, rchlen, strtop and slope are corrected in the next sections
         
-# =============================================================================
-#         r = 0
-#         for ij, val in np.ma.ndenumerate(rivers):
-#             i, j = ij[:]
-# 
-#             reach_data[r] = (0, i, j, r+1, 1, 0, 0, 0.1)
-#             r+=1
-# =============================================================================
-            
         for r in reach_data:
             i = int(r['i'])
             j = int(r['j'])
@@ -692,61 +683,30 @@ class Modflow:
             
             # if the downstream cell is part of river cells:
             if not np.ma.is_masked(rivers[i2, j2]):
-                print(f'cellule de rivière : i,j = {i},{j}, i2,j2={i2},{j2}')
-                print(f"   r[iseg] = {r['iseg']} | r[ireach] = {r['ireach']}")
             # if rivers.mask[i2, j2]:
                 # 1. if the downstream cell is the first of its segment...
                 if reach_data['ireach'][
                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
                         ] == 1:
-                    print('   cas 1')
                     # ...then it will be incorporated into the upstream 
                     # segment, as well as all cells from this segment...
-# =============================================================================
-#                     reach_data['iseg'][
-#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
-#                         ] = r['iseg']
-# =============================================================================
                     reach_data['iseg'][
                         reach_data['iseg'] == reach_data['iseg'][
                             (reach_data['i'] == i2) & (reach_data['j'] == j2)
                             ]] = r['iseg']
                     # and reach number will be corrected
-# =============================================================================
-#                     reach_data['ireach'][
-#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
-#                         ] = r['ireach'] + 1
-# =============================================================================
-                    print(reach_data['ireach'][
-                        reach_data['iseg'] == reach_data['iseg'][
-                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                            ]])
                     reach_data['ireach'][
                         reach_data['iseg'] == reach_data['iseg'][
                             (reach_data['i'] == i2) & (reach_data['j'] == j2)
                             ]] += r['ireach']
-# =============================================================================
-#                     print(f"   r[iseg] = {r['iseg']} | r[ireach] = {r['ireach']}")
-# =============================================================================
                 # 2. if the downstream cell is not the first of its segment...
                 else:
-                    print('   cas 2')
                     # ...then this cell will be the start of a new segment
-# =============================================================================
-#                     reach_data['iseg'][
-#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
-#                         ] = r['iseg']+rivers.count() # new iseg
-# =============================================================================
                     reach_data['iseg'][
                         reach_data['iseg'] == reach_data['iseg'][
                             (reach_data['i'] == i2) & (reach_data['j'] == j2)
                             ]] = r['iseg']+rivers.count() # new iseg
                     # and reach number will be reinitialized:
-# =============================================================================
-#                     reach_data['ireach'][
-#                         (reach_data['i'] == i2) & (reach_data['j'] == j2)
-#                         ] = 1
-# =============================================================================
                     reach_data['ireach'][
                         reach_data['iseg'] == reach_data['iseg'][
                             (reach_data['i'] == i2) & (reach_data['j'] == j2)
