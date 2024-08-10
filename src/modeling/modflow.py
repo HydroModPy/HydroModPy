@@ -617,7 +617,7 @@ class Modflow:
             rivers = acc_flux_ds.accumulation_flux.values # keep only the values as a np.array
             rivers = np.ma.MaskedArray(
                 data = rivers, 
-                mask = (rivers <= 0.1*np.nanmax(rivers)) | (np.isnan(rivers)),
+                mask = (rivers <= 0.01*np.nanmax(rivers)) | (np.isnan(rivers)),
                 )
             rivers = np.ma.where(rivers > 0, 1, 0)
         elif os.path.isfile(acc_flux_tif):
@@ -634,11 +634,20 @@ class Modflow:
         ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
         rivers = rivers*ldd
         
-        reach_data = np.recarray(
-            shape = (rivers.count(),),
-            dtype=[('k', '<f8'), ('i', '<f8'), ('j', '<f8'), 
-                   ('iseg', '<f8'), ('ireach', '<f8'), ('rchlen', '<f8'), 
-                   ('strtop', '<f8'), ('slope', '<f8')])
+        # NOTE: reach_data is first created as a pandas.dataframe and then 
+        # converted into a numpy.recarray. It is not directly created as a 
+        # recarray because of the difficulty to handle and modify recarrays.
+        reach_data = pd.DataFrame(index = range(0, rivers.count()),
+                                  columns = ['k', 'i', 'j', 'iseg', 'ireach',
+                                             'rchlen', 'strtop', 'slope'])
+        segment_data_1 = pd.DataFrame(columns = ['icalc', 'outseg', 'iupseg',
+                                                 'nstrpts', 'flow', 'roughch',
+                                                 'roughbk', 'cdpth', 'fdpth',
+                                                 'awdth', 'bwdth', 'hcond1',
+                                                 'thickm1', 'elevup', 'width1',
+                                                 'depth1', 'hcond2', 'thickm2',
+                                                 'elevdn', 'width2', 'depth2'])
+        segment_data_1.index.name = 'nseg'
         reach_data['ireach'] = 1
         reach_data['iseg'] = range(1, rivers.count()+1)
         reach_data['slope'] = 0.1
@@ -649,9 +658,9 @@ class Modflow:
         
         # k, rchlen, strtop and slope are corrected in the next sections
         
-        for r in reach_data:
-            i = int(r['i'])
-            j = int(r['j'])
+        for r in reach_data.index:
+            i = reach_data.loc[r, 'i']
+            j = reach_data.loc[r, 'j']
             val = rivers[i, j]
             
             # Convert D8 local direction codes into indexes i and j:
@@ -684,49 +693,108 @@ class Modflow:
             # if the downstream cell is part of river cells:
             if not np.ma.is_masked(rivers[i2, j2]):
             # if rivers.mask[i2, j2]:
+                reach2 = reach_data[(reach_data['i'] == i2) & (reach_data['j'] == j2)]
                 # 1. if the downstream cell is the first of its segment...
-                if reach_data['ireach'][
-                        (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                        ] == 1:
-                    # ...then it will be incorporated into the upstream 
-                    # segment, as well as all cells from this segment...
-                    reach_data['iseg'][
-                        reach_data['iseg'] == reach_data['iseg'][
-                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                            ]] = r['iseg']
-                    # and reach number will be corrected
+                if reach_data.loc[reach2.index, 'ireach'].item() == 1:
+                    print(f"cas 1 : {len(reach_data['iseg'][reach_data['iseg'] == reach2['iseg'].item()])} cells | iseg = {reach_data.loc[r, 'iseg']}")
+                    up1_iseg = reach_data.loc[r, 'iseg']
+                    up2_iseg = reach2['iseg'].item()
+                    
+                    # ... then the reach number of the downstream cells will be 
+                    # corrected...
                     reach_data['ireach'][
-                        reach_data['iseg'] == reach_data['iseg'][
-                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                            ]] += r['ireach']
+                        reach_data['iseg'] == up2_iseg
+                        ] += reach_data.loc[r, 'ireach']
+                    # ... and the segment number will be updated in segment_data_1
+                    # segment_data_1.rename(index = {
+                    #     up2_iseg: up1_iseg}, 
+                    #     inplace = True)
+                    segment_data_1 = segment_data_1[segment_data_1.index != up2_iseg]
+                    segment_data_1.loc[up1_iseg, 'flow'] = 0
+                    segment_data_1.replace(
+                        {'outseg': {
+                            up2_iseg: up1_iseg}})
+                    # ...and it will be incorporated into the upstream 
+                    # segment, as well as all cells from this segment
+                    reach_data['iseg'][
+                        reach_data['iseg'] == up2_iseg
+                        ] = up1_iseg
+                    print(f"{up2_iseg} -> {up1_iseg}")
                 # 2. if the downstream cell is not the first of its segment...
                 else:
-                    # ...then this cell will be the start of a new segment
+                    print(f"cas 2 : {len(reach_data['iseg'][reach_data['iseg'] == reach2['iseg'].item()])} cells")
+                    # ... then this cell will be the start of a new segment...
+                    up1_iseg = reach_data.loc[r, 'iseg']
+                    up2_iseg = reach2['iseg'].item()
+                    down_iseg = reach2['iseg'].item() + rivers.count()
                     reach_data['iseg'][
-                        reach_data['iseg'] == reach_data['iseg'][
-                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                            ]] = r['iseg']+rivers.count() # new iseg
-                    # and reach number will be reinitialized:
+                        (reach_data['iseg'] == reach2['iseg'].item()) & \
+                            (reach_data['ireach'] >= reach2['ireach'].item())
+                        ] = down_iseg
+                    # ... and the reach number will be reinitialized ...
                     reach_data['ireach'][
-                        reach_data['iseg'] == reach_data['iseg'][
-                            (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                            ]] -= reach_data['ireach'][
-                                    (reach_data['i'] == i2) & (reach_data['j'] == j2)
-                                    ] -1
+                        reach_data['iseg'] == down_iseg
+                        ] -= reach2['ireach'].item() - 1
+                    # ... and the segment data will be updated
+                    segment_data_1.loc[up1_iseg, 'outseg'] = down_iseg
+                    segment_data_1.loc[up2_iseg, 'outseg'] = down_iseg
+                    segment_data_1.loc[down_iseg, 'outseg'] = 0
+                    print(f"{up1_iseg} & {up2_iseg} -> {down_iseg}")
         
-        print(len(np.unique(reach_data['iseg'])))
-                                
-        segment_data = np.recarray(
-            shape = (len(np.unique(reach_data['iseg'])),),
-            dtype=[('nseg', '<f8'), ('icalc', '<f8'), ('outseg', '<f8'), 
-                   ('iupseg', '<f8'), ('nstrpts', '<f8'), ('flow', '<f8'), 
-                   ('roughch', '<f8'), ('roughbk', '<f8'), ('cdpth', '<f8'), 
-                   ('fdpth', '<f8'), ('awdth', '<f8'), ('bwdth', '<f8'), 
-                   ('hcond1', '<f8'), ('thickm1', '<f8'), ('elevup', '<f8'), 
-                   ('width1', '<f8'), ('depth1', '<f8'), ('hcond2', '<f8'), 
-                   ('thickm2', '<f8'), ('elevdn', '<f8'), ('width2', '<f8'), 
-                   ('depth2', '<f8')])
-        segment_data[:] = 0
+# =============================================================================
+#         reach_data.sort_values(axis=0, by=['iseg', 'i', 'j'], inplace=True)
+#         n_reach = 1
+#         reach_data.iloc[0]['ireach'] = 1
+#         for row in range(1, len(reach_data)):
+#             if reach_data.iloc[row]['iseg'] != reach_data.iloc[row-1]['iseg']:
+#                 n_reach = 1
+#             reach_data.iloc[row]['ireach'] = n_reach
+#             n_reach += 1
+#             
+#         print('-----')
+#         print(reach_data)
+#         print('----')
+# =============================================================================
+        
+        reach_data = reach_data.to_records(
+            index = False,
+            column_dtypes = {'k': '<f8', 'i': '<f8', 'j': '<f8', 
+                   'iseg': '<f8', 'ireach': '<f8', 'rchlen': '<f8', 
+                   'strtop': '<f8', 'slope': '<f8'})
+        
+        print(f"{len(np.unique(reach_data['iseg']))} segments created")
+        print(f"nseg : {segment_data_1.index}")   
+        print(f"outseg : {np.unique(segment_data_1.outseg)}")  
+        
+        print(reach_data)
+                        
+        # segment_data_1 = np.recarray(
+        #     shape = (len(np.unique(reach_data['iseg'])),),
+        #     dtype=[('nseg', '<f8'), ('icalc', '<f8'), ('outseg', '<f8'), 
+        #            ('iupseg', '<f8'), ('nstrpts', '<f8'), ('flow', '<f8'), 
+        #            ('roughch', '<f8'), ('roughbk', '<f8'), ('cdpth', '<f8'), 
+        #            ('fdpth', '<f8'), ('awdth', '<f8'), ('bwdth', '<f8'), 
+        #            ('hcond1', '<f8'), ('thickm1', '<f8'), ('elevup', '<f8'), 
+        #            ('width1', '<f8'), ('depth1', '<f8'), ('hcond2', '<f8'), 
+        #            ('thickm2', '<f8'), ('elevdn', '<f8'), ('width2', '<f8'), 
+        #            ('depth2', '<f8')])
+        segment_data_1 = segment_data_1.to_records(
+            index = True,
+            column_dtypes = {'nseg': '<f8', 'icalc': '<f8', 'outseg': '<f8', 
+                   'iupseg': '<f8', 'nstrpts': '<f8', 'flow': '<f8', 
+                   'roughch': '<f8', 'roughbk': '<f8', 'cdpth': '<f8', 
+                   'fdpth': '<f8', 'awdth': '<f8', 'bwdth': '<f8', 
+                   'hcond1': '<f8', 'thickm1': '<f8', 'elevup': '<f8', 
+                   'width1': '<f8', 'depth1': '<f8', 'hcond2': '<f8', 
+                   'thickm2': '<f8', 'elevdn': '<f8', 'width2': '<f8', 
+                   'depth2': '<f8'})
+        # segment_data_1[:] = 0
+        # segment_data_1['nseg'] = np.unique(reach_data['iseg'])
+        segment_data_1['thickm1'] = 0
+        segment_data_1['thickm2'] = 0
+        segment_data_1['depth1'] = 0
+        segment_data_1['depth2'] = 0
+        segment_data_1['icalc'] = icalc
         
         # ---- Filling and correcting parameters
         # Translate recarray into map
@@ -770,21 +838,22 @@ class Modflow:
         rchlen = self.geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # Average straight euclidien length
         reach_data['rchlen'] = rchlen
         
-
-        # Compute segment_data_1
+# =============================================================================
+#         for seg in segment_data_1['nseg']:
+#         # for seg in set(np.unique(sfr_map)) - set([0, nodata]):
+#             segment_data_1['elevdn'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].min() - 1.5
+#             segment_data_1['elevup'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].max() - 1.5
+# =============================================================================
         
-        
-        # Update elevdn and elevup in segment_data_1:
-        for seg in segment_data_1['nseg']:
-        # for seg in set(np.unique(sfr_map)) - set([0, nodata]):
-            segment_data_1['elevdn'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].min() - 1.5
-            segment_data_1['elevup'][segment_data_1['nseg'] == seg] = self.dem[sfr_map == seg].max() - 1.5
-        
-        # Correct HCOND in segment_data_1:
         for s in segment_data_1:
+            # Correct HCOND in segment_data_1:
             s['hcond1'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
             s['hcond2'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
-
+            # Update elevdn and elevup in segment_data_1:
+            iseg = s['nseg']
+            s['elevdn'] = self.dem[sfr_map == iseg].min()
+            s['elevup'] = self.dem[sfr_map == iseg].max()
+            
         # Correct drain_array
         self.drain_array[sfr_map > 0] = 0
         
@@ -844,10 +913,20 @@ class Modflow:
         self.sfr2.get_slopes(default_slope=0.005)
         
         # Repair segments ordering and outsegs
-        self.sfr2.renumber_segments()
-        self.sfr2.repair_outsegs()
+# =============================================================================
+#         self.sfr2.renumber_segments() # restart segment numbering from 1
+#         self.sfr2.repair_outsegs() # correct the terminal reaches
+#         self.sfr2.reset_reaches() # restart reach numbering from 1 for each segment
+# =============================================================================
         
-        self.sfr2.set_outreaches()
+        print("----")
+        print(self.sfr2.segment_data[0])
+        print("----")
+        print(self.sfr2.reach_data)
+        
+# =============================================================================
+#         self.sfr2.set_outreaches()
+# =============================================================================
         
         # Verbose verification
         self.sfr2.check()
@@ -869,11 +948,19 @@ class Modflow:
             self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
             base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
         sfr_map[sfr_map > nodata] = 0
+        sfr_mapr, _, _, nodata = toolbox.load_to_numpy(
+            self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
+            base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
+        sfr_mapr[sfr_mapr > nodata] = 0
         for r in self.sfr2.reach_data:
             sfr_map[int(r['i']), int(r['j'])] = r['iseg']
+            sfr_mapr[int(r['i']), int(r['j'])] = r['ireach']
         toolbox.export_tif(self.geographic.watershed_dem, 
                            sfr_map, self.geographic.nodata, 
                            os.path.join(stream_map_path, "streams_map.tif"))
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           sfr_mapr, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "streams_mapr.tif"))
         
         #%% Drain package
         # (DRN)
