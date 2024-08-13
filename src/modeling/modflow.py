@@ -592,58 +592,65 @@ class Modflow:
         
         # ---- Case #2: Compute Stream parameters
         ### 0. Apply SFR only on the main river:
-        ref_sim_folder = r"D:\Dam_EBR_results\raw\test_SFR_sans_2024-08-02"
-        
-        acc_flux_nc = os.path.join(
-            ref_sim_folder, 
-            r"results_simulations\base\_postprocess\_netcdf",
-            "accumulation_flux.nc")
-        
-        acc_flux_tif = os.path.join(
-            ref_sim_folder, 
-            r"results_simulations\base\_postprocess\_rasters",
-            "accumulation_flux_t(0).tif")
-        
-        if os.path.isfile(acc_flux_nc):
-            # val, _, crs, nodata = toolbox.load_to_numpy(
-            #     acc_flux_nc, 
-            #     base_path = self.geographic.watershed_dem, 
-            #     dst_crs = self.geographic.crs_proj)
-            acc_flux_ds = toolbox.load_to_xarray(acc_flux_nc)
-            acc_flux_ds = acc_flux_ds.mean(dim = 'time') # time average
-            # acc_flux_ds = acc_flux_ds.where(acc_flux_ds > 0.1*acc_flux_ds.max()) # keep only the cells with significant flow 
-            # acc_flux_ds = acc_flux_ds*0+1 # set the value 1 to these cells (nan on the others)                               
-            rivers = acc_flux_ds.accumulation_flux.values # keep only the values as a np.array
-            rivers = np.ma.MaskedArray(
-                data = rivers, 
-                mask = (rivers <= 0.01*np.nanmax(rivers)) | (np.isnan(rivers)),
-                )
-            rivers = np.ma.where(rivers > 0, 1, 0)
-        elif os.path.isfile(acc_flux_tif):
-            print(r"Not fully implemented yet! (the watershed mask is not applied...)")
-            rivers, _, _, _ = toolbox.load_to_numpy(acc_flux_tif)
-            rivers = np.ma.MaskedArray(
-                data = rivers, 
-                mask = rivers <= 0.1*rivers.max()) # rivers = rivers[rivers != 0]
-            rivers = np.ma.where(rivers > 0, 1, 0) # rivers = rivers*0+1
-        else:
-            print("Err: A reference accumulation flux map (either a .tif or a .nc file) is required to compute the stream network")
-            return
-        
-        ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
-        ldd = rivers*ldd
+# =============================================================================
+#         ref_sim_folder = r"D:\Dam_EBR_results\raw\test_SFR_sans_2024-08-02"
+#         
+#         acc_flux_nc = os.path.join(
+#             ref_sim_folder, 
+#             r"results_simulations\base\_postprocess\_netcdf",
+#             "accumulation_flux.nc")
+#         
+#         acc_flux_tif = os.path.join(
+#             ref_sim_folder, 
+#             r"results_simulations\base\_postprocess\_rasters",
+#             "accumulation_flux_t(0).tif")
+#         
+#         if os.path.isfile(acc_flux_nc):
+#             # val, _, crs, nodata = toolbox.load_to_numpy(
+#             #     acc_flux_nc, 
+#             #     base_path = self.geographic.watershed_dem, 
+#             #     dst_crs = self.geographic.crs_proj)
+#             acc_flux_ds = toolbox.load_to_xarray(acc_flux_nc)
+#             acc_flux_ds = acc_flux_ds.mean(dim = 'time') # time average
+#             # acc_flux_ds = acc_flux_ds.where(acc_flux_ds > 0.1*acc_flux_ds.max()) # keep only the cells with significant flow 
+#             # acc_flux_ds = acc_flux_ds*0+1 # set the value 1 to these cells (nan on the others)                               
+#             rivers = acc_flux_ds.accumulation_flux.values # keep only the values as a np.array
+#             rivers = np.ma.MaskedArray(
+#                 data = rivers, 
+#                 mask = (rivers <= 0.01*np.nanmax(rivers)) | (np.isnan(rivers)),
+#                 )
+#             rivers = np.ma.where(rivers > 0, 1, 0)
+#         elif os.path.isfile(acc_flux_tif):
+#             print(r"Not fully implemented yet! (the watershed mask is not applied...)")
+#             rivers, _, _, _ = toolbox.load_to_numpy(acc_flux_tif)
+#             rivers = np.ma.MaskedArray(
+#                 data = rivers, 
+#                 mask = rivers <= 0.1*rivers.max()) # rivers = rivers[rivers != 0]
+#             rivers = np.ma.where(rivers > 0, 1, 0) # rivers = rivers*0+1
+#         else:
+#             print("Err: A reference accumulation flux map (either a .tif or a .nc file) is required to compute the stream network")
+#             return
+#         
+#         ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
+#         ldd = rivers*ldd
+# =============================================================================
         
         ### 1. Apply on the whole watershed:
-# =============================================================================
-#         ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
-# =============================================================================
+        ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
+        watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+            self.geographic.watershed_dem,
+            src_crs = self.geographic.crs_proj, 
+            base_path = self.geographic.watershed_dem,
+            dst_crs = self.geographic.crs_proj) 
+
+        ldd = np.ma.array(ldd, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
         
         ### 2. Initialize reach and segmennt infos:
         # NOTE: self.reach_data is first created as a pandas.dataframe and then 
         # converted into a numpy.recarray. It is not directly created as a 
         # recarray because of the difficulty to handle and modify recarrays.
         # Same for self.segment_data_1
-        self.reach_data = pd.DataFrame(index = range(0, ldd.count()),
+        self.reach_data = pd.DataFrame(index = range(0, (~np.isnan(ldd)).sum()), # ldd.count()),
                                   columns = ['k', 'i', 'j', 'iseg', 'ireach',
                                              'rchlen', 'strtop', 'slope'])
         self.segment_data_1 = pd.DataFrame(columns = ['icalc', 'outseg', 'iupseg',
@@ -867,10 +874,10 @@ class Modflow:
         self.segment_data_1['depth1'] = depth
         self.segment_data_1['depth2'] = depth
         self.segment_data_1['icalc'] = icalc 
-        self.segment_data_1['hcond1'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
-        self.segment_data_1['hcond2'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
-        self.segment_data_1['width1'] = 10 # self.resolution # 1.5  # arbitrary
-        self.segment_data_1['width2'] = 10 # self.resolution # 1.5 
+        self.segment_data_1['hcond1'] = 0.0008 # 3e-5 # self.hyd_cond[0, 0] # 864000
+        self.segment_data_1['hcond2'] = 0.0008 # 3e-5 # self.hyd_cond[0, 0] # 864000
+        self.segment_data_1['width1'] = 1 # self.resolution # 1.5  # arbitrary
+        self.segment_data_1['width2'] = 1 # self.resolution # 1.5 
 
         # 2. Remove multiple reaches collocated on the same cell
 # =============================================================================
@@ -1321,27 +1328,29 @@ class Modflow:
                     toolbox.export_tif(self.dem_path, self.seep_area, -9999, output_path)
                 self.dict_seepage_areas[item] = self.seep_area
             
-            if outflow_drain == True:
-                ### Outflow drain
-                self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
-                self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
-                sim = 0
-                count = 0
-                for i in range(0, self.dis.nrow):
-                    for j in range(0, self.dis.ncol):
-                      if self.drain_array[i,j] == 1:
-                        self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
-                        count = count + 1
-                self.out_drn = self.out_all[0]
-                self.out_drn[self.dem_mask] = -9999
-                # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
-                output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
-                if accumulation_flux==True:
-                    toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
-                else:
-                    if export_tif==True:
-                        toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
-                self.dict_outflow_drain[item] = self.out_drn
+# =============================================================================
+#             if outflow_drain == True:
+#                 ### Outflow drain
+#                 self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
+#                 self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
+#                 sim = 0
+#                 count = 0
+#                 for i in range(0, self.dis.nrow):
+#                     for j in range(0, self.dis.ncol):
+#                       if self.drain_array[i,j] == 1:
+#                         self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
+#                         count = count + 1
+#                 self.out_drn = self.out_all[0]
+#                 self.out_drn[self.dem_mask] = -9999
+#                 # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
+#                 output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
+#                 if accumulation_flux==True:
+#                     toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+#                 else:
+#                     if export_tif==True:
+#                         toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+#                 self.dict_outflow_drain[item] = self.out_drn
+# =============================================================================
             
             if groundwater_flux == True:
                 ### Groundwater flux
@@ -1383,37 +1392,43 @@ class Modflow:
                 self.gw_storage = np.sum(self.sto, axis=0)
                 self.dict_groundwater_storage[item] = self.gw_storage
 
-            if accumulation_flux == True:
-                ### Accumulation flux
-                accumulated_flow = downslope.Downslope(self.geographic,
-                                                              'outflow_drain_t('+lead_numb+').tif',
-                                                              'tracept_t('+lead_numb+').shp',
-                                                              'accumulation_flux_t('+lead_numb+').tif',
-                                                              extraction_folder=self.save_file)
-                accumulated_flow.trace_cumulated()
-                output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
-                try:
-                    self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
-                except:
-                    self.dict_accumulation_flux[item] = imageio.imread(output_path)
-                    pass
+# =============================================================================
+#             if accumulation_flux == True:
+#                 ### Accumulation flux
+#                 accumulated_flow = downslope.Downslope(self.geographic,
+#                                                               'outflow_drain_t('+lead_numb+').tif',
+#                                                               'tracept_t('+lead_numb+').shp',
+#                                                               'accumulation_flux_t('+lead_numb+').tif',
+#                                                               extraction_folder=self.save_file)
+#                 accumulated_flow.trace_cumulated()
+#                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
+#                 try:
+#                     self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
+#                 except:
+#                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
+#                     pass
+# =============================================================================
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
             np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
         if watertable_depth == True:
             np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
-        if seepage_areas == True:
-            np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
-        if outflow_drain == True:
-            np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+# =============================================================================
+#         if seepage_areas == True:
+#             np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+#         if outflow_drain == True:
+#             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+# =============================================================================
         if groundwater_flux == True:
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
             np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
-        if accumulation_flux == True:
-            np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+# =============================================================================
+#         if accumulation_flux == True:
+#             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+# =============================================================================
 
         if persistency_index == True:
             ### Persistency index
