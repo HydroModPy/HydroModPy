@@ -954,10 +954,10 @@ class Modflow:
             reach_data=reach_data_rec, segment_data=segment_data, 
             # default values:
             numtim=2, weight=0.75,
-# =============================================================================
-#             # uncertain how to use:
-#             ipakcb=ipakcb, istcb2=istcb2,
-# =============================================================================
+            # to create the .sfr.out file
+            istcb2=istcb2,
+            # uncertain how to use:
+            ipakcb=ipakcb, 
 # =============================================================================
 #             # no infiltration:
 #             dleak, ipakcb, nstrail, isuzn, nsfrsets,
