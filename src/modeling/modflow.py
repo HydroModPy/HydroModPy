@@ -772,6 +772,7 @@ class Modflow:
         
         # Note: if self.segment_data_1 contains nan, Modflow crashes
         self.segment_data_1 = self.segment_data_1.fillna(0)
+        self.reach_data.fillna(0)
         
         # Reverse segment numbering:
           # reverse 'iseg' in reach_data:
@@ -860,15 +861,16 @@ class Modflow:
 # =============================================================================
 
         # 1. Standard values on segment_data_1:
+        depth = 1 # arbitrary
         self.segment_data_1['thickm1'] = 0.1 # Modflow does not run if = 0
         self.segment_data_1['thickm2'] = 0.1
-        self.segment_data_1['depth1'] = 1 # arbitrary
-        self.segment_data_1['depth2'] = 1
+        self.segment_data_1['depth1'] = depth
+        self.segment_data_1['depth2'] = depth
         self.segment_data_1['icalc'] = icalc 
         self.segment_data_1['hcond1'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
         self.segment_data_1['hcond2'] = 0.001 # 3e-5 # self.hyd_cond[0, 0] # 864000
-        self.segment_data_1['width1'] = 1.5  # arbitrary
-        self.segment_data_1['width2'] = 1.5 
+        self.segment_data_1['width1'] = 10 # self.resolution # 1.5  # arbitrary
+        self.segment_data_1['width2'] = 10 # self.resolution # 1.5 
 
         # 2. Remove multiple reaches collocated on the same cell
 # =============================================================================
@@ -886,7 +888,7 @@ class Modflow:
         # 3. Update values on reach_data:
         self.reach_data['k'] = 0 # layer
         for idx, r in self.reach_data.iterrows(): # strtop
-            self.reach_data.loc[idx, 'strtop'] = self.dem[r['i'], r['j']]
+            self.reach_data.loc[idx, 'strtop'] = self.dem[r['i'], r['j']] - depth
         rchlen = self.geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # average straight euclidien length
         self.reach_data['rchlen'] = rchlen # rchlen:
 
