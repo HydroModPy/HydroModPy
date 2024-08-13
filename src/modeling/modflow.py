@@ -675,6 +675,7 @@ class Modflow:
             
             # Convert D8 local direction codes into indexes i and j:
                 # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
+                # see https://www.whiteboxgeo.com/manual/wbt_book/available_tools/hydrological_analysis.html#D8Pointer
             if val == 2: #1
                 # downstream cell:
                 i2 = i
