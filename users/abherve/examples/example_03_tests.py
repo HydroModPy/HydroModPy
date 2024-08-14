@@ -86,11 +86,11 @@ out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
 
 dem_path = os.path.join(data_path, 'regional dem.tif')
 load = False
-watershed_name = 'Nancon'
+watershed_name = 'Canut_trans'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [389285.910, 6816518.749, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
@@ -98,6 +98,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -117,24 +118,33 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 if from_dem == None:
     # Clip specific data at the catchment scale
-    BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+    # BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
     BV.add_hydrography(data_path, types_obs=['regional stream network'])
     BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    BV.add_intermittency(data_path, 'regional onde stations.shp')
+    # BV.add_intermittency(data_path, 'regional onde stations.shp')
     # BV.add_piezometry()
 
     # Extract some subbasin from data available above
-    BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
+    # BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # General plot of the study site
 if from_dem == None:
     visualization_watershed.watershed_local(dem_path, BV)
-    visualization_watershed.watershed_geology(BV)
+    # visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
 
 #%% CASES
+
+# iD_set_simulations = 'explor_KR_nosplit'
+# iD_set_simulations = 'explor_KR_split'
+# iD_set_simulations = 'explor_KR_31nosplit'
+# iD_set_simulations = 'explor_KR_un31nosplit'
+# iD_set_simulations = 'explor_KR_unsplit'
+# iD_set_simulations = 'explor_KR_sumunsplit'
+
+iD_set_simulations = 'test3'
 
 # # Necessary to set model parameters
 BV.add_climatic()
@@ -176,19 +186,28 @@ BV.add_climatic()
 #         plt.xticks(rotation=45, ha="right")
 #         ax.legend()
 
-x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', parse_dates=True, index_col=0)
+x = pd.read_csv(data_path+'/'+'_REC_D.csv', sep=';', parse_dates=True, index_col=0)
 x = x.sort_index()
 x = select_period(x, 2000, 2002)
-BV.climatic.update_recharge(x['REC_REA_historic'] / 1000, sim_state='transient') # from mm to m
-BV.climatic.update_runoff(x['RUN_REA_historic'] / 1000, sim_state='transient') # from mm to m
-R = BV.climatic.recharge
-r = BV.climatic.runoff
+x = x['REA_historic'] / 1000
+x = x.resample('M').mean() * 30
+y = pd.read_csv(data_path+'/'+'_RUN_D.csv', sep=';', parse_dates=True, index_col=0)
+y = y.sort_index()
+y = select_period(y, 2000, 2002)
+y = y['REA_historic'] / 1000
+y = y.resample('M').mean() * 30
+# plt.plot(x)
+# plt.plot(y)
+# BV.climatic.update_recharge(x / 1000, sim_state='transient') # from mm to m
+# BV.climatic.update_runoff(y / 1000, sim_state='transient') # from mm to m
+# R = BV.climatic.recharge
+# r = BV.climatic.runoff
+plt.plot(x)
+plt.plot(y)
 
-#%% ---- PARAMETRIZATION
+# ---- PARAMETRIZATION
 
-#%% DEFINE
-
-iD_set_simulations = 'explorSy_test1'
+# DEFINE
 
 # Frame settings
 box = True # or False
@@ -198,7 +217,7 @@ sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
 
 # Climatic settings
-first_clim = 'first' # or 'first or value
+first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
@@ -206,14 +225,11 @@ nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-hyd_cond = 5e-5 * 3600 * 24 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
-########## LOOP ##########
-list_porosity = np.array([0.1, 5, 30]) / 100 # [-]
 
 # Boundary settings
 bc_left = None # or value
@@ -224,15 +240,18 @@ split_temp = False
 # Particle tracking settings
 zone_partic = 'domain' # or watershed
 
-plt.plot(hyd_cond/R)
+# plt.plot(hyd_cond/R)
 
-#%% UPDATE
+# UPDATE
 
 # Import modules
 BV.add_settings()
 BV.add_climatic()
 BV.add_geometric() # soon
 BV.add_hydraulic()
+
+########## LOOP ##########
+list_porosity = np.array([0.1,0.5,1.0,2.0,5.0]) / 100 # [-]
 
 # Frame settings
 BV.settings.update_box_model(box)
@@ -241,8 +260,8 @@ BV.settings.update_simulation_state(sim_state)
 BV.settings.update_active_plot(plot_cross=plot_cross)
 
 # Climatic settings
-recharge = R.copy()
-BV.climatic.update_recharge(recharge, sim_state=sim_state)
+# recharge = R.copy()
+# BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_first_clim(first_clim)
 
 # Hydraulic settings
@@ -250,7 +269,6 @@ BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
@@ -263,6 +281,11 @@ BV.settings.update_split_temporal(split_temp)
 # Particle tracking settings
 BV.settings.update_input_particules(zone_partic=zone_partic)
 
+# list_kr_fac = [1,2,4,6,8,10,15,20,31]
+# list_kr_fac = [1,10,100]
+# list_kr_fac = [31]
+list_kr_fac = [1]
+
 #%% ---- MODELING
 
 #%% MODFLOW
@@ -271,19 +294,32 @@ list_model_name = []
 list_success_modflow = []
 list_model_modflow = []
 
-for i, porosity in enumerate(list_porosity[:]):
-    BV.hydraulic.update_porosity(porosity)
+for i, kr_fac in enumerate(list_kr_fac[:]):
     
-    model_name = iD_set_simulations+'_'+str(i)+'_'+str(round(porosity,3))
-    BV.settings.update_model_name(model_name)
-    print(model_name)
+    for porosity in list_porosity:
+        BV.hydraulic.update_porosity(porosity)
+
+        hyd_cond = 5e-5 * 3600 * 24 * 30 # m/day
+        BV.hydraulic.update_hyd_cond(hyd_cond)
     
-    model_modflow = BV.preprocessing_modflow(for_calib=False)
-    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-    
-    list_model_name.append(model_name)
-    list_success_modflow.append(success_modflow)
-    list_model_modflow.append(model_modflow)
+        BV.climatic.update_recharge((x*kr_fac), sim_state='transient') # from mm to m
+        BV.climatic.update_runoff((y*kr_fac), sim_state='transient') # from mm to m
+        R = BV.climatic.recharge
+        r = BV.climatic.runoff
+        # plt.plot(R)
+        # plt.plot(r)
+        plt.plot(hyd_cond/R)
+        
+        model_name = iD_set_simulations+'_'+str(i)+'_'+str(round(kr_fac,3))+'_'+str(round(porosity,3))
+        BV.settings.update_model_name(model_name)
+        print(model_name)
+        
+        model_modflow = BV.preprocessing_modflow(for_calib=False)
+        success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        
+        list_model_name.append(model_name)
+        list_success_modflow.append(success_modflow)
+        list_model_modflow.append(model_modflow)
 
 dictio = {}
 dictio['list_model_name'] = list_model_name
@@ -295,13 +331,13 @@ dd.io.save(h5file, dictio)
 
 #%% RELOAD
 
-iD_set_simulations = 'explorSy_test1'
+# iD_set_simulations = 'explorSy_test1'
 
-h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
-d = dd.io.load(h5file)
-list_model_name = d['list_model_name'][:]
-list_success_modflow = d['list_success_modflow'][:]
-list_model_modflow = d['list_model_modflow'][:]
+# h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
+# d = dd.io.load(h5file)
+# list_model_name = d['list_model_name'][:]
+# list_success_modflow = d['list_success_modflow'][:]
+# list_model_modflow = d['list_model_modflow'][:]
 
 #%% POSTPROCESSING
 
@@ -608,186 +644,367 @@ fig.tight_layout
 # iD_set_simulations = 'explorSy_mpermonth_monthly_transient'
 # iD_set_simulations = 'explorSy_mpermonth_monthly_steady'
 
+# iD_set_simulations = 'explor_KR_un31nosplit'
 
-Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
-Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
+# for ii, iD_set_simulations in enumerate(['explor_KR_nosplit','explor_KR_split','explor_KR_31nosplit',
+#                          'explor_KR_un31nosplit']):  # 'explor_KR_split'
+# for ii, iD in enumerate(['explor_KR_nosplitunit']):  # 'explor_KR_split'
 
-area = int(round(BV.geographic.area))
-Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-Qobs = Qobs.resample('M').sum() * 1000 # m/day to mm/month
+for ii, iD_set_simulations in enumerate(['test3']):  # 'explor_KR_split'
 
-simul_list = sorted(glob.glob(os.path.join(simulations_folder,
-                                           iD_set_simulations+'*')),
-                   key=os.path.getmtime)
-
-for i, simul in enumerate(simul_list[:]):
+    Qobs_path = os.path.join(data_path, 'hydrometry catchment Canut.csv')
+    Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
     
-    fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
-                                 figsize=(10,3))
-
-    model_name = os.path.split(simul)[-1]
+    area = int(round(BV.geographic.area))
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+    Qobs = Qobs.resample('M').sum() * 1000 # m/day to mm/month
+    
+    simul_list = sorted(glob.glob(os.path.join(simulations_folder,
+                                               iD_set_simulations+'*')),
+                       key=os.path.getmtime)
+    
+    for i, simul in enumerate(simul_list[:]):
         
-    Smod_path = os.path.join(simul, 
-                             r'_postprocess/_timeseries/_simulated_timeseries.csv')
-    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                                     figsize=(10,3))
     
-    Qmod = Smod['outflow_drain'] 
-    Qmod = Qmod.squeeze() * 1000
-    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
+        model_name = os.path.split(simul)[-1]
+            
+        Smod_path = os.path.join(simul, 
+                                 r'_postprocess/_timeseries/_simulated_timeseries.csv')
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        
+        Qmod = Smod['outflow_drain'] 
+        # Qmod = Qmod.squeeze() * 1000
+        Qmod = (Qmod/float(model_name.split('_')[-2]))*1000 #* Qmod.index.day
+        
+        Rmod = (Smod['recharge']/float(model_name.split('_')[-2])) * 1000 #* Qmod.index.day
+        
+        yearsmaj = mdates.YearLocator(1)   # every year
+        yearsmin = mdates.YearLocator(1)
+        # monthsmaj = mdates.MonthLocator(6)  # every month
+        # monthsmin = mdates.MonthLocator(3)
+        # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+        years_fmt = mdates.DateFormatter('%Y')
     
-    Rmod = Smod['recharge'] * Qmod.index.day
+        ax = a0
+        ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='observed')
+        ax.plot(Qmod, color='red', lw=2, label='modeled')
+        ax.plot(Qmod + (Smod['runoff']*1000), color='darkorange', lw=2, label='modeled')
+        ax.plot(Rmod.index, Rmod, color='blue', lw=2.5)
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Q / A [mm/month]')
+        # ax.set_yscale('log')
+        # ax.set_ylim(0,200)
+        ax.xaxis.set_major_locator(yearsmaj)
+        ax.xaxis.set_minor_locator(yearsmin)
+        ax.xaxis.set_major_formatter(years_fmt)
+        ax.set_xlim(pd.to_datetime('1999'), pd.to_datetime('2004'))
+        ax.legend()
+        ax.set_title(model_name.upper(), fontsize=10)
+        
+        # axb = ax.twinx()
+        # axb.bar(Rmod.index, Rmod,color='blue', edgecolor='blue', lw=2.5)
+        # axb.set_ylim(0,999)
+        # axb.invert_yaxis()
+        # axb.set_yticklabels([0,200])
+        
+        Qobs_stat = select_period(Qobs,2000,2002)
+        Qmod_stat = select_period(Qmod,2000,2002)
+        
+        import hydroeval as he
+        NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
+        NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
+        RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
+        KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
+        print(model_name.upper())
+        print(round(NSE,2))
+        print(round(NSElog,2))
+        print(round(RMSE,2))
+        print(round(KGE,2))
+        
+        ax = a1
+        ax.scatter(Qobs_stat, Qmod_stat,
+                   s=25, edgecolor='none', alpha=0.75, facecolor='forestgreen')
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
+        ax.set_xlim(1,500)
+        ax.set_ylim(1,500)
+        # ax.set_xlim(0.1,300)
+        # ax.set_ylim(0.1,300)    
+        ax.set_xlabel('$Q_{obs}$ / A [mm/month]', fontsize=12)
+        ax.set_ylabel('$Q_{sim}$ / A [mm/month]', fontsize=12)
     
-    yearsmaj = mdates.YearLocator(1)   # every year
-    yearsmin = mdates.YearLocator(1)
-    # monthsmaj = mdates.MonthLocator(6)  # every month
-    # monthsmin = mdates.MonthLocator(3)
-    # months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-    years_fmt = mdates.DateFormatter('%Y')
-
-    ax = a0
-    ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='observed')
-    ax.plot(Qmod, color='red', lw=2, label='modeled')
-    ax.plot(Rmod.index, Rmod, color='blue', lw=2.5)
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Q / A [mm/month]')
-    ax.set_yscale('log')
-    ax.set_ylim(0,200)
-    ax.xaxis.set_major_locator(yearsmaj)
-    ax.xaxis.set_minor_locator(yearsmin)
-    ax.xaxis.set_major_formatter(years_fmt)
-    ax.set_xlim(pd.to_datetime('1999'), pd.to_datetime('2004'))
-    ax.legend()
-    ax.set_title(model_name.upper(), fontsize=10)
-    
-    axb = ax.twinx()
-    axb.bar(Rmod.index, Rmod,color='blue', edgecolor='blue', lw=2.5)
-    axb.set_ylim(0,999)
-    axb.invert_yaxis()
-    axb.set_yticklabels([0,200])
-    
-    Qobs_stat = select_period(Qobs,2000,2002)
-    Qmod_stat = select_period(Qmod,2000,2002)
-    
-    import hydroeval as he
-    NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
-    NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
-    RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
-    KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
-    print(model_name.upper())
-    print(round(NSE,2))
-    print(round(NSElog,2))
-    print(round(RMSE,2))
-    print(round(KGE,2))
-    
-    ax = a1
-    ax.scatter(Qobs_stat, Qmod_stat,
-               s=25, edgecolor='none', alpha=0.75, facecolor='forestgreen')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.plot((0.1,1000),(0.1,1000), color='grey', zorder=-1)
-    ax.set_xlim(1,500)
-    ax.set_ylim(1,500)
-    # ax.set_xlim(0.1,300)
-    # ax.set_ylim(0.1,300)    
-    ax.set_xlabel('$Q_{obs}$ / A [mm/month]', fontsize=12)
-    ax.set_ylabel('$Q_{sim}$ / A [mm/month]', fontsize=12)
-
-    fig.tight_layout()
-                
-    # fig.savefig(os.path.join(simulations_folder, '_figures',
-    #             'STREAMFLOW_'+model_name+'.png'),
-    #             bbox_inches='tight')
+        fig.tight_layout()
+                    
+        # fig.savefig(os.path.join(simulations_folder, '_figures',
+        #             'STREAMFLOW_'+model_name+'.png'),
+        #             bbox_inches='tight')
 
 #%% SATURATION
+
+# iD_set_simulations = 'explorSy_mperday_monthly_steady'
+# iD_set_simulations = 'explorSy_mperday_monthly_transient'
 
 def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
+
+for ii, iD_set_simulations in enumerate(['test3']):  # 'explor_KR_split'
+
+    Qobs_path = os.path.join(data_path, 'hydrometry catchment Canut.csv')
+    Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
+    
+    area = int(round(BV.geographic.area))
+    Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+    Qobs = Qobs.resample('M').mean() * 1000 # m/day to mm/month
+    
+    simul_list = sorted(glob.glob(os.path.join(simulations_folder,
+                                               iD_set_simulations+'*')),
+                       key=os.path.getmtime)
+    
+    for i, simul in enumerate(simul_list[:]):
+        
+        # fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+        #                              figsize=(10,3))
+    
+        model_name = os.path.split(simul)[-1]
+            
+        Smod_path = os.path.join(simul, 
+                                 r'_postprocess/_timeseries/_simulated_timeseries.csv')
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        
+        Qmod = Smod['outflow_drain'] 
+        # Qmod = Qmod.squeeze() * 1000
+        Qmod = (Qmod/float(model_name.split('_')[-1]))*1000 #* Qmod.index.day
+        
+        Rmod = (Smod['recharge']/float(model_name.split('_')[-1])) * 1000 #* Qmod.index.day
+        
+        # Sonde_path = os.path.join(glob.glob(
+        #     os.path.join(simul, r'_subbasins/intermittency_*'))[0],
+        #     '_simulated_timeseries.csv')
+        # Sonde = pd.read_csv(Sonde_path, sep=';', index_col=0, parse_dates=True)
+    
+        # BV.add_intermittency(data_path, 'regional onde stations.shp')
+    
+        # d = BV.intermittency.flowing
+        # assec = d[d==1].dropna()
+        # invi = d[d==2].dropna()
+        # low = d[d==3].dropna()
+        # accep = d[d==4].dropna()
+        # visib = d[d==5].dropna()
+        # d = d.resample('M').mean()
+        
+        # Smod['onde'] = d
+        
+        from datetime import timedelta
+        x_months = Smod.index + timedelta(days=-30)
+        Smod['date'] = x_months
+        Smod.index = Smod['date']
+        
+        fig, ax = plt.subplots(1, 1, figsize=(6,3))
+        
+        ax.fill_between(Smod.index, 0, Smod['total_areas'],
+                        interpolate=False, color='dodgerblue', alpha=0.5,
+                        step='pre', label='intermittent part')
+        ax.fill_between(Smod.index, 0, Smod['perenn_areas'],
+                        interpolate=False, color='navy', alpha=0.5,
+                        step='pre', label='perennial part')
+        ax.legend()
+        ax.step(Smod.index, Smod['total_areas'], color='dodgerblue',
+                marker=None, markeredgecolor='none',
+                markersize=5, lw=1, label='upstream',
+                where='pre')
+        ax.step(Smod.index, Smod['perenn_areas'], color='navy',
+                marker=None, markeredgecolor='none',
+                markersize=5, lw=1, label='upstream',
+                where='pre')
+    
+        # ax.set_ylim(-0,15)
+        # ax.set_yticks(np.arange(0,15.05,2.5))
+        ax.set_ylabel('$A_{sat}$ [%]')
+        ax.set_xlim(pd.to_datetime('2000-01'), pd.to_datetime('2002-12'))
+        plt.xticks(rotation=0, ha="right")
+    
+        years_maj = mdates.YearLocator()   # every year
+        months_maj = mdates.MonthLocator()  # every x month
+        ax.xaxis.set_major_locator(years_maj)
+        ax.xaxis.set_minor_locator(months_maj)
+        
+        ax.set_title(model_name.upper(), fontsize=10)
+        
+        fig.tight_layout()
+                    
+        # fig.savefig(os.path.join(simulations_folder, '_figures',
+        #             'SATURATION_'+model_name+'.png'),
+        #             bbox_inches='tight')
+
+#%% SPECIFIC
+
+Qobs_path = os.path.join(data_path, 'hydrometry catchment Canut.csv')
 Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
 
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
 Qobs = Qobs.resample('M').sum() * 1000 # m/day to mm/month
+    
+fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                             figsize=(10,3))
 
-simul_list = sorted(glob.glob(os.path.join(simulations_folder,
-                                           iD_set_simulations+'*')),
-                   key=os.path.getmtime)
 
-for i, simul in enumerate(simul_list[:]):
+fig, ax = plt.subplots(1, 1, figsize=(10,3))
+
+for ii, iD in enumerate(['explor_KR_nosplit','explor_KR_split','explor_KR_31nosplit',
+                          'explor_KR_un31nosplit','explor_KR_sumunsplit']):  # 'explor_KR_split'
+# for ii, iD in enumerate(['explor_KR_unsplit']):  # 'explor_KR_split'
+# for ii, iD in enumerate(['explor_KR_sumunsplit']):
+
+
+    simul_list = sorted(glob.glob(os.path.join(simulations_folder,
+                                               iD+'*'),
+                                                  # key=os.path.getmtime)
+                                                  ))
     
-    model_name = os.path.split(simul)[-1]
+    import matplotlib as pl
+    n = len(range(9))
+    if ii ==0:
+        colors = pl.cm.jet_r(np.linspace(0,1,n))
+        lw=2
+    if ii ==1:
+        colors = pl.cm.viridis_r(np.linspace(0,1,n))
+        lw=1
+    if ii ==2:
+        lw=3
+    if ii ==3:
+        lw=4
     
-    Smod_path = os.path.join(simul, 
-                             r'_postprocess/_timeseries/_simulated_timeseries.csv')
-    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-    
-    Qmod = Smod['outflow_drain'] 
-    Qmod = Qmod.squeeze() * 1000
-    Qmod = Qmod + (r * 1000)
-    
-    Rmod = Smod['recharge'] * 1000
+    for i, simul in enumerate(simul_list[:]):
         
-    Sonde_path = os.path.join(glob.glob(
-        os.path.join(simul, r'_subbasins/intermittency_*'))[0],
-        '_simulated_timeseries.csv')
-    Sonde = pd.read_csv(Sonde_path, sep=';', index_col=0, parse_dates=True)
+        model_name = os.path.split(simul)[-1]
+            
+        Smod_path = os.path.join(simul, 
+                                 r'_postprocess/_timeseries/_simulated_timeseries.csv')
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        
+        if ii == 0:
+            a0.plot(Smod['watertable_elevation'], color=colors[i], label=simul.split('_')[-1], lw=lw)
+            c='k'
+            ax.scatter(float(simul.split('_')[-1]), Smod['watertable_elevation'].mean(), c=c)
+            # print(Smod['watertable_elevation'][0])
+        if ii == 1:
+            a0.plot(Smod['watertable_elevation'], color=colors[i], label=simul.split('_')[-1], lw=lw)
+            c='red'
+            ax.scatter(float(simul.split('_')[-1])+31, Smod['watertable_elevation'].mean(), c=c)
+            # print(Smod['watertable_elevation'][0])
+        if ii == 2:
+            a0.plot(Smod['watertable_elevation'], color='k', label=simul.split('_')[-1], lw=lw, zorder=-1)
+            c='blue'
+            ax.scatter(float(simul.split('_')[-1]), Smod['watertable_elevation'].mean(), c=c)
+        
+        if ii == 3:
+            a0.plot(Smod['watertable_elevation'], color='grey', label=simul.split('_')[-1], lw=lw, zorder=-1)
+            c='gold'
+            ax.scatter(float(simul.split('_')[-1]), Smod['watertable_elevation'].mean(), c=c)
+        
+        if ii == 4:
+            a0.plot(Smod['watertable_elevation'], color='purple', label=simul.split('_')[-1], lw=5, zorder=-1)
+            c='purple'
+            ax.scatter(float(simul.split('_')[-1]), Smod['watertable_elevation'].mean(), c='purple')
+        
+        
+        # a0.plot(Smod['recharge'], color=colors[i], label=simul.split('_')[-1])
+        a0.legend()
 
-    # BV.add_intermittency(data_path, 'regional onde stations.shp')
+fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                             figsize=(10,3))
 
-    # d = BV.intermittency.flowing
-    # assec = d[d==1].dropna()
-    # invi = d[d==2].dropna()
-    # low = d[d==3].dropna()
-    # accep = d[d==4].dropna()
-    # visib = d[d==5].dropna()
-    # d = d.resample('M').mean()
-    
-    # Smod['onde'] = d
-    
-    from datetime import timedelta
-    x_months = Smod.index + timedelta(days=-30)
-    Smod['date'] = x_months
-    Smod.index = Smod['date']
-    
-    fig, ax = plt.subplots(1, 1, figsize=(6,3))
-    
-    ax.fill_between(Smod.index, 0, Smod['total_areas'],
-                    interpolate=False, color='dodgerblue', alpha=0.5,
-                    step='pre', label='intermittent part')
-    ax.fill_between(Smod.index, 0, Smod['perenn_areas'],
-                    interpolate=False, color='navy', alpha=0.5,
-                    step='pre', label='perennial part')
-    ax.legend()
-    ax.step(Smod.index, Smod['total_areas'], color='dodgerblue',
-            marker=None, markeredgecolor='none',
-            markersize=5, lw=1, label='upstream',
-            where='pre')
-    ax.step(Smod.index, Smod['perenn_areas'], color='navy',
-            marker=None, markeredgecolor='none',
-            markersize=5, lw=1, label='upstream',
-            where='pre')
 
-    # ax.set_ylim(-0,15)
-    # ax.set_yticks(np.arange(0,15.05,2.5))
-    ax.set_ylabel('$A_{sat}$ [%]')
-    ax.set_xlim(pd.to_datetime('2000-01'), pd.to_datetime('2002-12'))
-    plt.xticks(rotation=0, ha="right")
+fig, ax = plt.subplots(1, 1, figsize=(10,3))
 
-    years_maj = mdates.YearLocator()   # every year
-    months_maj = mdates.MonthLocator()  # every x month
-    ax.xaxis.set_major_locator(years_maj)
-    ax.xaxis.set_minor_locator(months_maj)
+for ii, iD in enumerate(['explor_KR_nosplit','explor_KR_split','explor_KR_31nosplit',
+                          'explor_KR_un31nosplit','explor_KR_sumunsplit']):  # 'explor_KR_split'
+# for ii, iD in enumerate(['explor_KR_unsplit']):  # 'explor_KR_split'
+# for ii, iD in enumerate(['explor_KR_sumunsplit']):
+
+
+    simul_list = sorted(glob.glob(os.path.join(simulations_folder,
+                                               iD+'*'),
+                                                  # key=os.path.getmtime)
+                                                  ))
     
-    ax.set_title(model_name.upper(), fontsize=10)
+    import matplotlib as pl
+    n = len(range(9))
+    if ii ==0:
+        colors = pl.cm.jet_r(np.linspace(0,1,n))
+        lw=2
+    if ii ==1:
+        colors = pl.cm.viridis_r(np.linspace(0,1,n))
+        lw=1
+    if ii ==2:
+        lw=3
+    if ii ==3:
+        lw=4
     
-    fig.tight_layout()
+    for i, simul in enumerate(simul_list[:]):
+        
+        model_name = os.path.split(simul)[-1]
+            
+        Smod_path = os.path.join(simul, 
+                                 r'_postprocess/_timeseries/_simulated_timeseries.csv')
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        
+        if ii == 0:
+            a0.plot(Smod['outflow_drain'], color=colors[i], label=simul.split('_')[-1], lw=lw)
+            c='k'
+            ax.scatter(float(simul.split('_')[-1]), Smod['outflow_drain'].mean(), c=c)
+            # print(Smod['watertable_elevation'][0])
+        if ii == 1:
+            a0.plot(Smod['outflow_drain'], color=colors[i], label=simul.split('_')[-1], lw=lw)
+            c='red'
+            ax.scatter(float(simul.split('_')[-1])+31, Smod['outflow_drain'].mean(), c=c)
+            # print(Smod['watertable_elevation'][0])
+        if ii == 2:
+            a0.plot(Smod['outflow_drain'], color='k', label=simul.split('_')[-1], lw=lw, zorder=-1)
+            c='blue'
+            ax.scatter(float(simul.split('_')[-1]), Smod['outflow_drain'].mean(), c=c)
+        
+        if ii == 3:
+            a0.plot(Smod['outflow_drain'], color='grey', label=simul.split('_')[-1], lw=lw, zorder=-1)
+            c='gold'
+            ax.scatter(float(simul.split('_')[-1]), Smod['outflow_drain'].mean(), c=c)
+        
                 
-    # fig.savefig(os.path.join(simulations_folder, '_figures',
-    #             'SATURATION_'+model_name+'.png'),
-    #             bbox_inches='tight')
-                
+        if ii == 4:
+            a0.plot(Smod['outflow_drain'], color='purple', label=simul.split('_')[-1], lw=5, zorder=-1)
+            a0.plot(Smod['recharge'], color='green', label=simul.split('_')[-1], lw=5, zorder=-1)
+
+            c='purple'
+            ax.scatter(float(simul.split('_')[-1]), Smod['outflow_drain'].mean(), c='purple')
+        
+        a0.plot(select_period(Qobs/1000,2000,2005))
+        
+        # a0.plot(Smod['recharge'], color=colors[i], label=simul.split('_')[-1])
+        a0.legend()
+        a0.set_yscale('log')
+
 #%% ---- NOTES
 
-os.chdir(root_dir)
+# os.chdir(root_dir)
+
+
+import flopy.utils.binaryfile as fpu
+import flopy.utils.binaryfile as bf
+
+# cbb = bf.CellBudgetFile('mymodel.cbb')
+cbb = fpu.CellBudgetFile('E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/Canut_trans/results_simulations/explor_KR_sumunsplit_0_1/explor_KR_sumunsplit_0_1.cbc')
+cbb = fpu.CellBudgetFile('E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/Canut_trans/results_simulations/explor_KR_split_0_1/explor_KR_split_0_1.cbc')
+
+cbb.list_records()
+
+drain = cbb.get_data(text='DRAINS', kstpkper=(0,10))         
+kstpkper = cbb.get_kstpkper()
+print(drain[0][1])
+
+
