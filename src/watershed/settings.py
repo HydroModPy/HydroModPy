@@ -123,5 +123,16 @@ class Settings:
         self.path = path
         self.tracking_direction = tracking_direction
     
+    def update_split_temporal(self, split_temp=False):
+        """
+        Activate the split discretization of recharge with time length.
+
+        Parameters
+        ----------
+        split_temp : bool, optional
+            The default is False.
+        """
+        self.split_temp = split_temp
+    
 #%% NOTES
         

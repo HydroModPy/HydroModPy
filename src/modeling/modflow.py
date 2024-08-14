@@ -55,7 +55,7 @@ class Modflow:
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
                  plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', 
+                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', split_temp: bool=False,
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
@@ -186,6 +186,7 @@ class Modflow:
             self.climatic = climatic
         self.first_clim = first_clim  
         self.runoff = runoff
+        self.split_temp = split_temp
             
         #%% Model parameters 
         
@@ -243,6 +244,7 @@ class Modflow:
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+        # Change headtol and fluxtol with results ==> convergency criteria
 
         #%% Discretization
         
@@ -277,17 +279,21 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-
-            if isinstance(self.climatic, pd.core.series.Series):
-                if isinstance(self.climatic.index[0], datetime.datetime):
-                    # self.perlen = self.climatic.index.to_series().diff().dt.days.values
-                    self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
-                else:
-                    self.perlen = self.climatic.index.to_series().diff().values
-            else:
+            
+            if self.split_temp == True:
+                ### DISCUSS WITH ALEXANDREFOR THIS PART
+                if isinstance(self.climatic, pd.core.series.Series):
+                    if isinstance(self.climatic.index[0], datetime.datetime):
+                        # self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                        self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+                    else:
+                        self.perlen = self.climatic.index.to_series().diff().values
+            if isinstance(self.split_temp, list) == True:
+                self.perlen = self.split_temp
+            if self.split_temp == False:
                 self.perlen = np.ones(len(self.climatic))
+            # print(self.split_temp)
             # First timestep is steady state:
-            # self.perlen = np.ones(len(self.climatic))
             self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
@@ -322,12 +328,14 @@ class Modflow:
                 self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
             
         # Imposes discretization to modflow model through flopy
-        self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
+        self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
                                             top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
-                                            steady=self.steady, start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
+                                            steady=self.steady, start_datetime=self.start_datetime) 
+                                            # itmuni = 0 ==> undefined
+                                            # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
         # proj4_str=self.dem.crs)
     
         #%% Boundary conditions
@@ -468,7 +476,10 @@ class Modflow:
                                             hk=self.hk, sy=self.ps,
                                             ss=self.ss,
                                             iphdry=1, hdry=-100, vka=1, noparcheck=False,
-                                            extension='upw', unitnumber=31)
+                                            extension='upw',
+                                            # unitnumber=31
+                                            unitnumber=None
+                                            )
         
         #%% Source terms
         
@@ -591,7 +602,9 @@ class Modflow:
             # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
             stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
-                                unitnumber=[14, 51, 52, 53, 0], compact=True)
+                                # unitnumber=[14, 51, 52, 53, 0],
+                                unitnumber=None,
+                                compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure

@@ -468,7 +468,7 @@ class Geographic:
             self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
             shutil.copyfile(self.watershed_raw, self.watershed_dem)
         # No data
-        wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
+        # wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_buff_dem)
