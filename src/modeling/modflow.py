@@ -869,13 +869,14 @@ class Modflow:
 
         # 1. Standard values on segment_data_1:
         depth = 0 # 0.1 # self.thick # 1 # arbitrary
+        hcond = 0.002 # 3e-5 # self.hyd_cond[0, 0] # 864000
         self.segment_data_1['thickm1'] = 0.1 # Modflow does not run if = 0
         self.segment_data_1['thickm2'] = 0.1
         self.segment_data_1['depth1'] = depth
         self.segment_data_1['depth2'] = depth
         self.segment_data_1['icalc'] = icalc 
-        self.segment_data_1['hcond1'] = 0.002 # 3e-5 # self.hyd_cond[0, 0] # 864000
-        self.segment_data_1['hcond2'] = 0.002 # 3e-5 # self.hyd_cond[0, 0] # 864000
+        self.segment_data_1['hcond1'] = hcond 
+        self.segment_data_1['hcond2'] = hcond
         self.segment_data_1['width1'] = 1 # self.resolution # 1.5  # arbitrary
         self.segment_data_1['width2'] = 1 # self.resolution # 1.5 
 
@@ -1033,43 +1034,52 @@ class Modflow:
         toolbox.export_tif(self.geographic.watershed_dem, 
                            sfr_mapr, self.geographic.nodata, 
                            os.path.join(stream_map_path, "reaches_map.tif"))
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           self.drain_array, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "remaining_drains.tif"))
         
         #%% Drain package
+        # (DRN)
+        # Applied to all the surface of the model : enables seepage on the top layer
 # =============================================================================
-#         # (DRN)
-#         # Applied to all the surface of the model : enables seepage on the top layer
-#         
-#         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
-#         compt = 0
-#         # First value (0): layer number
-#         self.drnData[:, 0] = 0 # layer
-#         for i in range (0,self.nrow):
-#             for j in range (0, self.ncol):
-#                 if self.drain_array[i,j] == 1:
-#                     self.drnData[compt, 1] = i # Second value (1): row number
-#                     self.drnData[compt, 2] = j # Third value (2): column number
-#                     self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
-#                     # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
-#                     if self.sink_fill == False:
-#                         if self.cond_drain != None:
-#                             #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
-#                             self.drnData[compt, 4] = self.cond_drain 
-#                         else:
-#                             self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
-#                     else:
-#                         if self.sink[i,j]>0:
-#                             #ALEXANDRE: when filled, no possible drains, why?
-#                             self.drnData[compt, 4] = 0
-#                         else:
-#                             if self.cond_drain != None:
-#                                 self.drnData[compt, 4] = self.cond_drain 
-#                             else:
-#                                 self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
-#                     compt += 1
-#         # Imposes condition to Modflow through flopy
-#         lrcec= {0:self.drnData}
-#         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+#         self.drain_array[:] = 0
+#         print(self.drain_array)
+#         # self.drain_array[18, 152] = 1
+#         self.drain_array[10, 10] = 1
 # =============================================================================
+        self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
+        compt = 0
+        # First value (0): layer number
+        self.drnData[:, 0] = 0 # layer
+        self.cond_drain = hcond * self.resolution** 2
+        for i in range (0,self.nrow):
+            for j in range (0, self.ncol):
+                if self.drain_array[i,j] == 1:
+                    self.drnData[compt, 1] = i # Second value (1): row number
+                    self.drnData[compt, 2] = j # Third value (2): column number
+                    self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
+                    # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
+                    if self.sink_fill == False:
+                        if self.cond_drain != None:
+                            #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
+                            self.drnData[compt, 4] = self.cond_drain 
+                        else:
+                            self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
+                    else:
+                        if self.sink[i,j]>0:
+                            #ALEXANDRE: when filled, no possible drains, why?
+                            self.drnData[compt, 4] = 0
+                        else:
+                            if self.cond_drain != None:
+                                self.drnData[compt, 4] = self.cond_drain 
+                            else:
+                                self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
+                    compt += 1
+
+        # Imposes condition to Modflow through flopy
+        lrcec= {0:self.drnData}
+        self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+
 
         #%% Output control
         
