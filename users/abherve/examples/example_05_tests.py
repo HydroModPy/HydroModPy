@@ -72,13 +72,14 @@ def select_period(df, first, last):
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/05_particle tracking for residence times/"
+example_path = root_dir + "/examples/09_recession analytical solution in 2D/"
 data_path = os.path.join(example_path, "data") + '/'
 # To get or initialize the folder path:
 # out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
 # out_path = '/home/agauvain/Documents/HydroModPy/'
-out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
+# out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
