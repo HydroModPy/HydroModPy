@@ -792,6 +792,7 @@ class Modflow:
           # reverse 'outseg' in segment_data_1:
         self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
             - self.segment_data_1['outseg']
+        self.segment_data_1.loc[self.segment_data_1.index[0], 'outseg'] = 0
           # reverse 'nseg' in segment_data_1:
         self.segment_data_1 = self.segment_data_1[::-1]
         self.segment_data_1.index = self.segment_data_1.index[::-1]
