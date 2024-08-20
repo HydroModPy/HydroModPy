@@ -433,3 +433,14 @@ if case != 'Lasset':
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
+# wbt.geomorphons(
+#     'xxx/watershed_box_buff_dem.tif', 
+#     'xxx/watershed_box_geomorphons.tif', 
+#     search=5, # in cell
+#     threshold=0, # angle in degree
+#     fdist=0, # in cell  
+#     skip=0, # in cell
+#     forms=True, 
+#     residuals=False, 
+# )

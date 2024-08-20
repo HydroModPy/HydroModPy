@@ -42,7 +42,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 #%% Prepare the input data
-example_path = os.path.join(root_dir, "examples/08_reservoir_modelGR4J")
+example_path = os.path.join(root_dir, "examples/08_rainfall runoff model reservoir GR4J")
 data_path = os.path.join(example_path, "data")
 
 data_name = 'L0123001.pkl' #data from the example in hydrogr https://github.com/SimonDelmas/hydrogr/tree/master
