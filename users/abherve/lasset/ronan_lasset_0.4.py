@@ -5532,7 +5532,7 @@ wbt.geomorphons(
     'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif', 
     'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/geomorphons.tif', 
     search=10, # in cell
-    threshold=1, # angle in degree
+    threshold=10, # angle in degree
     fdist=0, # in cell  
     skip=1, # in cell
     forms=True, 
@@ -5632,11 +5632,11 @@ for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qg
     
     gravel = sub_length / (2* np.sqrt(math.pi*sub_area))
     
-    # s_per = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_slope_percent.tif')
-    # s_per = np.ma.masked_array(s_per, mask=themask)
-    
-    sl_per = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_slope_degrees.tif')
+    sl_per = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_slope_percent.tif')
     sl_per = np.ma.masked_array(sl_per, mask=themask)
+    
+    sl_deg = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_slope_degrees.tif')
+    sl_deg = np.ma.masked_array(sl_deg, mask=themask)
     
     s_dem = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif')
     s_dem = np.ma.masked_array(s_dem, mask=themask)
@@ -5683,6 +5683,7 @@ for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qg
           round(s_dem.max()-s_dem.min(), 2),
           round(sub_area[0]/1e6, 2),
           round(sl_per.mean(), 2),
+          round(sl_deg.mean(), 2),
           round((gravel[0]), 2),
           round((excent_ratio[0]), 2),
           # round((s_per+w_per)/sub_dem_cell,2) )
@@ -5695,11 +5696,193 @@ for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qg
     df_geomorpho.loc[pzone,'dem_grad'] = round(s_dem.max()-s_dem.min(), 2)
     df_geomorpho.loc[pzone,'area'] = round(sub_area[0]/1e6, 2)
     df_geomorpho.loc[pzone,'slope_per'] = round(sl_per.mean(), 2)
+    df_geomorpho.loc[pzone,'slope_deg'] = round(sl_deg.mean(), 2)
     df_geomorpho.loc[pzone,'gravelius'] = round((gravel[0]), 2)
     df_geomorpho.loc[pzone,'excentricity'] = round((excent_ratio[0]), 2)
     
 df_geomorpho.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/01_fig_locali/'+
                 'df_geomorpho_v1.csv', sep=';', encoding='utf-8', decimal=',')
+
+#%% GEOMORPHONS TREATMENT
+
+wbt.geomorphons(
+    'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif', 
+    'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/geomorphons.tif', 
+    search=10, # in cell
+    threshold=10, # angle in degree
+    fdist=0, # in cell  
+    skip=1, # in cell
+    forms=True, 
+    residuals=True, 
+)
+
+idx_geom_list = ['0','1','2','3','4','5','6','7','8','9','10']
+lab_geom_list = ['Null','Flat','Peak summit','Ridge','Shoulder','Spur convex','Slope','Hollow','Footslope','Valley','Pit depression']
+
+import seaborn as sns
+from matplotlib.colors import LinearSegmentedColormap
+weather = ['0','1','2','3','4','5','6','7','8','9','10']
+colors = sns.color_palette("cubehelix", n_colors=len(weather))
+cmap1 = LinearSegmentedColormap.from_list("my_colormap", colors)
+
+dict_geom = dict(zip(idx_geom_list, lab_geom_list))
+dict_geomcol = dict(zip(idx_geom_list, lab_geom_list))
+
+mask_lasset = imageio.imread(stable_folder+'geographic/'+'watershed_dem.tif')
+mask_grenou = imageio.imread(stable_folder+'subbasin/subbasin_Qgrenou/'+'watershed_dem.tif')
+mask_bombee = imageio.imread(stable_folder+'subbasin/subbasin_Qbombee/'+'watershed_dem.tif')
+mask_breton = imageio.imread(stable_folder+'subbasin/subbasin_Qbreton/'+'watershed_dem.tif')
+
+imgeo = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/geomorphons.tif')
+
+figt, axt = plt.subplots(1,1)
+
+dfprop = pd.DataFrame()
+dfprop.index = range(11)
+dfprop['geom_label'] = lab_geom_list
+
+dfprop2 = pd.DataFrame()
+dfprop2.index = range(11)
+# dfprop2 = dfprop.copy()
+
+# n = 11
+# colors = pl.cm.jet(np.linspace(0,1,n))
+
+colors = ['k',
+          'darkred',
+          'red',
+          'white',
+          'darkorange',
+          'gold',
+          'skyblue',
+          'skyblue',
+          'dodgerblue',
+          'navy']
+# cmap1 = LinearSegmentedColormap.from_list("my_colormap", colors)
+
+for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qgrenou','subbasin_Qbombee']):
+    
+    masked = imgeo.copy()
+
+    if pzone == 'subbasin_Qlasset':
+        mask = mask_lasset
+    if pzone == 'subbasin_Qbreton':
+        mask = mask_breton   
+    if pzone == 'subbasin_Qgrenou':
+        mask = mask_grenou
+    if pzone == 'subbasin_Qbombee':
+        mask = mask_bombee
+    
+    masked[mask<0] = 0    
+    maskedim = np.ma.masked_where(mask<0, masked)
+    
+    fig, ax = plt.subplots(1,1)
+    ax.imshow(maskedim)
+        
+    uniques, counts = np.unique(masked, return_counts=True)
+    # print(pzone, uniques, counts)
+    # percentages = dict(zip(uniques, counts * 100 / len(masked)))
+    
+    dftemp = pd.DataFrame()
+    dftemp['uniques'] = uniques.astype(int)
+    dftemp['counts'] = counts
+    # dftemp['percentages'] = percentages
+    dftemp = dftemp.set_index('uniques')
+
+    
+    dfprop[pzone+'_counts'] = dftemp.loc[dftemp.index,'counts']
+    sum_tot = np.nansum(dfprop[pzone+'_counts'][1:])
+    dfprop.loc[0,pzone+'_counts'] = sum_tot
+    
+    dfprop[pzone+'_percentages'] = (dfprop[pzone+'_counts']*100) / sum_tot
+
+    # dfprop[pzone+'_counts'] = counts
+    # dfprop[pzone+'_percentages'] = percentages
+    
+    dfprop2[pzone+'_percentages'] = (dfprop[pzone+'_counts']*100) / sum_tot
+    
+    x = pidx
+    y = dfprop[pzone+'_percentages']
+    
+    axt.bar(x, y)
+
+figm, axm = plt.subplots(1,1, figsize=(4,6))
+
+dfprop2 = dfprop2.loc[1:]
+dfprop2 = dfprop2.T
+dfprop2 = dfprop2.round(1)
+# dfprop2.index = lab_geom_list[1:]
+dfprop2.plot(ax=axm, kind='bar', stacked=True,
+                colormap='jet', 
+               # color=colors,
+             legend=False)
+axm.set_xticklabels(['P1','P2','P3','P4']
+                    )
+axm.set_ylim(0,100)
+
+#     colors = plt.cm.GnBu(np.linspace(0, 1, 10))
+
+# iterate through the containers
+for c in axm.containers:
+
+    # get the current segment label (a string); corresponds to column / legend
+    col = c.get_label()
+
+    # labels = df[col].replace(0, '')
+
+    # add the annotation
+    axm.bar_label(c, label_type='center', fontweight='regular', color='k', fontsize=8)
+
+# colors2 = ['darkred',
+#           'red',
+#           'darkorange',
+#           'gold',
+#           'lightskyblue',
+#           'dodgerblue',
+#           'navy']
+
+# lab_geom_list2 = [
+#                  'Peak summit',
+#                  'Ridge',
+#                  'Spur convex',
+#                  'Slope',
+#                  'Hollow',
+#                  'Valley',
+#                  'Pit depression']
+
+colors2 = ['k',
+          'darkred',
+          'red',
+          'darkorange',
+          'gold',
+          'limegreen',
+          'lightskyblue',
+          'dodgerblue',
+          'navy',
+          'darkviolet']
+
+dfprop3 = dfprop2.T
+dfprop3[np.isnan(dfprop3)] = 0
+# dfprop3 = dfprop3.astype(int)
+# dfprop3 = dfprop3.loc[~(dfprop3==0).all(axis=1)]
+
+figps, axps = plt.subplots(1,4, figsize=(5*4,5))
+axps = axps.ravel()
+
+for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qgrenou','subbasin_Qbombee']):
+    
+    axp = axps[pidx]
+    
+    # figp, axp = plt.subplots(1,1, figsize=(5,5))
+    axp.pie(dfprop3[pzone+'_percentages'],
+            labels=dfprop3.index,
+            # labels = lab_geom_list2,
+            autopct="%1.0f%%",
+            colors=colors2, startangle=90)
+    
+    print(pzone, dfprop3.loc[:5,pzone+'_percentages'].sum() / dfprop3.loc[5:,pzone+'_percentages'].sum())
+    # print(pzone, dfprop3.loc[[6],pzone+'_percentages'].sum() / dfprop3.loc[[7,9,10],pzone+'_percentages'].sum())
+
 
 #%% ---- MODPATH THINGS
 
