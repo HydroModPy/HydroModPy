@@ -5708,10 +5708,10 @@ df_geomorpho.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeli
 wbt.geomorphons(
     'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif', 
     'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/geomorphons.tif', 
-    search=10, # in cell
-    threshold=10, # angle in degree
+    search=40, # in cell
+    threshold=0, # angle in degree
     fdist=0, # in cell  
-    skip=1, # in cell
+    skip=0, # in cell
     forms=True, 
     residuals=True, 
 )
@@ -5776,8 +5776,8 @@ for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qg
     masked[mask<0] = 0    
     maskedim = np.ma.masked_where(mask<0, masked)
     
-    fig, ax = plt.subplots(1,1)
-    ax.imshow(maskedim)
+    # fig, ax = plt.subplots(1,1)
+    # ax.imshow(maskedim)
         
     uniques, counts = np.unique(masked, return_counts=True)
     # print(pzone, uniques, counts)
@@ -5806,32 +5806,13 @@ for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qg
     
     axt.bar(x, y)
 
-figm, axm = plt.subplots(1,1, figsize=(4,6))
-
 dfprop2 = dfprop2.loc[1:]
 dfprop2 = dfprop2.T
 dfprop2 = dfprop2.round(1)
-# dfprop2.index = lab_geom_list[1:]
-dfprop2.plot(ax=axm, kind='bar', stacked=True,
-                colormap='jet', 
-               # color=colors,
-             legend=False)
-axm.set_xticklabels(['P1','P2','P3','P4']
-                    )
-axm.set_ylim(0,100)
 
-#     colors = plt.cm.GnBu(np.linspace(0, 1, 10))
-
-# iterate through the containers
-for c in axm.containers:
-
-    # get the current segment label (a string); corresponds to column / legend
-    col = c.get_label()
-
-    # labels = df[col].replace(0, '')
-
-    # add the annotation
-    axm.bar_label(c, label_type='center', fontweight='regular', color='k', fontsize=8)
+# figm.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/e_geomorph/'+
+#             'Bar_v1'+'.png',
+#                         bbox_inches='tight')
 
 # colors2 = ['darkred',
 #           'red',
@@ -5882,6 +5863,32 @@ for pidx, pzone in enumerate(['subbasin_Qlasset','subbasin_Qbreton','subbasin_Qg
     
     print(pzone, dfprop3.loc[:5,pzone+'_percentages'].sum() / dfprop3.loc[5:,pzone+'_percentages'].sum())
     # print(pzone, dfprop3.loc[[6],pzone+'_percentages'].sum() / dfprop3.loc[[7,9,10],pzone+'_percentages'].sum())
+
+figps.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/e_geomorph/'+
+            'Pie_v1'+'.png',
+                        bbox_inches='tight')
+
+dfprop4 = dfprop3.T
+
+figm, axm = plt.subplots(1,1, figsize=(4,6))
+axm.set_ylim(0,100)
+dfprop4.plot(ax=axm, kind='bar', stacked=True,
+                # colormap='jet_r', 
+                color=colors2,
+              legend=False)
+axm.set_xticklabels(['P1','P2','P3','P4'])
+for c in axm.containers:
+    col = c.get_label()
+    # axm.bar_label(c, label_type='center', fontweight='regular', color='k', fontsize=8,
+    #               # fmt='%g'
+    #               )
+
+dfprop3.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/e_geomorph/'+
+            'dfprop3_geomorphons'+'.csv', sep=';', decimal=',')
+
+figm.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/e_geomorph/'+
+            'Bar_v1'+'.png',
+                        bbox_inches='tight')
 
 
 #%% ---- MODPATH THINGS
