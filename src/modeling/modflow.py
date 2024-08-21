@@ -796,6 +796,9 @@ class Modflow:
           # reverse 'nseg' in segment_data_1:
         self.segment_data_1 = self.segment_data_1[::-1]
         self.segment_data_1.index = self.segment_data_1.index[::-1]
+          # reverse index in reach_data:
+        self.reach_data = self.reach_data[::-1]
+        self.reach_data.index = self.reach_data.index[::-1]
 
 # =============================================================================
 #             i = ij_outlet[0]
@@ -947,9 +950,9 @@ class Modflow:
         
         # Correct elevations amongst one segment
         for nseg, s in self.segment_data_1.iterrows():
-            prev_strtop = self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == nseg].index[-1], 'strtop'].item()
+            prev_strtop = self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == nseg].index[0], 'strtop'].item()
             
-            for r_idx, _ in self.reach_data[self.reach_data['iseg'] == nseg][::-1].iterrows():
+            for r_idx, _ in self.reach_data[self.reach_data['iseg'] == nseg].iterrows():
                 self.reach_data.loc[r_idx, 'strtop'] = min(self.reach_data.loc[r_idx, 'strtop'], prev_strtop)
                 prev_strtop = self.reach_data.loc[r_idx, 'strtop']
             # Correct elevations amongst connected segments
