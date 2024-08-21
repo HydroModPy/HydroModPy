@@ -873,7 +873,8 @@ class Modflow:
 
         # 1. Standard values on segment_data_1:
         depth = 0 # 0.1 # self.thick # 1 # arbitrary
-        hcond = 0.002 # 3e-5 # self.hyd_cond[0, 0] # 864000
+        hcond = 100 # 3e-5 # self.hyd_cond[0, 0] # 864000
+        hcond_low = 0.012
         width = 1 # self.resolution # 1.5  # arbitrary
         thickm = 0.1 # Modflow does not run if = 0
         self.segment_data_1['thickm1'] = thickm
@@ -897,17 +898,17 @@ class Modflow:
                     # If this reach is located on a sink cell:
                     if self.sink[r['i'], r['j']] > 0:
                         # then the upstream and downstream conductivities are set to 0
-                        self.segment_data_1.loc[nseg, 'hcond1'] = 0.012
-                        self.segment_data_1.loc[nseg, 'hcond2'] = 0.012
+                        self.segment_data_1.loc[nseg, 'hcond1'] = hcond_low
+                        self.segment_data_1.loc[nseg, 'hcond2'] = hcond_low
                 # If this segment is made of two reaches:
                 elif len(r) == 2:
                     # If the downstream reach is located on a sink cell:
                     if self.sink[r['i'].iloc[1], r['j'].iloc[1]] > 0:
                         # its conductivity is set to 0
-                        self.segment_data_1.loc[nseg, 'hcond2'] = 0.012
+                        self.segment_data_1.loc[nseg, 'hcond2'] = hcond_low
                     # Same for the upstream reach
                     if self.sink[r['i'].iloc[0], r['j'].iloc[0]] > 0:
-                        self.segment_data_1.loc[nseg, 'hcond1'] = 0.012
+                        self.segment_data_1.loc[nseg, 'hcond1'] = hcond_low
                 # For segments made of more than 2 reaches, the segment's conductivity
                 # is let as it is.
 
