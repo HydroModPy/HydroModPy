@@ -871,15 +871,17 @@ class Modflow:
         # 1. Standard values on segment_data_1:
         depth = 0 # 0.1 # self.thick # 1 # arbitrary
         hcond = 0.002 # 3e-5 # self.hyd_cond[0, 0] # 864000
-        self.segment_data_1['thickm1'] = 0.1 # Modflow does not run if = 0
-        self.segment_data_1['thickm2'] = 0.1
+        width = 1 # self.resolution # 1.5  # arbitrary
+        thickm = 0.1 # Modflow does not run if = 0
+        self.segment_data_1['thickm1'] = thickm
+        self.segment_data_1['thickm2'] = thickm
         self.segment_data_1['depth1'] = depth
         self.segment_data_1['depth2'] = depth
         self.segment_data_1['icalc'] = icalc 
         self.segment_data_1['hcond1'] = hcond 
         self.segment_data_1['hcond2'] = hcond
-        self.segment_data_1['width1'] = 1 # self.resolution # 1.5  # arbitrary
-        self.segment_data_1['width2'] = 1 # self.resolution # 1.5 
+        self.segment_data_1['width1'] = width
+        self.segment_data_1['width2'] = width 
 
         # 2. Remove multiple reaches collocated on the same cell
 # =============================================================================
@@ -1052,7 +1054,7 @@ class Modflow:
         compt = 0
         # First value (0): layer number
         self.drnData[:, 0] = 0 # layer
-        self.cond_drain = hcond * self.resolution** 2
+        self.cond_drain = hcond * rchlen * width / thickm # hcond * self.resolution** 2
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
                 if self.drain_array[i,j] == 1:
