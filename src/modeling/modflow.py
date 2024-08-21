@@ -882,6 +882,30 @@ class Modflow:
         self.segment_data_1['hcond2'] = hcond
         self.segment_data_1['width1'] = width
         self.segment_data_1['width2'] = width 
+        # 1bis. Remove cond on sink cells
+        if self.sink_fill == True:
+            # For each segment...
+            for nseg, s in self.segment_data_1.iterrows():
+                # ... get the corresponding reaches
+                r = self.reach_data[self.reach_data['iseg'] == nseg]
+                # If this segment is made only of one reach:
+                if len(r) == 1:
+                    # If this reach is located on a sink cell:
+                    if self.sink[r['i'], r['j']] > 0:
+                        # then the upstream and downstream conductivities are set to 0
+                        self.segment_data_1.loc[nseg, 'hcond1'] = 0.012
+                        self.segment_data_1.loc[nseg, 'hcond2'] = 0.012
+                # If this segment is made of two reaches:
+                elif len(r) == 2:
+                    # If the downstream reach is located on a sink cell:
+                    if self.sink[r['i'].iloc[0], r['j'].iloc[0]] > 0:
+                        # its conductivity is set to 0
+                        self.segment_data_1.loc[nseg, 'hcond2'] = 0.012
+                    # Same for the upstream reach
+                    if self.sink[r['i'].iloc[1], r['j'].iloc[1]] > 0:
+                        self.segment_data_1.loc[nseg, 'hcond1'] = 0.012
+                # For segments made of more than 2 reaches, the segment's conductivity
+                # is let as it is.
 
         # 2. Remove multiple reaches collocated on the same cell
 # =============================================================================
@@ -1040,6 +1064,9 @@ class Modflow:
         toolbox.export_tif(self.geographic.watershed_dem, 
                            self.drain_array, self.geographic.nodata, 
                            os.path.join(stream_map_path, "remaining_drains.tif"))
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           self.sink, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "sink_cells.tif"))
         
         #%% Drain package
         # (DRN)
