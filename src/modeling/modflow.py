@@ -957,8 +957,8 @@ class Modflow:
                 prev_strtop = self.reach_data.loc[r_idx, 'strtop']
             # Correct elevations amongst connected segments
             if s['outseg'] != 0:
-                self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[-1], 'strtop'] \
-                    = min(self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[-1], 'strtop'], prev_strtop)
+                self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'] \
+                    = min(self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'], prev_strtop)
         
         elev_map = sfr_map.copy()
         hcond1_map = sfr_map.copy()
