@@ -886,6 +886,9 @@ class Modflow:
         self.segment_data_1['hcond2'] = hcond
         self.segment_data_1['width1'] = width
         self.segment_data_1['width2'] = width 
+# =============================================================================
+#         self.segment_data_1['outseg'] = 0
+# =============================================================================
         
         # 1bis. Decrease cond on sink cells
         if self.sink_fill == True:
