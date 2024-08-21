@@ -930,10 +930,31 @@ class Modflow:
         self.reach_data['rchlen'] = rchlen # rchlen:
 
         # 4. Correct inconsistent elevations in reach_data (not reflected on the dem map)
-        prev_strtop = self.reach_data['strtop'][0]
-        for idx, r in self.reach_data.iterrows():
-            self.reach_data.loc[idx, 'strtop'] = min(r['strtop'], prev_strtop)
-            prev_strtop = r['strtop']
+# =============================================================================
+#         prev_strtop = self.reach_data['strtop'][0]
+#         for idx, r in self.reach_data.iterrows():
+#             self.reach_data.loc[idx, 'strtop'] = min(r['strtop'], prev_strtop)
+#             prev_strtop = r['strtop']
+# ============================================================================= 
+        # Note:
+        # It could have been possible to use the <watershed_(box_)buff_fill> DEM
+        # as the basis for streambed elevations, or even to use it directly
+        # as the self.dem instead of <watershed_(box_)buff_dem>. It yields basically
+        # the same results as the current method, except that it is slightly
+        # less accurate and can lead to minor "model top violations" (the 
+        # strtop is slightly above the surface)
+        
+        # Correct elevations amongst one segment
+        for nseg, s in self.segment_data_1.iterrows():
+            prev_strtop = self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == nseg].index[-1], 'strtop'].item()
+            
+            for r_idx, _ in self.reach_data[self.reach_data['iseg'] == nseg][::-1].iterrows():
+                self.reach_data.loc[r_idx, 'strtop'] = min(self.reach_data.loc[r_idx, 'strtop'], prev_strtop)
+                prev_strtop = self.reach_data.loc[r_idx, 'strtop']
+            # Correct elevations amongst connected segments
+            if s['outseg'] != 0:
+                self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[-1], 'strtop'] \
+                    = min(self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[-1], 'strtop'], prev_strtop)
         
         # 4bis. Update elevdn and elevup in segment_data_1:
         for nseg, _ in self.segment_data_1.iterrows():
