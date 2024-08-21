@@ -960,6 +960,15 @@ class Modflow:
                 self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[-1], 'strtop'] \
                     = min(self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[-1], 'strtop'], prev_strtop)
         
+        elev_map = sfr_map.copy()
+        hcond1_map = sfr_map.copy()
+        hcond2_map = sfr_map.copy()
+        for _, r in self.reach_data.iterrows():
+            elev_map[r['i'], r['j']] = r['strtop']
+            hcond1_map[r['i'], r['j']] = self.segment_data_1.loc[r['iseg'], 'hcond1']
+            hcond2_map[r['i'], r['j']] = self.segment_data_1.loc[r['iseg'], 'hcond2']
+        hcond_map = (hcond1_map + hcond2_map)/2
+        
         # 4bis. Update elevdn and elevup in segment_data_1:
         for nseg, _ in self.segment_data_1.iterrows():
             self.segment_data_1.loc[nseg, 'elevdn'] = self.reach_data.loc[self.reach_data['iseg'] == nseg, 'strtop'].min()
@@ -1090,8 +1099,14 @@ class Modflow:
                            self.drain_array, self.geographic.nodata, 
                            os.path.join(stream_map_path, "remaining_drains.tif"))
         toolbox.export_tif(self.geographic.watershed_dem, 
+                           elev_map, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "strtop_map.tif"))
+        toolbox.export_tif(self.geographic.watershed_dem, 
                            self.sink, self.geographic.nodata, 
                            os.path.join(stream_map_path, "sink_cells.tif"))
+        toolbox.export_tif(self.geographic.watershed_dem, 
+                           hcond_map, self.geographic.nodata, 
+                           os.path.join(stream_map_path, "hcond_map.tif"))
         
         #%% Drain package
         # (DRN)
