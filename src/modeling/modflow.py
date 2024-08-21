@@ -915,6 +915,88 @@ class Modflow:
                 # For segments made of more than 2 reaches, the segment's conductivity
                 # is let as it is.
 
+        # 1ter. Adaptation of hcond values to accumulation_flux values
+        acc_map, _, _, nodata = toolbox.load_to_numpy(
+            os.path.join(self.geographic.reg_path, 'region_acc.tif'), 
+            src_crs = self.geographic.crs_proj, 
+            base_path = self.geographic.watershed_dem, 
+            dst_crs = self.geographic.crs_proj)
+        acc_map = np.ma.array(acc_map, 
+                              mask = watershed_mask==nodata, 
+                              fill_value = nodata)
+        # Threshold version
+# =============================================================================
+#         # For each segment...
+#         for nseg, s in self.segment_data_1.iterrows():
+#             r = self.reach_data[self.reach_data['iseg'] == nseg]
+#             # for the upstream reach:
+#             acc1 = acc_map[r['i'].iloc[0], r['j'].iloc[0]]
+#             if acc1 > 7.5:
+#                 self.segment_data_1.loc[nseg, 'hcond1'] = hcond_low
+#             # for the downstream reach:
+#             acc2 = acc_map[r['i'].iloc[-1], r['j'].iloc[-1]]
+#             if acc2 > 7.5:
+#                 self.segment_data_1.loc[nseg, 'hcond2'] = hcond_low
+# =============================================================================
+        
+        # Linear version
+# =============================================================================
+#         # For each segment...
+#         for nseg, s in self.segment_data_1.iterrows():
+#             r = self.reach_data[self.reach_data['iseg'] == nseg]
+#             # for the upstream reach:
+#             acc1 = max(7.5, acc_map[r['i'].iloc[0], r['j'].iloc[0]])
+#             self.segment_data_1.loc[nseg, 'hcond1'] = hcond + (hcond_low-hcond)*(acc1-7.5)/(acc_map.max()-7.5)
+#             # for the downstream reach:
+#             acc2 = max(7.5, acc_map[r['i'].iloc[-1], r['j'].iloc[-1]])
+#             self.segment_data_1.loc[nseg, 'hcond2'] = hcond + (hcond_low-hcond)*(acc2-7.5)/(acc_map.max()-7.5)
+# =============================================================================
+
+        # Logarithmic version
+# =============================================================================
+#         # For each segment...
+#         for nseg, s in self.segment_data_1.iterrows():
+#             r = self.reach_data[self.reach_data['iseg'] == nseg]
+#             # for the upstream reach:
+#             acc1 = max(7.5, acc_map[r['i'].iloc[0], r['j'].iloc[0]])
+#             self.segment_data_1.loc[nseg, 'hcond1'] = ...
+#             # for the downstream reach:
+#             acc2 = max(7.5, acc_map[r['i'].iloc[-1], r['j'].iloc[-1]])
+#             self.segment_data_1.loc[nseg, 'hcond2'] = ...
+# =============================================================================
+
+        # 1quater. Decrease hcond by area (for testing)
+        # For each segment...
+        for nseg, s in self.segment_data_1.iterrows():
+            # ... get the corresponding reaches
+            r = self.reach_data[self.reach_data['iseg'] == nseg]
+            # cond = (r['j'].iloc[0] > (325657-319987.5)/75 - 1) & (r['j'].iloc[0] < (326929-319987.5)/75 + 1)
+            # cond = (nseg >= 3130) & (nseg <= 3300)
+            # cond = (nseg >= 2460) & (nseg <= 2625)
+            # cond = (nseg >= 2880) & (nseg <= 3042)
+            # cond = (nseg >= 0) & (nseg <= 200)
+            # cond = (nseg >= 2600) & (nseg <= 2850)
+            cond = (nseg >= 3000)
+            # cond = r['j'].iloc[0] > (328881-319987.5)/75 - 1
+            # If this segment is made only of one reach:
+            if (len(r) == 1) & cond:
+                # If this reach is located on a sink cell:
+                if self.sink[r['i'], r['j']] > 0:
+                    # then the upstream and downstream conductivities are set to 0
+                    self.segment_data_1.loc[nseg, 'hcond1'] = hcond_low
+                    self.segment_data_1.loc[nseg, 'hcond2'] = hcond_low
+            # If this segment is made of two reaches:
+            elif (len(r) == 2) & cond:
+                # If the downstream reach is located on a sink cell:
+                if self.sink[r['i'].iloc[1], r['j'].iloc[1]] > 0:
+                    # its conductivity is set to 0
+                    self.segment_data_1.loc[nseg, 'hcond2'] = hcond_low
+                # Same for the upstream reach
+                if self.sink[r['i'].iloc[0], r['j'].iloc[0]] > 0:
+                    self.segment_data_1.loc[nseg, 'hcond1'] = hcond_low
+            # For segments made of more than 2 reaches, the segment's conductivity
+            # is let as it is.
+
         # 2. Remove multiple reaches collocated on the same cell
 # =============================================================================
 #         for cell in np.unique(self.reach_data[['i', 'j']]):
