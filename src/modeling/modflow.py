@@ -902,11 +902,11 @@ class Modflow:
                 # If this segment is made of two reaches:
                 elif len(r) == 2:
                     # If the downstream reach is located on a sink cell:
-                    if self.sink[r['i'].iloc[0], r['j'].iloc[0]] > 0:
+                    if self.sink[r['i'].iloc[1], r['j'].iloc[1]] > 0:
                         # its conductivity is set to 0
                         self.segment_data_1.loc[nseg, 'hcond2'] = 0.012
                     # Same for the upstream reach
-                    if self.sink[r['i'].iloc[1], r['j'].iloc[1]] > 0:
+                    if self.sink[r['i'].iloc[0], r['j'].iloc[0]] > 0:
                         self.segment_data_1.loc[nseg, 'hcond1'] = 0.012
                 # For segments made of more than 2 reaches, the segment's conductivity
                 # is let as it is.
