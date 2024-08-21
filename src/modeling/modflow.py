@@ -883,6 +883,7 @@ class Modflow:
         self.segment_data_1['width1'] = width
         self.segment_data_1['width2'] = width 
         # 1bis. Remove cond on sink cells
+        # 1bis. Decrease cond on sink cells
         if self.sink_fill == True:
             # For each segment...
             for nseg, s in self.segment_data_1.iterrows():
