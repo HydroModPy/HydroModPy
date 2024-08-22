@@ -619,8 +619,8 @@ class Modflow:
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
             # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
-            modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='viridis', alpha=0.5, ax=axs[0])
-            modelxsect1.plot_grid(ax=axs[0])
+            modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='viridis', alpha=0.5, lw=0.1, ax=axs[0])
+            # modelxsect1.plot_grid(ax=axs[0])
             axs[0].set_title('Row, K')
             axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
@@ -629,8 +629,8 @@ class Modflow:
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
             # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
-            modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='plasma', alpha=0.5, ax=axs[1])
-            modelxsect2.plot_grid(ax=axs[1])
+            modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='plasma', alpha=0.5, lw=0.1, ax=axs[1])
+            # modelxsect2.plot_grid(ax=axs[1])
             axs[1].set_title('Column, θ')
             axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
