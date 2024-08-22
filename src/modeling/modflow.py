@@ -1239,7 +1239,7 @@ class Modflow:
                     else:
                         if self.sink[i,j]>0:
                             #ALEXANDRE: when filled, no possible drains, why?
-                            self.drnData[compt, 4] = 0
+                            self.drnData[compt, 4] = 0 # hcond_low
                         else:
                             if self.cond_drain != None:
                                 self.drnData[compt, 4] = self.cond_drain 
