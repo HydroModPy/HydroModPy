@@ -565,7 +565,7 @@ class Watershed:
                                           intermittency=self.intermittency, 
                                           add_path=add_path,
                                           out_path=self.watershed_folder,
-                                          sub_snap_dist=self.geographic.snap_dist/2)
+                                          sub_snap_dist=sub_snap_dist)
         self.elt_def.append('subbasin')
         self.save_object()
     
