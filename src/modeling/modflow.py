@@ -873,7 +873,7 @@ class Modflow:
 
         # 1. Standard values on segment_data_1:
         depth = 0 # 0.1 # self.thick # 1 # arbitrary
-        hcond = 100 # 3e-5 # self.hyd_cond[0, 0] # 864000
+        hcond = 10 # 3e-5 # self.hyd_cond[0, 0] # 864000
         hcond_low = 0.012
         width = 1 # self.resolution # 1.5  # arbitrary
         thickm = 0.1 # Modflow does not run if = 0
