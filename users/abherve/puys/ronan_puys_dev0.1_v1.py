@@ -53,124 +53,44 @@ import random
 from matplotlib_scalebar.scalebar import ScaleBar
 from rasterio.plot import show
 
-from watershed import watershed_root, watershed_display, forcing
-from watershed.data import climatic
-from calibration import calib_root, calib_analysis, calib_basis
-from tools import toolbox, vtk
-from groundwater_flow import visualization, modflow, modflow_display
+#%% HYDROMODPY
+
+# Import HydroModPy modules
+from os.path import dirname, abspath
+DIR = dirname(dirname(dirname(dirname(abspath(__file__)))))
+sys.path.append(DIR)
+
+import src
+import importlib
+importlib.reload(src)
+
+from src import watershed_root
+from src.watershed import climatic, driasclimat, driaseau, geographic, geology, geometric, hydraulic, \
+                          hydrography, hydrometry, intermittency, oceanic, \
+                          piezometry, safransurfex, subbasin
+from src.modeling import downslope, modflow, modpath, timeseries
+from src.display import visualization_watershed, visualization_results, export_vtuvtk
+from src.tools import toolbox
+
+fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% USERS
 
 # user_path = "Martin"
 user_path = "Ronan"
-data_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/"
-out_path = "C:/Users/ronan/Documents/SIMULATIONS/PUYS/"
-fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/figures/"
+data_path = "C:/Users/ronan/OneDrive/UNINE/11_Paper/PUYS/_data/"
+out_path = "C:/Users/ronan/Simulations/PUYS/"
+# fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/figures/"
   
 print("Define a well-validated name of user")
 
-#%% PATHS DEM
-"""
-watershed_name = 'Tiretaine1'
+#%% PATHS
 
-library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
+dem_name = 'DEM_TOPO_Tiretaine_25.tif' # EUDTM_Alps_30m_vallon
+soc_name = 'DEM_BOTTOM_Tiretaine_25.tif' # EUDTM_Alps_30m_vallon
 
-dem_name = "MNT Tiretaine_resconv.tif"
-from_shp = None
-types_obs = ["Streams BV Tiretaine"]
-fields_obs = ['PERSISTANC']
-    
-from_dem = True
-cell_size = 25
-    
-climate_path =  None
-dem_path = os.path.join(data_path ,dem_name)
-socle_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/MNT Socle Tiretaine.tif"
-
-geology_path = None
-hydrology_path = os.path.join(data_path)
-hydrometry_path = 'None' # add hydrometry data for automatic download
-intermittency_path = 'None' # add intermittency data for automatic download
-modflow_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/SOFTWARE/MODFLOW/"
-oceanic_path = None
-piezometry_path = True # add piezometry data for automatic download
-subbasin_path = True # generate subbasins from stations or manual points
-
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
-
-wbt.set_nodata_value(
-    dem_path, 
-    dem_path,
-    back_value=1.70141e+38)
-wbt.modify_no_data_value(
-    dem_path, 
-    new_value="-99999")
-x = imageio.imread(dem_path)
-x[x<0] = np.nan 
-
-wbt.set_nodata_value(
-    socle_path, 
-    socle_path,
-    back_value=1.70141e+38)
-wbt.modify_no_data_value(
-    socle_path, 
-    new_value="-99999")
-y = imageio.imread(socle_path)
-y[y<0] = np.nan 
-
-z = x - y
-# plt.imshow(y)
-
-r = int(x.shape[0]/2)
-r = 175
-fig, ax = plt.subplots(1,1, figsize=(6,3))
-axb=ax.twinx()
-ax.plot(x[r,:], color='k')
-ax.plot(y[r,:], color='grey')
-axb.plot(z[r,:], color='red')
-# ax.invert_xaxis()
-
-mean_thick = np.nanmean(z)
-mean_thick = 40
-"""
-#%% PATHS REGIO
-
-# watershed_name = 'Tiretaine2'
-watershed_name = 'Tiretaine'
-
-library_path = data_path + 'watershed_library.csv' # each row is a study site with outlet coordinates
-
-dem_name = "MNTChdp.tif"
-
-# from_shp = None
-from_shp = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/BV Tiretaine.shp"
-
-types_obs = ["Streams BV Tiretaine"]
-fields_obs = ['PERSISTANC']
-    
-from_dem = False
-cell_size = None
-
-# from_xy = [703265.205,6518426.385,500,25]
-from_xy = []
-    
-climate_path =  None
-dem_path = os.path.join(data_path ,dem_name)
-socle_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/_data/MNT_socle_5000r_25g_kriglin1.tif"
-bottom_path = socle_path
-
-geology_path = None
-hydrology_path = os.path.join(data_path)
-hydrometry_path = 'None' # add hydrometry data for automatic download
-intermittency_path = 'None' # add intermittency data for automatic download
-modflow_path = modflow_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/HYDRODATAPY/HydroDataPy/SOFTWARE/MODFLOW/"
-oceanic_path = None
-piezometry_path = True # add piezometry data for automatic download
-subbasin_path = True # generate subbasins from stations or manual points
-
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots
+dem_path = data_path + dem_name
+soc_path = data_path + soc_name
 
 # wbt.set_nodata_value(
 #     dem_path, 
@@ -180,55 +100,99 @@ wbt.modify_no_data_value(
     dem_path, 
     new_value="-99999")
 x = imageio.imread(dem_path)
-x[x<0] = np.nan 
+x[x<0] = np.nan
 
 # wbt.set_nodata_value(
 #     socle_path, 
 #     socle_path,
 #     back_value=np.nan)
 wbt.modify_no_data_value(
-    socle_path, 
+    soc_path, 
     new_value="-99999")
-y = imageio.imread(socle_path)
+y = imageio.imread(soc_path)
 y[y<0] = np.nan 
 
-r = 1100
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+neg = x - y
+neg[neg<0] = 0
+im = ax.imshow(neg)
+fig.colorbar(im)
+
+ym = np.where(neg==0, x, y)
+
+r = 150
 fig, ax = plt.subplots(1,1, figsize=(6,3))
 ax.plot(x[r,200:1200], color='k')
+ax.plot(y[r,200:1200], color='red')
+ax.plot(ym[r,200:1200], color='darkorange')
 # ax.invert_xaxis()
 
-#%% WATERSHED
+subbasin_path = True # generate subbasins from stations or manual points
+from_dem = None # True or False if the process start from a given DEM of xyz file
+cell_size = None # specify new resolution from a given DEM or None
+from_shp = ['C:/Users/ronan/OneDrive/UNINE/11_Paper/PUYS/_data/BV_Tiretaine_HydromodPy_manmod.shp', 10]
 
+watershed_names = ['Tiretaine', 'Tiretaine_socle']
+
+toolbox.export_tif(dem_path, 
+                    x, -9999, data_path + 'DEM_TOPO_Tiretaine_25_mod.tif')
+toolbox.export_tif(soc_path, 
+                    ym, -9999, data_path + 'DEM_BOTTOM_Tiretaine_25_mod.tif')
+
+# from_xyvs = [701724.007,6518671.537,50,10,'EPSG:2154'] 
+from_xyv = None
+
+ras_paths = [data_path+'DEM_TOPO_Tiretaine_25_mod.tif', data_path+'DEM_BOTTOM_Tiretaine_25_mod.tif']
+
+#%% LOAD
+
+# load = True
 load = False
-load = True
-# False to build and save python object4
 
-BV = watershed_root.Watershed(watershed_name=watershed_name,
-                              dem_path=dem_path,
-                              out_path=out_path,
-                              modflow_path=modflow_path,
-                              library_path=library_path,
-                              load=load,
-                              from_shp=from_shp,
-                              from_dem=from_dem,
-                              from_xy=from_xy,
-                              cell_size=cell_size,
-                              bottom_path=bottom_path)
+for watershed_name, ras_path in zip(watershed_names[:], ras_paths[:]):
+        
+    print('##### '+watershed_name.upper()+' #####')
+    BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=ras_path, 
+                                  out_path=out_path,
+                                  load=load,
+                                  from_shp=from_shp,
+                                  from_dem=from_dem,
+                                  from_xyv=from_xyv)
+    
+    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots  
+      
+    print(BV.geographic.area.round(2))
+    print(BV.geographic.slope.round(2))
+    
+    try:
+        visualization_watershed.watershed_local(dem_path, BV)
+        visualization_watershed.watershed_dem(BV)
+    except:
+        pass
 
-BV.add_hydrometry(hydrometry_path)
-BV.add_intermittency(intermittency_path)
-BV.add_subbasin()
-BV.add_oceanic('None')
+    # SUBBASIN
+    
+    # BV.add_intermittency('None','None')
+    # BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=100)
 
 #%% DATA
 
-wbt.polygons_to_lines("C:/Users/ronan/Documents/SIMULATIONS/PUYS/"+watershed_name+"/results_stable/geographic/watershed.shp",
-                      "C:/Users/ronan/Documents/SIMULATIONS/PUYS/"+watershed_name+"/results_stable/geographic/watershed_contour.shp")
+types_obs = ['hydrographic_mix_peren_upv1_pt','hydrographic_mix_inter_upv1_pt']
+fields_obs = ['fid','fid']
 
-BV.add_hydrology(hydrology_path, types_obs=types_obs, fields_obs=fields_obs)
+# wbt.polygons_to_lines("C:/Users/ronan/Documents/SIMULATIONS/PUYS/"+watershed_name+"/results_stable/geographic/watershed.shp",
+#                       "C:/Users/ronan/Documents/SIMULATIONS/PUYS/"+watershed_name+"/results_stable/geographic/watershed_contour.shp")
 
-watershed_display.watershed_dem(BV)
-watershed_display.watershed_local(dem_path, BV)
+for type_obs, field_obs in zip(types_obs, fields_obs):
+
+    # print('##### '+watershed_name.upper()+' #####')
+               
+    BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
+
+    watershed_display.watershed_dem(BV)
+    watershed_display.watershed_local(dem_path, BV)
 
 #%% ---- DICHOTOMY
 
