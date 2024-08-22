@@ -1029,7 +1029,7 @@ class Modflow:
         rchlen = self.geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # average straight euclidien length
         self.reach_data['rchlen'] = rchlen # rchlen:
 
-        # 4. Correct inconsistent elevations in reach_data (not reflected on the dem map)
+        # 4. Correct inconsistent elevations and too small slopes in reach_data (not reflected on the dem map)
 # =============================================================================
 #         prev_strtop = self.reach_data['strtop'][0]
 #         for idx, r in self.reach_data.iterrows():
@@ -1044,13 +1044,16 @@ class Modflow:
         # less accurate and can lead to minor "model top violations" (the 
         # strtop is slightly above the surface)
         
-        # Correct elevations amongst one segment
+        # Correct elevations and effective slopes amongst one segment
+        min_slope = 0.001
+        min_depression = self.resolution * min_slope
         for nseg, s in self.segment_data_1.iterrows():
             prev_strtop = self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == nseg].index[0], 'strtop'].item()
             
             for r_idx, _ in self.reach_data[self.reach_data['iseg'] == nseg].iterrows():
                 self.reach_data.loc[r_idx, 'strtop'] = min(self.reach_data.loc[r_idx, 'strtop'], prev_strtop)
-                prev_strtop = self.reach_data.loc[r_idx, 'strtop']
+                prev_strtop = self.reach_data.loc[r_idx, 'strtop'] - min_depression
+                
             # Correct elevations amongst connected segments
             if s['outseg'] != 0:
                 self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'] \
@@ -1069,6 +1072,8 @@ class Modflow:
         for nseg, _ in self.segment_data_1.iterrows():
             self.segment_data_1.loc[nseg, 'elevdn'] = self.reach_data.loc[self.reach_data['iseg'] == nseg, 'strtop'].min()
             self.segment_data_1.loc[nseg, 'elevup'] = self.reach_data.loc[self.reach_data['iseg'] == nseg, 'strtop'].max()
+            if self.segment_data_1.loc[nseg, 'elevdn'] == self.segment_data_1.loc[nseg, 'elevup']:
+                self.segment_data_1.loc[nseg, 'elevdn'] = self.segment_data_1.loc[nseg, 'elevdn'] - min_depression/2
         
         
         # 5. Convert pandas.DataFrame into numpy.recarrays
