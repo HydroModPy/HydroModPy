@@ -631,26 +631,26 @@ class Modflow:
 #             print("Err: A reference accumulation flux map (either a .tif or a .nc file) is required to compute the stream network")
 #             return
 #         
-#         ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
-#         ldd = rivers*ldd
+#         direc, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
+#         direc = rivers*direc
 # =============================================================================
         
         ### 1. Apply on the whole watershed:
-        ldd, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
+        direc, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
         watershed_mask, _, _, nodata = toolbox.load_to_numpy(
             self.geographic.watershed_dem,
             src_crs = self.geographic.crs_proj, 
             base_path = self.geographic.watershed_dem,
             dst_crs = self.geographic.crs_proj) 
 
-        ldd = np.ma.array(ldd, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+        direc = np.ma.array(direc, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
         
         ### 2. Initialize reach and segmennt infos:
         # NOTE: self.reach_data is first created as a pandas.dataframe and then 
         # converted into a numpy.recarray. It is not directly created as a 
         # recarray because of the difficulty to handle and modify recarrays.
         # Same for self.segment_data_1
-        self.reach_data = pd.DataFrame(index = range(0, (~np.isnan(ldd)).sum()), # ldd.count()),
+        self.reach_data = pd.DataFrame(index = range(0, (~np.isnan(direc)).sum()), # direc.count()),
                                   columns = ['k', 'i', 'j', 'iseg', 'ireach',
                                              'rchlen', 'strtop', 'slope'])
         self.segment_data_1 = pd.DataFrame(columns = ['icalc', 'outseg', 'iupseg',
@@ -664,10 +664,10 @@ class Modflow:
         self.segment_data_1.index.name = 'nseg'
         self.segment_data_1['outseg'] = 0
         self.reach_data['ireach'] = 1
-        self.reach_data['iseg'] = 0 # range(1, ldd.count()+1)
+        self.reach_data['iseg'] = 0 # range(1, direc.count()+1)
         self.reach_data['slope'] = 0.1
-        ilist = [ij[0] for ij, _ in np.ma.ndenumerate(ldd)]
-        jlist = [ij[1] for ij, _ in np.ma.ndenumerate(ldd)]
+        ilist = [ij[0] for ij, _ in np.ma.ndenumerate(direc)]
+        jlist = [ij[1] for ij, _ in np.ma.ndenumerate(direc)]
         self.reach_data['i'] = ilist
         self.reach_data['j'] = jlist
         
@@ -678,7 +678,7 @@ class Modflow:
             (self.reach_data.loc[r, 'i'], self.reach_data.loc[r, 'j']): [] \
                 for r in self.reach_data.index}
         for i, j in self.upstream_cells_by_ij.keys():
-            val = ldd[i, j]
+            val = direc[i, j]
             
             # Convert D8 local direction codes into indexes i and j:
                 # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
@@ -710,7 +710,7 @@ class Modflow:
                 j2 = j+1
                 
             # if the downstream cell is part of river cells:
-            if not np.ma.is_masked(ldd[i2, j2]):
+            if not np.ma.is_masked(direc[i2, j2]):
                 self.upstream_cells_by_ij[(i2, j2)] += [(i, j)]
                 
         # Recursive method
@@ -803,7 +803,7 @@ class Modflow:
 # =============================================================================
 #             i = ij_outlet[0]
 #             j = ij_outlet[1]
-#             val = ldd[i, j]
+#             val = direc[i, j]
 #             
 #             # Convert D8 local direction codes into indexes i and j:
 #                 # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
@@ -867,8 +867,8 @@ class Modflow:
 #         if not os.path.exists(stream_map_path):
 #             os.makedirs(stream_map_path)
 #         toolbox.export_tif(self.geographic.watershed_dem, 
-#                            ldd, self.geographic.nodata, 
-#                            os.path.join(stream_map_path, "ldd_main_river.tif"))
+#                            direc, self.geographic.nodata, 
+#                            os.path.join(stream_map_path, "direc_main_river.tif"))
 # =============================================================================
 
         # 1. Standard values on segment_data_1:
@@ -1177,22 +1177,22 @@ class Modflow:
             sfr_mapr[int(r['i']), int(r['j'])] = r['ireach']
         toolbox.export_tif(self.geographic.watershed_dem, 
                            sfr_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "streams_map.tif"))
+                           os.path.join(stream_map_path, "stream_segments.tif"))
         toolbox.export_tif(self.geographic.watershed_dem, 
                            sfr_mapr, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "reaches_map.tif"))
+                           os.path.join(stream_map_path, "stream_reaches.tif"))
         toolbox.export_tif(self.geographic.watershed_dem, 
                            self.drain_array, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "remaining_drains.tif"))
+                           os.path.join(stream_map_path, "remaining_drains(debug).tif"))
         toolbox.export_tif(self.geographic.watershed_dem, 
                            elev_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "strtop_map.tif"))
+                           os.path.join(stream_map_path, "streambed_tops.tif"))
         toolbox.export_tif(self.geographic.watershed_dem, 
                            self.sink, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "sink_cells.tif"))
+                           os.path.join(stream_map_path, "sink_cells(debug).tif"))
         toolbox.export_tif(self.geographic.watershed_dem, 
                            hcond_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "hcond_map.tif"))
+                           os.path.join(stream_map_path, "conductances.tif"))
         
         #%% Drain package
         # (DRN)
