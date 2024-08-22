@@ -1068,6 +1068,10 @@ class Modflow:
             hcond2_map[r['i'], r['j']] = self.segment_data_1.loc[r['iseg'], 'hcond2']
         hcond_map = (hcond1_map + hcond2_map)/2
         
+# =============================================================================
+#         self.dem[watershed_mask!=nodata] = elev_map[watershed_mask!=nodata]
+# =============================================================================
+        
         # 4bis. Update elevdn and elevup in segment_data_1:
         for nseg, _ in self.segment_data_1.iterrows():
             self.segment_data_1.loc[nseg, 'elevdn'] = self.reach_data.loc[self.reach_data['iseg'] == nseg, 'strtop'].min()
