@@ -259,7 +259,7 @@ class Lakeres:
         
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
-    def format_to_modflow(self, geographic, climatic, nper, thickfact):
+    def format_to_modflow(self, geographic, climatic, nper, thickfact, dem):
         print("\nLakes/Reservoirs: formating all attributes...")
         
         #%%% Standardize lake identifiers
@@ -283,13 +283,15 @@ class Lakeres:
                             fill_value = nodata,
                             ) * 0 # masked np.ndarray with null values
         
-        # Load topography
-        dem_box, _, _, _ = toolbox.load_to_numpy(geographic.watershed_box_buff_dem,
-                                                dst_crs = geographic.crs_proj) 
+# =============================================================================
+#         # Load topography
+#         dem, _, _, _ = toolbox.load_to_numpy(geographic.watershed_box_buff_dem,
+#                                                 dst_crs = geographic.crs_proj) 
+# =============================================================================
         
         # Cell area
 # =============================================================================
-#         cell_area = (dem_box[0,1] - dem_box[0,0])*(dem_box[1,0] - dem_box[0,0])   
+#         cell_area = (dem[0,1] - dem[0,0])*(dem[1,0] - dem[0,0])   
 #         cell_area = abs(transform[0]) * abs(transform[4])
 # =============================================================================
         cell_area = geographic.cell_size
@@ -324,13 +326,13 @@ class Lakeres:
                     dst_crs = geographic.crs_proj)
                 
                 # Replace topo by bathy, on the area where bathy exists:
-                dem_box = np.where(bathymetry == nodata, dem_box, bathymetry)
+                dem = np.where(bathymetry == nodata, dem, bathymetry)
                 
                 # Update dem files:
-                self.update_dem(geographic, dem_box)
+                self.update_dem(geographic, dem)
                 
-                # Mask dem_box with maskmx:
-                masked_dem = np.ma.array(dem_box, 
+                # Mask dem with maskmx:
+                masked_dem = np.ma.array(dem, 
                                          mask = ~maskmx,
                                          fill_value = nodata,
                                          )
@@ -347,7 +349,7 @@ class Lakeres:
                         print(f" Warning: The lake maximal level (ssmx) is likely to be too small. It can not naturally exceed {masked_dem.max()} m. To match the required ssmx of {self.ssmx_by_lake[lake_id]} m, the lake surface was considered not continuous with the surrounding topography.")
                     
                     if self.volmx_by_lake[lake_id]:
-                        masked_dem = np.ma.array(dem_box, 
+                        masked_dem = np.ma.array(dem, 
                                                  mask = ~maskmx,
                                                  fill_value = nodata,
                                                  )
@@ -412,7 +414,7 @@ class Lakeres:
 #                         maskmx = maskmx.astype(bool)
 # =============================================================================
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
-                        dem_box = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem_box)
+                        dem = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem)
                         
                     else:
                     # In this case, maskmx will be used as a strict mask of the
@@ -420,12 +422,12 @@ class Lakeres:
                         print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
                         self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
-                        dem_box = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem_box)
+                        dem = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem)
                         
                 else:
                     print(" Err: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
             
-                self.update_dem(geographic, dem_box)
+                self.update_dem(geographic, dem)
         
 # =============================================================================
 #             lakarr = lakarr + np.ma.array(maskmx,
@@ -493,13 +495,13 @@ class Lakeres:
             
         #%%% Format the top of the lake/reservoir layer
         # ---------------------------------------------
-        laklay_top = dem_box.copy()+1
+        laklay_top = dem.copy()+1
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
             laklay_top[lakarr == num_id] = self.ssmx_by_lake[lake_id]
             # laklay_top[(lakarr == num_id) & (laklay_top < thickfact*100)] = thickfact*100
-            # laklay_top[(laklay_top - dem_box) < thickfact*100] = laklay_top + thickfact*100
-            laklay_top = np.where(laklay_top < dem_box + thickfact*100, dem_box + thickfact*110, laklay_top)
+            # laklay_top[(laklay_top - dem) < thickfact*100] = laklay_top + thickfact*100
+            laklay_top = np.where(laklay_top < dem + thickfact*100, dem + thickfact*110, laklay_top)
             
         # Exports
         with rio.open(geographic.watershed_dem, 'r') as base:
@@ -518,7 +520,7 @@ class Lakeres:
             # base_profile['dtype'] = int
         with rio.open(os.path.join(self.data_folder, 'laklay_thick.tif'),
                       'w', **base_profile) as dst: 
-            dst.write_band(1, laklay_top - dem_box)
+            dst.write_band(1, laklay_top - dem)
         
             
         #%%% Format initial stage
@@ -530,7 +532,7 @@ class Lakeres:
                 stages.append(self.stageinit_by_lake[lake_id])
             else:
                 print(f" Warning: The lake/reservoir '{lake_id}' will be initially considered dry.")
-                stages.append(float(dem_box[maskmx==1].min()))
+                stages.append(float(dem[maskmx==1].min()))
                 
         #%%% Format bedlake leakance
         # --------------------------
@@ -625,12 +627,12 @@ class Lakeres:
                               header = True) 
                 
         print('\n')
-        return stages, lakarr, laklay_top, bdlknc, flux_data
+        return stages, lakarr, laklay_top, bdlknc, flux_data, dem
        
    
     #%% UPDATE DEM FILES        
-    def update_dem(self, geographic, dem_box):
-        # dem_box has been modified, and its modifications should also be applied
+    def update_dem(self, geographic, dem):
+        # dem has been modified, and its modifications should also be applied
         # on all dem files.
         print("Updating DEM files...")
         # Update DEM initial file
@@ -640,7 +642,7 @@ class Lakeres:
         with rio.open(geographic.dem_path, 'r+') as bathy_dem:
             with rio.open(geographic.watershed_box_buff_dem, 'r') as box:
                 window = rio.windows.from_bounds(*box.bounds, transform=bathy_dem.transform)
-                bathy_dem.write_band(1, dem_box, window=window)
+                bathy_dem.write_band(1, dem, window=window)
             
         geographic.processing()
         
