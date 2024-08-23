@@ -85,6 +85,7 @@ class Lakeres:
         self.lake_by_num_id:dict = {} # Dict betwen num_id and lake_id
                                           # Defined in self.format_to_modflow()
         self.outlet_by_lake:dict = {}
+        self.ij_outlet_by_lake:dict = {}
         
 
     #%% ADD A NEW LAKE/RESERVOIR   
@@ -241,7 +242,7 @@ class Lakeres:
     def update_bathymetry(self, lake_id, bathymetry_raster):
         self.bathymetry_by_lake[lake_id] = bathymetry_raster
         
-    def update_outlet(self, lake_id, outlet_file):
+    def update_outlet(self, lake_id, outlet_file=None):
         self.outlet_by_lake[lake_id] = outlet_file
         
     #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
@@ -650,29 +651,48 @@ class Lakeres:
         os.rename(filepath + '_temp' + ext, geographic.dem_path)
         
 
-    #%% FORMAT LAKE/RESERVOIR OUTLETS
-    def format_outlet(self, geographic):
-        ij_outlet_by_lake = {}
+    #%% FORMAT OUTLETS
+    def format_outlets(self, lakarr, geographic, dem_path):
+        self.ij_outlet_by_lake = {}
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
             file = self.outlet_by_lake[lake_id]
             if file is None:
-                print("Calcul automatique. Pas encore implémenté")
-                i = None
-                j = None
+                # Automatic detection of the outlet (cell with the highest accumulation flow)
+                acc_map, _, _, nodata = toolbox.load_to_numpy(
+                    os.path.join(geographic.reg_path, 'region_acc.tif'), 
+                    src_crs = geographic.crs_proj, 
+                    base_path = dem_path, 
+                    dst_crs = geographic.crs_proj)
+# =============================================================================
+#                 watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+#                     dem_path,
+#                     src_crs = self.geographic.crs_proj, 
+#                     base_path = dem_path,
+#                     dst_crs = self.geographic.crs_proj)
+# =============================================================================
+                acc_map = np.ma.array(
+                    acc_map, 
+                    mask = lakarr!=num_id, 
+                    fill_value = nodata) # masked np.ndarray
+                
+                i, j = np.unravel_index(np.argmax(acc_map), acc_map.shape)
  
-            arr, _, _, _ = toolbox.load_to_numpy(
-                file,
-                src_crs = self.mask_crs_by_lake[lake_id],
-                base_path = geographic.watershed_dem, 
-                dst_crs = geographic.crs_proj)
+            else:
+                arr, _, _, _ = toolbox.load_to_numpy(
+                    file,
+                    src_crs = self.mask_crs_by_lake[lake_id],
+                    base_path = geographic.watershed_dem, 
+                    dst_crs = geographic.crs_proj)
+                
+                i = np.argwhere(arr==num_id)[0,0] 
+                j = np.argwhere(arr==num_id)[0,1]
             
-            i = np.argwhere(arr==num_id)[0,0] 
-            j = np.argwhere(arr==num_id)[0,1]
-            
-            ij_outlet_by_lake[lake_id] = (i,j)
+            self.ij_outlet_by_lake[lake_id] = (i, j)
         
-        return ij_outlet_by_lake
+# =============================================================================
+#         return self.ij_outlet_by_lake
+# =============================================================================
                 
 
     #%% DISPLAY PLOT

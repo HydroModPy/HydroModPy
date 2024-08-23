@@ -255,6 +255,8 @@ BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 # # mode can be 'elevation', 'depth', 'height' (= -depth)
 # =============================================================================
 
+# Definition of the lake outlet (if no file provided, the outlet will be
+# automatically determined)
 outlet_file = os.path.join(data_path, "Reservoir", 
                            "Exutoire", "lakeres_outlets.shp")
 BV.lakeres.update_outlet(lake_id, outlet_file)

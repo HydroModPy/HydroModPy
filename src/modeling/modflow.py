@@ -378,6 +378,8 @@ class Modflow:
             
             bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
             bdlknc[0] = bdlknc_lay0
+            
+            self.lakeres.format_outlets(lakarr_lay0, self.geographic, self.dem_path)
         
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
