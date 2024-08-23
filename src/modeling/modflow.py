@@ -366,8 +366,8 @@ class Modflow:
         
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
-            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, thickfact)
+            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
+                self.geographic, self.climatic, self.nper, thickfact, self.dem)
             
             self.nlay = self.nlay + 1
             self.top = laklay_top
