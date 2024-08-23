@@ -556,7 +556,7 @@ class Modflow:
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
 
-        #%% Streamflow Routing package
+        #%% Streamflow Routing package        
         istcb2 = 81 # or 81? option for output files format
         ipakcb = 53
         
@@ -575,10 +575,10 @@ class Modflow:
         # No computation of flow thickness and width:
         icalc = 0
 
-        # Deactivation of the transient routing computation through kinematic-wave equation:
+        # Deactivation of the transient routing via kinematic-wave equation:
         irtflg = 0
         
-        # ---- Case #1: Load Stream parameters
+        # ---- Case #1: Load stream parameters from user files
 # =============================================================================
 #         temp_data_folder = r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\dev_perso\couplage lac-riviere\SFR"
 #         reach_data_path = os.path.join(temp_data_folder, 
@@ -590,7 +590,7 @@ class Modflow:
 #         self.segment_data_1 = np.genfromtxt(segment_data_path, delimiter=';', names=True)
 # =============================================================================
         
-        # ---- Case #2: Compute Stream parameters
+        # ---- Case #2: Compute stream parameters from geographic data
         ### 0. Apply SFR only on the main river:
 # =============================================================================
 #         ref_sim_folder = r"D:\Dam_EBR_results\raw\test_SFR_sans_2024-08-02"
@@ -637,8 +637,12 @@ class Modflow:
         
         ### 1. Apply on the whole watershed:
         direc, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_box_buff_direc)
+        if self.box == True:
+            sfr_dem_path = self.geographic.watershed_box_buff_dem 
+        else:
+            sfr_dem_path = self.geographic.watershed_dem 
         watershed_mask, _, _, nodata = toolbox.load_to_numpy(
-            self.geographic.watershed_dem,
+            sfr_dem_path,
             src_crs = self.geographic.crs_proj, 
             base_path = self.geographic.watershed_dem,
             dst_crs = self.geographic.crs_proj) 
@@ -646,10 +650,10 @@ class Modflow:
         direc = np.ma.array(direc, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
         
         ### 2. Initialize reach and segmennt infos:
-        # NOTE: self.reach_data is first created as a pandas.dataframe and then 
-        # converted into a numpy.recarray. It is not directly created as a 
-        # recarray because of the difficulty to handle and modify recarrays.
-        # Same for self.segment_data_1
+         # NOTE: self.reach_data is first created as a pandas.dataframe and then 
+         # converted into a numpy.recarray. It is not directly created as a 
+         # recarray because of the difficulty to handle and modify recarrays.
+         # Same for self.segment_data_1
         self.reach_data = pd.DataFrame(index = range(0, (~np.isnan(direc)).sum()), # direc.count()),
                                   columns = ['k', 'i', 'j', 'iseg', 'ireach',
                                              'rchlen', 'strtop', 'slope'])
@@ -674,69 +678,42 @@ class Modflow:
         # Note: k, rchlen, strtop and slope are corrected in the next sections
         
         ### 3. Recursive generation:        
+        # Convert D8 local direction codes into indexes i and j:
+            # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
+            # see https://www.whiteboxgeo.com/manual/wbt_book/available_tools/hydrological_analysis.html#D8Pointer
+        downstream_ij_by_val = {
+            0: (0, 0), 
+            1: (-1, 1), #128 (esri code)
+            2: (0, 1), #1 
+            4: (1, 1), #2
+            8: (1, 0), #4
+            16: (1, -1), #8
+            32: (0, -1), #16
+            64: (-1, -1), #32
+            128: (-1, 0), #64
+            }
+            
         self.upstream_cells_by_ij = {
             (self.reach_data.loc[r, 'i'], self.reach_data.loc[r, 'j']): [] \
                 for r in self.reach_data.index}
         for i, j in self.upstream_cells_by_ij.keys():
             val = direc[i, j]
-            
-            # Convert D8 local direction codes into indexes i and j:
-                # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
-                # see https://www.whiteboxgeo.com/manual/wbt_book/available_tools/hydrological_analysis.html#D8Pointer
-            if val == 2: #1
-                # downstream cell:
-                i2 = i
-                j2 = j+1
-            elif val == 4: #2
-                i2 = i+1
-                j2 = j+1
-            elif val == 8: #4
-                i2 = i+1
-                j2 = j
-            elif val == 16: #8
-                i2 = i+1
-                j2 = j-1
-            elif val == 32: #16
-                i2 = i
-                j2 = j-1
-            elif val == 64: #32
-                i2 = i-1
-                j2 = j-1
-            elif val == 128: #64
-                i2 = i-1
-                j2 = j
-            elif val == 1: #128
-                i2 = i-1
-                j2 = j+1
+            i2 = i + downstream_ij_by_val[val][0]
+            j2 = j + downstream_ij_by_val[val][1]
                 
-            # if the downstream cell is part of river cells:
-            if not np.ma.is_masked(direc[i2, j2]):
-                self.upstream_cells_by_ij[(i2, j2)] += [(i, j)]
+            # if the downstream cell is part of the valid domain:
+            if val != 0:
+                if (i2 <= self.nrow-1) & (i2 >= 0) & (j2 <= self.ncol-1) & (j2 >= 0):
+                    if not np.ma.is_masked(direc[i2, j2]):
+                        self.upstream_cells_by_ij[(i2, j2)] += [(i, j)]
                 
         # Recursive method
-        def stream_reconstruct(ij_outlet, last_iseg):
-# =============================================================================
-#             self.reach_data['iseg'][(self.reach_data['i'] == ij_outlet[0]) \
-#                                & (self.reach_data['j'] == ij_outlet[1])] = last_iseg
-# =============================================================================
-            
-            self.segment_data_1.loc[last_iseg, 'icalc'] = icalc
-            
+        def stream_reconstruct(ij_outlet, last_iseg):            
+            self.segment_data_1.loc[last_iseg, 'icalc'] = icalc # in order to initialize a new row
             ireach = 1
+            
             # While there is one and only one upstream cell:
             while len(self.upstream_cells_by_ij[ij_outlet]) == 1:
-# =============================================================================
-#                 self.reach_data['ireach'][(self.reach_data['i'] == ij_outlet[0]) \
-#                                    & (self.reach_data['j'] == ij_outlet[1])] = ireach
-# =============================================================================
-# =============================================================================
-#                 self.reach_data[
-#                     self.reach_data['iseg'] == 0
-#                     ].iloc[0][['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
-#                                                              ij_outlet[1],
-#                                                              last_iseg,
-#                                                              ireach]
-# =============================================================================
                 self.reach_data.loc[
                     self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
                     ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
@@ -771,11 +748,34 @@ class Modflow:
                                                      ireach]
                 return last_iseg
         
-        # Call the recursive method:
-        outlets = [(18, 152),] # to eventually define automatically
+        
+        # Get all the outlets
+        outlet_map = direc.copy()
+        outlet_map.mask = True
+        
+        for ij, val in np.ma.ndenumerate(direc):
+            i = ij[0]
+            j = ij[1]
+            i2 = i + downstream_ij_by_val[val][0]
+            j2 = j + downstream_ij_by_val[val][1]
+            
+            if val == 0:
+            # all cells with local drain direction = 0 are internal outlets
+                outlet_map.mask[i, j] = False
+            elif (i2 > self.nrow-1) | (i2 < 0) | (j2 > self.ncol-1) | (j2 < 0):
+            # downstream cell outside of the box domain
+                outlet_map.mask[i, j] = False
+            elif direc.mask[i2, j2] == True:
+            # downstream cell outside of the valid data region
+                outlet_map.mask[i, j] = False
+            
+        outlets = [ij for ij, _ in np.ma.ndenumerate(outlet_map)]
+        # outlets = [(18, 152),] # to eventually define automatically
+
+        # Call the recursive method:   
         last_iseg = 1
         for ij_outlet in outlets:
-            last_iseg = stream_reconstruct(ij_outlet, last_iseg)
+            last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
         
         # Note: if self.segment_data_1 contains nan, Modflow crashes
         self.segment_data_1 = self.segment_data_1.fillna(0)
@@ -790,66 +790,16 @@ class Modflow:
                 = self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'].max() + 1 \
                     - self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach']
           # reverse 'outseg' in segment_data_1:
+        outlet_idx = self.segment_data_1[self.segment_data_1['outseg'] == 0].index.copy()
         self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
             - self.segment_data_1['outseg']
-        self.segment_data_1.loc[self.segment_data_1.index[0], 'outseg'] = 0
+        self.segment_data_1.loc[outlet_idx, 'outseg'] = 0
           # reverse 'nseg' in segment_data_1:
         self.segment_data_1 = self.segment_data_1[::-1]
         self.segment_data_1.index = self.segment_data_1.index[::-1]
           # reverse index in reach_data:
         self.reach_data = self.reach_data[::-1]
         self.reach_data.index = self.reach_data.index[::-1]
-
-# =============================================================================
-#             i = ij_outlet[0]
-#             j = ij_outlet[1]
-#             val = direc[i, j]
-#             
-#             # Convert D8 local direction codes into indexes i and j:
-#                 # NB: D8 notation from WhiteToolBox differs from the standard D8 notation
-#             if val == 2: #1
-#                 # downstream cell:
-#                 i2 = i
-#                 j2 = j+1
-#                 # upstream cell:
-#                 i0 = i
-#                 j0 = j-1
-#             elif val == 4: #2
-#                 i2 = i+1
-#                 j2 = j+1
-#                 i0 = i-1
-#                 j0 = j-1
-#             elif val == 8: #4
-#                 i2 = i+1
-#                 j2 = j
-#                 i0 = i-1
-#                 j0 = j
-#             elif val == 16: #8
-#                 i2 = i+1
-#                 j2 = j-1
-#                 i0 = i-1
-#                 j0 = j+1
-#             elif val == 32: #16
-#                 i2 = i
-#                 j2 = j-1
-#                 i0 = i
-#                 j0 = j+1
-#             elif val == 64: #32
-#                 i2 = i-1
-#                 j2 = j-1
-#                 i0 = i+1
-#                 j0 = j+1
-#             elif val == 128: #64
-#                 i2 = i-1
-#                 j2 = j
-#                 i0 = i+1
-#                 j0 = j
-#             elif val == 1: #128
-#                 i2 = i-1
-#                 j2 = j+1
-#                 i0 = i+1
-#                 j0 = j-1
-# =============================================================================
         
         # ---- Filling and correcting parameters
         # [only if option 0. Main river] 
@@ -861,15 +811,6 @@ class Modflow:
         sfr_map[sfr_map > nodata] = 0
         for _, r in self.reach_data.iterrows():
             sfr_map[r['i'], r['j']] = r['iseg']
-        # [temp] Export map only for debugging:
-# =============================================================================
-#         stream_map_path = os.path.join(self.geographic.stable_folder, "streams")
-#         if not os.path.exists(stream_map_path):
-#             os.makedirs(stream_map_path)
-#         toolbox.export_tif(self.geographic.watershed_dem, 
-#                            direc, self.geographic.nodata, 
-#                            os.path.join(stream_map_path, "direc_main_river.tif"))
-# =============================================================================
 
         # 1. Standard values on segment_data_1:
         depth = 0 # 0.1 # self.thick # 1 # arbitrary
@@ -1030,12 +971,6 @@ class Modflow:
         self.reach_data['rchlen'] = rchlen # rchlen:
 
         # 4. Correct inconsistent elevations and too small slopes in reach_data (not reflected on the dem map)
-# =============================================================================
-#         prev_strtop = self.reach_data['strtop'][0]
-#         for idx, r in self.reach_data.iterrows():
-#             self.reach_data.loc[idx, 'strtop'] = min(r['strtop'], prev_strtop)
-#             prev_strtop = r['strtop']
-# ============================================================================= 
         # Note:
         # It could have been possible to use the <watershed_(box_)buff_fill> DEM
         # as the basis for streambed elevations, or even to use it directly
@@ -1068,6 +1003,7 @@ class Modflow:
             hcond2_map[r['i'], r['j']] = self.segment_data_1.loc[r['iseg'], 'hcond2']
         hcond_map = (hcond1_map + hcond2_map)/2
         
+        # To reflect the dem corrections on the self.dem
 # =============================================================================
 #         self.dem[watershed_mask!=nodata] = elev_map[watershed_mask!=nodata]
 # =============================================================================
@@ -1176,7 +1112,7 @@ class Modflow:
             os.makedirs(stream_map_path)
             
         self.sfr2.export_linkages(
-            os.path.join(stream_map_path, "streams_map.shp"), 
+            os.path.join(stream_map_path, "streams.shp"), 
             epsg=int(self.geographic.crs_proj.split(':')[-1]))
         self.sfr2.export_outlets(
             os.path.join(stream_map_path, "outlets.shp"), 
@@ -1212,6 +1148,11 @@ class Modflow:
         toolbox.export_tif(self.geographic.watershed_dem, 
                            hcond_map, self.geographic.nodata, 
                            os.path.join(stream_map_path, "conductances.tif"))
+# =============================================================================
+#         wbt.basins(d8_pntr = self.geographic.watershed_box_buff_direc, 
+#                     output = os.path.join(stream_map_path, "basins.tif"), 
+#                     esri_pntr=False)
+# =============================================================================
         
         #%% Drain package
         # (DRN)
