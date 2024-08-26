@@ -242,7 +242,7 @@ class Lakeres:
     def update_bathymetry(self, lake_id, bathymetry_raster):
         self.bathymetry_by_lake[lake_id] = bathymetry_raster
         
-    def update_outlet(self, lake_id, outlet_file=None):
+    def update_outlet(self, lake_id, outlet_file):
         self.outlet_by_lake[lake_id] = outlet_file
         
     #%% UPDATE FLOWS IN AND OUT OF THE LAKE/RESERVOIR    
