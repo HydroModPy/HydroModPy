@@ -64,7 +64,7 @@ class Modflow:
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
                  cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None,
-                 inputflow=None, lakeres:object=None):
+                 streamflow_seepage:object=None, inputflow=None, lakeres:object=None):
         """
         Initialize method.
 
@@ -124,24 +124,19 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
+        streamflow_seepage : object, optional
+            Object streamflow_seepage built by HydroModPy.
+            Replace the module DRN with the module SFR for modeling the seepage.
+            The default is None.
         inputflow : optional
             Boundary flow injected in the system
-        lakeres : object
-            Object lakeres build by HydroModPy.
+        lakeres : object, optional
+            Object lakeres built by HydroModPy.
+            The default is None.
         use_lakeres : bool, optional
             Flag whether the system includes at least one lake/reservoir or not
         aquifer_top_layer : int
             Aquifer top layer identifiyer
-        stages:
-            0
-        lakarr:
-            0
-        bdlknc:
-            0
-        flux_data:
-            0
-        timestep:
-            0
         init:
             0
         """
@@ -226,6 +221,10 @@ class Modflow:
         self.verti_cond = verti_cond
         self.verti_poro = verti_poro
         self.cond_drain = cond_drain
+        
+        #%% Seepage modeled with StreamFlow Routing instead of Drain
+        
+        self.streamflow_seepage = streamflow_seepage
         
         #%% Lakes/reservoirs
         
@@ -1271,8 +1270,11 @@ class Modflow:
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
 
-        # TEMP SFR : il faut que la ligne suivante soit activable par flag
-        self.cond_drain = hcond * rchlen * width / thickm # hcond * self.resolution** 2
+        if self.streamflow_seepage: # if the object streamflow_seepage is not None:
+            if self.cond_drain != None:
+                print("cond_drain overwritten with streamflow_seepage values")
+            self.cond_drain = hcond * rchlen * width / thickm # hcond * self.resolution** 2
+            
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
         # First value (0): layer number
@@ -1573,30 +1575,38 @@ class Modflow:
                     toolbox.export_tif(self.dem_path, self.seep_area, -9999, output_path)
                 self.dict_seepage_areas[item] = self.seep_area
             
-# =============================================================================
-#             if outflow_drain == True:
-#                 ### Outflow drain
-#                 self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
-#                 self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
-#                 sim = 0
-#                 count = 0
-#                 for i in range(0, self.dis.nrow):
-#                     for j in range(0, self.dis.ncol):
-#                       if self.drain_array[i,j] == 1:
-#                         self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
-#                         count = count + 1
-#                 self.out_drn = self.out_all[0]
-#                 self.out_drn[self.dem_mask] = -9999
-#                 # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
-#                 output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
-#                 if accumulation_flux==True:
-#                     toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
-#                 else:
-#                     if export_tif==True:
-#                         toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
-#                 self.dict_outflow_drain[item] = self.out_drn
-# =============================================================================
-            
+            if outflow_drain == True:
+                # Standard case: seepage is modeled with DRN package
+                if not self.streamflow_seepage: 
+                    ### Outflow drain
+                    self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
+                    self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
+                    sim = 0
+                    count = 0
+                    for i in range(0, self.dis.nrow):
+                        for j in range(0, self.dis.ncol):
+                          if self.drain_array[i,j] == 1:
+                            self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
+                            count = count + 1
+                    self.out_drn = self.out_all[0]
+                    self.out_drn[self.dem_mask] = -9999
+                    # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
+                    output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
+                    if accumulation_flux==True:
+                        toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                    else:
+                        if export_tif==True:
+                            toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                    self.dict_outflow_drain[item] = self.out_drn
+                # Otherwise, if the object streamflow_seepage is not None, 
+                # the outflow_drain is computed differently
+                else:
+                    ### Outflow drain
+                    # TEMP SFR : Pas encore implémenté
+                    self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
+                    self.out_drn = self.out_all[0]
+                    self.dict_outflow_drain[item] = self.out_drn
+
             if groundwater_flux == True:
                 ### Groundwater flux
                 self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
@@ -1637,24 +1647,29 @@ class Modflow:
                 self.gw_storage = np.sum(self.sto, axis=0)
                 self.dict_groundwater_storage[item] = self.gw_storage
 
-# TEMP SFR : la déactivation de cette section doit dépendre du flag
-# =============================================================================
-#             if accumulation_flux == True:
-#                 ### Accumulation flux
-#                 accumulated_flow = downslope.Downslope(self.geographic,
-#                                                               'outflow_drain_t('+lead_numb+').tif',
-#                                                               'tracept_t('+lead_numb+').shp',
-#                                                               'accumulation_flux_t('+lead_numb+').tif',
-#                                                               extraction_folder=self.save_file)
-#                 accumulated_flow.trace_cumulated()
-#                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
-#                 try:
-#                     self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
-#                 except:
-#                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
-#                     pass
-# =============================================================================
-                    
+            if accumulation_flux == True:
+                # Standard case: seepage is modeled with DRN package
+                if not self.streamflow_seepage: 
+                    ### Accumulation flux
+                    accumulated_flow = downslope.Downslope(self.geographic,
+                                                                  'outflow_drain_t('+lead_numb+').tif',
+                                                                  'tracept_t('+lead_numb+').shp',
+                                                                  'accumulation_flux_t('+lead_numb+').tif',
+                                                                  extraction_folder=self.save_file)
+                    accumulated_flow.trace_cumulated()
+                    output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
+                    try:
+                        self.dict_accumulation_flux[item] = imageio.v2.imread(output_path) #replaces former 'imageio.imread(output_path)' [MARTIN 20/09/2022]
+                    except:
+                        self.dict_accumulation_flux[item] = imageio.imread(output_path)
+                        pass
+                # Otherwise, if the object streamflow_seepage is not None, 
+                # the accumulation_flux is computed differently
+                else:
+                    ### Accumulation flux
+                    # TEMP SFR : Pas encore implémenté
+                    self.dict_accumulation_flux[item] = 0
+
             if lake_leakage == True:
                 ### Flux from lake to groundwater
                 self.lake = self.cbb.get_data(text='LAKE', kstpkper=self.kstpkper, totim=time)                     
@@ -1744,23 +1759,18 @@ class Modflow:
             np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
         if watertable_depth == True:
             np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
-# =============================================================================
-#         if seepage_areas == True:
-#             np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
-#         if outflow_drain == True:
-#             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
-# =============================================================================
         if groundwater_flux == True:
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
             np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
-
-# TEMP SFR : la désactivation de ce truc doit dépendre du flag
-# =============================================================================
-#         if accumulation_flux == True:
-#             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
-# =============================================================================
+        if seepage_areas == True:
+            np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+        if outflow_drain == True:
+            np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
+        if accumulation_flux == True:
+            np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+        
         if lake_leakage == True:
             np.save(self.save_file+'/lake_leakage', self.dict_lake_leakage)
 
