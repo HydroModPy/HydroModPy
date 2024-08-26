@@ -1149,6 +1149,12 @@ class Modflow:
                            hcond_map, self.geographic.nodata, 
                            os.path.join(stream_map_path, "conductances.tif"))
 # =============================================================================
+#         wbt.slope(elev_map,
+#                   # os.path.join(stream_map_path, 'slopes.tif'),
+#                   r"D:\slopes.tif",
+#                   units="percent")
+# =============================================================================
+# =============================================================================
 #         wbt.basins(d8_pntr = self.geographic.watershed_box_buff_direc, 
 #                     output = os.path.join(stream_map_path, "basins.tif"), 
 #                     esri_pntr=False)
