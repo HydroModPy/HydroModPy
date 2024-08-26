@@ -151,8 +151,8 @@ ras_paths = [ data_path+'DEM_BOTTOM_Tiretaine_25_mod_proj.tif', data_path+'DEM_T
 
 #%% LOAD
 
-# load = True
-load = False
+load = True
+# load = False
 
 for watershed_name, ras_path in zip(watershed_names[:], ras_paths[:]):
         
@@ -676,10 +676,11 @@ ax.set_title(model_name, fontsize=7)
 #%% ---- UPDATE MODEL PARAMETERS
 
 id_mod = 'keq'
-iD_explo = 'e_test1' # with isba recharge ==> change ss with decay factor (details for bad models)
+iD_explo = 'e_test0' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 apel = str('model')+str(id_mod)
 
+BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 df_eq = pd.read_csv(BV.calibration_folder+'/'+apel+'_dichotomy.csv', sep=';')
 
 box = True # or False
@@ -688,7 +689,7 @@ sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 first_clim = 'mean' # or 'first or value
-nlay = 25
+nlay = 10
 lay_decay = 1 # 1 for no decay
 cond_decay = 0
 
@@ -699,7 +700,7 @@ bottom_init = imageio.imread('E:/_RONAN/_E_SIMULATIONS/PUYS/Tiretaine_socle/resu
 bottom_custom = bottom_init - 30
 
 scorie_init = np.ma.masked_where(topo_init<1030, topo_init)
-scorie_init = (scorie_init * 0) + 1000
+scorie_init = (scorie_init * 0) + 1050
 scorie_init = np.ma.filled(scorie_init, topo_init)
 # plt.imshow(scorie_init)
 
@@ -754,33 +755,43 @@ BV.hydraulic.update_poro_vertical(verti_poro)
 Keq = 2.45e-5 * 24 * 3600
 
 list_K1 = [
-           # Keq/1000,Keq/100,
-           Keq/10,Keq*1,Keq*10,
-           # Keq*100,Keq*1000
+           # Keq/1000,
+           # Keq/100,
+           Keq/10,
+           Keq*1,
+           Keq*10,
+           # Keq*100,
+           # Keq*1000
            ]
 list_K2 = [
-           # Keq/1000,Keq/100,
-           Keq/10,Keq*1,Keq*10,
-           # Keq*100,Keq*1000
+           # Keq/1000,
+           # Keq/100,
+           Keq/10,
+           Keq*1,
+           Keq*10,
+           # Keq*100,
+           # Keq*1000
            ]
 list_K3 = [
-           # Keq/1000,Keq/100,
-           Keq/10,Keq*1,Keq*10,
-           # Keq*100,Keq*1000
+           # Keq/1000,
+           # Keq/100,
+           Keq/10,
+           Keq*1,
+           Keq*10,
+           # Keq*100,
+           # Keq*1000
            ]
 
 shp = gpd.read_file(BV.geographic.watershed_shp)
 
 #%% ---- EXPLORATION K1 K2 K3
 
-#%% MODFLOW PROCESSING
+#%% MODFLOW PREPROCESSING
 
 run_model = True
 # run_model = False
 
 id_mod_val = 0
-
-df = pd.DataFrame()
 
 k1_cp = 0
 for K1 in list_K1[:]:
@@ -789,10 +800,9 @@ for K1 in list_K1[:]:
         k3_cp = 0
         for K3 in list_K3[:]:
             BV.hydraulic.update_hyd_cond(K1)
-            verti_k_thetero = [ [K3, [topo_init-topo_init, topo_init-scorie_init]],
-                                [K2, [topo_init-bottom_init, topo_init-bottom_custom]],
+            verti_k_thetero = [ [K2, [topo_init-scorie_init, topo_init-bottom_init]],
+                                [K3, [topo_init-topo_init, topo_init-scorie_init]],
                                 ] # [ [k2, [array1, array2]] ] # verti_k_tconst = None # [ [k2, [0, thick_k2]] ]
-
             BV.hydraulic.update_cond_vertical(verti_k_thetero)
             
             if K1==K2==K3 :
@@ -804,7 +814,6 @@ for K1 in list_K1[:]:
                          str(id_H)+'_'+\
                          str(k1_cp)+'-'+str(k2_cp)+'-'+str(k3_cp)+'_'+\
                          str("{:.2e}".format(K1/24/3600))+'-'+str("{:.2e}".format(K2/24/3600))+'-'+str("{:.2e}".format(K3/24/3600))
-            
 
             print(model_name)
             
@@ -815,8 +824,104 @@ for K1 in list_K1[:]:
     
             model_modflow = BV.preprocessing_modflow(for_calib=False)
             
-            model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
+            hk = model_modflow.hk
+            # mf = model_modflow.mf
+            # modelmap = flopy.plot.ModelMap(model=mf)
+            # modelmap.plot_array(hk[0], cmap='tab10', norm=mpl.colors.LogNorm(vmin=0.002, vmax=200))
+            fig, ax = plt.subplots(1,1)
+            im = ax.imshow(hk[0], cmap='rainbow', norm=mpl.colors.LogNorm(vmin=hk.min(), vmax=hk.max()))
+            fig.colorbar(im)
             
+            model_success = True
+            try:
+                model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
+            except:
+                model_success = False
+                pass
+            
+            dictio = {}
+            list_model_name = []
+            list_model_success = []
+            list_model_modflow = []
+            list_model_results = [] 
+
+            list_model_name.append(model_name)
+            model_modflow = BV.preprocessing_modflow(for_calib=False)
+            
+            model_results = pd.DataFrame()
+            
+            model_results.loc[0,'iD_explo'] = iD_explo
+            model_results.loc[0,'id_mod_val'] = id_mod_val
+            model_results.loc[0,'k1_cp'] = k1_cp
+            model_results.loc[0,'k2_cp'] = k2_cp
+            model_results.loc[0,'k3_cp'] = k3_cp
+            model_results.loc[0,'id_H'] = id_H
+            model_results.loc[0,'model_name'] = model_name
+            model_results.loc[0,'Keq'] = round(Keq, 4)
+            model_results.loc[0,'K1'] = round(K1, 4)
+            model_results.loc[0,'K2'] = round(K1, 4)
+            model_results.loc[0,'K3'] = round(K1, 4)
+            model_results.loc[0,'R'] = round(BV.climatic.recharge, 4) # mm
+            
+            list_model_results.append(model_results)
+            
+            list_model_modflow.append(model_modflow)
+            list_model_success.append(model_success)
+            
+            dictio['list_model_modflow'] = list_model_modflow
+            dictio['list_model_name'] = list_model_name
+            dictio['list_model_success'] = list_model_success
+            dictio['list_model_results'] = list_model_results
+            h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+            if os.path.exists(h5file):
+                os.remove(h5file)
+            dd.io.save(h5file, dictio)
+                            
+            id_mod_val += 1
+        
+            k3_cp += 1
+        k2_cp += 1    
+    k1_cp += 1
+        
+#%% MODFLOW POST PROCESSING
+
+list_id_mod = range(1)
+
+df = pd.DataFrame()
+
+for id_mod_val in list_id_mod[:]:
+
+    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+    list_model_results = d['list_model_results'][:]
+    
+    # for model_name, model_success, model_modflow in zip(list_model_name[8:],
+    #                                                     list_model_success[8:],
+    #                                                     list_model_modflow[8:]):
+
+    for model_name, model_success, model_modflow, model_results in zip(list_model_name[:],
+                                                                       list_model_success[:],
+                                                                       list_model_modflow[:],
+                                                                       list_model_results[:]):
+        
+        df.loc[id_mod_val,'iD_explo'] = model_results['iD_explo'][0]
+        df.loc[id_mod_val,'id_mod_val'] = model_results['id_mod_val'][0]
+        df.loc[id_mod_val,'k1_cp'] = model_results['k1_cp'][0]
+        df.loc[id_mod_val,'k2_cp'] = model_results['k2_cp'][0]
+        df.loc[id_mod_val,'k3_cp'] = model_results['k3_cp'][0]
+        df.loc[id_mod_val,'id_H'] = model_results['id_H'][0]
+        df.loc[id_mod_val,'model_name'] = model_results['model_name'][0]
+        df.loc[id_mod_val,'Keq'] = round(model_results['Keq'][0], 4)
+        df.loc[id_mod_val,'K1'] = round(model_results['K1'][0], 4)
+        df.loc[id_mod_val,'K2'] = round(model_results['K2'][0], 4)
+        df.loc[id_mod_val,'K3'] = round(model_results['K3'][0], 4)
+        df.loc[id_mod_val,'R'] = round(model_results['R'][0], 4) # mm
+        
+        if model_success == True :
+                        
             BV.postprocessing_modflow(model_modflow,
                                       watertable_elevation = True,
                                       watertable_depth = True, 
@@ -836,22 +941,6 @@ for K1 in list_K1[:]:
                                                               actual_date=True, 
                                                               subbasin_results=True,
                                                               freq_time='D')
-            
-            dictio = {}
-            list_model_name = []
-            list_model_success = []
-            list_model_modflow = []
-            list_model_name.append(model_name)
-            model_modflow = BV.preprocessing_modflow(for_calib=False)
-            list_model_modflow.append(model_modflow)
-            list_model_success.append(model_success)
-            dictio['list_model_modflow'] = list_model_modflow
-            dictio['list_model_name'] = list_model_name
-            dictio['list_model_success'] = list_model_success
-            h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            import os
-            os.remove(h5file)
-            dd.io.save(h5file, dictio)
             
             iter_results = MatchingStreams(BV, iteration_label=model_name, for_calib=False)
 
@@ -873,32 +962,25 @@ for K1 in list_K1[:]:
             
             print('    Indicator = '+str(round(indicator, 4)))
             
-            df.loc[id_mod_val,'iD_explo'] = iD_explo
-            df.loc[id_mod_val,'id_mod_val'] = id_mod_val
-            df.loc[id_mod_val,'k1_cp'] = k1_cp
-            df.loc[id_mod_val,'k2_cp'] = k2_cp
-            df.loc[id_mod_val,'k3_cp'] = k3_cp
-            df.loc[id_mod_val,'id_H'] = id_H
-            df.loc[id_mod_val,'model_name'] = model_name
-            df.loc[id_mod_val,'Keq'] = round(Keq, 4)
-            df.loc[id_mod_val,'K1'] = round(K1, 4)
-            df.loc[id_mod_val,'K2'] = round(K1, 4)
-            df.loc[id_mod_val,'K3'] = round(K1, 4)
-            df.loc[id_mod_val,'R'] = round(BV.climatic.recharge, 4) # mm
             df.loc[id_mod_val,'Obs'] = round(obs, 4)
             df.loc[id_mod_val,'Sim'] = round(sim, 4)
             df.loc[id_mod_val,'Indicator'] = round(indicator, 4)
             df.loc[id_mod_val,'mean_obsf_to_simf'] = round(mean_obsf_to_simf, 4)            
             df.loc[id_mod_val,'mean_simf_to_obsf'] = round(mean_simf_to_obsf, 4)
+        
+        else:
+                   
+            indicator = np.nan
+            print('    Indicator = '+str(indicator))
             
-            id_mod_val += 1
-            
-    k1_cp += 1
-    k2_cp += 1
-    k3_cp += 1
-
+            df.loc[id_mod_val,'Obs'] = np.nan
+            df.loc[id_mod_val,'Sim'] = np.nan
+            df.loc[id_mod_val,'Indicator'] = indicator
+            df.loc[id_mod_val,'mean_obsf_to_simf'] = np.nan       
+            df.loc[id_mod_val,'mean_simf_to_obsf'] = np.nan
+                
 df.to_csv(BV.simulations_folder+'/'+str(iD_explo)+'_exploration results.csv', sep=';')
-
+                
 #%% ---- PLOT  K1 K2 K3
 
 #%% 2D MAP VIEW
@@ -1319,3 +1401,22 @@ for model_name in list_selects[:]:
 
 #%% ---- NOTES
 
+
+            # df.loc[id_mod_val,'iD_explo'] = iD_explo
+            # df.loc[id_mod_val,'id_mod_val'] = id_mod_val
+            # df.loc[id_mod_val,'k1_cp'] = model_name.split('_')[4].split('-')[0]
+            # df.loc[id_mod_val,'k2_cp'] = model_name.split('_')[4].split('-')[1]
+            # df.loc[id_mod_val,'k3_cp'] = model_name.split('_')[4].split('-')[2]
+            # df.loc[id_mod_val,'id_H'] = model_name.split('_')[3][0]
+            # df.loc[id_mod_val,'model_name'] = model_name
+            # df.loc[id_mod_val,'Keq'] = round(Keq, 4)
+            # df.loc[id_mod_val,'K1'] = round(K1, 4)
+            # df.loc[id_mod_val,'K2'] = round(K1, 4)
+            # df.loc[id_mod_val,'K3'] = round(K1, 4)
+            # df.loc[id_mod_val,'R'] = round(BV.climatic.recharge, 4) # mm
+            # df.loc[id_mod_val,'Obs'] = round(obs, 4)
+            # df.loc[id_mod_val,'Sim'] = round(sim, 4)
+            # df.loc[id_mod_val,'Indicator'] = round(indicator, 4)
+            # df.loc[id_mod_val,'mean_obsf_to_simf'] = round(mean_obsf_to_simf, 4)            
+            # df.loc[id_mod_val,'mean_simf_to_obsf'] = round(mean_simf_to_obsf, 4)
+            

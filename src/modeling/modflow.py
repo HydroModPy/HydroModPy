@@ -40,6 +40,9 @@ sys.path.append(df)
 from tools import toolbox
 from modeling import downslope
 
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 #%% CLASS
 
 class Modflow:
@@ -619,17 +622,23 @@ class Modflow:
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
             # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
-            modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='viridis', alpha=0.5, lw=0.1, ax=axs[0])
+            imhk = modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[0],
+                                   norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max()))
             # modelxsect1.plot_grid(ax=axs[0])
             axs[0].set_title('Row, K')
             axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            # imhk = axs[0].imshow(self.hk, masked_values=[-9999], cmap='tab10', alpha=0, norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max()))
+            # divider = make_axes_locatable(axs[0])
+            # cax = divider.append_axes('right', size='5%', pad=0.05)
+            # fig.colorbar(imhk, cax=cax, orientation='vertical')
+            # plt.colorbar(pc)
             
             # fig = plt.figure(figsize=(10, 5))
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
+            imsy = modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[1])
             # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
-            modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='plasma', alpha=0.5, lw=0.1, ax=axs[1])
             # modelxsect2.plot_grid(ax=axs[1])
             axs[1].set_title('Column, θ')
             axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
