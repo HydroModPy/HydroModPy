@@ -1691,15 +1691,9 @@ class Modflow:
                     j = cell%self.dis.ncol
                     i = cell//self.dis.ncol%self.dis.nrow
                     k = cell//self.dis.ncol//self.dis.nrow
-    # OLD: to delete
-# =============================================================================
-#                     k = cell%self.nlay
-#                     j = cell//self.nlay%self.dis.ncol
-#                     i = cell//self.nlay//self.dis.ncol
-# =============================================================================
-                    # NB: cell = self.dis.ncol*self.dis.nrow*k + self.dis.ncol*i + j
+                    # Note: cell = self.dis.ncol*self.dis.nrow*k + self.dis.ncol*i + j
                     lake_data = self.lake[0][n]
-                    # NB: lake_data[2] == lake_data['IFACE           ']
+                    # Note: lake_data[2] == lake_data['IFACE           ']
                     if lake_data[2] == 1: # to the left (j-1) 
                         self.lake_leakage_flf[k, i, j] += lake_data.q
                     elif lake_data[2] == 2: # to the right (j+1)
@@ -1712,25 +1706,6 @@ class Modflow:
                         self.lake_leakage_fdf[k, i, j] += lake_data.q
                     elif lake_data[2] == 6: # to the top of the layer (k-1)
                         self.lake_leakage_ftf[k, i, j] += lake_data.q
-                    
-    # OLD: to delete
-# =============================================================================
-#                 # Create association between nodes and i,j
-#                 count = 0
-#                 count_to_ij = {}
-#                 for i in range(0, self.dis.nrow):
-#                     for j in range(0, self.dis.ncol):
-#                         count_to_ij[count] = (i,j)
-#                         count += 1
-#                 
-#                 sim = 0
-#                 for count in self.lake[0].node:
-#                     print(f"count = {count}")
-#                     print(f"i = {i}")
-#                     print(f"j = {j}")
-#                     self.lake_leakage_all[sim, count_to_ij[count][0], count_to_ij[count][1]] = np.abs(self.lake[0].q[self.lake[0].node == count][0])
-#                 self.lake_leakage = self.lake_leakage_all[0]
-# =============================================================================
                 
                 self.lake_vertical_leakage = self.lake_leakage_ftf[self.aquifer_top_layer]
 # =============================================================================
@@ -1739,8 +1714,7 @@ class Modflow:
 #                     text='LAKE', kstpkper=self.kstpkper, 
 #                     totim=time, full3D = True)[1]
 # =============================================================================
-                
-                # temp (just for testing)
+                # Temp (just for testing)
                 if (self.lake_leakage_flf.sum() > 0) | (self.lake_leakage_frf.sum() > 0):
                     lake_lateralflow_count += 1
                 if (self.lake_leakage_fff.sum() > 0) | (self.lake_leakage_fbf.sum() > 0):
