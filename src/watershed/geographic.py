@@ -382,6 +382,7 @@ class Geographic:
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative
         self.resolution = self.resolution_x
+        self.cell_size = abs(self.resolution_x) * abs(self.resolution_y)
         # Extract bounds size
         self.xmin = self.geodata[0] # originX
         self.ymax = self.geodata[3] # originY
@@ -409,18 +410,18 @@ class Geographic:
         try:
             locator = Nominatim(user_agent='google')
             location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-            try:
-                self.dep_code = int(location.address.split(',')[-2][0:3])
-            except:
-                pass
+            self.dep_code = int(location.address.split(',')[-2][0:3])
         except OSError:
             # In some cases, a SSL certificate error can occur. The next two
             # lines modify the ssl_context
-            ctx = ssl.create_default_context(cafile=certifi.where())
-            geopy.geocoders.options.default_ssl_context = ctx
-            locator = Nominatim(user_agent='google')
-            location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-            self.dep_code = int(location.address.split(',')[-2][0:3])
+            try:
+                ctx = ssl.create_default_context(cafile=certifi.where())
+                geopy.geocoders.options.default_ssl_context = ctx
+                locator = Nominatim(user_agent='google')
+                location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+                self.dep_code = int(location.address.split(',')[-2][0:3])
+            except:
+                pass
         else:
         # except:
             pass

@@ -63,8 +63,8 @@ class Modflow:
                  hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
-                 cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None):
-
+                 cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None,
+                 inputflow=None, lakeres:object=None):
         """
         Initialize method.
 
@@ -124,6 +124,26 @@ class Modflow:
             Fixed head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fixed head on the right border of the domain. The default is None.
+        inputflow : optional
+            Boundary flow injected in the system
+        lakeres : object
+            Object lakeres build by HydroModPy.
+        use_lakeres : bool, optional
+            Flag whether the system includes at least one lake/reservoir or not
+        aquifer_top_layer : int
+            Aquifer top layer identifiyer
+        stages:
+            0
+        lakarr:
+            0
+        bdlknc:
+            0
+        flux_data:
+            0
+        timestep:
+            0
+        init:
+            0
         """
         
         #%% Initialization
@@ -147,6 +167,7 @@ class Modflow:
         self.bc_left = bc_left
         self.bc_right = bc_right
         self.sea_level = sea_level 
+        self.inputflow = inputflow
         
         #%% Domain definition 
         
@@ -206,6 +227,17 @@ class Modflow:
         self.verti_poro = verti_poro
         self.cond_drain = cond_drain
         
+        #%% Lakes/reservoirs
+        
+        self.lakeres = lakeres
+        
+        if self.lakeres and self.lakeres.n_lakeres > 0:
+            self.use_lakeres = True
+            self.aquifer_top_layer = 1
+        else:
+            self.use_lakeres = False
+            self.aquifer_top_layer = 0
+        
         #%% Specific modifications
         
         # Preprocess conductivity values 
@@ -241,8 +273,10 @@ class Modflow:
         
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters 
+        thickfact = 1e-05 # also used for lake/reservoir thickness computations
+        
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
-                                            thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
+                                            thickfact=thickfact, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
         # Change headtol and fluxtol with results ==> convergency criteria
 
@@ -326,12 +360,32 @@ class Modflow:
                 self.zbot[i-1] = self.dem  - ((self.dem - self.bottom_layer) * p)
             else:
                 self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
+        
+        # Definition of top (when there are lakes, top != dem)
+        self.top = self.dem
+        
+        # Adding a superficial layer for lakes/reservoirs (if used)
+        if self.use_lakeres:
+            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
+                self.geographic, self.climatic, self.nper, thickfact, self.dem)
             
+            self.nlay = self.nlay + 1
+            self.top = laklay_top
+            self.zbot = np.insert(self.zbot, 0, self.dem, axis=0)
+            
+            lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
+            lakarr[0] = lakarr_lay0
+            
+            bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
+            bdlknc[0] = bdlknc_lay0
+            
+            self.lakeres.format_outlets(lakarr_lay0, self.geographic, self.dem_path)
+        
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
-                                            top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                            top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
                                             steady=self.steady, start_datetime=self.start_datetime) 
                                             # itmuni = 0 ==> undefined
@@ -346,6 +400,10 @@ class Modflow:
         # iboundData=0: Nothing is calculated in celles (should not be really used)
         # iboundData=-1: Values imposed at the value of strtData
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
+        
+        # Correct ibound in the lake/reservoir layer (1st layer)
+        if self.use_lakeres:
+            self.iboundData[0, :, :] = 0
         
         # Free surface level is set to the surface (altitude of DEM)
         self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
@@ -385,10 +443,10 @@ class Modflow:
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
                             if self.dem[i,j] < np.max(self.sea_level):
-                                if self.iboundData[0,i,j] != 0: #no-flow cells cannot be converted to specified head cells
+                                if self.iboundData[self.aquifer_top_layer,i,j] != 0: #no-flow cells cannot be converted to specified head cells
                                     self.drain_array[i,j] = 0
                                     package[kper,i,j] = 1
-                                    chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
+                                    chdKper.append([self.aquifer_top_layer,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
                             
                 flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
@@ -481,7 +539,7 @@ class Modflow:
                                             unitnumber=None
                                             )
         
-        #%% Source terms
+        #%% Source terms (other than artificial filling/pumping of lakes/reservoirs)
         
         ### Source term & initial conditions: recharge (and evapotranspiration) on the top of the model 
         
@@ -497,6 +555,28 @@ class Modflow:
                 self.evt[self.evt>=0] = 0
                 # All negative values are set to positive values
                 self.evt = abs(self.evt)
+                # Remove aquifer evaporation on lakes/reservoirs
+                if self.use_lakeres:
+                    self.evt[lakarr_lay0 > 0] = 0
+                    self.climatic[lakarr_lay0 > 0] = 0
+# Extract ETR on the lake
+# =============================================================================
+#                 for id_lakeres in range(0, len(self.lakeresData)): 
+#                     self.evt_lakeres[id_lakeres] = self.evt[
+#                         self.lakeresData[id_lakeres]['mask_largest']
+#                         ].mean()
+#                     # mean because LAKE package needs rates per unit area
+#                     self.evt[self.lakeresData[id_lakeres]['mask_largest']] = 0
+# =============================================================================
+# Remove recharge on the lake
+# =============================================================================
+#         for lake_id in self.lakeres.indexes: 
+#             self.rch_lakeres[lake_id] = self.climatic[
+#                 self.lakeres.masks[lake_id]
+#                 ].sum()
+#             self.climatic[self.lakeres.masks[lake_id]] = 0
+#             # Usefull to store the value, in order to compare to dam leakage
+# =============================================================================
                 self.evtData = {}
                 # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
                 for kper in range(0, self.nper):
@@ -524,7 +604,7 @@ class Modflow:
                     self.climatic[self.climatic<0] = 0
                 
         # RECHARGE TO THE AQUIFER
-            # over the surface: rch package (should always be positive)
+            # over the surface: rch package (should always be positive)        
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.climatic,(dict))==True:
@@ -1160,26 +1240,49 @@ class Modflow:
 #                     esri_pntr=False)
 # =============================================================================
         
+        #%% Lake package (LAK)
+        
+        # This function is run in #%% Discretization section:
+# =============================================================================
+#         stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
+#             self.geographic, self.climatic, self.nper, thickfact)
+# =============================================================================
+       
+        if self.use_lakeres:       
+            self.lak = flopy.modflow.ModflowLak(self.mf,
+                                                nlakes = self.lakeres.n_lakeres,
+                                                ipakcb = None,
+                                                theta = 0, # 0: explicit # 1: implicit
+                                                stages = stages,
+                                                lakarr = lakarr,
+                                                bdlknc = bdlknc,
+                                                flux_data = flux_data)
+            
+            # Remove drains under lakes
+            self.drain_array[lakarr_lay0 != 0] = 0
+            
+# =============================================================================
+#         #%%% To impose outflow from the lake/reservoir (return flow)
+#         self.fhb = flopy.modflow.ModflowFhb(self.mf)
+# =============================================================================
+
         #%% Drain package
+    
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
-# =============================================================================
-#         self.drain_array[:] = 0
-#         print(self.drain_array)
-#         # self.drain_array[18, 152] = 1
-#         self.drain_array[10, 10] = 1
-# =============================================================================
+
+        # TEMP SFR : il faut que la ligne suivante soit activable par flag
+        self.cond_drain = hcond * rchlen * width / thickm # hcond * self.resolution** 2
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
         # First value (0): layer number
-        self.drnData[:, 0] = 0 # layer
-        self.cond_drain = hcond * rchlen * width / thickm # hcond * self.resolution** 2
+        self.drnData[:, 0] = self.aquifer_top_layer
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
                 if self.drain_array[i,j] == 1:
                     self.drnData[compt, 1] = i # Second value (1): row number
                     self.drnData[compt, 2] = j # Third value (2): column number
-                    self.drnData[compt, 3]= self.dem[i, j] # Fourth value (3): altitude
+                    self.drnData[compt, 3] = self.dem[i, j] # Fourth value (3): altitude
                     # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
                     if self.sink_fill == False:
                         if self.cond_drain != None:
@@ -1201,7 +1304,6 @@ class Modflow:
         # Imposes condition to Modflow through flopy
         lrcec= {0:self.drnData}
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
-
 
         #%% Output control
         
@@ -1294,6 +1396,7 @@ class Modflow:
                         groundwater_flux:bool=True,
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
+                        lake_leakage:bool=True,
                         persistency_index:bool=False,
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
@@ -1332,6 +1435,10 @@ class Modflow:
             Write all files .tif at each time step. The default is False.
 
         """
+        # Correct lake_leakage condition
+        if self.use_lakeres == False:
+            lake_leakage = False
+        
         # Create folders 
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)        
@@ -1389,6 +1496,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.dict_lake_leakage = {}
         self.dict_saturated_storage = {}
         self.dict_groundwater_storage = {}
         self.dict_residence_times = {}
@@ -1401,6 +1509,7 @@ class Modflow:
         # Loop over times, fills each of the previous structures 
         for item, time in enumerate(self.times):
             print('    Time: ', item)
+            lake_lateralflow_count = 0
                      
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])
@@ -1498,7 +1607,7 @@ class Modflow:
                 if self.nlay > 1:
                     self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
                     self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
-                self.flux_top = self.flux[0]
+                self.flux_top = self.flux[self.aquifer_top_layer]
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
                 output_path = self.tifs_file+'/groundwater_flux_t('+lead_numb+').tif'
@@ -1528,6 +1637,7 @@ class Modflow:
                 self.gw_storage = np.sum(self.sto, axis=0)
                 self.dict_groundwater_storage[item] = self.gw_storage
 
+# TEMP SFR : la déactivation de cette section doit dépendre du flag
 # =============================================================================
 #             if accumulation_flux == True:
 #                 ### Accumulation flux
@@ -1544,6 +1654,90 @@ class Modflow:
 #                     self.dict_accumulation_flux[item] = imageio.imread(output_path)
 #                     pass
 # =============================================================================
+                    
+            if lake_leakage == True:
+                ### Flux from lake to groundwater
+                self.lake = self.cbb.get_data(text='LAKE', kstpkper=self.kstpkper, totim=time)                     
+                # flow left face (j-1)
+                self.lake_leakage_flf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow right face (j+1)
+                self.lake_leakage_frf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow back face (i-1)
+                self.lake_leakage_fbf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow front face (i+1)
+                self.lake_leakage_fff = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow top face (k-1)
+                self.lake_leakage_ftf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+                # flow deeper (lower) face (k+1)
+                self.lake_leakage_fdf = np.zeros((self.nlay, self.dis.nrow, self.dis.ncol))
+
+                for n in range(0, len(self.lake[0])):
+                    cell = self.lake[0][n].node-1
+                    j = cell%self.dis.ncol
+                    i = cell//self.dis.ncol%self.dis.nrow
+                    k = cell//self.dis.ncol//self.dis.nrow
+    # OLD: to delete
+# =============================================================================
+#                     k = cell%self.nlay
+#                     j = cell//self.nlay%self.dis.ncol
+#                     i = cell//self.nlay//self.dis.ncol
+# =============================================================================
+                    # NB: cell = self.dis.ncol*self.dis.nrow*k + self.dis.ncol*i + j
+                    lake_data = self.lake[0][n]
+                    # NB: lake_data[2] == lake_data['IFACE           ']
+                    if lake_data[2] == 1: # to the left (j-1) 
+                        self.lake_leakage_flf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 2: # to the right (j+1)
+                        self.lake_leakage_frf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 3: # towards front (i+1)
+                        self.lake_leakage_fff[k, i, j] += lake_data.q
+                    elif lake_data[2] == 4: # towards back (i-1)
+                        self.lake_leakage_fbf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 5: # to the bottom of the layer (k+1)
+                        self.lake_leakage_fdf[k, i, j] += lake_data.q
+                    elif lake_data[2] == 6: # to the top of the layer (k-1)
+                        self.lake_leakage_ftf[k, i, j] += lake_data.q
+                    
+    # OLD: to delete
+# =============================================================================
+#                 # Create association between nodes and i,j
+#                 count = 0
+#                 count_to_ij = {}
+#                 for i in range(0, self.dis.nrow):
+#                     for j in range(0, self.dis.ncol):
+#                         count_to_ij[count] = (i,j)
+#                         count += 1
+#                 
+#                 sim = 0
+#                 for count in self.lake[0].node:
+#                     print(f"count = {count}")
+#                     print(f"i = {i}")
+#                     print(f"j = {j}")
+#                     self.lake_leakage_all[sim, count_to_ij[count][0], count_to_ij[count][1]] = np.abs(self.lake[0].q[self.lake[0].node == count][0])
+#                 self.lake_leakage = self.lake_leakage_all[0]
+# =============================================================================
+                
+                self.lake_vertical_leakage = self.lake_leakage_ftf[self.aquifer_top_layer]
+# =============================================================================
+#                 # Other method:
+#                 self.lake_vertical_leakage = self.cbb.get_data(
+#                     text='LAKE', kstpkper=self.kstpkper, 
+#                     totim=time, full3D = True)[1]
+# =============================================================================
+                
+                # temp (just for testing)
+                if (self.lake_leakage_flf.sum() > 0) | (self.lake_leakage_frf.sum() > 0):
+                    lake_lateralflow_count += 1
+                if (self.lake_leakage_fff.sum() > 0) | (self.lake_leakage_fbf.sum() > 0):
+                    lake_lateralflow_count += 1
+                # NB: self.lake_leakage_flf, frf, fff and fbf == 0 everywhere
+
+                self.lake_vertical_leakage[self.dem_mask] = -9999
+                output_path = self.tifs_file+'/lake_leakage_t('+lead_numb+').tif'
+                if export_tif==True:
+                    toolbox.export_tif(self.dem_path, self.lake_vertical_leakage, -9999, output_path)                  
+                self.dict_lake_leakage[item] = self.lake_vertical_leakage
+        print(f"\nNOTE: Lake lateral flows have been non null for {lake_lateralflow_count} time steps\n")
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
@@ -1561,10 +1755,14 @@ class Modflow:
         if groundwater_storage == True:
             np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
+
+# TEMP SFR : la désactivation de ce truc doit dépendre du flag
 # =============================================================================
 #         if accumulation_flux == True:
 #             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
 # =============================================================================
+        if lake_leakage == True:
+            np.save(self.save_file+'/lake_leakage', self.dict_lake_leakage)
 
         if persistency_index == True:
             ### Persistency index

@@ -29,7 +29,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
+from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, lakeres, settings, safransurfex, subbasin
 from modeling import modflow, modpath, timeseries, netcdf
 from display import visualization_watershed
 from tools import toolbox
@@ -188,6 +188,9 @@ class Watershed:
             if ('intermittency' in BV.__dir__()) == True:
                 self.intermittency = BV.intermittency
                 self.elt_def.append('intermittency')
+            if ('lakeres' in BV.__dir__()) == True:
+                self.lakeres = BV.lakeres
+                self.elt_def.append('lakeres')
             # Atmospheric (compulsory: hydrodynamic)
             if ('safransurfex' in BV.__dir__()) == True:
                 self.safransurfex = BV.safransurfex
@@ -549,6 +552,28 @@ class Watershed:
         safransurfex.Merge(out_path=self.watershed_folder)
         self.elt_def.append('safransurfex')
         self.save_object()
+        
+    def add_lakeres(self, stable_folder=None):
+        """
+        
+
+        Parameters
+        ----------
+        stable_folder : str, optional
+            User-defined folder where the lake/reservoir files will be
+            generated. If None, the default folder will be used: 
+                <out_path>/<watershed_name>/'results_stable'/'lakeres'
+
+        Returns
+        -------
+        None. Create an empty lakeres object within the watershed object. 
+
+        """
+        if stable_folder is None:
+            stable_folder = self.stable_folder
+        self.lakeres = lakeres.Lakeres(stable_folder)
+        self.elt_def.append('lakeres')
+        self.save_object()
             
     def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """
@@ -619,7 +644,9 @@ class Watershed:
                                         sea_level=self.oceanic.MSL,
                                         bc_left=self.settings.bc_left, 
                                         bc_right=self.settings.bc_right,
-                                        split_temp=self.settings.split_temp)
+										split_temp=self.settings.split_temp,
+                                        # Lakes/reservoirs
+                                        lakeres=self.lakeres)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose
@@ -660,6 +687,7 @@ class Watershed:
                                groundwater_flux: bool=True,
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
+                               lake_seepage: bool=True,
                                persistency_index: bool=False,
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
@@ -815,6 +843,10 @@ class Watershed:
 
         Parameters
         ----------
+        geographic : object
+            Watershed object built by HydroModPy (model domain)
+        lakeres : object
+            Watershed object built by HydroModPy (lakes and reservoirs)
         model_modflow : object
             Modflow object.
         model_modpath : object
@@ -831,11 +863,12 @@ class Watershed:
         """
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self.geographic,
-                                                        model_modflow=model_modflow,
-                                                        model_modpath=model_modpath,
-                                                        actual_date=actual_date,
-                                                        subbasin_results=subbasin_results,
-                                                        freq_time=freq_time)
+                                                       model_modflow,
+                                                       model_modpath,
+                                                       self.lakeres,
+                                                       actual_date=actual_date,
+                                                       subbasin_results=subbasin_results,
+                                                       freq_time=freq_time)
             
             return timeseries_results
         
