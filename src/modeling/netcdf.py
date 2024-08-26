@@ -186,6 +186,15 @@ class Netcdf:
                                times = time)
         except:
             pass 
+        try:
+            dict_lake_leakage = np.load(os.path.join(self.save_file, 'lake_leakage'+'.npy'), allow_pickle=True).item()
+            self.export_netcdf(dict_lake_leakage, 
+                               base_path = self.geographic.watershed_dem, 
+                               out_path = os.path.join(self.netcdf_file, 'lake_leakage.nc'), 
+                               base_crs = self.geographic.crs_proj,
+                               times = time)
+        except:
+            pass 
         
     
     #%% EXPORT DATA TO NETCDF FILES

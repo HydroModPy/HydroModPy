@@ -81,6 +81,13 @@ class Settings:
         self.bc_left = bc_left
         self.bc_right = bc_right
         
+    def add_inputflow(self, bound_id, fixed_flow_coords, snap_dist,
+                      return_flow_series):
+        self.inputflow[bound_id] = (fixed_flow_coords, snap_dist, return_flow_series)
+        
+    def remove_inputflow(self, bound_id):
+        self.inputflow.pop(bound_id)
+        
     def update_simulation_state(self, sim_state):
         """
         Define the type of simulation.
