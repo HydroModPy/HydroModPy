@@ -1094,8 +1094,8 @@ class Modflow:
         self.sfr2.get_slopes(default_slope=0.005)
         
         # Repair segments ordering and outsegs
+        self.sfr2.renumber_segments() # restart segment numbering from 1
 # =============================================================================
-#         self.sfr2.renumber_segments() # restart segment numbering from 1
 #         self.sfr2.repair_outsegs() # correct the terminal reaches
 #         self.sfr2.reset_reaches() # restart reach numbering from 1 for each segment
 # =============================================================================
