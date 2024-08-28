@@ -636,197 +636,190 @@ class Modflow:
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
 
         #%% Streamflow Routing package        
-        istcb2 = 81 # or 81? option for output files format
-        ipakcb = 53
-        
-        # Not needed because nstrm > 0:
-        isfropt = 0 # No infiltration beneath streams, and stream variables are
-                    # read for each stress period.
-        
-# =============================================================================
-#         isfropt = 1 # No infiltration beneath streams, and stream parameters are
-#                   # only read once at the beginning of the simulation. 
-#         # In that case, it is required to fill strtop	and slope in
-#         # ex3_test1_reach_data.csv.
-#         # Apparently also when isforpt = 0 and nstrm > 0
-# =============================================================================
-
-        # Deactivation of the transient routing via kinematic-wave equation:
-        irtflg = 0
-        
-        self.streamflow_seepage.SFR_seepage_area(self.dem)
-        
-        reach_data, segment_data_1 = self.streamflow_seepage.compute_data()
-        
-        if self.streamflow_seepage.critical_mode is not None:
-            self.streamflow_seepage.critical_area()
-        
-        # ---- Filling and correcting parameters
-
-
-        
-        # 0. Translate recarray into map:
-        # (will be used later to remove drains on river cells)
-        sfr_map, _, _, nodata = toolbox.load_to_numpy(
-            self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
-            base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
-        sfr_map[sfr_map > nodata] = 0
-        for _, r in self.reach_data.iterrows():
-            sfr_map[r['i'], r['j']] = r['iseg']
-        elev_map = sfr_map.copy()
-        hcond1_map = sfr_map.copy()
-        hcond2_map = sfr_map.copy()
-        for _, r in self.reach_data.iterrows():
-            elev_map[r['i'], r['j']] = r['strtop']
-            hcond1_map[r['i'], r['j']] = self.segment_data_1.loc[r['iseg'], 'hcond1']
-            hcond2_map[r['i'], r['j']] = self.segment_data_1.loc[r['iseg'], 'hcond2']
-        hcond_map = (hcond1_map + hcond2_map)/2
-        
-        # To reflect the dem corrections on the self.dem
-# =============================================================================
-#         self.dem[watershed_mask!=nodata] = elev_map[watershed_mask!=nodata]
-# =============================================================================
-
-        # 5. Convert pandas.DataFrame into numpy.recarrays
-        reach_data_rec = self.reach_data.to_records(
-            index = False,
-            column_dtypes = {'k': '<f8', 'i': '<f8', 'j': '<f8', 
-                   'iseg': '<f8', 'ireach': '<f8', 'rchlen': '<f8', 
-                   'strtop': '<f8', 'slope': '<f8'})
-        
-        segment_data_1_rec = self.segment_data_1.to_records(
-            index = True,
-            column_dtypes = {'icalc': '<f8', 'outseg': '<f8', 
-                   'iupseg': '<f8', 'nstrpts': '<f8', 'flow': '<f8', 
-                   'roughch': '<f8', 'roughbk': '<f8', 'cdpth': '<f8', 
-                   'fdpth': '<f8', 'awdth': '<f8', 'bwdth': '<f8', 
-                   'hcond1': '<f8', 'thickm1': '<f8', 'elevup': '<f8', 
-                   'width1': '<f8', 'depth1': '<f8', 'hcond2': '<f8', 
-                   'thickm2': '<f8', 'elevdn': '<f8', 'width2': '<f8', 
-                   'depth2': '<f8'},
-            index_dtypes = {'nseg': '<f8'})
-        
-        # 6. Correct drain_array (used in next section)
-        self.drain_array[sfr_map > 0] = 0
-        
-        # ---- SFR2 function call
-        segment_data = {0: segment_data_1_rec}
-        
-        nstrm = len(reach_data_rec) # > 0
-        nss = len(segment_data_1_rec)
-        
-        itmp = nss
-        irdflag = 0 # to print input data
-        iptflag = 0 # to print streamflow routing outputs
-        dataset_5 = {per: [-1, irdflag, iptflag] for per in range(0, self.nper)}
-        dataset_5[0][0] = itmp
-            # dataset_5 = {0: [itmp, irdflag, iptflag]}
-            # or
-            # dataset_5 = {0: [itmp, irdflag, iptflag],
-            #              1: [-1,   irdflag, iptflag],
-            #              2: [-1,   irdflag, iptflag],
-            #              ...}
-        
-        nsfrpar = 0 # number of parameters
-        nparseg = 0 # number of parameters per segment
-        
-        self.sfr2 = flopy.modflow.ModflowSfr2(
-            self.mf, nstrm=nstrm, nss=nss, nsfrpar=nsfrpar, nparseg=nparseg,
-            isfropt=isfropt, irtflg=irtflg, dataset_5=dataset_5,
-            # streams parameters:
-            reach_data=reach_data_rec, segment_data=segment_data, 
-            # default values:
-            numtim=2, weight=0.75,
-            # to create the .sfr.out file
-            istcb2=istcb2,
-            # uncertain how to use:
-            ipakcb=ipakcb, 
-# =============================================================================
-#             # no infiltration:
-#             dleak, ipakcb, nstrail, isuzn, nsfrsets,
-# =============================================================================
-# =============================================================================
-#             # no kinematic-wave used for transient routing:
-#             flwtol,
-# =============================================================================
-# =============================================================================
-#             # No stream channel geometry (when icalc=2) (see item 6d)
-#             channel_geometry_data,
-# =============================================================================
-# =============================================================================
-#             # No calibration curve ("courbe de tarage") (when icalc=4) (see item 6e)
-#             channel_flow_data,
-# =============================================================================
-            const=0, # 86400, # value is not used because no Manning
-            )
-        
-        # ---- sfr2 correct, repair & check
-        # Compute slopes
-        self.sfr2.get_slopes(default_slope=0.005)
-        
-        # Repair segments ordering and outsegs
-        self.sfr2.renumber_segments() # restart segment numbering from 1
-# =============================================================================
-#         self.sfr2.repair_outsegs() # correct the terminal reaches
-#         self.sfr2.reset_reaches() # restart reach numbering from 1 for each segment
-# =============================================================================
-# =============================================================================
-#         self.sfr2.set_outreaches()
-# =============================================================================
-        
-        # [temp] Verbose verification
-        self.sfr2.check()
-        
-        # ---- Export
-        
+        if self.streamflow_seepage is not None:
+            # ---- Main flags
+            istcb2 = 81 # or 81? option for output files format
+            ipakcb = 53
             
-        self.sfr2.export_linkages(
-            os.path.join(stream_map_path, "streams.shp"), 
-            epsg=int(self.geographic.crs_proj.split(':')[-1]))
-        self.sfr2.export_outlets(
-            os.path.join(stream_map_path, "outlets.shp"), 
-            epsg=int(self.geographic.crs_proj.split(':')[-1]))
-        
-        # Correct stream mask:
-        sfr_map, _, _, nodata = toolbox.load_to_numpy(
-            self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
-            base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
-        sfr_map[sfr_map > nodata] = 0
-        sfr_mapr, _, _, nodata = toolbox.load_to_numpy(
-            self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
-            base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
-        sfr_mapr[sfr_mapr > nodata] = 0
-        for r in self.sfr2.reach_data:
-            sfr_map[int(r['i']), int(r['j'])] = r['iseg']
-            sfr_mapr[int(r['i']), int(r['j'])] = r['ireach']
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           sfr_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "stream_segments.tif"))
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           sfr_mapr, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "stream_reaches.tif"))
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           self.drain_array, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "remaining_drains(debug).tif"))
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           elev_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "streambed_tops.tif"))
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           self.sink, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "sink_cells(debug).tif"))
-        toolbox.export_tif(self.geographic.watershed_dem, 
-                           hcond_map, self.geographic.nodata, 
-                           os.path.join(stream_map_path, "conductances.tif"))
+            # Not needed because nstrm > 0:
+            isfropt = 0 # No infiltration beneath streams, and stream variables are
+                        # read for each stress period.
+            
 # =============================================================================
-#         wbt.slope(elev_map,
-#                   # os.path.join(stream_map_path, 'slopes.tif'),
-#                   r"D:\slopes.tif",
-#                   units="percent")
+#             isfropt = 1 # No infiltration beneath streams, and stream parameters are
+#                       # only read once at the beginning of the simulation. 
+#             # In that case, it is required to fill strtop	and slope in
+#             # ex3_test1_reach_data.csv.
+#             # Apparently also when isforpt = 0 and nstrm > 0
+# =============================================================================
+    
+            # Deactivation of the transient routing via kinematic-wave equation:
+            irtflg = 0
+            
+            # ---- Initiate the SFR_seepage module
+            self.streamflow_seepage.SFR_seepage_area(self.geographic, self.dem)
+            self.streamflow_seepage.compute_data()
+            self.streamflow_seepage.reach_data['k'] = self.aquifer_top_layer # layer
+            
+            # ---- Improve and correct values
+            if self.streamflow_seepage.critical_mode is not None:
+                self.streamflow_seepage.correct_critical_cells(self.geographic)
+                
+            if self.streamflow_seepage.correction_multiple_reaches == True:
+                self.streamflow_seepage.remove_multiple_reaches()
+            
+            if self.streamflow_seepage.correction_elevations == True:
+                self.dem = self.streamflow_seepage.correct_elevations(self.dem)
+    
+            # ---- Convert pandas.DataFrames into numpy.recarrays
+            reach_data_rec = self.streamflow_seepage.reach_data.to_records(
+                index = False,
+                column_dtypes = {'k': '<f8', 'i': '<f8', 'j': '<f8', 
+                       'iseg': '<f8', 'ireach': '<f8', 'rchlen': '<f8', 
+                       'strtop': '<f8', 'slope': '<f8'})
+            
+            segment_data_1_rec = self.streamflow_seepage.segment_data_1.to_records(
+                index = True,
+                column_dtypes = {'icalc': '<f8', 'outseg': '<f8', 
+                       'iupseg': '<f8', 'nstrpts': '<f8', 'flow': '<f8', 
+                       'roughch': '<f8', 'roughbk': '<f8', 'cdpth': '<f8', 
+                       'fdpth': '<f8', 'awdth': '<f8', 'bwdth': '<f8', 
+                       'hcond1': '<f8', 'thickm1': '<f8', 'elevup': '<f8', 
+                       'width1': '<f8', 'depth1': '<f8', 'hcond2': '<f8', 
+                       'thickm2': '<f8', 'elevdn': '<f8', 'width2': '<f8', 
+                       'depth2': '<f8'},
+                index_dtypes = {'nseg': '<f8'})
+            
+            # ---- Convert recarrays into maps
+            sfr_map, _, _, nodata = toolbox.load_to_numpy(
+                self.geographic.watershed_dem, src_crs = self.geographic.crs_proj, 
+                base_path = self.geographic.watershed_dem, dst_crs = self.geographic.crs_proj)
+            sfr_map[sfr_map > nodata] = 0
+            sfr_map_reach = sfr_map.copy()
+            for _, r in self.streamflow_seepage.reach_data.iterrows():
+                sfr_map[r['i'], r['j']] = r['iseg']
+                sfr_map_reach[r['i'], r['j']] = r['ireach']
+            elev_map = sfr_map.copy()
+            hcond1_map = sfr_map.copy()
+            hcond2_map = sfr_map.copy()
+            for _, r in self.streamflow_seepage.reach_data.iterrows():
+                elev_map[r['i'], r['j']] = r['strtop']
+                hcond1_map[r['i'], r['j']] = self.streamflow_seepage.segment_data_1.loc[r['iseg'], 'hcond1']
+                hcond2_map[r['i'], r['j']] = self.streamflow_seepage.segment_data_1.loc[r['iseg'], 'hcond2']
+            hcond_map = (hcond1_map + hcond2_map)/2
+            
+            # ---- Correct drain_array (used in next section)
+            self.drain_array[sfr_map > 0] = 0
+            
+            # ---- SFR2 function call
+            segment_data = {0: segment_data_1_rec}
+            
+            nstrm = len(reach_data_rec) # > 0
+            nss = len(segment_data_1_rec)
+            
+            itmp = nss
+            irdflag = 0 # to print input data
+            iptflag = 0 # to print streamflow routing outputs
+            dataset_5 = {per: [-1, irdflag, iptflag] for per in range(0, self.nper)}
+            dataset_5[0][0] = itmp
+                # dataset_5 = {0: [itmp, irdflag, iptflag]}
+                # or
+                # dataset_5 = {0: [itmp, irdflag, iptflag],
+                #              1: [-1,   irdflag, iptflag],
+                #              2: [-1,   irdflag, iptflag],
+                #              ...}
+            
+            nsfrpar = 0 # number of parameters
+            nparseg = 0 # number of parameters per segment
+            
+            self.sfr2 = flopy.modflow.ModflowSfr2(
+                self.mf, nstrm=nstrm, nss=nss, nsfrpar=nsfrpar, nparseg=nparseg,
+                isfropt=isfropt, irtflg=irtflg, dataset_5=dataset_5,
+                # streams parameters:
+                reach_data=reach_data_rec, segment_data=segment_data, 
+                # default values:
+                numtim=2, weight=0.75,
+                # to create the .sfr.out file
+                istcb2=istcb2,
+                # uncertain how to use:
+                ipakcb=ipakcb, 
+# =============================================================================
+#                 # no infiltration:
+#                 dleak, ipakcb, nstrail, isuzn, nsfrsets,
 # =============================================================================
 # =============================================================================
-#         wbt.basins(d8_pntr = self.geographic.watershed_box_buff_direc, 
-#                     output = os.path.join(stream_map_path, "basins.tif"), 
-#                     esri_pntr=False)
+#                 # no kinematic-wave used for transient routing:
+#                 flwtol,
+# =============================================================================
+# =============================================================================
+#                 # No stream channel geometry (when icalc=2) (see item 6d)
+#                 channel_geometry_data,
+# =============================================================================
+# =============================================================================
+#                 # No calibration curve ("courbe de tarage") (when icalc=4) (see item 6e)
+#                 channel_flow_data,
+# =============================================================================
+                const=0, # 86400, # value is not used because no Manning
+                )
+            
+            # ---- sfr2 correct, repair & check
+            # Compute slopes
+            self.sfr2.get_slopes(default_slope=0.005)
+            
+            # Repair segments ordering and outsegs
+            self.sfr2.renumber_segments() # restart segment numbering from 1
+            # Correct reach and segment maps:
+            for r in self.sfr2.reach_data:
+                sfr_map[int(r['i']), int(r['j'])] = r['iseg']
+                sfr_map_reach[int(r['i']), int(r['j'])] = r['ireach']
+# =============================================================================
+#             self.sfr2.repair_outsegs() # correct the terminal reaches
+#             self.sfr2.reset_reaches() # restart reach numbering from 1 for each segment
+# =============================================================================
+# =============================================================================
+#             self.sfr2.set_outreaches()
+# =============================================================================
+            
+            # [temp] Verbose verification
+            self.sfr2.check()
+            
+            # ---- Export
+            self.sfr2.export_linkages(
+                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "streams.shp"), 
+                epsg=int(self.geographic.crs_proj.split(':')[-1]))
+            self.sfr2.export_outlets(
+                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "outlets.shp"), 
+                epsg=int(self.geographic.crs_proj.split(':')[-1]))
+            
+            toolbox.export_tif(self.geographic.watershed_dem, 
+                               sfr_map, self.geographic.nodata, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_segments.tif"))
+            toolbox.export_tif(self.geographic.watershed_dem, 
+                               sfr_map_reach, self.geographic.nodata, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_reaches.tif"))
+            toolbox.export_tif(self.geographic.watershed_dem, 
+                               self.drain_array, self.geographic.nodata, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "remaining_drains(debug).tif"))
+            toolbox.export_tif(self.geographic.watershed_dem, 
+                               elev_map, self.geographic.nodata, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "streambed_tops.tif"))
+            self.streamflow_seepage.crit_area[self.streamflow_seepage.crit_area.mask] = nodata
+            toolbox.export_tif(self.geographic.watershed_dem, 
+                               self.streamflow_seepage.crit_area, self.geographic.nodata, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "sink_cells(debug).tif"))
+            toolbox.export_tif(self.geographic.watershed_dem, 
+                               hcond_map, self.geographic.nodata, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "conductances.tif"))
+# =============================================================================
+#             wbt.slope(elev_map,
+#                       # os.path.join(self.streamflow_seepage.sfr_seepage_folder, 'slopes.tif'),
+#                       r"D:\slopes.tif",
+#                       units="percent")
+# =============================================================================
+# =============================================================================
+#             wbt.basins(d8_pntr = self.geographic.watershed_box_buff_direc, 
+#                         output = os.path.join(self.streamflow_seepage.sfr_seepage_folder, "basins.tif"), 
+#                         esri_pntr=False)
 # =============================================================================
         
         #%% Lake package (LAK)
@@ -860,10 +853,10 @@ class Modflow:
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
 
-        if self.streamflow_seepage: # if the object streamflow_seepage is not None:
+        if self.streamflow_seepage != None: # if the object streamflow_seepage is not None:
             if self.cond_drain != None:
                 print("cond_drain overwritten with streamflow_seepage values")
-            self.cond_drain = hcond * rchlen * width / thickm # hcond * self.resolution** 2
+            self.cond_drain = self.streamflow_seepage.cond_drain
             
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
