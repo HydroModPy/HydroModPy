@@ -85,6 +85,8 @@ user_path = "Ronan"
 data_path = "D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/11_Paper/PUYS/_data/"
 out_path = "E:/_RONAN/_E_SIMULATIONS/PUYS/"
 # fig_path = "D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/PUYS/figures/"
+
+fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/11_Paper/PUYS/_figures2/'
   
 print("Define a well-validated name of user")
 
@@ -152,7 +154,7 @@ ras_paths = [ data_path+'DEM_BOTTOM_Tiretaine_25_mod_proj.tif', data_path+'DEM_T
 #%% LOAD
 
 load = True
-# load = False
+load = False
 
 for watershed_name, ras_path in zip(watershed_names[:], ras_paths[:]):
         
@@ -203,7 +205,7 @@ for type_obs, field_obs in zip(types_obs, fields_obs):
 
     visualization_watershed.watershed_local(dem_path, BV)
     visualization_watershed.watershed_dem(BV)
-
+    
 #%% ---- DICHOTOMY KEQ
 
 #%% DICHOTOMY - FUNCTION
@@ -720,6 +722,7 @@ verti_poro = None
 cond_drain = None # or value of conductance
 porosity = 1 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+ss_decay = 0
 bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
@@ -737,7 +740,6 @@ BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_first_clim(first_clim)
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
-BV.hydraulic.update_porosity(porosity)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_poro_decay(poro_decay)
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -747,10 +749,7 @@ BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_cond_decay(cond_decay) # 0
 BV.hydraulic.update_bottom(bottom) # 0
 BV.settings.update_split_temporal(split_temp)
-BV.hydraulic.update_ss_decay(0)
-Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
-BV.hydraulic.update_ss(Ss_formula)
-BV.hydraulic.update_poro_vertical(verti_poro)
+BV.hydraulic.update_ss_decay(ss_decay)
 
 Keq = 2.45e-5 * 24 * 3600
 
@@ -784,9 +783,27 @@ list_K3 = [
 
 shp = gpd.read_file(BV.geographic.watershed_shp)
 
+# Syeq = 1 / 100
+
+list_Sy1 = np.array([
+                     0.1,
+                     1,
+                     2,
+                     ]) / 100
+list_Sy2 = np.array([
+                     2,
+                     5,
+                     10,
+                     ]) / 100
+list_Sy3 = np.array([
+                     30,
+                     40,
+                     60,
+                     ]) / 100
+
 #%% ---- EXPLORATION K1 K2 K3
 
-#%% MODFLOW PREPROCESSING
+#%% MODFLOW PRE+PRO
 
 run_model = True
 # run_model = False
@@ -883,9 +900,9 @@ for K1 in list_K1[:]:
         k2_cp += 1    
     k1_cp += 1
         
-#%% MODFLOW POST PROCESSING
+#%% MODFLOW POST
 
-list_id_mod = range(1)
+list_id_mod = np.arange(0,27,1)
 
 df = pd.DataFrame()
 
@@ -985,422 +1002,529 @@ df.to_csv(BV.simulations_folder+'/'+str(iD_explo)+'_exploration results.csv', se
 
 #%% 2D MAP VIEW
 
-for model_name, success, flow_model in zip(list_model_name, list_of_success, list_flow_model):
+list_id_mod = np.arange(0,27,1)
 
-    list_path = sorted(glob.glob(simulations_folder+typ+'*'),
-                        key=os.path.getmtime, reverse=True)
-    
-    model_name = list_path[0].split('\\')[-1]
+df = pd.DataFrame()
 
-    visu = visualization.Visualization(BV, model_name)
+for id_mod_val in list_id_mod[:]:
+
+    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+    list_model_results = d['list_model_results'][:]
     
-    visu.visual2D(object_list = ['map', 'grid', 'watertable', 'watertable_depth',
-                                 'drain_flow', 'surface_flow'],
-                  color_scale = [(None,None),(None,None),(None,None),(0,10),
-                                  (None,None),(None,None)])
+    # plt.imshow(imageio.imread(BV.geographic.watershed_box_buff_dem))
+    
+    for model_name, model_success, model_modflow, model_results in zip(list_model_name[:],
+                                                                       list_model_success[:],
+                                                                       list_model_modflow[:],
+                                                                       list_model_results[:]):
+            
+        visu = visualization_results.Visualization(BV, model_name)
+        visu.visual2D(object_list = ['map','grid',
+                                     'watertable', 'watertable_depth',
+                                     'drain_flow','surface_flow',
+                                     # 'pathlines', 'residence_times'
+                                     ],
+                      color_scale = [(None,None),(None,None),
+                                     (None,None),(0,10),
+                                     (None,None),(None,None),
+                                     # (0,100),(None,None),
+                                     ], 
+                      lines=500)
 
 #%% CROSS SECTION
 
-for model_name, flow_model in zip(list_model_name[:], list_flow_model[:]):
-    print(model_name)
-    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
-    # try:
-        
-    id_model = int(model_name.split('_')[1])
+list_id_mod = np.arange(0,27,1)
+
+df = pd.DataFrame()
+
+for id_mod_val in [ list_id_mod[13] ]:
+
+    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+    list_model_results = d['list_model_results'][:]
+    
+    for model_name, model_success, model_modflow, model_results in zip(list_model_name[:],
+                                                                       list_model_success[:],
+                                                                       list_model_modflow[:],
+                                                                       list_model_results[:]):
+        print(model_name)
+        # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
+        # try:
             
-    ### MODEL ###
-    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
-    # model_name = list_path[-1].split('\\')[-1]
-    # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
-    mf = flow_model.mf
-    
-    fname = simulations_folder+model_name+'/'+model_name+'.hds'
-    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
-    # grid_model = flopy.discretization.grid.Grid(mf)
-    grid_model = mf.modelgrid
-    hk_grid = mf.upw.hk
-    # sy_grid = mf.upw.sy
-    sy_grid = flow_model.ps
-    # sr_model = flopy.utils.reference.SpatialReference()
-    
+        id_model = int(model_name.split('_')[2].split('-')[-1])
+                
+        ### MODEL ###
+        # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
+        # model_name = list_path[-1].split('\\')[-1]
+        # mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
+        mf = model_modflow.mf
         
-    fig, axs = plt.subplots(1, 2, figsize=(9, 3))
-    # ax = fig.add_subplot(1, 1, 1)
-    axs = axs.ravel()
+        fname = simulations_folder+model_name+'/'+model_name+'.hds'
+        gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+        # grid_model = flopy.discretization.grid.Grid(mf)
+        grid_model = mf.modelgrid
+        hk_grid = mf.upw.hk
+        
+        hk = model_modflow.hk
+        # mf = model_modflow.mf
+        # modelmap = flopy.plot.ModelMap(model=mf)
+        # modelmap.plot_array(hk[0], cmap='tab10', norm=mpl.colors.LogNorm(vmin=0.002, vmax=200))
+        
+        ps = model_modflow.ps
+        
+        fig0, ax0 = plt.subplots(1,2)
+        ax0 = ax0.ravel()
+        im = ax0[0].imshow(hk[0], cmap='rainbow', norm=mpl.colors.LogNorm(vmin=hk.min(), vmax=hk.max()))
+        fig.colorbar(im)
+        
+        # sy_grid = mf.upw.sy
+        sy_grid = model_modflow.ps
+        # sr_model = flopy.utils.reference.SpatialReference()
+        
+        imp = ax0[1].imshow(ps[0], cmap='rainbow',
+                            # norm=mpl.colors.LogNorm(vmin=hk.min(), vmax=hk.max())
+                            )
+        fig.colorbar(imp)
+        
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+        # ax = fig.add_subplot(1, 1, 1)
+        axs = axs.ravel()
+        
+        ax = axs[0]
+        # fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+        
+        # linecollection = modelxsect.plot_grid()
+        hdobj = flopy.utils.HeadFile(fname)
+        head_data = hdobj.get_data()
+        
+        val = hk_grid.array/24/3600
+        for i in range(val.shape[0]):
+            # mask = val[i] == 0
+            # val[i][mask] = 1e-100
+            val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+        cb = modelxsect.plot_array(val, ax=ax, cmap='rainbow', lw=0.1,
+                                    norm=mpl.colors.LogNorm(vmin=(Keq/3600/24)/10, 
+                                                            vmax=(Keq/3600/24)*10)
+                                    )
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=ax,)
+        ax.set_title('Meshgrid West to East, K [m/s]')
+        # ax.set_xlim(150, 350)
+        # ax.set_ylim(150, 350)
+        # ax.set_xticks([0,1000,2000,3000])
+        ax.set_ylim(600, 1500)
+        fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=10)
+        fig.colorbar(cb)
+        plt.tight_layout()
+        # fig.set_size_inches(6, 3, forward=True)
+        
+        
+        ax = axs[1]
+        # fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+        # ax = fig.add_subplot(1, 1, 1)
+        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
+        # linecollection = modelxsect.plot_grid()
+        # hdobj = flopy.utils.HeadFile(fname)
+        # head_data = hdobj.get_data()
+        cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1,
+                                   # vmin=0, vmax=50
+                                   )
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=axs[1])
+        ax.set_title('Meshgrid North to South, Φ [%]')
+        ax.set_ylim(600, 1500)
+        # ax.set_xticks([0,1000,2000,3000,4000])
+        fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
+        fig.colorbar(cb)
+        plt.tight_layout()
+        # fig.set_size_inches(6, 3, forward=True)
+        
     
-    ax = axs[0]
-    # fig, ax = plt.subplots(1, 1, figsize=(6, 3))
-    # ax = fig.add_subplot(1, 1, 1)
-    modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
-    
-    # linecollection = modelxsect.plot_grid()
-    hdobj = flopy.utils.HeadFile(fname)
-    head_data = hdobj.get_data()
-    
-    val = hk_grid.array/24/3600
-    for i in range(val.shape[0]):
-        # mask = val[i] == 0
-        # val[i][mask] = 1e-100
-        val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
-    cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.1,
-                                # norm=mpl.colors.LogNorm(vmin=1e-10, 
-                                #                         vmax=1e-5)
-                                )
-    # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-    #                             cmap='Blues', alpha=0.5, ax=ax,)
-    ax.set_title('Meshgrid Weat to East')
-    ax.set_title('Hydraulic conductivity')
-    # ax.set_xlim(150, 350)
-    # ax.set_ylim(150, 350)
-    # ax.set_xticks([0,1000,2000,3000])
-    ax.set_ylim(450, None)
-    fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
-    fig.colorbar(cb)
-    plt.tight_layout()
-    # fig.set_size_inches(6, 3, forward=True)
-    
-    ax = axs[1]
-    # fig, ax = plt.subplots(1, 1, figsize=(6, 3))
-    # ax = fig.add_subplot(1, 1, 1)
-    modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
-    # linecollection = modelxsect.plot_grid()
-    # hdobj = flopy.utils.HeadFile(fname)
-    # head_data = hdobj.get_data()
-    cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='plasma', lw=0.1,
-                               # vmin=0, vmax=50
-                               )
-    # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-    #                             cmap='Blues', alpha=0.5, ax=axs[1])
-    ax.set_title('Meshgrid North to South')
-    ax.set_title('Specific yield')
-    ax.set_ylim(450, None)
-    # ax.set_xticks([0,1000,2000,3000,4000])
-    fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
-    fig.colorbar(cb)
-    plt.tight_layout()
-    # fig.set_size_inches(6, 3, forward=True)
+        # for i in range(len(flow_model.zbot)):
+        #     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        #     zbotval = flow_model.zbot[i]
+        #     hkval = hk_grid.array/24/3600
+        #     a=ax.imshow(hkval[i], cmap='viridis',
+        #               norm=mpl.colors.LogNorm(vmin=2e-5, vmax=2e-5*100))
+        #     ax.set_title(str(i))
+        #     fig.colorbar(a)
+        
+        # ###
+        
+        # modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+        # fig2, ax2 = plt.subplots(1, 1, figsize=(6, 3))
+        # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+        #                             cmap='Blues', alpha=0.5, ax=ax2)
+        # ax2.set_title(model_name, fontsize=10)
+        # ax2.set_ylim(450)
 
-# for i in range(len(flow_model.zbot)):
-#     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-#     zbotval = flow_model.zbot[i]
-#     hkval = hk_grid.array/24/3600
-#     a=ax.imshow(hkval[i], cmap='viridis',
-#               norm=mpl.colors.LogNorm(vmin=2e-5, vmax=2e-5*100))
-#     ax.set_title(str(i))
-#     fig.colorbar(a)
+#%% GRAPH K BEST
 
-# ###
+df = pd.read_csv(BV.simulations_folder+'/'+str(iD_explo)+'_exploration results.csv', sep=';')
 
-modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
-fig2, ax2 = plt.subplots(1, 1, figsize=(6, 3))
-pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-                            cmap='Blues', alpha=0.5, ax=ax2)
-ax2.set_ylim(450)
+fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+ax.plot(df['id_mod_val'], abs(1-df['Indicator']), marker='o')
+ax.set_yscale('log')
 
 #%% ---- EXPLORATION S1 S2 S3
 
-#%% MODPATH PROCESSING
+#%% MODPATH PRE+PRO+POST
 
-if sim_state == 'steady':
-    if success_modflow == True:
-        model_modpath = BV.preprocessing_modpath(model_modflow)
-        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+X = 13
 
-if success_modpath == True:
-    BV.postprocessing_modpath(model_modpath,
-                              ending_point=True,
-                              starting_point=True,
-                              pathlines_shp=True,
-                              particules_shp=True,
-                              random_id=None) # None
+df = pd.read_csv(BV.simulations_folder+'/'+str(iD_explo)+'_exploration results.csv', sep=';')
+
+pathlines_shp = False
+particules_shp = False
+
+# list_id_mod = np.arange(0,27,1)
+list_id_mod = [X]
+
+for id_mod_val in list_id_mod[:]:
+
+    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+    list_model_results = d['list_model_results'][:]
     
-timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                  model_modpath=model_modpath,
-                                                  actual_date=True, 
-                                                  subbasin_results=True,
-                                                  freq_time=freq_time) # or None
+    # for model_name, model_success, model_modflow in zip(list_model_name[8:],
+    #                                                     list_model_success[8:],
+    #                                                     list_model_modflow[8:]):
 
-#%% ---- PLOT  S1 S2 S3
-
-#%% ENDPOINT MODELS
-
-list_selects = list_model_name
-
-fig_cross = True
-
-for model_name, flow_model in zip(list_selects[:], list_flow_model[:]):
-    print(model_name)
-    # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
-    # try:
+    for model_name, model_success, model_modflow, model_results in zip(list_model_name[:],
+                                                                       list_model_success[:],
+                                                                       list_model_modflow[:],
+                                                                       list_model_results[:]):
+                
+        K1 = df.loc[X,'K1']
+        K2 = df.loc[X,'K2']
+        K3 = df.loc[X,'K3']
         
-    id_model = int(model_name.split('_')[1])
-            
-    ### MODEL ###
-    # list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
-    # model_name = list_path[-1].split('\\')[-1]
-    mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
-    
-    fname = simulations_folder+model_name+'/'+model_name+'.hds'
-    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
-    # grid_model = flopy.discretization.grid.Grid(mf)
-    grid_model = mf.modelgrid
-    hk_grid = mf.upw.hk
-    # sy_grid = mf.upw.sy
-    sy_grid = flow_model.ps
-    # sr_model = flopy.utils.reference.SpatialReference()
-    
-    if fig_cross == True:
+        BV.hydraulic.update_hyd_cond(K1)
+        verti_k_thetero = [ [K2, [topo_init-scorie_init, topo_init-bottom_init]],
+                            [K3, [topo_init-topo_init, topo_init-scorie_init]],
+                            ] # [ [k2, [array1, array2]] ] # verti_k_tconst = None # [ [k2, [0, thick_k2]] ]
+        BV.hydraulic.update_cond_vertical(verti_k_thetero)
         
-        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
-        # ax = fig.add_subplot(1, 1, 1)
-        axs = axs.ravel()
-        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
-        linecollection = modelxsect.plot_grid()
-        hdobj = flopy.utils.HeadFile(fname)
-        head_data = hdobj.get_data()
-        modelxsect.plot_array(hk_grid.array, ax=axs[0], cmap='YlOrRd_r')
-        axs[0].set_xlim(0, 8000)
-        axs[1].set_xlim(0, 8000)
-        axs[0].set_ylim(550, 1400)
-        pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-                                    cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[1].set_ylim(550, 1400)
-        axs[0].set_title('Hydraulic conductivity')
-        axs[1].set_title('Watertable and hydraulic gradient')
-        fig.suptitle(model_name, y=1.05, fontsize=8)
-        
-        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
-        ext_mod = bv_box.geometry.total_bounds
-        
-        # axs[0].set_ylim(150, 350)
-        # axs[1].set_ylim(150, 350)
-        
-        fig.savefig(fig_path+'cross_section_h_'+model_name+'.png', dpi=300, bbox_inches='tight')
-
-        fig, axs = plt.subplots(1, 2, figsize=(12, 3))
-        # ax = fig.add_subplot(1, 1, 1)
-        axs = axs.ravel()
-        modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
-        linecollection = modelxsect.plot_grid()
-        hdobj = flopy.utils.HeadFile(fname)
-        head_data = hdobj.get_data()
-        modelxsect.plot_array(sy_grid, ax=axs[0], cmap='YlGn_r')
-        axs[0].set_xlim(0, 8000)
-        axs[1].set_xlim(0, 8000)
-        axs[0].set_ylim(700, 1100)
-        pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
-                                    cmap='Blues', alpha=0.5, ax=axs[1])
-        axs[1].set_ylim(700, 1100)
-        axs[0].set_title('Porosity')
-        axs[1].set_title('Watertable and hydraulic gradient')
-        fig.suptitle(model_name, y=1.05, fontsize=8)
-        
-        bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
-        ext_mod = bv_box.geometry.total_bounds
-        
-        # axs[0].set_ylim(150, 350)
-        # axs[1].set_ylim(150, 350)
-        
-        fig.savefig(fig_path+'cross_section_v_'+model_name+'.png', dpi=300, bbox_inches='tight')
-    
-    crs_code = 2154
-
-    """
-    def reproj_approx_points(shp_name, crs_code):
-        shp = gpd.read_file(simulations_folder+
-                            model_name+'/'+'_pathlines/'+
-                            shp_name+'.shp')
-        ext_shp = shp.geometry.total_bounds
-        shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
-        # shp.to_crs(utm_crs)
-        print(ext_shp)
-        x = (shp.geometry.x) + ext_mod[0] # - ext_shp[0] # 6.39e5 
-        y = (shp.geometry.y) + ext_mod[1] # - ext_shp[3] # 1.78e6 
-        gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(x, y))
-        gdf.to_file(simulations_folder+
-                    model_name+'/'+'_pathlines/'+
-                    shp_name+'.shp')
-    """
-    
-    ### POINTS ###
-    print('Create shapefile ending and starting points')
-    endobj = flopy.utils.EndpointFile(simulations_folder+
-                                      model_name+'/'+model_name+'.mpend')
-    e = endobj.get_alldata()
-    
-    endobj.write_shapefile(endpoint_data=e,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'ending.shp',
-                            direction='ending',
-                            mg=grid_model, epsg=crs_code, sr=None)
-    path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
-    shp_sim = gpd.read_file(path_pathlines+'ending.shp')
-    shp_sim.time = shp_sim.time / 365
-    shp_sim.to_file(simulations_folder+
-                         model_name+'/'+'_pathlines/'+
-                         'ending_years.shp') # time in years !
-    masked = shp_sim.copy()
-    masked = masked[masked.time > 0.1] # ONLY SUP ONE MONTH APPROX
-    masked = masked[masked.k == 1] # ONLY OUT FIRST CELL
-    masked = masked[masked.zloc != 1] # NOT IN AND OUT SAME CELL
-    if not masked[masked.time > 1000].empty:
-        print('THERE IS CELL > 1000y')
-        if len(masked[masked.time > 1000]) <= (len(masked)*0.05):
-            print('DELETE > 1000y', str(len(masked[masked.time > 1000]))+'/'+
-                                    str((len(masked))))
-            # IF ONLY 5% CELL ARE HIGHER THAN 1000 YEARS : MASKED (OUTLIERS):
-            masked = masked[masked.time <= 1000]
+        if K1==K2==K3 :
+            id_H='HOMOG'
         else:
-            print('NO CELL > 1000y')
-    masked.to_file(simulations_folder+
-                         model_name+'/'+'_pathlines/'+
-                         'ending_years_masked.shp') # time in years !
-    keep_particules = masked.particleid
-    keep_particules = keep_particules.tolist()
-    
-    endobj.write_shapefile(endpoint_data=e,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'starting.shp',
-                            direction='starting',
-                            mg=grid_model, epsg=crs_code, sr=None)
-    path_pathlines = simulations_folder+model_name+'/'+'_pathlines/'
-    shp_sim = gpd.read_file(path_pathlines+'starting.shp')
-    shp_sim.time = shp_sim.time / 365
-    shp_sim.to_file(simulations_folder+
-                         model_name+'/'+'_pathlines/'+
-                         'starting_years.shp') # time in years !
-    
-    # reproj_approx_points('ending')
-    # reproj_approx_points('starting')
-    
-    #### SELECT PARTICLUES ####
-    if not os.path.exists(simulations_folder+'_id_particules_random.data'):
-        id_particules_random = random.sample(keep_particules[:-1], 1000)
-        with open(simulations_folder+'_id_particules_random.data', 'wb') as f:
-            pickle.dump(id_particules_random, f)
-    # else:
-    #     with open(simulations_folder+'_id_particules_random.data', 'rb') as f:
-    #         id_particules_random = pickle.load(f)
-
-    #     print('VALID '+model_name)
-    # except:
-    #     print('ERROR '+model_name)
-    #     pass
-
-#%% PATHLINES MODELS
-
-list_path = sorted(glob.glob(simulations_folder+typ+'*'), key=os.path.getmtime, reverse=True)
-list_selects = list_model_name
-
-for model_name in list_selects[:]:
-
-    ### MODEL ###
-
-    mf = flopy.modflow.Modflow.load(simulations_folder+model_name+'/'+model_name+'.nam')
-    
-    fname = simulations_folder+model_name+'/'+model_name+'.hds'
-    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
-    # grid_model = flopy.discretization.grid.Grid(mf)
-    grid_model = mf.modelgrid
-    hk_grid = mf.upw.hk
-    # sr_model = flopy.utils.reference.SpatialReference()
-
-    bv_box = gpd.read_file(stable_folder+'geographic/'+'box_buff.shp')
-    ext_mod = bv_box.geometry.total_bounds
-    
-    crs_code = 2154 # 32620 # 2154
-    
-    ### PATHLINES ###
-    print('Create shapefile particules and pathlines')
-    pthobj = flopy.utils.PathlineFile(simulations_folder+
-                                      model_name+'/'+model_name+'.mppth')
-    pth_data = pthobj.get_alldata()
-    
-    for k in range(len(pth_data)):
-        pth_data[k].time = pth_data[k].time / 365
-    # from operator import itemgetter
-    # n = itemgetter(*keep_particules)(pth_data)
-    
-    with open(simulations_folder+'_id_particules_random.data', 'rb') as f:
-        id_particules_random = pickle.load(f)
-    
-    # pth_data_rand = [pth_data[i] for i in id_particules_random[:-1]]
-
-    # x= list(map(lambda i: pth_data[i], keep_particules))
-    # x = pth_data[::2]
+            id_H='HETER'
         
-    # id_particules_random = random.sample(keep_particules[:-1], 1000)
-    
-    # random.sample(keep_particules[:-1], 1000)
-    
-    pth_data_save = []
-    for o, i in enumerate(id_particules_random):
-        print(o, i, len(id_particules_random))
-        for j in pth_data:
-            if i == j.particleid[0]:
-                pth_data_save.append(j)
+        id_mod_val = X
+        cp_each = 0
+        
+        Sy1_cp = 0
+        for Sy1 in list_Sy1[:]:
+            Sy2_cp = 0
+            for Sy2 in list_Sy2[:]:
+                Sy3_cp = 0
+                for Sy3 in list_Sy3[:]:
                     
-    # pthobj.write_shapefile(pathline_data=pth_data,
-    #                         shpname=simulations_folder+
-    #                                 model_name+'/'+'_pathlines/'+
-    #                                 'particlues.shp',
-    #                         one_per_particle=False, 
-    #                         direction='ending',
-    #                         mg=grid_model, epsg=crs_code, sr=None)
-        
-    # pth_data_springs = []
-    # for o, i in enumerate(sp_particules):
-    #     print(o, i, len(sp_particules))
-    #     for j in pth_data_save:
-    #         if i == j.particleid[0]:
-    #             pth_data_springs.append(j)
-    
-    """
-    ### ALL PATHLINES
-    print('ALL PATHLINES')
-    pthobj.write_shapefile(pathline_data=pth_data,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'pathlines.shp',
-                            one_per_particle=True, 
-                            direction='ending',
-                            mg=grid_model, epsg=crs_code, sr=None)
-    
-    ### ALL PARTICULES
-    print('ALL PARTICULES')
-    pthobj.write_shapefile(pathline_data=pth_data,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'particules.shp',
-                            one_per_particle=False, 
-                            direction='ending',
-                            mg=grid_model, epsg=crs_code, sr=None)
-    """
-    
-    ### 1000 pathlines
-    print('1000 pathlines')
-    pthobj.write_shapefile(pathline_data=pth_data_save,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'pathlines_1000.shp',
-                            one_per_particle=True, 
-                            direction='ending',
-                            mg=grid_model, epsg=crs_code, sr=None)
-    
-    ### 1000 particules
-    print('1000 particules')
-    pthobj.write_shapefile(pathline_data=pth_data_save,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'particules_1000.shp',
-                            one_per_particle=False,
-                            direction='ending',
-                            mg=grid_model, epsg=crs_code, sr=None)
+                    BV.hydraulic.update_porosity(Sy1)
+                    verti_sy_thetero = [ [Sy2, [topo_init-scorie_init, topo_init-bottom_init]],
+                                         [Sy3, [topo_init-topo_init, topo_init-scorie_init]],
+                                         ] # [ [k2, [array1, array2]] ] # verti_k_tconst = None # [ [k2, [0, thick_k2]] ]
+                    BV.hydraulic.update_poro_vertical(verti_sy_thetero)
+                    
+                    def Ss_formula(Sy):
+                        Ss_value = 1000*9.8*(1e-10+(Sy*4.4e-10)) # rho*g*(alpha+nBeta)
+                        return Ss_value
+                    
+                    BV.hydraulic.update_ss(Ss_formula(Sy1))
+                    verti_ss_thetero = [ [Ss_formula(Sy2), [topo_init-scorie_init, topo_init-bottom_init]],
+                                         [Ss_formula(Sy3), [topo_init-topo_init, topo_init-scorie_init]],
+                                         ] # [ [k2, [array1, array2]] ] # verti_k_tconst = None # [ [k2, [0, thick_k2]] ]
+                    BV.hydraulic.update_ss_vertical(verti_ss_thetero)
+                    
+                    # Ss_value = 1e-5 # rho*g*(alpha+nBeta)
+                    # BV.hydraulic.update_ss(Ss_value)
+                    
+                    if Sy1==Sy2==Sy3 :
+                        id_H_Sy ='HOMOG'
+                    else:
+                        id_H_Sy ='HETER'
+                    
+                    # model_name = iD_explo+'_'+str('model_MP')+'-'+str(id_mod_val)+'_'+\
+                    #              str(id_H)+'_'+'modelK_'+str(X)+'_'+\
+                    #              str(id_H_Sy)+'_'+\
+                    #              str(Sy1_cp)+'-'+str(Sy2_cp)+'-'+str(Sy3_cp)+'_'+\
+                    #              str(Sy1*100)+'-'+str(Sy2*100)+'-'+str(Sy3*100)
+                                 
+                    model_name = iD_explo+'_'+str('model')+'-'+str(id_mod_val)+'_'+\
+                                 str(id_H)+'_'+\
+                                 str(1)+'-'+str(1)+'-'+str(1)+'_'+\
+                                 str("{:.2e}".format(K1/24/3600))+'-'+str("{:.2e}".format(K2/24/3600))+'-'+str("{:.2e}".format(K3/24/3600))
+                                 # str(k1_cp)+'-'+str(k2_cp)+'-'+str(k3_cp)+'_'+\
+                                     
+                    print(model_name)
+                    
+                    BV.settings.update_model_name(model_name)
+
+                    model_modflow = BV.preprocessing_modflow(for_calib=False)
+                    
+                    hk = model_modflow.hk
+                    ps = model_modflow.ps
+                    
+                    # fig0, ax0 = plt.subplots(1,2)
+                    # ax0 = ax0.ravel()
+                    # im = ax0[0].imshow(hk[0], cmap='rainbow', norm=mpl.colors.LogNorm(vmin=hk.min(), vmax=hk.max()))
+                    # fig.colorbar(im)
+                    # sy_grid = model_modflow.ps
+                    # imp = ax0[1].imshow(ps[0], cmap='rainbow',
+                    #                     # norm=mpl.colors.LogNorm(vmin=hk.min(), vmax=hk.max())
+                    #                     )
+                    # fig.colorbar(imp)
+                    
+                    model_modpath = BV.preprocessing_modpath(model_modflow)
+                    success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+                    
+                    if success_modpath == True:
+                        BV.postprocessing_modpath(model_modpath,
+                                                  ending_point=True,
+                                                  starting_point=True,
+                                                  pathlines_shp=pathlines_shp,
+                                                  particules_shp=particules_shp,
+                                                  random_id=None) # None
+                        
+                        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                                          model_modpath=model_modpath,
+                                                                          actual_date=True, 
+                                                                          subbasin_results=True,
+                                                                          freq_time='D')
+                    
+                        path_pathlines = simulations_folder+model_name+'/'+'_postprocess/_particules/'
+                        shp_sim = gpd.read_file(path_pathlines+'ending.shp')
+                        shp_sim.time = shp_sim.time / 365
+                        shp_sim.to_file(simulations_folder+
+                                             model_name+'/'+'_postprocess/_particules/'+
+                                             'ending_years.shp') # time in years !
+                        
+                        path_pathlines = simulations_folder+model_name+'/'+'_postprocess/_particules/'
+                        shp_sim = gpd.read_file(path_pathlines+'starting.shp')
+                        shp_sim.time = shp_sim.time / 365
+                        shp_sim.to_file(simulations_folder+
+                                             model_name+'/'+'_postprocess/_particules/'+
+                                             'starting_years.shp') # time in years !
+                        
+                        ########################################## BEGIN WEIGHTED ##########################################
+                        modeldir = simulations_folder+model_name+'/'
+                        namepath = model_name
+                        recharge = BV.climatic.recharge
+                        mf = model_modflow.mf
+                        mymodel       = mf
+                        mybas         = mymodel.get_package('BAS6')
+                        mydis         = mymodel.get_package('DIS')
+                        ncol          = np.unique(mydis.ncol)[0]
+                        nrow          = np.unique(mydis.nrow)[0]
+                        nlay          = np.unique(mydis.nlay)[0]
+                        dcol          = np.unique(mydis.delc)[0]
+                        drow          = np.unique(mydis.delr)[0]    
+                        period        = 0
+                        step          = 0
+                        import flopy.utils.postprocessing as pp                    
+                        Qx, Qy, Qz_rech  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None, 
+                                                                  kstpkper=(step, period), totim=None,boundary_ifaces={'RECHARGE': 6}, hdsfile=modeldir+namepath+'.hds', 
+                                                                  model=mymodel)
+                        Qx_2, Qy_2, Qz_drain  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None, 
+                                                                       kstpkper=(step, period), totim=None,boundary_ifaces={'DRAINS': 6}, hdsfile=modeldir+namepath+'.hds', 
+                                                                       model=mymodel)
+                        rech_loop = np.zeros([nrow,ncol])
+                        for i in range(0,nrow):
+                            for j in range (0,ncol):
+                                if Qz_rech[0,i,j] == 0:
+                                    rech_loop[i,j] =-recharge*dcol*drow
+                                else:
+                                    rech_loop[i,j] =Qz_rech[0,i,j]                                   
+                        rech = -rech_loop
+                        rech[-1,:] = 0
+                        rech[:,-1] = 0
+                        rech[:,0] = 0
+                        drain = Qz_drain[0,:,:]
+                        sflux = rech - drain
+                        sflux[sflux > rech] = rech.max()
+                        sflows = sflux/drow/dcol                        
+                        toolbox.export_tif(BV.geographic.watershed_box_buff_dem, sflows, -9999,
+                                           simulations_folder+model_name+'/'+'_postprocess/_particules/'+'sflows_weighted.tif')
+                        wbt.extract_raster_values_at_points(simulations_folder+model_name+'/'+'_postprocess/_particules/'+'sflows_weighted.tif', 
+                                                            simulations_folder+model_name+'/'+'_postprocess/_particules/'+'starting_years.shp', 
+                                                            out_text=False)                        
+                        start = gpd.read_file(simulations_folder+model_name+'/'+'_postprocess/_particules/'+'starting_years.shp')
+                        end = gpd.read_file(simulations_folder+model_name+'/'+'_postprocess/_particules/'+'ending_years.shp')
+                        end['VALUE1_start'] = start['VALUE1']
+                        # end[end['VALUE1_start']==-9999] = np.nan
+                        # end[end['VALUE1']<0] = 0
+                        end['rchPerc'] = end['VALUE1_start'] / recharge
+                        end['rchPerc'][end['rchPerc']<0] = 0
+                        end['time_winput'] = (end['time'])*end['rchPerc']
+                        end[end['time_winput']<=0] = np.nan
+                        ########################################## END WEIGHTED ##########################################
+                                                
+                        masked = end.copy()
+                        masked = masked[masked.k <= 1] # ONLY OUT FIRST CELL
+                        masked = masked[masked.i0.astype(str)+'-'+masked.j0.astype(str)!=
+                                        masked.i.astype(str)+'-'+masked.j.astype(str)] # NOT IN AND OUT SAME CELL
+                        masked.to_file(simulations_folder+
+                                             model_name+'/'+'_postprocess/_particules/'+
+                                             'ending_years_masked_withoutsiders.shp') # time in years !
+                        if not masked[masked['time_winput'] > 1000].empty:
+                            print('THERE IS CELL > 1000y')
+                            if len(masked[masked.time > 1000]) <= (len(masked)*0.05):
+                                print('DELETE > 1000y', str(len(masked[masked['time_winput'] > 1000]))+'/'+
+                                                        str((len(masked))))
+                                # IF ONLY 5% CELL ARE HIGHER THAN 1000 YEARS : MASKED (OUTLIERS):
+                                masked = masked[masked['time_winput'] <= 1000]
+                            else:
+                                print('NO CELL > 1000y')
+                        masked.to_file(simulations_folder+
+                                             model_name+'/'+'_postprocess/_particules/'+
+                                             'ending_years_masked.shp') # time in years !
+                        keep_particules = masked.particleid
+                        keep_particules = keep_particules.tolist()
+                            
+                        #### SELECT PARTICLUES ####
+                        if not os.path.exists(simulations_folder+'_id_particules_random.data'):
+                            id_particules_random = random.sample(keep_particules[:-1], 1000)
+                            with open(simulations_folder+'_id_particules_random.data', 'wb') as f:
+                                pickle.dump(id_particules_random, f)
+
+                        crs_code = 2154
+                        
+                        ### PATHLINES ###
+                        print('Create shapefile particules and pathlines')
+                        pthobj = flopy.utils.PathlineFile(simulations_folder+model_name+'/'+model_name+'.mppth')
+                        pth_data = pthobj.get_alldata()
+                        
+                        for k in range(len(pth_data)):
+                            pth_data[k].time = pth_data[k].time / 365
+
+                        with open(simulations_folder+'_id_particules_random.data', 'rb') as f:
+                            id_particules_random = pickle.load(f)
+                        
+                        pth_data_save = []
+                        for o, i in enumerate(id_particules_random):
+                            print(o, i, len(id_particules_random))
+                            for j in pth_data:
+                                if i == j.particleid[0]:
+                                    pth_data_save.append(j)
+                                        
+                        """
+                        ### ALL PATHLINES
+                        print('ALL PATHLINES')
+                        pthobj.write_shapefile(pathline_data=pth_data,
+                                                shpname=simulations_folder+
+                                                        model_name+'/'+'_pathlines/'+
+                                                        'pathlines.shp',
+                                                one_per_particle=True, 
+                                                direction='ending',
+                                                mg=grid_model, epsg=crs_code, sr=None)
+                        
+                        ### ALL PARTICULES
+                        print('ALL PARTICULES')
+                        pthobj.write_shapefile(pathline_data=pth_data,
+                                                shpname=simulations_folder+
+                                                        model_name+'/'+'_pathlines/'+
+                                                        'particules.shp',
+                                                one_per_particle=False, 
+                                                direction='ending',
+                                                mg=grid_model, epsg=crs_code, sr=None)
+                        """
+                        
+                        grid_model = mf.modelgrid
+                        
+                        ### 1000 pathlines
+                        print('1000 pathlines')
+                        pthobj.write_shapefile(pathline_data=pth_data_save,
+                                                shpname=simulations_folder+
+                                                        model_name+'/'+'_postprocess/_particules/'+
+                                                        'pathlines_1000.shp',
+                                                one_per_particle=True, 
+                                                direction='ending',
+                                                mg=grid_model, epsg=crs_code, sr=None)
+                        
+                        ### 1000 particules
+                        # print('1000 particules')
+                        # pthobj.write_shapefile(pathline_data=pth_data_save,
+                        #                         shpname=simulations_folder+
+                        #                                 model_name+'/'+'_postprocess/_particules/'+
+                        #                                 'particules_1000.shp',
+                        #                         one_per_particle=False,
+                        #                         direction='ending',
+                        #                         mg=grid_model, epsg=crs_code, sr=None)
+                        
+                        ### FOR SPRINGS
+                        path_pathlines = simulations_folder+model_name+'/'+'_postprocess/_particules/'
+
+                        path_obs = data_path+'_CFC/'+'target_cfc_v1.shp'
+                        shp_obs = gpd.read_file(path_obs)
+                        shp_obs['geometry'] = shp_obs.geometry.buffer(75)
+                        shp_obs.to_file(simulations_folder+
+                                        model_name+'/'+'_postprocess/_particules/'+
+                                        'targets_pathlines_points.shp', encoding='utf-8')
+                        
+                        masked = gpd.read_file(simulations_folder+
+                                              model_name+'/'+'_postprocess/_particules/'+
+                                              'ending_years_masked.shp') # time in years !
+                        intersect = gpd.overlay(masked, shp_obs, how='intersection')
+                        
+                        sp_particules = intersect.particleid
+                        sp_particules = sp_particules.tolist()
+                        
+                        # pth_data_springs = [pth_data[i] for i in sp_particules[:]]
+                        
+                        shp_all_pathlines = gpd.read_file(simulations_folder+
+                                                  model_name+'/'+'_postprocess/_particules/'+
+                                                  'pathlines_1000.shp')
+                        keep = np.isin(shp_all_pathlines, sp_particules)
+                        shp_springs = shp_all_pathlines[keep]
+                        shp_springs.to_file(simulations_folder+
+                                                  model_name+'/'+'_postprocess/_particules/'+
+                                                  'pathlines_1000_springs.shp')
+                        
+                        print(shp_springs['time'].mean(), shp_springs['time'].median())
+                        
+                        # from distutils.dir_util import copy_tree
+                        # toolbox.create_folder(simulations_folder+model_name+'/'+'_matchingstreams'+'_'+str(cp_each)+'/')
+                        # toolbox.create_folder(simulations_folder+model_name+'/'+'_postprocess'+'_'+str(cp_each)+'/')
+                        # copy_tree(simulations_folder+model_name+'/'+'_matchingstreams/', simulations_folder+model_name+'/'+'_matchingstreams'+'_'+str(cp_each)+'/')
+                        # copy_tree(simulations_folder+model_name+'/'+'_postprocess/', simulations_folder+model_name+'/'+'_postprocess'+'_'+str(cp_each)+'/')
+                        
+                        # path_match = simulations_folder+model_name+'/'+'_matchingstreams'+'_'+str(cp_each)+'/'
+                        # path_post = simulations_folder+model_name+'/'+'_postprocess'+'_'+str(cp_each)+'/'
+                        # if os.path.exists(path_match):
+                        #     os.remove(path_match)
+                            
+                        import shutil
+                        if not os.path.exists(simulations_folder+model_name+'/'+'_matchingstreams'+'_'+str(cp_each)+'/'):
+                            shutil.copytree(simulations_folder+model_name+'/'+'_matchingstreams/', simulations_folder+model_name+'/'+'_matchingstreams'+'_'+str(cp_each)+'/')
+                        if not os.path.exists(simulations_folder+model_name+'/'+'_postprocess'+'_'+str(cp_each)+'/'):
+                            shutil.copytree(simulations_folder+model_name+'/'+'_postprocess/', simulations_folder+model_name+'/'+'_postprocess'+'_'+str(cp_each)+'/')
+                        
+                    cp_each += 1
+                
+                    Sy3_cp += 1
+                Sy2_cp += 1    
+            Sy1_cp += 1  
+
+#%% MODPATH EXTRACT
+
+#%% ---- PLOT S1 S2 S3
+
+#%% GRAPH Φ BEST
+
 
 #%% ---- NOTES
-
 
             # df.loc[id_mod_val,'iD_explo'] = iD_explo
             # df.loc[id_mod_val,'id_mod_val'] = id_mod_val

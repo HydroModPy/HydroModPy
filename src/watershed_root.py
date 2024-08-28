@@ -610,6 +610,7 @@ class Watershed:
                                         cond_decay=self.hydraulic.cond_decay,
                                         verti_cond=self.hydraulic.verti_cond,
                                         verti_poro=self.hydraulic.verti_poro,
+                                        verti_ss=self.hydraulic.verti_ss,
                                         cond_drain=self.hydraulic.cond_drain,
                                         porosity=self.hydraulic.porosity,
                                         ss=self.hydraulic.ss,

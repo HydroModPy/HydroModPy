@@ -62,7 +62,7 @@ class Modflow:
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
-                 verti_cond=None, verti_poro=None,
+                 verti_cond=None, verti_poro=None, verti_ss=None,
                  hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
@@ -207,6 +207,7 @@ class Modflow:
         
         self.verti_cond = verti_cond
         self.verti_poro = verti_poro
+        self.verti_ss = verti_ss
         self.cond_drain = cond_drain
         
         #%% Specific modifications
@@ -467,7 +468,20 @@ class Modflow:
                     poro_d2 = (self.dem - d2)
                     mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
                     self.ps[i][mask] = sy_val
-                    # print(k_val)            
+                    # print(k_val)
+                
+            for j in range(len(self.verti_ss)):
+                # print('j', j)
+                for i in range(len(self.zbot)):
+                    # print('i', i)
+                    ss_val = self.verti_ss[j][0]
+                    d1 = self.verti_ss[j][1][0]
+                    d2 = self.verti_ss[j][1][1]
+                    ss_d1 = (self.dem - d1)
+                    ss_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= ss_d1) & (self.zbot[i] >= ss_d2))
+                    self.ss[i][mask] = ss_val
+                    # print(k_val)   
         
         # Lateral heterogeneity of hk ?
         # for i in range(0,len(self.number_structure)):
@@ -640,7 +654,7 @@ class Modflow:
             imsy = modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[1])
             # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
             # modelxsect2.plot_grid(ax=axs[1])
-            axs[1].set_title('Column, θ')
+            axs[1].set_title('Column, Φ')
             axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
             
@@ -789,7 +803,7 @@ class Modflow:
         self.dict_accumulation_flux = {}
         self.dict_saturated_storage = {}
         self.dict_groundwater_storage = {}
-        self.dict_residence_times = {}
+        # self.dict_residence_times = {}
         self.dict_persistency_index = {}
         self.dict_intermittency_monthly = {}
         self.dict_intermittency_weekly = {}
