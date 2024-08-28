@@ -1286,44 +1286,44 @@ for model_name in list_selects[:]:
             
     shp_starting_shal = shp_starting[np.isin(shp_starting.particleid, superf_id)]
     shp_starting_shal.to_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_starting_shal.shp') # time in years !
     
     shp_starting_deep = shp_starting[np.isin(shp_starting.particleid, profon_id)]
     shp_starting_deep.to_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_starting_deep.shp') # time in years !
     
     shp_ending_shal = shp_ending[np.isin(shp_ending.particleid, superf_id)]
     shp_ending_shal.to_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_shal.shp') # time in years !
     
     shp_ending_deep = shp_ending[np.isin(shp_ending.particleid, profon_id)]
     shp_ending_deep.to_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_deep.shp') # time in years !
     
     if active_pathlines == True:
 
         shp_pathlines_shal = shp_pathlines[np.isin(shp_pathlines.particleid, shalid)]
         shp_pathlines_shal.to_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_pathlines_shal.shp') # time in years !
         
         shp_pathlines_deep = shp_pathlines[np.isin(shp_pathlines.particleid, deepid)]
         shp_pathlines_deep.to_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_pathlines_deep.shp') # time in years !
         
         shp_particules_shal = shp_particules[np.isin(shp_particules.particleid, shalid)]
         shp_particules_shal.to_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_particules_shal.shp') # time in years !
         
         shp_particules_deep = shp_particules[np.isin(shp_particules.particleid, deepid)]
         shp_particules_deep.to_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_particules_deep.shp') # time in years !
 
     """
@@ -1373,18 +1373,18 @@ for i, model_name in enumerate(list_selects[:]):
     ######## KEEP PATHLINES DEEP @@@@@@@@@@@@@
     
     shp_starting_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_starting_deep.shp') # time in years !
     
     shp_ending_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_deep.shp') # time in years !
     
     clip_shp_ending_deep = shp_ending_deep.clip(shp_contour)
     
     try:
         clip_shp_ending_deep.to_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_ending_deep_inside.shp')
     
         id_deep_inside = clip_shp_ending_deep.particleid
@@ -1392,7 +1392,7 @@ for i, model_name in enumerate(list_selects[:]):
         shp_starting_deep_inside = shp_starting_deep[shp_starting_deep['particleid'].isin(id_deep_inside)]
         
         shp_starting_deep_inside.to_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_starting_deep_inside.shp')
     except:
         pass
@@ -1441,26 +1441,29 @@ for i, model_name in enumerate(list_selects[:]):
     
     pthobj.write_shapefile(pathline_data=pth_data_save,
                             shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
+                                    model_name+'/'+'_postprocess/_particules/'+
                                     'pathlines_deep_inside.shp',
                             one_per_particle=True, 
                             direction='ending',
                             mg=grid_model, epsg=crs_code, sr=None)
     
-    pthobj.write_shapefile(pathline_data=pth_data_save,
-                            shpname=simulations_folder+
-                                    model_name+'/'+'_pathlines/'+
-                                    'particules_deep_inside.shp',
-                            one_per_particle=False, 
-                            direction='ending',
-                            mg=grid_model, epsg=crs_code, sr=None)
+    try:
+        pthobj.write_shapefile(pathline_data=pth_data_save,
+                                shpname=simulations_folder+
+                                        model_name+'/'+'_postprocess/_particules/'+
+                                        'particules_deep_inside.shp',
+                                one_per_particle=False, 
+                                direction='ending',
+                                mg=grid_model, epsg=crs_code, sr=None)
+    except:
+        pass
     
     pathlines_deep_inside = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'pathlines_deep_inside.shp') # time in years !
     pathlines_deep_inside_filter = pathlines_deep_inside[pathlines_deep_inside.k<=1]
     pathlines_deep_inside_filter.to_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'pathlines_deep_inside_filter.shp')
     
 #%% DECREASE NUMBER PATHLINES
@@ -1471,28 +1474,27 @@ list_selects = list_model_name[:]
 for model_name in list_selects[:]:
 
     shp_1000_particules = gpd.read_file(simulations_folder+
-                        model_name+'/'+'_pathlines/'+
+                        model_name+'/'+'_postprocess/_particules/'+
                         'particules_1000.shp')
-    
     shp_100_particules = shp_1000_particules[np.isin(shp_1000_particules.particleid, np.random.choice(shp_1000_particules.particleid, 10))]
     shp_100_particules.to_file(simulations_folder+
-                        model_name+'/'+'_pathlines/'+
+                        model_name+'/'+'_postprocess/_particules/'+
                         'particules_10.shp')
     
     shp_particules_shal = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_particules_shal.shp') # time in years !
-    shp_x_particules_shal = shp_particules_shal[np.isin(shp_particules_shal.particleid, np.random.choice(shp_particules_shal.particleid, 50))]
+    shp_x_particules_shal = shp_particules_shal[np.isin(shp_particules_shal.particleid, np.random.choice(shp_particules_shal.particleid, 10))]
     shp_x_particules_shal.to_file(simulations_folder+
-                        model_name+'/'+'_pathlines/'+
-                        'shp_x_particules_shal.shp')
+                        model_name+'/'+'_postprocess/_particules/'+
+                        'shp_particules_shal_10.shp')
     shp_particules_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_particules_deep.shp') # time in years !
-    shp_x_particules_deep = shp_particules_deep[np.isin(shp_particules_deep.particleid, np.random.choice(shp_particules_deep.particleid, 25))]
+    shp_x_particules_deep = shp_particules_deep[np.isin(shp_particules_deep.particleid, np.random.choice(shp_particules_deep.particleid, 10))]
     shp_x_particules_deep.to_file(simulations_folder+
-                            model_name+'/'+'_pathlines/'+
-                            'shp_x_particules_deep.shp')
+                            model_name+'/'+'_postprocess/_particules/'+
+                            'shp_particules_deep_10.shp')
     
 #%% DISTRIBUTION GOOD FLUX
 
@@ -1521,14 +1523,14 @@ for model_name in list_selects[:]:
                                base = stable_folder+'geographic/'+'watershed_dem.tif')
     contour = imageio.imread(stable_folder+'geographic/'+'watershed_contour.tif')
     contour = np.ma.masked_where(contour <= 0, contour)
-    streams = imageio.imread(stable_folder+'hydrology/'+'L_Quiock_creek2.tif')
+    streams = imageio.imread(stable_folder+'hydrography/'+'L_Quiock_creek2.tif')
     dem_path = BV.geographic.watershed_dem
     dem_im = imageio.imread(dem_path)
     dem_masked = np.ma.masked_where(dem_im < -100, dem_im)
     d8_path = stable_folder+'/geographic/watershed_buff_direc.tif'
-    acc_path = simulations_folder+model_name+'/'+'_watershed/_tifs/accumulation_flux_t(0).tif'
-    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
-    outflow_path = simulations_folder+model_name+'/'+'_watershed/_tifs/outflow_drain_t(0).tif'
+    acc_path = simulations_folder+model_name+'/'+'_postprocess/_rasters/accumulation_flux_t(0).tif'
+    down_path = simulations_folder+model_name+'/'+'_postprocess/_rasters/downslope_flux_t(0).tif'
+    outflow_path = simulations_folder+model_name+'/'+'_postprocess/_rasters/outflow_drain_t(0).tif'
     wbt.downslope_flowpath_length(
         d8_path, 
         down_path, 
@@ -1542,13 +1544,13 @@ for model_name in list_selects[:]:
     out = np.ma.masked_array(imageio.imread(outflow_path), mask=dem_masked.mask)
     out[out<0] = np.nan
     
-    wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+
+    wt_data = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/'+
                               'watertable_elevation_t(0).tif') 
     ###########################################################################
     
     wbt.raster_to_vector_points(
     acc_path, 
-    simulations_folder+model_name+'/'+'_watershed/_tifs/'+\
+    simulations_folder+model_name+'/'+'_postprocess/_rasters/'+\
                               'accumulation_flux_t(0).shp')
     
     # The raster
@@ -1571,7 +1573,7 @@ for model_name in list_selects[:]:
 
     # The shp
 
-    accumul_riv_shp = gpd.read_file(simulations_folder+model_name+'/'+'_watershed/_tifs/'+\
+    accumul_riv_shp = gpd.read_file(simulations_folder+model_name+'/'+'_postprocess/_rasters/'+\
                               'accumulation_flux_t(0).shp')
     accumul_riv_shp = accumul_riv_shp.clip(wt_shp)
     accumul_riv_shp = accumul_riv_shp[accumul_riv_shp['VALUE']>0]
@@ -1584,11 +1586,11 @@ for model_name in list_selects[:]:
     resume_mask['FID'] = accumul_riv_shp.FID.values
             
     shp_ending_shal = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_shal.shp') # time in years !
     
     shp_ending_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_deep.shp') # time in years !
     
     for i, j in enumerate(resume_mask['FID'][:]):
@@ -1611,18 +1613,20 @@ for model_name in list_selects[:]:
         #                               cell_size=cell_size,
         #                               regio_out=True)
         
+        toolbox.create_folder(simulations_folder+model_name+'/'+'_subbasins/' + '_along_river_v1/')
+
         crs = 'EPSG:32620'
         dfxy = pd.DataFrame({'x': [X_val], 'y': [Y_val]})
         gdf = gpd.GeoDataFrame(dfxy, geometry=gpd.points_from_xy(dfxy['x'], dfxy['y']), crs=crs)
-        outlet_shp = simulations_folder+model_name+'/'+'_subbasins/'  + 'outlet.shp'
+        outlet_shp = simulations_folder+model_name+'/'+'_subbasins/'  + '_along_river_v1/' + 'outlet.shp'
         gdf.to_file(outlet_shp)
-        subwatershed_tif = simulations_folder+model_name+'/'+'_subbasins/' + str(i) + '.tif'
+        subwatershed_tif = simulations_folder+model_name+'/'+'_subbasins/' + '_along_river_v1/' + 'outlet_' + str(i) + '.tif'
         wbt.watershed(direc, outlet_shp, subwatershed_tif, esri_pntr=False)
-        subwatershed_shp = simulations_folder+model_name+'/'+'_subbasins/' + str(i) + '.shp'
+        subwatershed_shp = simulations_folder+model_name+'/'+'_subbasins/' + '_along_river_v1/' + 'outlet_' + str(i) + '.shp'
         wbt.raster_to_vector_polygons(subwatershed_tif, subwatershed_shp)
         wbt.polygon_area(subwatershed_shp)
         
-        sub_catch = gpd.read_file(simulations_folder+model_name+'/'+'_subbasins/' + str(i) + '.shp')
+        sub_catch = gpd.read_file(simulations_folder+model_name+'/'+'_subbasins/' + '_along_river_v1/' + 'outlet_' +  str(i) + '.shp')
         sub_catch.crs = 'EPSG:32620'
         
         sub_shal = shp_ending_shal.clip(sub_catch)
@@ -1646,8 +1650,7 @@ for model_name in list_selects[:]:
     
     # resume_mask['distance_mask_riv'] = resume_mask['distance_mask_riv'] - resume_mask['distance_mask_riv'].min()
     
-    resume_mask.to_csv(BV.simulations_folder+'/'+model_name+'/resume_clean.csv', 
-                       sep=';')
+    resume_mask.to_csv(BV.simulations_folder+'/'+model_name+'/resume_clean.csv', sep=';')
 
 #%% ---- PLOTS
 
@@ -1968,7 +1971,7 @@ plt.tight_layout()
 # fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/'+
 #             'MIXING.png', dpi=300, bbox_inches='tight')
 
-#%% 5 - PLOT MAPS (OR QGIS)
+#%% 4 - PLOT MAPS
 
 dem = rasterio.open(stable_folder + 'geographic/watershed_box_buff_dem.tif')
 
@@ -1993,19 +1996,19 @@ for model_name in list_selects[:]:
     #                           'shp_starting_shal.shp') # time in years !
     
     shp_starting_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_starting_deep.shp') # time in years !
     
     shp_ending_shal = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_shal.shp') # time in years !
     
     shp_ending_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_deep.shp') # time in years !
     
     shp_pathlines_1000 = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'pathlines_1000.shp') # time in years !
     
     fig, ax = plt.subplots(1,1, figsize=(5,5))
@@ -2034,7 +2037,7 @@ for model_name in list_selects[:]:
     try:
         # shp_starting_shal.plot(ax=ax, color='dodgerblue', lw=0, markersize=4)
         shp_starting_deep_inside = gpd.read_file(simulations_folder+
-                                  model_name+'/'+'_pathlines/'+
+                                  model_name+'/'+'_postprocess/_particules/'+
                                   'shp_starting_deep_inside.shp')
         # shp_starting_deep_inside = shp_starting_deep[shp_starting_deep['particleid'].isin(id_deep_inside)]
         shp_starting_deep_inside.plot(ax=ax, color='gold', lw=0, markersize=2)
@@ -2060,55 +2063,39 @@ for model_name in list_selects[:]:
     
     ax.set_title(model_name, fontsize=8)
 
-    # fig.savefig(fig_path+'PLOT CLEAN MAPS'+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(fig_path+'PLOT CLEAN MAPS'+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
     
     # fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/maps_sensitivity/'+
     #             'PLOT CLEAN MAPS'+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
-    
-#%% 5 - PLOT Q SR RTD BEST
+
+#%% 5 - PLOT Q SR RTD SENSITIVITY
 
 list_selects = list_model_name
 
 data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
 
-dem = rasterio.open("C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_box_buff_dem.tif")
-dem_data = imageio.imread("C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem.tif")
+dem = rasterio.open(stable_folder+"geographic/watershed_box_buff_dem.tif")
+dem_data = imageio.imread(stable_folder+"geographic/watershed_dem.tif")
 dem_data[dem_data<0] = np.nan
-shp_contour = gpd.read_file("C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed.shp")
+shp_contour = gpd.read_file(stable_folder+"geographic/watershed.shp")
 shp_box = gpd.read_file(stable_folder+'geographic/box_buff.shp')
-stre = gpd.read_file('C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2.shp')
-wt_mask = gpd.read_file('C:/Users/ronan/SIMULATIONS/GUADELOUPE/watershed_mask.shp')
+stre = gpd.read_file(stable_folder+'/hydrography/L_Quiock_creek2.shp')
+wt_mask = gpd.read_file(data_path+'watershed_mask.shp')
 # subwt_flow = gpd.read_file('C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/subbasin/subbasin_Flowrate/watershed_contour.shp')
-subwt_point = gpd.read_file('C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/snap_flowrate.shp')
+# subwt_point = gpd.read_file(stable_folder+'geographic/snap_flowrate.shp')
 wbt.raster_to_vector_points(BV.geographic.watershed_dem, 
-                            'C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem_pts.shp')
+                            stable_folder+'geographic/watershed_dem_pts.shp')
 wbt.extract_raster_values_at_points(down_path, 
-                                    'C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem_pts.shp')
-dem_down = gpd.read_file('C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem_pts.shp')
-wbt.extract_raster_values_at_points('C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_box_buff_dem.tif', 
-                                    'C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2_pt.shp')
+                                    stable_folder+'geographic/watershed_dem_pts.shp')
+dem_down = gpd.read_file(stable_folder+'geographic/watershed_dem_pts.shp')
+wbt.extract_raster_values_at_points(stable_folder+'geographic/watershed_box_buff_dem.tif', 
+                                    stable_folder+'hydrography/L_Quiock_creek2_pt.shp')
 wbt.extract_raster_values_at_points(down_path, 
-                                    'C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2_pt.shp')
-riv_pts = gpd.read_file('C:/Users/ronan/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2_pt.shp')
-
-field = pd.read_csv('C:/Users/ronan/OneDrive/UNINE/11_Paper/QUIOCK/_data/Field_data.csv',
-                    sep=';')
-field['d_mouth'] = pd.to_numeric(field['d_mouth'])
-field = field.dropna(subset=['Name']) 
-field = field.dropna(subset=['d_mouth'])
-field_filter = field[field['Date']!='May 2019']
-field_filter = field_filter.dropna(subset=['Name']) 
-field_filter = field_filter.dropna(subset=['d_mouth'])
-field_filter = field_filter.sort_values('d_mouth')
-field_filter = field_filter.reset_index()
-field_filter.loc[1,'d_mouth'] = 10
-field_filter.loc[2,'d_mouth'] = 20
-field_filter['d_mouth'] = field_filter ['d_mouth'].astype(int)
-field_filter.loc[12,'d_mouth'] = 472
-field_filter.loc[13,'d_mouth'] = 475
+                                    stable_folder+'hydrography/L_Quiock_creek2_pt.shp')
+riv_pts = gpd.read_file(stable_folder+'hydrography/L_Quiock_creek2_pt.shp')
 
 
-field = pd.read_csv(os.path.join(data_root, 'data_river_uM_2024.csv'), sep = ';', decimal=',', index_col = 0 , encoding = "ISO-8859-1")
+field = pd.read_csv(data_path + '_new_data_2024/' + 'data_river.csv', sep = ';', decimal=',', index_col = 0 , encoding = "ISO-8859-1")
 field = field.reset_index()
 field['d_mouth'] = abs(field['d_mouth'])
 field = field.dropna(subset=['Name']) 
@@ -2124,26 +2111,28 @@ field_filter['d_mouth'] = field_filter ['d_mouth'].astype(int)
 field_filter.loc[12,'d_mouth'] = 472
 field_filter.loc[13,'d_mouth'] = 475
 
-for model_name in list_selects[1:2]:
+for ip, model_name in enumerate(list_selects[:]):
+    
+    print(model_name)
     
     cpt = int(model_name.split('_')[1]) - 1
     
-    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
+    down_path = simulations_folder+model_name+'/'+'_postprocess/_rasters/downslope_flux_t(0).tif'
     wbt.extract_raster_values_at_points(down_path, 
-                                        simulations_folder+model_name+'/'+'_pathlines/'+'shp_ending_shal.shp', 
+                                        simulations_folder+model_name+'/'+'_postprocess/_particules/'+'shp_ending_shal.shp', 
                                         out_text=False)
     wbt.extract_raster_values_at_points(down_path, 
-                                        simulations_folder+model_name+'/'+'_pathlines/'+'shp_ending_deep.shp', 
+                                        simulations_folder+model_name+'/'+'_postprocess/_particules/'+'shp_ending_deep.shp', 
                                         out_text=False)
     
     shp_ending_shal = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_shal.shp') # time in years !
     shp_ending_shal = shp_ending_shal[shp_ending_shal['VALUE1']>0]
     shp_ending_shal = shp_ending_shal.clip(shp_contour)
     
     shp_ending_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
+                              model_name+'/'+'_postprocess/_particules/'+
                               'shp_ending_deep.shp') # time in years !
     shp_ending_deep = shp_ending_deep[shp_ending_deep['VALUE1']>0]
     shp_ending_deep = shp_ending_deep.clip(shp_contour)
@@ -2159,10 +2148,8 @@ for model_name in list_selects[1:2]:
     resume_mask['accumul_mask_riv_new'] = np.nan
     resume_mask['Qriv_mask_shal_new'] = np.nan
     
-    fig, axs = plt.subplots(2,1, figsize=(6.5,5.5), sharex=True)
-    
-    # fig, ax = plt.subplots(1,1, figsize=(6.5,3.5))
-    
+    fig, axs = plt.subplots(2,1, figsize=(5.5,6), sharex=True)
+        
     ax = axs[0]
     axb = ax.twinx()
     
@@ -2183,39 +2170,23 @@ for model_name in list_selects[1:2]:
     masked_shal = masked_shal.reset_index()
     masked_shal = masked_shal.sort_values('distance_mask_riv')
     
-    if model_name == 'nearest1_2_10.0-150.0-300_50':
-        ax.plot(masked_acc['distance_mask_riv'], masked_acc['accumul_mask_riv_new']* 1000 / 3600 / 24,
-                color='k', lw=5, marker='_', ms=0)
-        ax.plot(masked_shal['distance_mask_riv'], masked_shal['Qriv_mask_shal_new']* 1000 / 3600 / 24,
-                color='dodgerblue', lw=3, marker='_', ms=0)
-        ax.plot(resume_mask['distance_mask_riv'][resume_mask['Qriv_mask_deep']>0],
-                resume_mask['Qriv_mask_deep'][resume_mask['Qriv_mask_deep']>0]* 1000 / 3600 / 24,
-                color='red', lw=3, marker='_', ms=0)
-    else:
-        masked_acc = masked_acc.dropna(subset=['accumul_mask_riv_new'])
-        masked_shal = masked_shal.dropna(subset=['Qriv_mask_shal_new'])
-        resume_mask = resume_mask.dropna(subset=['Qriv_mask_deep'])
-        ax.plot(masked_acc['distance_mask_riv'], masked_acc['accumul_mask_riv_new']* 1000 / 3600 / 24,
-                color='k', lw=0, marker='_', mew=5, ms=5)
-        ax.plot(masked_shal['distance_mask_riv'], masked_shal['Qriv_mask_shal_new']* 1000 / 3600 / 24,
-                color='darkblue', lw=0, marker='_', mew=3, ms=5)
-        ax.plot(resume_mask['distance_mask_riv'][resume_mask['Qriv_mask_deep']>0],
-                resume_mask['Qriv_mask_deep'][resume_mask['Qriv_mask_deep']>0]* 1000 / 3600 / 24,
-                color='darkred', lw=0, marker='_', mew=3, ms=5)
+    masked_acc = masked_acc.dropna(subset=['accumul_mask_riv_new'])
+    masked_shal = masked_shal.dropna(subset=['Qriv_mask_shal_new'])
+    resume_mask = resume_mask.dropna(subset=['Qriv_mask_deep'])
+    ax.plot(masked_acc['distance_mask_riv'], masked_acc['accumul_mask_riv_new']* 1000 / 3600 / 24,
+            color='k', lw=0, marker='_', mew=5, ms=5)
+    ax.plot(masked_shal['distance_mask_riv'], masked_shal['Qriv_mask_shal_new']* 1000 / 3600 / 24,
+            color='darkblue', lw=0, marker='_', mew=3, ms=5)
+    ax.plot(resume_mask['distance_mask_riv'][resume_mask['Qriv_mask_deep']>0],
+            resume_mask['Qriv_mask_deep'][resume_mask['Qriv_mask_deep']>0]* 1000 / 3600 / 24,
+            color='darkred', lw=0, marker='_', mew=3, ms=5)
 
     ax.set_xlim(-20,750)
     ax.set_ylim(0,10)
-    if model_name != 'nearest1_2_10.0-150.0-300_50':
-        ax.set_ylim(1,10)
-    # ax.set_xlabel('Distance to outlet [m]')
-    # ax.set_ylabel('$Q_{sim}$ [L/s]')
     ax.set_ylabel('Q [L/s]')
     ax.set_title(model_name, fontsize=8)
     
     ax.plot(450, 3.1, lw=2, marker='*', color='white', ms=15, mew=2, markeredgecolor='k')
-    
-    # ax.scatter(shp_ending_shal['VALUE1'],shp_ending_shal['time'])
-    # ax.scatter(shp_ending_deepl['VALUE1'],shp_ending_deepl['time'])
     
     # axb.vlines(x=shp_ending_shal['VALUE1']-83.28427-20,
     #           ymin=shp_ending_shal['time']*0,
@@ -2241,8 +2212,6 @@ for model_name in list_selects[1:2]:
               ymin=shp_ending_deep['time']*0,
               ymax=shp_ending_deep['time']/2, color='red', lw=0.25)
 
-    # # cb = fig.colorbar(s)
-    # # cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
     axb.set_ylim(0.1,1000)
     axb.set_yscale('log')
     axb.set_ylabel('t [y]', rotation= 270, labelpad=40)
@@ -2258,12 +2227,8 @@ for model_name in list_selects[1:2]:
     RSrp = 0.7092
     RSrr = 0.7038 # 0.7041
     
-    resume_mask = pd.read_csv(BV.simulations_folder+'/'+model_name+'/resume_clean.csv',
-                         sep=';')
-    
-    # print(resume_mask['distance_mask_riv'].min())
+    resume_mask = pd.read_csv(BV.simulations_folder+'/'+model_name+'/resume_clean.csv', sep=';')
     resume_mask['distance_mask_riv'] = resume_mask['distance_mask_riv'] - resume_mask['distance_mask_riv'].min()
-
     resume_mask.loc[-1, 'Csr_riv_calc'] = Srp
     resume_mask.loc[-1, 'Rsr_riv_calc'] = RSrp
     resume_mask.loc[-1, 'accumul_mask_riv'] = 0
@@ -2272,7 +2237,6 @@ for model_name in list_selects[1:2]:
     resume_mask.loc[-1, 'distance_mask_riv'] = the_proj_max - the_proj_min
     resume_mask = resume_mask.sort_values('distance_mask_riv', ascending=False)
     resume_mask = resume_mask.reset_index()
-
     resume_mask['Csr_riv_calc'] = ''
     resume_mask['Rsr_riv_calc'] = ''
 
@@ -2291,20 +2255,7 @@ for model_name in list_selects[1:2]:
                                                   RSrp*Srp*(resume_mask.loc[i,'Qriv_mask_shal']-resume_mask.loc[i-1,'Qriv_mask_shal']) ) / \
                                                   (resume_mask.loc[i,'accumul_mask_riv']*resume_mask.loc[i,'Csr_riv_calc'])
 
-    # fig, ax = plt.subplots(1,1, figsize=(6.5,3.5))
     axb = ax.twinx()
-    # s = ax.scatter(resume_mask['distance_mask_riv'],
-    #                resume_mask['accumul_mask_riv'] * 1000 / 3600 / 24,
-    #                marker='_', lw=3, c='k',
-    #                 s=10,
-    #                 # norm=matplotlib.colors.LogNorm()
-    #                 )
-    # sb = axb.bar(resume['distance_riv'],
-    #              resume['Qriv_shal'] * 1000 / 3600 / 24,
-    #              width=5, lw=0, color='dodgerblue', zorder=-1)
-    # sb = axb.bar(resume['distance_riv'],
-    #              resume['Qriv_deep'] * 1000 / 3600 / 24,
-    #              width=5, lw=0, color='red', zorder=-1)
     s = ax.plot(resume_mask['distance_mask_riv'],
                    resume_mask['Csr_riv_calc'],
                    marker='|', ms=0, lw=3, c='darkorange',
@@ -2323,10 +2274,11 @@ for model_name in list_selects[1:2]:
     ax.set_xlabel('Distance to outlet [m]')
     ax.set_ylabel('Sr [ppb]', c='darkorange')
     # ax.axvline(x=130, c='dimgray', ls=':', lw=3)
-    axb.set_ylabel('$^{87}$Sr/$^{86}$Sr [-]', rotation=270, labelpad = 40, color='forestgreen')
-    ax.set_ylim(0.003*1000, 0.013*1000)
-    ax.set_yticks(np.array([0.004, 0.006, 0.008, 0.010, 0.012])*1000)
-    axb.set_ylim(0.705, 0.710)
+    axb.set_ylabel('$^{87}$Sr/$^{86}$Sr [-]', rotation=270,
+                   labelpad = 40, color='forestgreen')
+    ax.set_ylim(0, 30)
+    # ax.set_yticks([0.004, 0.006, 0.008, 0.010, 0.012])
+    axb.set_ylim(0.704, 0.710)
     axb.ticklabel_format(style='plain')
     axb.ticklabel_format(useOffset=False, style='plain')
     ax.set_title(model_name, fontsize=8)
@@ -2334,444 +2286,55 @@ for model_name in list_selects[1:2]:
     ax.patch.set_visible(False)
     ax.set_zorder(axb.get_zorder()+1)
     
-    """
-    samp = field_filter[field_filter['Date']=='June 2016']
-    axb.scatter(samp['d_mouth'],
-                   samp['87Sr_86Sr'],
-                   # facecolor=colors[1],
+    # date_ref = 'June 2019'
+    # field_filter = field[field['Date']==date_ref]
+    # samp = field_filter.copy()
+    
+    date_pas_ref = 'May 2019'
+    field_filter = field[field['Date']!=date_pas_ref]
+    
+    
+    samp = field_filter.copy()
+    
+    axb.scatter(samp[samp['Date']=='June 2016']['d_mouth'],
+                samp[samp['Date']=='June 2016']['87Sr_86Sr'],
+                   # facecolor=colors[2],
                    facecolor='forestgreen',
                    marker='<', lw=0.5,
                     s=50,
                     # norm=matplotlib.colors.LogNorm()
                     )    
-    ax.scatter(samp['d_mouth'],
-                   samp['Sr_ppb'],
-                   # facecolor=colors[1],
+    ax.scatter(samp[samp['Date']=='June 2016']['d_mouth'],
+               samp[samp['Date']=='June 2016']['Sr_ppb'],
+                   # facecolor=colors[2],
                    facecolor='darkorange',
                    marker='<', lw=0.5,
                     s=50,
                     # norm=matplotlib.colors.LogNorm()
                     )
-    """
     
-    """
-    samp = field[field['Date']=='May 2019']
-    axb.scatter(samp['d_mouth'],
-                   samp['87Sr_86Sr'],
-                   # facecolor=colors[0],
-                   facecolor='forestgreen',
-                   marker='^', lw=0.5,
-                    s=20,
-                    # norm=matplotlib.colors.LogNorm()
-                    )    
-    ax.scatter(samp['d_mouth'],
-                   samp['Sr_ppm'],
-                   # facecolor=colors[0],
-                   facecolor='darkorange',
-                   marker='^', lw=0.5,
-                    s=20,
-                    # norm=matplotlib.colors.LogNorm()
-                    )
-    """
-    
-    samp = field_filter[field_filter['Date']=='June 2019']
-    axb.scatter(samp['d_mouth'],
-                   samp['87Sr_86Sr'],
+    axb.scatter(samp[samp['Date']=='June 2019']['d_mouth'],
+                samp[samp['Date']=='June 2019']['87Sr_86Sr'],
                    # facecolor=colors[2],
                    facecolor='forestgreen',
                    marker='>', lw=0.5,
                     s=50,
                     # norm=matplotlib.colors.LogNorm()
                     )    
-    ax.scatter(samp['d_mouth'],
-                   samp['Sr_ppb'],
+    ax.scatter(samp[samp['Date']=='June 2019']['d_mouth'],
+               samp[samp['Date']=='June 2019']['Sr_ppb'],
                    # facecolor=colors[2],
                    facecolor='darkorange',
                    marker='>', lw=0.5,
                     s=50,
                     # norm=matplotlib.colors.LogNorm()
                     )
-    # field_filter = field[field['Date']!='May 2019']
-    # field_filter = field_filter.dropna(subset=['Name']) 
-    # field_filter = field_filter.dropna(subset=['d_mouth'])
-    # field_filter = field_filter.sort_values('d_mouth')
-    # field_filter = field_filter.reset_index()
-    # field_filter.loc[1,'d_mouth'] = 10
-    # field_filter.loc[2,'d_mouth'] = 20
-    # field_filter['d_mouth'] = field_filter ['d_mouth'].astype(int)
-    # field_filter.loc[13,'d_mouth'] = 471
-    # field_filter.loc[13,'d_mouth'] = 472
-        
+    
     for ix, dm in zip(field_filter.index, field_filter.d_mouth):
         index = np.argmin(np.abs(resume_mask['distance_mask_riv']-dm))
         # print(index)
         resume_mask.loc[index,'SrR_obs'] = field_filter.loc[ix,'87Sr_86Sr']
         resume_mask.loc[index,'SrC_obs'] = field_filter.loc[ix,'Sr_ppb']
-    
-    resume_mask_dropna = resume_mask.dropna(subset=['SrR_obs'])
-    # resume_mask_dropna = resume_mask.copy()
-    
-    the_diff = resume_mask_dropna['Rsr_riv_calc'] - resume_mask_dropna['SrR_obs']
-    value=np.sqrt(np.sum((the_diff)**2)/len(resume_mask_dropna))
-    if value == 0:
-        value = np.nan
-    print(value)
-    data_explo.loc[cpt,'RMSE_R'] = value
-    
-    the_diff = resume_mask_dropna['Csr_riv_calc']/1000 - resume_mask_dropna['SrC_obs']
-    value=np.sqrt(np.sum((the_diff)**2)/len(resume_mask_dropna))
-    if value == 0:
-        value = np.nan
-    print(value)
-    data_explo.loc[cpt,'RMSE_C'] = value
-    
-    # fig.savefig(fig_path+'PLOT CLEAN RTD'+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
-
-    # fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/best/'+
-    #             'Q_RTD_SR.png', dpi=300, bbox_inches='tight')
-    
-    # fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/maps_sensitivity/'+
-    #             'Q_RTD_SR_'+model_name+'.png', dpi=300, bbox_inches='tight')
-    
-    fig.savefig('C:/Users/ronan/OneDrive/UNINE/11_Paper/QUIOCK/_figures/_paper_v1/_raw/best/'+
-                'Q_RTD_SR_'+model_name+'_up'+'.png', dpi=300, bbox_inches='tight')
-
-# data_explo.to_csv(BV.simulations_folder+'/results_'+typ+'_rmse'+'.csv', sep=';')
-
-#%% 5 - PLOT Q SR RTD SENSITIVITY
-
-list_selects = list_model_name
-
-data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
-
-dem = rasterio.open("C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_box_buff_dem.tif")
-dem_data = imageio.imread(BV.geographic.watershed_dem)
-dem_data[dem_data<0] = np.nan
-shp_contour = gpd.read_file(BV.geographic.watershed_shp)
-shp_box = gpd.read_file(stable_folder+'geographic/box_buff.shp')
-stre = gpd.read_file('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2.shp')
-wt_mask = gpd.read_file('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/watershed_mask.shp')
-subwt_flow = gpd.read_file('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/subbasin/subbasin_Flowrate/watershed_contour.shp')
-subwt_point = gpd.read_file('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/snap_flowrate.shp')
-wbt.raster_to_vector_points(BV.geographic.watershed_dem, 
-                            'C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem_pts.shp')
-wbt.extract_raster_values_at_points(down_path, 
-                                    'C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem_pts.shp')
-dem_down = gpd.read_file('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem_pts.shp')
-wbt.extract_raster_values_at_points('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_box_buff_dem.tif', 
-                                    'C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2_pt.shp')
-wbt.extract_raster_values_at_points(down_path, 
-                                    'C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2_pt.shp')
-riv_pts = gpd.read_file('C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2_pt.shp')
-
-field = pd.read_csv('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_data/Field_data.csv',
-                    sep=';')
-field['d_mouth'] = pd.to_numeric(field['d_mouth'])
-field = field.dropna(subset=['Name']) 
-field = field.dropna(subset=['d_mouth'])
-
-field_filter = field[field['Date']!='May 2019']
-field_filter = field_filter.dropna(subset=['Name']) 
-field_filter = field_filter.dropna(subset=['d_mouth'])
-field_filter = field_filter.sort_values('d_mouth')
-field_filter = field_filter.reset_index()
-field_filter.loc[1,'d_mouth'] = 10
-field_filter.loc[2,'d_mouth'] = 20
-field_filter['d_mouth'] = field_filter ['d_mouth'].astype(int)
-field_filter.loc[12,'d_mouth'] = 472
-field_filter.loc[13,'d_mouth'] = 475
-
-for ip, model_name in enumerate(list_selects[:]):
-    
-    cpt = int(model_name.split('_')[1]) - 1
-    
-    down_path = simulations_folder+model_name+'/'+'_watershed/_tifs/downslope_flux_t(0).tif'
-    wbt.extract_raster_values_at_points(down_path, 
-                                        simulations_folder+model_name+'/'+'_pathlines/'+'shp_ending_shal.shp', 
-                                        out_text=False)
-    wbt.extract_raster_values_at_points(down_path, 
-                                        simulations_folder+model_name+'/'+'_pathlines/'+'shp_ending_deep.shp', 
-                                        out_text=False)
-    
-    shp_ending_shal = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
-                              'shp_ending_shal.shp') # time in years !
-    shp_ending_shal = shp_ending_shal[shp_ending_shal['VALUE1']>0]
-    shp_ending_shal = shp_ending_shal.clip(shp_contour)
-    
-    shp_ending_deep = gpd.read_file(simulations_folder+
-                              model_name+'/'+'_pathlines/'+
-                              'shp_ending_deep.shp') # time in years !
-    shp_ending_deep = shp_ending_deep[shp_ending_deep['VALUE1']>0]
-    shp_ending_deep = shp_ending_deep.clip(shp_contour)
-    
-    resume_mask = pd.read_csv(BV.simulations_folder+'/'+model_name+'/resume_clean.csv',
-                         sep=';')
-    
-    # print(resume_mask['distance_mask_riv'].min())
-    the_proj_max = shp_ending_shal['VALUE1'].max()
-    the_proj_min = resume_mask['distance_mask_riv'].min()
-    resume_mask['distance_mask_riv'] = resume_mask['distance_mask_riv'] - the_proj_min
-    
-    resume_mask['accumul_mask_riv_new'] = np.nan
-    resume_mask['Qriv_mask_shal_new'] = np.nan
-    
-    fig, axs = plt.subplots(2,1, figsize=(5.5,6), sharex=True)
-    
-    # fig, ax = plt.subplots(1,1, figsize=(6.5,3.5))
-    
-    ax = axs[0]
-    axb = ax.twinx()
-    
-    resume_mask['accumul_mask_riv_new'] = resume_mask['accumul_mask_riv']
-    resume_mask['accumul_mask_riv_new'][resume_mask['accumul_mask_riv_new']* 1000 / 3600 / 24<1.1] = np.nan
-    resume_mask.loc[0,'accumul_mask_riv_new'] = resume_mask['accumul_mask_riv'].min()
-    masked_acc = resume_mask.dropna(subset=['accumul_mask_riv_new'])
-    masked_acc.loc[-1, 'accumul_mask_riv_new'] = 0
-    masked_acc.loc[-1, 'distance_mask_riv'] = the_proj_max - the_proj_min
-    masked_acc = masked_acc.reset_index()
-    masked_acc = masked_acc.sort_values('distance_mask_riv')
-    resume_mask['Qriv_mask_shal_new'] = resume_mask['Qriv_mask_shal']
-    resume_mask['Qriv_mask_shal_new'][resume_mask['Qriv_mask_shal_new']* 1000 / 3600 / 24<1.1] = np.nan
-    resume_mask.loc[0,'Qriv_mask_shal_new'] = resume_mask['Qriv_mask_shal'].min()
-    masked_shal = resume_mask.dropna(subset=['Qriv_mask_shal_new'])
-    masked_shal.loc[-1, 'Qriv_mask_shal_new'] = 0
-    masked_shal.loc[-1, 'distance_mask_riv'] = the_proj_max - the_proj_min
-    masked_shal = masked_shal.reset_index()
-    masked_shal = masked_shal.sort_values('distance_mask_riv')
-    
-    if model_name == 'nearest1_2_10.0-150.0-300_50':
-        ax.plot(masked_acc['distance_mask_riv'], masked_acc['accumul_mask_riv_new']* 1000 / 3600 / 24,
-                color='k', lw=5, marker='_', ms=0)
-        ax.plot(masked_shal['distance_mask_riv'], masked_shal['Qriv_mask_shal_new']* 1000 / 3600 / 24,
-                color='dodgerblue', lw=3, marker='_', ms=0)
-        ax.plot(resume_mask['distance_mask_riv'][resume_mask['Qriv_mask_deep']>0],
-                resume_mask['Qriv_mask_deep'][resume_mask['Qriv_mask_deep']>0]* 1000 / 3600 / 24,
-                color='red', lw=3, marker='_', ms=0)
-    else:
-        masked_acc = masked_acc.dropna(subset=['accumul_mask_riv_new'])
-        masked_shal = masked_shal.dropna(subset=['Qriv_mask_shal_new'])
-        resume_mask = resume_mask.dropna(subset=['Qriv_mask_deep'])
-        ax.plot(masked_acc['distance_mask_riv'], masked_acc['accumul_mask_riv_new']* 1000 / 3600 / 24,
-                color='k', lw=0, marker='_', mew=5, ms=5)
-        ax.plot(masked_shal['distance_mask_riv'], masked_shal['Qriv_mask_shal_new']* 1000 / 3600 / 24,
-                color='darkblue', lw=0, marker='_', mew=3, ms=5)
-        ax.plot(resume_mask['distance_mask_riv'][resume_mask['Qriv_mask_deep']>0],
-                resume_mask['Qriv_mask_deep'][resume_mask['Qriv_mask_deep']>0]* 1000 / 3600 / 24,
-                color='darkred', lw=0, marker='_', mew=3, ms=5)
-
-    ax.set_xlim(-20,750)
-    ax.set_ylim(0,10)
-    # if model_name != 'nearest1_2_10.0-150.0-300_50':
-    #     ax.set_ylim(1,10)
-    # ax.set_xlabel('Distance to outlet [m]')
-    # ax.set_ylabel('$Q_{sim}$ [L/s]')
-    ax.set_ylabel('Q [L/s]')
-    ax.set_title(model_name, fontsize=8)
-    
-    ax.plot(450, 3.1, lw=2, marker='*', color='white', ms=15, mew=2, markeredgecolor='k')
-    
-    # ax.scatter(shp_ending_shal['VALUE1'],shp_ending_shal['time'])
-    # ax.scatter(shp_ending_deepl['VALUE1'],shp_ending_deepl['time'])
-    
-    # axb.vlines(x=shp_ending_shal['VALUE1']-83.28427-20,
-    #           ymin=shp_ending_shal['time']*0,
-    #           ymax=shp_ending_shal['time'], color='dodgerblue', lw=0.25)
-    # axb.vlines(x=shp_ending_deep['VALUE1']-83.28427-20,
-    #           ymin=shp_ending_deep['time']*0,
-    #           ymax=shp_ending_deep['time'], color='red', lw=0.25)
-
-    # axb.vlines(x=(shp_ending_shal['VALUE1']*masked_acc['distance_mask_riv'].max())/shp_ending_shal['VALUE1'].max(),
-    #           ymin=shp_ending_shal['time']*0,
-    #           ymax=shp_ending_shal['time'], color='dodgerblue', lw=0.25)
-    # axb.vlines(x=(shp_ending_deep['VALUE1']*masked_acc['distance_mask_riv'].max())/shp_ending_shal['VALUE1'].max(),
-    #           ymin=shp_ending_deep['time']*0,
-    #           ymax=shp_ending_deep['time'], color='red', lw=0.25)
-
-    shp_ending_shal['VALUE1'] = shp_ending_shal['VALUE1'] - the_proj_min # shp_ending_shal['VALUE1'].min()
-    shp_ending_deep['VALUE1'] = shp_ending_deep['VALUE1'] - the_proj_min # shp_ending_deep['VALUE1'].min()
-
-    axb.vlines(x=shp_ending_shal['VALUE1'],
-              ymin=shp_ending_shal['time']*0,
-              ymax=shp_ending_shal['time']/2, color='dodgerblue', lw=0.25)
-    axb.vlines(x=shp_ending_deep['VALUE1'],
-              ymin=shp_ending_deep['time']*0,
-              ymax=shp_ending_deep['time']/2, color='red', lw=0.25)
-
-    # # cb = fig.colorbar(s)
-    # # cb.set_label('Discharge [m3/j]', rotation= 270, labelpad=25)
-    axb.set_ylim(0.1,1000)
-    axb.set_yscale('log')
-    axb.set_ylabel('t [y]', rotation= 270, labelpad=40)
-    
-    ax.invert_xaxis()
-    ax.patch.set_visible(False)
-    ax.set_zorder(axb.get_zorder()+1)
-    
-    ax = axs[1]
-    
-    Srp = 4.5
-    Srr = 150     # 110
-    RSrp = 0.7092
-    RSrr = 0.7038 # 0.7041
-    
-    resume_mask = pd.read_csv(BV.simulations_folder+'/'+model_name+'/resume_clean.csv',
-                         sep=';')
-    
-    # print(resume_mask['distance_mask_riv'].min())
-    resume_mask['distance_mask_riv'] = resume_mask['distance_mask_riv'] - resume_mask['distance_mask_riv'].min()
-
-    resume_mask.loc[-1, 'Csr_riv_calc'] = Srp
-    resume_mask.loc[-1, 'Rsr_riv_calc'] = RSrp
-    resume_mask.loc[-1, 'accumul_mask_riv'] = 0
-    resume_mask.loc[-1, 'Qriv_mask_shal'] = 0
-    resume_mask.loc[-1, 'Qriv_mask_deep'] = 0
-    resume_mask.loc[-1, 'distance_mask_riv'] = the_proj_max - the_proj_min
-    resume_mask = resume_mask.sort_values('distance_mask_riv', ascending=False)
-    resume_mask = resume_mask.reset_index()
-
-    resume_mask['Csr_riv_calc'] = ''
-    resume_mask['Rsr_riv_calc'] = ''
-
-    for i in resume_mask.index:
-        if i == 0:
-            resume_mask.loc[i,'Csr_riv_calc'] = Srp
-            resume_mask.loc[i,'Rsr_riv_calc'] = RSrp
-        else:
-            resume_mask.loc[i,'Csr_riv_calc'] = ( resume_mask.loc[i-1,'Csr_riv_calc']*resume_mask.loc[i-1,'accumul_mask_riv'] + \
-                                                  Srr*(resume_mask.loc[i,'Qriv_mask_deep']-resume_mask.loc[i-1,'Qriv_mask_deep']) + \
-                                                  Srp*(resume_mask.loc[i,'Qriv_mask_shal']-resume_mask.loc[i-1,'Qriv_mask_shal']) ) / \
-                                                  resume_mask.loc[i,'accumul_mask_riv']
-                                             
-            resume_mask.loc[i,'Rsr_riv_calc'] = ( resume_mask.loc[i-1,'Rsr_riv_calc']*resume_mask.loc[i-1,'Csr_riv_calc']*resume_mask.loc[i-1,'accumul_mask_riv'] + \
-                                                  RSrr*Srr*(resume_mask.loc[i,'Qriv_mask_deep']-resume_mask.loc[i-1,'Qriv_mask_deep']) + \
-                                                  RSrp*Srp*(resume_mask.loc[i,'Qriv_mask_shal']-resume_mask.loc[i-1,'Qriv_mask_shal']) ) / \
-                                                  (resume_mask.loc[i,'accumul_mask_riv']*resume_mask.loc[i,'Csr_riv_calc'])
-
-    # fig, ax = plt.subplots(1,1, figsize=(6.5,3.5))
-    axb = ax.twinx()
-    # s = ax.scatter(resume_mask['distance_mask_riv'],
-    #                resume_mask['accumul_mask_riv'] * 1000 / 3600 / 24,
-    #                marker='_', lw=3, c='k',
-    #                 s=10,
-    #                 # norm=matplotlib.colors.LogNorm()
-    #                 )
-    # sb = axb.bar(resume['distance_riv'],
-    #              resume['Qriv_shal'] * 1000 / 3600 / 24,
-    #              width=5, lw=0, color='dodgerblue', zorder=-1)
-    # sb = axb.bar(resume['distance_riv'],
-    #              resume['Qriv_deep'] * 1000 / 3600 / 24,
-    #              width=5, lw=0, color='red', zorder=-1)
-    s = ax.plot(resume_mask['distance_mask_riv'],
-                   resume_mask['Csr_riv_calc']/1000,
-                   marker='|', ms=0, lw=3, c='darkorange',
-                    # s=10,
-                    # norm=matplotlib.colors.LogNorm()
-                    zorder=-10
-                    )
-    s = axb.plot(resume_mask['distance_mask_riv'],
-                   resume_mask['Rsr_riv_calc'],
-                   marker='|', ms=0, lw=3, c='forestgreen',
-                    # s=10,
-                    # norm=matplotlib.colors.LogNorm()
-                    zorder=-10
-                    )
-    ax.set_xlim(-20,750)
-    ax.set_xlabel('Distance to outlet [m]')
-    ax.set_ylabel('Sr [ppm]', c='darkorange')
-    # ax.axvline(x=130, c='dimgray', ls=':', lw=3)
-    axb.set_ylabel('$^{87}$Sr/$^{86}$Sr [-]', rotation=270,
-                   labelpad = 40, color='forestgreen')
-    if cpt > 4 :
-        ax.set_ylim(0.003, 0.013)
-        ax.set_yticks([0.004, 0.006, 0.008, 0.010, 0.012])
-        axb.set_ylim(0.705, 0.710)
-    if cpt <= 4:
-        # Srp = 4.5
-        # Srr = 150     # 110
-        # RSrp = 0.7092
-        # RSrr = 0.7038 # 0.7041
-        ax.set_ylim(0, 0.15)
-        # ax.set_yticks([0.004, 0.006, 0.008, 0.010, 0.012])
-        axb.set_ylim(0.703, 0.710)
-    axb.ticklabel_format(style='plain')
-    axb.ticklabel_format(useOffset=False, style='plain')
-    ax.set_title(model_name, fontsize=8)
-    ax.invert_xaxis()
-    ax.patch.set_visible(False)
-    ax.set_zorder(axb.get_zorder()+1)
-    
-    samp = field_filter[field_filter['Date']=='June 2016']
-    axb.scatter(samp['d_mouth'],
-                   samp['87Sr_86Sr'],
-                   # facecolor=colors[1],
-                   facecolor='forestgreen',
-                   marker='<', lw=0.5,
-                    s=50,
-                    # norm=matplotlib.colors.LogNorm()
-                    )    
-    ax.scatter(samp['d_mouth'],
-                   samp['Sr_ppm'],
-                   # facecolor=colors[1],
-                   facecolor='darkorange',
-                   marker='<', lw=0.5,
-                    s=50,
-                    # norm=matplotlib.colors.LogNorm()
-                    )
-    
-    """
-    samp = field[field['Date']=='May 2019']
-    axb.scatter(samp['d_mouth'],
-                   samp['87Sr_86Sr'],
-                   # facecolor=colors[0],
-                   facecolor='forestgreen',
-                   marker='^', lw=0.5,
-                    s=20,
-                    # norm=matplotlib.colors.LogNorm()
-                    )    
-    ax.scatter(samp['d_mouth'],
-                   samp['Sr_ppm'],
-                   # facecolor=colors[0],
-                   facecolor='darkorange',
-                   marker='^', lw=0.5,
-                    s=20,
-                    # norm=matplotlib.colors.LogNorm()
-                    )
-    """
-    
-    samp = field_filter[field_filter['Date']=='June 2019']
-    axb.scatter(samp['d_mouth'],
-                   samp['87Sr_86Sr'],
-                   # facecolor=colors[2],
-                   facecolor='forestgreen',
-                   marker='>', lw=0.5,
-                    s=50,
-                    # norm=matplotlib.colors.LogNorm()
-                    )    
-    ax.scatter(samp['d_mouth'],
-                   samp['Sr_ppm'],
-                   # facecolor=colors[2],
-                   facecolor='darkorange',
-                   marker='>', lw=0.5,
-                    s=50,
-                    # norm=matplotlib.colors.LogNorm()
-                    )
-    # field_filter = field[field['Date']!='May 2019']
-    # field_filter = field_filter.dropna(subset=['Name']) 
-    # field_filter = field_filter.dropna(subset=['d_mouth'])
-    # field_filter = field_filter.sort_values('d_mouth')
-    # field_filter = field_filter.reset_index()
-    # field_filter.loc[1,'d_mouth'] = 10
-    # field_filter.loc[2,'d_mouth'] = 20
-    # field_filter['d_mouth'] = field_filter ['d_mouth'].astype(int)
-    # field_filter.loc[13,'d_mouth'] = 471
-    # field_filter.loc[13,'d_mouth'] = 472
-        
-    for ix, dm in zip(field_filter.index, field_filter.d_mouth):
-        index = np.argmin(np.abs(resume_mask['distance_mask_riv']-dm))
-        # print(index)
-        resume_mask.loc[index,'SrR_obs'] = field_filter.loc[ix,'87Sr_86Sr']
-        resume_mask.loc[index,'SrC_obs'] = field_filter.loc[ix,'Sr_ppm']
     
     resume_mask_dropna = resume_mask.dropna(subset=['SrR_obs'])    
     # resume_mask_dropna = resume_mask.copy()
@@ -2780,28 +2343,22 @@ for ip, model_name in enumerate(list_selects[:]):
     value=np.sqrt(np.sum((the_diff)**2)/len(resume_mask_dropna))
     if value == 0:
         value = np.nan
-    print(value)
+    # print(value)
     data_explo.loc[cpt,'RMSE_R'] = value
     
-    the_diff = resume_mask_dropna['Csr_riv_calc']/1000 - resume_mask_dropna['SrC_obs']
+    the_diff = resume_mask_dropna['Csr_riv_calc'] - resume_mask_dropna['SrC_obs']
     value=np.sqrt(np.sum((the_diff)**2)/len(resume_mask_dropna))
     if value == 0:
         value = np.nan
-    print(value)
+    # print(value)
     data_explo.loc[cpt,'RMSE_C'] = value
     
-    # fig.savefig(fig_path+'PLOT CLEAN RTD'+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
-
-    # fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/best/'+
-    #             'Q_RTD_SR.png', dpi=300, bbox_inches='tight')
-    
-    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/maps_sensitivity/'+
+    fig.savefig(fig_path+
                 'Q_RTD_SR_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
-# data_explo.to_csv(BV.simulations_folder+'/results_'+typ+'_rmse'+'.csv', sep=';')
+data_explo.to_csv(BV.simulations_folder+'/results_'+typ+'_rmse'+'.csv', sep=';')
 
-
-#%% 4 - PLOT CALIB ALL
+#%% 6 - PLOT CALIB ALL
 
 typ = 'all1'
 
@@ -2811,12 +2368,15 @@ typ = 'all1'
 # data_explo3 = data_explo2.append(data_explo1,ignore_index = True)
 # data_explo3 = data_explo3.sort_values('k0k1')
 
-data_explo3 = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
+# data_explo3 = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
+# data_explo3['Doptim'] = (data_explo3['D_so']+data_explo3['D_os'])/2
+
+data_explo3 = pd.read_csv(BV.simulations_folder+'/results_'+typ+'_rmse'+'.csv', sep=';')
 data_explo3['Doptim'] = (data_explo3['D_so']+data_explo3['D_os'])/2
 
 # fig, ax = plt.subplots(1,1, figsize=(4.5,3.5))
 
-fig, axs = plt.subplots(4,1, figsize=(4,12), sharex=True)
+fig, axs = plt.subplots(4,1, figsize=(4.5,12.5), sharex=True)
 axs = axs.ravel()
 
 def make_patch_spines_invisible(ax):
@@ -2858,19 +2418,17 @@ ax.axvline(x=1, c='grey', ls=':', lw=2)
 #         color='blue', marker='s', lw=2, mec='k', mfc='blue', mew=1)
 
 samp_name = 'subbasin_Flowrate'
-obs_q = 3.05 / 1000 * 3600 * 24
+obs_q = 2.8 / 1000 * 3600 * 24
 ax.plot(data_explo3['k0k1'], 
-        abs((data_explo3['Qout_sub_'+samp_name]-obs_q)/obs_q),
+        abs(1-(data_explo3['Qout_sub_'+samp_name]/obs_q)),
         color='blue', marker='s', lw=2, mec='k', mfc='blue', mew=1)
 
 ax.set_xscale('log')
-ax.set_yscale('log')
+# ax.set_yscale('log')
 # ax.axhline(y=1, c='k', ls='--')
 # ax.set_ylim(2e-4, 1e-0)
 # ax.set_xlabel('K1 / K2 [-]')
-ax.set_ylabel('|($Q_{sim}$-$Q_{obs}$)/$Q_{obs}$| [-]', c='k')
-
-#%%
+ax.set_ylabel('|1-($Q_{sim}$/$Q_{obs}$)| [-]', c='k')
 
 # ax.grid()
 
@@ -2891,23 +2449,6 @@ def make_patch_spines_invisible(ax):
 ax = axs[3]
 ax.axvline(x=1, c='grey', ls=':', lw=2)
        
- 
-typ = 'tests1'
-# if not 'data_explo' in globals():
-#     data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
-# if not 'data_explo' in globals():
-data_explo1 = pd.read_csv(BV.simulations_folder+'/results_'+typ+'_rmse'+'.csv', sep=';')
-data_explo1['k0k1'] = pd.to_numeric(data_explo1['k0k1'])
-data_explo1['Doptim'] = (data_explo1['D_so']+data_explo1['D_os'])/2
-
-typ = 'nearest1'
-# if not 'data_explo' in globals():
-#     data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
-# if not 'data_explo' in globals():
-data_explo2 = pd.read_csv(BV.simulations_folder+'/results_'+typ+'_rmse'+'.csv', sep=';')
-data_explo2['k0k1'] = pd.to_numeric(data_explo2['k0k1'])
-data_explo2['Doptim'] = (data_explo2['D_so']+data_explo2['D_os'])/2
-
 # ax.plot(data_explo2['k0k1'], 
 #            data_explo2['RMSE']/(0.7092-0.7041),
 #            color='darkviolet', marker='s', lw=2, mec='k', mfc='darkviolet', mew=1)
@@ -2915,13 +2456,10 @@ ax.set_xscale('log')
 # ax.set_yscale('log')
 # ax.axhline(y=1, c='k', ls='--')
 # ax.set_xlim(1e-3,2e4)
-ax.set_ylim(0, 1)
+# ax.set_ylim(0, 1)
 # ax.set_xlabel('K1 / K2 [-]')
 ax.set_ylabel('$RMSE_{norm}$ $^{87}$Sr/$^{86}$Sr [-]', c='k')
 # ax.grid()
-
-data_explo3 = data_explo2.append(data_explo1,ignore_index = True)
-data_explo3 = data_explo3.sort_values('k0k1')
 
 ax.plot(data_explo3['k0k1'], 
             data_explo3['RMSE_R']/(0.7092-0.7041),
@@ -2945,19 +2483,18 @@ ax.set_xscale('log')
 ax.set_yscale('log')
 # ax.axhline(y=1, c='k', ls='--')
 ax.set_xlim(5e-4,2e4)
-ax.set_ylim(5e-4, 2e-1)
+# ax.set_ylim(5e-4, 2e-1)
 # ax.set_xlabel('K1 / K2 [-]')
-ax.set_ylabel('RMSE Sr [ppm]', c='k')
+ax.set_ylabel('RMSE Sr [ppb]', c='k')
 # ax.grid()
 
-# fig.savefig(fig_path+'PLOT CALIB SR'+'.png', dpi=300, bbox_inches='tight')
+fig.tight_layout()
 
-# fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/'+
-#             'PLOT CALIB ALL'+'.png', dpi=300, bbox_inches='tight')
+fig.savefig(fig_path+'PLOT CALIB OPTIM'+'.png', dpi=300, bbox_inches='tight')
 
 #%% S1 - PLOT PROP
 
-typ = 'tests1'
+typ = 'all1'
 
 # if not 'data_explo' in globals():
 data_explo = pd.read_csv(BV.simulations_folder+'/results_'+typ+'.csv', sep=';')
@@ -2988,21 +2525,18 @@ ax.set_ylabel('K [m/s]', c='k')
 # plt.gca().yaxis.set_major_formatter(ScalarFormatter()) 
 # ax.ticklabel_format(axis='y', scilimits=(0,0))
 
-# fig.savefig(fig_path+'PLOT PROP'+".PNG", dpi=300, bbox_inches='tight')
-
-fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/'+
-            'PLOT PROP'+".PNG", dpi=300, bbox_inches='tight')
+fig.savefig(fig_path+'PLOT PROP TESTED'+".PNG", dpi=300, bbox_inches='tight')
 
 #%% S2 - PLOT CALIB STREAMS MAPS
 
-streams = gpd.read_file("C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/hydrology/L_Quiock_creek2.shp")
-contour = gpd.read_file("C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_contour.shp")
+streams = gpd.read_file(stable_folder + 'hydrography/L_Quiock_creek2.shp')
+contour = gpd.read_file(stable_folder + 'geographic/watershed_contour.shp')
 
 import rasterio
 from osgeo import gdal
 from rasterio.plot import show
 
-dem = rasterio.open("C:/Users/ronan/Documents/SIMULATIONS/GUADELOUPE/Quiock3/results_stable/geographic/watershed_dem.tif")
+dem = rasterio.open(stable_folder + 'geographic/watershed_dem.tif')
 # dem = path+site+'/gis/'+'watershed_extent.tif'
 # gdal.Translate(dem, gdal.Open(path+'_data/'+tif), 
 #                 projWin=[xlim[0],ylim[1],xlim[1],ylim[0]], noData=-99999)
@@ -3023,8 +2557,8 @@ for model_name in list_selects[:]:
     fig, axs = plt.subplots(1,2, figsize=(6,3))
     axs = axs.ravel()
 
-    simflow_path = simulations_folder+model_name+'/'+'_streams/simflow.shp'
-    obsflow_path = simulations_folder+model_name+'/'+'_streams/obsflow.shp'
+    simflow_path = simulations_folder+model_name+'/'+'_matchingstreams/simflow.shp'
+    obsflow_path = simulations_folder+model_name+'/'+'_matchingstreams/obsflow.shp'
     
     simflow = gpd.read_file(simflow_path)
     obsflow = gpd.read_file(obsflow_path)
@@ -3077,13 +2611,8 @@ for model_name in list_selects[:]:
     # fig.subplots_adjust(wspace=-0.3, hspace=-0.55)
     fig.suptitle(model_name.upper(), fontsize=8, y=0.9)
     
-    # fig.savefig(fig_path+'PLOT CALIB STREAMS MAPS_'+model_name+'.png', dpi=300, bbox_inches='tight')
+    fig.savefig(fig_path+'PLOT CALIB STREAMS MAPS_'+model_name+'.png', dpi=300, bbox_inches='tight')
     
-    fig.savefig('D:/Users/abherve/ONEDRIVE/OneDrive - Université de Rennes 1/PHD/4_model/PROJECTS/GUADELOUPE/_figures/_paper_v1/_raw/streamaps_calib/'+
-                'PLOT CALIB STREAMS MAPS_'+model_name+'.png', dpi=300, bbox_inches='tight')
-    
-# fig.subplots_adjust(wspace=0, hspace=-0.3)
-
 #%% S3 - PLANCHAS
 
 
