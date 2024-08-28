@@ -29,7 +29,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, lakeres, settings, safransurfex, subbasin
+from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, lakeres, streamflow_seepage, settings, safransurfex, subbasin
 from modeling import modflow, modpath, timeseries, netcdf
 from display import visualization_watershed
 from tools import toolbox
@@ -138,6 +138,8 @@ class Watershed:
             if save_object == True:
                 self.save_object()
         
+        self.streamflow_seepage = None
+        
     #%% PYTHON OBJECT
     
     def __load_object(self):
@@ -191,6 +193,9 @@ class Watershed:
             if ('lakeres' in BV.__dir__()) == True:
                 self.lakeres = BV.lakeres
                 self.elt_def.append('lakeres')
+            if ('streamflow_seepage' in BV.__dir__()) == True:
+                self.streamflow_seepage = BV.streamflow_seepage
+                self.elt_def.append('streamflow_seepage')
             # Atmospheric (compulsory: hydrodynamic)
             if ('safransurfex' in BV.__dir__()) == True:
                 self.safransurfex = BV.safransurfex
@@ -574,6 +579,65 @@ class Watershed:
         self.lakeres = lakeres.Lakeres(stable_folder)
         self.elt_def.append('lakeres')
         self.save_object()
+        
+    def add_streamflow_seepage(self, area=None, icalc:int=0, thickm:float=0.1, 
+                 depth:float=0, hcond:float=10, width:float=1, slope:float=0.1,
+                 rchlen:float=None, critical_mode=None, 
+                 correction_multiple_reaches:bool=False,
+                 correction_elevations:bool=True, reach_data=None, 
+                 segment_data=None):
+        """
+        Public method to add a seepage through SFR instead of DRN.
+
+        Parameters
+        ----------
+        area : str, optional
+            'river' | 'watershed' | 'domain' | None (default)
+            Flag to choose whether the SFR seepage is applied on the main
+            river, on the watershed or on the whole modeled domain.
+        icalc : integer, optional
+            The default is 0 (no computation of flow thickness and width)
+        thickm : float, optional
+            Average streambed thickness. The default is 0.1.
+        depth : float, optional
+            Average water depth. The default is 0.
+        hcond : float, optional
+            Avergae streambed conductivity. The default is 10.
+        width : float, optional
+            Average channel width. The default is 1.
+        slope : float, optional
+            The average slope of the streambed. The default is 0.1 (10%).
+        rchlen
+            length of the channel. The default is the average straight euclidian length.
+        critical_mode : str, optional
+            A flag or a filepath to indicate which cells are critical for
+            convergence and whose conductance should be adapted.
+            The default is None. If None, no correction is applied.
+        correction_multiple_reaches : bool, optional
+            Flag to indicate whether to remove multiple reaches located on the 
+            same cell or not.
+            The default is False
+        correction_elevations : bool, optional
+            Flag to indicate whether to correct streambed elevations and slopes
+            to avoid any sink or flat zone.
+            The default is True
+        reach_data : pandas.DataFrame, optional
+            The default is None
+        segment_data : pandas.DataFrame, optional
+            The default is None
+
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.streamflow_seepage = streamflow_seepage.Streamflow_seepage(
+            self.geographic, area, icalc, thickm, depth, hcond, width, slope, rchlen, 
+            critical_mode, correction_multiple_reaches, correction_elevations)
+        self.elt_def.append('streamflow_seepage')
+        self.save_object()
             
     def add_subbasin(self, add_path:str, sub_snap_dist: int):
         """
@@ -646,7 +710,9 @@ class Watershed:
                                         bc_right=self.settings.bc_right,
 										split_temp=self.settings.split_temp,
                                         # Lakes/reservoirs
-                                        lakeres=self.lakeres)
+                                        lakeres=self.lakeres,
+                                        # Streamflow seepage
+                                        streamflow_seepage = self.streamflow_seepage)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose
