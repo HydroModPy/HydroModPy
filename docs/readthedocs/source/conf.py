@@ -197,7 +197,7 @@ texinfo_documents = [
 ]
 
 # -- Extension configuration -------------------------------------------------
-autodoc_mock_imports = ["osgeo","gdal"]
+autodoc_mock_imports = ["osgeo","gdal","whitebox"]
 
 # use :numref: for references (instead of :ref:)
 numfig = True
