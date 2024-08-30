@@ -884,6 +884,14 @@ class Modflow:
                                 self.drnData[compt, 4] = self.cond_drain 
                             else:
                                 self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
+                    
+                    # If a correction of conductances is needed for SFR, 
+                    # then it is also applied to DRN:
+                    if self.streamflow_seepage.critical_mode is not None:
+                        if self.streamflow_seepage.crit_area[i,j] >= self.streamflow_seepage.sink_threshold:
+                            self.drnData[compt, 4] = min(self.drnData[compt, 4], 
+                                                         self.streamflow_seepage.hcond_min)
+                            
                     compt += 1
 
         # Imposes condition to Modflow through flopy
