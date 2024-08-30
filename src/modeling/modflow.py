@@ -659,7 +659,10 @@ class Modflow:
             
             # ---- Initiate the SFR_seepage module
             self.streamflow_seepage.SFR_seepage_area(self.geographic, self.dem)
-            self.streamflow_seepage.compute_data()
+            if self.use_lakeres:
+                self.streamflow_seepage.compute_data(lakarr_lay0)
+            else:
+                self.streamflow_seepage.compute_data()
             self.streamflow_seepage.reach_data['k'] = self.aquifer_top_layer # layer
             
             # ---- Improve and correct values

@@ -241,7 +241,7 @@ class Streamflow_seepage:
     
     
     #%% GENERATE REACH AND SEGMENT DATA (LOAD or AUTOMATICALLY COMPUTE)
-    def compute_data(self):
+    def compute_data(self, lakarr=None):
         ### Initialize reach and segment info:
          # NOTE: self.reach_data is first created as a pandas.dataframe and then 
          # converted into a numpy.recarray. It is not directly created as a 
@@ -388,13 +388,87 @@ class Streamflow_seepage:
                                                          last_iseg,
                                                          ireach]
                     return last_iseg
-            
+
+            # 3bis. Definition of the recursive function, adapted for lakes/reservoirs
+# =============================================================================
+#             def stream_lake_reconstruct(ij_outlet, last_iseg):            
+#                 self.segment_data_1.loc[last_iseg, 'icalc'] = self.icalc # in order to initialize a new row
+#                 ireach = 1
+#                 
+#                 # While there is one and only one upstream cell:
+#                 while len(self.upstream_cells_by_ij[ij_outlet]) == 1:
+#                     self.reach_data.loc[
+#                         self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+#                         ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+#                                                          ij_outlet[1],
+#                                                          last_iseg,
+#                                                          ireach]
+#                     ij_outlet = self.upstream_cells_by_ij[ij_outlet][0]
+#                     ireach += 1
+#                     
+#                 # if there are several upstream cells
+#                 if len(self.upstream_cells_by_ij[ij_outlet]) > 1:
+#                     self.reach_data.loc[
+#                         self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+#                         ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+#                                                          ij_outlet[1],
+#                                                          last_iseg,
+#                                                          ireach]
+#                     downstream_iseg = last_iseg
+#                     for ij_tributary in self.upstream_cells_by_ij[ij_outlet]:
+#                         last_iseg += 1
+#                         self.segment_data_1.loc[last_iseg, 'outseg'] = downstream_iseg
+#                         last_iseg = stream_reconstruct(ij_tributary, last_iseg)
+#                     return last_iseg
+#                 
+#                 # if there is no upstream cell:
+#                 else:
+#                     self.reach_data.loc[
+#                         self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+#                         ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+#                                                          ij_outlet[1],
+#                                                          last_iseg,
+#                                                          ireach]
+#                     return last_iseg
+# =============================================================================
     
             # 4. Call the recursive method:   
             last_iseg = 1
+# =============================================================================
+#             if use_lakeres == False:
+#                 for ij_outlet in outlets:
+#                     last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
+#             elif use_lakeres == True:
+#                 for ij_outlet in outlets:
+#                     last_iseg = stream_lake_reconstruct(ij_outlet, last_iseg) + 1
+# =============================================================================
             for ij_outlet in outlets:
                 last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
-            
+               
+            # 4bis. Lake correction
+            if lakarr is not None:
+                for _, r in self.reach_data.iterrows():
+                    # If this reach is under a lake:
+                    if lakarr[r['i'], r['j']] > 0:
+                        # The segment s will be remove
+                        s = r['iseg'].copy()
+                        # Remove reaches belonging to this segment
+                        self.reach_data = self.reach_data[self.reach_data.iseg != s]
+                        # Remove this segment in segment_data
+                        self.segment_data_1 = self.segment_data_1[self.segment_data_1.nseg != s]
+                        # Correct outsegs
+                        self.segment_data_1.loc[
+                            self.segment_data_1[self.segment_data_1.outseg == s].index,
+                            'outseg'] = -lakarr[r['i'], r['j']]
+                    # Correct iupsegs
+                    up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
+                    for upcell in up_ij:
+                        if lakarr[upcell[0], upcell[1]] > 0:
+                            s = r['iseg'].copy()
+                            self.segment_data_1.loc[
+                                self.segment_data_1[self.segment_data_1.outseg == s].index,
+                                'iupseg'] = -lakarr[upcell[0], upcell[1]]
+                            
             # Note: if self.segment_data_1 contains nan, Modflow crashes
             self.segment_data_1 = self.segment_data_1.fillna(0)
             self.reach_data.fillna(0)
