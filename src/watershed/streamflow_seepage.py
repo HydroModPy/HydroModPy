@@ -39,7 +39,7 @@ class Streamflow_seepage:
     #%% INIT
     
     def __init__(self, geographic : object, area=None, icalc:int=0, thickm:float=0.1, 
-                 depth:float=0, hcond:float=10, width:float=1, slope:float=0.1,
+                 depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
                  rchlen:float=None, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
                  correction_elevations:bool=True, reach_data=None,
@@ -63,13 +63,14 @@ class Streamflow_seepage:
         depth : float, optional
             Average water depth. The default is 0.
         hcond : float, optional
-            Avergae streambed conductivity. The default is 10.
+            Avergae streambed conductivity. The default is 0.08.
+            (Note : Can be 0.085)
         width : float, optional
-            Average channel width. The default is 1.
+            Average channel width. The default is the length of a cell.
         slope : float, optional
             The average slope of the streambed. The default is 0.1 (10%).
         rchlen
-            length of the channel. The default is the average straight euclidian length.
+            length of the channel. The default is the lenght of a cell.
         critical_mode : str, optional
             A flag or a filepath to indicate which cells are critical for
             convergence and whose conductance should be adapted.
@@ -106,10 +107,14 @@ class Streamflow_seepage:
         self.thickm = thickm # average streambed thickness
         self.depth = depth # average depth of water in the channel
         self.hcond = hcond # average streambed conductivity
-        self.width = width # average channel width
         self.slope = slope # average channel slope
+        if width is None: # average channel width
+            self.width = geographic.resolution
+        else:
+            self.width = width
         if rchlen is None: # average channel lenght in each cell
-            self.rchlen = geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # average straight euclidien length
+            # self.rchlen = geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # average straight euclidien length
+            self.rchlen = geographic.resolution
         else:
             self.rchlen = rchlen
             
@@ -435,10 +440,10 @@ class Streamflow_seepage:
             
     
     #%% SET PARAMETERS FOR CRITICAL AREA COMPUTATION
-    def critical_cells(self, hcond:float=0.012, area:str='sinks', 
+    def critical_cells(self, hcond:float=0.0001, area:str='sinks', 
                                sink_threshold:float=0):
         
-        self.hcond_min = hcond
+        self.hcond_min = hcond # was 0.000096 by default before
         self.critical_mode = area
         self.sink_threshold = sink_threshold
     

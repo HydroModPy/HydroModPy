@@ -581,7 +581,7 @@ class Watershed:
         self.save_object()
         
     def add_streamflow_seepage(self, area=None, icalc:int=0, thickm:float=0.1, 
-                 depth:float=0, hcond:float=10, width:float=1, slope:float=0.1,
+                 depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
                  rchlen:float=None, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
                  correction_elevations:bool=True, reach_data=None, 
@@ -602,13 +602,14 @@ class Watershed:
         depth : float, optional
             Average water depth. The default is 0.
         hcond : float, optional
-            Avergae streambed conductivity. The default is 10.
+            Avergae streambed conductivity. The default is 0.08.
+            (Note: can even be 0.085)
         width : float, optional
-            Average channel width. The default is 1.
+            Average channel width. The default is the length of a cell.
         slope : float, optional
             The average slope of the streambed. The default is 0.1 (10%).
         rchlen
-            length of the channel. The default is the average straight euclidian length.
+            length of the channel. The default is the length of a cell.
         critical_mode : str, optional
             A flag or a filepath to indicate which cells are critical for
             convergence and whose conductance should be adapted.
