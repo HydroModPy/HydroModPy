@@ -23,6 +23,7 @@ import imageio                           # Import raster to numpy matrix (not ge
 from os.path import dirname, abspath
 import matplotlib.pyplot as plt
 import flopy.utils.binaryfile as fpu
+from flopy.utils.sfroutputfile import SfrFile
 
 # Warnings
 import warnings
@@ -1079,7 +1080,12 @@ class Modflow:
         # Stress periods (flopy "language")
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
-        
+            
+        # Import streamflows (if SFR is used)
+        if self.streamflow_seepage is not None:
+            sfrout = SfrFile(self.path_file+".sfr.out")
+            sfrout_df = sfrout.get_dataframe()
+   
         # Params model
         self.nper = self.dis.nper
         self.kper = np.arange(0,self.nper,1) # ==> time
@@ -1272,7 +1278,10 @@ class Modflow:
                 else:
                     ### Accumulation flux
                     # TEMP SFR : Pas encore implémenté
-                    self.dict_accumulation_flux[item] = 0
+                    sfr_Qmap = np.zeros((self.dis.nrow, self.dis.ncol))
+                    for _, r in sfrout_df[sfrout_df.kstpkper == self.kstpkper].iterrows():
+                        sfr_Qmap[r['i'], r['j']] = r['Qout']
+                    self.dict_accumulation_flux[item] = sfr_Qmap
 
             if lake_leakage == True:
                 ### Flux from lake to groundwater
