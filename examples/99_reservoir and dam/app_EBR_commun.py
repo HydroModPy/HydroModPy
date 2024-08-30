@@ -710,24 +710,21 @@ BV.add_streamflow_seepage()
 BV.streamflow_seepage.update_area('watershed')
 # Standard values for segment_data:
 depth = 0 # 0.1 # self.thick # 1 # arbitrary
-hcond_max = 10 # 3e-5 # self.hyd_cond[0, 0] # 864000
-width = 1 # self.resolution # 1.5  # arbitrary
+hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
+# width = 1 # self.resolution # 1.5  # arbitrary
 thickm = 0.1 # Modflow does not run if thickm = 0
-# Critical values for conductivity:
-hcond_max = 10
-hcond_min = 0.012
 # Update segment data
 BV.streamflow_seepage.update_segment_data('thickm', thickm)
 BV.streamflow_seepage.update_segment_data('depth', depth)
 BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
-BV.streamflow_seepage.update_segment_data('width', width)
+# BV.streamflow_seepage.update_segment_data('width', width)
 # Update reach data
 # =============================================================================
 # BV.streamflow_seepage.update_reach_data(name, val)
 # =============================================================================
 
 # ---- Correct cells critical for convergence
-hcond_min = 0.012
+hcond_min = 0.000100
 # =============================================================================
 # critical_area_path = r"test.tif"
 # =============================================================================
