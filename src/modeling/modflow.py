@@ -853,10 +853,12 @@ class Modflow:
         # (DRN)
         # Applied to all the surface of the model : enables seepage on the top layer
 
-        if self.streamflow_seepage != None: # if the object streamflow_seepage is not None:
-            if self.cond_drain != None:
-                print("cond_drain overwritten with streamflow_seepage values")
-            self.cond_drain = self.streamflow_seepage.cond_drain
+# =============================================================================
+#         if self.streamflow_seepage != None: # if the object streamflow_seepage is not None:
+#             if self.cond_drain != None:
+#                 print("cond_drain overwritten with streamflow_seepage values")
+#                 self.cond_drain = self.streamflow_seepage.cond_drain*100
+# =============================================================================
             
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
