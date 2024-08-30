@@ -154,7 +154,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo"),
-                                       first_year=pd.to_datetime('today').year-15,
+                                       first_year=pd.to_datetime('today').year-10,
                                        # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
