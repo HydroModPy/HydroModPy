@@ -743,7 +743,7 @@ BV.streamflow_seepage.correct('elevations', True)
 
 ##%%% Définitions :
 # Paramètres cadres
-box = True # or False
+box = False # or False
 sink_fill = False # or True
 plot_cross = True
 
