@@ -791,6 +791,17 @@ class Modflow:
                 os.path.join(self.streamflow_seepage.sfr_seepage_folder, "outlets.shp"), 
                 epsg=int(self.geographic.crs_proj.split(':')[-1]))
             
+            np.savetxt(
+                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "reach_data.csv"), 
+                self.sfr2.reach_data, 
+                delimiter=";", 
+                header=';'.join(self.sfr2.reach_data.dtype.names))
+            np.savetxt(
+                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "segment_data.csv"), 
+                self.sfr2.segment_data[0], 
+                delimiter=";", 
+                header=';'.join(self.sfr2.segment_data[0].dtype.names))
+            
             toolbox.export_tif(self.geographic.watershed_dem, 
                                sfr_map, self.geographic.nodata, 
                                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_segments.tif"))
