@@ -688,10 +688,55 @@ BV.save_object()
 # # BV.lakeres.remove_flowbound(bound_id)
 # =============================================================================
 
+#%% SEEPAGE WITH STREAMFLOW ROUTING
+BV.add_streamflow_seepage()
+
+# ---- Generate reach and segment inputs
+# Note: segment and reach data are first defined as pandas.DataFrames.
+# They are converted into numpy.recarrays in modflow.py
+
+# Load data from files
 # =============================================================================
+# temp_data_folder = r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\dev_perso\couplage lac-riviere\SFR"
+# BV.streamflow_seepage.load_data(
+#     reach_data = os.path.join(temp_data_folder, r"ex3_test1_reach_data.csv"),
+#     segment_data = os.path.join(temp_data_folder, r"ex3_test1_segment_data.csv"))
 # =============================================================================
 
+# ---- Update data
+### These values can also be passed as arguments in the 'add_streamflow_seepage' call
 
+# Area where the SFR seepage will be applied
+BV.streamflow_seepage.update_area('watershed')
+# Standard values for segment_data:
+depth = 0 # 0.1 # self.thick # 1 # arbitrary
+hcond_max = 10 # 3e-5 # self.hyd_cond[0, 0] # 864000
+width = 1 # self.resolution # 1.5  # arbitrary
+thickm = 0.1 # Modflow does not run if thickm = 0
+# Critical values for conductivity:
+hcond_max = 10
+hcond_min = 0.012
+# Update segment data
+BV.streamflow_seepage.update_segment_data('thickm', thickm)
+BV.streamflow_seepage.update_segment_data('depth', depth)
+BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
+BV.streamflow_seepage.update_segment_data('width', width)
+# Update reach data
+# =============================================================================
+# BV.streamflow_seepage.update_reach_data(name, val)
+# =============================================================================
+
+# ---- Correct cells critical for convergence
+hcond_min = 0.012
+# =============================================================================
+# critical_area_path = r"test.tif"
+# =============================================================================
+BV.streamflow_seepage.critical_cells(hcond = hcond_min, area = 'sinks', 
+                                     sink_threshold = 300)
+
+# ---- Activate input corrections
+BV.streamflow_seepage.correct('multiple_reaches', False)
+BV.streamflow_seepage.correct('elevations', True)
 
 
 #%% PARAMETRISATION
