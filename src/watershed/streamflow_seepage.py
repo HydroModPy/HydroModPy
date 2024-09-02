@@ -447,27 +447,59 @@ class Streamflow_seepage:
                
             # 4bis. Lake correction
             if lakarr is not None:
-                for _, r in self.reach_data.iterrows():
+                for idr, r in self.reach_data.iterrows():
+                # (it is important that reach_data is ordered here)
                     # If this reach is under a lake:
                     if lakarr[r['i'], r['j']] > 0:
-                        # The segment s will be remove
-                        s = r['iseg'].copy()
-                        # Remove reaches belonging to this segment
-                        self.reach_data = self.reach_data[self.reach_data.iseg != s]
-                        # Remove this segment in segment_data
-                        self.segment_data_1 = self.segment_data_1[self.segment_data_1.nseg != s]
+                        # The reach will be removed (at the end of this procedure)
+                        nseg = r['iseg']
+                        
+                        # # Remove all reaches belonging to this segment
+                        # self.reach_data = self.reach_data[self.reach_data.iseg != nseg]
+                        
                         # Correct outsegs
-                        self.segment_data_1.loc[
-                            self.segment_data_1[self.segment_data_1.outseg == s].index,
-                            'outseg'] = -lakarr[r['i'], r['j']]
-                    # Correct iupsegs
-                    up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
-                    for upcell in up_ij:
-                        if lakarr[upcell[0], upcell[1]] > 0:
-                            s = r['iseg'].copy()
+                        # ---------------
+                        # It it is the (remaining) downstream reach, correct the outlet on the current segment:
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].min():
+                            self.segment_data_1.loc[nseg, 'outseg'] = -lakarr[r['i'], r['j']]
+                            is_dnstr = True
+                        else:
+                            is_dnstr = False
+                        
+                        # If it is the (remaining) upstream reach, correct the outlet on the upstream segment (if any):
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].max():
                             self.segment_data_1.loc[
-                                self.segment_data_1[self.segment_data_1.outseg == s].index,
-                                'iupseg'] = -lakarr[upcell[0], upcell[1]]
+                                self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                'outseg'] = -lakarr[r['i'], r['j']]
+                            is_upstr = True
+                        else:
+                            is_upstr = False
+                            
+                        # It it is an intermediary reach (tricky), split the segment into 2:
+                        if (not is_dnstr) & (not is_upstr):
+                            print(f"/!\ Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
+                            print("Not implemented yet (see compute_data() in streamflow_seepage.py)")
+
+                        # Remove the segment (if relevant)
+                        # ------------------
+                        # If it was the only (remaining) reach on the segment
+                        if (self.reach_data.iseg == nseg).sum() == 1:
+                            # Remove this whole segment in segment_data
+                            self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
+                            
+                        # Remove the reach
+                        # ----------------
+                        self.reach_data = self.reach_data[self.reach_data.index != idr]
+                    
+                    else:
+                        up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
+                        for upcell in up_ij:
+                            # Correct iupsegs
+                            if lakarr[upcell[0], upcell[1]] > 0:
+                                nseg = r['iseg']
+                                self.segment_data_1.loc[
+                                    self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                    'iupseg'] = -lakarr[upcell[0], upcell[1]]
                             
             # Note: if self.segment_data_1 contains nan, Modflow crashes
             self.segment_data_1 = self.segment_data_1.fillna(0)
@@ -481,17 +513,22 @@ class Streamflow_seepage:
                 self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'] \
                     = self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'].max() + 1 \
                         - self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach']
-             # reverse 'outseg' in segment_data_1:
-            outlet_idx = self.segment_data_1[self.segment_data_1['outseg'] == 0].index.copy()
-            self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
-                - self.segment_data_1['outseg']
-            self.segment_data_1.loc[outlet_idx, 'outseg'] = 0
-             # reverse 'nseg' in segment_data_1:
-            self.segment_data_1 = self.segment_data_1[::-1]
-            self.segment_data_1.index = self.segment_data_1.index[::-1]
-             # reverse index in reach_data:
+             # reverse row order in reach_data:
             self.reach_data = self.reach_data[::-1]
             self.reach_data.index = self.reach_data.index[::-1]
+             # reverse 'outseg' in segment_data_1:
+            special_idx = self.segment_data_1[
+                self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake ousegs
+            special_outseg = self.segment_data_1.loc[special_idx, 'outseg'].copy()
+            self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
+                - self.segment_data_1['outseg']
+            self.segment_data_1.loc[special_idx, 'outseg'] = special_outseg # set back outlet or lake outsegs
+             # reverse 'nseg' in segment_data_1:
+            self.segment_data_1.index = self.segment_data_1.index.max() + 1 \
+                - self.segment_data_1.index
+            self.segment_data_1 = self.segment_data_1[::-1]
+            # self.segment_data_1.index = self.segment_data_1.index[::-1]
+
             
             # ---- Fill in the parameter values
             self.reach_data['rchlen'] = self.rchlen
@@ -669,7 +706,7 @@ class Streamflow_seepage:
                 prev_strtop = self.reach_data.loc[r_idx, 'strtop'] - min_depression
                 
             # Correct elevations amongst connected segments
-            if s['outseg'] != 0:
+            if s['outseg'] > 0:
                 self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'] \
                     = min(self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'], prev_strtop)
                 
