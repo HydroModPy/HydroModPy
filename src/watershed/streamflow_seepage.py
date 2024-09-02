@@ -544,10 +544,22 @@ class Streamflow_seepage:
             self.segment_data_1['width1'] = self.width
             self.segment_data_1['width2'] = self.width
             
+            # Get strtops
             for idx, r in self.reach_data.iterrows(): # strtop
                 self.reach_data.loc[idx, 'strtop'] = self.dem[r['i'], r['j']]
                                                    # self.dem[r['i'], r['j']] - depth
                                                    # self.bottom_layer[r['i'], r['j']]
+                                                   
+            # Correct the elevation of the stream outlets of thelake/reservoirs,
+            # so that the strtop is not lower than the bottom of the lake.
+            if lakarr is not None:
+              for nseg in self.segment_data_1[self.segment_data_1.iupseg < 0].index:
+                  # Identify the upstream reaches of the segment directly 
+                  # located downstream some lake
+                  idx = (self.reach_data.iseg == nseg) & (self.reach_data.ireach == 1)
+                  self.reach_data.loc[idx, 'strtop'] = max(
+                      self.reach_data.loc[idx, 'strtop'].item(),
+                      self.dem[lakarr == -self.segment_data_1.loc[nseg, 'iupseg']].min())
             
             self.cond_drain = self.hcond_max * self.rchlen * self.width / self.thickm # hcond * self.resolution** 2
             
