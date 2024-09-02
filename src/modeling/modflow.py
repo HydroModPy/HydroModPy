@@ -814,7 +814,7 @@ class Modflow:
                                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_reaches.tif"))
             toolbox.export_tif(self.geographic.watershed_dem, 
                                self.drain_array, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "remaining_drains(debug).tif"))
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "remaining_DRN.tif"))
             toolbox.export_tif(self.geographic.watershed_dem, 
                                elev_map, self.geographic.nodata, 
                                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "streambed_tops.tif"))
