@@ -497,17 +497,17 @@ class Streamflow_seepage:
                             # Correct iupsegs
                             if lakarr[upcell[0], upcell[1]] > 0:
                                 nseg = r['iseg']
+                                # self.segment_data_1.loc[
+                                #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
                                 self.segment_data_1.loc[
-                                    self.segment_data_1[self.segment_data_1.outseg == nseg].index,
-                                    'iupseg'] = -lakarr[upcell[0], upcell[1]]
+                                    nseg, 'iupseg'] = -lakarr[upcell[0], upcell[1]]
                             
             # Note: if self.segment_data_1 contains nan, Modflow crashes
             self.segment_data_1 = self.segment_data_1.fillna(0)
             self.reach_data.fillna(0)
             
-            # 5. Reverse segment and reach numbering:
-             # reverse 'iseg' in reach_data:
-            self.reach_data['iseg'] = self.reach_data['iseg'].max() + 1 - self.reach_data['iseg']
+            # 5. Reverse segment and reach numbering: 
              # reverse 'ireach' in reach_data:
             for iseg in self.segment_data_1.index:
                 self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'] \
@@ -516,6 +516,8 @@ class Streamflow_seepage:
              # reverse row order in reach_data:
             self.reach_data = self.reach_data[::-1]
             self.reach_data.index = self.reach_data.index[::-1]
+             # reverse 'iseg' in reach_data:
+            self.reach_data['iseg'] = self.reach_data['iseg'].max() + 1 - self.reach_data['iseg']
              # reverse 'outseg' in segment_data_1:
             special_idx = self.segment_data_1[
                 self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake ousegs
