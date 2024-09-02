@@ -582,7 +582,7 @@ class Watershed:
         
     def add_streamflow_seepage(self, area=None, icalc:int=0, thickm:float=0.1, 
                  depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
-                 rchlen:float=None, critical_mode=None, 
+                 rchlen:float=None, roughch:float=0, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
                  correction_elevations:bool=True, reach_data=None, 
                  segment_data=None):
@@ -610,6 +610,9 @@ class Watershed:
             The average slope of the streambed. The default is 0.1 (10%).
         rchlen
             length of the channel. The default is the length of a cell.
+        roughch : float, optional
+            Only used when icalc = 1 or 2 (Manning routing)
+            The default is 0.
         critical_mode : str, optional
             A flag or a filepath to indicate which cells are critical for
             convergence and whose conductance should be adapted.
@@ -636,7 +639,7 @@ class Watershed:
         
         self.streamflow_seepage = streamflow_seepage.Streamflow_seepage(
             self.geographic, area, icalc, thickm, depth, hcond, width, slope, rchlen, 
-            critical_mode, correction_multiple_reaches, correction_elevations)
+            roughch, critical_mode, correction_multiple_reaches, correction_elevations)
         self.elt_def.append('streamflow_seepage')
         self.save_object()
             

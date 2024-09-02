@@ -40,7 +40,7 @@ class Streamflow_seepage:
     
     def __init__(self, geographic : object, area=None, icalc:int=0, thickm:float=0.1, 
                  depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
-                 rchlen:float=None, critical_mode=None, 
+                 rchlen:float=None, roughch:float=0, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
                  correction_elevations:bool=True, reach_data=None,
                  segment_data=None):
@@ -71,6 +71,9 @@ class Streamflow_seepage:
             The average slope of the streambed. The default is 0.1 (10%).
         rchlen
             length of the channel. The default is the lenght of a cell.
+        roughch : float, optional
+            Only used when icalc = 1 (rectangular Manning routing)
+            The defualt is 0.
         critical_mode : str, optional
             A flag or a filepath to indicate which cells are critical for
             convergence and whose conductance should be adapted.
@@ -102,7 +105,7 @@ class Streamflow_seepage:
             os.makedirs(self.sfr_seepage_folder)
         
         # ---- Initialize parameter values
-        self.icalc = 0 # No computation of flow thickness and width
+        self.icalc = icalc # No computation of flow thickness and width
         
         self.thickm = thickm # average streambed thickness
         self.depth = depth # average depth of water in the channel
@@ -117,6 +120,7 @@ class Streamflow_seepage:
             self.rchlen = geographic.resolution
         else:
             self.rchlen = rchlen
+        self.roughch = roughch
             
         self.area = area # area where the SFR seepage will be applied
         
@@ -232,6 +236,8 @@ class Streamflow_seepage:
             self.hcond_max = param_value
         elif param_name in ['width1', 'width2', 'width']:
             self.width = param_value
+        elif param_name == 'roughch':
+            self.roughch = param_value
             
     def correct(self, param_name, param_value):
         if param_name == 'multiple_reaches':            
@@ -501,7 +507,8 @@ class Streamflow_seepage:
                                 #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
                                 #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
                                 self.segment_data_1.loc[
-                                    nseg, 'iupseg'] = -lakarr[upcell[0], upcell[1]]
+                                    nseg, ['icalc', 'iupseg']
+                                    ] = [1, -lakarr[upcell[0], upcell[1]]]
                             
             # Note: if self.segment_data_1 contains nan, Modflow crashes
             self.segment_data_1 = self.segment_data_1.fillna(0)
@@ -543,6 +550,7 @@ class Streamflow_seepage:
             self.segment_data_1['hcond2'] = self.hcond_max
             self.segment_data_1['width1'] = self.width
             self.segment_data_1['width2'] = self.width
+            self.segment_data_1['roughch'] = self.roughch
             
             # Get strtops
             for idx, r in self.reach_data.iterrows(): # strtop
