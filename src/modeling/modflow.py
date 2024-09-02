@@ -818,13 +818,14 @@ class Modflow:
             toolbox.export_tif(self.geographic.watershed_dem, 
                                elev_map, self.geographic.nodata, 
                                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "streambed_tops.tif"))
-            self.streamflow_seepage.crit_area[self.streamflow_seepage.crit_area.mask] = nodata
-            toolbox.export_tif(self.geographic.watershed_dem, 
-                               self.streamflow_seepage.crit_area, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "sink_cells(debug).tif"))
             toolbox.export_tif(self.geographic.watershed_dem, 
                                hcond_map, self.geographic.nodata, 
                                os.path.join(self.streamflow_seepage.sfr_seepage_folder, "conductances.tif"))
+            if self.streamflow_seepage.crit_area is not None:
+                self.streamflow_seepage.crit_area[self.streamflow_seepage.crit_area.mask] = nodata
+                toolbox.export_tif(self.geographic.watershed_dem, 
+                                   self.streamflow_seepage.crit_area, self.geographic.nodata, 
+                                   os.path.join(self.streamflow_seepage.sfr_seepage_folder, "sink_cells(debug).tif"))
 # =============================================================================
 #             wbt.slope(elev_map,
 #                       # os.path.join(self.streamflow_seepage.sfr_seepage_folder, 'slopes.tif'),
