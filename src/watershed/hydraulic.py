@@ -45,7 +45,9 @@ class Hydraulic:
                  ss_decay_init: float=0.,
                  lay_decay_init: float=1.,
                  verti_cond_init=None,
-                 verti_poro_init=None):
+                 verti_poro_init=None,
+                 verti_ss_init=None
+                 ):
         """
         Parameters
         ----------
@@ -113,6 +115,7 @@ class Hydraulic:
         self.lay_decay = lay_decay_init
         self.verti_cond = verti_cond_init 
         self.verti_poro = verti_poro_init
+        self.verti_ss = verti_ss_init
             
     #%% UPDATE LATERAL HOMOGENEOUS
     
@@ -237,9 +240,19 @@ class Hydraulic:
         Parameters
         ----------
         verti_poro_value : list
-            List of porosity values with associated vertical depth.
+            List of porosity (specific yield) values with associated vertical depth.
         """
         self.verti_poro = verti_poro_value   # None or [ [0.5/100, [0, 20]],
+                                             #           [0/100, [20,80]] ]
+    
+    def update_ss_vertical(self, verti_ss_value: list):
+        """
+        Parameters
+        ----------
+        verti_poro_value : list
+            List of porosity (specific storage) values with associated vertical depth.
+        """
+        self.verti_ss = verti_ss_value   # None or [ [0.5/100, [0, 20]],
                                              #           [0/100, [20,80]] ]
     
     #%% UPDATE LATERAL HETEROGENEOUS
