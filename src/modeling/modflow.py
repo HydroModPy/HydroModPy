@@ -905,10 +905,11 @@ class Modflow:
                     
                     # If a correction of conductances is needed for SFR, 
                     # then it is also applied to DRN:
-                    if self.streamflow_seepage.critical_mode is not None:
-                        if self.streamflow_seepage.crit_area[i,j] >= self.streamflow_seepage.sink_threshold:
-                            self.drnData[compt, 4] = min(self.drnData[compt, 4], 
-                                                         self.streamflow_seepage.hcond_min)
+                    if self.streamflow_seepage is not None:
+                        if self.streamflow_seepage.critical_mode is not None:
+                            if self.streamflow_seepage.crit_area[i,j] >= self.streamflow_seepage.sink_threshold:
+                                self.drnData[compt, 4] = min(self.drnData[compt, 4], 
+                                                             self.streamflow_seepage.hcond_min)
                             
                     compt += 1
 
