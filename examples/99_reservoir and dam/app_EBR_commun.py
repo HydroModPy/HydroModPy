@@ -87,7 +87,7 @@ dem_path = os.path.join(data_path,
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = '_'.join(['barrage_Cheze', pd.to_datetime("today").strftime("%Y-%m-%d")])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK_icalc1_sandbox', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -104,44 +104,48 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               save_object=save_object)
 
 #%%% Recharger GEOGRAPHIC
-BV = watershed_root.Watershed(dem_path=dem_path,
-                              out_path=out_path,
-                              watershed_name=watershed_name,
-                              load=True)
+# =============================================================================
+# BV = watershed_root.Watershed(dem_path=dem_path,
+#                               out_path=out_path,
+#                               watershed_name=watershed_name,
+#                               load=True)
+# =============================================================================
 
 #%% SOUS-BASSINS
-hydrometry_path = os.path.join(data_path,
-                               "Stations jaugeage")
-BV.add_hydrometry(hydrometry_path, 'france hydrometric stations.shp')
-
-intermittency_path= os.path.join(data_path,
-                                 "Stations ONDE")
-BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
-
 # =============================================================================
-# BV.add_subbasin(os.path.join(root_dir, 'examples', 
-#                              '99_reservoir and dam', 'data', 'additional'), 200)
+# hydrometry_path = os.path.join(data_path,
+#                                "Stations jaugeage")
+# BV.add_hydrometry(hydrometry_path, 'france hydrometric stations.shp')
+# 
+# intermittency_path= os.path.join(data_path,
+#                                  "Stations ONDE")
+# BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
+# 
+# # =============================================================================
+# # BV.add_subbasin(os.path.join(root_dir, 'examples', 
+# #                              '99_reservoir and dam', 'data', 'additional'), 200)
+# # =============================================================================
+# # Normalement pas besoin car c'est déjà un point d'intérêt
+# 
+# #%% (VISUALISATIONS DU SITE D'ETUDE)
+# # Clip specific data at the catchment scale
+# geol_path = os.path.join(data_path,
+#                          "Geologie")
+# BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+# hydrography_path = os.path.join(data_path,
+#                                 r"Hydrographie")
+# BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
+# 
+# # =============================================================================
+# # BV.add_piezometry()
+# # =============================================================================
+# # Erreur en cours
+# 
+# # General plot of the study site
+# visualization_watershed.watershed_local(dem_path, BV)
+# visualization_watershed.watershed_geology(BV)
+# visualization_watershed.watershed_dem(BV)
 # =============================================================================
-# Normalement pas besoin car c'est déjà un point d'intérêt
-
-#%% (VISUALISATIONS DU SITE D'ETUDE)
-# Clip specific data at the catchment scale
-geol_path = os.path.join(data_path,
-                         "Geologie")
-BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-hydrography_path = os.path.join(data_path,
-                                r"Hydrographie")
-BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
-
-# =============================================================================
-# BV.add_piezometry()
-# =============================================================================
-# Erreur en cours
-
-# General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
-visualization_watershed.watershed_geology(BV)
-visualization_watershed.watershed_dem(BV)
 
 #%% RECHARGE et RUISSELLEMENT DE SURFACE (données d'entrée)
 BV.add_climatic()
@@ -149,13 +153,13 @@ sim_state = 'transient' # transitoire
 freq_input = 'W' # hebdomadaire
 
 ##%%% Reanalyse
-BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 
-                                               # 'evt', 'etp', 'precip', 'temp',
+BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
+                                                'evt', 'etp', 'temp',
                                               ],
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo"),
-                                       first_year=pd.to_datetime('today').year-10,
+                                       first_year=pd.to_datetime('today').year-1,
                                        # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
@@ -235,8 +239,8 @@ print(f"Ajout de '{lake_id}'")
 print("-----------" + "-"*len(lake_id))
 print("   . Définition de la géographie du réservoir :")
 
-maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_lake_75m_larger.tif")
-# maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_polygon_larger.shp")
+# maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_lake_75m_larger.tif")
+maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_polygon_larger.shp")
 
 BV.lakeres.new_lakeres(maskmx, lake_id)
 
@@ -258,9 +262,11 @@ BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 
 # Definition of the lake outlet (if not, the outlet will be automatically 
 # determined)
-outlet_file = os.path.join(data_path, "Reservoir", 
-                           "Exutoire", "lakeres_outlets.shp")
-BV.lakeres.update_outlet(lake_id, outlet_file)
+# =============================================================================
+# outlet_file = os.path.join(data_path, "Reservoir", 
+#                            "Exutoire alternatif", "lakeres_outlets.shp")
+# BV.lakeres.update_outlet(lake_id, outlet_file)
+# =============================================================================
 
 # ---- Chargement des flux d'entrée à partir des données mensuelles
 print("   . Chargement des flux d'entrée mensuels")
@@ -689,7 +695,9 @@ BV.save_object()
 # =============================================================================
 
 #%% SEEPAGE WITH STREAMFLOW ROUTING
-BV.add_streamflow_seepage()
+BV.add_streamflow_seepage(icalc = 1)
+# icalc = 0: instant routing (default)
+# icalc = 1: rectangular Manning
 
 # ---- Generate reach and segment inputs
 # Note: segment and reach data are first defined as pandas.DataFrames.
@@ -717,19 +725,20 @@ thickm = 0.1 # Modflow does not run if thickm = 0
 BV.streamflow_seepage.update_segment_data('thickm', thickm)
 BV.streamflow_seepage.update_segment_data('depth', depth)
 BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
+BV.streamflow_seepage.update_segment_data('roughch', 0.03)
 # BV.streamflow_seepage.update_segment_data('width', width)
 # Update reach data
 # =============================================================================
-# BV.streamflow_seepage.update_reach_data(name, val)
+# BV.streamflow_seepage.update_reach_data(<name>, <val>)
 # =============================================================================
 
 # ---- Correct cells critical for convergence
-hcond_min = 0.000100
 # =============================================================================
-# critical_area_path = r"test.tif"
+# hcond_min = 0.000100
+# # critical_area_path = r"file.tif"
+# BV.streamflow_seepage.critical_cells(hcond = hcond_min, area = 'sinks', 
+#                                      sink_threshold = 300)
 # =============================================================================
-BV.streamflow_seepage.critical_cells(hcond = hcond_min, area = 'sinks', 
-                                     sink_threshold = 300)
 
 # ---- Activate input corrections
 BV.streamflow_seepage.correct('multiple_reaches', False)
