@@ -763,7 +763,7 @@ class Modflow:
 #                 # No calibration curve ("courbe de tarage") (when icalc=4) (see item 6e)
 #                 channel_flow_data,
 # =============================================================================
-                const=0, # 86400, # value is not used because no Manning
+                const=86400, # m3/d, # value is not used because no Manning
                 )
             
             # ---- sfr2 correct, repair & check
