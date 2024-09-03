@@ -674,6 +674,11 @@ class Modflow:
             
             if self.streamflow_seepage.correction_elevations == True:
                 self.dem = self.streamflow_seepage.correct_elevations(self.dem)
+                
+# =============================================================================
+#             if self.streamflow_seepage.apply_elevations == True:
+#                 self.dem = self.streamflow_seepage.apply_strtop_to_dem(self.geographic, self.dem)
+# =============================================================================
     
             # ---- Convert pandas.DataFrames into numpy.recarrays
             reach_data_rec = self.streamflow_seepage.reach_data.to_records(

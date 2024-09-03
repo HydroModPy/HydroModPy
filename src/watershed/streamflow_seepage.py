@@ -156,12 +156,12 @@ class Streamflow_seepage:
                 src_crs = geographic.crs_proj, 
                 base_path = geographic.watershed_dem, 
                 dst_crs = geographic.crs_proj)
-            watershed_mask = np.where(acc_map >= 0.1*acc_map.max(), 1, nodata)
+            self.watershed_mask = np.where(acc_map >= 0.1*acc_map.max(), 1, nodata)
             acc_map = np.ma.array(acc_map, 
                                   mask = acc_map <= 0.1*acc_map.max(), 
                                   fill_value = nodata)
             self.direc = np.ma.array(
-                self.direc, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+                self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
             # A supprimer
 # =============================================================================
 #             # 1. Load the accumulation_flux map
@@ -177,23 +177,23 @@ class Streamflow_seepage:
             
         elif self.area == 'watershed':
         # SFR seepage is applied on the whole watershed
-            watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+            self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
                 geographic.watershed_dem,
                 src_crs = geographic.crs_proj, 
                 base_path = geographic.watershed_dem,
                 dst_crs = geographic.crs_proj) 
             self.direc = np.ma.array(
-                self.direc, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+                self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
             
         elif self.area == 'domain':
         # SFR seepage is applied on the whole domain
-            watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+            self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
                 self.dem,
                 src_crs = geographic.crs_proj, 
                 base_path = geographic.watershed_dem,
                 dst_crs = geographic.crs_proj)
             self.direc = np.ma.array(
-                self.direc, mask = watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+                self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
 
 
     #%% LOAD REACH AND SEGMENT DATA
@@ -649,7 +649,7 @@ class Streamflow_seepage:
     #             base_path = geographic.watershed_dem, 
     #             dst_crs = geographic.crs_proj)
     #         acc_map = np.ma.array(acc_map, 
-    #                               mask = watershed_mask==nodata, 
+    #                               mask = self.watershed_mask==nodata, 
     #                               fill_value = nodata)
     #         # Threshold version
     # # =============================================================================
@@ -739,12 +739,22 @@ class Streamflow_seepage:
             if self.segment_data_1.loc[nseg, 'elevdn'] == self.segment_data_1.loc[nseg, 'elevup']:
                 self.segment_data_1.loc[nseg, 'elevdn'] = self.segment_data_1.loc[nseg, 'elevdn'] - min_depression/2
 
-        # 3. Reflect these changes on the dem used for the modeling (model_modflow.dem)
-# =============================================================================
-#         if self.apply_elevations == True:
-#             dem[watershed_mask!=nodata] = elev_map[watershed_mask!=nodata]
-# =============================================================================
-
+        return dem
+    
+    def apply_strtop_to_dem(self, geographic, dem):
+        # Reflect the changes made with correct_elevations() on the dem 
+        # used for the modeling (model_modflow.dem)
+        
+        elev_map, _, _, nodata = toolbox.load_to_numpy(
+            geographic.watershed_dem, src_crs = geographic.crs_proj, 
+            base_path = geographic.watershed_dem, dst_crs = geographic.crs_proj)
+        elev_map[elev_map > nodata] = 0
+        
+        for _, r in self.reach_data.iterrows():
+            elev_map[r['i'], r['j']] = r['strtop']
+        
+        dem[self.watershed_mask!=nodata] = elev_map[self.watershed_mask!=nodata]
+            
         return dem
     
 
