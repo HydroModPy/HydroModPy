@@ -655,7 +655,7 @@ class Modflow:
 # =============================================================================
     
             # Deactivation of the transient routing via kinematic-wave equation:
-            irtflg = 0
+            irtflg = 0 # if =1, nstrm should be = -nstrm
             
             # ---- Initiate the SFR_seepage module
             self.streamflow_seepage.SFR_seepage_area(self.geographic, self.dem)
