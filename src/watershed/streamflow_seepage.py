@@ -452,103 +452,103 @@ class Streamflow_seepage:
                 last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
                
             # 4bis. Lake correction
-# =============================================================================
-#             if lakarr is not None:
-#                 for idr, r in self.reach_data.iterrows():
-#                 # (it is important that reach_data is ordered here)
-#                     # If this reach is under a lake:
-#                     if lakarr[r['i'], r['j']] > 0:
-#                         # The reach will be removed (at the end of this procedure)
-#                         nseg = r['iseg']
-#                         
-#                         # # Remove all reaches belonging to this segment
-#                         # self.reach_data = self.reach_data[self.reach_data.iseg != nseg]
-#                         
-#                         # Correct outsegs
-#                         # ---------------
-#                         # It it is the (remaining) downstream reach, correct the outlet on the current segment:
-#                         if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].min():
-#                             self.segment_data_1.loc[nseg, 'outseg'] = -lakarr[r['i'], r['j']]
-#                             is_dnstr = True
-#                         else:
-#                             is_dnstr = False
-#                         
-#                         # If it is the (remaining) upstream reach, correct the outlet on the upstream segment (if any):
-#                         if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].max():
-#                             self.segment_data_1.loc[
-#                                 self.segment_data_1[self.segment_data_1.outseg == nseg].index,
-#                                 'outseg'] = -lakarr[r['i'], r['j']]
-#                             is_upstr = True
-#                         else:
-#                             is_upstr = False
-#                             
-#                         # It it is an intermediary reach (tricky), split the segment into 2:
-#                         if (not is_dnstr) & (not is_upstr):
-#                             print(f"/!\ Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
-#                             print("Not implemented yet (see compute_data() in streamflow_seepage.py)")
-# 
-#                         # Remove the segment (if relevant)
-#                         # ------------------
-#                         # If it was the only (remaining) reach on the segment
-#                         if (self.reach_data.iseg == nseg).sum() == 1:
-#                             # Remove this whole segment in segment_data
-#                             self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
-#                             
-#                         # Remove the reach
-#                         # ----------------
-#                         self.reach_data = self.reach_data[self.reach_data.index != idr]
-#                     
-#                     else:
-#                         up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
-#                         for upcell in up_ij:
-#                             # Correct iupsegs
-#                             if lakarr[upcell[0], upcell[1]] > 0:
-#                                 nseg = r['iseg']
-#                                 # self.segment_data_1.loc[
-#                                 #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
-#                                 #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
-#                                 self.segment_data_1.loc[
-#                                     nseg, ['icalc', 'iupseg']
-#                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
-# =============================================================================
+            if lakarr is not None:
+                for idr, r in self.reach_data.iterrows():
+                # (it is important that reach_data is ordered here)
+                    # If this reach is under a lake:
+                    if lakarr[r['i'], r['j']] > 0:
+                        # The reach will be removed (at the end of this procedure)
+                        nseg = r['iseg']
+                        
+                        # # Remove all reaches belonging to this segment
+                        # self.reach_data = self.reach_data[self.reach_data.iseg != nseg]
+                        
+                        # Correct outsegs
+                        # ---------------
+                        # It it is the (remaining) downstream reach, correct the outlet on the current segment:
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].min():
+                            self.segment_data_1.loc[nseg, 'outseg'] = -lakarr[r['i'], r['j']]
+                            is_dnstr = True
+                        else:
+                            is_dnstr = False
+                        
+                        # If it is the (remaining) upstream reach, correct the outlet on the upstream segment (if any):
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].max():
+                            self.segment_data_1.loc[
+                                self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                'outseg'] = -lakarr[r['i'], r['j']]
+                            is_upstr = True
+                        else:
+                            is_upstr = False
+                            
+                        # It it is an intermediary reach (tricky), split the segment into 2:
+                        if (not is_dnstr) & (not is_upstr):
+                            print(f"/!\ Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
+                            print("Not implemented yet (see compute_data() in streamflow_seepage.py)")
+
+                        # Remove the segment (if relevant)
+                        # ------------------
+                        # If it was the only (remaining) reach on the segment
+                        if (self.reach_data.iseg == nseg).sum() == 1:
+                            # Remove this whole segment in segment_data
+                            self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
+                            
+                        # Remove the reach
+                        # ----------------
+                        self.reach_data = self.reach_data[self.reach_data.index != idr]
+                    
+                    else:
+                        up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
+                        for upcell in up_ij:
+                            # Correct iupsegs
+                            if lakarr[upcell[0], upcell[1]] > 0:
+                                nseg = r['iseg']
+                                # self.segment_data_1.loc[
+                                #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
+                                self.segment_data_1.loc[
+                                    nseg, ['icalc', 'iupseg']
+                                    ] = [1, -lakarr[upcell[0], upcell[1]]]
 
             # 4bis. Lake correction (v2)
-            if lakarr is not None:
-                # For each segment
-                for nseg, s in self.segment_data_1.iterrows():
-                    # If the whole segment is under the lake, it is removed
-                    count_underlake = 0
-                    mask = self.reach_data.iseg == nseg
-                    for _, r in self.reach_data[mask].iterrows():
-                        if lakarr[r['i'], r['j']] > 0:
-                            count_underlake += 1
-                    
-                    # If all the reaches of this segment are under a lake:
-                    if count_underlake == mask.sum():
-                        # Correct outseg of upstream segments
-                        self.segment_data_1.loc[
-                            self.segment_data_1[self.segment_data_1.outseg == nseg].index,
-                            'outseg'] = -lakarr[r['i'], r['j']]
-                        
-                        # Remove the segment (in segment data)
-                        self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
-                        
-                        # Remove the reaches (in reach data)
-                        self.reach_data = self.reach_data[~mask]
-                    
 # =============================================================================
-#                     else:
-#                         up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
-#                         for upcell in up_ij:
-#                             # Correct iupsegs
-#                             if lakarr[upcell[0], upcell[1]] > 0:
-#                                 nseg = r['iseg']
-#                                 # self.segment_data_1.loc[
-#                                 #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
-#                                 #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
-#                                 self.segment_data_1.loc[
-#                                     nseg, ['icalc', 'iupseg']
-#                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
+#             if lakarr is not None:
+#                 # For each segment
+#                 for nseg, s in self.segment_data_1.iterrows():
+#                     # If the whole segment is under the lake, it is removed
+#                     count_underlake = 0
+#                     mask = self.reach_data.iseg == nseg
+#                     for _, r in self.reach_data[mask].iterrows():
+#                         if lakarr[r['i'], r['j']] > 0:
+#                             count_underlake += 1
+#                     
+#                     # If all the reaches of this segment are under a lake:
+#                     if count_underlake == mask.sum():
+#                         # Correct outseg of upstream segments
+#                         self.segment_data_1.loc[
+#                             self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+#                             'outseg'] = -lakarr[r['i'], r['j']]
+#                         
+#                         # Remove the segment (in segment data)
+#                         self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
+#                         
+#                         # Remove the reaches (in reach data)
+#                         self.reach_data = self.reach_data[~mask]
+#                     
+# # =============================================================================
+# #                     else:
+# #                         up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
+# #                         for upcell in up_ij:
+# #                             # Correct iupsegs
+# #                             if lakarr[upcell[0], upcell[1]] > 0:
+# #                                 nseg = r['iseg']
+# #                                 # self.segment_data_1.loc[
+# #                                 #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+# #                                 #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
+# #                                 self.segment_data_1.loc[
+# #                                     nseg, ['icalc', 'iupseg']
+# #                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
+# # =============================================================================
 # =============================================================================
                             
             # Note: if self.segment_data_1 contains nan, Modflow crashes
