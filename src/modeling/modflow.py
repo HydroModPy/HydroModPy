@@ -683,14 +683,14 @@ class Modflow:
             # ---- Convert pandas.DataFrames into numpy.recarrays
             reach_data_rec = self.streamflow_seepage.reach_data.to_records(
                 index = False,
-                column_dtypes = {'k': '<f8', 'i': '<f8', 'j': '<f8', 
-                       'iseg': '<f8', 'ireach': '<f8', 'rchlen': '<f8', 
+                column_dtypes = {'k': '<i8', 'i': '<i8', 'j': '<i8', 
+                       'iseg': '<i8', 'ireach': '<i8', 'rchlen': '<f8', 
                        'strtop': '<f8', 'slope': '<f8'})
             
             segment_data_1_rec = self.streamflow_seepage.segment_data_1.to_records(
                 index = True,
-                column_dtypes = {'icalc': '<f8', 'outseg': '<f8', 
-                       'iupseg': '<f8', 'nstrpts': '<f8', 'flow': '<f8', 
+                column_dtypes = {'icalc': '<i8', 'outseg': '<i8', 
+                       'iupseg': '<i8', 'nstrpts': '<i8', 'flow': '<f8', 
                        'roughch': '<f8', 'roughbk': '<f8', 'cdpth': '<f8', 
                        'fdpth': '<f8', 'awdth': '<f8', 'bwdth': '<f8', 
                        'hcond1': '<f8', 'thickm1': '<f8', 'elevup': '<f8', 
