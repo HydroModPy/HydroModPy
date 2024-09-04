@@ -777,6 +777,38 @@ class Modflow:
             
             # Repair segments ordering and outsegs
             self.sfr2.renumber_segments() # restart segment numbering from 1
+            
+            # Back-up solution for lakes
+# =============================================================================
+#             col_outseg = self.sfr2.segment_data[0].outseg
+#             col_iprior = np.zeros(len(col_outseg))
+#             i = 0
+#             for v in col_outseg:
+#                 if v < 0:
+#                     col_iprior[i] = v
+#                 else:
+#                     col_iprior[i] = 0
+#                 i += 1
+#             
+#             self.sfr2.segment_data[0].iprior = col_iprior
+#             
+#             self.sfr2.renumber_segments() # restart segment numbering from 1
+#             
+#             col_outseg = self.sfr2.segment_data[0].outseg
+#             col_outseg_new = np.zeros(len(self.sfr2.segment_data[0].outseg))
+#             col_iprior = self.sfr2.segment_data[0].iprior
+#             i = 0
+#             for v in col_iprior:
+#                 if v < 0:
+#                     col_outseg_new[i] = v
+#                 else:
+#                     col_outseg_new[i] = col_outseg[i]
+#                 i += 1
+#                     
+#             self.sfr2.segment_data[0].outseg = col_outseg_new
+#             self.sfr2.segment_data[0].iprior = 0
+# =============================================================================
+            
             # Correct reach and segment maps:
             for r in self.sfr2.reach_data:
                 sfr_map[int(r['i']), int(r['j'])] = r['iseg']
