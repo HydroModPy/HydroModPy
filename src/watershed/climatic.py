@@ -211,7 +211,7 @@ class Climatic:
         self.recharge = climatic # recharge in meters
         # self.recharge.index = self.recharge.asfreq(self.freq).index
         self.recharge = self.recharge.resample(self.freq).mean()
-        self.recharge.fillna(method = 'ffill', inplace = True)
+        self.recharge.fillna(method = 'ffill', inplace = True)        
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
