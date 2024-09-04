@@ -136,6 +136,89 @@ class Streamflow_seepage:
         self.correction_elevations = correction_elevations # correct elevations and slopes to
                                                            # avoid sinks and flat areae
 
+    #%% Renumber segments
+    def renumber_segments(self):
+        """
+        Method modified from mfsfr2.py.
+        
+        Note: This method has been corrected in order to be used after 
+        the lake correction as well (it can be called for example after 
+        # 5. Reverse segment and reach numbering).
+        
+        Renumber segments so that segment numbering is continuous and always
+        increases in the downstream direction. This may speed convergence of
+        the NWT solver in some situations.
+    
+        Returns
+        -------
+        r : dictionary mapping old segment numbers to new
+        """
+    
+        nseg = sorted(list(self.segment_data_1.index))
+        outseg = [self.segment_data_1.loc[k, 'outseg'].item() for k in nseg]
+    
+        # explicitly fix any gaps in the numbering
+        # (i.e. from removing segments)
+        nseg2 = np.arange(1, len(nseg) + 1)
+        # intermediate mapping that
+        r1 = dict(zip(nseg, nseg2))
+        r1[0] = 0
+        outseg_array = np.array(outseg)
+        for neg_out in outseg_array[outseg_array < 0]:
+            r1[neg_out] = neg_out # handle lakes
+        outseg2 = np.array([r1[s] for s in outseg])
+    
+        # function re-assigning upseg numbers consecutively at one level
+        # relative to outlet(s).  Counts down from the number of segments
+        def reassign_upsegs(r, nexts, upsegs):
+            nextupsegs = []
+            for u in upsegs:
+                r[u] = nexts if u > 0 else u  # handle lakes
+                nexts -= 1
+                nextupsegs += list(nseg2[outseg2 == u])
+            return r, nexts, nextupsegs
+    
+        ns = len(nseg)
+    
+        # start at outlets with nss;
+        # renumber upsegs consecutively at each level
+        # until all headwaters have been reached
+        nexts = ns
+        r2 = {0: 0}
+        for neg_out in outseg_array[outseg_array < 0]:
+            r2[neg_out] = neg_out # handle lakes
+        nextupsegs = nseg2[outseg2 <= 0]
+        for _ in range(ns):
+            r2, nexts, nextupsegs = reassign_upsegs(r2, nexts, nextupsegs)
+            if len(nextupsegs) == 0:
+                break
+        # map original segment numbers to new numbers
+        r = {k: r2.get(v, v) for k, v in r1.items()}
+    
+        # renumber segments
+        self.segment_data_1.index = [
+            r.get(s, s) for s in self.segment_data_1.index
+        ]
+        self.segment_data_1["outseg"] = [
+            r.get(s, s) for s in self.segment_data_1.outseg
+        ]
+        self.segment_data_1.sort_index(inplace = True)
+        nseg = self.segment_data_1.index
+        outseg = self.segment_data_1.outseg
+        inds = (outseg > 0) & (nseg > outseg)
+        assert not np.any(inds)
+        assert (
+            len(self.segment_data_1.index)
+            == self.segment_data_1.index.max()
+        )
+        
+        self.segment_data_1.index.name = 'nseg'
+    
+        # renumber segments in reach_data
+        self.reach_data["iseg"] = [r.get(s, s) for s in self.reach_data.iseg]
+        self.reach_data.sort_values(by = ['iseg', 'ireach'], inplace = True)
+        self.reach_data.index = np.arange(1, len(self.reach_data) + 1)
+
 
     #%% Define seepage area where StreamFLow Routing will be applied
     def SFR_seepage_area(self, geographic, dem):
@@ -450,7 +533,14 @@ class Streamflow_seepage:
 # =============================================================================
             for ij_outlet in outlets:
                 last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
-               
+             
+            # Note: if self.segment_data_1 contains nan, Modflow crashes
+            self.segment_data_1 = self.segment_data_1.fillna(0)
+            self.reach_data.fillna(0)
+            
+            # Renumber segments
+            self.renumber_segments()
+            
             # 4bis. Lake correction
             if lakarr is not None:
                 for idr, r in self.reach_data.iterrows():
@@ -550,10 +640,6 @@ class Streamflow_seepage:
 # #                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
 # # =============================================================================
 # =============================================================================
-                            
-            # Note: if self.segment_data_1 contains nan, Modflow crashes
-            self.segment_data_1 = self.segment_data_1.fillna(0)
-            self.reach_data.fillna(0)
             
             # 5. Reverse segment and reach numbering: 
              # reverse 'ireach' in reach_data:
@@ -579,8 +665,7 @@ class Streamflow_seepage:
             self.segment_data_1 = self.segment_data_1[::-1]
             # self.segment_data_1.index = self.segment_data_1.index[::-1]
 
-            
-            # ---- Fill in the parameter values
+            # Fill in the parameter values
             self.reach_data['rchlen'] = self.rchlen
             
             self.segment_data_1['thickm1'] = self.thickm
