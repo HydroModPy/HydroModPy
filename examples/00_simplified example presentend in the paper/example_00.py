@@ -38,9 +38,6 @@ from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 # root_dir = dirname(dirname(os.getcwd())) 
 sys.path.append(root_dir)
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
@@ -59,14 +56,14 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = os.path.join(root_dir, "examples/00_simplified example presentend in the paper")
 data_path = os.path.join(example_path, "data")
-# To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# To inform the folder path:
+out_path = folder_root.update_root_folder_results()
+# out_path = folder_root.root_folder_results()
 
 #%% ---- EXTRACT CATCHMENT
 
 # Name of the study site
-watershed_name = 'Example'
+watershed_name = 'Example_00_Canut'
 print('##### '+watershed_name.upper()+' #####')
 
 # Regional DEM
@@ -285,11 +282,19 @@ BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climat
                                        time_step='D',
                                        sim_state='transient')
 
+R = pd.read_csv(
+                'C:/Users/ronan/GitHub/Repository/HydroModPy-dev0.1/examples/02_hydrographic network in steady state/data/_climate_REANALYSIS.csv',
+                # 'C:/Users/ronan/GitHub/Repository/HydroModPy-dev0.1/examples/00_simplified example presentend in the paper/data/_climate_REANALYSIS.csv',
+                sep=';',
+                index_col=0, parse_dates=True)
+R = R.sort_index()
+plt.plot(R['REC_REA_historic'], lw=0.1)
+
 fig, ax = plt.subplots(1,1, figsize=(6,2), dpi=300)
 ax.patch.set_visible(False)
 # axb = ax.twinx()
 R = BV.climatic.recharge
-ax.plot(R.index, R,  color='blue', lw=1, clip_on=True)
+ax.plot(R.index, R,  color='blue', lw=1, ms=0, clip_on=True)
 # axb.bar(R.resample('Y').sum().index, R.resample('Y').sum(),  color='red', lw=0, width=100, alpha=1, clip_on=True)
 # axb.set_ylim(0,1000)
 # axb.invert_yaxis()

@@ -46,10 +46,10 @@ from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root_dir)
 
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+# cwd = os.getcwd()
+# if not cwd == root_dir:
+#     os.chdir(root_dir)
+#     # print("Root path directory is: {0}".format(cwd))
 
 #%% HYDROMODPY
 
@@ -659,3 +659,6 @@ os.chdir(root_dir)
 # # ax.plot(the2['recharge']*1000*30, the2['outflow_drain']*1000*30)
 # from matplotlib.ticker import FormatStrFormatter
 # # ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+mf_list = flopy.utils.MfListBudget(simulations_folder+model_name+'/'+model_name+".list")
+incremental, cumulative = mf_list.get_budget()
