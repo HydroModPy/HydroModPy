@@ -14,6 +14,7 @@ Created on 2023.
 # Libraries installed by default
 import sys
 import glob
+
 import os
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
@@ -79,6 +80,7 @@ data_path = os.path.join(example_path, "data")
 out_path = folder_root.root_folder_results()
 # To change the folder path: out_path = folder_root.update_root_folder_results()
 out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -176,13 +178,18 @@ BV.add_climatic()
 #         plt.xticks(rotation=45, ha="right")
 #         ax.legend()
 
-x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', parse_dates=True, index_col=0)
+from datetime import datetime
+x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', index_col=0)
+date_object = pd.to_datetime(x.index, format = "%d/%m/%Y")
+x.index = date_object
 x = x.sort_index()
 x = select_period(x, 2000, 2002)
 BV.climatic.update_recharge(x['REC_REA_historic'] / 1000, sim_state='transient') # from mm to m
 BV.climatic.update_runoff(x['RUN_REA_historic'] / 1000, sim_state='transient') # from mm to m
 R = BV.climatic.recharge
 r = BV.climatic.runoff
+
+plt.plot(R)
 
 #%% ---- PARAMETRIZATION
 
