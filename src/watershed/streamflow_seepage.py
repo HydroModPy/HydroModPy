@@ -147,9 +147,10 @@ class Streamflow_seepage:
         """
         Method modified from mfsfr2.py.
         
-        Note: This method has been corrected in order to be used after 
-        the lake correction as well (it can be called for example after 
-        # 5. Reverse segment and reach numbering).
+        Note: This method has been corrected in order to be fully compatible
+        with the presence of lakes/reservoirs. It can even be used after 
+        the lake correction as well: it can be called for example just before 
+        '# 7. Fill in the parameter values' (7% slower than current procedure). 
         
         Renumber segments so that segment numbering is continuous and always
         increases in the downstream direction. This may speed convergence of
