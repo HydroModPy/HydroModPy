@@ -538,13 +538,37 @@ class Streamflow_seepage:
             self.segment_data_1 = self.segment_data_1.fillna(0)
             self.reach_data.fillna(0)
             
+            # 5. Reverse segment and reach numbering: 
+             # reverse 'ireach' in reach_data:
+            for iseg in self.segment_data_1.index:
+                self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'] \
+                    = self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'].max() + 1 \
+                        - self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach']
+             # reverse row order in reach_data:
+            self.reach_data = self.reach_data[::-1]
+            self.reach_data.index = self.reach_data.index[::-1]
+             # reverse 'iseg' in reach_data:
+            self.reach_data['iseg'] = self.reach_data['iseg'].max() + 1 - self.reach_data['iseg']
+             # reverse 'outseg' in segment_data_1:
+            special_idx = self.segment_data_1[
+                self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake ousegs
+            special_outseg = self.segment_data_1.loc[special_idx, 'outseg'].copy()
+            self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
+                - self.segment_data_1['outseg']
+            self.segment_data_1.loc[special_idx, 'outseg'] = special_outseg # set back outlet or lake outsegs
+             # reverse 'nseg' in segment_data_1:
+            self.segment_data_1.index = self.segment_data_1.index.max() + 1 \
+                - self.segment_data_1.index
+            self.segment_data_1 = self.segment_data_1[::-1]
+            # self.segment_data_1.index = self.segment_data_1.index[::-1]
+            
             # Renumber segments
             self.renumber_segments()
             
-            # 4bis. Lake correction
+            # 6. Lake correction
             if lakarr is not None:
                 for idr, r in self.reach_data.iterrows():
-                # (it is important that reach_data is ordered here)
+                # (it is important that reach_data is ordered here? Apparently not?)
                     # If this reach is under a lake:
                     if lakarr[r['i'], r['j']] > 0:
                         # The reach will be removed (at the end of this procedure)
@@ -556,14 +580,14 @@ class Streamflow_seepage:
                         # Correct outsegs
                         # ---------------
                         # It it is the (remaining) downstream reach, correct the outlet on the current segment:
-                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].min():
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].max():
                             self.segment_data_1.loc[nseg, 'outseg'] = -lakarr[r['i'], r['j']]
                             is_dnstr = True
                         else:
                             is_dnstr = False
                         
                         # If it is the (remaining) upstream reach, correct the outlet on the upstream segment (if any):
-                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].max():
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].min():
                             self.segment_data_1.loc[
                                 self.segment_data_1[self.segment_data_1.outseg == nseg].index,
                                 'outseg'] = -lakarr[r['i'], r['j']]
@@ -600,7 +624,7 @@ class Streamflow_seepage:
                                     nseg, ['icalc', 'iupseg']
                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
 
-            # 4bis. Lake correction (v2)
+            # 6. Lake correction (v2)
 # =============================================================================
 #             if lakarr is not None:
 #                 # For each segment
@@ -640,32 +664,29 @@ class Streamflow_seepage:
 # #                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
 # # =============================================================================
 # =============================================================================
-            
-            # 5. Reverse segment and reach numbering: 
-             # reverse 'ireach' in reach_data:
-            for iseg in self.segment_data_1.index:
-                self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'] \
-                    = self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'].max() + 1 \
-                        - self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach']
-             # reverse row order in reach_data:
-            self.reach_data = self.reach_data[::-1]
-            self.reach_data.index = self.reach_data.index[::-1]
-             # reverse 'iseg' in reach_data:
-            self.reach_data['iseg'] = self.reach_data['iseg'].max() + 1 - self.reach_data['iseg']
-             # reverse 'outseg' in segment_data_1:
-            special_idx = self.segment_data_1[
-                self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake ousegs
-            special_outseg = self.segment_data_1.loc[special_idx, 'outseg'].copy()
-            self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
-                - self.segment_data_1['outseg']
-            self.segment_data_1.loc[special_idx, 'outseg'] = special_outseg # set back outlet or lake outsegs
-             # reverse 'nseg' in segment_data_1:
-            self.segment_data_1.index = self.segment_data_1.index.max() + 1 \
-                - self.segment_data_1.index
-            self.segment_data_1 = self.segment_data_1[::-1]
-            # self.segment_data_1.index = self.segment_data_1.index[::-1]
 
-            # Fill in the parameter values
+            # Corect the gaps after the lake correction
+            self.segment_data_1.sort_index(inplace = True)
+            self.reach_data.sort_values(by = ['iseg', 'ireach'], inplace = True)
+            last_nseg = 0
+            for nseg, _ in self.segment_data_1.iterrows():
+                corr_nseg = last_nseg + 1
+                # if there is a gap in nsegs:
+                if nseg > corr_nseg:
+                    # correct the nseg in segment_data
+                    self.segment_data_1.rename(index = {nseg: corr_nseg}, inplace = True)
+                    # correct the outseg in segment_data
+                    self.segment_data_1.loc[self.segment_data_1[self.segment_data_1.outseg == nseg].index, 'outseg'] = corr_nseg
+                    # correct the iupseg in segment_data
+                    self.segment_data_1.loc[self.segment_data_1[self.segment_data_1.outseg == nseg].index, 'iupseg'] = corr_nseg
+                    # correct the iseg in reach_data
+                    self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'iseg'] = corr_nseg
+                # correct the reach numbering
+                idr = self.reach_data[self.reach_data.iseg == corr_nseg].index
+                self.reach_data.loc[idr, 'ireach'] = range(1, len(idr) + 1)
+                last_nseg = corr_nseg
+
+            # 7. Fill in the parameter values
             self.reach_data['rchlen'] = self.rchlen
             
             self.segment_data_1['thickm1'] = self.thickm
