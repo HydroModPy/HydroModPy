@@ -817,12 +817,6 @@ BV.add_oceanic(sea_level)
 
 # Paramètres du suivi des particules
 BV.settings.update_input_particules(zone_partic=zone_partic)
-
-# Lacs/reservoirs
-try:
-    BV.lakeres
-except AttributeError:
-    BV.lakeres = None
     
 # "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
 BV.settings.update_split_temporal(split_temp)
