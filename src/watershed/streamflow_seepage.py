@@ -38,7 +38,8 @@ class Streamflow_seepage:
     
     #%% INIT
     
-    def __init__(self, geographic : object, area=None, icalc:int=0, thickm:float=0.1, 
+    def __init__(self, geographic : object, area=None, mainstream_threshold=0.1,
+                 icalc:int=0, thickm:float=0.1, 
                  depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
                  rchlen:float=None, roughch:float=0, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
@@ -53,9 +54,13 @@ class Streamflow_seepage:
         geographic : object
             DESCRIPTION
         area : str, optional
-            'river' | 'watershed' | 'domain' | None (default)
+            'mainstream' | 'watershed' | 'domain' | None (default)
             Flag to choose whether the SFR seepage is applied on the main
             river, on the watershed or on the whole modeled domain.
+        mainstream_threshold : 
+            Threshold (ratio of maximum accumulation flux) above which the 
+            stream is considered to be part of the main stream.
+            The default is 0.1 (10%).
         icalc : integer, optional
             The default is 0 (no computation of flow thickness and width)
         thickm : float, optional
@@ -123,13 +128,14 @@ class Streamflow_seepage:
         self.roughch = roughch
             
         self.area = area # area where the SFR seepage will be applied
+        self.mainstream_threshold = mainstream_threshold
         
         # Load data or not
         self.load_reach_data = reach_data
         self.load_segment_data = segment_data
         
         self.critical_mode = critical_mode # 
-        self.crit_area = None # SHould be defined by calling 
+        self.crit_area = None # Should be defined by calling 
                               # correct_critical_cells() function
         
         self.correction_multiple_reaches = correction_multiple_reaches # Remove double reaches
@@ -231,32 +237,24 @@ class Streamflow_seepage:
         # ---- Define the area of SFR seepage
         self.direc, _, _, _ = toolbox.load_to_numpy(geographic.watershed_box_buff_direc)
         
-        if self.area == 'river':
+        if self.area == 'mainstream':
         # SFR seepage is only applied on the main river
+            self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+               geographic.watershed_dem,
+               src_crs = geographic.crs_proj, 
+               base_path = geographic.watershed_dem,
+               dst_crs = geographic.crs_proj)
            
             acc_map, _, _, nodata = toolbox.load_to_numpy(
                 os.path.join(geographic.reg_path, 'region_acc.tif'), 
                 src_crs = geographic.crs_proj, 
                 base_path = geographic.watershed_dem, 
                 dst_crs = geographic.crs_proj)
-            self.watershed_mask = np.where(acc_map >= 0.1*acc_map.max(), 1, nodata)
-            acc_map = np.ma.array(acc_map, 
-                                  mask = acc_map <= 0.1*acc_map.max(), 
-                                  fill_value = nodata)
+
+            self.watershed_mask = np.ma.where(acc_map >= self.mainstream_threshold*acc_map.max(), self.watershed_mask, nodata)
+            
             self.direc = np.ma.array(
                 self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
-            # A supprimer
-# =============================================================================
-#             # 1. Load the accumulation_flux map
-#             # acc_map = acc_map[acc_map >= 0.1*acc_map.max()]
-#             # acc_map = np.ma.MaskedArray(
-#             #     data = acc_map, 
-#             #     mask = acc_map <= 0.1*acc_map.max())
-#             # 2. Select only the cells with significant flow (10% of flow.max)
-#             # acc_map = np.ma.where(acc_map >= 0.1*acc_map.max(), 1, 0) # acc_map = acc_map*0+1
-#             # 3. Extract the local drain directions on these cells
-#             # self.direc = acc_map*self.direc
-# =============================================================================
             
         elif self.area == 'watershed':
         # SFR seepage is applied on the whole watershed
@@ -301,8 +299,10 @@ class Streamflow_seepage:
     
     
     #%% UPDATE PARAMETER VALUES
-    def update_area(self, area):
+    def update_area(self, area, mainstream_threshold=None):
         self.area = area
+        if mainstream_threshold is not None:
+            self.mainstream_threshold = mainstream_threshold
     
     def update_reach_data(self, param_name, param_value):
         # self.reach_data[param_name] = param_value   
