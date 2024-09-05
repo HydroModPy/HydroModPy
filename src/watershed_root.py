@@ -580,7 +580,8 @@ class Watershed:
         self.elt_def.append('lakeres')
         self.save_object()
         
-    def add_streamflow_seepage(self, area=None, icalc:int=0, thickm:float=0.1, 
+    def add_streamflow_seepage(self, area=None, mainstream_threshold:float=0.1,
+                 icalc:int=0, thickm:float=0.1, 
                  depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
                  rchlen:float=None, roughch:float=0, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
@@ -595,6 +596,10 @@ class Watershed:
             'river' | 'watershed' | 'domain' | None (default)
             Flag to choose whether the SFR seepage is applied on the main
             river, on the watershed or on the whole modeled domain.
+        mainstream_threshold : 
+            Threshold (ratio of maximum accumulation flux) above which the 
+            stream is considered to be part of the main stream.
+            The default is 0.1 (10%).
         icalc : integer, optional
             The default is 0 (no computation of flow thickness and width)
         thickm : float, optional
@@ -638,7 +643,7 @@ class Watershed:
         """
         
         self.streamflow_seepage = streamflow_seepage.Streamflow_seepage(
-            self.geographic, area, icalc, thickm, depth, hcond, width, slope, rchlen, 
+            self.geographic, area, mainstream_threshold, icalc, thickm, depth, hcond, width, slope, rchlen, 
             roughch, critical_mode, correction_multiple_reaches, correction_elevations)
         self.elt_def.append('streamflow_seepage')
         self.save_object()

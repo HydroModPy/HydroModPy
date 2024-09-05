@@ -714,8 +714,9 @@ BV.add_streamflow_seepage(icalc = 1)
 # ---- Update data
 ### These values can also be passed as arguments in the 'add_streamflow_seepage' call
 
-# Area where the SFR seepage will be applied
-BV.streamflow_seepage.update_area('watershed')
+# Area where the SFR seepage will be applied:
+# BV.streamflow_seepage.update_area('watershed')
+BV.streamflow_seepage.update_area('mainstream', 0.7)
 # Standard values for segment_data:
 depth = 0 # 0.1 # self.thick # 1 # arbitrary
 hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
