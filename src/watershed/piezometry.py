@@ -107,11 +107,14 @@ class Piezometry:
         folder = os.path.join(data_folder, 'shapefile')
         url = 'https://www.data.gouv.fr/fr/datasets/r/f10f3f18-eac3-4cee-b178-4c577c4fd689'
         if not os.path.exists(folder):
-            ssl._create_default_https_context = ssl._create_unverified_context
-            urllib.request.urlretrieve(url, filename)
-            with zipfile.ZipFile(filename, 'r') as zip_ref:
-                zip_ref.extractall(folder)
-            os.remove(filename)
+            try:
+                ssl._create_default_https_context = ssl._create_unverified_context
+                urllib.request.urlretrieve(url, filename)
+                with zipfile.ZipFile(filename, 'r') as zip_ref:
+                    zip_ref.extractall(folder)
+                os.remove(filename)
+            except:
+                pass
             
         #BSS discrete data
         filename = data_folder + 'BSS.zip'

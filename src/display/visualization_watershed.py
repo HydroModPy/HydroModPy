@@ -123,7 +123,7 @@ def watershed_dem(BV):
     except:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, zorder=4,legend=True, label='Watershed', facecolor='None')
+        contour.plot(ax=ax, lw=1.5, zorder=4,legend=True, label='Watershed', edgecolor='k', facecolor='None')
     except:
         pass
     try:
@@ -279,7 +279,7 @@ def watershed_geology(BV):
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=4, legend=True, edgecolor='k', facecolor='None', label='Watershed')
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
             piezod = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
@@ -330,7 +330,7 @@ def watershed_zones(BV):
     except:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+        contour.plot(ax=ax, lw=1.5, color='k', edgecolor='k', facecolor='None', zorder=4,legend=True, label='Watershed')
     except:
         pass
     try:
