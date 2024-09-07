@@ -94,6 +94,7 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 #%% ---- ADD DATA
 
 # Clip specific data at the catchment scale
+BV.add_piezometry()
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
