@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -36,11 +39,7 @@ wbt.verbose = False
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
-# root_dir = dirname(dirname(os.getcwd())) 
 sys.path.append(root_dir)
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
@@ -59,14 +58,13 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = os.path.join(root_dir, "examples/00_simplified example presentend in the paper")
 data_path = os.path.join(example_path, "data")
-# To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# To inform the folder path:
+out_path = folder_root.update_root_folder_results()
 
 #%% ---- EXTRACT CATCHMENT
 
 # Name of the study site
-watershed_name = 'Example'
+watershed_name = 'Example_00_Canut'
 print('##### '+watershed_name.upper()+' #####')
 
 # Regional DEM
@@ -270,6 +268,7 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   freq_time='D') # or 'M' or None
 
 #%% ---- GENERATE NETCDF FILES
+
 netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                           actual_date=True)
 
@@ -290,7 +289,7 @@ fig, ax = plt.subplots(1,1, figsize=(6,2), dpi=300)
 ax.patch.set_visible(False)
 # axb = ax.twinx()
 R = BV.climatic.recharge
-ax.plot(R.index, R,  color='blue', lw=1, clip_on=True)
+ax.plot(R.index, R,  color='blue', lw=1, ms=0, clip_on=True)
 # axb.bar(R.resample('Y').sum().index, R.resample('Y').sum(),  color='red', lw=0, width=100, alpha=1, clip_on=True)
 # axb.set_ylim(0,1000)
 # axb.invert_yaxis()
@@ -329,7 +328,7 @@ try:
 except:
     pass
 cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-3,vmax=1e-8))
-ax.set_title('Hydraulic conductivity [m/s] - Meshgrid West to East', fontsize=12)
+ax.set_title('Hydraulic conductivity [m/s] - W to E (center)', fontsize=12)
 ax.set_xlim(0, 9000)
 ax.set_ylim(40, 150)
 ax.set_xticks([0,2000,4000,6000,8000])
@@ -346,7 +345,7 @@ cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
                             # vmin=0, vmax=30,
                             norm=mpl.colors.LogNorm(vmin=0.1, 
                                                     vmax=10))
-ax.set_title('Specific yield [%] - Meshgrid South to North', fontsize=12)
+ax.set_title('Specific yield [%] - N to S (center)', fontsize=12)
 ax.set_xlim(0, 5500)
 ax.set_ylim(40, 150)
 ax.set_xticks([0,1000,2000,3000,4000,5000])
@@ -357,58 +356,6 @@ fig.colorbar(cb)
 plt.tight_layout()
 
 # fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'mesh_cross.png', dpi=300, bbox_inches='tight')
-
-#%% 2D VISUALIZATION
-
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual2D(object_list = [
-                             'map',
-                             'grid',
-                             'watertable',
-                             'watertable_depth',
-                             'drain_flow',
-                             'surface_flow',
-                             'pathlines',
-                             'residence_times'
-                             ],
-              color_scale = [
-                             (None,None),
-                             (80,150),
-                             (80,150),
-                             (0,10),
-                             (0,200),
-                             (0,30000),
-                             (0,3),
-                             (0,3),
-                             ], 
-                             lines=750)
- 
-#%% 3D VISUALIZATION
-
-export_vtuvtk.VTK(BV, model_name)
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual3D(interactive=True, object_list=[
-                                             'grid',
-                                             'watertable',
-                                             'watertable_depth',
-                                             'surface_flow',
-                                             'drain_flow',
-                                             'pathlines'
-                                             ],
-                                               view='south-west',
-                                              # view='north',
-                                              lines=None,
-                                              cloc=(0.7,0.1),
-                                              z_scale=10)
-
-#%% INTERACTIVE CROSS-SECTION
-
-dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
-stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
-watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
-interactive = True
-visu = visualization_results.Visualization(BV, model_name)
-visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
 #%% FIXED CROSS-SECTION
 
@@ -455,6 +402,58 @@ ax.set_ylabel('Elevation [m]')
 plt.tight_layout()
 
 # fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'2D_cross.png', dpi=300, bbox_inches='tight')
+
+#%% 2D VISUALIZATION
+
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = [
+                             'map',
+                             'grid',
+                             'watertable',
+                             'watertable_depth',
+                             'drain_flow',
+                             'surface_flow',
+                             'pathlines',
+                             'residence_times'
+                             ],
+              color_scale = [
+                             (None,None),
+                             (80,150),
+                             (80,150),
+                             (0,10),
+                             (0,200),
+                             (0,30000),
+                             (0,3),
+                             (0,3),
+                             ], 
+                             lines=750)
+
+#%% 3D VISUALIZATION
+
+export_vtuvtk.VTK(BV, model_name)
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual3D(interactive=True, object_list=[
+                                             'grid',
+                                             'watertable',
+                                             'watertable_depth',
+                                             'surface_flow',
+                                             'drain_flow',
+                                             'pathlines'
+                                             ],
+                                               view='south-west',
+                                              # view='north',
+                                              lines=None,
+                                              cloc=(0.7,0.1),
+                                              z_scale=10)
+
+#%% INTERACTIVE CROSS-SECTION
+
+dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
+stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
+watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
+interactive = True
+visu = visualization_results.Visualization(BV, model_name)
+visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
 #%% ---- NOTES
 

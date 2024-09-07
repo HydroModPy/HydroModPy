@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -43,11 +46,7 @@ wbt.verbose = False
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
@@ -66,27 +65,26 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, 
-                            "examples",
-                            "01_basic features and overview of possibilities")
+example_path = os.path.join(root_dir, "examples/01_basic features and overview of possibilities")
 data_path = os.path.join(example_path, "data")
-# To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# To inform the folder path:
+out_path = folder_root.update_root_folder_results()
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-# case = 'FromLIB'
-# case = 'FromDEM'
-case = 'FromSHP'
-# case = 'FromXYV'
+### Choice of model domain initialization (shapefile, .csv library of coordinates, )
+case = 'FromSHP'    # from a shapefile: clip a provided DEM 
+# case = 'FromLIB'  # from a library of coordinates: extract the catchment from a DEM
+# case = 'FromDEM'  # from a DEM: the model domain is directly the DEM provided
+# case = 'FromXYV'  # from a XY coordinates: the catchment is extracted from outlet coordinates
+###
 
 if case == 'FromLIB':
     dem_path = os.path.join(data_path, 'regional dem.tif')
     load = False
-    watershed_name = 'FromLIB'
+    watershed_name = 'Example_01_Lib'
     from_lib = os.path.join(data_path,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]
@@ -97,7 +95,7 @@ if case == 'FromLIB':
 if case == 'FromDEM':
     dem_path = os.path.join(data_path, 'conceptual dem.tif')
     load = False
-    watershed_name = 'FromDEM'
+    watershed_name = 'Example_01_Dem'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = [dem_path, 100] # [path, cell size]
     from_shp = None # [path, buffer size]
@@ -108,7 +106,7 @@ if case == 'FromDEM':
 if case == 'FromSHP':
     dem_path = os.path.join(data_path, 'regional dem.tif')
     load = False
-    watershed_name = 'FromSHP'
+    watershed_name = 'Example_01_Shp'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = [data_path + '/' + 'conceptual shp.shp', 10] # [path, buffer size]
@@ -119,7 +117,7 @@ if case == 'FromSHP':
 if case == 'FromXYV':
     dem_path = os.path.join(data_path, 'regional dem.tif')
     load = False
-    watershed_name = 'FromXYV'
+    watershed_name = 'Example_01_Cxy'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]
@@ -154,11 +152,6 @@ if from_dem == None:
     BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
     BV.add_hydrography(data_path, types_obs=['regional stream network'], fields_obs=['fid'])
     BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    # BV.add_intermittency(data_path, 'regional onde stations.shp')
-    # BV.add_piezometry()
-
-    # Extract some subbasin from data available above
-    #BV.add_subbasin(data_path+'additional/', 200)
 
 # General plot of the study site
 if from_dem == None:
@@ -173,15 +166,28 @@ visualization_watershed.watershed_dem(BV)
 # # Necessary to set model parameters
 BV.add_climatic()
 
-# Different cases of recharge implementation
-
+### Choice the case of recharge input
+recharge_data = 'manual'
 # recharge_data = 'reanalysis'
 # recharge_data = 'explore1'
 # recharge_data = 'explore2'
 # recharge_data = 'synthetic'
-recharge_data = 'manual'
 # recharge_data = 'raster'
 # recharge_data = 'evapotranspiration'
+###
+
+if recharge_data == 'manual':
+    
+    time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10]) # mm/month
+    BV.climatic.update_recharge(time_series, sim_state='transient')
+    fig, ax = plt.subplots(1,1, figsize=(6,3))
+    R = BV.climatic.recharge / 1000 / 30
+    r = R * 0.1
+    ax.plot(R, label='recharge_manual', c='dodgerblue', lw=2)
+    ax.plot(r, label='runoff_manual', c='navy', lw=2)
+    ax.set_xlabel('Months')
+    ax.set_ylabel('[mm/month]')
+    ax.legend()
 
 if recharge_data == 'reanalysis':
     BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
@@ -276,19 +282,6 @@ if recharge_data == 'synthetic':
     ax.set_ylabel('[mm/day]')
     ax.legend()
     print(R.resample('Y').sum()*1000)
-
-if recharge_data == 'manual':
-    
-    time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10]) # mm/month
-    BV.climatic.update_recharge(time_series, sim_state='transient')
-    fig, ax = plt.subplots(1,1, figsize=(6,3))
-    R = BV.climatic.recharge / 1000 / 30
-    r = R * 0.1
-    ax.plot(R, label='recharge_manual', c='dodgerblue', lw=2)
-    ax.plot(r, label='runoff_manual', c='navy', lw=2)
-    ax.set_xlabel('Months')
-    ax.set_ylabel('[mm/month]')
-    ax.legend()
 
 if recharge_data == 'raster':
     
@@ -456,39 +449,6 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
 
 #%% ---- PLOT
 
-#%% CHRONICS
-
-# fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
-# csv = pd.read_csv(simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv',
-#                   sep=';')
-# ax.plot(csv['outflow_drain'])
-
-#%% 2D
-
-# if sim_state == 'steady':
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual2D(object_list = ['map','grid',
-                             'watertable', 'watertable_depth',
-                             'drain_flow','surface_flow',
-                             'pathlines', 'residence_times'
-                             ],
-              color_scale = [(None,None),(None,None),
-                             (None,None),(0,10),
-                             (None,None),(None,None),
-                             (0,100),(None,None),
-                             ], 
-              lines=250)
-
-#%% 3D
-
-if from_dem == None:
-    export_vtuvtk.VTK(BV, model_name)
-    visu = visualization_results.Visualization(BV, model_name)
-    visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
-                                                  'surface_flow',
-                                                  'drain_flow',
-                                                  'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
-
 #%% RAW
 
 lead_numb = '0'
@@ -551,8 +511,34 @@ plt.tight_layout()
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'
 plt.tight_layout()
 
-fig.savefig(os.path.join(simulations_folder, model_name,
-                            '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
+# fig.savefig(os.path.join(simulations_folder, model_name,
+#                             '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
+
+#%% 2D
+
+# if sim_state == 'steady':
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid',
+                             'watertable', 'watertable_depth',
+                             'drain_flow','surface_flow',
+                             'pathlines', 'residence_times'
+                             ],
+              color_scale = [(None,None),(None,None),
+                             (None,None),(0,10),
+                             (None,None),(None,None),
+                             (0,100),(None,None),
+                             ], 
+              lines=250)
+
+#%% 3D
+
+if from_dem == None:
+    export_vtuvtk.VTK(BV, model_name)
+    visu = visualization_results.Visualization(BV, model_name)
+    visu.visual3D(interactive=True, object_list=['grid','watertable', 'watertable_depth',
+                                                  'surface_flow',
+                                                  'drain_flow',
+                                                  'pathlines'], view='south-west', lines=100, cloc=(0.7,0.1), z_scale=10)
 
 #%% CROSS
 
