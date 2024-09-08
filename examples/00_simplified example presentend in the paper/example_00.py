@@ -44,9 +44,9 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
 
-import src
+#import src
 import importlib
-importlib.reload(src)
+#importlib.reload(src)
 from src import watershed_root
 from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
