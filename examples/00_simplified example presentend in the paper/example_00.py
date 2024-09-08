@@ -44,9 +44,9 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
 
-import src
+#import src
 import importlib
-importlib.reload(src)
+#importlib.reload(src)
 from src import watershed_root
 from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
@@ -93,6 +93,7 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 #%% ---- ADD DATA
 
 # Clip specific data at the catchment scale
+BV.add_piezometry()
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
