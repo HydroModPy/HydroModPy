@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -74,7 +77,8 @@ def select_period(df, first, last):
 example_path = os.path.join(root_dir, r"examples/03_streamflow intermittence in transient")
 data_path = os.path.join(example_path, "data")
 # To inform the folder path:
-out_path = folder_root.update_root_folder_results()
+# out_path = folder_root.update_root_folder_results()
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -612,7 +616,7 @@ for i, simul in enumerate(simul_list[:]):
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/month]')
     ax.set_yscale('log')
-    ax.set_ylim(0,200)
+    ax.set_ylim(2,200)
     ax.xaxis.set_major_locator(yearsmaj)
     ax.xaxis.set_minor_locator(yearsmin)
     ax.xaxis.set_major_formatter(years_fmt)
