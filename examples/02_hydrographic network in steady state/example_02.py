@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -42,11 +45,7 @@ wbt.verbose = True
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
@@ -70,10 +69,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = os.path.join(root_dir, 
                             r"examples/02_hydrographic network in steady state")
 data_path = os.path.join(example_path, "data")
-data_path = os.path.join(example_path, "data")
-# To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# To inform the folder path:
+# out_path = folder_root.update_root_folder_results()
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -82,13 +80,12 @@ out_path = folder_root.root_folder_results()
 dem_path = os.path.join(data_path, 'regional dem.tif')
 # dem_path = 'C:/Users/ronan/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
 load = False
-watershed_name = 'Canut'
+watershed_name = 'Example_02_Canut'
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
-# from_xyv = [1019446, 6797493, 500, 10, 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 

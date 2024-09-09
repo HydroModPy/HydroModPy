@@ -43,13 +43,9 @@ wbt.verbose = True
 #%% ROOT
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(dirname(abspath(__file__)))))
+root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-
-# cwd = os.getcwd()
-# if not cwd == root_dir:
-#     os.chdir(root_dir)
-#     # print("Root path directory is: {0}".format(cwd))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
@@ -74,22 +70,17 @@ def select_period(df, first, last):
 
 example_path = root_dir + "/examples/09_recession analytical solution in 2D/"
 data_path = os.path.join(example_path, "data") + '/'
-# To get or initialize the folder path:
-# out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
-# out_path = '/home/agauvain/Documents/HydroModPy/'
-# out_path = 'E:/_RONAN/_E_SIMULATIONS/HYDROMODPY/'
+# To inform the folder path:
+# out_path = folder_root.update_root_folder_results()
 out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-# case = 'Lasset'
-# case = 'Hillslope_2D'
-case = 'Hillslope_1D'
+case = 'Example_09_Hillslope1D'
 
-if case == 'Hillslope_1D':
+if case == 'Example_09_Hillslope1D':
     dem_path_ref = data_path + 'hillslope_1D.tif'
     
     resamp_res = 20
@@ -106,6 +97,7 @@ if case == 'Hillslope_1D':
         kwargs = {"format": "GTiff", "xRes": x_res, "yRes": y_res}
         ds = gdal.Warp(outputFile, inputFile, **kwargs)
         del(ds)
+        
     # wbt.verbose = True
     # wbt.resample(
     #     dem_path_ref, 
@@ -158,16 +150,8 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 BV.add_climatic()
 
 # Different cases of recharge implementation
-time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])
-BV.climatic.update_recharge(time_series, sim_state='transient')
-# fig, ax = plt.subplots(1,1, figsize=(6,3))
-# R = BV.climatic.recharge
-# r = R * 0.1
-# ax.plot(R, label='recharge_manual', c='dodgerblue', lw=2)
-# ax.plot(r, label='runoff_manual', c='navy', lw=2)
-# ax.set_xlabel('Months')
-# ax.set_ylabel('[mm/month]')
-# ax.legend()
+# time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])
+# BV.climatic.update_recharge(time_series, sim_state='transient')
 
 x = pd.read_csv(data_path+'/'+'_REC_D.csv', sep=';', parse_dates=True, index_col=0)
 x = x.sort_index()
@@ -183,12 +167,7 @@ y = y['REA_historic'] / 1000
 rd = y.copy()
 rw = y.resample('M').mean()
 rm = y.resample('M').mean()
-# plt.plot(x)
-# plt.plot(y)
-# BV.climatic.update_recharge(x / 1000, sim_state='transient') # from mm to m
-# BV.climatic.update_runoff(y / 1000, sim_state='transient') # from mm to m
-# R = BV.climatic.recharge
-# r = BV.climatic.runoff
+
 plt.plot(Rm)
 plt.plot(Rw)
 plt.plot(Rd)
@@ -198,65 +177,32 @@ plt.yscale('log')
 
 #%% DEFINE
 
-# model_name = 'default_daily_mperday_nosplit'
 model_name = 'default_weekly_mperday_split'
 
 # Frame settings
-# model_name = 'default_Rm_md'
-# model_name = 'default_m-month'
 box = True # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
-
+split_temp =  True
 plot = True
 
 # Climatic settings
-# recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000/10
-# recharge = 100 / 365 / 1000
-# recharge = pd.Series([0]*30) / 365 / 1000
-# recharge = Rm.copy()
-# kr = 10
-# hyd_cond = 1e-8 * 24 * 3600
-# hyd_cond = 1e-5 * 24 * 3600
-hyd_cond = 10 /30
-# hyd_cond = 1
-# recharge = Rw.copy()
-# rval = hyd_cond / kr
-# rval = 1
-# rval = 100 / 1000 / 365
+hyd_cond = 10 / 30
 rval = 1 / 30
 print(hyd_cond/rval)
 
-# recharge = pd.Series([rval,rval,rval,rval,rval,rval,rval,rval,rval,rval,
-#                       0,0,0,0,0,0,0,0,0,0,
-#                       0,0,0,0,0,0,0,0,0,0,
-#                       0,0,0,0,0,0,0,0,0,0,])#/30/1000 #* 30
-
 recharge = pd.Series(np.ones(1000)*0)
 recharge[:30] = rval
-split_temp =  False
 
-# recharge = pd.Series(np.ones(int(1000/12))*0)
-# recharge[:2] = rval
-# split_temp = list(np.ones(int(1000/12))*30)
-
-# recharge = pd.Series(recharge)
 first_clim = 'mean' # or 'first or value
-# first_clim = 100 / 365 / 1000 # or 'first or value
 freq_time = 'M'
-
-# split_temp = [30]
 
 # Hydraulic settings
 nlay = 10
 lay_decay = 1 # 1 for no decay
 bottom = 0 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-# if watershed_name == 'Lasset':
-#     hyd_cond = 1e-8 * 24 * 3600 # m/day
-# else:
-# hyd_cond = 1e-4 * 24 * 3600 #* 30 # m/day
 
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
@@ -305,7 +251,6 @@ BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
 
 # Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
-# print(Ss_formula)
 # BV.hydraulic.update_ss(Ss_formula)
 BV.hydraulic.update_ss(1e-10)
 
@@ -573,7 +518,6 @@ for i in range(len(kstpkper)):
     # Q = np.sqrt(Qx**2 + Qz**2) # ???
     # Q_print = Q[0,0,0] # m/m
 
-
 fac = 1
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
@@ -612,7 +556,6 @@ ax.set_ylabel('log(-dQ/dt)')
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 ax.plot(np.log10(df['Q']), np.log10(df['dQ/dt']) - np.log10(df['B']))
-
 
 fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
 # ax.plot(pd.Series(list_R), abs(pd.Series(list_CH)))
@@ -662,3 +605,4 @@ os.chdir(root_dir)
 
 mf_list = flopy.utils.MfListBudget(simulations_folder+model_name+'/'+model_name+".list")
 incremental, cumulative = mf_list.get_budget()
+
