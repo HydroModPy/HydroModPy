@@ -190,6 +190,14 @@ class Piezometry:
                 self.start_date.append(self.piezos['data'][i]['date_debut_mesure'])
                 self.end_date.append(self.piezos['data'][i]['date_fin_mesure'])
         
+            for i in range(0, len(self.x_coord)):
+                idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
+                # index is determined by lowest difference between piezometer coordinate and model cell coordinate
+                idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
+                self.x_iloc.append(idx)
+                self.y_iloc.append(idy) 
+        
+        
         piezos = []
         for i in range(0, self.piezos['count']):
             piezos.append([self.codes_bss[i], Point([self.x_coord[i],self.y_coord[i]])])
