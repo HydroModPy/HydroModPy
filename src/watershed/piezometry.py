@@ -26,6 +26,7 @@ import ssl
 import matplotlib.pyplot as plt
 import whitebox
 from pyproj import Transformer
+from shapely.geometry import Polygon, Point
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -163,6 +164,10 @@ class Piezometry:
         piezos : shapefile
             Piezometer clipping points.
         """
+        folder = os.path.join(data_folder, 'shapefile')
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        
         wgs_coord = str(geographic.ll_long_lat[1])+','+str(geographic.ll_long_lat[0])+',' + str(geographic.ur_long_lat[1])+',' + str(geographic.ur_long_lat[0])
         url = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations?bbox="+wgs_coord
         reponse = requests.get(url)
@@ -184,6 +189,12 @@ class Piezometry:
                 self.y_coord.append(self.xy_coord[1])
                 self.start_date.append(self.piezos['data'][i]['date_debut_mesure'])
                 self.end_date.append(self.piezos['data'][i]['date_fin_mesure'])
+        
+        piezos = []
+        for i in range(0, self.piezos['count']):
+            piezos.append([self.codes_bss[i], Point([self.x_coord[i],self.y_coord[i]])])
+        shp_piezo = gpd.GeoDataFrame(data=piezos, columns=['code_bss', 'geometry'])
+        shp_piezo.to_file(os.path.join(data_folder, 'shapefile','piezos.shp')) 
         
         """
         # ADES continue data
