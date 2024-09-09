@@ -147,7 +147,7 @@ if not os.path.exists(os.path.join(stable_folder, 'add_data')):
     os.mkdir(os.path.join(stable_folder, 'add_data'))
 piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
 
-BV.piezometry.add_data()
+#BV.piezometry.add_data()
 BV.piezometry.display_data()
 
 #%% RECHARGE
