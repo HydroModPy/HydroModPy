@@ -164,11 +164,9 @@ class Piezometry:
             Piezometer clipping points.
         """
         wgs_coord = str(geographic.ll_long_lat[1])+','+str(geographic.ll_long_lat[0])+',' + str(geographic.ur_long_lat[1])+',' + str(geographic.ur_long_lat[0])
-        print(wgs_coord)
         url = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations?bbox="+wgs_coord
         reponse = requests.get(url)
         self.piezos = reponse.json()
-        print(self.piezos)
         
         crs_proj = "epsg:4326"
         
@@ -278,13 +276,14 @@ class Piezometry:
             elev = []
             prof = []
             
-            years = np.linspace(int(self.start_date[i].split('-')[0]),int(self.end_date[i].split('-')[0]))
+            start = int(self.start_date[i].split('-')[0])
+            end = int(self.end_date[i].split('-')[0])
+            years = np.linspace(start,end, end-start+1)
             for y in years :
                 url1 = url + code + '&date_debut_mesure=' + str(int(y)) + '-01-01&date_fin_mesure=' + str(int(y+1))+'-01-01'
                 reponse = requests.get(url1)
                 self.piezos = reponse.json()
-                print(self.piezos)
-                for d in range (0,len(self.piezos['data'])):
+                for d in range(0,len(self.piezos['data'])):
                     time.append(self.piezos['data'][d]['timestamp_mesure'])
                     elev.append(self.piezos['data'][d]['niveau_nappe_eau'])
                     prof.append(self.piezos['data'][d]['profondeur_nappe'])
@@ -348,7 +347,7 @@ class Piezometry:
                 except:
                     df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M:%S')
                 df = df.drop(['Date'], axis=1)
-                self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
+                self.elevation = pd.merge(self.elevation, df, left_index=True, right_index=True, how='outer') #pd.concat([self.elevation, df], axis=1).sort_index()
             df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
             gdf.to_file(self.piezos_shp)
