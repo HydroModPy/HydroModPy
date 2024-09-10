@@ -292,8 +292,6 @@ class Lakeres:
                             fill_value = nodata,
                             ) * 0 # masked np.ndarray with null values
         
-        lakarr_min = lakarr.copy()
-        
 # =============================================================================
 #         # Load topography
 #         dem, _, _, _ = toolbox.load_to_numpy(geographic.watershed_box_buff_dem,
@@ -307,7 +305,7 @@ class Lakeres:
 # =============================================================================
         cell_area = geographic.cell_size
         
-        # Format lakes maskmx (maximal extents) and maskmin (minimal extents)
+        # Format lakes maskmx (maximal extents)
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
             
@@ -360,13 +358,10 @@ class Lakeres:
                         print(f" Warning: The lake maximal level (ssmx) is likely to be too small. It can not naturally exceed {masked_dem.max()} m. To match the required ssmx of {self.ssmx_by_lake[lake_id]} m, the lake surface was considered not continuous with the surrounding topography.")
                     
                     if self.volmx_by_lake[lake_id]:
-                        # Normally useless [to check]
-# =============================================================================
-#                         masked_dem = np.ma.array(dem, 
-#                                                  mask = ~maskmx,
-#                                                  fill_value = nodata,
-#                                                  )
-# =============================================================================
+                        masked_dem = np.ma.array(dem, 
+                                                 mask = ~maskmx,
+                                                 fill_value = nodata,
+                                                 )
                         equiv_vol = float((self.ssmx_by_lake[lake_id] - masked_dem).sum()*cell_area)
                         print(f" The specified maximal volume ({self.volmx_by_lake[lake_id]} m3) is discarded because redundant with the specified maximal level (equiv. to {equiv_vol} m3)")
                         self.volmx_by_lake[lake_id] = equiv_vol
@@ -462,21 +457,10 @@ class Lakeres:
                 if intersect > 0:
                     print(f" Warning: Lake '{lake_id}' will overwrite lake '{lake_id2}' on {int(intersect)} cells.")
         
-            # Minimal extent of the lake/reservoir
-            if self.ssmn_by_lake[lake_id]:
-                maskmn = np.ma.where(masked_dem <= self.ssmn_by_lake[lake_id], 1, 0)
-                maskmn = maskmn.astype(bool)
-            else:
-                maskmn = maskmx.copy()
-                print(" Warning: The lake minimal level (ssmn) has not been specified for lake {lake_id}. The maximal lake extent will be used, but this can result in disconnections between lake and surface rivers when the lake level is low.")
-            
-        
             lakarr[maskmx==1] = num_id
-            lakarr_min[maskmn==1] = num_id
             
         # Convert the masked array into an array
         lakarr = lakarr.filled(0)
-        lakarr_min = lakarr_min.filled(0)
         
 # =============================================================================
 #             lakarr = np.where(maskmx==1, lake_id, lakarr)
@@ -517,11 +501,6 @@ class Lakeres:
         with rio.open(os.path.join(self.data_folder, 'lakarr.tif'),
                       'w', **base_profile) as dst: 
             dst.write_band(1, lakarr.astype(int))
-            
-        toolbox.export_tif(geographic.watershed_dem,
-                           lakarr_min,
-                           nodata,
-                           os.path.join(self.data_folder, 'lakarr_min.tif'))
             
         #%%% Format the top of the lake/reservoir layer
         # ---------------------------------------------
@@ -657,7 +636,7 @@ class Lakeres:
                               header = True) 
                 
         print('\n')
-        return stages, lakarr, lakarr_min, laklay_top, bdlknc, flux_data, dem
+        return stages, lakarr, laklay_top, bdlknc, flux_data, dem
        
    
     #%% UPDATE DEM FILES        
@@ -722,11 +701,10 @@ class Lakeres:
         # Export lake outlet
         outlet_map = acc_map.copy()
         outlet_map[:]= nodata
-        for num_id in self.lake_by_num_id.keys():
-            lake_id = self.lake_by_num_id[num_id]
+        for lake_id in self.ij_outlet_by_lake.keys():
             outlet_map[self.ij_outlet_by_lake[lake_id][0],
                        self.ij_outlet_by_lake[lake_id][1]
-                       ] = num_id
+                       ] = lake_id
         toolbox.export_tif(
             geographic.watershed_dem,
             outlet_map, 
