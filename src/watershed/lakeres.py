@@ -690,6 +690,19 @@ class Lakeres:
             
             self.ij_outlet_by_lake[lake_id] = (i, j)
         
+        # Export lake outlet
+        outlet_map = acc_map.copy()
+        outlet_map[:]= nodata
+        for lake_id in self.ij_outlet_by_lake.keys():
+            outlet_map[self.ij_outlet_by_lake[lake_id][0],
+                       self.ij_outlet_by_lake[lake_id][1]
+                       ] = lake_id
+        toolbox.export_tif(
+            geographic.watershed_dem,
+            outlet_map, 
+            geographic.nodata, 
+            os.path.join(self.data_folder, "lak_outlets.tif"))
+        
 # =============================================================================
 #         return self.ij_outlet_by_lake
 # =============================================================================
