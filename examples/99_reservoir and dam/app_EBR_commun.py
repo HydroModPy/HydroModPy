@@ -248,7 +248,6 @@ BV.lakeres.new_lakeres(maskmx, lake_id)
 # ---------------------------------
 # BV.lakeres.update_stageinit(lake_id, 85) # [m] # initialisé plus tard
 BV.lakeres.update_stagemax(lake_id, 87.3) # [m]
-BV.lakeres.update_stagemin(lake_id, 78) # [m]
 # BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
 BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # débit de fuite du lit du réservoir [m/day]
                                                               # ici équiv. à 1e-6 m/s
