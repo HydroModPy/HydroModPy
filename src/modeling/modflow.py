@@ -675,6 +675,21 @@ class Modflow:
             if self.streamflow_seepage.correction_elevations == True:
                 self.dem = self.streamflow_seepage.correct_elevations(self.dem)
                 
+            if self.use_lakeres:
+                for num_id in self.lakeres.lake_by_num_id.keys():
+                    lake_id = self.lakeres.lake_by_num_id[num_id]
+                    nsegs = self.streamflow_seepage.segment_data_1[
+                        self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
+                    for iseg in nsegs:
+                        idx = self.streamflow_seepage.reach_data[
+                            self.streamflow_seepage.reach_data.iseg == iseg].index
+                        self.streamflow_seepage.reach_data.loc[
+                            idx, 'strtop'] = self.lakeres.ssmx_by_lake[lake_id]
+                    self.streamflow_seepage.segment_data_1.loc[
+                        nsegs, ['elevup', 'roughch']] = [
+                            self.lakeres.ssmx_by_lake[lake_id],
+                            0.03*100]
+
 # =============================================================================
 #             if self.streamflow_seepage.apply_elevations == True:
 #                 self.dem = self.streamflow_seepage.apply_strtop_to_dem(self.geographic, self.dem)
