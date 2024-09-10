@@ -74,6 +74,7 @@ class Lakeres:
                                            # or nothing (topography will be used as bathymetry)
         self.bathy_crs_by_lake:dict = {}
         self.ssmx_by_lake:dict = {} # dict of maximum stages keyed by lake_id
+        self.ssmn_by_lake:dict = {} # dict of minimum stages keyed by lake_id
         self.volmx_by_lake:dict = {}
         self.bdlknc_by_lake:dict = {} # dict of lakebed leakance
         # dict of lakes/reservoirs flux data dataframes, keyed by lake_id:
@@ -91,7 +92,8 @@ class Lakeres:
     #%% ADD A NEW LAKE/RESERVOIR   
     def new_lakeres(self, maskmx:str, lake_id:int=None, mask_crs=None,
                     bathymetry_raster:str=None, bathy_crs=None, 
-                    ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
+                    ssmx:float=None, ssmn:float=None, volmx:float=None, 
+                    bdlknc:float=86400, # default = 1 m/s
                     prcplk=0, evaplk=0, rnf=0, wthdrw=0, stageinit=None,
                     outlet=None,
                     ):
@@ -171,6 +173,7 @@ class Lakeres:
         self.bathymetry_by_lake[lake_id] = bathymetry_raster
         self.bathy_crs_by_lake[lake_id] = bathy_crs
         self.ssmx_by_lake[lake_id] = ssmx
+        self.ssmn_by_lake[lake_id] = ssmn
         self.volmx_by_lake[lake_id] = volmx
 
         # Lake/reservoir parameters
@@ -194,8 +197,9 @@ class Lakeres:
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
         attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
                      self.bathymetry_by_lake, self.bathy_crs_by_lake,
-                     self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
-                     self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
+                     self.ssmx_by_lake, self.ssmn_by_lake, self.volmx_by_lake, 
+                     self.prcplk_by_lake, self.evaplk_by_lake, 
+                     self.rnf_by_lake, self.wthdrw_by_lake]
         
         if new_lake_id and not new_maskmx_path: # just replace the key
             for d in attr_list:
@@ -216,8 +220,9 @@ class Lakeres:
     def remove(self, lake_id):
         attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
                      self.bathymetry_by_lake, self.bathy_crs_by_lake,
-                     self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
-                     self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
+                     self.ssmx_by_lake, self.ssmn_by_lake, self.volmx_by_lake, 
+                     self.prcplk_by_lake, self.evaplk_by_lake, 
+                     self.rnf_by_lake, self.wthdrw_by_lake]
         for d in attr_list:
             d.pop(lake_id)
         
@@ -229,6 +234,9 @@ class Lakeres:
     #%% UPDATE GEOMETRY and PHYSICAL PROPERTIES OF THE LAKE/RESERVOIR
     def update_stagemax(self, lake_id, ssmx):
         self.ssmx_by_lake[lake_id] = ssmx
+        
+    def update_stagemin(self, lake_id, ssmn):
+        self.ssmn_by_lake[lake_id] = ssmn
         
     def update_volumemax(self, lake_id, volmx):
         self.volmx_by_lake[lake_id] = volmx
