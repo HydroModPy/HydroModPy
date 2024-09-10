@@ -366,7 +366,7 @@ class Modflow:
         
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
-            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
+            stages, lakarr_lay0, lakarr_min, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
                 self.geographic, self.climatic, self.nper, thickfact, self.dem)
             
             self.nlay = self.nlay + 1
@@ -660,7 +660,7 @@ class Modflow:
             # ---- Initiate the SFR_seepage module
             self.streamflow_seepage.SFR_seepage_area(self.geographic, self.dem)
             if self.use_lakeres:
-                self.streamflow_seepage.compute_data(lakarr_lay0)
+                self.streamflow_seepage.compute_data(lakarr_min) #lakarr_lay0)
             else:
                 self.streamflow_seepage.compute_data()
             self.streamflow_seepage.reach_data['k'] = self.aquifer_top_layer # layer
@@ -865,7 +865,8 @@ class Modflow:
                                                 flux_data = flux_data)
             
             # Remove drains under lakes
-            self.drain_array[lakarr_lay0 != 0] = 0
+            # self.drain_array[lakarr_lay0 != 0] = 0
+            self.drain_array[lakarr_min != 0] = 0
             
 # =============================================================================
 #         #%%% To impose outflow from the lake/reservoir (return flow)
