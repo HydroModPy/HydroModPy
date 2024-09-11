@@ -173,36 +173,39 @@ class Piezometry:
         reponse = requests.get(url)
         self.piezos = reponse.json()
         
+        print(url, self.piezos)
         crs_proj = "epsg:4326"
-        
-        if self.piezos['count'] > 0: 
-            for i in range(0, self.piezos['count']):
-                self.codes_bss.append(self.piezos['data'][i]['code_bss'])
-                self.x_coord_wgs84.append(self.piezos['data'][i]['geometry']['coordinates'][0])
-                self.y_coord_wgs84.append(self.piezos['data'][i]['geometry']['coordinates'][1])
-                self.depth_well.append(self.piezos['data'][i]['profondeur_investigation'])
-                self.elevation_well.append(self.piezos['data'][i]['altitude_station'])
+        try:
+            if self.piezos['count'] > 0: 
+                for i in range(0, self.piezos['count']):
+                    self.codes_bss.append(self.piezos['data'][i]['code_bss'])
+                    self.x_coord_wgs84.append(self.piezos['data'][i]['geometry']['coordinates'][0])
+                    self.y_coord_wgs84.append(self.piezos['data'][i]['geometry']['coordinates'][1])
+                    self.depth_well.append(self.piezos['data'][i]['profondeur_investigation'])
+                    self.elevation_well.append(self.piezos['data'][i]['altitude_station'])
+                
+                    transformer = Transformer.from_crs(crs_proj,geographic.crs_proj)
+                    self.xy_coord= transformer.transform(self.y_coord_wgs84[i], self.x_coord_wgs84[i])
+                    self.x_coord.append(self.xy_coord[0])
+                    self.y_coord.append(self.xy_coord[1])
+                    self.start_date.append(self.piezos['data'][i]['date_debut_mesure'])
+                    self.end_date.append(self.piezos['data'][i]['date_fin_mesure'])
             
-                transformer = Transformer.from_crs(crs_proj,geographic.crs_proj)
-                self.xy_coord= transformer.transform(self.y_coord_wgs84[i], self.x_coord_wgs84[i])
-                self.x_coord.append(self.xy_coord[0])
-                self.y_coord.append(self.xy_coord[1])
-                self.start_date.append(self.piezos['data'][i]['date_debut_mesure'])
-                self.end_date.append(self.piezos['data'][i]['date_fin_mesure'])
-        
-            for i in range(0, len(self.x_coord)):
-                idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
-                # index is determined by lowest difference between piezometer coordinate and model cell coordinate
-                idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
-                self.x_iloc.append(idx)
-                self.y_iloc.append(idy) 
-        
-        
-        piezos = []
-        for i in range(0, self.piezos['count']):
-            piezos.append([self.codes_bss[i], Point([self.x_coord[i],self.y_coord[i]])])
-        shp_piezo = gpd.GeoDataFrame(data=piezos, columns=['code_bss', 'geometry'])
-        shp_piezo.to_file(os.path.join(data_folder, 'shapefile','piezos.shp')) 
+                for i in range(0, len(self.x_coord)):
+                    idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
+                    # index is determined by lowest difference between piezometer coordinate and model cell coordinate
+                    idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
+                    self.x_iloc.append(idx)
+                    self.y_iloc.append(idy) 
+            
+            
+            piezos = []
+            for i in range(0, self.piezos['count']):
+                piezos.append([self.codes_bss[i], Point([self.x_coord[i],self.y_coord[i]])])
+            shp_piezo = gpd.GeoDataFrame(data=piezos, columns=['code_bss', 'geometry'])
+            shp_piezo.to_file(os.path.join(data_folder, 'shapefile','piezos.shp'))
+        except:
+            pass
         
         """
         # ADES continue data
