@@ -81,9 +81,10 @@ class Lakeres:
         self.evaplk_by_lake:dict = {}
         self.rnf_by_lake:dict = {}
         self.wthdrw_by_lake:dict = {}
+        self.rtrn_by_lake:dict = {} # To connect return flow to SFR
         self.stageinit_by_lake:dict = {} # initial stage
         self.lake_by_num_id:dict = {} # Dict betwen num_id and lake_id
-                                          # Defined in self.format_to_modflow()
+                                      # Defined in self.format_to_modflow()
         self.outlet_by_lake:dict = {}
         self.ij_outlet_by_lake:dict = {}
         
@@ -92,8 +93,8 @@ class Lakeres:
     def new_lakeres(self, maskmx:str, lake_id:int=None, mask_crs=None,
                     bathymetry_raster:str=None, bathy_crs=None, 
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
-                    prcplk=0, evaplk=0, rnf=0, wthdrw=0, stageinit=None,
-                    outlet=None,
+                    prcplk=0, evaplk=0, rnf=0, wthdrw=0, rtrn=None, 
+                    stageinit=None, outlet=None,
                     ):
         """
         Note that lakeres can be a lake or a reservoir.
@@ -144,6 +145,11 @@ class Lakeres:
             The default is 0 m/d
             wthdrw integrates the sum of water removal (positive values) and
             water addition (negative values).
+        rtrn : timesries, optional
+            Return flow at the outlet(s) of each lake. This value is injected
+            into the StreamFLow Routing network. It is not withdrawn from the
+            lake/reservoir (for that, the return flow should be specified as
+            well in wthdrw).
         outlet : str (optional)
             Filepaths to outlet file (shapfile, txt with coordinates)
         
@@ -183,6 +189,7 @@ class Lakeres:
         self.evaplk_by_lake[lake_id] = evaplk
         self.rnf_by_lake[lake_id] = rnf
         self.wthdrw_by_lake[lake_id] = wthdrw
+        self.rtrn_by_lake[lake_id] = rtrn
 
         # Update Lakeres attributes:
         # self.idlist = self.idlist.append(lake_id)
@@ -257,7 +264,9 @@ class Lakeres:
         
     def update_withdraw_fill(self, lake_id, src):
         self.wthdrw_by_lake[lake_id] = src
-        
+    
+    def connect_returnflow(self, lake_id, timeseries):
+        self.rtrn_by_lake[lake_id] = timeseries
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic, nper, thickfact, dem):

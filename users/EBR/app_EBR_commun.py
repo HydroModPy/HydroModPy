@@ -634,6 +634,7 @@ dam_input_df.iloc[0] = toolbox.hydrological_mean(dam_input_df, 4)
 ##%%% Mise-à-jour des flux
 
 # Environmental fluxes (by default, fluxes are set to 0) 
+# ------------------------------------------------------
 # User can update these fluxes with float, file path, or "from_climatic" mode
 # BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e6) # because Ronan's values were summed over 1.73 km² area
 # BV.lakeres.update_precip(lake_id, 'from_climatic')
@@ -643,16 +644,43 @@ BV.lakeres.update_precip(lake_id, BV.climatic.precip)
 BV.lakeres.update_evap(lake_id, BV.climatic.evt)
 # BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6) # because runoff has to be a volume (summed over the area runing off towards the lake)
 
-# Anthropic fluxes
+# Anthropic fluxes (including withdrawing return flow)
+# ----------------
 # Convert into cumsum with the same time resolution as recharge
 withdraw_fill_ts = dam_input_df['usine'] - dam_input_df['canut'] - dam_input_df['meu'] 
-# For now we can add here the upstream flow and substract the return flux
-withdraw_fill_ts = withdraw_fill_ts + dam_input_df['resti'] - 3*dam_input_df['stream'] # the x3 factor is added to account for lateral streams
+# Then substract the return flux
+withdraw_fill_ts = withdraw_fill_ts + dam_input_df['resti']
 BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 # if values are daily rates, then user should indicate daily = True
 
-# Otherwise, the Cheze river discharge (en amont) can be found here:
-    # D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\10- Stations et debits\Debits\J736422001_QmnJ(n=1_non-glissant) raw_cheze_plelan-le-grand.csv
+# Inject return flow to the surface streamflow
+# --------------------------------------------
+# Injecter le débit de restitution dans la rivière à l'exutoire du réservoir 
+# (procédure liée au module SFR suivant)
+# =============================================================================
+# BV.lakeres.connect_returnflow(lake_id, dam_input_df['resti'])
+# =============================================================================
+# 1. This option drastically increases the loading time of Modflow processing
+# Therefore, here, it is not added to the streamflow routing.
+# It should not be forgottent to sum it to the accumulation_flux in post-processing
+
+# 2. Alternative option: shortened version of 'resti' timeseries
+resti1 = dam_input_df.iloc[0]['resti']
+date_idx = []
+resti_mean = []
+for d in dam_input_df.index[:-1]:
+    resti2 = dam_input_df.loc[d, 'resti']
+    if abs(resti1 - resti2)/resti2 > 0.10:
+        date_idx += [d]
+    resti1 = resti2
+date_idx = [dam_input_df.index[0]] + date_idx + [dam_input_df.index[-1]]
+resti_short = pd.Series(index = date_idx, name = 'resti')
+for i in range(0, resti_short.size - 1):
+    id1 = resti_short.index[i]
+    id2 = resti_short.index[i+1]
+    resti_short.loc[id1] = dam_input_df[id1:id2][0:-1]['resti'].mean()
+resti_short = resti_short[0:-1]
+BV.lakeres.connect_returnflow(lake_id, resti_short)
 
 
 ######################
@@ -670,31 +698,7 @@ BV.lakeres.update_withdraw_fill(lake_id, withdraw_fill_ts)
 BV.save_object()
 
 
-#%%% (Input flow)
-# =============================================================================
-# # (used here to force a return flow)
-# # Return flow time series
-# return_flow_series = dam_input_df['resti']
-# # return_flow_series can also be a .txt file
-# 
-# # Coordinates of the cell where the return flow is mesured
-# return_flow_coords = (331500, 6781425) # tuple or list of tuples 
-# # =============================================================================
-# # fixed_flow_coords = os.path.join(root_dir, 'examples', '99_reservoir and dam',
-# #                                  'data', 'additional', 'coords_forcedflow.txt')
-# # =============================================================================
-#                     # the coords can also be indicated as a .txt file
-# 
-# bound_id = 0 # identifier for the cell (or cells) where the return flow will be forced
-# snap_dist = 200
-# BV.settings.add_inputflow(bound_id, return_flow_coords, snap_dist,
-#                           return_flow_series)
-# 
-# # To remove a forced-flow cell or group of cells:
-# # BV.lakeres.remove_flowbound(bound_id)
-# =============================================================================
-
-#%% SEEPAGE WITH STREAMFLOW ROUTING
+#%% ECOULEMENTS DE SURFACE avec StreamFlow Routing
 BV.add_streamflow_seepage(icalc = 1)
 # icalc = 0: instant routing (default)
 # icalc = 1: rectangular Manning
@@ -728,6 +732,14 @@ BV.streamflow_seepage.update_segment_data('depth', depth)
 BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
 BV.streamflow_seepage.update_segment_data('roughch', 0.03)
 # BV.streamflow_seepage.update_segment_data('width', width)
+
+# The following option drastically increases the loading time of MOdflow processing
+# Instead, here, the runoff is added directly to the lake.
+# It should not be forgotten to sum it as well to the accumulation_flux in post-processing
+# =============================================================================
+# BV.streamflow_seepage.update_segment_data('runoff', BV.climatic.runoff)
+# =============================================================================
+
 # Update reach data
 # =============================================================================
 # BV.streamflow_seepage.update_reach_data(<name>, <val>)

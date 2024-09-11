@@ -40,8 +40,9 @@ class Streamflow_seepage:
     
     def __init__(self, geographic : object, area=None, mainstream_threshold=0.1,
                  icalc:int=0, thickm:float=0.1, 
-                 depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
-                 rchlen:float=None, roughch:float=0, critical_mode=None, 
+                 depth:float=0, hcond:float=0.08, width:float=None, 
+                 slope:float=0.1, rchlen:float=None, roughch:float=0, 
+                 runoff=None, critical_mode=None, 
                  correction_multiple_reaches:bool=False,
                  correction_elevations:bool=True, reach_data=None,
                  segment_data=None):
@@ -79,6 +80,10 @@ class Streamflow_seepage:
         roughch : float, optional
             Only used when icalc = 1 (rectangular Manning routing)
             The defualt is 0.
+        runoff : optional
+            Can be a float or a pandas.core.series.Series or a xarray.DataSet.
+            If specified, this flow is added in the streamflow in the 
+            corresponding cells.
         critical_mode : str, optional
             A flag or a filepath to indicate which cells are critical for
             convergence and whose conductance should be adapted.
@@ -126,6 +131,7 @@ class Streamflow_seepage:
         else:
             self.rchlen = rchlen
         self.roughch = roughch
+        self.runoff = runoff
             
         self.area = area # area where the SFR seepage will be applied
         self.mainstream_threshold = mainstream_threshold
@@ -322,6 +328,8 @@ class Streamflow_seepage:
             self.width = param_value
         elif param_name == 'roughch':
             self.roughch = param_value
+        elif param_name == 'runoff':
+            self.runoff = param_value
             
     def correct(self, param_name, param_value):
         if param_name == 'multiple_reaches':            
@@ -372,7 +380,8 @@ class Streamflow_seepage:
                                                      'awdth', 'bwdth', 'hcond1',
                                                      'thickm1', 'elevup', 'width1',
                                                      'depth1', 'hcond2', 'thickm2',
-                                                     'elevdn', 'width2', 'depth2'])
+                                                     'elevdn', 'width2', 'depth2',
+                                                     'runoff'])
             # Note: self.segment_data_1 is the data for the 1st stress period
             self.segment_data_1.index.name = 'nseg'
             self.segment_data_1['outseg'] = 0
