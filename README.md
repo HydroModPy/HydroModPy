@@ -33,28 +33,31 @@ Alexandre Gauvain [4], Ronan Abhervé [1],  Martin Le Mesnil [2],  Alexandre Coc
 
 ## Git installation
 
-Before install HydroModPy, check Requirements in the next part.
-Proceed to installation as administrator (recommended).
+Option 1 : Download zip code directly on this packages
+
+Option 2 : Install with following commands
 
 Step 1 - Install Git:
 https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
-Step 2 - Go to the folder where you want to install HydroModPy:
+Step 2 - Opned terminal as administrator (recommended).
+
+Step 3 - Go to the folder where you want to install HydroModPy:
 ```
 cd /d "path/where/you/want/clone/HydroModPy"
 ```
 
-Step 3 - Clone HydroModPy repository:
+Step 4 - Clone HydroModPy repository:
 ```
 git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
 ```
 
-Step 4 - Go to stable branch:
+Step 5 - Go to stable branch:
 ```
 git checkout "v0.1"
 ```
 
-Step 5 - Go to install folder:
+Step 6 - Go to install folder:
 ```
 cd HydroModPy/install
 ```
@@ -66,13 +69,6 @@ HydroModPy environment can be installed with "conda" using .yml file in the "ins
 cd /d "path/where/is/the/install/directory/"
 conda env create -f environment_windows.yml -n hydromodpy-0.1
 ```
-
-Install ChromeDriver for Selenium library:
-Selenium is a library that manages interaction with files in the web
-It requires the following file to be downloaded: https://chromedriver.chromium.org/downloads
-The .exe should be stored in a file
-The directory name of the file should be added to the user path of the environment variables (configuration pannel -> system -> system parameter -> environment variables)
-Click on "Path" -> modify -> add path of the .exe
 
 ## Launch HydroModPy
 
@@ -95,32 +91,6 @@ In spyder or jupyter notebook
 ## Library requirements
 
 To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your computer.
-
-Works with python>=3.8.10 and pip 23.2.1
-
-The following python packages will be installed with the installation procedure:
-  - gdal=3.0.2
-  - contextily==1.3.0
-  - deepdish==0.3.7
-  - flopy==3.3.4
-  - geopandas==0.12.2
-  - hydroeval==0.1.0
-  - imageio==2.31.1
-  - jupyter==1.0.0
-  - matplotlib_scalebar==0.8.1
-  - netcdf4==1.6.4
-  - notebook==7.0.0
-  - numpy==1.24.3
-  - pandas==1.5.3
-  - pyproj==3.5.0
-  - pyshp==2.3.1
-  - rasterio==1.2.10
-  - rtree==1.0.1
-  - selenium==4.10.0
-  - spyder==5.0.0
-  - vedo==2023.4.6
-  - xarray==2023.1.0
-  - whitebox==2.3.1
    
 ## Available examples
  
