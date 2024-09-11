@@ -243,8 +243,8 @@ def load_to_numpy(file, src_crs=None,
                                dst_transform = base_profile['transform'],
                                dst_crs = base_profile['crs'],
                                dst_nodata = base_profile['nodata'],
-                               resampling = rio.enums.Resampling(0),
-                               # resampling = rasterio.enums.Resampling(5),
+                               # resampling = rio.enums.Resampling(0),
+                                resampling = rasterio.enums.Resampling(1), # (0), (5)
                                )
             # update_profile
             data_profile = base_profile
@@ -291,71 +291,154 @@ def load_to_numpy(file, src_crs=None,
     return val, src_crs, dst_crs, nodata
 
 
-def read_with_xarray(file_path, src_crs=None, main_var=None):
-    if os.path.splitext(file_path)[-1].casefold() in ['.tif', '.tiff']:
-        with xr.open_dataset(file_path) as ds:
-            ds.load() # to unlock the resource
-        ds = ds.squeeze('band')
-        ds = ds.drop('band')
-        if main_var:
-            ds = ds.rename(dict(band_data = main_var))
-        
-    elif os.path.splitext(file_path)[-1].casefold() == '.nc':
-        try:
-            with xr.open_dataset(file_path, decode_coords = 'all') as ds:
-                ds.load() # to unlock the resource
-                
-        except ValueError: 
-            # Usually this error appears when unable to decode 
-            # time units 'Months since 1901-01-01' with 
-            # "calendar 'proleptic_gregorian'"
-            print("\nWarning: Unable to decode time units")
-            with xr.open_dataset(file_path, decode_coords = 'all', 
-                                 decode_times = False) as ds:
-                ds.load()
-                
-            try: ds.time.attrs['units']
-            except: 
-                print("Err: No information on time units in attributes")
-                return
-            # Build back time scale:
-            print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
-            timeunit = ds.time.attrs['units'].split()[0].casefold()
-            if timeunit in ['month', 'months', 'mois']:
-                freq = 'MS'
-                freq_info = 'monthly'
-            elif timeunit in ['day', 'days', 'jour', 'jours']:
-                freq = '1D'
-                freq_info = 'daily'
-            
-            print("   | Note that The format of the origin date is expected to be either")
-            print("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
-            print("   | MM DD YYYY will not be considered.")
-            # The format of the origin date is expected to be either 
-            # YYYY MM DD or DD MM YYYY (with any separator)
-            # The american format MM DD YYYY is not considered
-            initdate_pattern = re.compile("\d{2,4}.*\d{2,4}")
-            initdate = initdate_pattern.search(ds.time.attrs['units']).group()
-            
-            if initdate[2].isnumeric():
-                sep = initdate[4]
-                initdate = datetime.datetime.strptime(initdate, f"%Y{sep}%m{sep}%d")
-            else:
-                sep = initdate[2]
-                initdate = datetime.datetime.strptime(initdate, f"%d{sep}%m{sep}%Y")
-            
-            start_date = pd.Series(pd.date_range(
-                initdate, periods = int(ds.time[0]) + 1, freq = freq)).iloc[-1]
-            date_index = pd.date_range(start = start_date, 
-                                         periods = len(ds.time), freq = freq) 
-            print(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info})")
-            ds['time'] = date_index  
+def load_to_xarray(file, src_crs=None, main_var=None, 
+                   base_path:str=None, dst_crs=None):
+    """
     
+
+    Parameters
+    ----------
+    file : str (path) or xarray.Dataset
+        DESCRIPTION.
+    src_crs : TYPE, optional
+        DESCRIPTION. The default is None.
+    main_var : TYPE, optional
+        DESCRIPTION. The default is None.
+    base_path : str, optional
+        DESCRIPTION. The default is None.
+    dst_crs : TYPE, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+    src_crs : TYPE
+        DESCRIPTION.
+    dst_crs : TYPE
+        DESCRIPTION.
+    nodata : TYPE
+        DESCRIPTION.
+
+    """
+    
+    # ---- Initialization
+    if base_path:
+        with rio.open(base_path, 'r') as base: 
+            base_profile = base.profile
+            base_val = base.read(1) # base.read()[0]
     else:
-        print(f"\nErr: Extension {os.path.splitext(file_path)[-1]} is not recognized by xarray")
-        return
+        base_profile = None
+    if isinstance(src_crs, str): src_crs = rio.crs.CRS.from_string(src_crs)
+    elif isinstance(src_crs, int): src_crs = rio.crs.CRS.from_epsg(src_crs)
+    if isinstance(dst_crs, str): dst_crs = rio.crs.CRS.from_string(dst_crs)
+    elif isinstance(dst_crs, int): dst_crs = rio.crs.CRS.from_epsg(dst_crs)
     
-    # Format spatial attributes for compatibility with QGIS
+    # ---- Loading netcdf
+    if isinstance(file, str):
+        if os.path.splitext(file)[-1].casefold() in ['.tif', '.tiff']:
+            with xr.open_dataset(file) as ds:
+                ds.load() # to unlock the resource
+            ds = ds.squeeze('band')
+            ds = ds.drop('band')
+            if main_var:
+                ds = ds.rename(dict(band_data = main_var))
+            
+        elif os.path.splitext(file)[-1].casefold() == '.nc':
+            try:
+                with xr.open_dataset(file, decode_coords = 'all') as ds:
+                    ds.load() # to unlock the resource
+                    
+            except ValueError: 
+                # Usually this error appears when unable to decode 
+                # time units 'Months since 1901-01-01' with 
+                # "calendar 'proleptic_gregorian'"
+                print("\nWarning: Unable to decode time units")
+                with xr.open_dataset(file, decode_coords = 'all', 
+                                     decode_times = False) as ds:
+                    ds.load()
+                    
+                try: ds.time.attrs['units']
+                except: 
+                    print("Err: No information on time units in attributes")
+                    return
+                # Build back time scale:
+                print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
+                timeunit = ds.time.attrs['units'].split()[0].casefold()
+                if timeunit in ['month', 'months', 'mois']:
+                    freq = 'MS'
+                    freq_info = 'monthly'
+                elif timeunit in ['day', 'days', 'jour', 'jours']:
+                    freq = '1D'
+                    freq_info = 'daily'
+                
+                print("   | Note that The format of the origin date is expected to be either")
+                print("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
+                print("   | MM DD YYYY will not be considered.")
+                # The format of the origin date is expected to be either 
+                # YYYY MM DD or DD MM YYYY (with any separator)
+                # The american format MM DD YYYY is not considered
+                initdate_pattern = re.compile("\d{2,4}.*\d{2,4}")
+                initdate = initdate_pattern.search(ds.time.attrs['units']).group()
+                
+                if initdate[2].isnumeric():
+                    sep = initdate[4]
+                    initdate = datetime.datetime.strptime(initdate, f"%Y{sep}%m{sep}%d")
+                else:
+                    sep = initdate[2]
+                    initdate = datetime.datetime.strptime(initdate, f"%d{sep}%m{sep}%Y")
+                
+                start_date = pd.Series(pd.date_range(
+                    initdate, periods = int(ds.time[0]) + 1, freq = freq)).iloc[-1]
+                date_index = pd.date_range(start = start_date, 
+                                             periods = len(ds.time), freq = freq) 
+                print(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info})")
+                ds['time'] = date_index  
+        
+        else:
+            print(f"\nErr: Extension {os.path.splitext(file)[-1]} is not recognized by xarray")
+            return
+    
+    elif isinstance(file, xr.core.dataset.Dataset):
+        ds = file
+    
+    
+    # ---- Reprojection
+    # Add Coordinate Reference System if needed
+    if not src_crs:
+        if 'spatial_ref' not in list(ds.coords):
+            ds.rio.write_crs(src_crs, inplace = True)
+            print(f"\n The CRS of input data has been set to '{ds.rio.crs.to_string()}'")
+    else:
+        if not ds.rio.crs.is_valid:
+            ds.rio.write_crs(src_crs, inplace = True)
+        print(f"\n The CRS of input data has been set to '{ds.rio.crs.to_string()}'")
+    
+    data_transform = ds.rio.transform()
+    
+    # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):    
+    if base_profile:
+        # CRS initialization
+        if dst_crs and not base_profile['crs'].is_valid:
+            base_profile['crs'] = dst_crs
+                
+        if (data_transform != base_profile['transform']) | (ds.rio.crs != base_profile['crs']):
+            if not ds.rio.crs.is_valid:
+                print('\nError: Source CRS (src_crs) is required to reproject.')
+                return
+            if not base_profile['crs'].is_valid:
+                print('\nError: Destination CRS (dst_crs) is required to reproject.')
+                return
+            ds_reprj = ds.rio.reproject(dst_crs = base_profile['crs'],
+                                             # resolution = (1000, 1000),
+                                             transform = base_profile['transform'],
+                                             shape = (base_profile['height'], base_profile['width']),
+                                             nodata = np.nan,
+                                             resampling = rasterio.enums.Resampling(1), # (0), (5)
+                                             )
+            ds = ds_reprj
+            
+    # ---- Format spatial attributes for compatibility with QGIS
     if 'units' in ds.x.attrs.keys() and ds.x.attrs['units'].casefold() in ['m', 'meter', 'meters', 'metre', 'metres']:
         ds.x.attrs = {'standard_name': 'projection_x_coordinate',
                       'long_name': 'x coordinate of projection',
@@ -368,12 +451,8 @@ def read_with_xarray(file_path, src_crs=None, main_var=None):
                               'units': 'degrees_east'}
         ds.latitude.attrs = {'long_name': 'latitude',
                              'units': 'degrees_north'}
-            
-    # Add Coordinate Reference System if needed
-    if 'spatial_ref' not in list(ds.coords) and src_crs:
-        ds.rio.write_crs(src_crs, inplace = True)
     
-    return ds
+    return ds #, src_crs, dst_crs, nodata
 
         
 #%% EXTRACTING FEATURES

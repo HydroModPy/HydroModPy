@@ -25,11 +25,14 @@ import glob
 import ssl
 import matplotlib.pyplot as plt
 import whitebox
+from pyproj import Transformer
+from shapely.geometry import Polygon, Point
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # HydroModPy
 from tools import toolbox
+import requests
 
 #%% CLASS
 
@@ -69,33 +72,33 @@ class Piezometry:
         self.figure_folder = os.path.join(out_path,'results_stable','_figures','piezometry')
         if not os.path.exists(self.figure_folder):
             os.makedirs(self.figure_folder)  
-        if not os.path.exists(os.path.join(data_folder,'shapefile','BSS.shp')):
-            self.download_init_data(data_folder, geographic)
+        # if not os.path.exists(os.path.join(data_folder,'shapefile','BSS.shp')):
+        #    self.download_init_data(data_folder, geographic)
         self.out_path = out_path
         self.geo_x_coord = geographic.x_coord
         self.geo_y_coord = geographic.y_coord
         self.x_coord = []
         self.y_coord = []
+        self.x_coord_wgs84 = []
+        self.y_coord_wgs84 = []
         self.x_iloc = []
         self.y_iloc = []
         self.codes_bss = []
         self.depth_well = []
+        self.start_date = []
+        self.end_date = []
         self.elevation_well = []
-        try:
-            pass
-            #self.extract_piezos_from_watershed(data_folder, geographic)
-        except:
-            pass
+        self.extract_piezos_from_watershed(data_folder, geographic)
         self.piezos_shp = os.path.join(data_folder,'shapefile','piezos.shp')
-        if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
-            self.extract_data_from_code_bss(data_folder)
+        #if os.path.exists(os.path.join(data_folder,'shapefile','piezos.shp')):
+        #    self.extract_data_from_code_bss(data_folder)
         self.load_piezometric_data(data_folder)
     
     #%% DOWNLOAD PIEZOMETERS ID AT FRANCE SCALE
     
     def download_init_data(self, data_folder, geographic):
         """
-        Download piezometric data on the web at the France scale.
+        Download France piezometric data with API.
 
         Parameters
         ----------
@@ -107,11 +110,14 @@ class Piezometry:
         folder = os.path.join(data_folder, 'shapefile')
         url = 'https://www.data.gouv.fr/fr/datasets/r/f10f3f18-eac3-4cee-b178-4c577c4fd689'
         if not os.path.exists(folder):
-            ssl._create_default_https_context = ssl._create_unverified_context
-            urllib.request.urlretrieve(url, filename)
-            with zipfile.ZipFile(filename, 'r') as zip_ref:
-                zip_ref.extractall(folder)
-            os.remove(filename)
+            try:
+                ssl._create_default_https_context = ssl._create_unverified_context
+                urllib.request.urlretrieve(url, filename)
+                with zipfile.ZipFile(filename, 'r') as zip_ref:
+                    zip_ref.extractall(folder)
+                os.remove(filename)
+            except:
+                pass
             
         #BSS discrete data
         filename = data_folder + 'BSS.zip'
@@ -158,6 +164,49 @@ class Piezometry:
         piezos : shapefile
             Piezometer clipping points.
         """
+        folder = os.path.join(data_folder, 'shapefile')
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        
+        wgs_coord = str(geographic.ll_long_lat[1])+','+str(geographic.ll_long_lat[0])+',' + str(geographic.ur_long_lat[1])+',' + str(geographic.ur_long_lat[0])
+        url = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations?bbox="+wgs_coord
+        reponse = requests.get(url)
+        self.piezos = reponse.json()
+        
+        crs_proj = "epsg:4326"
+        try:
+            if self.piezos['count'] > 0: 
+                for i in range(0, self.piezos['count']):
+                    self.codes_bss.append(self.piezos['data'][i]['code_bss'])
+                    self.x_coord_wgs84.append(self.piezos['data'][i]['geometry']['coordinates'][0])
+                    self.y_coord_wgs84.append(self.piezos['data'][i]['geometry']['coordinates'][1])
+                    self.depth_well.append(self.piezos['data'][i]['profondeur_investigation'])
+                    self.elevation_well.append(self.piezos['data'][i]['altitude_station'])
+                
+                    transformer = Transformer.from_crs(crs_proj,geographic.crs_proj)
+                    self.xy_coord= transformer.transform(self.y_coord_wgs84[i], self.x_coord_wgs84[i])
+                    self.x_coord.append(self.xy_coord[0])
+                    self.y_coord.append(self.xy_coord[1])
+                    self.start_date.append(self.piezos['data'][i]['date_debut_mesure'])
+                    self.end_date.append(self.piezos['data'][i]['date_fin_mesure'])
+            
+                for i in range(0, len(self.x_coord)):
+                    idx = (np.abs(geographic.x_coord- self.x_coord[i])).argmin()
+                    # index is determined by lowest difference between piezometer coordinate and model cell coordinate
+                    idy = (np.abs(geographic.y_coord- self.y_coord[i])).argmin()
+                    self.x_iloc.append(idx)
+                    self.y_iloc.append(idy) 
+            
+            
+            piezos = []
+            for i in range(0, self.piezos['count']):
+                piezos.append([self.codes_bss[i], Point([self.x_coord[i],self.y_coord[i]])])
+            shp_piezo = gpd.GeoDataFrame(data=piezos, columns=['code_bss', 'geometry'])
+            shp_piezo.to_file(os.path.join(data_folder, 'shapefile','piezos.shp'))
+        except:
+            pass
+        
+        """
         # ADES continue data
         watershed = gpd.read_file(geographic.watershed_box_shp)
         piezos_shp = os.path.join(data_folder, 'shapefile','point_eau_piezo.shp')
@@ -197,8 +246,9 @@ class Piezometry:
             self.x_iloc_discrete.append(idx)
             self.y_iloc_discrete.append(idy)
         bss.to_file(os.path.join(data_folder,'shapefile','piezos_discrete.shp'))
+        """
         
-        return piezos
+        #return piezos
     
     #%% DOWNLOAD PIEZOMETRY ON THE WEB 
     
@@ -239,6 +289,38 @@ class Piezometry:
         """
         self.depth = pd.DataFrame()
         self.elevation = pd.DataFrame()
+        
+        url = 'https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/chroniques?code_bss='
+        for i in range(0,len(self.codes_bss)):
+            code = self.codes_bss[i]
+            time = []
+            elev = []
+            prof = []
+            
+            start = int(self.start_date[i].split('-')[0])
+            end = int(self.end_date[i].split('-')[0])
+            years = np.linspace(start,end, end-start+1)
+            for y in years :
+                url1 = url + code + '&date_debut_mesure=' + str(int(y)) + '-01-01&date_fin_mesure=' + str(int(y+1))+'-01-01'
+                reponse = requests.get(url1)
+                self.piezos = reponse.json()
+                for d in range(0,len(self.piezos['data'])):
+                    time.append(self.piezos['data'][d]['timestamp_mesure'])
+                    elev.append(self.piezos['data'][d]['niveau_nappe_eau'])
+                    prof.append(self.piezos['data'][d]['profondeur_nappe'])
+            
+            depth = pd.DataFrame({'Date':time,'Mesure':prof})
+            depth.index = pd.to_datetime(depth['Date'], unit='ms')
+            depth = depth.drop(['Date'], axis=1)
+            depth.columns = [code]
+            self.depth = pd.concat([self.depth, depth], axis=1).sort_index()
+            elevation = pd.DataFrame({'Date':time,'Mesure':elev})
+            elevation.index = pd.to_datetime(elevation['Date'], unit='ms')
+            elevation = elevation.drop(['Date'], axis=1)
+            elevation.columns = [code]
+            self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
+        
+        """
         for code in self.codes_bss:
             desc_file = os.path.join(data_folder,code,'ades_export','Descriptif','descriptif.txt')
             df1 = pd.read_csv(desc_file, delimiter = '|',header=0, engine='python', encoding='latin1')
@@ -258,7 +340,7 @@ class Piezometry:
             elevation = elevation.drop(['Date'], axis=1)
             elevation.columns = [code]
             self.elevation = pd.concat([self.elevation, elevation], axis=1).sort_index()
-
+        """
     #%% ADD OWN MANUAL DATA
 
     def add_data(self):
@@ -286,7 +368,7 @@ class Piezometry:
                 except:
                     df.index = pd.to_datetime(df['Date'],format='%d/%m/%Y %H:%M:%S')
                 df = df.drop(['Date'], axis=1)
-                self.elevation = pd.concat([self.elevation, df], axis=1).sort_index()
+                self.elevation = pd.merge(self.elevation, df, left_index=True, right_index=True, how='outer') #pd.concat([self.elevation, df], axis=1).sort_index()
             df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
             gdf.to_file(self.piezos_shp)

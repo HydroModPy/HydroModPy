@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023
-
-@author: Martin Le Mesnil, Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Le Mesnil Martin, Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -44,11 +47,7 @@ wbt.verbose = False
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
@@ -69,9 +68,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = os.path.join(example_path, "data") + '/'
-# To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# To inform the folder path:
+out_path = folder_root.update_root_folder_results()
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -82,8 +82,7 @@ oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
 shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'param_zones.shp')
 
-load = False
-watershed_name = 'Gouville'
+watershed_name = 'Example_04_Gouville'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = [data_path + 'shapefile/model_area.shp', 10] # [path, buffer size]
@@ -148,7 +147,7 @@ if not os.path.exists(os.path.join(stable_folder, 'add_data')):
     os.mkdir(os.path.join(stable_folder, 'add_data'))
 piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
 
-BV.piezometry.add_data()
+#BV.piezometry.add_data()
 BV.piezometry.display_data()
 
 #%% RECHARGE
@@ -253,6 +252,7 @@ BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
+BV.settings.update_split_temporal(split_temp=False)
 
 # Lateral heterogeneity
 BV.hydraulic.update_calib_zones_from_shp(shape_calib_zones_path)
@@ -316,50 +316,43 @@ for t in range(len(watertable_depth)):
 df_simobs_piezo_depth = piezo_2016.copy()
 df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-fig, ax = plt.subplots(1,1, figsize=(8,6), sharex=True)
+fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
+axs = axs.ravel()
+
+ax = axs[0]
 ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
 ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
-ax.legend(loc='best', fontsize=10)
-ax.set_ylabel('Elevation [m a.s.l.]')
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.legend(loc='upper right', fontsize=8)
+ax.set_ylabel('Elevation [m]')
+ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
 ax.set_title('Watertable')
 
-# fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
-# axs = axs.ravel()
+ax = axs[1]
+ax.axhline(dem_data[30,30], label='Topography', color='gold', lw=2)
+ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
+ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+ax.legend(loc='upper right', fontsize=8)
+ax.set_ylabel('Depth [m]')
+ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
 
-# ax = axs[0]
-# ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
-# ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
-# years_maj = mdates.YearLocator()   # every year
-# months_maj = mdates.MonthLocator()  # every x month
-# ax.xaxis.set_major_locator(years_maj)
-# ax.xaxis.set_minor_locator(months_maj)
-# ax.legend(loc='upper right', fontsize=8)
-# ax.set_ylabel('Elevation [m]')
-# ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
-# ax.set_title('Watertable')
-
-# ax = axs[1]
-# ax.axhline(dem_data[30,30], label='Topography', color='brown', lw=2)
-# ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
-# ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
-# years_maj = mdates.YearLocator()   # every year
-# months_maj = mdates.MonthLocator()  # every x month
-# ax.xaxis.set_major_locator(years_maj)
-# ax.xaxis.set_minor_locator(months_maj)
-# ax.legend(loc='upper right', fontsize=8)
-# ax.set_ylabel('Depth [m]')
-# ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
-
-# fig, ax = plt.subplots(1,1, figsize=(10,3))
-# watertable_depth[0][watertable_depth[0]<0] = 0
-# im = ax.imshow(watertable_depth[0], cmap='RdYlBu_r')
-# ax.set_xlabel('Cells on X', fontsize=10)
-# ax.set_ylabel('Cells on Y', fontsize=10)
-# ax.set_title('Study site  -  Watertable depth [m]  -  First time step', fontsize=15)
-# ax_divider = make_axes_locatable(ax)
-# cax = ax_divider.append_axes("right", size="2%", pad="2%")
-# cb = fig.colorbar(im, cax=cax)
-# cb.set_ticks([0,5,10,15])
+fig, ax = plt.subplots(1,1, figsize=(10,3))
+watertable_depth[0][watertable_depth[0]<0] = 0
+im = ax.imshow(watertable_depth[0], cmap='RdYlBu_r')
+ax.set_xlabel('Cells on X', fontsize=10)
+ax.set_ylabel('Cells on Y', fontsize=10)
+ax.set_title('Study site  -  Watertable depth [m]  -  First time step', fontsize=15)
+ax_divider = make_axes_locatable(ax)
+cax = ax_divider.append_axes("right", size="2%", pad="2%")
+cb = fig.colorbar(im, cax=cax)
+cb.set_ticks([0,5,10,15])
 
 #%% MODPATH
 
@@ -392,21 +385,5 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   actual_date=True, 
                                                   subbasin_results=subbasin_results,
                                                   freq_time=freq_time) # or None
-
-#%% 2D PLOT
-
-# # if sim_state == 'steady':
-# visu = visualization_results.Visualization(BV, model_name)
-# visu.visual2D(object_list = ['map','grid',
-#                               'watertable', 'watertable_depth',
-#                               'drain_flow','surface_flow',
-#                               'pathlines', 'residence_times'
-#                               ],
-#               color_scale = [(None,None),(None,None),
-#                               (None,None),(0,10),
-#                               (None,None),(None,None),
-#                               (None,None),(None,None),
-#                               ], 
-#               lines=250)
 
 #%% ---- NOTES
