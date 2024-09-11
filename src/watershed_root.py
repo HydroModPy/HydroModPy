@@ -584,8 +584,8 @@ class Watershed:
     def add_streamflow_seepage(self, area=None, mainstream_threshold:float=0.1,
                  icalc:int=0, thickm:float=0.1, 
                  depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
-                 rchlen:float=None, roughch:float=0, critical_mode=None, 
-                 correction_multiple_reaches:bool=False,
+                 rchlen:float=None, roughch:float=0, runoff=None, 
+                 critical_mode=None, correction_multiple_reaches:bool=False,
                  correction_elevations:bool=True, reach_data=None, 
                  segment_data=None):
         """
@@ -619,6 +619,10 @@ class Watershed:
         roughch : float, optional
             Only used when icalc = 1 or 2 (Manning routing)
             The default is 0.
+        runoff : optional
+            Can be a float or a pandas.core.series.Series or a xarray.DataSet.
+            If specified, this flow is added in the streamflow in the 
+            corresponding cells.
         critical_mode : str, optional
             A flag or a filepath to indicate which cells are critical for
             convergence and whose conductance should be adapted.

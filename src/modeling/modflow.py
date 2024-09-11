@@ -18,6 +18,8 @@ import numpy as np
 import os
 import datetime
 import pandas as pd
+import xarray as xr
+xr.set_options(keep_attrs = True)
 import sys
 import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
 from os.path import dirname, abspath
@@ -680,11 +682,13 @@ class Modflow:
                     lake_id = self.lakeres.lake_by_num_id[num_id]
                     nsegs = self.streamflow_seepage.segment_data_1[
                         self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
+                    # Update reach_data info
                     for iseg in nsegs:
                         idx = self.streamflow_seepage.reach_data[
                             self.streamflow_seepage.reach_data.iseg == iseg].index
                         self.streamflow_seepage.reach_data.loc[
                             idx, 'strtop'] = self.lakeres.ssmx_by_lake[lake_id]
+                    # Update segment_data info
                     self.streamflow_seepage.segment_data_1.loc[
                         nsegs, ['elevup', 'roughch']] = [
                             self.lakeres.ssmx_by_lake[lake_id],
@@ -711,7 +715,7 @@ class Modflow:
                        'hcond1': '<f8', 'thickm1': '<f8', 'elevup': '<f8', 
                        'width1': '<f8', 'depth1': '<f8', 'hcond2': '<f8', 
                        'thickm2': '<f8', 'elevdn': '<f8', 'width2': '<f8', 
-                       'depth2': '<f8'},
+                       'depth2': '<f8', 'runoff': '<f8'},
                 index_dtypes = {'nseg': '<f8'})
             
             # ---- Convert recarrays into maps
@@ -736,16 +740,53 @@ class Modflow:
             self.drain_array[sfr_map > 0] = 0
             
             # ---- SFR2 function call
-            segment_data = {0: segment_data_1_rec}
+# =============================================================================
+#             segment_data = {0: segment_data_1_rec}
+# =============================================================================
+            segment_data = {per: segment_data_1_rec.copy() for per in range(0, self.nper)}
             
             nstrm = len(reach_data_rec) # > 0
             nss = len(segment_data_1_rec)
+            itmp = np.ones(self.nper, dtype = int) * -1 # first period input values repeated over time
             
-            itmp = nss
+            # Return flow (restitution)
+            if self.use_lakeres:
+                for num_id in self.lakeres.lake_by_num_id.keys():
+                    lake_id = self.lakeres.lake_by_num_id[num_id]
+                    nsegs = self.streamflow_seepage.segment_data_1[
+                        self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
+                    if self.lakeres.rtrn_by_lake[lake_id] is not None:
+                        for d in self.lakeres.rtrn_by_lake[lake_id].index:
+                            per = self.climatic.index.get_loc(d)
+                            runoff_prev = segment_data[per]['runoff'].copy()
+                            runoff = runoff_prev.copy()
+                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[self.climatic.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
+                            segment_data[per]['runoff'] = runoff_prev + runoff
+                            itmp[per] = nss # time-varying inputs
+            
+            # Runoff
+            if self.streamflow_seepage.runoff is not None:
+                if isinstance(self.streamflow_seepage.runoff, (int, float)):
+                    for per in range(0, self.nper):
+                        runoff_prev = segment_data[per]['runoff'].copy()
+                        runoff = runoff_prev + self.streamflow_seepage.runoff
+                        segment_data[per]['runoff'] = runoff
+                    itmp[:] = nss
+                elif isinstance(self.streamflow_seepage.runoff, pd.core.series.Series):
+                    for d in self.streamflow_seepage.runoff.index:
+                        per = self.climatic.index.get_loc(d)
+                        runoff_prev = segment_data[per]['runoff'].copy()
+                        runoff = runoff_prev + self.streamflow_seepage.runoff
+                        segment_data[per]['runoff'] = runoff
+                        itmp[per] = nss # time-varying inputs
+                elif isinstance(self.streamflow_seepage.runoff, xr.core.dataset.Dataset):
+                    print("xaray.Datasets not implemented yet for runoff input to SFR (modflow.py L781)")
+            
+            itmp[0] = nss # time-varying inputs
             irdflag = 0 # to print input data
             iptflag = 0 # to print streamflow routing outputs
-            dataset_5 = {per: [-1, irdflag, iptflag] for per in range(0, self.nper)}
-            dataset_5[0][0] = itmp
+            dataset_5 = {per: [itmp[per], irdflag, iptflag] for per in range(0, self.nper)}
+            # dataset_5 = {per: [itmp, irdflag, iptflag] for per in range(0, self.nper)}
                 # dataset_5 = {0: [itmp, irdflag, iptflag]}
                 # or
                 # dataset_5 = {0: [itmp, irdflag, iptflag],
