@@ -173,7 +173,6 @@ class Piezometry:
         reponse = requests.get(url)
         self.piezos = reponse.json()
         
-        print(url, self.piezos)
         crs_proj = "epsg:4326"
         try:
             if self.piezos['count'] > 0: 
