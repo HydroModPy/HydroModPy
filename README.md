@@ -23,7 +23,6 @@ Alexandre Gauvain [4], Ronan Abhervé [1],  Martin Le Mesnil [2],  Alexandre Coc
 - [7] Universidad de O'Higgins, Rancagua, Chile
 - [8] Pontificia Universidad Católica de Chile, Departamento de Ingeniería Hidráulica y Ambiental, Santiago, Chile
 
-
 ## Links
 
 - GitLab software: https://gitlab.com/Alex-Gauvain/HydroModPy
@@ -135,11 +134,14 @@ There is some example notebooks :
  
 ## Linked publications
 Papers published using HydroModPy.
- 
-Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023).
-Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties.
-Hydrology and Earth System Sciences, 27(17), 3221–3239.
-https://doi.org/10.5194/hess-27-3221-2023
+
+Floriancic, M. G., Abhervé, R., Bouchez, C., Martinez, J. J., & Roques, C. (2024). Evidence of Groundwater Seepage and Mixing at the Vicinity of a Knickpoint in a Mountain Stream. Geophysical Research Letters, 51. https://doi.org/10.1029/2024GL111325
+
+Le Mesnil, M., Gauvain, A., Gresselin, F., Aquilina, L., & Dreuzy, J. De. (2024). Characterizing coastal aquifer heterogeneity from a single piezometer head chronicle. Journal of Hydrology, 131859. https://doi.org/10.1016/j.jhydrol.2024.131859
+
+Abhervé, R., Roques, C., De Dreuzy, J.-R., Datry, T., Brunner, P., Longuevergne, L., & Aquilina, L. (2024). Improving calibration of groundwater flow models using headwater streamflow intermittence. Hydrological Processes, 38((6)). https://doi.org/10.1002/hyp.15167
+
+Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties. Hydrology and Earth System Sciences, 27(17), 3221–3239. https://doi.org/10.5194/hess-27-3221-2023
 
 ## Coresponding authors
 For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@gmail.com>
@@ -154,4 +156,4 @@ HydroModPy's user-friendly Python interface allows for testing and exploring var
 ## How to cite
 A paper is in preparation. Target of the journal: Hydrology and Earth System Sciences. 
 
-Gauvain, A., Abhervé, R., Le Mesnil, M., Roques, C., Coche, A., Marçais, J., Marti, E., Sallou, J., Bourcier, J., Bouchez, C., Figueroa, R., Cornette, N., Leray, S., Bresciani, E., Combemale, B., Vautier, C., Hivert, H., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. HydroModPy: A versatile Python toolbox for automating multi-site groundwater modeling with subsurface-surface interactions. In prep for Hydrology and Earth System Sciences.
+Gauvain, A., Abhervé, R., Le Mesnil, M., Roques, C., Coche, A., Marçais, J., Marti, E., Sallou, J., Bourcier, J., Bouchez, C., Figueroa, R., Cornette, N., Leray, S., Bresciani, E., Combemale, B., Vautier, C., Hivert, H., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. HydroModPy: A versatile Python toolbox for automating multi-site groundwater modeling with subsurface-surface interactions. In preparation for Hydrology and Earth System Sciences.
