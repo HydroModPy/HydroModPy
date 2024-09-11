@@ -59,8 +59,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = os.path.join(root_dir, "examples/00_simplified example presentend in the paper")
 data_path = os.path.join(example_path, "data")
 # To inform the folder path:
-# out_path = folder_root.update_root_folder_results()
-out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
+out_path = folder_root.update_root_folder_results()
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
 
 #%% ---- EXTRACT CATCHMENT
 
@@ -93,7 +94,7 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 #%% ---- ADD DATA
 
 # Clip specific data at the catchment scale
-BV.add_piezometry()
+# BV.add_piezometry() # no piezomoeter for this study site
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
