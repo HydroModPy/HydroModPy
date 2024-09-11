@@ -147,7 +147,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 # visualization_watershed.watershed_dem(BV)
 # =============================================================================
 
-#%% RECHARGE et RUISSELLEMENT DE SURFACE (données d'entrée)
+#%% RECHARGE et RUISSELLEMENT DE SURFACE DIRECT (données d'entrée)
 BV.add_climatic()
 sim_state = 'transient' # transitoire
 freq_input = 'W' # hebdomadaire
@@ -325,99 +325,101 @@ rules = {
 dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 
 # ---- Raffinage des débits de la Chèze
-print("   . Raffinage des débits de la Chèze à partir de eaufrance.fr")
-
-code_station = 'J736422001' # La Chèze à Plélan-le-Grand - L'Enlevrier
-# Details sur la station:
-# -----------------------
-url = r"https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations"
-params = {
-    # 'code_region': ['44'],
-    # "code_site": "J7364220", 
-    "code_station": code_station,
-    "size": 10000,
-    }
-res = requests.get(url, params)
 # =============================================================================
-# with open(os.path.join(r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\10- Stations et debits\Debits",
-#                        "stations_liste.csv"), "w",
-#           encoding = res.encoding, ) as f:
-#     f.write(res.text)
+# print("   . Raffinage des débits de la Chèze à partir de eaufrance.fr")
 # 
-# stations_list = pd.read_csv(
-#     os.path.join(r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\10- Stations et debits\Debits",
-#                  "stations_liste.csv"),
-#     sep = ";",
-#     quotechar = '"',
-#     parse_dates = ['date_ouverture_station', 'date_fermeture_station'],
-#     # date_format = "%d/%m/%Y",
-#     )
+# code_station = 'J736422001' # La Chèze à Plélan-le-Grand - L'Enlevrier
+# # Details sur la station:
+# # -----------------------
+# url = r"https://hubeau.eaufrance.fr/api/v1/hydrometrie/referentiel/stations"
+# params = {
+#     # 'code_region': ['44'],
+#     # "code_site": "J7364220", 
+#     "code_station": code_station,
+#     "size": 10000,
+#     }
+# res = requests.get(url, params)
+# # =============================================================================
+# # with open(os.path.join(r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\10- Stations et debits\Debits",
+# #                        "stations_liste.csv"), "w",
+# #           encoding = res.encoding, ) as f:
+# #     f.write(res.text)
+# # 
+# # stations_list = pd.read_csv(
+# #     os.path.join(r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\10- Stations et debits\Debits",
+# #                  "stations_liste.csv"),
+# #     sep = ";",
+# #     quotechar = '"',
+# #     parse_dates = ['date_ouverture_station', 'date_fermeture_station'],
+# #     # date_format = "%d/%m/%Y",
+# #     )
+# # =============================================================================
+# if 'data' in res.json().keys():
+#     stations_info = pd.DataFrame.from_dict(res.json()['data'])
+# else:
+# # elif ('code' in res.json().keys()) or (res.json()['code'] == 'Internal server error'):
+#     stations_info = pd.read_csv(os.path.join(data_path, "Debits", "stations_list.csv"),
+#         sep = ";",
+#         header = 0,
+#         index_col = 0)
+#     print("        Erreur sur la mise-à-jour des infos des stations de jaugeage")
+# # Mise à jour des fichiers
+# stations_info.to_csv(os.path.join(data_path, "Debits", "stations_list.csv"), 
+#     sep = ";")
+# 
+# # Valeurs de flux journaliers :
+# # -----------------------------
+# url = r"https://hubeau.eaufrance.fr/api/v1/hydrometrie/obs_elab"
+# # idx = stations_info.index[stations_info['code_station'] == code_station][0]
+# # date_ini = stations_info.loc[idx, 'date_ouverture_station']
+# date_ini = stations_info.loc[0, 'date_ouverture_station']
+# date_today = pd.to_datetime('today').strftime("%Y-%m-%d")
+# # As it is possible only to extract 10000 values, only the most recent values
+# # will be retrieved
+# date_start = max(pd.to_datetime(date_ini).replace(tzinfo = None), 
+#                  pd.to_datetime(date_today) - pd.Timedelta(10000, 'D')
+#                  ).strftime("%Y-%m-%d")
+# 
+# quantity = 'QmJ' # [l/s]
+# 
+# params = {
+#     "size": 10000, # max
+#     "code_entite": code_station,
+#     "date_debut_obs_elab": date_start,
+#     "date_fin_obs_elab": date_today, # NB: la dernière semaine est généralement manquante
+#     "grandeur_hydro_elab": quantity,
+#           }
+# res = requests.get(url, 
+#                     params = params
+#                    )
+# if 'data' in res.json().keys():
+#     discharge = pd.DataFrame.from_dict(res.json()['data'])
+# else:
+#     discharge = pd.read_csv(os.path.join(data_path, "Debits",
+#         "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
+#         sep = ";",
+#         header = 0,
+#         index_col = 0)
+#     print("        Erreur sur la mise-à-jour du débit")
+# # Update file:
+# discharge.to_csv(os.path.join(data_path, "Debits",
+#     "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
+#     sep = ";")    
+# 
+# discharge = discharge.loc[:, ['date_obs_elab', 'resultat_obs_elab']]
+# discharge.columns = ['time', 'val']
+# discharge['val'] = discharge['val']*1e-3*60*60*24 # convertit [l/s] -> [m3/d]
+# discharge['time'] = pd.to_datetime(discharge['time'])
+# discharge.index = discharge.time
+# discharge = discharge.reindex(index = daily_index)
+# # discharge.fillna(0, inplace = True) # replace NaN with 0
+# discharge = discharge.resample(freq_input).mean()
+# 
+# # Set the first value (used for steady initialization) as the average value
+# discharge.iloc[0] = toolbox.hydrological_mean(discharge, 4)
+# 
+# dam_input_df['stream'].update(discharge.val)
 # =============================================================================
-if 'data' in res.json().keys():
-    stations_info = pd.DataFrame.from_dict(res.json()['data'])
-else:
-# elif ('code' in res.json().keys()) or (res.json()['code'] == 'Internal server error'):
-    stations_info = pd.read_csv(os.path.join(data_path, "Debits", "stations_list.csv"),
-        sep = ";",
-        header = 0,
-        index_col = 0)
-    print("        Erreur sur la mise-à-jour des infos des stations de jaugeage")
-# Mise à jour des fichiers
-stations_info.to_csv(os.path.join(data_path, "Debits", "stations_list.csv"), 
-    sep = ";")
-
-# Valeurs de flux journaliers :
-# -----------------------------
-url = r"https://hubeau.eaufrance.fr/api/v1/hydrometrie/obs_elab"
-# idx = stations_info.index[stations_info['code_station'] == code_station][0]
-# date_ini = stations_info.loc[idx, 'date_ouverture_station']
-date_ini = stations_info.loc[0, 'date_ouverture_station']
-date_today = pd.to_datetime('today').strftime("%Y-%m-%d")
-# As it is possible only to extract 10000 values, only the most recent values
-# will be retrieved
-date_start = max(pd.to_datetime(date_ini).replace(tzinfo = None), 
-                 pd.to_datetime(date_today) - pd.Timedelta(10000, 'D')
-                 ).strftime("%Y-%m-%d")
-
-quantity = 'QmJ' # [l/s]
-
-params = {
-    "size": 10000, # max
-    "code_entite": code_station,
-    "date_debut_obs_elab": date_start,
-    "date_fin_obs_elab": date_today, # NB: la dernière semaine est généralement manquante
-    "grandeur_hydro_elab": quantity,
-          }
-res = requests.get(url, 
-                    params = params
-                   )
-if 'data' in res.json().keys():
-    discharge = pd.DataFrame.from_dict(res.json()['data'])
-else:
-    discharge = pd.read_csv(os.path.join(data_path, "Debits",
-        "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
-        sep = ";",
-        header = 0,
-        index_col = 0)
-    print("        Erreur sur la mise-à-jour du débit")
-# Update file:
-discharge.to_csv(os.path.join(data_path, "Debits",
-    "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
-    sep = ";")    
-
-discharge = discharge.loc[:, ['date_obs_elab', 'resultat_obs_elab']]
-discharge.columns = ['time', 'val']
-discharge['val'] = discharge['val']*1e-3*60*60*24 # convertit [l/s] -> [m3/d]
-discharge['time'] = pd.to_datetime(discharge['time'])
-discharge.index = discharge.time
-discharge = discharge.reindex(index = daily_index)
-# discharge.fillna(0, inplace = True) # replace NaN with 0
-discharge = discharge.resample(freq_input).mean()
-
-# Set the first value (used for steady initialization) as the average value
-discharge.iloc[0] = toolbox.hydrological_mean(discharge, 4)
-
-dam_input_df['stream'].update(discharge.val)
 
 
 # ---- Raffinage du niveau initial
