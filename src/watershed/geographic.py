@@ -63,7 +63,8 @@ class Geographic:
                  from_lib: str=None,
                  from_dem: list=None,
                  from_shp: list=None,
-                 from_xyv: list=None):
+                 from_xyv: list=None,
+                 reg_fold: str=None):
         """
         Parameters
         ----------
@@ -115,6 +116,7 @@ class Geographic:
         self.from_dem = from_dem
         self.from_shp = from_shp
         self.from_xyv = from_xyv
+        self.reg_fold = reg_fold
         
         if self.from_dem != None:
             self.model_from_dem()
@@ -148,27 +150,34 @@ class Geographic:
         """
         Raw regional DEM
         """
-        # Correction
-        fill =  os.path.join(self.reg_path, 'region_fill.tif')
-        # if not os.path.exists(fill):
-        wbt.breach_depressions(self.dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
-        # Flow direction
-        direc =  os.path.join(self.reg_path, 'region_direc.tif')
-        # if not os.path.exists(direc):
-        wbt.d8_pointer(fill, direc, esri_pntr=False)
-        # Flow accumulation
-        acc =  os.path.join(self.reg_path, 'region_acc.tif')
-        # if not os.path.exists(acc):
-        wbt.d8_flow_accumulation(fill, acc, log=True)
-        # Flow accumulation
-        down =  os.path.join(self.reg_path, 'region_down.tif')
-        # if not os.path.exists(down):
-        wbt.downslope_flowpath_length(
-            direc, 
-            down, 
-            watersheds=None, 
-            weights=None, 
-            esri_pntr=False)
+        # if isinstance(self.regio_path, (str))==False:
+        if self.reg_fold == None:
+            # Correction
+            fill =  os.path.join(self.reg_path, 'region_fill.tif')
+            # if not os.path.exists(fill):
+            wbt.breach_depressions(self.dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
+            # Flow direction
+            direc =  os.path.join(self.reg_path, 'region_direc.tif')
+            # if not os.path.exists(direc):
+            wbt.d8_pointer(fill, direc, esri_pntr=False)
+            # Flow accumulation
+            acc =  os.path.join(self.reg_path, 'region_acc.tif')
+            # if not os.path.exists(acc):
+            wbt.d8_flow_accumulation(fill, acc, log=True)
+            # Flow accumulation
+            down =  os.path.join(self.reg_path, 'region_down.tif')
+            # if not os.path.exists(down):
+            wbt.downslope_flowpath_length(
+                direc, 
+                down, 
+                watersheds=None, 
+                weights=None, 
+                esri_pntr=False)
+        else:
+            fill = os.path.join(self.reg_fold, 'region_fill.tif')
+            direc = os.path.join(self.reg_fold, 'region_direc.tif')
+            acc = os.path.join(self.reg_fold, 'region_acc.tif')
+            down = os.path.join(self.reg_fold, 'region_down.tif')
         
         """
         Extract watershed from an outlet
@@ -210,11 +219,16 @@ class Geographic:
         # Normalize initial buffer distance value
         dem = gdal.Open(self.dem_path)
         geodata = dem.GetGeoTransform()
-        buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
-        buff_raw = int(round(buff_raw))
-        dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
-        buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+        if isinstance(self.buff_percent,(str))!=True:
+            buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
+            buff_raw = int(round(buff_raw))
+            # print(buff_raw)
+            dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
+            buff_dist = dist[np.abs(dist-buff_raw).argmin()]
+        # print(buff_dist)
         # Buffer the watershed shapefile polygon
+        else:
+            buff_dist = float(self.buff_percent)
         site_polyg = gpd.read_file(self.watershed_shp)
         site_polyg.to_file(self.watershed_shp)
         site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
@@ -384,8 +398,8 @@ class Geographic:
             self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
             self.ur_long_lat = transformer.transform(self.xmax,self.ymax)
             self.ul_long_lat = transformer.transform(self.xmin,self.ymax) 
-            self.ll_long_lat = transformer.transform(self.xmax,self.ymin)
-            self.lr_long_lat = transformer.transform(self.xmin,self.ymin)
+            self.lr_long_lat = transformer.transform(self.xmax,self.ymin)
+            self.ll_long_lat = transformer.transform(self.xmin,self.ymin)
             # Transform to longitude/latitude London Greenwich
             self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
             if self.centroid_long_lat_Greenwich[1]<0:
@@ -454,7 +468,7 @@ class Geographic:
             self.watershed_dem = os.path.join(self.gis_path, 'watershed_dem.tif')
             shutil.copyfile(self.watershed_raw, self.watershed_dem)
         # No data
-        wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
+        # wbt.modify_no_data_value(self.watershed_dem, new_value='-99999.0')  
         # Buff dem
         self.watershed_buff_dem = self.gis_path + 'watershed_buff_dem.tif'
         shutil.copyfile(self.watershed_dem, self.watershed_buff_dem)
