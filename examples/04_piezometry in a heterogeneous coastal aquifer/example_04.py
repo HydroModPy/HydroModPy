@@ -69,8 +69,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
 data_path = os.path.join(example_path, "data") + '/'
 # To inform the folder path:
-out_path = folder_root.update_root_folder_results()
-#out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
+# out_path = folder_root.update_root_folder_results()
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -81,7 +81,6 @@ oceanic_path = data_path + 'oceanic/'
 recharge_path = data_path + 'recharge/_REC_D.csv'
 shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'param_zones.shp')
 
-load = False
 watershed_name = 'Example_04_Gouville'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
@@ -95,7 +94,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = False
+load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
