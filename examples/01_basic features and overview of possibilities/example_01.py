@@ -67,9 +67,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = os.path.join(root_dir, "examples/01_basic features and overview of possibilities")
 data_path = os.path.join(example_path, "data")
-# To inform the folder path:
-# out_path = folder_root.update_root_folder_results()
-out_path = 'C:/Users/ronan/Simulations/HydroModPy/'
+out_path = folder_root.update_root_folder_results()
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
 
 #%% ---- WATERSHED
 
@@ -84,7 +84,6 @@ case = 'FromSHP'    # from a shapefile: clip a provided DEM
 
 if case == 'FromLIB':
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    load = False
     watershed_name = 'Example_01_Library'
     from_lib = os.path.join(data_path,'watershed_library.csv')
     from_dem = None # [path, cell size]
@@ -95,7 +94,6 @@ if case == 'FromLIB':
 
 if case == 'FromDEM':
     dem_path = os.path.join(data_path, 'conceptual dem.tif')
-    load = False
     watershed_name = 'Example_01_Topography'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = [dem_path, 100] # [path, cell size]
@@ -106,7 +104,6 @@ if case == 'FromDEM':
 
 if case == 'FromSHP':
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    load = False
     watershed_name = 'Example_01_Shapefile'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
@@ -117,7 +114,6 @@ if case == 'FromSHP':
 
 if case == 'FromXYV':
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    load = False
     watershed_name = 'Example_01_Coordinates'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
