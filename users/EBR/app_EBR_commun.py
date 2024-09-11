@@ -87,7 +87,7 @@ dem_path = os.path.join(data_path,
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = '_'.join(['barrage_Cheze_SFR_LAK_icalc1_sandbox', pd.to_datetime("today").strftime("%Y-%m-%d")])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK_batch', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -716,7 +716,7 @@ BV.add_streamflow_seepage(icalc = 1)
 
 # Area where the SFR seepage will be applied:
 # BV.streamflow_seepage.update_area('watershed')
-BV.streamflow_seepage.update_area('mainstream', 0.7)
+BV.streamflow_seepage.update_area('watershed', 0.7)
 # Standard values for segment_data:
 depth = 0 # 0.1 # self.thick # 1 # arbitrary
 hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
