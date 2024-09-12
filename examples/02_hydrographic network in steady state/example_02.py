@@ -70,9 +70,11 @@ example_path = os.path.join(root_dir,
                             r"examples/02_hydrographic network in steady state")
 data_path = os.path.join(example_path, "data")
 # To inform the folder path:
-out_path = folder_root.update_root_folder_results()
+# out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
 # Or for example:
 # out_path = 'C:/Simulations/HydroModPy/'
+print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
 
