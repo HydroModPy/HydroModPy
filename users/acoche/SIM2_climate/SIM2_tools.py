@@ -575,11 +575,17 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             zmax = float(ds[main_var].groupby(
                 ds.time.dt.year).mean().max(dim = ['x', 'y', 'year']))
         
-    elif mode in ["ratio", "ratio_precip"]:
+    elif mode == "ratio":
         unit = "%"
         zmin = 0
         zmax = 100
         dst_dir1 = 'pourcentages'
+        
+    elif mode == "ratio_precip":
+        unit = "%"
+        zmin = 0
+        zmax = 100
+        dst_dir1 = 'pourcentages precip'
         
     if var in ['T', 'TSUP_H', 'TINF_H']:
         colorscale = "Plasma_r"
