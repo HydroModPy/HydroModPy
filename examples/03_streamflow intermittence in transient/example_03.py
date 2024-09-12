@@ -77,10 +77,11 @@ def select_period(df, first, last):
 example_path = os.path.join(root_dir, r"examples/03_streamflow intermittence in transient")
 data_path = os.path.join(example_path, "data")
 # To inform the folder path:
-out_path = folder_root.update_root_folder_results()
+# out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
 # Or for example:
 # out_path = 'C:/Simulations/HydroModPy/'
-
+print('The results of the example will be saved here :', out_path)
 #%% ---- WATERSHED
 
 #%% OPTIONS
