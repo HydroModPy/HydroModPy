@@ -27,9 +27,6 @@ class SafranSurfex:
         Functions to clip .h5 SURFEX files at the model domain scale
             - Historical data from Quentin COURTOIS thesis ['OLD'] (reanalysis SAFRAN / SURFEX)
             - Historical reanalysis SAFRAN / SURFEX ['REA'] (1958 to 2019) and updated REAUP (2019 to 2023)
-            - Climatic projection DAYON-2015 / SURFEX
-                ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-                 'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
             
         Parameters
         ----------

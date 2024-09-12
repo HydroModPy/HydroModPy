@@ -112,8 +112,6 @@ class Timeseries:
                     time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
                     recharge = pd.Series(np.nan, index=range(len(self.recharge)))
         
-       
-        
         try:
             self.runoff = model_modflow.runoff
             if self.actual_date==True:            
@@ -162,6 +160,10 @@ class Timeseries:
             pass
         try:
             self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
+        except:
+            pass
+        try:
+            self.saturated_storage = np.load(os.path.join(self.save_file, 'saturated_storage'+'.npy'), allow_pickle=True).item()
         except:
             pass
         try:
@@ -300,6 +302,12 @@ class Timeseries:
         
         ### groundwater_storage
         try:
+            for key in self.saturated_storage:
+                calc = calc_sum(key, 'saturated_storage', self.saturated_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
+                self.mfdata.loc[key,'saturated_storage'] = calc
+        except:
+            pass
+        try:
             for key in self.groundwater_storage:
                 calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
                 self.mfdata.loc[key,'groundwater_storage'] = calc
@@ -317,7 +325,7 @@ class Timeseries:
         ### intermittency_saturation
         if self.freq_time == 'M':
             try:
-                if len(self.accumulation_flux)>12:
+                if len(self.accumulation_flux)>=12:
                     inf = 0
                     sup = 12
                     step = int(round(len(self.accumulation_flux)/12))
@@ -355,7 +363,7 @@ class Timeseries:
         
         if self.freq_time == 'D':
             try:
-                if len(self.accumulation_flux)>365:
+                if len(self.accumulation_flux)>=365:
                     inf = 0
                     sup = 365
                     step = int(round(len(self.accumulation_flux)/365))
@@ -393,7 +401,7 @@ class Timeseries:
         
         if self.freq_time == 'W':
             try:
-                if len(self.accumulation_flux)>52:
+                if len(self.accumulation_flux)>=52:
                     inf = 0
                     sup = 52
                     step = int(round(len(self.accumulation_flux)/52))

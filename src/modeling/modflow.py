@@ -16,6 +16,7 @@
 import flopy
 import numpy as np
 import os
+import datetime
 import pandas as pd
 import sys
 import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
@@ -39,6 +40,9 @@ sys.path.append(df)
 from tools import toolbox
 from modeling import downslope
 
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 #%% CLASS
 
 class Modflow:
@@ -54,11 +58,11 @@ class Modflow:
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
                  plot_cross: bool=True, 
                  # Climatic settings
-                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', 
+                 climatic=0.001, runoff=0.001/10, first_clim: str='mean', split_temp: bool=False,
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
-                 verti_cond=None, verti_poro=None,
+                 verti_cond=None, verti_poro=None, verti_ss=None,
                  hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
@@ -185,6 +189,7 @@ class Modflow:
             self.climatic = climatic
         self.first_clim = first_clim  
         self.runoff = runoff
+        self.split_temp = split_temp
             
         #%% Model parameters 
         
@@ -202,6 +207,7 @@ class Modflow:
         
         self.verti_cond = verti_cond
         self.verti_poro = verti_poro
+        self.verti_ss = verti_ss
         self.cond_drain = cond_drain
         
         #%% Specific modifications
@@ -242,8 +248,9 @@ class Modflow:
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
                                             thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+        # Change headtol and fluxtol with results ==> convergency criteria
 
-        #%% Discreitzation
+        #%% Discretization
         
         ### Time step is driven by recharge
         
@@ -276,7 +283,22 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)
-            self.perlen = np.ones(len(self.climatic))
+            
+            if self.split_temp == True:
+                ### DISCUSS WITH ALEXANDREFOR THIS PART
+                if isinstance(self.climatic, pd.core.series.Series):
+                    if isinstance(self.climatic.index[0], datetime.datetime):
+                        # self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                        self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+                    else:
+                        self.perlen = self.climatic.index.to_series().diff().values
+            if isinstance(self.split_temp, list) == True:
+                self.perlen = self.split_temp
+            if self.split_temp == False:
+                self.perlen = np.ones(len(self.climatic))
+            # print(self.split_temp)
+            # First timestep is steady state:
+            self.perlen[0] = 1
                         
         ### Model Domain definition and discretization 
                 
@@ -310,12 +332,14 @@ class Modflow:
                 self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
             
         # Imposes discretization to modflow model through flopy
-        self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=4, lenuni=2,
+        self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
                                             top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
-                                            steady=self.steady, start_datetime=self.start_datetime) # itmuni = 0 ==> undefined
+                                            steady=self.steady, start_datetime=self.start_datetime) 
+                                            # itmuni = 0 ==> undefined
+                                            # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
         # proj4_str=self.dem.crs)
     
         #%% Boundary conditions
@@ -343,7 +367,7 @@ class Modflow:
         # NO FLOW BOUNDARY CONDITIONS 
         for i in range (self.nlay):
             if isinstance(self.sea_level,(int,float)) == True:
-                print('niv0')
+                # print('niv0')
                 self.iboundData[i][self.dem <= self.sea_level] = -1
                 self.strtData[self.iboundData == -1] = self.sea_level
             self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
@@ -355,12 +379,12 @@ class Modflow:
         self.drain_array = np.ones((self.nrow, self.ncol))
         if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
-            print('niv1')
+            # print('niv1')
             if isinstance(self.sea_level,(int,float)) == False:
-                print('niv2')
+                # print('niv2')
                 self.chData = {} #Martin on 15/11/2022: before was: self.chdData = {}
                 for kper in range(0, self.nper):
-                    print(kper)
+                    # print(kper)
                     chdKper = []
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
@@ -444,7 +468,20 @@ class Modflow:
                     poro_d2 = (self.dem - d2)
                     mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
                     self.ps[i][mask] = sy_val
-                    # print(k_val)            
+                    # print(k_val)
+                
+            for j in range(len(self.verti_ss)):
+                # print('j', j)
+                for i in range(len(self.zbot)):
+                    # print('i', i)
+                    ss_val = self.verti_ss[j][0]
+                    d1 = self.verti_ss[j][1][0]
+                    d2 = self.verti_ss[j][1][1]
+                    ss_d1 = (self.dem - d1)
+                    ss_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= ss_d1) & (self.zbot[i] >= ss_d2))
+                    self.ss[i][mask] = ss_val
+                    # print(k_val)   
         
         # Lateral heterogeneity of hk ?
         # for i in range(0,len(self.number_structure)):
@@ -456,7 +493,10 @@ class Modflow:
                                             hk=self.hk, sy=self.ps,
                                             ss=self.ss,
                                             iphdry=1, hdry=-100, vka=1, noparcheck=False,
-                                            extension='upw', unitnumber=31)
+                                            extension='upw',
+                                            # unitnumber=31
+                                            unitnumber=None
+                                            )
         
         #%% Source terms
         
@@ -488,9 +528,14 @@ class Modflow:
                         else:
                             self.evtData[kper] = self.evt[kper]
                 # expd = self.thick : ETP can take water all over the aquifer thickness
-                self.evt = flopy.modflow.ModflowEvt(self. mf, nevtop=3,
-                                                    evtr=self.evtData, 
-                                                    surf=0, exdp=self.thick)
+                self.evt = flopy.modflow.ModflowEvt(self.mf,
+                                                    evtr=self.evtData,
+                                                    surf = self.dem,
+                                                    nevtop = 1, # default: 1 (top), 2 (layer), 3 (highest active)
+                                                    exdp = 10, # default: 1 (from surf normally)
+                                                    ievt = 1, # default: 1 (if layer)
+                                                    ipakcb = 1 # default: 0 
+                                                    )
                 # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
                 if not isinstance(self.climatic,(int,float)):
                     self.climatic[self.climatic<0] = 0
@@ -574,7 +619,9 @@ class Modflow:
             # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
             stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
-                                unitnumber=[14, 51, 52, 53, 0], compact=True)
+                                # unitnumber=[14, 51, 52, 53, 0],
+                                unitnumber=None,
+                                compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
         # CrossSection figure
@@ -589,19 +636,25 @@ class Modflow:
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
             # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
-            modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='viridis', alpha=0.5, ax=axs[0])
-            modelxsect1.plot_grid(ax=axs[0])
+            imhk = modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[0],
+                                   norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max()))
+            # modelxsect1.plot_grid(ax=axs[0])
             axs[0].set_title('Row, K')
             axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            # imhk = axs[0].imshow(self.hk, masked_values=[-9999], cmap='tab10', alpha=0, norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max()))
+            # divider = make_axes_locatable(axs[0])
+            # cax = divider.append_axes('right', size='5%', pad=0.05)
+            # fig.colorbar(imhk, cax=cax, orientation='vertical')
+            # plt.colorbar(pc)
             
             # fig = plt.figure(figsize=(10, 5))
             # ax = fig.add_subplot(1, 1, 1)
             modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
+            imsy = modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[1])
             # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
-            modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='plasma', alpha=0.5, ax=axs[1])
-            modelxsect2.plot_grid(ax=axs[1])
-            axs[1].set_title('Column, θ')
+            # modelxsect2.plot_grid(ax=axs[1])
+            axs[1].set_title('Column, Φ')
             axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
             
@@ -657,8 +710,7 @@ class Modflow:
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
-                        export_all_tif:bool=False,
-                        export_netcdf:bool=False):
+                        export_all_tif:bool=False,):
         """
         Create outputs files.
 
@@ -705,9 +757,6 @@ class Modflow:
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         toolbox.create_folder(self.tifs_file)
         
-        self.netcdf_file = os.path.join(self.full_path, '_postprocess', '_netcdf')
-        toolbox.create_folder(self.netcdf_file)
-        
         self.save_fig = os.path.join(self.model_folder, '_figures')
         toolbox.create_folder(self.save_fig)
 
@@ -752,8 +801,9 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
+        self.dict_saturated_storage = {}
         self.dict_groundwater_storage = {}
-        self.dict_residence_times = {}
+        # self.dict_residence_times = {}
         self.dict_persistency_index = {}
         self.dict_intermittency_monthly = {}
         self.dict_intermittency_weekly = {}
@@ -776,14 +826,17 @@ class Modflow:
             
             # Search watertable data positive values
             self.head = self.head_fpu.get_data(totim=time)
-            head_final = np.zeros([self.nrow,self.ncol])
-            for i in range(0,self.nrow):
-                for j in range (0,self.ncol):
-                    for k in range(0,self.nlay): 
-                        if self.head[k,i,j] > 0:
-                            head_final[i,j] = self.head[k,i,j]
-                            break   
-            self.head_data = head_final.copy()
+            if self.nlay == 1:
+                self.head_data = self.head[0]
+            else:
+                head_final = np.zeros([self.nrow,self.ncol])
+                for i in range(0,self.nrow):
+                    for j in range (0,self.ncol):
+                        for k in range(0,self.nlay): 
+                            if self.head[k,i,j] > 0:
+                                head_final[i,j] = self.head[k,i,j]
+                                break   
+                self.head_data = head_final.copy()
             # if self.nlay > 1:
             #     self.head_all = self.head_fpu.get_alldata() # mflay=None
             #     self.head_data = self.head_all[item][0]
@@ -854,7 +907,7 @@ class Modflow:
                     self.flux = np.sqrt(self.frf**2 + self.fff**2)        
                 if self.nlay > 1:
                     self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
-                    self.flux = np.sqrt(self.frf**2 + self.fff**2, self.flf**2)
+                    self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
                 self.flux_top = self.flux[0]
                 self.flux_top[self.dem_mask] = -9999
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
@@ -872,13 +925,18 @@ class Modflow:
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_path, self.wt_sto, -9999, output_path)
-                self.dict_groundwater_storage[item] = self.wt_sto
-                # if time == 0:
-                #     self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
-                # else:
-                #     self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper, totim=time)[0]
-                # self.gw_storage = self.sto.copy()
-                # self.dict_groundwater_storage[item] = self.gw_storage
+                self.dict_saturated_storage[item] = self.wt_sto
+
+                if item == 0:
+                    self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
+                else:
+                    self.kstpkper_bis = (self.kstp[item], time)
+                    try:
+                        self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper_bis)[0]
+                    except:
+                        pass
+                self.gw_storage = np.sum(self.sto, axis=0)
+                self.dict_groundwater_storage[item] = self.gw_storage
 
             if accumulation_flux == True:
                 ### Accumulation flux
@@ -907,54 +965,10 @@ class Modflow:
         if groundwater_flux == True:
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
+            np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
-
-        ### Save dictionaries to netcdf
-        if export_netcdf == True:
-            if watertable_elevation == True:
-                toolbox.export_netcdf(self.dict_watertable_elevation, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'watertable_elevation.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
-            if watertable_depth == True:
-                toolbox.export_netcdf(self.dict_watertable_depth, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'watertable_depth.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
-            if seepage_areas == True:
-                toolbox.export_netcdf(self.dict_seepage_areas, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'seepage_areas.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
-            if outflow_drain == True:
-                toolbox.export_netcdf(self.dict_outflow_drain, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'outflow_drain.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
-            if groundwater_flux == True:
-                toolbox.export_netcdf(self.dict_groundwater_flux, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'groundwater_flux.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
-            if groundwater_storage == True:
-                toolbox.export_netcdf(self.dict_groundwater_storage, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'groundwater_storage.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
-            if accumulation_flux == True:
-                toolbox.export_netcdf(self.dict_accumulation_flux, 
-                                      base_path = self.geographic.watershed_dem, 
-                                      out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'), 
-                                      base_crs = self.geographic.crs_proj,
-                                      times = self.climatic)
 
         if persistency_index == True:
             ### Persistency index

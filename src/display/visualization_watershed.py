@@ -114,16 +114,16 @@ def watershed_dem(BV):
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
     image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
-                             cmap='terrain')
+                              cmap='terrain')
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
-         cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
+          cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     try:
         streams = gpd.read_file(BV.hydrography.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+        contour.plot(ax=ax, lw=1.5, zorder=4,legend=True, label='Watershed', edgecolor='k', facecolor='None')
     except:
         pass
     try:
@@ -136,7 +136,7 @@ def watershed_dem(BV):
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
             ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
-                       marker='^', zorder=5, label='Piezometers: discrete')
+                        marker='^', zorder=5, label='Piezometers: discrete')
     except:
         pass   
     try:
@@ -172,8 +172,14 @@ def watershed_dem(BV):
     cbar.ax.tick_params(size=2)
     # cbar.set_label('Elevation (m)', size=12, rotation=270)
     fig.tight_layout()
-    fig.savefig(os.path.join(BV.figure_folder,'watershed_dem.png'), dpi=300, 
-                bbox_inches='tight', transparent=False)
+    try:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_dem'+'_'+
+                    BV.hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, 
+                    bbox_inches='tight', transparent=False)
+    except:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_dem'+'.png'), dpi=300, 
+                    bbox_inches='tight', transparent=False)
+        pass
 
 def watershed_local(regional_dem_path, BV):
     """
@@ -197,7 +203,7 @@ def watershed_local(regional_dem_path, BV):
     show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
          cmap='terrain', alpha=1, zorder=2, aspect="auto")
     shp.plot(ax=ax, lw=2, color='yellow', zorder=4,legend=True, label='Watershed')
-    contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+    # contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed', facecolor='None')
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
@@ -258,12 +264,12 @@ def watershed_geology(BV):
         color = data['hex'].iloc[0]
         data.plot(color=color,
               ax=ax,alpha=0.5, edgecolor='dimgrey', zorder=2,
-              label=ctype)
+              label=ctype.upper())
     for ctype, data in geol.groupby('NATURE'):
         color = data['hex'].iloc[0]
         if ctype.find('Partie marine')!=0:
             ctype = ctype.split(':')[0]
-            patch = mpatches.Patch(facecolor=color, alpha=0.5, label=ctype, edgecolor='k')
+            patch = mpatches.Patch(facecolor=color, alpha=0.5, label=ctype.upper(), edgecolor='k')
             handles.append(patch)
     l1 = ax.legend(handles=handles, loc='best', ncol=1, fancybox=False,prop={'size':6.5})
     leg = ax.get_legend()
@@ -273,7 +279,7 @@ def watershed_geology(BV):
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=4, legend=True, edgecolor='k', facecolor='None', label='Watershed')
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
             piezod = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
@@ -284,12 +290,17 @@ def watershed_geology(BV):
                         edgecolor='k',legend=True, label='Piezometers: continue')
     except:
         pass
-    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower center')
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
     ax.add_artist(scalebar)
     l2 = plt.legend( loc='lower right', title = BV.watershed_name,framealpha=0.8)
     plt.gca().add_artist(l1)
     fig.tight_layout()
-    fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
+    try:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_geology'+'_'+
+                    BV.hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, bbox_inches='tight', transparent=False)
+    except:
+        fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
+        pass
 
 def watershed_zones(BV):
     fontprop = toolbox.plot_params(8,15,18,20)
@@ -319,7 +330,7 @@ def watershed_zones(BV):
     except:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+        contour.plot(ax=ax, lw=1.5, color='k', edgecolor='k', facecolor='None', zorder=4,legend=True, label='Watershed')
     except:
         pass
     try:
