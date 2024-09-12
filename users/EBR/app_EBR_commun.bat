@@ -33,7 +33,7 @@ for %%i in (%scenario_files%) do (
 	echo SCENARIO !scenar!/%n_scenario% ^& ^
 	echo %%i ^& ^
 	echo: ^& ^
-	call python .\app_EBR_commun_predic.py -l -t
+	call python .\app_EBR_commun_predic.py !scenar! -l -t
 )
 
 cmd /k
