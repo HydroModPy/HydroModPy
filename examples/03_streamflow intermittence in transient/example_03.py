@@ -135,19 +135,66 @@ visualization_watershed.watershed_dem(BV)
 
 #%% CASES
 
-# # Necessary to set model parameters
+# Necessary to set model parameters
 BV.add_climatic()
 
-x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', index_col=0)
-date_object = pd.to_datetime(x.index, format = "%d/%m/%Y")
-x.index = date_object
-x = x.sort_index()
-x = x.resample('M').mean()
-x = select_period(x, 2000, 2002)
-BV.climatic.update_recharge(x['REC_REA_historic'] / 1000, sim_state='transient') # from mm to m
-BV.climatic.update_runoff(x['RUN_REA_historic'] / 1000, sim_state='transient') # from mm to m
-R = BV.climatic.recharge
-r = BV.climatic.runoff
+# clim_data_mode = 'local' # local climatic data
+clim_data_mode = 'SIM2' # SIM2 online climatic data (https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7)
+
+if clim_data_mode == 'SIM2':
+    BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',
+                                                ], 
+                                            nc_data_path=os.path.join(
+                                                stable_folder,
+                                                'add_data',
+                                                'climatic'),
+                                            first_year=2000,
+                                            last_year=2002,
+                                            time_step='M',
+                                            sim_state='transient',
+                                            spatial_mean=True,
+                                            geographic=BV.geographic,
+                                            disk_clip='watershed')
+
+    ### Units
+    BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state='transient') # from mm to m
+    BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state='transient') # from mm to m
+    
+    ### Format for plots
+    if isinstance(BV.climatic.recharge, float):
+        print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
+        print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
+    else:
+        fig, ax = plt.subplots(1,1, figsize=(6,3))
+        if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
+            R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+            r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+            # R = R.resample('M').sum()
+            # r = r.resample('M').sum()
+        elif isinstance(BV.climatic.recharge, pd.core.series.Series):  
+            R = BV.climatic.recharge
+            r = BV.climatic.runoff
+        
+elif clim_data_mode == 'local':
+    x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', index_col=0)
+    date_object = pd.to_datetime(x.index, format = "%d/%m/%Y")
+    x.index = date_object
+    x = x.sort_index()
+    x = x.resample('M').mean()
+    x = select_period(x, 2000, 2002)
+    BV.climatic.update_recharge(x['REC_REA_historic'] / 1000, sim_state='transient') # from mm to m
+    BV.climatic.update_runoff(x['RUN_REA_historic'] / 1000, sim_state='transient') # from mm to m
+    R = BV.climatic.recharge
+    r = BV.climatic.runoff
+    
+# Plots
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
+ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
+ax.set_xlabel('Date')
+ax.set_ylabel('[m/month]')
+plt.xticks(rotation=45, ha="right")
+ax.legend()
 
 #%% ---- PARAMETRIZATION
 
