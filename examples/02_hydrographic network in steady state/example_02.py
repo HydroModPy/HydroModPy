@@ -300,6 +300,9 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                           actual_date=True, 
                                                           subbasin_results=True,
                                                           freq_time=freq_time) # or None
+        
+        netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                                  actual_date=True)
 
 #%% ---- PLOT
 
