@@ -647,6 +647,7 @@ BV.lakeres.update_precip(lake_id, BV.climatic.precip)
 # BV.lakeres.update_evap(lake_id, 'from_climatic')
 BV.lakeres.update_evap(lake_id, BV.climatic.evt)
 # BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6) # because runoff has to be a volume (summed over the area runing off towards the lake)
+BV.lakeres.update_runoff(lake_id, BV.climatic.runoff, runoff_accumulation = True)
 
 # Anthropic fluxes (including withdrawing return flow)
 # ----------------

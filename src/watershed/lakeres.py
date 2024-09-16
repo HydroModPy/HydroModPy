@@ -82,6 +82,7 @@ class Lakeres:
         self.prcplk_by_lake:dict = {}
         self.evaplk_by_lake:dict = {}
         self.rnf_by_lake:dict = {}
+        self.rnf_acc_by_lake:dict = {}
         self.wthdrw_by_lake:dict = {}
         self.rtrn_by_lake:dict = {} # To connect return flow to SFR
         self.stageinit_by_lake:dict = {} # initial stage
@@ -95,7 +96,7 @@ class Lakeres:
     def new_lakeres(self, maskmx:str, lake_id:int=None, mask_crs=None,
                     bathymetry_raster:str=None, bathy_crs=None, 
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
-                    prcplk=0, evaplk=0, rnf=0, wthdrw=0, rtrn=None, 
+                    prcplk=0, evaplk=0, rnf=0, rnf_acc=False, wthdrw=0, rtrn=None, 
                     stageinit=None, outlet=None,
                     ):
         """
@@ -142,6 +143,13 @@ class Lakeres:
             As for the previous parameter, rnf can also be defined by the 
             string indicator 'from_climatic': values are extracted from 
             watershed.climatic.runoff.
+        rnf_acc : bool (optional)
+            A flag to indicate whether the <rnf> value will be:
+                . [False] used by Modflow as it is (positive value = volumetric 
+                  rate, negative value = dimensionless multiplier)
+                . [True] interpreted as a rate per unit area that will be 
+                  accumulated to raise a volumetric rate added to the lake.
+            The default value is False.
         wthdrw : float|array|file_path(str), optional
             Input for anthropic fluxes on the lake (withdrawal and filling). 
             The default is 0 m/d
@@ -190,6 +198,7 @@ class Lakeres:
         self.prcplk_by_lake[lake_id] = prcplk
         self.evaplk_by_lake[lake_id] = evaplk
         self.rnf_by_lake[lake_id] = rnf
+        self.rnf_acc_by_lake[lake_id] = rnf_acc
         self.wthdrw_by_lake[lake_id] = wthdrw
         self.rtrn_by_lake[lake_id] = rtrn
 
@@ -204,8 +213,9 @@ class Lakeres:
                           self.ssmx_by_lake, self.volmx_by_lake, 
                           self.bdlknc_by_lake, self.stageinit_by_lake,
                           self.outlet_by_lake, self.prcplk_by_lake, 
-                          self.evaplk_by_lake, self.rnf_by_lake, 
-                          self.wthdrw_by_lake, self.rtrn_by_lake]
+                          self.evaplk_by_lake, self.rnf_by_lake,
+                          self.rnf_acc_by_lake, self.wthdrw_by_lake, 
+                          self.rtrn_by_lake]
         
         
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
@@ -261,8 +271,9 @@ class Lakeres:
     def update_evap(self, lake_id, src):
         self.evaplk_by_lake[lake_id] = src
         
-    def update_runoff(self, lake_id, src):
+    def update_runoff(self, lake_id, src, runoff_accumulation=False):
         self.rnf_by_lake[lake_id] = src
+        self.rnf_acc_by_lake[lake_id] = runoff_accumulation
         
     def update_withdraw_fill(self, lake_id, src):
         self.wthdrw_by_lake[lake_id] = src
@@ -581,8 +592,8 @@ class Lakeres:
             
                 # Constant value: same for all periods
                 if isinstance(settings, numbers.Number):
-                    if flux == 'RNF':
-                        pd_data = self.accumulate_runoff(settings)
+                    if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
+                        pd_data = self.accumulate_runoff(settings, lake_id)
                         lake_frame.loc[pd_data.index, flux] = pd_data
                     else:
                         lake_frame[flux] = settings
@@ -591,9 +602,9 @@ class Lakeres:
                     if isinstance(settings, str):
                         # If flux is defined by 'from_climatic' option
                         if settings == 'from_climatic':
-                            if flux == 'RNF':
+                            if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
                                 try: 
-                                    pd_data = self.accumulate_runoff(climatic.runoff)
+                                    pd_data = self.accumulate_runoff(climatic.runoff, lake_id)
                                     # flux_frame.loc[climatic.runoff.index, num_id] = climatic.runoff
                                 except: 
                                     print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic: watershed.climatic.runoff does not exist")
@@ -608,17 +619,18 @@ class Lakeres:
                         
                         # Array file (.csv or .txt): will be read with pandas
                         elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() in ['.csv', '.txt']:
-                            if flux == 'RNF':
+                            if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
                                 pd_data = self.accumulate_runoff(
-                                    pd.read_csv(settings, sep=';', index_col=0, parse_dates=True))
+                                    pd.read_csv(settings, sep=';', index_col=0, parse_dates=True),
+                                    lake_id)
                             else:
                                 pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
                             
                         # NetCDF file: will be read with xarray
                         elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() == '.nc':
                             ds = toolbox.read_with_xarray(settings)
-                            if flux == 'RNF':
-                                pd_data = self.accumulate_runoff(ds)
+                            if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
+                                pd_data = self.accumulate_runoff(ds, lake_id)
                             else:
                                 # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
                                 print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
@@ -626,13 +638,13 @@ class Lakeres:
                     # Format df to flux_frame
                     if isinstance(settings, pd.DataFrame):
                     # Convert pandas.DataFrame to pandas.Series
-                        if flux == 'RNF':
-                            pd_data = self.accumulate_runoff(settings)
+                        if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
+                            pd_data = self.accumulate_runoff(settings, lake_id)
                         else:
                             pd_data = settings[settings.columns[0]]
                     elif isinstance(settings, pd.Series):
-                        if flux == 'RNF':
-                            pd_data = self.accumulate_runoff(settings)
+                        if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
+                            pd_data = self.accumulate_runoff(settings, lake_id)
                         else:
                             pd_data = settings
                     
@@ -734,15 +746,21 @@ class Lakeres:
 # =============================================================================
                 
     #%% ACCUMULATE RUNOFF
-    def accumulate_runoff(self, data):
+    def accumulate_runoff(self, data, lake_id):
+        # Generate a xarray.DataArray of runoff
+        units = ''
+        
         if isinstance(data, xr.DataArray):
             data_4D = data
+            units = data.attrs['units'].copy()
         
         elif isinstance(data, xr.Dataset):
             main_var = list(data.data_vars)[0]
             data_4D = data[main_var]
+            units = data[main_var].attrs['units'].copy()
         
         elif not isinstance(data, xr.DataArray):
+            # Create an empty dataarray
             data_4D = 0
             if isinstance(data, numbers.Number):
                 data_4D = 0
@@ -752,7 +770,24 @@ class Lakeres:
             elif isinstance(data, pd.Series):
                 data_4D = 0
         
-
+        # Remove values over the extent of all lake/reservoirs
+        
+        
+        # Compute accumulated flow in every cell
+        
+        
+        
+        # Export to a netcdf file in the pre-processing folder
+        data_ds = data_4D.to_dataset()
+        main_var = list(data.data_vars)[0]
+        data_ds[main_var].attrs = {'standard_name': 'runoff',
+                                   'long_name': 'surface runoff',
+                                   'units': units}
+        data_ds.to_netcdf(os.path.join(self.data_folder, 'accumulated_runoff.nc'))
+        
+        # Extract the time series in the lake outlet cells into a pandas.Series
+        data_pd = 0
+        
 
     #%% DISPLAY PLOT
     
