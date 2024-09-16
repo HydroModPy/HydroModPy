@@ -196,16 +196,20 @@ class Lakeres:
         self.indexes = list(self.maskmx_by_lake.keys())
         self.n_lakeres = len(self.indexes)
         
+        # List of attributes
+        self.attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
+                          self.bathymetry_by_lake, self.bathy_crs_by_lake,
+                          self.ssmx_by_lake, self.volmx_by_lake, 
+                          self.bdlknc_by_lake, self.stageinit_by_lake,
+                          self.outlet_by_lake, self.prcplk_by_lake, 
+                          self.evaplk_by_lake, self.rnf_by_lake, 
+                          self.wthdrw_by_lake, self.rtrn_by_lake]
+        
         
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
     def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
-        attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
-                     self.bathymetry_by_lake, self.bathy_crs_by_lake,
-                     self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
-                     self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
-        
         if new_lake_id and not new_maskmx_path: # just replace the key
-            for d in attr_list:
+            for d in self.attr_list:
                 d[new_lake_id] = d.pop(lake_id)
             self.indexes = list(self.maskmx_by_lake.keys())
             
@@ -213,7 +217,7 @@ class Lakeres:
             self.maskmx_by_lake[lake_id] = new_maskmx_path
             
         elif new_lake_id and new_maskmx_path: # replace both the mask and the key
-            for d in attr_list:
+            for d in self.attr_list:
                 d[new_lake_id] = d.pop(lake_id)
             self.maskmx_by_lake[new_lake_id] = new_maskmx_path
             self.indexes = list(self.maskmx_by_lake.keys())
@@ -221,11 +225,7 @@ class Lakeres:
 
     #%% REMOVE A LAKE/RESERVOIR
     def remove(self, lake_id):
-        attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
-                     self.bathymetry_by_lake, self.bathy_crs_by_lake,
-                     self.ssmx_by_lake, self.volmx_by_lake, self.prcplk_by_lake, 
-                     self.evaplk_by_lake, self.rnf_by_lake, self.wthdrw_by_lake]
-        for d in attr_list:
+        for d in self.attr_list:
             d.pop(lake_id)
         
         # Update Lakeres attributes:
