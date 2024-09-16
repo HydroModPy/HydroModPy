@@ -26,8 +26,7 @@ Alexandre Gauvain [4], Ronan Abhervé [1],  Martin Le Mesnil [2],  Alexandre Coc
 ## Links
 
 - GitLab software: https://gitlab.com/Alex-Gauvain/HydroModPy
-- Read the Docs documentation: https://hydromod.readthedocs.io/en/latest/
-
+- Read the Docs documentation: https://hydromod.readthedocs.io/
 - Further information on Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - HydroModPy Users Group: https://groups.google.com/g/hydromodpy
 
@@ -39,27 +38,33 @@ Option 2 : Clone repository with a specific software (e.g. GitHub Desktop, Torto
 
 Option 3 : Install with following commands
 
-    Step 1 - Install Git:
+    Step 1 - Install Git
+    ```
     https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
+    ```
 
-    Step 2 - Opned terminal as administrator (recommended).
+    Step 2 - Open terminal as administrator (recommended)
+    ```
+    cmd
+    Anaconda Prompt
+    ```
 
     Step 3 - Go to the folder where you want to install HydroModPy:
     ```
     cd /d "path/where/you/want/clone/HydroModPy"
     ```
 
-    Step 4 - Clone HydroModPy repository:
+    Step 4 - Clone HydroModPy repository
     ```
     git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
     ```
 
-    Step 5 - Go to stable branch:
+    Step 5 - Go to stable branch
     ```
     git checkout "v0.1"
     ```
 
-    Step 6 - Go to install folder:
+    Step 6 - Go to install folder
     ```
     cd HydroModPy/install
     ```
@@ -74,17 +79,17 @@ conda env create -f environment_windows.yml -n hydromodpy-0.1
 
 ## Launch HydroModPy
 
-(1) Activate HydroModPy environment:
+(1) Activate HydroModPy environment
 ```
 conda activate hydromodpy-0.1
 ```
 
-(2) Open Spyder:
+(2) Open Spyder
 ```
 spyder
 ```
 
-(3) Execute python script following examples below:
+(3) Execute python script following examples below
 ```
 In Spyder (or Jupyter Notebook for example 00)
 ```
