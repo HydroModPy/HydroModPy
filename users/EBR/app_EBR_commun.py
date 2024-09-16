@@ -44,6 +44,8 @@ import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+if os.getenv('PROJ_LIB') is not None:
+    os.environ.pop('PROJ_LIB')
 import xarray as xr
 xr.set_options(keep_attrs = True)
 
