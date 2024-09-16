@@ -2,7 +2,7 @@
 
 HydroModPy: A versatile Python toolbox for automating multi-site groundwater modeling with subsurface-surface interactions.
 
-Stable current version: v0.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+Stable current version: v0.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/)
 
 ## Abstract
 
@@ -31,36 +31,38 @@ Alexandre Gauvain [4], Ronan Abhervé [1],  Martin Le Mesnil [2],  Alexandre Coc
 - Further information on Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - HydroModPy Users Group: https://groups.google.com/g/hydromodpy
 
-## Git installation
+## Code installation
 
 Option 1 : Download zip code directly on this packages
 
-Option 2 : Install with following commands
+Option 2 : Clone repository with a specific software (e.g. GitHub Desktop, TortoiseGit, etc.)
 
-Step 1 - Install Git:
-https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
+Option 3 : Install with following commands
 
-Step 2 - Opned terminal as administrator (recommended).
+    Step 1 - Install Git:
+    https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
-Step 3 - Go to the folder where you want to install HydroModPy:
-```
-cd /d "path/where/you/want/clone/HydroModPy"
-```
+    Step 2 - Opned terminal as administrator (recommended).
 
-Step 4 - Clone HydroModPy repository:
-```
-git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
-```
+    Step 3 - Go to the folder where you want to install HydroModPy:
+    ```
+    cd /d "path/where/you/want/clone/HydroModPy"
+    ```
 
-Step 5 - Go to stable branch:
-```
-git checkout "v0.1"
-```
+    Step 4 - Clone HydroModPy repository:
+    ```
+    git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+    ```
 
-Step 6 - Go to install folder:
-```
-cd HydroModPy/install
-```
+    Step 5 - Go to stable branch:
+    ```
+    git checkout "v0.1"
+    ```
+
+    Step 6 - Go to install folder:
+    ```
+    cd HydroModPy/install
+    ```
 
 ## Environment installation
 
@@ -72,20 +74,19 @@ conda env create -f environment_windows.yml -n hydromodpy-0.1
 
 ## Launch HydroModPy
 
-(1) Activate HydroModPy environment :
+(1) Activate HydroModPy environment:
 ```
 conda activate hydromodpy-0.1
 ```
 
-(2) Open Spyder or Jupyter Notebook :
+(2) Open Spyder:
 ```
 spyder
-jupyter notebook
 ```
 
-(3) Execute python script following examples below
+(3) Execute python script following examples below:
 ```
-In spyder or jupyter notebook
+In Spyder (or Jupyter Notebook for example 00)
 ```
 
 ## Library requirements
@@ -95,7 +96,7 @@ To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your compute
 ## Available examples
  
 There is some example notebooks :
- - 00_simplified example presentend in the paper
+ - 00_simplified example presented in the paper
  - 01_basic features and overview of possibilities
  - 02_hydrographic network in steady state
  - 03_streamflow intermittence in transient
@@ -103,7 +104,8 @@ There is some example notebooks :
  - 05_particle tracking for residence times
  
 ## Linked publications
-Papers published using HydroModPy.
+
+Papers currently published using HydroModPy:
 
 Floriancic, M. G., Abhervé, R., Bouchez, C., Martinez, J. J., & Roques, C. (2024). Evidence of Groundwater Seepage and Mixing at the Vicinity of a Knickpoint in a Mountain Stream. Geophysical Research Letters, 51. https://doi.org/10.1029/2024GL111325
 
@@ -114,9 +116,11 @@ Abhervé, R., Roques, C., De Dreuzy, J.-R., Datry, T., Brunner, P., Longuevergne
 Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties. Hydrology and Earth System Sciences, 27(17), 3221–3239. https://doi.org/10.5194/hess-27-3221-2023
 
 ## Coresponding authors
+
 For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.ag@gmail.com> or <ronan.abherve@gmail.com>
 
-## Abstract for congress IAH 2024
+## Abstract for World Groundwater Congress IAH 2024 (https://www.iah2024davos.org/)
+
 The need for predictive models increases as the pressure of global change intensifies. Regional-scale modeling of shallow unconfined aquifers (10-100 m depth) remains challenging, especially in complex basement aquifers. Controlled both by topography and geology, groundwater flows are organized from hillslope to catchment scale. It is particularly the case in crystalline regions with low aquifer volumes and wet climates, resulting in significant subsurface-surface interactions with very few information available to constrain models.
 
 To address this, we present HydroModPy, an application developed in Python as a toolbox for automatic deployment of groundwater flow models. HydroModPy integrates geospatial processing (WhiteBoxTools) with groundwater flow and transport simulation tools (MODFLOW and MODPATH via FloPy). It is designed to call other groundwater flow solvers, facilitate multi-site deployment, integrate pre- and post-processing functions such as catchment extraction from a DEM and an advanced representation of head and flow results. Emphasis is placed on integrating aquifer geometry complexities and hydraulic properties heterogeneity (compartmentalization, exponential decay, implementation of a 3D geological model, etc.).
@@ -124,6 +128,7 @@ To address this, we present HydroModPy, an application developed in Python as a 
 HydroModPy's user-friendly Python interface allows for testing and exploring various aquifer models across different geomorphological contexts and recharge conditions. Ongoing improvements include methods for calibrating and estimating hydraulic properties using multiple datasets such as hydrographic network maps, streamflow, and piezometric level data. HydroModPy is developed as an open-source toolkit. It is currently being used in climate change effects on groundwater-dependent ecosystems and water resource management issues. Collaborative development should enhance the modeling capacity of near-surface aquifers, facilitate their extension to the regional scale for predictive purposes.
 
 ## How to cite
-A paper is in preparation. Target of the journal: Hydrology and Earth System Sciences. 
+
+A paper is in preparation. Journal target: Hydrology and Earth System Sciences. 
 
 Gauvain, A., Abhervé, R., Le Mesnil, M., Roques, C., Coche, A., Marçais, J., Marti, E., Sallou, J., Bourcier, J., Bouchez, C., Figueroa, R., Cornette, N., Leray, S., Bresciani, E., Combemale, B., Vautier, C., Hivert, H., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. HydroModPy: A versatile Python toolbox for automating multi-site groundwater modeling with subsurface-surface interactions. In preparation for Hydrology and Earth System Sciences.
