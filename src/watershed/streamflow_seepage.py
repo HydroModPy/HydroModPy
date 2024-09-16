@@ -607,7 +607,7 @@ class Streamflow_seepage:
                             
                         # It it is an intermediary reach (tricky), split the segment into 2:
                         if (not is_dnstr) & (not is_upstr):
-                            print(f"/!\ Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
+                            print(f"Warning: Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
                             print("Not implemented yet (see compute_data() in streamflow_seepage.py)")
 
                         # Remove the segment (if relevant)
