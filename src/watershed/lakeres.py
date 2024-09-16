@@ -624,13 +624,13 @@ class Lakeres:
                                 print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
                             
                     # Format df to flux_frame
-                    if isinstance(settings, pd.core.frame.DataFrame):
-                    # Convert pandas.core.frame.DataFrame to pandas.core.series.Series
+                    if isinstance(settings, pd.DataFrame):
+                    # Convert pandas.DataFrame to pandas.Series
                         if flux == 'RNF':
                             pd_data = self.accumulate_runoff(settings)
                         else:
                             pd_data = settings[settings.columns[0]]
-                    elif isinstance(settings, pd.core.series.Series):
+                    elif isinstance(settings, pd.Series):
                         if flux == 'RNF':
                             pd_data = self.accumulate_runoff(settings)
                         else:
