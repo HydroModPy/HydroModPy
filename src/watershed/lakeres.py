@@ -29,6 +29,8 @@ import matplotlib.pyplot as plt
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+import xarray as xr
+xr.set_options(keep_attrs = True)
 
 # HydroModPy
 from tools import toolbox
@@ -579,23 +581,24 @@ class Lakeres:
             
                 # Constant value: same for all periods
                 if isinstance(settings, numbers.Number):
-                    lake_frame[flux] = settings
+                    if flux == 'RNF':
+                        pd_data = self.accumulate_runoff(settings)
+                        lake_frame.loc[pd_data.index, flux] = pd_data
+                    else:
+                        lake_frame[flux] = settings
                 
                 else:
                     if isinstance(settings, str):
                         # If flux is defined by 'from_climatic' option
                         if settings == 'from_climatic':
-# =============================================================================
-#                             if flux == 'rnf':
-#                                 try: 
-#                                     pd_data = climatic.runoff
-#                                     # flux_frame.loc[climatic.runoff.index, num_id] = climatic.runoff
-#                                 except: 
-#                                     print(f"\nErr: Runoff over lake n°{lake_id}: watershed.climatic.runoff does not exist")
-#                                     return
-#                             elif flux == 'evaplk':
-# =============================================================================
-                            if flux == 'EVAPLK':
+                            if flux == 'RNF':
+                                try: 
+                                    pd_data = self.accumulate_runoff(climatic.runoff)
+                                    # flux_frame.loc[climatic.runoff.index, num_id] = climatic.runoff
+                                except: 
+                                    print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic: watershed.climatic.runoff does not exist")
+                                    return
+                            elif flux == 'EVAPLK':
                                 pd_data = -climatic.where(climatic<0, 0)
                                 # flux_frame.loc[:, num_id] = -climatic.where(
                                 #     climatic<0, 0)
@@ -605,20 +608,33 @@ class Lakeres:
                         
                         # Array file (.csv or .txt): will be read with pandas
                         elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() in ['.csv', '.txt']:
-                            pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
+                            if flux == 'RNF':
+                                pd_data = self.accumulate_runoff(
+                                    pd.read_csv(settings, sep=';', index_col=0, parse_dates=True))
+                            else:
+                                pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
                             
                         # NetCDF file: will be read with xarray
                         elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() == '.nc':
                             ds = toolbox.read_with_xarray(settings)
-                            # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
-                            print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
+                            if flux == 'RNF':
+                                pd_data = self.accumulate_runoff(ds)
+                            else:
+                                # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
+                                print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
                             
                     # Format df to flux_frame
                     if isinstance(settings, pd.core.frame.DataFrame):
                     # Convert pandas.core.frame.DataFrame to pandas.core.series.Series
-                        pd_data = pd_data[pd_data.columns[0]]
+                        if flux == 'RNF':
+                            pd_data = self.accumulate_runoff(settings)
+                        else:
+                            pd_data = settings[settings.columns[0]]
                     elif isinstance(settings, pd.core.series.Series):
-                        pd_data = settings
+                        if flux == 'RNF':
+                            pd_data = self.accumulate_runoff(settings)
+                        else:
+                            pd_data = settings
                     
                     # pd_data.set_index(pd_data.index.normalize()) 
                     pd_data.index = pd_data.index.normalize() # To convert dates-time to midnight.
@@ -717,6 +733,26 @@ class Lakeres:
 #         return self.ij_outlet_by_lake
 # =============================================================================
                 
+    #%% ACCUMULATE RUNOFF
+    def accumulate_runoff(self, data):
+        if isinstance(data, xr.DataArray):
+            data_4D = data
+        
+        elif isinstance(data, xr.Dataset):
+            main_var = list(data.data_vars)[0]
+            data_4D = data[main_var]
+        
+        elif not isinstance(data, xr.DataArray):
+            data_4D = 0
+            if isinstance(data, numbers.Number):
+                data_4D = 0
+            
+            elif isinstance(data, pd.DataFrame):
+                data_4D = 0
+            elif isinstance(data, pd.Series):
+                data_4D = 0
+        
+
 
     #%% DISPLAY PLOT
     
