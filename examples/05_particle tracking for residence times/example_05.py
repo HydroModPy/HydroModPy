@@ -66,7 +66,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/05_particle tracking for residence times/"
+example_path = os.path.join(root_dir,"examples","05_particle tracking for residence times")
 data_path = os.path.join(example_path, "data") + '/'
 # To inform the folder path:
 # out_path = folder_root.update_root_folder_results()
