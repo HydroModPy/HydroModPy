@@ -66,8 +66,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, 
-                            r"examples/02_hydrographic network in steady state")
+example_path = os.path.join(root_dir, "examples","02_hydrographic network in steady state")
 data_path = os.path.join(example_path, "data")
 # To inform the folder path:
 # out_path = folder_root.update_root_folder_results()

@@ -66,7 +66,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
+example_path = os.path.join(root_dir,"examples","04_piezometry in a heterogeneous coastal aquifer")
 data_path = os.path.join(example_path, "data") + '/'
 # To inform the folder path:
 # out_path = folder_root.update_root_folder_results()
