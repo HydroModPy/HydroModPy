@@ -19,6 +19,7 @@
 import os
 import sys
 import re
+import datetime
 import shutil
 import numbers
 import pandas as pd
@@ -593,7 +594,7 @@ class Lakeres:
                 # Constant value: same for all periods
                 if isinstance(settings, numbers.Number):
                     if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
-                        pd_data = self.accumulate_runoff(settings, lake_id)
+                        pd_data = self.accumulate_runoff(settings, lake_id, geographic)
                         lake_frame.loc[pd_data.index, flux] = pd_data
                     else:
                         lake_frame[flux] = settings
@@ -604,7 +605,10 @@ class Lakeres:
                         if settings == 'from_climatic':
                             if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
                                 try: 
-                                    pd_data = self.accumulate_runoff(climatic.runoff, lake_id)
+                                    pd_data = self.accumulate_runoff(climatic.runoff, 
+                                                                     lake_id, 
+                                                                     lakarr,
+                                                                     geographic)
                                     # flux_frame.loc[climatic.runoff.index, num_id] = climatic.runoff
                                 except: 
                                     print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic: watershed.climatic.runoff does not exist")
@@ -622,7 +626,7 @@ class Lakeres:
                             if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
                                 pd_data = self.accumulate_runoff(
                                     pd.read_csv(settings, sep=';', index_col=0, parse_dates=True),
-                                    lake_id)
+                                    lake_id, lakarr, geographic)
                             else:
                                 pd_data = pd.read_csv(settings, sep=';', index_col=0, parse_dates=True)
                             
@@ -630,7 +634,7 @@ class Lakeres:
                         elif os.path.isfile(settings) & os.path.splitext(settings)[-1].casefold() == '.nc':
                             ds = toolbox.read_with_xarray(settings)
                             if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
-                                pd_data = self.accumulate_runoff(ds, lake_id)
+                                pd_data = self.accumulate_runoff(ds, lake_id, lakarr, geographic)
                             else:
                                 # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
                                 print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
@@ -639,12 +643,12 @@ class Lakeres:
                     if isinstance(settings, pd.DataFrame):
                     # Convert pandas.DataFrame to pandas.Series
                         if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
-                            pd_data = self.accumulate_runoff(settings, lake_id)
+                            pd_data = self.accumulate_runoff(settings, lake_id, lakarr, geographic)
                         else:
                             pd_data = settings[settings.columns[0]]
                     elif isinstance(settings, pd.Series):
                         if (flux == 'RNF') & (self.rnf_acc_by_lake[lake_id] == True):
-                            pd_data = self.accumulate_runoff(settings, lake_id)
+                            pd_data = self.accumulate_runoff(settings, lake_id, lakarr, geographic)
                         else:
                             pd_data = settings
                     
@@ -746,8 +750,33 @@ class Lakeres:
 # =============================================================================
                 
     #%% ACCUMULATE RUNOFF
-    def accumulate_runoff(self, data, lake_id):
-        # Generate a xarray.DataArray of runoff
+    def accumulate_runoff(self, data, lake_id, lakarr, geographic):
+        # Create mask
+        mask = np.where(lakarr > 0, 0, 1)
+        
+        # Get time coordinate
+        if isinstance(data, (pd.DataFrame, pd.Series)):
+            if isinstance(data.index[0], (datetime.datetime, 
+                                          pd.Timestamp, 
+                                          np.datetime64,
+                                          str)):          
+                time = data.index
+        else:            
+            # time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
+            time = np.array(range(len(data)))
+            data = pd.DataFrame(data = data, index = time, columns = 'runoff')
+
+        # Get space coordinates
+        x = [x for x in np.arange(
+            geographic.xmin + geographic.resolution_x/2, 
+            geographic.xmin + geographic.resolution_x*mask.shape[1] + geographic.resolution_x/2, 
+            geographic.resolution_x)]
+        y = [y for y in np.arange(
+            geographic.ymax + geographic.resolution_y/2, 
+            geographic.ymax + geographic.resolution_y*mask.shape[0] + geographic.resolution_y/2, 
+            geographic.resolution_y)]
+        
+        # Generate a xarray.DataArray of runoff: data_4D
         units = ''
         
         if isinstance(data, xr.DataArray):
@@ -759,22 +788,29 @@ class Lakeres:
             data_4D = data[main_var]
             units = data[main_var].attrs['units'].copy()
         
-        elif not isinstance(data, xr.DataArray):
+        else:
             # Create an empty dataarray
-            data_4D = 0
+            data_4D = xr.DataArray(coords=[time, y, x], dims=["time", "y", "x"])
             if isinstance(data, numbers.Number):
-                data_4D = 0
+                data_4D[:] = data
             
             elif isinstance(data, pd.DataFrame):
-                data_4D = 0
+                for t in time:
+                    data_4D.loc[{'time': t}] = data[t]
             elif isinstance(data, pd.Series):
-                data_4D = 0
+                for t in time:
+                    data_4D.loc[{'time': t}] = data[t]
         
         # Remove values over the extent of all lake/reservoirs
+        data_4D[np.tile(mask, (len(time), 1, 1))] = np.nan
         
-        
-        # Compute accumulated flow in every cell
-        
+        for t in data_4D.time:
+            # Compute accumulated flow in every cell
+            # ici chaque couche data_4D prend la place du outflow_drain 
+            # ça srait bien de factoriser !
+            data_4D.loc[{'time': t}] = 0
+            
+            
         
         
         # Export to a netcdf file in the pre-processing folder
@@ -786,7 +822,11 @@ class Lakeres:
         data_ds.to_netcdf(os.path.join(self.data_folder, 'accumulated_runoff.nc'))
         
         # Extract the time series in the lake outlet cells into a pandas.Series
-        data_pd = 0
+        (i, j) = self.ij_outlet_by_lake[lake_id] # Il faut que format_outlets() soit lancé avant accumulate runoff !
+        data_pd = data_4D.loc[{'x': geographic.xmin + geographic.resolution_x*j,
+                               'y': geographic.ymax - geographic.resolution_y*i}]
+        
+        return data_pd
         
 
     #%% DISPLAY PLOT
