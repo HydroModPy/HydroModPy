@@ -32,6 +32,16 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
+wbt = whitebox.WhiteboxTools() # to compute runoff accumulation
+wbt.verbose = False
+# Alternatively, runoff accumulation could be computed with pyproj. It is 
+# expected to be faster as there is no need to write down each time as a file.
+# But first it is necessary to solve the uncompatibility between pyproj and
+# other modules.
+import pyproj
+from pysheds.grid import Grid  # to compute runoff accumulation
+from pysheds.view import Raster, ViewFinder
+from affine import Affine
 
 # HydroModPy
 from tools import toolbox
@@ -810,8 +820,46 @@ class Lakeres:
             # ça srait bien de factoriser !
             data_4D.loc[{'time': t}] = 0
             
+            # Compute mass flow
+            # With WBT
+# =============================================================================
+#             im = imageio.imread(self.raw_rast_path)
+#             im[im<0] = 0
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.load_rast_path)
+#             ### Efficiency ###
+#             im = imageio.imread(self.watershed_buff_fill_surflow)
+#             im[im>=0] = 1
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.eff_rast_path)        
+#             ### Adsorption ###
+#             im = imageio.imread(self.watershed_buff_fill_surflow)
+#             im[im>=0] = 0
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
+#             ### d8massflux ###
+#             wbt.d8_mass_flux(self.watershed_buff_fill_surflow,
+#                              self.load_rast_path, self.eff_rast_path,
+#                              self.abs_rast_path, self.mass_rast_path)
+# =============================================================================
             
-        
+            # Alternative way with pyproj
+            direc, _, _, _ = toolbox.load_to_numpy(
+                geographic.watershed_box_buff_direc)
+            direc_raster = Raster(direc)
+            direc_raster.crs = geographic.crs_proj
+            direc_raster.nodata = geographic.nodata
+            direc_raster.affine = Affine(
+                geographic.resolution_x, 0, geographic.xmin,
+                0, geographic.resolution_y, geographic.ymax)
+            
+            grid = Grid.from_raster(direc_raster,
+                                    data_name='direc')
+            # Specify directional mapping
+            dirmap = (128, 1, 2, 4, 8, 16, 32, 64)       #D8 wbt system
+            # Calculate flow accumulation (needs to add weight)
+            acc = grid.accumulation(
+                direc_raster,
+                weights = data_4D.loc[{'time': t}],
+                dirmap = dirmap)
+            data_4D.loc[{'time': t}] = np.array(grid.view(acc))
         
         # Export to a netcdf file in the pre-processing folder
         data_ds = data_4D.to_dataset()
@@ -824,7 +872,7 @@ class Lakeres:
         # Extract the time series in the lake outlet cells into a pandas.Series
         (i, j) = self.ij_outlet_by_lake[lake_id] # Il faut que format_outlets() soit lancé avant accumulate runoff !
         data_pd = data_4D.loc[{'x': geographic.xmin + geographic.resolution_x*j,
-                               'y': geographic.ymax - geographic.resolution_y*i}]
+                               'y': geographic.ymax + geographic.resolution_y*i}]
         
         return data_pd
         
