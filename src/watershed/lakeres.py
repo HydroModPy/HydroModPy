@@ -814,8 +814,8 @@ class Lakeres:
                 for t in time:
                     data_4D.loc[{'time': t}] = data[t]
         
-        # Remove values over the extent of all lake/reservoirs
-        data_4D = data_4D.where(np.tile(mask, (len(time), 1, 1)) != 1, 0)
+        # Set values over the extent of all lake/reservoirs to 0
+        data_4D = data_4D.where(np.tile(mask, (len(time), 1, 1)) == 1, 0)
         # data_4D[np.tile(mask, (len(time), 1, 1))] = np.nan
         
         for t in data_4D.time:
@@ -852,6 +852,8 @@ class Lakeres:
             direc_raster.affine = Affine(
                 geographic.resolution_x, 0, geographic.xmin,
                 0, geographic.resolution_y, geographic.ymax)
+            grid = Grid.from_raster(direc_raster,
+                                    data_name='direc')
             
             weights = data_4D.loc[{'time': t}].copy(deep = True)
             weights_norm = weights/weights.sum() # normalize
@@ -862,8 +864,6 @@ class Lakeres:
                 geographic.resolution_x, 0, geographic.xmin,
                 0, geographic.resolution_y, geographic.ymax)
             
-            grid = Grid.from_raster(direc_raster,
-                                    data_name='direc')
             # Specify directional mapping
             dirmap = (128, 1, 2, 4, 8, 16, 32, 64)       #D8 wbt system
             # Calculate flow accumulation (needs to add weight)
@@ -892,8 +892,10 @@ class Lakeres:
         
         # Extract the time series in the lake outlet cells into a pandas.Series
         (i, j) = self.ij_outlet_by_lake[lake_id] # Il faut que format_outlets() soit lancé avant accumulate runoff !
-        data_pd = data_4D.loc[{'x': geographic.xmin + geographic.resolution_x*j,
-                               'y': geographic.ymax + geographic.resolution_y*i}]
+        data_pd = data_4D.loc[{'x': geographic.xmin + geographic.resolution_x/2 + geographic.resolution_x*j,
+                               'y': geographic.ymax + geographic.resolution_y/2 + geographic.resolution_y*i}]
+        
+        data_pd = data_pd.to_dataframe(name = 'acc_runoff') # convert xr.dataarray to pd.dataframe
         
         return data_pd
         
