@@ -812,13 +812,13 @@ class Lakeres:
                     data_4D.loc[{'time': t}] = data[t]
         
         # Remove values over the extent of all lake/reservoirs
-        data_4D[np.tile(mask, (len(time), 1, 1))] = np.nan
+        data_4D = data_4D.where(np.tile(mask, (len(time), 1, 1)) != 1, 0)
+        # data_4D[np.tile(mask, (len(time), 1, 1))] = np.nan
         
         for t in data_4D.time:
             # Compute accumulated flow in every cell
             # ici chaque couche data_4D prend la place du outflow_drain 
             # ça srait bien de factoriser !
-            data_4D.loc[{'time': t}] = 0
             
             # Compute mass flow
             # With WBT
@@ -845,8 +845,17 @@ class Lakeres:
                 geographic.watershed_box_buff_direc)
             direc_raster = Raster(direc)
             direc_raster.crs = geographic.crs_proj
-            direc_raster.nodata = geographic.nodata
+            direc_raster.nodata = -1 # geographic.nodata
             direc_raster.affine = Affine(
+                geographic.resolution_x, 0, geographic.xmin,
+                0, geographic.resolution_y, geographic.ymax)
+            
+            weights = data_4D.loc[{'time': t}].copy(deep = True)
+            weights_norm = weights/weights.sum() # normalize
+            weights_raster = Raster(weights_norm.values)
+            weights_raster.crs = geographic.crs_proj
+            weights_raster.nodata = geographic.nodata
+            weights_raster.affine = Affine(
                 geographic.resolution_x, 0, geographic.xmin,
                 0, geographic.resolution_y, geographic.ymax)
             
@@ -857,13 +866,22 @@ class Lakeres:
             # Calculate flow accumulation (needs to add weight)
             acc = grid.accumulation(
                 direc_raster,
-                weights = data_4D.loc[{'time': t}],
+                weights = weights_raster,
                 dirmap = dirmap)
+            acc = acc * weights.sum().item() # denormalize
             data_4D.loc[{'time': t}] = np.array(grid.view(acc))
         
         # Export to a netcdf file in the pre-processing folder
-        data_ds = data_4D.to_dataset()
-        main_var = list(data.data_vars)[0]
+        data_ds = data_4D.to_dataset(name = 'acc_runoff')
+        # Attributes
+        data_ds.rio.write_crs(geographic.crs_proj, inplace = True)
+        data_ds.x.attrs = {'standard_name': 'projection_x_coordinate',
+                           'long_name': 'x coordinate of projection',
+                           'units': 'Meter'}
+        data_ds.y.attrs = {'standard_name': 'projection_y_coordinate',
+                           'long_name': 'y coordinate of projection',
+                           'units': 'Meter'}
+        main_var = list(data_ds.data_vars)[0]
         data_ds[main_var].attrs = {'standard_name': 'runoff',
                                    'long_name': 'surface runoff',
                                    'units': units}
