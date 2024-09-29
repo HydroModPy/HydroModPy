@@ -369,7 +369,7 @@ class Modflow:
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, thickfact, self.dem)
+                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_path)
             
             self.nlay = self.nlay + 1
             self.top = laklay_top
@@ -380,8 +380,6 @@ class Modflow:
             
             bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
             bdlknc[0] = bdlknc_lay0
-            
-            self.lakeres.format_outlets(lakarr_lay0, self.geographic, self.dem_path)
         
         # Imposes discretization to modflow model through flopy
         self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,

@@ -293,7 +293,7 @@ class Lakeres:
         self.rtrn_by_lake[lake_id] = timeseries
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
-    def format_to_modflow(self, geographic, climatic, nper, thickfact, dem):
+    def format_to_modflow(self, geographic, climatic, nper, thickfact, dem, dem_path):
         print("\nLakes/Reservoirs: formating all attributes...")
         
         #%%% Standardize lake identifiers
@@ -578,6 +578,9 @@ class Lakeres:
         #         bdlknc_val.append(self.bdlknc_by_lake[lake_id])
         #     bdlknc[kper] = bdlknc_val
         bdlknc = lakarr.copy()*0 + self.bdlknc_by_lake[lake_id]
+        
+        #%%% Format outlets
+        self.format_outlets(lakarr, geographic, dem_path)
         
         #%%% Format fluxes data
         # ---------------------
