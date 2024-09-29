@@ -378,7 +378,7 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 # The format of the origin date is expected to be either 
                 # YYYY MM DD or DD MM YYYY (with any separator)
                 # The american format MM DD YYYY is not considered
-                initdate_pattern = re.compile("\d{2,4}.*\d{2,4}")
+                initdate_pattern = re.compile(r"\d{2,4}.*\d{2,4}")
                 initdate = initdate_pattern.search(ds.time.attrs['units']).group()
                 
                 if initdate[2].isnumeric():
