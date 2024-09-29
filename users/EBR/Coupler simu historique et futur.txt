@@ -1,0 +1,32 @@
+Dans le launcher :
+------------------
+
+# Retrieve reservoir level and set it as lakeres inputs
+level_init = ...
+
+BV.lakeres.update_stageinit(
+    lake_id,
+    level_init) # [m]
+
+
+# Retrieve head_fpu and call modflow with these previous heads
+self.path_file = os.path.join(self.full_path, self.model_name)
+head_fpu = fpu.HeadFile(self.path_file+'.hds')
+prev_head_val = head_fpu.get_data(totim = head_fpu.get_times()[0])
+head_fpu.close()
+
+model_modflow = BV.preprocessing_modflow(model_modflow, prev_heads = prev_head_val)
+
+
+
+Dans modflow.py :
+-----------------
+
+self.head_val = head_val
+
+# Inject previous outputs as current inputs
+if self.head_val is None:
+    self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
+else:
+    self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.head_val, hnoflo=-9999)
+
