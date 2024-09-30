@@ -649,7 +649,7 @@ class Watershed:
         
         self.streamflow_seepage = streamflow_seepage.Streamflow_seepage(
             self.geographic, area, mainstream_threshold, icalc, thickm, depth, hcond, width, slope, rchlen, 
-            roughch, critical_mode, correction_multiple_reaches, correction_elevations)
+            roughch, runoff, critical_mode, correction_multiple_reaches, correction_elevations)
         self.elt_def.append('streamflow_seepage')
         self.save_object()
             
