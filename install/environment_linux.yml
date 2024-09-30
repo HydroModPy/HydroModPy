@@ -225,6 +225,7 @@ dependencies:
       - overrides==7.3.1
       - packaging==23.1
       - pandas==1.5.3
+      - openpyxl==3.1.5
       - pandocfilters==1.5.0
       - parso==0.7.0
       - pathspec==0.11.1
@@ -233,6 +234,7 @@ dependencies:
       - pillow==10.0.0
       - pkgutil-resolve-name==1.3.10
       - platformdirs==3.9.1
+      - plotly==5.24.1
       - pluggy==1.2.0
       - prometheus-client==0.17.1
       - prompt-toolkit==3.0.39
@@ -253,6 +255,7 @@ dependencies:
       - pyqt5==5.12.3
       - pyqt5-sip==12.12.2
       - pyqtwebengine==5.12.1
+      - pysheds==0.4
       - pyshp==2.3.1
       - pysocks==1.7.1
       - python-dateutil==2.8.2
@@ -325,7 +328,7 @@ dependencies:
       - webencodings==0.5.1
       - websocket-client==1.6.1
       - whatthepatch==1.0.5
-      - whitebox==2.3.1
+      - whitebox==2.3.5
       - widgetsnbextension==4.0.8
       - wrapt==1.15.0
       - wsproto==1.2.0
