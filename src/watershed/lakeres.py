@@ -927,6 +927,9 @@ class Lakeres:
 #                              self.abs_rast_path, self.mass_rast_path)
 # =============================================================================
         
+        # Replace nan values with 0
+        data_4D = data_4D.fillna(0)
+
         # ---- Export to a netcdf file in the pre-processing folder
         data_ds = data_4D.to_dataset(name = 'acc_runoff')
         # Attributes
