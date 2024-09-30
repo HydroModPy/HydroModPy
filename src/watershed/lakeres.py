@@ -121,7 +121,7 @@ class Lakeres:
         maskmx : str
             Path to the mask file (shapefile or raster).
             Works with NetCDF files?
-        lake_id : int, optional
+        lake_id : optional
             DESCRIPTION. The default is None.
         mask_crs : TYPE, optional
             DESCRIPTION. The default is None.
@@ -230,7 +230,7 @@ class Lakeres:
         
         
     #%% UPDATE A PREVIOUS LAKE/RESERVOIR
-    def update_definition(self, lake_id:int, new_lake_id:int=None, new_maskmx_path:str=None):
+    def update_definition(self, lake_id, new_lake_id:int=None, new_maskmx_path:str=None):
         if new_lake_id and not new_maskmx_path: # just replace the key
             for d in self.attr_list:
                 d[new_lake_id] = d.pop(lake_id)
@@ -764,21 +764,62 @@ class Lakeres:
                 
     #%% ACCUMULATE RUNOFF
     def accumulate_runoff(self, data, lake_id, lakarr, geographic):
+        """
+        Compute the accumulated runoff entering a lake/reservoir, from a runoff 
+        input (single value, .csv or .txt file, timeseries or dataframe, NetCDF 
+        file...). The result is a dataframe that will be used to fill the
+        data_flux for flopy.modflow.ModflowLak().
+
+        Parameters
+        ----------
+        data : xr.Dataset/xr.DataArray, pd.DataFrame/pd.Series, Number
+            Runoff input.
+            The conversion from file (.txt, .csv, .nc) to variable is made
+            beforehand in format_to_modflow(), before calling accumulat_runoff()
+            function.
+        lake_id : str, int
+            Identifier of the lake/reservoir. It is defined by user when 
+            initializing the lake/reservoir.
+        lakarr : np.array
+            Array containing the value 0 everywhere except on lake/reservoir
+            locations, where the value is equal to the num_id of the lake/res.
+            (num_id is the number of the lake/reservoir, starting from 1, taken
+             as the numeric identifier equivalent of the lake_id identifier)
+        geographic : object
+            Watershed object built by HydroModPy (model domain)
+
+        Returns
+        -------
+        A pandas.dataframe containing the timeseries of accumulated runoff
+        entering the lake identified by 'lake_id'.
+        This function also generates a NetCDF file with the accumulated runoff
+        values, that can be used by user in the post-processing to sum it to 
+        the surface flow values computed by HydroModPy.
+
+        """
+        
+        # ---- Initialize
+        # Create mask of watershed: =0 on lakes/reservoirs, =1 everywhere else
         mask = np.where(lakarr > 0, 0, 1)
         
         # Get time coordinate
         if isinstance(data, (pd.DataFrame, pd.Series)):
+            # if data.index are dates...
             if isinstance(data.index[0], (datetime.datetime, 
                                           pd.Timestamp, 
                                           np.datetime64,
                                           str)):          
+                # ...then the index is used as the time coordinate
                 time = data.index
-        else:            
+        # If data has no index, or no date index...
+        else:       
+            # ...then the tim coordinate is built as a 0, 1, 2, 3... array
             # time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
             time = np.array(range(len(data)))
+            # In that case, data is formatted to a pd.dataframe
             data = pd.DataFrame(data = data, index = time, columns = 'runoff')
 
-        # Get space coordinates
+        # Build space coordinates
         x = [x for x in np.arange(
             geographic.xmin + geographic.resolution_x/2, 
             geographic.xmin + geographic.resolution_x*mask.shape[1] + geographic.resolution_x/2, 
@@ -790,41 +831,49 @@ class Lakeres:
         
         # Generate a xarray.DataArray of runoff: data_4D
         units = ''
-        
+        # If data is already a xr.dataarray, no operation is needed
         if isinstance(data, xr.DataArray):
             data_4D = data
             units = data.attrs['units'].copy()
         
+        # if data is a xr.dataset, the corresponding xr.dataarray is extracted
         elif isinstance(data, xr.Dataset):
             main_var = list(data.data_vars)[0]
             data_4D = data[main_var]
             units = data[main_var].attrs['units'].copy()
         
+        # if data is something else, a xr.dataarray will be built from scratch
         else:
             # Create an empty dataarray
             data_4D = xr.DataArray(coords=[time, y, x], dims=["time", "y", "x"])
+            # if data is a single number, it is used to fill the xr.dataarray
             if isinstance(data, numbers.Number):
                 data_4D[:] = data
-            
+            # if data is a pd.dataframe, it is used to fill the xr.dataarray for each time
             elif isinstance(data, pd.DataFrame):
                 for t in time:
-                    data_4D.loc[{'time': t}] = data[t]
+                    data_4D.loc[{'time': t}] = data.loc[t].iloc[0] # value of the column 0 at the time t
             elif isinstance(data, pd.Series):
                 for t in time:
-                    data_4D.loc[{'time': t}] = data[t]
+                    data_4D.loc[{'time': t}] = data.loc[t] # value at the time t
         
-        # Set values over the extent of all lake/reservoirs to 0
+        # Set runoff values over the extent of all lake/reservoirs to 0
+        # (no runoff over water surfaces)
+        # Note that, in the place of runoff, the precipitations falling directly on
+        # lakes/reservoirs are expected to be user-defined as the 'PRCPLK' flux (self.prcplk_by_lake)
         data_4D = data_4D.where(np.tile(mask, (len(time), 1, 1)) == 1, 0)
-        # data_4D[np.tile(mask, (len(time), 1, 1))] = np.nan
         
-        # Compute accumulated mass flow in every cell
-        # With pyproj
+        # ---- Compute accumulated mass flow in every cell
+        # With pyproj (no need to write&read files as with whitebox)
         direc, _, _, _ = toolbox.load_to_numpy(
             geographic.watershed_box_buff_direc)
         # Cancel flow direction in lake outlet
+        # Here we consider that the runoff can accumulate over the lake (in
+        # order to compute the accumulated runoff value), but it can not leave the lake.
         for l in self.ij_outlet_by_lake: # for each lake on the watershed
             (i_, j_) = self.ij_outlet_by_lake[l]
             direc[i_, j_] = 0
+        # Create a pysheds.grid object with flow directions
         direc_raster = Raster(direc)
         direc_raster.crs = geographic.crs_proj
         direc_raster.nodata = -1 # geographic.nodata
@@ -835,7 +884,9 @@ class Lakeres:
                                 data_name='direc')
         
         for t in data_4D.time:
+            # Create a pysheds.raster object with runoff values
             weights = data_4D.loc[{'time': t}].copy(deep = True)
+            # Runoff values are normalized into weights
             weights_norm = weights/weights.sum() # normalize
             weights_raster = Raster(weights_norm.values)
             weights_raster.crs = geographic.crs_proj
@@ -843,19 +894,19 @@ class Lakeres:
             weights_raster.affine = Affine(
                 geographic.resolution_x, 0, geographic.xmin,
                 0, geographic.resolution_y, geographic.ymax)
-            
             # Specify directional mapping
             dirmap = (128, 1, 2, 4, 8, 16, 32, 64)       #D8 wbt system
-            # Calculate flow accumulation (needs to add weight)
+            # Calculate flow accumulation based on flow directions weighted by runoff values
             acc = grid.accumulation(
                 direc_raster,
                 weights = weights_raster,
                 dirmap = dirmap)
+            # Remove the normalization to obtain the absolute accumulated values
             acc = acc * weights.sum().item() # denormalize
             data_4D.loc[{'time': t}] = np.array(grid.view(acc))
             
             
-            # Alternative way with WBT (Notes)
+            # Alternative way with whitebox (WBT) (Notes)
 # =============================================================================
 #             im = imageio.imread(self.raw_rast_path)
 #             im[im<0] = 0
@@ -874,7 +925,7 @@ class Lakeres:
 #                              self.abs_rast_path, self.mass_rast_path)
 # =============================================================================
         
-        # Export to a netcdf file in the pre-processing folder
+        # ---- Export to a netcdf file in the pre-processing folder
         data_ds = data_4D.to_dataset(name = 'acc_runoff')
         # Attributes
         data_ds.rio.write_crs(geographic.crs_proj, inplace = True)
@@ -890,7 +941,7 @@ class Lakeres:
                                    'units': units}
         data_ds.to_netcdf(os.path.join(self.data_folder, f'accumulated_runoff_{lake_id}.nc'))
         
-        # Extract the time series in the lake outlet cells into a pandas.Series
+        # ---- Extract the time series in the lake outlet cells into a pandas.Series
         # Get outlet coordinates of the currenet lake
         (i, j) = self.ij_outlet_by_lake[lake_id]
         # (x_out, y_out) = (
