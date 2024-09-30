@@ -956,7 +956,8 @@ class Lakeres:
         data_pd = data_4D[{'x': j, 'y': i}]
         # data_pd = data_4D.loc[{'x': x_out, 'y': y_out}]
         
-        data_pd = data_pd.to_dataframe(name = 'acc_runoff') # convert xr.dataarray to pd.dataframe
+        data_pd = data_pd.drop(['x', 'y']).to_dataframe(name = 'acc_runoff') # convert xr.dataarray to pd.dataframe
+        data_pd = data_pd['acc_runoff']
         
         return data_pd
         
