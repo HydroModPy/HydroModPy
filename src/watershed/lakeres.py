@@ -769,6 +769,8 @@ class Lakeres:
         input (single value, .csv or .txt file, timeseries or dataframe, NetCDF 
         file...). The result is a dataframe that will be used to fill the
         data_flux for flopy.modflow.ModflowLak().
+        
+        Note: runoff input has to be a VOLUME time series ([L]**3/[T])
 
         Parameters
         ----------

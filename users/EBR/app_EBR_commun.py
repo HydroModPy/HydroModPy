@@ -648,8 +648,9 @@ BV.lakeres.update_precip(lake_id, BV.climatic.precip)
 # BV.lakeres.update_evap(lake_id, dam_input_df['ae_oudin']/1.73e6)
 # BV.lakeres.update_evap(lake_id, 'from_climatic')
 BV.lakeres.update_evap(lake_id, BV.climatic.evt)
+# Note: runoff has to be a volume
 # BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6) # because runoff has to be a volume (summed over the area runing off towards the lake)
-BV.lakeres.update_runoff(lake_id, BV.climatic.runoff, runoff_accumulation = True)
+BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (BV.geographic.resolution**2), runoff_accumulation = True)
 
 # Anthropic fluxes (including withdrawing return flow)
 # ----------------
