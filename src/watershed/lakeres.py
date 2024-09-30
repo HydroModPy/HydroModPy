@@ -764,7 +764,6 @@ class Lakeres:
                 
     #%% ACCUMULATE RUNOFF
     def accumulate_runoff(self, data, lake_id, lakarr, geographic):
-        # Create mask
         mask = np.where(lakarr > 0, 0, 1)
         
         # Get time coordinate
@@ -818,43 +817,24 @@ class Lakeres:
         data_4D = data_4D.where(np.tile(mask, (len(time), 1, 1)) == 1, 0)
         # data_4D[np.tile(mask, (len(time), 1, 1))] = np.nan
         
+        # Compute accumulated mass flow in every cell
+        # With pyproj
+        direc, _, _, _ = toolbox.load_to_numpy(
+            geographic.watershed_box_buff_direc)
+        # Cancel flow direction in lake outlet
+        for l in self.ij_outlet_by_lake: # for each lake on the watershed
+            (i_, j_) = self.ij_outlet_by_lake[l]
+            direc[i_, j_] = 0
+        direc_raster = Raster(direc)
+        direc_raster.crs = geographic.crs_proj
+        direc_raster.nodata = -1 # geographic.nodata
+        direc_raster.affine = Affine(
+            geographic.resolution_x, 0, geographic.xmin,
+            0, geographic.resolution_y, geographic.ymax)
+        grid = Grid.from_raster(direc_raster,
+                                data_name='direc')
+        
         for t in data_4D.time:
-            # Compute accumulated flow in every cell
-            # ici chaque couche data_4D prend la place du outflow_drain 
-            # ça srait bien de factoriser !
-            
-            # Compute mass flow
-            # With WBT
-# =============================================================================
-#             im = imageio.imread(self.raw_rast_path)
-#             im[im<0] = 0
-#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.load_rast_path)
-#             ### Efficiency ###
-#             im = imageio.imread(self.watershed_buff_fill_surflow)
-#             im[im>=0] = 1
-#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.eff_rast_path)        
-#             ### Adsorption ###
-#             im = imageio.imread(self.watershed_buff_fill_surflow)
-#             im[im>=0] = 0
-#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
-#             ### d8massflux ###
-#             wbt.d8_mass_flux(self.watershed_buff_fill_surflow,
-#                              self.load_rast_path, self.eff_rast_path,
-#                              self.abs_rast_path, self.mass_rast_path)
-# =============================================================================
-            
-            # Alternative way with pyproj
-            direc, _, _, _ = toolbox.load_to_numpy(
-                geographic.watershed_box_buff_direc)
-            direc_raster = Raster(direc)
-            direc_raster.crs = geographic.crs_proj
-            direc_raster.nodata = -1 # geographic.nodata
-            direc_raster.affine = Affine(
-                geographic.resolution_x, 0, geographic.xmin,
-                0, geographic.resolution_y, geographic.ymax)
-            grid = Grid.from_raster(direc_raster,
-                                    data_name='direc')
-            
             weights = data_4D.loc[{'time': t}].copy(deep = True)
             weights_norm = weights/weights.sum() # normalize
             weights_raster = Raster(weights_norm.values)
@@ -873,6 +853,26 @@ class Lakeres:
                 dirmap = dirmap)
             acc = acc * weights.sum().item() # denormalize
             data_4D.loc[{'time': t}] = np.array(grid.view(acc))
+            
+            
+            # Alternative way with WBT (Notes)
+# =============================================================================
+#             im = imageio.imread(self.raw_rast_path)
+#             im[im<0] = 0
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.load_rast_path)
+#             ### Efficiency ###
+#             im = imageio.imread(self.watershed_buff_fill_surflow)
+#             im[im>=0] = 1
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.eff_rast_path)        
+#             ### Adsorption ###
+#             im = imageio.imread(self.watershed_buff_fill_surflow)
+#             im[im>=0] = 0
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
+#             ### d8massflux ###
+#             wbt.d8_mass_flux(self.watershed_buff_fill_surflow,
+#                              self.load_rast_path, self.eff_rast_path,
+#                              self.abs_rast_path, self.mass_rast_path)
+# =============================================================================
         
         # Export to a netcdf file in the pre-processing folder
         data_ds = data_4D.to_dataset(name = 'acc_runoff')
@@ -888,12 +888,17 @@ class Lakeres:
         data_ds[main_var].attrs = {'standard_name': 'runoff',
                                    'long_name': 'surface runoff',
                                    'units': units}
-        data_ds.to_netcdf(os.path.join(self.data_folder, 'accumulated_runoff.nc'))
+        data_ds.to_netcdf(os.path.join(self.data_folder, f'accumulated_runoff_{lake_id}.nc'))
         
         # Extract the time series in the lake outlet cells into a pandas.Series
-        (i, j) = self.ij_outlet_by_lake[lake_id] # Il faut que format_outlets() soit lancé avant accumulate runoff !
-        data_pd = data_4D.loc[{'x': geographic.xmin + geographic.resolution_x/2 + geographic.resolution_x*j,
-                               'y': geographic.ymax + geographic.resolution_y/2 + geographic.resolution_y*i}]
+        # Get outlet coordinates of the currenet lake
+        (i, j) = self.ij_outlet_by_lake[lake_id]
+        # (x_out, y_out) = (
+        #     geographic.xmin + geographic.resolution_x/2 + geographic.resolution_x*j,
+        #     geographic.ymax + geographic.resolution_y/2 + geographic.resolution_y*i
+        #     )
+        data_pd = data_4D[{'x': j, 'y': i}]
+        # data_pd = data_4D.loc[{'x': x_out, 'y': y_out}]
         
         data_pd = data_pd.to_dataframe(name = 'acc_runoff') # convert xr.dataarray to pd.dataframe
         
