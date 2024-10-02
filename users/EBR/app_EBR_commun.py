@@ -163,7 +163,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo"),
-                                       first_year=pd.to_datetime('today').year-1,
+                                       first_year=pd.to_datetime('today').year-15,
                                        # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
@@ -781,8 +781,8 @@ first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 20 # if bottom is None, aquifer thickness
-hyd_cond = 1.4e-4 * 24 * 3600 # m/day
+thick = 35 # if bottom is None, aquifer thickness
+hyd_cond = 1e-4 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
