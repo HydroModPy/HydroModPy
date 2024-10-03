@@ -98,7 +98,10 @@ class Sim2:
         """
         
         self.var_list = var_list
+        self.var_sublist = []
         self.nc_data_path = nc_data_path
+        if not os.path.isdir(self.nc_data_path):
+            os.makedirs(self.nc_data_path)
         self.first_date = pd.to_datetime(f"{first_year}-01-01", format = "%Y-%m-%d")
         if last_year is None:
             self.last_date = pd.to_datetime('today').normalize()
@@ -200,11 +203,14 @@ class Sim2:
                             
         self.download()
         
+        # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC_Q', 'RUNC_Q'...)
+        sim_varlist = self.sim_var_by_HyMoPy_var.loc[self.var_list].sim_var.values
 
         self.clip_folder(self.nc_data_path, 
-                          self.clip_mask)
+                          self.clip_mask,
+                          sim_varlist)
         
-        self.merge_folder(self.nc_data_path)
+        self.merge_folder(self.nc_data_path, sim_varlist)
         
         print("\nFormatting results for HydroModPy model...")
         for var in self.final_filelist:
@@ -304,21 +310,23 @@ class Sim2:
             columns = ['url', 'size_Go', 'start_date', 'end_date'])
         
         # ---- Identify which files will be needed
+        # If there is no netcdf file already
         if self.local_data.nc_file.isnull().values.any():
             # Then all the data files will be downloaded
             to_download = self.available_data.index[
                 (self.available_data.end_date > self.first_date) \
                      & (self.available_data.start_date < self.last_date)]
         else:
-            # The "core period" is the period that is covered by local data for all 
+            # The "core period" is the period that is covered by local data for 
             # specified variables
-            min_core_date = self.local_data.start_date.max()
-            max_core_date = self.local_data.end_date.min()
+            min_core_date = self.local_data.start_date[self.var_list].max()
+            max_core_date = self.local_data.end_date[self.var_list].min()
             to_download = self.available_data.index[
                 ((self.available_data.start_date < min_core_date) & (self.available_data.end_date > self.first_date)) \
                     | ((self.available_data.end_date > max_core_date) & (self.available_data.start_date < self.last_date))]
         
-        # Files to download to cover the times and extent
+        # Files to download to cover the times
+        # (Note that if the specified spatial extent is not covered, the files have been previously deleted in __init__())
         if len(to_download) > 0:
             # print(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + self.available_data.loc[dataname, 'size_Go'] + ')' for dataname in to_download])}")
             ram_space = self.available_data.loc[to_download, 'size_Go'].max()
@@ -329,15 +337,6 @@ class Sim2:
             disk_space = np.max([0, disk_space])
             print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files to cover the required period and area: {', '.join(to_download)}")
             print(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)")
-            
-# =============================================================================
-#         # Files to download to cover the spatial extent
-#         to_download = set(to_download)
-#         to_download_diff = set(self.available_data.index) - to_download
-#         to_download_add = set()
-#         for dataname in to_download_diff:
-#             with xr.open_dataset(os.path.join(self.nc_data_path, ), decode_coords = 'all', decode_times = True) as ds_temp:
-# =============================================================================
           
         # ---- Download the required files
         if len(to_download) > 0:
@@ -350,16 +349,16 @@ class Sim2:
                     # Decompress gzip content
                     with gzip.open(BytesIO(response.content), 'rt') as f:
                         # Determine variables to extract in the current file
-                        var_sublist = self.local_data.index[
-                            (self.local_data.start_date > self.available_data.loc[dataname, 'start_date']) \
-                                | (self.local_data.end_date < self.available_data.loc[dataname, 'end_date'])]
-                        var_sublist = var_sublist.to_list() + self.local_data.nc_file.isnull().index.to_list()
+                        self.var_sublist = self.local_data.loc[self.var_list].index[
+                            (self.local_data.start_date[self.var_list] > self.available_data.loc[dataname, 'start_date']) \
+                                | (self.local_data.end_date[self.var_list] < self.available_data.loc[dataname, 'end_date'])]
+                        self.var_sublist = self.var_sublist.to_list() + self.local_data[self.local_data.nc_file.isnull()].index.to_list()
                         # Replace 'precip' with 'rain' and 'snow'
-                        if len(set(var_sublist).intersection(['precip'])) > 0:
-                            var_sublist = set(var_sublist) - set(['precip'])
-                            var_sublist = list(var_sublist.union(['rain', 'snow']))    
+                        if len(set(self.var_sublist).intersection(['precip'])) > 0:
+                            self.var_sublist = set(self.var_sublist) - set(['precip'])
+                            self.var_sublist = list(self.var_sublist.union(['rain', 'snow']))    
                         # Read .csv file and export to .nc files (one for each variable)
-                        self.to_netcdf(f, dataname, var_sublist)         
+                        self.to_netcdf(f, dataname)         
                 else:
                     print(f"   *****\n   Error while downloading the file {dataname}.csv\n   *****")
                     
@@ -369,7 +368,7 @@ class Sim2:
         
     
     #%% Convert to NetCDF
-    def to_netcdf(self, csv_file, dataname, var_sublist):  
+    def to_netcdf(self, csv_file, dataname):  
         # root_folder = os.path.split(os.path.split(csv_file_path)[0])[0]
     # =============================================================================
     #     coords_filepath = os.path.join(
@@ -416,7 +415,7 @@ class Sim2:
         print("   (can take > 1 min per parameter for a whole decade)")
         
         df = pd.read_csv(csv_file, sep=';', 
-                         usecols=usecols + self.sim_var_by_HyMoPy_var.loc[var_sublist, 'sim_var'].to_list(),
+                         usecols=usecols + self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var'].to_list(),
                          header=0, decimal='.',
                          parse_dates=['DATE'],
                          # date_format='%Y%m%d', # Not available before pandas 2.0.0
@@ -558,19 +557,21 @@ class Sim2:
         
     
     #%% Merge whole folder netcdf files
-    def merge_folder(self, folder):    
+    def merge_folder(self, folder, varlist=[]):    
         filelist = [f for f in os.listdir(folder) 
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
         
-        varlist = set()
-        # Extract all variables
-        for f in filelist:
-            filename = os.path.splitext(f)[0]
-            sim_pattern = re.compile('.*_SIM2_')
-            var = sim_pattern.findall(filename)
-            if len(var) > 0:
-                var = var[0][0:-6]
-                varlist.add(var)
+        # In case the function is used without a list, all variables are processed
+        if len(varlist) == 0:
+            varlist = set()
+            # Extract all variables
+            for f in filelist:
+                filename = os.path.splitext(f)[0]
+                sim_pattern = re.compile('.*_SIM2_')
+                var = sim_pattern.findall(filename)
+                if len(var) > 0:
+                    var = var[0][0:-6]
+                    varlist.add(var)
             
         for v in varlist:
 # =============================================================================
@@ -690,12 +691,18 @@ class Sim2:
         
     
     #%% Clip whole folder
-    def clip_folder(self, folder, maskpath):   
+    def clip_folder(self, folder, maskpath, varlist=[]):
+        
         sim_pattern = re.compile('.*_SIM2_')
         filelist = [f for f in os.listdir(folder) 
                     if (os.path.isfile(os.path.join(folder, f))) \
                         & (os.path.splitext(f)[-1] == '.nc') \
                             & (len(sim_pattern.findall(f)) > 0)]
+            
+        if len(varlist) != 0:     
+            sim_pattern2 = re.compile(f'{"|".join(varlist)}_SIM2_')
+            filelist = [f for f in filelist
+                        if (len(sim_pattern2.findall(f)) > 0)]
         
         maskname = os.path.splitext(os.path.split(maskpath)[-1])[0]
         

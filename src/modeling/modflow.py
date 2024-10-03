@@ -367,7 +367,7 @@ class Modflow:
         # NO FLOW BOUNDARY CONDITIONS 
         for i in range (self.nlay):
             if isinstance(self.sea_level,(int,float)) == True:
-                print('niv0')
+                # print('niv0')
                 self.iboundData[i][self.dem <= self.sea_level] = -1
                 self.strtData[self.iboundData == -1] = self.sea_level
             self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
@@ -379,12 +379,12 @@ class Modflow:
         self.drain_array = np.ones((self.nrow, self.ncol))
         if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
-            print('niv1')
+            # print('niv1')
             if isinstance(self.sea_level,(int,float)) == False:
-                print('niv2')
+                # print('niv2')
                 self.chData = {} #Martin on 15/11/2022: before was: self.chdData = {}
                 for kper in range(0, self.nper):
-                    print(kper)
+                    # print(kper)
                     chdKper = []
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
