@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Clement Roques
-
+ * Copyright (c) 2023 Clément, Roques, Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
+
 # PYTHON PACKAGES
 import sys
 import os
@@ -21,11 +25,7 @@ from numpy import sqrt, mean
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
-# root_dir = dirname(dirname(os.getcwd())) 
 sys.path.append(root_dir)
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
@@ -42,6 +42,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 #%% Prepare the input data
+
 example_path = os.path.join(root_dir, "examples/08_rainfall runoff model reservoir GR4J")
 data_path = os.path.join(example_path, "data")
 
@@ -76,6 +77,7 @@ data_all = {
 }
 
 #%% Plot the input dataset
+
 f=2
 fig, axs = plt.subplots(4, 1, figsize=(f*3, f*4))
 
@@ -112,6 +114,7 @@ plt.savefig(figure_filename)
 plt.show()
 
 #%% To calibrate our model we select a sub-period from our dataset... 
+
 start_calib = datetime.datetime(1992, 1, 1, 0, 0)
 end_calib = datetime.datetime(2000, 12, 31, 0, 0)
 mask_calib = (data.index >= start_calib) & (data.index <= end_calib)
@@ -129,6 +132,7 @@ data_calib = {
 }
 
 #%%... and we run the model starting by defining the initial values and ranges for all the parameters
+
 print('#######################################')
 print('I will try to calibrate all those parameters...')
 print('')
@@ -208,6 +212,7 @@ parameters, nash, bilan = calibre_gr4j('gr4j_cal', data_calib, data_calib['q'], 
 print('#######################################')
 
 #%% Now we can model the full dataset and evaluate the quality of the fit
+
 Qsim, output = gr4j_cal(parameters, data_all)
 
 # Remove the first year used to warm up the model
@@ -252,6 +257,7 @@ print('')
 print('#######################################')
 
 #%% Plot results
+
 t = date_f
 start_visu = datetime.datetime(1990, 1, 1, 0, 0)
 
@@ -276,6 +282,7 @@ plt.savefig(figure_filename)
 plt.show()
 
 #%% Some additional plots 
+
 fig, axs = plt.subplots(3, 1, figsize=(8, 6))
 axs[0].plot(t, output['n'], 'r')
 axs[0].set_ylabel('Snow store [mm]')
@@ -305,6 +312,7 @@ ax.boxplot(output['pr'])
 ax.set_yscale('log')
 
 #%% Convert the output dict into a dataframe including t and csv file with the model outputs
+
 output_df = pd.DataFrame(output_f)
 output_df.index = date_f
 
@@ -313,3 +321,5 @@ output_csv_path = os.path.join(output_path, 'model_outputs.csv')
 output_df.to_csv(output_csv_path)
 
 print(f"Model outputs saved to {output_csv_path}")
+
+#%% Notes

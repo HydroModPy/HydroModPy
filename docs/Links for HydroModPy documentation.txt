@@ -3,9 +3,3 @@ https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/
 
 ReadTheDocs documentation
 https://hydromod.readthedocs.io/
-
-Shared documentation (article, presentations, etc.)
-https://1drv.ms/f/s!ArPhnd6PZcHmgYldSf4V07bhqiL0lA?e=Ycm23N
-
-Case studies Martin
-https://1drv.ms/x/s!ArPhnd6PZcHmhuN4LEpNIKfAJx1Bag?e=Qbjf8R
