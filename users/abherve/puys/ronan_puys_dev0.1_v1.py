@@ -1166,6 +1166,8 @@ for id_mod_val in [ list_id_mod[13] ]:
         #                             cmap='Blues', alpha=0.5, ax=ax2)
         # ax2.set_title(model_name, fontsize=10)
         # ax2.set_ylim(450)
+        
+        fig.savefig(fig_path+'cross.png', dpi=300)
 
 #%% GRAPH K BEST
 
@@ -1174,6 +1176,8 @@ df = pd.read_csv(BV.simulations_folder+'/'+str(iD_explo)+'_exploration results.c
 fig, ax = plt.subplots(1, 1, figsize=(6, 5))
 ax.plot(df['id_mod_val'], abs(1-df['Indicator']), marker='o')
 ax.set_yscale('log')
+ax.set_xlabel('models for K')
+ax.set_ylabel('|1-Indicator|')
 
 #%% ---- EXPLORATION S1 S2 S3
 
@@ -1517,12 +1521,136 @@ for id_mod_val in list_id_mod[:]:
                 Sy2_cp += 1    
             Sy1_cp += 1  
 
-#%% MODPATH EXTRACT
+#%% DATAFRAME RESULTS
+
+X = 13
+
+df = pd.read_csv(BV.simulations_folder+'/'+str(iD_explo)+'_exploration results.csv', sep=';')
+
+pathlines_shp = False
+particules_shp = False
+
+# list_id_mod = np.arange(0,27,1)
+list_id_mod = [X]
+
+dfp = pd.DataFrame()
+df_box = pd.DataFrame()
+
+for id_mod_val in list_id_mod[:]:
+
+    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
+    list_model_results = d['list_model_results'][:]
+    
+    # for model_name, model_success, model_modflow in zip(list_model_name[8:],
+    #                                                     list_model_success[8:],
+    #                                                     list_model_modflow[8:]):
+
+    for model_name, model_success, model_modflow, model_results in zip(list_model_name[:],
+                                                                       list_model_success[:],
+                                                                       list_model_modflow[:],
+                                                                       list_model_results[:]):
+                
+        K1 = df.loc[X,'K1']
+        K2 = df.loc[X,'K2']
+        K3 = df.loc[X,'K3']
+        
+        BV.hydraulic.update_hyd_cond(K1)
+        verti_k_thetero = [ [K2, [topo_init-scorie_init, topo_init-bottom_init]],
+                            [K3, [topo_init-topo_init, topo_init-scorie_init]],
+                            ] # [ [k2, [array1, array2]] ] # verti_k_tconst = None # [ [k2, [0, thick_k2]] ]
+        BV.hydraulic.update_cond_vertical(verti_k_thetero)
+        
+        if K1==K2==K3 :
+            id_H='HOMOG'
+        else:
+            id_H='HETER'
+        
+        id_mod_val = X
+        cp_each = 0
+        
+        Sy1_cp = 0
+        for Sy1 in list_Sy1[:]:
+            Sy2_cp = 0
+            for Sy2 in list_Sy2[:]:
+                Sy3_cp = 0
+                for Sy3 in list_Sy3[:]:
+            
+                    if Sy1==Sy2==Sy3 :
+                        id_H_Sy ='HOMOG'
+                    else:
+                        id_H_Sy ='HETER'
+                    
+                    # model_name = iD_explo+'_'+str('model_MP')+'-'+str(id_mod_val)+'_'+\
+                    #              str(id_H)+'_'+'modelK_'+str(X)+'_'+\
+                    #              str(id_H_Sy)+'_'+\
+                    #              str(Sy1_cp)+'-'+str(Sy2_cp)+'-'+str(Sy3_cp)+'_'+\
+                    #              str(Sy1*100)+'-'+str(Sy2*100)+'-'+str(Sy3*100)
+                                 
+                    model_name = iD_explo+'_'+str('model')+'-'+str(id_mod_val)+'_'+\
+                                 str(id_H)+'_'+\
+                                 str(1)+'-'+str(1)+'-'+str(1)+'_'+\
+                                 str("{:.2e}".format(K1/24/3600))+'-'+str("{:.2e}".format(K2/24/3600))+'-'+str("{:.2e}".format(K3/24/3600))
+                                 # str(k1_cp)+'-'+str(k2_cp)+'-'+str(k3_cp)+'_'+\
+                    
+                    print(model_name)
+                    
+                    path_pp = simulations_folder+model_name+'/'+'_postprocess'+'_'+str(cp_each)+'/'
+                    
+                    ending = gpd.read_file(path_pp+'_particules/'+'pathlines_1000_springs.shp')
+                    
+                    dfp.loc[cp_each,'iD_explo'] = iD_explo
+                    dfp.loc[cp_each,'id_mod_val'] = id_mod_val
+                    dfp.loc[cp_each,'Sy1_cp'] = Sy1_cp
+                    dfp.loc[cp_each,'Sy2_cp'] = Sy2_cp
+                    dfp.loc[cp_each,'Sy3_cp'] = Sy3_cp
+                    dfp.loc[cp_each,'id_H'] = id_H
+                    dfp.loc[cp_each,'model_name'] = model_name
+                    dfp.loc[cp_each,'Keq'] = round(Keq, 4)
+                    dfp.loc[cp_each,'K1'] = round(K1, 4)
+                    dfp.loc[cp_each,'K2'] = round(K2, 4)
+                    dfp.loc[cp_each,'K3'] = round(K3, 4)
+                    dfp.loc[cp_each,'Sy1'] = Sy1 * 100
+                    dfp.loc[cp_each,'Sy2'] = Sy2 * 100
+                    dfp.loc[cp_each,'Sy3'] = Sy3 * 100
+                    dfp.loc[cp_each,'R'] = round(BV.climatic.recharge, 4) # mm
+                    
+                    dfp.loc[cp_each,'t_sp_mean'] = round(ending['time'].mean(), 4) # mm
+                    dfp.loc[cp_each,'t_sp_med'] = round(ending['time'].median(), 4) # mm
+                    dfp.loc[cp_each,'t_sp_max'] = round(ending['time'].max(), 4) # mm
+                    
+                    df_box[str(cp_each)] = ending['time']
+                    # plt.boxplot([0], ending['time'], positions = [cp_each])
+                    
+                    cp_each += 1
+                
+                    Sy3_cp += 1
+                Sy2_cp += 1    
+            Sy1_cp += 1  
+
+
+dfp.to_csv(BV.simulations_folder+'/'+str(iD_explo)+'_explor porosity results.csv', sep=';')
+df_box.to_csv(BV.simulations_folder+'/'+str(iD_explo)+'_boxplot porosity results.csv', sep=';')
 
 #%% ---- PLOT S1 S2 S3
 
 #%% GRAPH Φ BEST
 
+fig, ax = plt.subplots(1,1, figsize=(9,8))
+ax.boxplot(df_box)
+ax.set_xlabel('models for porosity')
+ax.set_ylabel('age [y]]')
+
+fig, ax = plt.subplots(1,1, figsize=(9,4))
+ax.plot(dfp.index,dfp['t_sp_mean'])
+# ax.plot(dfp.index, abs(1-dfp['t_sp_mean']/30))
+# ax.plot(dfp.index, abs(1-dfp['t_sp_max']/30))
+# ax.set_yscale('log')
+ax.set_xlabel('models for porosity')
+ax.set_ylabel('mean age [y]]')
 
 #%% ---- NOTES
 
