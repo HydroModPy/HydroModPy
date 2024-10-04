@@ -574,11 +574,17 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             zmax = float(ds[main_var].groupby(
                 ds.time.dt.year).mean().max(dim = ['x', 'y', 'year']))
         
-    elif mode in ["ratio", "ratio_precip"]:
+    elif mode == "ratio":
         unit = "%"
         zmin = 0
         zmax = 100
         dst_dir1 = 'pourcentages'
+        
+    elif mode == "ratio_precip":
+        unit = "%"
+        zmin = 0
+        zmax = 100
+        dst_dir1 = 'pourcentages precip'
         
     if var in ['T', 'TSUP_H', 'TINF_H']:
         colorscale = "Plasma_r"
@@ -634,9 +640,12 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
             
             final_map = ( final_map.groupby(group).sum(min_count = 1) \
                 / pretot.groupby(allmonths_group).sum(min_count = 1) )*100
-    
-        zmax = max([zmax, float(final_map.max())])
-        print("   . Color scale has been adjusted")
+                
+# =============================================================================
+#         # This adjusts the scale based on max among all INDIVIDUAL YEARS
+#         zmax = max([zmax, float(final_map.max())])
+#         print("   . Color scale has been adjusted")
+# =============================================================================
     
     elif mode == 'ratio': # values expressed as pourcentages of annual sums      
         allmonths_group = ds.time.dt.year \
@@ -645,9 +654,12 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         
         final_map = ( final_map.groupby(group).sum(min_count = 1) \
             / ds.groupby(allmonths_group).sum(min_count = 1) )*100
-
-        zmax = max([zmax, float(final_map.max())])
-        print("   . Color scale has been adjusted")
+            
+# =============================================================================
+#         # This adjusts the scale based on max among all INDIVIDUAL YEARS
+#         zmax = max([zmax, float(final_map.max())])
+#         print("   . Color scale has been adjusted")
+# =============================================================================
     
     
     #%%% Heatmap plot
@@ -655,7 +667,11 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     for dates in annual_bins:  
         # ---- Compute the decade average
         temp_map = final_map.loc[{'group': slice(dates[0][0], dates[1][0])}].mean(dim = 'group')
-
+        
+        # This adjusts the color based on max among all GROUPED YEARS
+        zmax = max([zmax, float(temp_map.max())])
+        # print("   . Color scale has been adjusted")
+        
         # ---- Update texts and plot annotations
         if timemode == 'ONDJFM':
             suf_title.append((f"oct. {dates[0][0]}", f"mar. {dates[1][1]}"))
