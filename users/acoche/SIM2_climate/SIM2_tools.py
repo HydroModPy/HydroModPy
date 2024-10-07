@@ -668,9 +668,11 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         # ---- Compute the decade average
         temp_map = final_map.loc[{'group': slice(dates[0][0], dates[1][0])}].mean(dim = 'group')
         
-        # This adjusts the color based on max among all GROUPED YEARS
-        zmax = max([zmax, float(temp_map.max())])
-        # print("   . Color scale has been adjusted")
+# =============================================================================
+#         # This adjusts the color based on max among all GROUPED YEARS
+#         zmax = max([zmax, float(temp_map.max())])
+#         # print("   . Color scale has been adjusted")
+# =============================================================================
         
         # ---- Update texts and plot annotations
         if timemode == 'ONDJFM':
