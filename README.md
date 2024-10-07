@@ -61,7 +61,7 @@ Option 3 : Install with following commands
 
     Step 5 - Go to stable branch
     ```
-    git checkout "v0.1"
+    git checkout "master" (or "v0.1")
     ```
 
     Step 6 - Go to install folder
