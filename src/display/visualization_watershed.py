@@ -114,16 +114,16 @@ def watershed_dem(BV):
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
     image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
-                             cmap='terrain')
+                              cmap='terrain')
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
-         cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
+          cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     try:
         streams = gpd.read_file(BV.hydrography.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+        contour.plot(ax=ax, lw=1.5, zorder=4,legend=True, label='Watershed', edgecolor='k', facecolor='None')
     except:
         pass
     try:
@@ -136,7 +136,7 @@ def watershed_dem(BV):
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
             ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
-                       marker='^', zorder=5, label='Piezometers: discrete')
+                        marker='^', zorder=5, label='Piezometers: discrete')
     except:
         pass   
     try:
@@ -203,7 +203,7 @@ def watershed_local(regional_dem_path, BV):
     show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
          cmap='terrain', alpha=1, zorder=2, aspect="auto")
     shp.plot(ax=ax, lw=2, color='yellow', zorder=4,legend=True, label='Watershed')
-    contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed')
+    # contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed', facecolor='None')
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
@@ -279,7 +279,7 @@ def watershed_geology(BV):
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
-    contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+    contour.plot(ax=ax, lw=1.5, color='k', zorder=4, legend=True, edgecolor='k', facecolor='None', label='Watershed')
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
             piezod = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
@@ -330,7 +330,7 @@ def watershed_zones(BV):
     except:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, color='k', zorder=4,legend=True, label='Watershed')
+        contour.plot(ax=ax, lw=1.5, color='k', edgecolor='k', facecolor='None', zorder=4,legend=True, label='Watershed')
     except:
         pass
     try:
