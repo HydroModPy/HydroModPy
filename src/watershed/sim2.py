@@ -93,10 +93,12 @@ class Sim2:
 
         Returns
         -------
-        None. Create or update the netcdf files.
+        None. The sim2 object is updated. 
+        Also create or update the netcdf files.
 
         """
         
+        # ---- Initialization
         self.var_list = var_list
         self.var_sublist = []
         self.nc_data_path = nc_data_path
@@ -147,6 +149,7 @@ class Sim2:
             data = self.HyMoPy_var_by_sim_var.index.copy())
         
         
+        # ---- Determine which data needs to be downloaded
         # Data already available for each variable 
 # =============================================================================
 #         self.nc_file_by_var = dict.fromkeys(var_list, None)
@@ -200,18 +203,23 @@ class Sim2:
                             os.remove(file)
                             
             self.local_data.iloc[:, 0:3][self.local_data.extent == True] = np.nan
-                            
+        
+        # ---- Download
         self.download()
         
+        
+        # ---- Clip data
         # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC_Q', 'RUNC_Q'...)
         sim_varlist = self.sim_var_by_HyMoPy_var.loc[self.var_list].sim_var.values
-
+        
         self.clip_folder(self.nc_data_path, 
                           self.clip_mask,
                           sim_varlist)
         
+        # ---- Merge NetCDF files
         self.merge_folder(self.nc_data_path, sim_varlist)
         
+        # ---- Format result for HydroModPy
         print("\nFormatting results for HydroModPy model...")
         for var in self.final_filelist:
             print(f"   {var}")
