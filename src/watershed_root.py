@@ -668,7 +668,7 @@ class Watershed:
                                           intermittency=self.intermittency, 
                                           add_path=add_path,
                                           out_path=self.watershed_folder,
-                                          sub_snap_dist=self.geographic.snap_dist/2)
+                                          sub_snap_dist=sub_snap_dist)
         self.elt_def.append('subbasin')
         self.save_object()
     
@@ -713,6 +713,7 @@ class Watershed:
                                         cond_decay=self.hydraulic.cond_decay,
                                         verti_cond=self.hydraulic.verti_cond,
                                         verti_poro=self.hydraulic.verti_poro,
+                                        verti_ss=self.hydraulic.verti_ss,
                                         cond_drain=self.hydraulic.cond_drain,
                                         porosity=self.hydraulic.porosity,
                                         ss=self.hydraulic.ss,

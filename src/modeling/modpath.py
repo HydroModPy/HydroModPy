@@ -265,15 +265,17 @@ class Modpath:
         stl.data = stldata
         
         self.poro_modpath = self.model_modflow.ps
+        self.ss_modpath = self.model_modflow.ss
         
         flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100, def_face_ct=0,
                                   laytyp=laytype, ibound=iboundData,
-        										prsity=self.poro_modpath, prsityCB=self.poro_modpath,
+        										prsity=self.poro_modpath, prsityCB=self.ss_modpath,
                                   extension='mpbas', unitnumber=86)
         
         self.mp.write_input()    
         
     #%% PROCESSING
+    
     def processing(self,
                    write_model:bool=True,
                    run_model:bool=False):

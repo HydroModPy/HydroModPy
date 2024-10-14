@@ -462,9 +462,10 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         
     main_var = list(ds.data_vars)[0]
     # xres = float(ds.x[1] - ds.x[0])
-    xres = ds.rio.transform()[0]
+    # xres = ds.rio.transform()[0]
     # yres = float(ds.y[1] - ds.y[0])
-    yres = ds.rio.transform()[4]
+    # yres = ds.rio.transform()[4]
+    xres, yres = ds.rio.resolution()
     
     #%%% Initializations
     last_year = ds.time.max().dt.year.item()

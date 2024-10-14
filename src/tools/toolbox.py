@@ -187,17 +187,17 @@ def load_to_numpy(file, src_crs=None,
                 if src_crs: 
                     file_vect.set_crs(crs = src_crs, inplace = True, allow_override = True)
                 else: 
-                    print("\nError: Source CRS (src_crs) is required to rasterize.")
+                    print("Error: Source CRS (src_crs) is required to rasterize.\n")
                     return
                     
             if not base_profile['crs'].is_valid:
                 if dst_crs: base_profile['crs'] = dst_crs
                 else: 
-                    print("\nError; Destination CRS (dst_crs) is required to rasterize.")
+                    print("Error; Destination CRS (dst_crs) is required to rasterize.\n")
                     return
                     
             # The vector needs to be in the same CRS as the base raster:
-            print(f"\n Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'")            
+            # print(f"Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'.\n")            
             file_vect.to_crs(crs = base_profile['crs'].to_epsg(), inplace = True)
             # Rasterize:
             val = rio.features.rasterize(
@@ -209,7 +209,7 @@ def load_to_numpy(file, src_crs=None,
             # update profile
             data_profile = base_profile
         else: # if there is no base_profile
-            print('\nRasterizeError: A rasterio profile is required to convert vectoriel data into raster')
+            print('RasterizeError: A rasterio profile is required to convert vectoriel data into raster.\n')
             return
     
     else: # input file is a raster
@@ -217,7 +217,7 @@ def load_to_numpy(file, src_crs=None,
             data_profile = data.profile
             if src_crs and not data_profile['crs'].is_valid:
                 data_profile['crs'] = src_crs
-                print(f"\n The CRS of input data has been set to 'EPSG:{data_profile['crs']}'")
+                # print(f"The CRS of input data has been set to 'EPSG:{data_profile['crs'].to_epsg()}'.\n")
             # data_crs = data.crs
             val = data.read(1) # data.read()[0] # extract the first layer
     
@@ -230,10 +230,10 @@ def load_to_numpy(file, src_crs=None,
                 
         if data_profile != base_profile:
             if not data_profile['crs'].is_valid:
-                print('\nError: Source CRS (src_crs) is required to reproject.')
+                print('Error: Source CRS (src_crs) is required to reproject.\n')
                 return
             if not base_profile['crs'].is_valid:
-                print('\nError: Destination CRS (dst_crs) is required to reproject.')
+                print('Error: Destination CRS (dst_crs) is required to reproject.\n')
                 return
             rio.warp.reproject(source = val, 
                                destination = base_val, 
@@ -353,17 +353,17 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 # Usually this error appears when unable to decode 
                 # time units 'Months since 1901-01-01' with 
                 # "calendar 'proleptic_gregorian'"
-                print("\nWarning: Unable to decode time units")
+                print("Warning: Unable to decode time units.\n")
                 with xr.open_dataset(file, decode_coords = 'all', 
                                      decode_times = False) as ds:
                     ds.load()
                     
                 try: ds.time.attrs['units']
                 except: 
-                    print("Err: No information on time units in attributes")
+                    print("Error: No information on time units in attributes.\n")
                     return
                 # Build back time scale:
-                print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
+                # print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
                 timeunit = ds.time.attrs['units'].split()[0].casefold()
                 if timeunit in ['month', 'months', 'mois']:
                     freq = 'MS'
@@ -374,11 +374,11 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 
                 print("   | Note that The format of the origin date is expected to be either")
                 print("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
-                print("   | MM DD YYYY will not be considered.")
+                print("   | MM DD YYYY will not be considered.\n")
                 # The format of the origin date is expected to be either 
                 # YYYY MM DD or DD MM YYYY (with any separator)
                 # The american format MM DD YYYY is not considered
-                initdate_pattern = re.compile("\d{2,4}.*\d{2,4}")
+                initdate_pattern = re.compile(r"\d{2,4}.*\d{2,4}")
                 initdate = initdate_pattern.search(ds.time.attrs['units']).group()
                 
                 if initdate[2].isnumeric():
@@ -392,11 +392,11 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                     initdate, periods = int(ds.time[0]) + 1, freq = freq)).iloc[-1]
                 date_index = pd.date_range(start = start_date, 
                                              periods = len(ds.time), freq = freq) 
-                print(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info})")
+                # print(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info}).\n")
                 ds['time'] = date_index  
         
         else:
-            print(f"\nErr: Extension {os.path.splitext(file)[-1]} is not recognized by xarray")
+            print(f"Error: Extension {os.path.splitext(file)[-1]} is not recognized by xarray.\n")
             return
     
     elif isinstance(file, xr.core.dataset.Dataset):
@@ -408,11 +408,11 @@ def load_to_xarray(file, src_crs=None, main_var=None,
     if not src_crs:
         if 'spatial_ref' not in list(ds.coords):
             ds.rio.write_crs(src_crs, inplace = True)
-            print(f"\n The CRS of input data has been set to '{ds.rio.crs.to_string()}'")
+            # print(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.\n")
     else:
         if not ds.rio.crs.is_valid:
             ds.rio.write_crs(src_crs, inplace = True)
-        print(f"\n The CRS of input data has been set to '{ds.rio.crs.to_string()}'")
+        # print(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.\n")
     
     data_transform = ds.rio.transform()
     
@@ -424,10 +424,10 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 
         if (data_transform != base_profile['transform']) | (ds.rio.crs != base_profile['crs']):
             if not ds.rio.crs.is_valid:
-                print('\nError: Source CRS (src_crs) is required to reproject.')
+                print('Error: Source CRS (src_crs) is required to reproject.\n')
                 return
             if not base_profile['crs'].is_valid:
-                print('\nError: Destination CRS (dst_crs) is required to reproject.')
+                print('Error: Destination CRS (dst_crs) is required to reproject.\n')
                 return
             ds_reprj = ds.rio.reproject(dst_crs = base_profile['crs'],
                                              # resolution = (1000, 1000),
