@@ -240,7 +240,7 @@ class Sim2:
                 {'time' : slice(self.first_date, self.last_date)}]
             # Apply sim_stat option
             if self.sim_state == 'steady':
-                print("      . simplify time dimension...")
+                print("      . simplifying time dimension...")
                 self.values[var] = self.values[var].mean(dim = 'time')
             # Reprojection
             print("      . reprojecting...")
