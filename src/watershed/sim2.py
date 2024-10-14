@@ -58,7 +58,7 @@ class Sim2:
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
                  spatial_mean=False, geographic, 
-                 disk_clip: str='watershed'):
+                 disk_clip: str=False):
         """
         Parameters
         ----------
@@ -138,6 +138,17 @@ class Sim2:
         'FF_Q': 'wind',
         'SWI_Q': 'swi',
         'ETP_Q': 'etp',
+        'TINF_H_Q': 'temp_inf',
+        'TSUP_H_Q': 'temp_sup',
+        'SWI_Q': 'swi',
+        'SSI_Q': 'ssi',
+        'DLI_Q': 'dli',
+        'PE_Q': 'eff_rain',
+        'WG_RACINE_Q': 'wg_root', 
+        'Q_Q': 'hum_spec',
+        'HU_Q': 'hum_rel',
+        'SNOW_FRAC_Q': 'snow_cover',
+        'HTEURNEIGE_Q': 'snow_thickness',
         }
         self.HyMoPy_var_by_sim_var = pd.DataFrame.from_dict(
             data = varnames_dict,
