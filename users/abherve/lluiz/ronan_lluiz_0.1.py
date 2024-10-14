@@ -127,8 +127,8 @@ def deficiency_evaporation(dfmonth, ppt_col, etp_col, ppt_etp_col, etr_col, ru_c
     
         else:
             idx2 = calc.index[calc[ppt_etp_col] == p]
-            calc[etr_col][idx2] = (calc[ppt_col][idx2] + (
-                calc[ru_col][idx2]-1) - calc[ru_col][idx2])
+            # calc[etr_col][idx2] = (calc[ppt_col][idx2] + (calc[ru_col][idx2]-1) - calc[ru_col][idx2]) # old
+            calc[etr_col][idx2] = (calc[ppt_col][idx2] + (calc[ru_col][idx2]) - calc[ru_col][idx2]) # new
     
     calc[de_col] = calc[etp_col] - calc[etr_col]
 
@@ -344,9 +344,18 @@ fig_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_figures/'
 #     base=None, 
 #     method="cc")
 
+wbt.resample(
+    data_path+'Contraix/'+'DEM_2m_Contraix/'+'MET_ICGC_2m_ETRS89_contraix.tif', 
+    data_path+'Contraix/'+'DEM_2m_Contraix/'+'MET_ICGC_10m_ETRS89_contraix.tif', 
+    cell_size=10, 
+    base=None, 
+    method="cc")
 
-watershed_name = 'Molieres'
-watershed_name = 'Peatland_large'
+# watershed_name = 'Molieres'
+# watershed_name = 'Peatland_large'
+# watershed_name = 'Contraix_large'
+# watershed_name = 'Contraix_large_30m'
+watershed_name = 'Contraix_large_10m'
 # watershed_name = 'Poschiavino_100m'
 # watershed_name = 'Poschiavino_10m'
 
@@ -375,13 +384,28 @@ if watershed_name == 'Peatland_large':
     #             1] # specify a path if process start from a given shapefile
     from_shp = ['C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Catchment polygons/peatland_basin/molieres_peatland.shp',
                 '500']
+    
+if watershed_name == 'Contraix_large_10m':
+    # dem_name = 'MET_ICGC_2m_ETRS89_contraix.tif'
+    # dem_name = 'MET_ICGC_30m_ETRS89_contraix.tif'
+    dem_name = 'MET_ICGC_10m_ETRS89_contraix.tif'
+    # dem_name = 'DEM_100m_transf.tif' # EUDTM_Alps_30m_vallon
+    dem_path = data_path + 'Contraix/'+'DEM_2m_Contraix/' + dem_name
+    subbasin_path = True # generate subbasins from stations or manual points
+    from_dem = None # True or False if the process start from a given DEM of xyz file
+    cell_size = None # specify new resolution from a given DEM or None
+    # from_xyv = [330707.574, 4715389.475, 30, 10, 'EPSG:25831']
+    from_xyv = [330707.574, 4715389.475, 100, 10, 'EPSG:25831']
+    # from_shp = [data_path + 'Catchment_Poschiavino.shp',
+    #             1] # specify a path if process start from a given shapefile
+    from_shp = None    
 
 watershed_names = [watershed_name]
 
 #%% LOAD
 
 load = True
-load = False
+# load = False
 
 print('##### '+watershed_name.upper()+' #####')
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -411,11 +435,42 @@ except:
 
 #%% DATA
 
-types_obs = ['Stream_network_topo_large_catchment']
-fields_obs = ['fid']
-       
-hydro_path = data_path + 'Stream network/'
+wbt.verbose = True
+
+# types_obs = ['Stream_network_topo_large_catchment']
+# fields_obs = ['fid']
+# hydro_path = data_path + 'Stream network/'
+
+# types_obs = ['rivers_wetlands_l_topografia']
+# fields_obs = ['fid']
+# hydro_path = data_path + 'Contraix/Hidrologia_contriax/'
         
+wbt.vector_lines_to_raster(
+                data_path + 'Contraix/Hidrologia_contriax/'+'rivers_topografia.shp', 
+                data_path + 'Contraix/Hidrologia_contriax/'+'rivers_topografia.tif', 
+                field="FID", 
+                nodata=True, 
+                cell_size=None, 
+                base=BV.geographic.watershed_box_buff_dem)
+wbt.raster_to_vector_points(data_path + 'Contraix/Hidrologia_contriax/'+'rivers_topografia.tif',
+                            data_path + 'Contraix/Hidrologia_contriax/'+'rivers_topografia_pt.shp')
+wbt.vector_polygons_to_raster(
+                data_path + 'Contraix/Hidrologia_contriax/'+'wetlands_topografia.shp', 
+                data_path + 'Contraix/Hidrologia_contriax/'+'wetlands_topografia.tif', 
+                field="FID", 
+                nodata=True, 
+                cell_size=None, 
+                base=BV.geographic.watershed_box_buff_dem)
+wbt.raster_to_vector_points(data_path + 'Contraix/Hidrologia_contriax/'+'wetlands_topografia.tif',
+                            data_path + 'Contraix/Hidrologia_contriax/'+'wetlands_topografia_pt.shp')
+list_p = [data_path + 'Contraix/Hidrologia_contriax/'+'rivers_topografia_pt.shp',data_path + 'Contraix/Hidrologia_contriax/'+'wetlands_topografia_pt.shp']
+wbt.merge_vectors(
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Contraix/Hidrologia_contriax/rivers_topografia_pt.shp;C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Contraix/Hidrologia_contriax/wetlands_topografia_pt.shp', 
+    'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Contraix/Hidrologia_contriax/rivers_wetlands_topografia_pt.shp')
+types_obs = ['rivers_wetlands_topografia_pt']
+fields_obs = ['fid']
+hydro_path = data_path + 'Contraix/Hidrologia_contriax/'
+
 BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
@@ -438,7 +493,7 @@ for type_obs, field_obs in zip(types_obs, fields_obs):
 #     esri_pntr=False, 
 #     zero_background=False)
 
-#%% RECHARGE
+#%% RECHARGE MOLIERES
 
 files_path = glob.glob('C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Meteo/'+'*')
 # y = pd.DataFrame()
@@ -512,6 +567,48 @@ fig, ax = plt.subplots(1,1, figsize=(15,5))
 ax.plot(recharge)
 print(recharge.resample('Y').sum())
 print(recharge.resample('Y').sum().mean())
+
+#%% RECHARGE CONTRAIX
+
+from datetime import datetime
+file_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lluiz/_data/Contraix/Meteo/meteo_Contraix_2010_2023.csv'
+x = pd.read_csv(file_path, sep=';', decimal=',')
+x['date'] = pd.to_datetime(x['Dia'], format = '%d.%m.%Y')
+x.index = x['date']
+x = select_period(x,2021,2022)
+
+x['Oudin'] = abs(pyet.oudin(x['Td'], lat=pyet.deg_to_rad(42)))
+x["Hargreaves"] = abs(pyet.hargreaves(x['Td'], tmax=x['Tdmax'], tmin=x['Tdmin'], lat=pyet.deg_to_rad(42)))
+x["Hamon"] = abs(pyet.temperature.hamon(x['Td'], lat=pyet.deg_to_rad(42)))
+x["Macguinness"] = abs(pyet.radiation.mcguinness_bordne(x['Td'], lat=pyet.deg_to_rad(42)))
+
+# xm = x.resample('M').sum()
+xm = x.copy()
+
+deficiency_evaporation(xm, 'precd',
+                            'Oudin', 'PPT-ETP',
+                            'ETR', 'RU', 'DE',
+                            1
+                            )
+
+# fig, ax = plt.subplots(1,1, figsize=(15,5))
+# ax.plot(xm['precd'], 'blue')
+# ax.plot(xm['RU'], 'k')
+# ax.plot(xm['ETR'], 'green')
+# ax.plot(xm['precd']-xm['Oudin'], 'orange')
+# ax.plot(xm['precd']-xm['ETR'], 'red')
+
+xm['recharge'] = xm['precd']-xm['ETR']
+
+fig, ax = plt.subplots(1,1, figsize=(15,5))
+# ax.plot(xm['precd'], 'blue')
+ax.plot(xm['recharge'], 'red')
+# ax.set_yscale('log')
+
+recharge = xm['recharge']
+
+print(xm['precd'].resample('Y').sum())
+print(recharge.resample('Y').sum())
 
 #%% ---- CALIB
 
@@ -653,13 +750,20 @@ class MatchingStreams:
 
 wbt.verbose = False
 
-vers = 'v1'
+vers = 'v2'
 
-types_obs = ['Stream_network_topo_large_catchment']
+# types_obs = ['Stream_network_topo_large_catchment']
+# fields_obs = ['fid']
+# hydro_path = data_path + 'Stream network/'
+
+# types_obs = ['rivers_wetlands_l_topografia']
+# fields_obs = ['fid']
+# hydro_path = data_path + 'Contraix/Hidrologia_contriax/'
+
+types_obs = ['rivers_wetlands_topografia_pt']
 fields_obs = ['fid']
+hydro_path = data_path + 'Contraix/Hidrologia_contriax/'
        
-hydro_path = data_path + 'Stream network/'
-
 df = pd.DataFrame()
 
 for watershed_name in watershed_names[:]:
@@ -698,7 +802,7 @@ for watershed_name in watershed_names[:]:
         # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
         # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
-        recharge = 1100 / 1000 / 365 # mm/d to m/d
+        recharge = 1200 / 1000 / 365 # mm/d to m/d
         
         verti_cond = None # or [ [1e-5, [0, 20]],
         verti_poro = None
@@ -710,6 +814,8 @@ for watershed_name in watershed_names[:]:
         bc_right = None # or value
         sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
         zone_partic = 'domain' # or watershed
+        
+        split_temp = False
         
         BV.add_settings()
         BV.add_climatic()
@@ -734,6 +840,7 @@ for watershed_name in watershed_names[:]:
         BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
         BV.hydraulic.update_cond_decay(cond_decay) # 0
         BV.hydraulic.update_bottom(bottom) # 0
+        BV.settings.update_split_temporal(split_temp)
         
         params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
         params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
@@ -811,37 +918,16 @@ for watershed_name in watershed_names[:]:
             mean_simf_to_obs = np.nanmean(simf_to_obs[simf_to_obs['VALUE1']>=0]['VALUE1'])
             mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
             
-            ### v1 simf/obsf - with : gap=1, streams : RNF, rec : 1000 (year)
-            # obs = mean_obsf_to_simf
-            # sim = mean_simf_to_obsf
+            # v1
+            # obs = mean_obs_to_sim
+            # sim = mean_sim_to_obs
             # indicator = sim/obs
             
-            ### v2 simf/obs - with : gap=1, streams : RNF, rec : 1000 (year)
-            # obs = mean_obs_to_simf
-            # sim = mean_simf_to_obs
-            # indicator = sim/obs
-            # indicator = (np.log(self.mean_sim_to_obs/self.mean_obs_to_sim))**2
-            
-            ### v3 simf/obsf - with : gap=0.5, streams : RNF, rec : 600 (summer)
-            # obs = mean_obsf_to_simf
-            # sim = mean_simf_to_obsf
-            # indicator = sim/obs
-            
-            ### v4 simf/obsf - with : gap=0.5, streams : RNF+OSM, rec : 600 (summer)
-            # obs = mean_obsf_to_simf
-            # sim = mean_simf_to_obsf
-            # indicator = sim/obs
-            
-            ### v6 simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year)
-            # obs = mean_obsf_to_simf
-            # sim = mean_simf_to_obsf
-            # indicator = sim/obs
-            
-            ### v7 simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year) ==> isba
+            # v2
             obs = mean_obsf_to_simf
             sim = mean_simf_to_obsf
             indicator = sim/obs
-        
+                
             if sim > obs:
                 p_min = half
             if sim < obs:
@@ -894,13 +980,14 @@ df.to_csv(BV.calibration_folder+'/'+vers+'_'+str('models')+'_dichotomy.csv', sep
                
 #%% DICHOTOMY - GRAPH K
 
+from matplotlib.ticker import FormatStrFormatter
+
 vers = 'v1'
 
-types_obs = ['Stream_network_topo_large_catchment']
+types_obs = ['rivers_wetlands_topografia_pt']
 fields_obs = ['fid']
+hydro_path = data_path + 'Contraix/Hidrologia_contriax/'
        
-hydro_path = data_path + 'Stream network/'
-
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 df = pd.read_csv(BV.calibration_folder+'/'+vers+'_'+str('models')+'_dichotomy.csv', sep=';')
 
@@ -917,27 +1004,27 @@ for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
 
     dfp = df[df['type_obs']==type_obs]
     
-    # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
-    ax.plot(dfp['K']/24/3600, dfp['Doptim'], c='k', marker='o', ms=5, lw=0)
-    ax.scatter(dfp.iloc[-1]['K']/24/3600, dfp.iloc[-1]['Doptim'], s=50, 
-                marker='s', lw=2, color='dodgerblue', ec='k', zorder=10
-                # cmap=mpl.colors.ListedColormap('k'),
-                # label=dfz['1/K_decay'].values[0]
-                )
-    # K_wil = 7.2e-6*3600*24 # from transmissivity map
+    df_p = dfp.sort_values('Obs')
+    ax.plot(df_p['K']/24/3600, df_p['Obs'], c='grey', marker='o', ms=5, lw=1, label='Dos')
+    df_p = dfp.sort_values('Sim')
+    ax.plot(df_p['K']/24/3600, df_p['Sim'], c='k', marker='o', ms=5, lw=1, label='Dso')
+
     print(dfp.iloc[-1]['KR'], dfp.iloc[-1]['K']/24/3600)
+    
     ax.set_xscale('log')
     # ax.set_yscale('log')
-    ax.set_xlabel('Koptim [m/s]')
-    ax.set_ylabel('Doptim [m]')
-    ax.set_xlim(1e-6, 1e-4)
-    ax.set_ylim(0, 200)
+    ax.set_xlabel('K [m/s]')
+    ax.set_ylabel('Distances [-]')
+    # ax.set_xlim(1e-6, 1e-4)
+    # ax.set_ylim(0, 200)
+    ax.xaxis.set_minor_formatter(FormatStrFormatter("%.2e"))
+    ax.legend()
 
 #%% ---- EXPLORATION
 
 #%% UPDATE
 
-iD_explo = 'e1' # with isba recharge ==> change ss with decay factor (details for bad models)
+iD_explo = 'e2' # with isba recharge ==> change ss with decay factor (details for bad models)
 # iD_explo = 'o1'
 
 box = False # or False
@@ -956,11 +1043,12 @@ bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 # zone_partic = 'domain' # or watershed
-zone_partic = 'watershed'
+# zone_partic = 'watershed'
 cond_decay_val = 0
 bottom_val = None
-thick = 50 # if bottom is None, aquifer thickness
+thick = 20 # if bottom is None, aquifer thickness
 first_clim = 'mean'
+split_temp = False
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 area = BV.geographic.area
@@ -984,7 +1072,6 @@ BV.hydraulic.update_poro_vertical(verti_poro)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_input_particules(zone_partic=zone_partic)
 BV.settings.update_simulation_state(sim_state)
 BV.hydraulic.update_cond_decay(cond_decay_val) # 0
 BV.hydraulic.update_bottom(bottom_val) # None
@@ -995,13 +1082,16 @@ Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
 BV.hydraulic.update_ss(Ss_formula)
 BV.climatic.update_first_clim(first_clim)
 
-recharge = 1 / 365
+BV.settings.update_split_temporal(split_temp)
+
+recharge = 1200 / 1000 / 365
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_runoff(recharge*0.1, sim_state=sim_state)
 
 # KR = np.array([10,100,1000,10000])
-KR = np.array([1000])
-Ks = KR*recharge
+# KR = np.array([1000])
+# Ks = KR*recharge
+Ks = [4.1e-06 * 24 * 3600]
 
 #%% MODFLOW
 
@@ -1072,6 +1162,28 @@ for id_mod_val in range(len(Ks[:])):
 
 #%% MODPATH
 
+from src.modeling import downslope, modflow, modpath, timeseries
+
+tif_file = 'C:/Users/ronan/Simulations/Contraix_large_10m/results_simulations/e2_model_0_0.3542_107.748/_postprocess/_rasters/seepage_areas_t(0).tif'
+tif_file_clip = 'C:/Users/ronan/Simulations/Contraix_large_10m/results_simulations/e2_model_0_0.3542_107.748/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+
+wbt.verbose = True
+wbt.clip_raster_to_polygon(
+    tif_file, 
+    'C:/Users/ronan/Simulations/Contraix_large_10m/results_stable/geographic/watershed.shp', 
+    tif_file_clip, 
+    maintain_dimensions=True)
+
+x = imageio.imread(tif_file_clip)
+
+zone_partic = 'custom' # domain or watershed or path
+tracking_dir = 'backward' # backward or forward
+BV.settings.update_input_particules(zone_partic=zone_partic, path=tif_file, tracking_direction=tracking_dir)
+
+# zone_partic = 'path_2' # domain or watershed or path
+# tracking_dir = 'backward' # backward or forward
+# BV.settings.update_input_particules(zone_partic=zone_partic, path=tif_file_clip, tracking_direction=tracking_dir)
+
 for id_mod_val in range(len(Ks[:])):
 
     h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
@@ -1098,6 +1210,9 @@ for id_mod_val in range(len(Ks[:])):
                                   pathlines_shp=True,
                                   particules_shp=False,
                                   random_id=None) # None
+
+x = gpd.read_file('C:/Users/ronan/Simulations/Contraix_large_10m/results_simulations/e2_model_0_0.3542_107.748/_postprocess/_particules/pathlines.shp')
+x.plot()
 
 #%% MODPATH PATHLINES
 
@@ -1960,3 +2075,15 @@ wbt.raster_to_vector_points('C:/Users/ronan/Simulations/Poschiavino/results_simu
 
 wbt.raster_to_vector_points('C:/Users/ronan/Simulations/Poschiavino/results_simulations/e1_model_2_2.7397_1000.0/_postprocess/_rasters/outflow_drain_t(0).tif',
                             'C:/Users/ronan/Simulations/Poschiavino/results_simulations/e1_model_2_2.7397_1000.0/_postprocess/_rasters/outflow_drain_t(0).shp')
+
+#%% NOTES 2
+
+import flopy.utils.binaryfile as fpu
+import flopy.utils.postprocessing as pp
+
+head_file = 'C:/Users/ronan/Simulations/Contraix_large_10m/results_simulations/e2_model_0_0.3542_107.748/e2_model_0_0.3542_107.748.hds'
+hds_1c = fpu.HeadFile(head_file)
+head_1c = hds_1c.get_alldata(mflay=None)
+wt = pp.get_water_table(head_1c, -9999.0)
+
+
