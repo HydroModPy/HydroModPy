@@ -363,7 +363,7 @@ class Lakeres:
                 dem = np.where(bathymetry == nodata, dem, bathymetry)
                 
                 # Update dem files:
-                self.update_dem(geographic, dem)
+                self.update_dem(geographic, dem, dem_path)
                 
                 # Mask dem with maskmx:
                 masked_dem = np.ma.array(dem, 
@@ -461,7 +461,7 @@ class Lakeres:
                 else:
                     print(" Err: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
             
-                self.update_dem(geographic, dem)
+                self.update_dem(geographic, dem, dem_path)
         
 # =============================================================================
 #             lakarr = lakarr + np.ma.array(maskmx,
@@ -686,23 +686,23 @@ class Lakeres:
        
    
     #%% UPDATE DEM FILES        
-    def update_dem(self, geographic, dem):
+    def update_dem(self, geographic, dem, dem_path):
         # dem has been modified, and its modifications should also be applied
         # on all dem files.
         print("Updating DEM files...")
         # Update DEM initial file
         # bathy_dem = os.path.join(geographic.reg_path, 'temp_DEM_with_bathymetry.tif')
-        filepath, ext = os.path.splitext(geographic.dem_path)
-        shutil.copy2(geographic.dem_path, filepath + '_temp' + ext)
-        with rio.open(geographic.dem_path, 'r+') as bathy_dem:
+        filepath, ext = os.path.splitext(dem_path)
+        shutil.copy2(dem_path, filepath + '_temp' + ext)
+        with rio.open(dem_path, 'r+') as bathy_dem:
             with rio.open(geographic.watershed_box_buff_dem, 'r') as box:
                 window = rio.windows.from_bounds(*box.bounds, transform=bathy_dem.transform)
                 bathy_dem.write_band(1, dem, window=window)
             
         geographic.processing()
         
-        os.remove(geographic.dem_path)
-        os.rename(filepath + '_temp' + ext, geographic.dem_path)
+        os.remove(dem_path)
+        os.rename(filepath + '_temp' + ext, dem_path)
         
 
     #%% FORMAT OUTLETS
