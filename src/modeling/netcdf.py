@@ -201,7 +201,7 @@ class Netcdf:
     
     def export_netcdf(self, data, *, base_path:str, out_path:str, base_crs=None,
                       times=None, y=None, x=None, append:bool=False):
-        """
+        r"""
         Export raw results from HydroModPy (aggregated results over times stored
         in dict, obtained with the postprocessing_modflow method of the Watershed 
         objects) to a netcdf file formated with the same spatial attributes 
