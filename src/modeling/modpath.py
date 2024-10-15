@@ -23,6 +23,7 @@ import random
 import pickle
 import geopandas as gpd
 import imageio
+import flopy.utils.postprocessing as pp
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -207,8 +208,7 @@ class Modpath:
                         head[i, j] = head_1c[0][k][i, j]
                         break
 
-        compt = 0
-        
+        compt = 0 
         for i in range(0, nrow):
             for j in range(0, ncol):
                 if self.zone_partic == 'watershed':
@@ -226,7 +226,7 @@ class Modpath:
                                     stldata[compt]['zloc0'] = 1
                                     stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
                                     stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
-                                    compt = compt + 1
+                                    compt = compt + 1                                    
                 if self.zone_partic == 'domain':
                     if self.geographic.dem_clip[i,j] >= self.geographic.nodata: # active or note
                         if head_1c[0][0][i][j] != 0.48:
@@ -243,24 +243,62 @@ class Modpath:
                                     stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
                                     stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
                                     # print(compt)
-                                    compt = compt + 1
+                                    compt = compt + 1                               
                 if self.zone_partic == 'path':
                     if mask_dem[i,j] > 0: # active or note
-                        if head_1c[0][0][i][j] != 0.48:
+                        if head_1c[0][0][i][j] != 0.48: # TO CHANGE
                             for ii in range (0, prow):
                                 for jj in range (0, pcol):
                                     stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
                                     for k in range(0, nlay):
                                         if head_1c[0][k, i, j] > 0:
-                                            stldata[compt]['k0'] = k+1 # AG : Paticules injected 
+                                            stldata[compt]['k0'] = k # AG : Paticules injected 
                                             break
                                     stldata[compt]['j0'] = j
                                     stldata[compt]['i0'] = i
-                                    stldata[compt]['zloc0'] = 1
+                                    stldata[compt]['zloc0'] = 1 
                                     stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
                                     stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
                                     # print(compt)
                                     compt = compt + 1
+                   
+        if self.zone_partic == 'custom':                
+            # Calculate the number of sub-cells per row and column
+            n_sub_cells_col = 3
+            # n_sub_cells_col = int(np.sqrt(n_particles_per_cell))
+            n_sub_cells_row = 3
+            mask_dem = imageio.imread(self.path)
+            stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem > 0)*n_sub_cells_col*n_sub_cells_row)
+            # stldata = stl.get_empty_starting_locations_data(npt=ncol * nrow * n_sub_cells_col*n_sub_cells_row)
+            # stldata = flopy.modpath.mp6sim.StartingLocationsFile.get_empty_starting_locations_data(npt=ncol*nrow*n_sub_cells_col*n_sub_cells_row)                       
+            wt = pp.get_water_table(head_1c, -9999.0)
+            wt = np.ones((prow, pcol)) * wt
+            compt = 0
+            for i in range(0, nrow):
+                for j in range(0, ncol):
+                    if mask_dem[i,j] > 0: # active or note
+                        for m in range(n_sub_cells_row):
+                            for n in range(n_sub_cells_col):
+                                stldata[compt]['label'] = 'p' + str(compt + 1)
+                                for k in range(0, nlay):
+                                    if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
+                                        stldata[compt]['k0'] = k
+                                        print(i, j)
+                                        break
+                                # Calculate the starting location for each sub-cell
+                                stldata[compt]['j0'] = j
+                                stldata[compt]['i0'] = i
+                                stldata[compt]['yloc0'] = (n +1) * 1/(n_sub_cells_col +1)
+                                stldata[compt]['xloc0'] = (m +1) * 1/(n_sub_cells_row +1)
+                                if k == 0:
+                                    ztop = self.mf.dis.top.array[i,j]
+                                else:
+                                    ztop = self.mf.dis.botm.array[k-1, i, j]
+                                zbot = self.mf.dis.botm.array[k, i, j]
+                                aux_stl = min((wt[i, j] - zbot)/(ztop - zbot), 1.)
+                                stldata[compt]['zloc0'] = np.abs(aux_stl)                                   
+                                compt = compt + 1
+                
         self.point_data = stldata
         stl.data = stldata
         
@@ -272,7 +310,7 @@ class Modpath:
         										prsity=self.poro_modpath, prsityCB=self.ss_modpath,
                                   extension='mpbas', unitnumber=86)
         
-        self.mp.write_input()    
+        self.mp.write_input()
         
     #%% PROCESSING
     
@@ -445,3 +483,6 @@ try:
 except:
     pass
 """
+
+#%% RONNY
+
