@@ -627,7 +627,7 @@ class Modpath:
                 ax = fig.add_subplot(111)
                 ax.plot(xh, yh, '.', c='r')
                 ax.plot(xfil, yfil, '-',c = 'r')
-                ax.plot(x_fit, y_fit, '-',c = 'b')
+                ax.plot(10**x_fit, 10**y_fit, '-',c = 'b')
                 ax.set_ylabel("PDF")
                 ax.set_xlabel("t / "+r'$\tau$')
                 ax.set_xscale('log')
