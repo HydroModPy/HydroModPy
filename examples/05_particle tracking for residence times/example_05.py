@@ -272,7 +272,7 @@ wbt.clip_raster_to_polygon(
 BV.settings.update_input_particles(
                                     # zone_partic = BV.geographic.watershed_box_buff_dem,
                                     zone_partic = tif_file,
-                                    cell_div = 3, # 1
+                                    cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
                                     bore_depth = None, # '[0,5,10] for 3 particles
                                     track_dir = 'backward',
@@ -382,12 +382,12 @@ rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
                     cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
 
 shp_pathlines['time'] = shp_pathlines['time'] / 365
-shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.5,
+shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.1,
                   norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
                   zorder=1)
 
 shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=3,
                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
                  zorder=2)
 

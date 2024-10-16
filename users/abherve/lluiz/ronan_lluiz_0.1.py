@@ -1097,7 +1097,7 @@ BV.climatic.update_runoff(recharge*0.1, sim_state=sim_state)
 # KR = np.array([1000])
 # Ks = KR*recharge
 # Ks = [4.1e-06 * 24 * 3600]
-Ks = [4e-07 * 24 * 3600]
+Ks = [1e-07 * 24 * 3600]
 
 #%% MODFLOW
 
@@ -1197,7 +1197,7 @@ for id_mod_val in range(len(Ks[:])):
         BV.settings.update_input_particles(
                                             # zone_partic = BV.geographic.watershed_box_buff_dem,
                                             zone_partic = tif_file_clip,
-                                            cell_div = 3, # 1
+                                            cell_div = 1, # 1
                                             zloc_div = False,  # or False, add cells at cell bottom
                                             bore_depth = None, # '[0,5,10] for 3 particles
                                             track_dir = 'backward',
@@ -1254,6 +1254,51 @@ for id_mod_val in range(len(Ks[:])):
         # x.plot()
         # y.plot()
         # z = model_modpath.point_data
+
+#%% RTD
+
+from scipy.optimize import curve_fit
+end = gpd.read_file(BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+shp = gpd.read_file(BV.geographic.watershed_shp)
+# end = end.clip(shp)
+end[end['time_win_y']==0] = np.nan
+end = end.dropna()                
+tau = np.average(end['time_win_y'], weights=end['rchPerc'])
+def pdf_function(M, nbin, Weight):    
+    bin_min = np.quantile(M, 0.01)
+    bin_max = np.quantile(M, 0.99)
+    bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
+    pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
+    dx = np.diff(binEdges)  
+    xh =  (binEdges[1:] + binEdges[:-1])/2
+    xh = np.array(xh)
+    return (xh, pdf)
+nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
+[xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
+idzeros = np.where(yh != 0)
+xfil = xh[idzeros]
+yfil = yh[idzeros]
+x_log = np.log10(xfil)
+y_log = np.log10(yfil)
+# x_log = (xfil)
+# y_log = (yfil)
+def func(x, a, b, c, d, e):
+    return a * x**4 + b * x**3 + c * x**2 + d * x + e
+params, covariance = curve_fit(func, x_log, y_log)
+a, b, c, d, e = params
+x_fit = np.linspace(min(x_log), max(x_log), 100)
+y_fit = func(x_fit, a, b, c, d, e)
+
+fig = plt.figure(figsize=(5,3))
+ax = fig.add_subplot(111)
+ax.plot(xh, yh, '.', c='r')
+ax.plot(xfil, yfil, '-',c = 'r')
+ax.plot(10**x_fit, 10**y_fit, '-',c = 'b')
+ax.set_ylabel("PDF")
+ax.set_xlabel("t / "+r'$\tau$')
+ax.set_xscale('log')
+# ax.set_xlim(tmin, tmax)
+# ax.set_ylim(-0.1, 13)
 
 #%% ---- NOTES
 
