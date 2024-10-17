@@ -108,7 +108,7 @@ if case == 'Example_05_Hillslope_2D':
 
 if case == 'Example_05_Lasset':
     dem_path = data_path + 'regional dem.tif'
-    load = False
+    load = True
     watershed_name = case
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
@@ -174,10 +174,10 @@ first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
-nlay = 20
+nlay = 50
 lay_decay = 1.25 # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 50 # if bottom is None, aquifer thickness
+thick = 100 # if bottom is None, aquifer thickness
 if watershed_name == 'Example_05_Lasset':
     hyd_cond = 1e-8 * 24 * 3600 # m/day
 else:
@@ -185,7 +185,7 @@ else:
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
+porosity = 1 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
@@ -269,12 +269,26 @@ wbt.clip_raster_to_polygon(
     tif_file_clip, 
     maintain_dimensions=True)
         
+seep = imageio.imread(BV.geographic.watershed_box_buff_dem)
+seep = seep*0
+# seep[30,25] = 1
+# seep[25,30] = 1
+seep[40,48] = 1
+# seep[60,20] = 1
+# seep[50,25] = 1
+plt.imshow(seep)
+toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
+                   seep,
+                   0,
+                   BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif')
+tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
+
 BV.settings.update_input_particles(
                                     # zone_partic = BV.geographic.watershed_box_buff_dem,
-                                    zone_partic = tif_file,
+                                    zone_partic = tif_bore,
                                     cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
-                                    bore_depth = None, # '[0,5,10] for 3 particles
+                                    bore_depth = True, # '[0,5,10] for 3 particles
                                     track_dir = 'backward',
                                     # track_dir = 'forward', # backward
                                     sel_random = None, # or int
@@ -290,7 +304,7 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particles_shp=False,
+                                  particles_shp=True,
                                   random_id=None, # select randomly to save (for pathlines and particles)
                                   ) # None
         
@@ -478,3 +492,5 @@ os.chdir(root_dir)
 #     forms=True, 
 #     residuals=False, 
 # )
+
+
