@@ -104,7 +104,13 @@ class Settings:
         """
         self.plot_cross = plot_cross
     
-    def update_input_particules(self, zone_partic='domain', path='', tracking_direction='forward'):
+    def update_input_particles(self, zone_partic, # path of a raster (injecting where pixels > 0)
+                                      cell_div = 1, # 1
+                                      zloc_div = False,
+                                      bore_depth = None, # '[0,5,10] for 3 particles
+                                      track_dir = 'forward', # backward
+                                      sel_random = None,
+                                      sel_slice = None):
         """
         Select the limited area to inject particles onto the surface..
 
@@ -120,8 +126,12 @@ class Settings:
             'forward' or 'backward'
         """
         self.zone_partic = zone_partic
-        self.path = path
-        self.tracking_direction = tracking_direction
+        self.cell_div = cell_div
+        self.zloc_div = zloc_div
+        self.bore_depth = bore_depth
+        self.track_dir = track_dir
+        self.sel_random = sel_random
+        self.sel_slice = sel_slice
     
     def update_split_temporal(self, split_temp=False):
         """

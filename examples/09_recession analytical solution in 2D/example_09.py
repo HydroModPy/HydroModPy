@@ -262,7 +262,7 @@ BV.add_oceanic(sea_level)
 BV.settings.update_split_temporal(split_temp)
 
 # Particle tracking settings
-BV.settings.update_input_particules(zone_partic=zone_partic, path=tif_file, tracking_direction=tracking_dir)
+BV.settings.update_input_particles(zone_partic=zone_partic, track_dir=tracking_dir)
 
 #%% ---- MODELING
 
@@ -296,7 +296,7 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particules_shp=True,
+                                  particles_shp=True,
                                   random_id=None) # None
 """
 #%% TIMESERIES
@@ -366,8 +366,8 @@ fig.savefig(os.path.join(simulations_folder, model_name,
 
 #%% RAW MAP 2
 
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
 
 try:
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
@@ -464,15 +464,15 @@ if plot == True:
         
         if sim_state == 'steady':
     
-            # Particules plot
-            end = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
+            # Particles plot
+            end = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
             end_fil = end[end['zone']==1]
-            list_particules = end_fil['particleid'].unique()
-            shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/particules.shp')
+            list_particles = end_fil['particleid'].unique()
+            shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
             shp['time'] = shp['time'] / 365
             # shp_fil = shp[shp['time']>1]
             shp_fil = shp.copy()
-            shp_fil = shp_fil[shp_fil['particleid'].isin(list_particules)]
+            shp_fil = shp_fil[shp_fil['particleid'].isin(list_particles)]
             shp_fil = shp_fil[shp_fil['particleid']==80]
             sc = ax.scatter(shp_fil['x'], shp_fil['z'], c=shp_fil['time'],
                        s=20, cmap='plasma_r', linewidths=0)

@@ -259,7 +259,7 @@ if success_modpath == True:
                               ending_point=True,
                               starting_point=True,
                               pathlines_shp=True,
-                              particules_shp=False,
+                              particles_shp=False,
                               random_id=None) # None
 
 #%% ---- GENERATE TIMESERIES
