@@ -692,17 +692,24 @@ class Lakeres:
         print("Updating DEM files...")
         # Update DEM initial file
         # bathy_dem = os.path.join(geographic.reg_path, 'temp_DEM_with_bathymetry.tif')
+        
+        # Make a backup of the initial DEM input:
         filepath, ext = os.path.splitext(geographic.dem_path)
-        shutil.copy2(geographic.dem_path, filepath + '_temp' + ext)
+        backup_path = filepath + '_backup' + ext
+        shutil.copy2(geographic.dem_path, backup_path)
+        
+        # Modify the original DEM input with the dem data (= original dem corrected with bathymetry)
         with rio.open(geographic.dem_path, 'r+') as bathy_dem:
             with rio.open(geographic.watershed_box_buff_dem, 'r') as box:
                 window = rio.windows.from_bounds(*box.bounds, transform=bathy_dem.transform)
                 bathy_dem.write_band(1, dem, window=window)
-            
+        
+        # Repeat the generation of geographic maps
         geographic.processing()
         
+        # Remove the corrected original DEM and replace it with the previous backup
         os.remove(geographic.dem_path)
-        os.rename(filepath + '_temp' + ext, geographic.dem_path)
+        os.rename(backup_path, geographic.dem_path)
         
 
     #%% FORMAT OUTLETS
