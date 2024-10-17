@@ -707,7 +707,7 @@ class Lakeres:
                 # Update original DEM data
                 val = bathy_dem.read(1, window=window)
                 val = np.where(dem != geographic.nodata, dem, val) 
-                bathy_dem.write_band(1, dem, window=window)
+                bathy_dem.write_band(1, val, window=window)
         
         # Repeat the generation of geographic maps
         geographic.processing()
