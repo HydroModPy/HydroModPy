@@ -382,6 +382,8 @@ BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
 # BV.add_geology(data_path+'_mix/', types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 # visualization_watershed.watershed_geology(BV)
 
+BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
+
 #%% HYDRO 1
 
 wbt.verbose = True
@@ -1217,6 +1219,8 @@ ax.set_ylim(1e-4,1)
 rea_facnorm_sim2 = norm_factor
 rea_recharge_sim2 = (sim2['DRAINC_Q']/1000)*norm_factor
 rea_runoff_sim2 = (sim2['RUNC_Q']/1000)*norm_factor
+
+#%% FUTURE CLIMATE
 
 #%% DRIAS EAU - NETCDF
 """
@@ -6545,8 +6549,8 @@ for id_mod_val in [6]:
     # h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     # h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)+'_ALL_'+sce
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-    if 'd' not in globals():
-        d = dd.io.load(h5file)
+    # if 'd' not in globals():
+    d = dd.io.load(h5file)
     list_model_name = d['list_model_name'][:]
     list_model_success = d['list_model_success'][:]
     list_model_modflow = d['list_model_modflow'][:]
@@ -6649,9 +6653,9 @@ for id_mod_val in [6]:
         # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'CS_'+model_name+'.png',
         #             bbox_inches='tight')
         
-        fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
-                    'Cross_section_2'+'.png',
-                                bbox_inches='tight', dpi=600)
+        # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
+        #             'Cross_section_2'+'.png',
+        #                         bbox_inches='tight', dpi=600)
         
 #%% GRAPH DECAY COND
 
@@ -6665,11 +6669,11 @@ figk, axk = plt.subplots(1, 1, figsize=(4, 4))
 
 iD_explo = 'e_isba2'
 
-n = 15
+n = 16
 # colors = pl.cm.jet(np.linspace(0,1,n))
 colors = pl.cm.plasma_r(np.linspace(0,1,n))
     
-for id_mod_val in list_id_mod[:]:
+for id_mod_val in list_id_mod[6:7]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -6741,9 +6745,9 @@ axk.tick_params(right=False)
 # figk.tight_layout()
 
 
-figk.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
-            'K_'+'.png',
-                        bbox_inches='tight')
+# figk.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
+#             'K_'+'.png',
+#                         bbox_inches='tight')
 
 #%% GRAPH DECAY K 2
 
@@ -6855,9 +6859,9 @@ axk.tick_params(right=False)
 # axk.legend(loc='lower right', frameon=False)
 # figk.tight_layout()
 
-figk.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
-            'K_2'+'.png',
-                        bbox_inches='tight')
+# figk.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
+#             'K_2'+'.png',
+#                         bbox_inches='tight')
             
 #%% GRAPH DECAY PORO
 
@@ -6869,9 +6873,9 @@ figk.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lass
 
 figp, axp = plt.subplots(1, 1, figsize=(4, 4))
 
-iD_explo = 'e_isba1'
+iD_explo = 'e_isba2'
 
-n = 12
+n = 16
 colors = pl.cm.jet(np.linspace(0,1,n))
 
 for id_mod_val in list_id_mod[:]:
@@ -6989,9 +6993,9 @@ df_recap = pd.DataFrame()
 
 u=0
 
-iD_explo = 'e14'
+iD_explo = 'e_isba2'
 
-for id_mod_val in list_id_mod[:]:
+for id_mod_val in list_id_mod[6:7]:
 
     h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
@@ -7012,7 +7016,7 @@ for id_mod_val in list_id_mod[:]:
     
     # figp, axp = plt.subplots(1, 1, figsize=(4, 4))
 
-    for model_name, flow_model in zip(list_selects[:], list_flowmodel[:]):
+    for model_name, flow_model in zip(list_selects[4:5], list_flowmodel[4:5]):
     
         print(model_name)
         # if model_name == 'egu1_0_500.0-0-0.0058-30.0':
@@ -7140,7 +7144,7 @@ for id_mod_val in list_id_mod[:]:
     # axp.set_xlim(0, 50)
     # axp.set_ylim(1000, 0)
 
-df_recap.to_csv(BV.calibration_folder+'dfrecap_cond_poro_'+iD_explo+'.csv', sep=';')    
+df_recap.to_csv(BV.calibration_folder+'dfrecap_cond_poro_'+iD_explo+'.csv', sep=';')
 
 #%% CHECK PLOT COND PORO
 
@@ -7159,7 +7163,7 @@ dkmean = dkw3_mean.T
 dpmax = dp_max.T
 dpmean = dpw3_mean.T
 
-n = 12
+n = 16
 
 fig, ax = plt.subplots(1, 1, figsize=(5, 3))
 colors = pl.cm.plasma(np.linspace(0,1,n))
@@ -7209,9 +7213,11 @@ ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(right=False)
 ax.legend(frameon=False, bbox_to_anchor=(1.2, 1.05))
 ax.set_ylim(0,50)
-fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
-            'Pmean_'+'.png',
-                        bbox_inches='tight')
+
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
+#             'Pmean_'+'.png',
+#                         bbox_inches='tight')
+
 fig, ax = plt.subplots(1, 1, figsize=(5, 3))
 colors = pl.cm.plasma(np.linspace(0,1,n))
 for i in range(n):
@@ -7226,15 +7232,16 @@ ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(right=False)
 ax.legend(frameon=False, bbox_to_anchor=(1.2, 1.05))
 ax.set_ylim(0,50)
-fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
-            'Pmax_'+'.png',
-                        bbox_inches='tight')
+
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
+#             'Pmax_'+'.png',
+#                         bbox_inches='tight')
+
 # dk_max.T.plot(lw=0, marker='o')
 # dk_mean.T.plot(lw=0, marker='o')
 
 # dp_max.T.plot(lw=0, marker='o')
 # dp_mean.T.plot(lw=0, marker='o')
-
 
 #%% ---- PROJECTION
 
@@ -8114,17 +8121,17 @@ for ic, sce in enumerate(sce_list):
             # acc_npy_3 = list(acc_npy_h)[2::12]
             # acc_npy_4 = list(acc_npy_h)[3::12]
             # acc_npy_5 = list(acc_npy_h)[4::12]
-            acc_npy_6 = list(acc_npy_h)[5::12]
-            acc_npy_7 = list(acc_npy_h)[6::12]
-            acc_npy_8 = list(acc_npy_h)[7::12]
+            # acc_npy_6 = list(acc_npy_h)[5::12]
+            # acc_npy_7 = list(acc_npy_h)[6::12]
+            # acc_npy_8 = list(acc_npy_h)[7::12]
             acc_npy_9 = list(acc_npy_h)[8::12]
-            acc_npy_10 = list(acc_npy_h)[9::12]
-            acc_npy_11 = list(acc_npy_h)[10::12]
-            acc_npy_12 = list(acc_npy_h)[11::12]
+            # acc_npy_10 = list(acc_npy_h)[9::12]
+            # acc_npy_11 = list(acc_npy_h)[10::12]
+            # acc_npy_12 = list(acc_npy_h)[11::12]
             # acc_npy_h = (acc_npy_6 + acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10) # to much water
-            # acc_npy_h = (acc_npy_9) # worst
-            acc_npy_h = (acc_npy_6 + acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10 + acc_npy_11 + acc_npy_12) # not bad : begin water above
-            # acc_npy_h = (acc_npy_7 + acc_npy_8 + acc_npy_9) # pas mal mais pas assez grave
+            acc_npy_h = (acc_npy_9) # worst
+            # acc_npy_h = (acc_npy_6 + acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10 + acc_npy_11 + acc_npy_12) # not bad : begin water above
+            # acc_npy_h = (acc_npy_10) # pas mal mais pas assez grave
             # acc_npy_h = list(acc_npy_h)[:]
             for key in range(len(acc_npy_h)):
                 acc_npy_h[key] = np.ma.masked_array(acc_npy_h[key][1], mask=(mask<-1e10))
@@ -8179,13 +8186,13 @@ for ic, sce in enumerate(sce_list):
                 # acc_npy_10 = list(acc_npy_f)[9::12]
                 # acc_npy_11 = list(acc_npy_f)[10::12]
                 # acc_npy_12 = list(acc_npy_f)[11::12]
-                acc_npy_f = (acc_npy_6 + acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10 + acc_npy_11 + acc_npy_12)
+                # acc_npy_f = (acc_npy_6 + acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10 + acc_npy_11 + acc_npy_12)
                 # acc_npy_f = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6 +
                 #              acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10 + acc_npy_11) # not bad : begin water above
                 # acc_npy_f = (acc_npy_7 + acc_npy_8 + acc_npy_9 + acc_npy_10 + acc_npy_11)
                 # acc_npy_f = (acc_npy_7 + acc_npy_8 + acc_npy_9)
                 acc_npy_f = (acc_npy_9)
-                acc_npy_f = (acc_npy_8 + acc_npy_9 + acc_npy_10)
+                # acc_npy_f = (acc_npy_10)
                 # acc_npy_f = (acc_npy_7 + acc_npy_8 + acc_npy_9)
                 # acc_npy_f = list(acc_npy_f)[:]
                 for key in range(len(acc_npy_f)):
@@ -8733,23 +8740,14 @@ for ic, sce in enumerate(sce_list):
                 sub_area = sub_shp.area
                     
                 begin_h = 5*12
-                end_h = 35*12
+                end_h = 30*12
                 # Historic
                 if begin_h == 0:
                     acc_npy_h = list(acc_npy_raw.items())[:end_h]
                 else:
                     acc_npy_h = list(acc_npy_raw.items())[begin_h:end_h]
-                # acc_npy_1 = list(acc_npy_h)[5::12]
-                # acc_npy_2 = list(acc_npy_h)[6::12]
-                # acc_npy_7 = list(acc_npy_h)[6::12] # with this one to much variability
-                # acc_npy_8 = list(acc_npy_h)[7::12]
                 acc_npy_9 = list(acc_npy_h)[8::12]
-                # acc_npy_10 = list(acc_npy_h)[9::12]
-                # acc_npy_11 = list(acc_npy_h)[10::12]
-                # acc_npy_6 = list(acc_npy_h)[10::12]           
-                # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
-                acc_npy_h = (acc_npy_9)
-                # acc_npy_h = list(acc_npy_h)[:]
+                acc_npy_h = acc_npy_9
                 sers = pd.DataFrame()
                 for key in range(len(acc_npy_h)):
                     # mask = imageio.imread(BV.geographic.watershed_dem)
@@ -8774,6 +8772,9 @@ for ic, sce in enumerate(sce_list):
                 
                 sers_h = (sers_h/(sub_area[0]/1e6)) * 30
                 
+                # ax.axhline(y=-sers_h.mean()[0], color='grey', ls='--', zorder=-1000)
+                print(-sers_h.mean()[0])
+
                 for interv_i, interv in enumerate([[-90,-60],[-60,-30],[-30,0]]):
                 # for interv_i, interv in enumerate([[-90,-60]]):
                     
@@ -8781,18 +8782,8 @@ for ic, sce in enumerate(sce_list):
                         acc_npy_f = list(acc_npy_raw.items())[interv[0]*12:]
                     else:
                         acc_npy_f = list(acc_npy_raw.items())[interv[0]*12:interv[1]*12]
-                    # acc_npy_1 = list(acc_npy_h)[5::12]
-                    # acc_npy_2 = list(acc_npy_h)[6::12]
-                    # acc_npy_7 = list(acc_npy_f)[6::12]
-                    # acc_npy_8 = list(acc_npy_f)[7::12]
                     acc_npy_9 = list(acc_npy_f)[8::12]
-                    # acc_npy_10 = list(acc_npy_f)[9::12]
-                    # acc_npy_11 = list(acc_npy_f)[10::12]
-                    # acc_npy_6 = list(acc_npy_h)[10::12]           
-                    # acc_npy_h = (acc_npy_1 + acc_npy_2 + acc_npy_3 + acc_npy_4 + acc_npy_5 + acc_npy_6)
-                    # acc_npy_f = (acc_npy_10)
-                    acc_npy_f = (acc_npy_9)
-                    # acc_npy_f = list(acc_npy_f)[:]
+                    acc_npy_f = acc_npy_9
                     sers = pd.DataFrame()
                     for key in range(len(acc_npy_f)):
                         mask = imageio.imread(BV.geographic.watershed_dem)
@@ -8806,18 +8797,20 @@ for ic, sce in enumerate(sce_list):
                     sers = sers.dropna(how='all', axis=0)
                     sers = sers[(sers.T != 0).any()]
                     # sers=sers.max(axis=0)
-                    sers=sers.sum(axis=0)
+                    sers = sers.sum(axis=0)
                     sers = (sers / (sub_area[0]/1e6)) * 30
                     
                     # sers = (sers.to_frame() - sers_h.mean()) / ((sers.to_frame() + sers_h.mean())/2)
                     # d = sers.copy() * 100
                     
-                    sers = 100* (sers.to_frame() - sers_h.mean()) / sers_h.mean()
+                    # sers = 100* (sers.to_frame() - sers_h.mean()) / sers_h.mean()
+                    # sers = (sers.to_frame() - sers_h.mean()) / ((sers.to_frame() + sers_h.mean())/2)
+                    # sers = (sers.to_frame() - sers_h.mean()) / sers_h.std()
+                    sers = (sers.to_frame() - sers_h.mean()) 
                     d = sers.copy() #* 100
                     
                     # d[d>100]
 
-                    
                     # sers.boxplot()
                     
                     # boxprops = dict(linestyle='-', linewidth=4, color=dict_scecol[sce])
@@ -8949,7 +8942,7 @@ for ic, sce in enumerate(sce_list):
                       
                     plt.plot(ad, d.mean(), marker='o', mec='k', ms=3, lw=0,
                             mfc=dict_scecol[sce], mew=1,
-                            color='k', zorder=1000)
+                            color='k', zorder=1000, clip_on=False)
                     
                     # ax.plot(i+1+ps, d.median(), marker='_', mec='k', ms=3, lw=0,
                     #         mfc='k', mew=1,
@@ -8971,10 +8964,11 @@ for ic, sce in enumerate(sce_list):
                     # ax.xaxis.grid(color='gray', alpha=0.2, zorder=-20)
                     ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20, which='both')
                     
-                    ax.set_ylim(-110,110)
+                    # ax.set_ylim(-100,70)
                     # ax.set_yticks([-100,-75,-50,-25,0,25,50])
             
                     ax.axes.xaxis.set_ticklabels([])
+                    
                     
                     # ax.axhline(y=1, c='k', lw=1, ls='--', zorder=-1000)
                     # ax.axhline(y=sers_h.mean(), c='k', lw=2, ls='--', zorder=-1000)
@@ -8985,9 +8979,14 @@ for ic, sce in enumerate(sce_list):
 #             'BOXPLOT_OUTFLOW_PEATLANDS'+'.png',
 #                         bbox_inches='tight')
 
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/05_fig_qproj/'+
+#             'BOXPLOT_OUTFLOW_PEATLANDS'+'_7-8-9'+'.png',
+#                         bbox_inches='tight')
+
 fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/05_fig_qproj/'+
-            'BOXPLOT_OUTFLOW_PEATLANDS'+'_7-8-9'+'.png',
+            'BOXPLOT_OUTFLOW_PEATLANDS'+'_7-8-9'+'_nonorm'+'.png',
                         bbox_inches='tight')
+
 
 #%% DAILY EVOLUTION DAYS INF Q10
 
@@ -14817,3 +14816,12 @@ print((test3).sum())
 
 plt.plot(select_period(rea_recharge_isba,2000,2002))
 
+#%% CLC
+
+x = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/clc.shp')
+
+x['area'] = x['geometry'].area
+
+x = x.groupby('CODE_12').sum()
+
+x['a'] = x['area']/(x['area'].sum())*100
