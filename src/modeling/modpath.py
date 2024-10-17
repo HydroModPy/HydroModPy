@@ -216,7 +216,8 @@ class Modpath:
         else:
             play = 1
         if self.bore_depth != None:
-            play = len(self.bore_depth)            
+            # play = len(self.bore_depth)
+            play = nlay
             
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem>0)*prow*pcol*play)
               
@@ -259,7 +260,8 @@ class Modpath:
                                     else:
                                         # z0 not exist at this step ==> need to find the good k (layer) to inject at different depth
                                         # stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
-                                        stldata[compt]['zloc0'] = 0
+                                        stldata[compt]['k0'] = l
+                                        stldata[compt]['zloc0'] = 0.5 # Find a way to associate altitude/depth of injection with k and zloc0
                                 compt = compt + 1
         
         if self.sel_random != None:
@@ -508,7 +510,10 @@ class Modpath:
             def update_time(df, filt_time):
                 if filt_time == True:
                     df['time_y'] = df['time'] / 365 # convert in years
-                    df['time_win_y'] = df['time_win'] / 365 # convert in years
+                    try:
+                        df['time_win_y'] = df['time_win'] / 365 # convert in years
+                    except:
+                        pass
                     df = df[df['time']>0]
                 return df
             
@@ -570,12 +575,12 @@ class Modpath:
             
             if self.particles_shp == True:
                 particles_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
-                if self.track_dir == 'forward':
-                    particles_process['time_win'] = (end_process['time'])*end_process['rchPerc']
-                if self.track_dir == 'backward':
-                    particles_process['time_win'] = (start_process['time'])*start_process['rchPerc']
+                # if self.track_dir == 'forward':
+                #     particles_process['time_win'] = (end_process['time'])*end_process['rchPerc']
+                # if self.track_dir == 'backward':
+                #     particles_process['time_win'] = (start_process['time'])*start_process['rchPerc']
                 particles_up = update_time(particles_process, filt_time)
-                particles_up = particles_up[particles_up['particleid'].isin(keep_particles)]
+                # particles_up = particles_up[particles_up['particleid'].isin(keep_particles)]
                 if random_id != None:
                     if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(particles_up[:-1], random_id)

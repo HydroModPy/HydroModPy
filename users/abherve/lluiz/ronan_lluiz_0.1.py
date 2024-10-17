@@ -50,6 +50,8 @@ import random
 from matplotlib.ticker import ScalarFormatter
 from matplotlib.ticker import MaxNLocator
 import shutil
+from scipy.optimize import curve_fit
+
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -421,7 +423,7 @@ watershed_names = [watershed_name]
 #%% LOAD
 
 load = True
-load = False
+# load = False
 
 print('##### '+watershed_name.upper()+' #####')
 BV = watershed_root.Watershed(watershed_name=watershed_name,
@@ -629,7 +631,7 @@ print(recharge.resample('Y').sum())
 #%% ---- CALIB
 
 #%% DICHOTOMY - FUNCTION
-"""
+
 import shutil
 
 class MatchingStreams:
@@ -755,7 +757,7 @@ class MatchingStreams:
 
 wbt.verbose = False
 
-vers = 'v2'
+vers = 'v1'
 
 # types_obs = ['Stream_network_topo_large_catchment']
 # fields_obs = ['fid']
@@ -793,15 +795,15 @@ for watershed_name in watershed_names[:]:
         
         BV.add_hydrography(hydro_path, types_obs=[type_obs], fields_obs=[field_obs])
         
-        box = True # or False
+        box = False # or False
         sink_fill = False # or True
         sim_state = 'steady' # 'steady' or 'transient'
         plot_cross = True
         first_clim = 'mean' # or 'first or value
-        nlay = 1
-        lay_decay = 1 # 1 for no decay
+        nlay = 25
+        lay_decay = 1.25 # 1 for no decay
         thick = 50 # if bottom is None, aquifer thickness
-        bottom = None
+        bottom = 0
         
         # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
         # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
@@ -814,7 +816,7 @@ for watershed_name in watershed_names[:]:
         cond_drain = None # or value of conductance
         porosity = 1 / 100 # -
         poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-        cond_decay = 0
+        cond_decay = 1/30
         bc_left = None # or value
         bc_right = None # or value
         sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
@@ -924,14 +926,14 @@ for watershed_name in watershed_names[:]:
             mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
             
             # v1
-            # obs = mean_obs_to_sim
-            # sim = mean_sim_to_obs
-            # indicator = sim/obs
+            obs = mean_obs_to_sim
+            sim = mean_sim_to_obs
+            indicator = sim/obs
             
             # v2
-            obs = mean_obsf_to_simf
-            sim = mean_simf_to_obsf
-            indicator = sim/obs
+            # obs = mean_obsf_to_simf
+            # sim = mean_simf_to_obsf
+            # indicator = sim/obs
                 
             if sim > obs:
                 p_min = half
@@ -987,7 +989,7 @@ df.to_csv(BV.calibration_folder+'/'+vers+'_'+str('models')+'_dichotomy.csv', sep
 
 from matplotlib.ticker import FormatStrFormatter
 
-vers = 'v2'
+vers = 'v1'
 
 types_obs = ['rivers_wetlands_topografia_pt']
 fields_obs = ['fid']
@@ -1002,7 +1004,7 @@ df['Doptim'] = ((df['Obs']+df['Sim'])/2)
 
 colors = {}
 
-fig, ax = plt.subplots(1,1, figsize=(5,4
+fig, ax = plt.subplots(1,1, figsize=(7,4
                                      ))
 
 for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
@@ -1022,9 +1024,11 @@ for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
     ax.set_ylabel('Distances [-]')
     # ax.set_xlim(1e-6, 1e-4)
     # ax.set_ylim(0, 200)
-    ax.xaxis.set_minor_formatter(FormatStrFormatter("%.2e"))
+    ax.xaxis.set_minor_formatter(FormatStrFormatter("%.0e"))
     ax.legend()
-"""
+    
+Koptim = dfp.iloc[-1]['K']
+
 #%% ---- EXPLORATION
 
 #%% UPDATE
@@ -1036,21 +1040,17 @@ box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
-# nlay = 5
-nlay = 5
-lay_decay = 1.2 # 1 for no decay
+nlay = 25
+lay_decay = 1.25 # 1 for no decay
 verti_cond = None # or [ [1e-5, [0, 20]],
 verti_poro = None # or [ [1e-5, [0, 20]],
 cond_drain = None # or value of conductance
 porosity = 1 / 100 # -
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-# zone_partic = 'domain' # or watershed
-# zone_partic = 'watershed'
-cond_decay_val = 0
-bottom_val = None
+cond_decay_val = 1/30
+bottom_val = 0
 thick = 50 # if bottom is None, aquifer thickness
 first_clim = 'mean'
 split_temp = False
@@ -1067,6 +1067,9 @@ BV.add_climatic()
 BV.add_geometric() # soon
 BV.add_hydraulic()
 
+recharge = 1200 / 1000 / 365
+BV.climatic.update_recharge(recharge, sim_state=sim_state)
+BV.climatic.update_runoff(recharge*0.1, sim_state=sim_state)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_active_plot(plot_cross=plot_cross)
@@ -1080,33 +1083,25 @@ BV.add_oceanic(sea_level)
 BV.settings.update_simulation_state(sim_state)
 BV.hydraulic.update_cond_decay(cond_decay_val) # 0
 BV.hydraulic.update_bottom(bottom_val) # None
-BV.hydraulic.update_poro_decay(poro_decay)
-BV.hydraulic.update_ss_decay(poro_decay) 
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10)) # rho*g*(alpha+nBeta)
 BV.hydraulic.update_ss(Ss_formula)
 BV.climatic.update_first_clim(first_clim)
-
+BV.hydraulic.update_poro_decay(cond_decay_val/2)
+BV.hydraulic.update_ss_decay(cond_decay_val/2)
 BV.settings.update_split_temporal(split_temp)
 
-recharge = 1200 / 1000 / 365
-BV.climatic.update_recharge(recharge, sim_state=sim_state)
-BV.climatic.update_runoff(recharge*0.1, sim_state=sim_state)
-
-# KR = np.array([10,100,1000,10000])
-# KR = np.array([1000])
-# Ks = KR*recharge
-# Ks = [4.1e-06 * 24 * 3600]
-Ks = [1e-07 * 24 * 3600]
+Ks = [Koptim]
 
 #%% MODFLOW
 
 run_model = True
-    
-for id_mod_val, K in enumerate(Ks[:]):  
-    
-    BV.hydraulic.update_hyd_cond(K)
 
+for id_mod_val in range(len(Ks[:])):
+
+    K = Ks[id_mod_val]
+    BV.hydraulic.update_hyd_cond(K)
+    
     dictio = {}
     
     list_model_name = []
@@ -1137,14 +1132,6 @@ for id_mod_val, K in enumerate(Ks[:]):
     h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     dd.io.save(h5file, dictio)
     
-for id_mod_val in range(len(Ks[:])):
-
-    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-    d = dd.io.load(h5file)
-    list_model_name = d['list_model_name'][:]
-    list_model_success = d['list_model_success'][:]
-    list_model_modflow = d['list_model_modflow'][:]
-    
     for model_name, model_success, model_modflow in zip(list_model_name[:],
                                                         list_model_success[:],
                                                         list_model_modflow[:]):
@@ -1169,7 +1156,7 @@ for id_mod_val in range(len(Ks[:])):
 from src.modeling import downslope, modflow, modpath, timeseries
 
 for id_mod_val in range(len(Ks[:])):
-
+    
     h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
     d = dd.io.load(h5file)
     list_model_name = d['list_model_name'][:]
@@ -1196,7 +1183,7 @@ for id_mod_val in range(len(Ks[:])):
         # tracking_dir = 'backward' # backward or forward
         BV.settings.update_input_particles(
                                             # zone_partic = BV.geographic.watershed_box_buff_dem,
-                                            zone_partic = tif_file_clip,
+                                            zone_partic = tif_file,
                                             cell_div = 1, # 1
                                             zloc_div = False,  # or False, add cells at cell bottom
                                             bore_depth = None, # '[0,5,10] for 3 particles
@@ -1206,48 +1193,33 @@ for id_mod_val in range(len(Ks[:])):
                                             sel_slice = None, # or int
                                             )
         
-        for id_mod_val in range(len(Ks[:])):
+        model_modpath = BV.preprocessing_modpath(model_modflow)
+        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+
+        # MODPATH Post-processing
+
+        BV.postprocessing_modpath(model_modpath,
+                                  ending_point=True,
+                                  starting_point=True,
+                                  pathlines_shp=True,
+                                  particles_shp=False,
+                                  random_id=None, # select randomly to save (for pathlines and particles)
+                                  ) # None
         
-            h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
-            d = dd.io.load(h5file)
-            list_model_name = d['list_model_name'][:]
-            list_model_success = d['list_model_success'][:]
-            list_model_modflow = d['list_model_modflow'][:]
-            
-            for model_name, model_success, model_modflow in zip(list_model_name[:],
-                                                                list_model_success[:],
-                                                                list_model_modflow[:]):
+        BV.filtprocessing_modpath(model_modpath,
+                                  norm_flux=True, # for forward only
+                                  filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                                  filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                                  filt_inout=True, # delete particles in and out in the same cell (first layer)
+                                  calc_rtd=True, # compute residence time distribution
+                                  random_id=None, # select randomly to keep
+                                  ) # None
         
-                print(model_modflow.mf.model_ws)
-                print(model_name)
-        
-                model_modpath = BV.preprocessing_modpath(model_modflow)
-                success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-        
-        # MODPATH PP
-        
-                BV.postprocessing_modpath(model_modpath,
-                                          ending_point=True,
-                                          starting_point=True,
-                                          pathlines_shp=True,
-                                          particles_shp=False,
-                                          random_id=None, # select randomly to save (for pathlines and particles)
-                                          ) # None
-                
-                BV.filtprocessing_modpath(model_modpath,
-                                          norm_flux=True, # for forward only
-                                          filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
-                                          filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
-                                          filt_inout=True, # delete particles in and out in the same cell (first layer)
-                                          calc_rtd=True, # compute residence time distribution
-                                          random_id=None, # select randomly to keep
-                                          ) # None
-                
-                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                                  model_modpath=model_modpath,
-                                                                  actual_date=True, 
-                                                                  subbasin_results=True,
-                                                                  freq_time='D') # or None
+        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                          model_modpath=model_modpath,
+                                                          actual_date=True, 
+                                                          subbasin_results=True,
+                                                          freq_time='D') # or None
 
         # x = gpd.read_file(BV.simulations_folder + '/' + model_name + '/_postprocess/_particles/pathlines.shp')
         # y = gpd.read_file(BV.simulations_folder + '/' + model_name + '/_postprocess/_particles/ending.shp')
@@ -1257,49 +1229,59 @@ for id_mod_val in range(len(Ks[:])):
 
 #%% RTD
 
-from scipy.optimize import curve_fit
-end = gpd.read_file(BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-shp = gpd.read_file(BV.geographic.watershed_shp)
-# end = end.clip(shp)
-end[end['time_win_y']==0] = np.nan
-end = end.dropna()                
-tau = np.average(end['time_win_y'], weights=end['rchPerc'])
-def pdf_function(M, nbin, Weight):    
-    bin_min = np.quantile(M, 0.01)
-    bin_max = np.quantile(M, 0.99)
-    bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
-    pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
-    dx = np.diff(binEdges)  
-    xh =  (binEdges[1:] + binEdges[:-1])/2
-    xh = np.array(xh)
-    return (xh, pdf)
-nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
-[xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
-idzeros = np.where(yh != 0)
-xfil = xh[idzeros]
-yfil = yh[idzeros]
-x_log = np.log10(xfil)
-y_log = np.log10(yfil)
-# x_log = (xfil)
-# y_log = (yfil)
-def func(x, a, b, c, d, e):
-    return a * x**4 + b * x**3 + c * x**2 + d * x + e
-params, covariance = curve_fit(func, x_log, y_log)
-a, b, c, d, e = params
-x_fit = np.linspace(min(x_log), max(x_log), 100)
-y_fit = func(x_fit, a, b, c, d, e)
+for id_mod_val in range(len(Ks[:])):
+    
+    h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+    d = dd.io.load(h5file)
+    list_model_name = d['list_model_name'][:]
+    list_model_success = d['list_model_success'][:]
+    list_model_modflow = d['list_model_modflow'][:]
 
-fig = plt.figure(figsize=(5,3))
-ax = fig.add_subplot(111)
-ax.plot(xh, yh, '.', c='r')
-ax.plot(xfil, yfil, '-',c = 'r')
-ax.plot(10**x_fit, 10**y_fit, '-',c = 'b')
-ax.set_ylabel("PDF")
-ax.set_xlabel("t / "+r'$\tau$')
-ax.set_xscale('log')
-# ax.set_xlim(tmin, tmax)
-# ax.set_ylim(-0.1, 13)
+    for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                        list_model_success[:],
+                                                        list_model_modflow[:]):
+
+        end = gpd.read_file(BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+        shp = gpd.read_file(BV.geographic.watershed_shp)
+        end = end.clip(shp)
+        end[end['time_win_y']==0] = np.nan
+        end = end.dropna()                
+        tau = np.average(end['time_win_y'], weights=end['rchPerc'])
+        def pdf_function(M, nbin, Weight):    
+            bin_min = np.quantile(M, 0.01)
+            bin_max = np.quantile(M, 0.99)
+            bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
+            pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
+            dx = np.diff(binEdges)  
+            xh =  (binEdges[1:] + binEdges[:-1])/2
+            xh = np.array(xh)
+            return (xh, pdf)
+        nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
+        [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
+        idzeros = np.where(yh != 0)
+        xfil = xh[idzeros]
+        yfil = yh[idzeros]
+        x_log = np.log10(xfil)
+        y_log = np.log10(yfil)
+        # x_log = (xfil)
+        # y_log = (yfil)
+        def func(x, a, b, c, d, e):
+            return a * x**4 + b * x**3 + c * x**2 + d * x + e
+        params, covariance = curve_fit(func, x_log, y_log)
+        a, b, c, d, e = params
+        x_fit = np.linspace(min(x_log), max(x_log), 100)
+        y_fit = func(x_fit, a, b, c, d, e)
+        
+        fig = plt.figure(figsize=(5,3))
+        ax = fig.add_subplot(111)
+        ax.plot(xh, yh, '.', c='r')
+        ax.plot(xfil, yfil, '-',c = 'r')
+        ax.plot(10**x_fit, 10**y_fit, '-',c = 'b')
+        ax.set_ylabel("PDF")
+        ax.set_xlabel("t / "+r'$\tau$')
+        ax.set_xscale('log')
+        # ax.set_xlim(tmin, tmax)
+        # ax.set_ylim(-0.1, 13)
 
 #%% ---- NOTES
-
 
