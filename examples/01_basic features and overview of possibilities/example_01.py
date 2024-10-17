@@ -422,7 +422,7 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particules_shp=True,
+                                  particuls_shp=True,
                                   random_id=100)
 
 #%% TIMESERIES & NETCDF

@@ -735,13 +735,17 @@ class Watershed:
         model_modpath = modpath.Modpath(self.geographic,
                                         model_modflow,
                                         # Frame settings
-                                        model_folder=model_folder,
-                                        model_name=model_modflow.model_name,
+                                        model_folder  =model_folder,
+                                        model_name = model_modflow.model_name,
                                         bin_path = self.bin_path,
                                         # Specific settings  
-                                        zone_partic=self.settings.zone_partic,
-                                        path = self.settings.path,
-                                        tracking_direction = self.settings.tracking_direction)
+                                        zone_partic = self.settings.zone_partic,
+                                        cell_div = self.settings.cell_div,
+                                        zloc_div = self.settings.zloc_div,
+                                        bore_depth = self.settings.bore_depth,
+                                        track_dir = self.settings.track_dir,
+                                        sel_random = self.settings.sel_random,
+                                        sel_slice = self.settings.sel_slice)
         
         # Preprocessing Modflow
         model_modpath.pre_processing() # verbose
@@ -776,8 +780,9 @@ class Watershed:
                                ending_point: bool=True,
                                starting_point: bool=True,
                                pathlines_shp: bool=True,
-                               particules_shp: bool=True,
-                               random_id: int=None):
+                               particles_shp: bool=True,
+                               random_id: int=None,
+                               norm_flux: bool=False):
         """
         Public method to post-process the simulation of the particle tracking.
 
@@ -791,17 +796,37 @@ class Watershed:
             Save starting point. The default is True.
         pathlines_shp : bool, optional
             Save pathlines as lines shapefile. The default is True.
-        particules_shp : bool, optional
+        particles_shp : bool, optional
             Save particule as points shapefile. The default is True.
         random_id : int, optional
-            Number of particules which are saved. The default is None.
+            Number of particles which are saved. The default is None.
         """
         model_modpath.post_processing(model_modpath,
                                       ending_point=ending_point,
                                       starting_point=starting_point,
                                       pathlines_shp=pathlines_shp,
-                                      particules_shp=particules_shp,
+                                      particles_shp=particles_shp,
                                       random_id=random_id)
+    
+    def filtprocessing_modpath(self,
+                               model_modpath: object,
+                               norm_flux: bool=False,
+                               filt_time: bool=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                               filt_seep: bool=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                               filt_inout: bool=True, # delete particles in and out in the same cell (first layer)
+                               calc_rtd: bool=True, # compute residence time distribution
+                               random_id: int=None # select randomly to keep
+                               ):
+        """
+        Public method to filter-process the simulation of the particle tracking.
+
+        Parameters
+        ----------
+
+        """
+        model_modpath.filt_processing(model_modpath,
+                                      random_id=random_id,
+                                      norm_flux=norm_flux)
 
     #%% EXTRACT TIMESERIES
     

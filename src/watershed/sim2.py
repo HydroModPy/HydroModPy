@@ -58,7 +58,7 @@ class Sim2:
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
                  spatial_mean=False, geographic, 
-                 disk_clip: str='watershed'):
+                 disk_clip: str=False):
         """
         Parameters
         ----------
@@ -93,10 +93,12 @@ class Sim2:
 
         Returns
         -------
-        None. Create or update the netcdf files.
+        None. The sim2 object is updated. 
+        Also create or update the netcdf files.
 
         """
         
+        # ---- Initialization
         self.var_list = var_list
         self.var_sublist = []
         self.nc_data_path = nc_data_path
@@ -136,6 +138,17 @@ class Sim2:
         'FF_Q': 'wind',
         'SWI_Q': 'swi',
         'ETP_Q': 'etp',
+        'TINF_H_Q': 'temp_inf',
+        'TSUP_H_Q': 'temp_sup',
+        'SWI_Q': 'swi',
+        'SSI_Q': 'ssi',
+        'DLI_Q': 'dli',
+        'PE_Q': 'eff_rain',
+        'WG_RACINE_Q': 'wg_root', 
+        'Q_Q': 'hum_spec',
+        'HU_Q': 'hum_rel',
+        'SNOW_FRAC_Q': 'snow_cover',
+        'HTEURNEIGE_Q': 'snow_thickness',
         }
         self.HyMoPy_var_by_sim_var = pd.DataFrame.from_dict(
             data = varnames_dict,
@@ -147,6 +160,7 @@ class Sim2:
             data = self.HyMoPy_var_by_sim_var.index.copy())
         
         
+        # ---- Determine which data needs to be downloaded
         # Data already available for each variable 
 # =============================================================================
 #         self.nc_file_by_var = dict.fromkeys(var_list, None)
@@ -200,18 +214,23 @@ class Sim2:
                             os.remove(file)
                             
             self.local_data.iloc[:, 0:3][self.local_data.extent == True] = np.nan
-                            
+        
+        # ---- Download
         self.download()
         
+        
+        # ---- Clip data
         # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC_Q', 'RUNC_Q'...)
         sim_varlist = self.sim_var_by_HyMoPy_var.loc[self.var_list].sim_var.values
-
+        
         self.clip_folder(self.nc_data_path, 
                           self.clip_mask,
                           sim_varlist)
         
+        # ---- Merge NetCDF files
         self.merge_folder(self.nc_data_path, sim_varlist)
         
+        # ---- Format result for HydroModPy
         print("\nFormatting results for HydroModPy model...")
         for var in self.final_filelist:
             print(f"   {var}")
@@ -221,7 +240,7 @@ class Sim2:
                 {'time' : slice(self.first_date, self.last_date)}]
             # Apply sim_stat option
             if self.sim_state == 'steady':
-                print("      . simplify time dimension...")
+                print("      . simplifying time dimension...")
                 self.values[var] = self.values[var].mean(dim = 'time')
             # Reprojection
             print("      . reprojecting...")
