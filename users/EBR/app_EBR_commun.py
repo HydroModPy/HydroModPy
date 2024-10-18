@@ -833,7 +833,9 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
 
 # Paramètres du suivi des particules
-BV.settings.update_input_particules(zone_partic=zone_partic)
+# =============================================================================
+# BV.settings.update_input_particules(zone_partic=zone_partic)
+# =============================================================================
     
 # "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
 BV.settings.update_split_temporal(split_temp)
