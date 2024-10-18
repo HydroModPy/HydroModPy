@@ -561,7 +561,7 @@ class Streamflow_seepage:
             self.reach_data['iseg'] = self.reach_data['iseg'].max() + 1 - self.reach_data['iseg']
              # reverse 'outseg' in segment_data_1:
             special_idx = self.segment_data_1[
-                self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake ousegs
+                self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake outsegs
             special_outseg = self.segment_data_1.loc[special_idx, 'outseg'].copy()
             self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
                 - self.segment_data_1['outseg']

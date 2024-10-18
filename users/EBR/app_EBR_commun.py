@@ -91,7 +91,7 @@ dem_path = os.path.join(data_path,
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = '_'.join(['barrage_Cheze_SFR_LAK_batch', pd.to_datetime("today").strftime("%Y-%m-%d")])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -741,7 +741,7 @@ BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
 BV.streamflow_seepage.update_segment_data('roughch', 0.03)
 # BV.streamflow_seepage.update_segment_data('width', width)
 
-# The following option drastically increases the loading time of MOdflow processing
+# The following option drastically increases the loading time of Modflow processing
 # Instead, here, the runoff is added directly to the lake.
 # It should not be forgotten to sum it as well to the accumulation_flux in post-processing
 # =============================================================================
