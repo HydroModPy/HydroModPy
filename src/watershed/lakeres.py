@@ -518,14 +518,23 @@ class Lakeres:
 # =============================================================================
 
         # Export
-        with rio.open(geographic.watershed_dem, 'r') as base:
-            base_profile = base.profile
-            base_profile['crs'] = geographic.crs_proj
-            # base_profile['nodata'] = 0
-            # base_profile['dtype'] = int
-        with rio.open(os.path.join(self.data_folder, 'lakarr.tif'),
-                      'w', **base_profile) as dst: 
-            dst.write_band(1, lakarr.astype(int))
+# =============== OLD SCHOOL VERSION ==========================================
+#         with rio.open(geographic.watershed_dem, 'r') as base:
+#             base_profile = base.profile
+#             base_profile['crs'] = geographic.crs_proj
+#             # base_profile['nodata'] = 0
+#             # base_profile['dtype'] = int
+#         with rio.open(os.path.join(self.data_folder, 'lakarr.tif'),
+#                       'w', **base_profile) as dst: 
+#             dst.write_band(1, lakarr.astype(int))
+# =============================================================================
+        toolbox.export_tif(
+            geographic.watershed_dem,
+            lakarr, #lakarr.astype(int): computation time appears to be a bit shorter when using float...
+            os.path.join(self.data_folder, "lakarr.tif"),
+            geographic.nodata,
+            geographic.crs_proj
+            )
             
         #%%% Format the top of the lake/reservoir layer
         # ---------------------------------------------
@@ -767,8 +776,10 @@ class Lakeres:
         toolbox.export_tif(
             geographic.watershed_dem,
             outlet_map, 
-            geographic.nodata, 
-            os.path.join(self.data_folder, "lak_outlets.tif"))
+            os.path.join(self.data_folder, "lak_outlets.tif"),
+            geographic.nodata,
+            geographic.crs_proj
+            )
         
 # =============================================================================
 #         return self.ij_outlet_by_lake
@@ -924,15 +935,15 @@ class Lakeres:
 # =============================================================================
 #             im = imageio.imread(self.raw_rast_path)
 #             im[im<0] = 0
-#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.load_rast_path)
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.load_rast_path, -99999)
 #             ### Efficiency ###
 #             im = imageio.imread(self.watershed_buff_fill_surflow)
 #             im[im>=0] = 1
-#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.eff_rast_path)        
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)        
 #             ### Adsorption ###
 #             im = imageio.imread(self.watershed_buff_fill_surflow)
 #             im[im>=0] = 0
-#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
+#             toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
 #             ### d8massflux ###
 #             wbt.d8_mass_flux(self.watershed_buff_fill_surflow,
 #                              self.load_rast_path, self.eff_rast_path,
