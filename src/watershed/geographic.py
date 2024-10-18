@@ -329,11 +329,11 @@ class Geographic:
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
             print('   Reshape tifs')
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), -99999, self.watershed_box_buff_dem)
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), -99999, self.watershed_box_buff_fill)
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), -32768, self.watershed_box_buff_direc)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)
             if self.bottom_path != None :
-                toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_bottom), -99999, self.watershed_box_buff_bottom)
+                toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_bottom), self.watershed_box_buff_bottom, -99999)
         
         """
         Create depressions raster

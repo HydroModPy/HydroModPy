@@ -108,7 +108,7 @@ if case == 'Example_05_Hillslope_2D':
 
 if case == 'Example_05_Lasset':
     dem_path = data_path + 'regional dem.tif'
-    load = False
+    load = True
     watershed_name = case
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
@@ -174,10 +174,10 @@ first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
-nlay = 20
+nlay = 50
 lay_decay = 1.25 # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 50 # if bottom is None, aquifer thickness
+thick = 100 # if bottom is None, aquifer thickness
 if watershed_name == 'Example_05_Lasset':
     hyd_cond = 1e-8 * 24 * 3600 # m/day
 else:
@@ -185,7 +185,7 @@ else:
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
+porosity = 1 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
@@ -238,9 +238,6 @@ BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
 BV.settings.update_split_temporal(split_temp=False)
 
-# Particle tracking settings
-BV.settings.update_input_particules(zone_partic=zone_partic, path = tif_file, tracking_direction=tracking_dir)
-
 #%% ---- MODELING
 
 #%% MODFLOW
@@ -263,6 +260,41 @@ if success_modflow == True:
 
 #%% MODPATH
 
+# Particle tracking settings
+tif_file = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+tif_file_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+wbt.clip_raster_to_polygon(
+    tif_file, 
+    BV.stable_folder + '/geographic/watershed.shp', 
+    tif_file_clip, 
+    maintain_dimensions=True)
+        
+seep = imageio.imread(BV.geographic.watershed_box_buff_dem)
+seep = seep*0
+# seep[30,25] = 1
+# seep[25,30] = 1
+seep[40,48] = 1
+# seep[60,20] = 1
+# seep[50,25] = 1
+plt.imshow(seep)
+toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
+                   seep,
+                   0,
+                   BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif')
+tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
+
+BV.settings.update_input_particles(
+                                    # zone_partic = BV.geographic.watershed_box_buff_dem,
+                                    zone_partic = tif_bore,
+                                    cell_div = 1, # 1
+                                    zloc_div = False,  # or False, add cells at cell bottom
+                                    bore_depth = True, # '[0,5,10] for 3 particles
+                                    track_dir = 'backward',
+                                    # track_dir = 'forward', # backward
+                                    sel_random = None, # or int
+                                    sel_slice = None, # or int
+                                    )
+
 if sim_state == 'steady':
     if success_modflow == True:
         model_modpath = BV.preprocessing_modpath(model_modflow)
@@ -272,8 +304,18 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particules_shp=True,
-                                  random_id=None) # None
+                                  particles_shp=True,
+                                  random_id=None, # select randomly to save (for pathlines and particles)
+                                  ) # None
+        
+        BV.filtprocessing_modpath(model_modpath,
+                                  norm_flux=True, # for forward only
+                                  filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                                  filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                                  filt_inout=True, # delete particles in and out in the same cell (first layer)
+                                  calc_rtd=True, # compute residence time distribution
+                                  random_id=None, # select randomly to keep
+                                  ) # None
 
 #%% TIMESERIES
 
@@ -335,8 +377,9 @@ plt.tight_layout()
 
 #%% RAW MAP 2
 
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines.shp')
+# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting.shp')
 
 try:
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
@@ -353,12 +396,12 @@ rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
                     cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
 
 shp_pathlines['time'] = shp_pathlines['time'] / 365
-shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.5,
+shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.1,
                   norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
                   zorder=1)
 
 shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=3,
                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
                  zorder=2)
 
@@ -423,7 +466,7 @@ if case != 'Example_05_Lasset':
     Q_print = Q[0,0,0] # m/m
     
     # Particules plot
-    shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/particules.shp')
+    shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
     # list_particules = shp['particleid'].unique()
     shp['time'] = shp['time'] / 365
     shp_fil = shp[shp['time']>1]
@@ -449,3 +492,5 @@ os.chdir(root_dir)
 #     forms=True, 
 #     residuals=False, 
 # )
+
+
