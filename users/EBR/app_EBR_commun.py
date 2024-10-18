@@ -158,7 +158,7 @@ freq_input = 'W' # hebdomadaire
 
 ##%%% Reanalyse
 BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-                                                'evt', 'etp', 'temp',
+                                             'evt', 'etp', 'temp',
                                               ],
                                        nc_data_path=os.path.join(
                                            data_path,
