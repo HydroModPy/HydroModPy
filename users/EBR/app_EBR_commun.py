@@ -180,6 +180,10 @@ BV.climatic.temp = BV.climatic.temp / 1000 # from mm to m
 BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
 BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
 
+# Paramètres climatiques
+first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
+# BV.climatic.update_recharge(recharge, sim_state=sim_state)
+BV.climatic.update_first_clim(first_clim)
 
 ### Figures des chroniques
 if isinstance(BV.climatic.recharge, float):
@@ -774,9 +778,6 @@ box = False # or False
 sink_fill = False # or True
 plot_cross = True
 
-# Paramètres climatiques
-first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
-
 # Paramètres hydrauliques
 nlay = 1
 lay_decay = 1 # 1 for no decay
@@ -815,10 +816,6 @@ BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
 BV.settings.update_active_plot(plot_cross=plot_cross)
-
-# Paramètres climatiques
-# BV.climatic.update_recharge(recharge, sim_state=sim_state)
-BV.climatic.update_first_clim(first_clim)
 
 # Paramètres hydrauliques
 BV.hydraulic.update_nlay(nlay) # 1
