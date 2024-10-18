@@ -496,7 +496,11 @@ class Timeseries:
                                           fill_value = self.geographic.nodata,
                                           ) 
                 # Outlet
-                outlet_mask = self.accumulation_flux[0] == masked_accu.max()
+                # outlet_mask_old = self.accumulation_flux[0] == masked_accu.max()
+                outlet_mask = self.accumulation_flux[0]*0
+                i, j = self.lakeres.ij_outlet_by_lake[lake_id]
+                outlet_mask[i, j] = 1
+                outlet_mask = outlet_mask.astype(bool)
                 
                 # Watershed DEM
                 watershed_dem, _, _, _ = toolbox.load_to_numpy(
@@ -506,7 +510,7 @@ class Timeseries:
                 try:
                     for key in self.watertable_elevation:
                         # level
-                        level = self.watertable_elevation[key][outlet_mask].max()
+                        level = self.watertable_elevation[key][outlet_mask][0]#.max()
                         self.mfdata.loc[key,f'{lake_id}_level'] = level
                         
                         # volume
