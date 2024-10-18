@@ -886,25 +886,31 @@ class Modflow:
                 header=';'.join(self.sfr2.segment_data[0].dtype.names))
             
             toolbox.export_tif(self.geographic.watershed_dem, 
-                               sfr_map, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_segments.tif"))
+                               sfr_map, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_segments.tif"),
+                               self.geographic.nodata)
             toolbox.export_tif(self.geographic.watershed_dem, 
-                               sfr_map_reach, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_reaches.tif"))
+                               sfr_map_reach, 
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "stream_reaches.tif"),
+                               self.geographic.nodata)
             toolbox.export_tif(self.geographic.watershed_dem, 
-                               self.drain_array, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "remaining_DRN.tif"))
+                               self.drain_array,
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "remaining_DRN.tif"),
+                               self.geographic.nodata)
             toolbox.export_tif(self.geographic.watershed_dem, 
-                               elev_map, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "streambed_tops.tif"))
+                               elev_map,
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "streambed_tops.tif"),
+                               self.geographic.nodata)
             toolbox.export_tif(self.geographic.watershed_dem, 
-                               hcond_map, self.geographic.nodata, 
-                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "conductances.tif"))
+                               hcond_map,
+                               os.path.join(self.streamflow_seepage.sfr_seepage_folder, "conductances.tif"),
+                               self.geographic.nodata)
             if self.streamflow_seepage.crit_area is not None:
                 self.streamflow_seepage.crit_area[self.streamflow_seepage.crit_area.mask] = nodata
                 toolbox.export_tif(self.geographic.watershed_dem, 
-                                   self.streamflow_seepage.crit_area, self.geographic.nodata, 
-                                   os.path.join(self.streamflow_seepage.sfr_seepage_folder, "sink_cells(debug).tif"))
+                                   self.streamflow_seepage.crit_area, 
+                                   os.path.join(self.streamflow_seepage.sfr_seepage_folder, "sink_cells(debug).tif"),
+                                   self.geographic.nodata,)
 # =============================================================================
 #             wbt.slope(elev_map,
 #                       # os.path.join(self.streamflow_seepage.sfr_seepage_folder, 'slopes.tif'),
@@ -1427,7 +1433,7 @@ class Modflow:
                 self.lake_vertical_leakage[self.dem_mask] = -9999
                 output_path = self.tifs_file+'/lake_leakage_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.lake_vertical_leakage, -9999, output_path)                  
+                    toolbox.export_tif(self.dem_path, self.lake_vertical_leakage, output_path, -9999)                  
                 self.dict_lake_leakage[item] = self.lake_vertical_leakage
         print(f"\nNOTE: Lake lateral flows have been non null for {lake_lateralflow_count} time steps\n")
             
