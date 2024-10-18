@@ -234,7 +234,7 @@ BV.add_oceanic(sea_level)
 BV.settings.update_split_temporal(split_temp=False)
 
 # Particle tracking settings
-BV.settings.update_input_particules(zone_partic=zone_partic)
+BV.settings.update_input_particles(zone_partic=zone_partic)
 
 #%% ---- MODELING
 

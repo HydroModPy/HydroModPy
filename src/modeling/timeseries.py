@@ -181,7 +181,7 @@ class Timeseries:
         except:
             pass  
         try:
-            self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particules', 'ending'+'.shp'))
+            self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', 'ending_weighted'+'.shp'))
         except:
             pass 
         try:
@@ -474,7 +474,7 @@ class Timeseries:
                 # filtered = filtered[filtered.i0.astype(str)+'-'+filtered.j0.astype(str)!=
                 #                     filtered.i.astype(str)+'-'+filtered.j.astype(str)]
                 # calc = np.nanmean(filtered['time'])
-                calc = np.nanmean(self.residence_times['time'])
+                calc = np.nanmean(self.residence_times['time_win_y'])
                 self.mfdata.loc[key,'residence_times'] = calc
         except:
             pass
