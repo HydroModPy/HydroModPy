@@ -669,7 +669,8 @@ def plot_params(small,interm,medium,large):
 
 #%% REPROJECT DATA
 
-def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
+def export_tif(base_dem_path, data_to_tif, data_tif_path, 
+               data_nodata_val=None, data_crs=None):
     """
     Export tif from 2D matrix data following raster reference.
 
@@ -678,11 +679,13 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     base_dem_path : str
         Path of raster reference.
     data_to_tif : 2D matrix
-        Data to export in raster.
-    data_nodata_val : float
-        Value defined as no data.
+        Data to export in raster..
     data_tif_path : TYPE
         Output path of the exported raster.
+    data_nodata_val : float, optional
+        To replace base nodata value.
+    data_crs : str or int or CRS, optional
+        To replace base Coordinates Reference System
     """
     # Open base dem
     with rio.open(base_dem_path) as src:
@@ -694,7 +697,15 @@ def export_tif(base_dem_path, data_to_tif, data_nodata_val, data_tif_path):
     data_dtype = data_to_tif.dtype
     # Change base dem from data
     ras_meta['dtype'] = data_dtype
-    ras_meta['nodata'] = data_nodata_val
+    if data_nodata_val is not None:
+        ras_meta['nodata'] = data_nodata_val
+    if data_crs is not None:
+        if isinstance(data_crs, str): 
+            ras_meta['crs'] = rio.crs.CRS.from_string(data_crs)
+        elif isinstance(data_crs, int): 
+            ras_meta['crs'] = rio.crs.CRS.from_epsg(data_crs)
+        else:
+            ras_meta['crs'] = data_crs
     # Create new data raster with base dem size
     with rio.open(data_tif_path, 'w', **ras_meta) as dst:
         dst.write(data_to_tif, 1)

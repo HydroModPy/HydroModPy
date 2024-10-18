@@ -851,7 +851,7 @@ class Modflow:
                 # self.wt_elev.to_hdf(self.dict_watertable_elevation, lead_numb)
                 output_path = self.tifs_file+'/watertable_elevation_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_elev, -9999, output_path)                  
+                    toolbox.export_tif(self.dem_path, self.wt_elev, output_path, -9999)                  
                 self.dict_watertable_elevation[item] = self.wt_elev
             
             if watertable_depth == True:
@@ -861,7 +861,7 @@ class Modflow:
                 # self.wt_depth.to_hdf(self.dict_watertable_depth, lead_numb)
                 output_path = self.tifs_file+'/watertable_depth_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_depth, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.wt_depth, output_path, -9999)
                 self.dict_watertable_depth[item] = self.wt_depth
             
             if seepage_areas == True:
@@ -873,7 +873,7 @@ class Modflow:
                 # self.seep_area.to_hdf(self.dict_seepage_areas, lead_numb)
                 output_path = self.tifs_file+'/seepage_areas_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.seep_area, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.seep_area, output_path, -9999)
                 self.dict_seepage_areas[item] = self.seep_area
             
             if outflow_drain == True:
@@ -892,10 +892,10 @@ class Modflow:
                 # self.out_drn.to_hdf(self.dict_outflow_drain, lead_numb)
                 output_path = self.tifs_file+'/outflow_drain_t('+lead_numb+').tif' 
                 if accumulation_flux==True:
-                    toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.out_drn, output_path, -9999)
                 else:
                     if export_tif==True:
-                        toolbox.export_tif(self.dem_path, self.out_drn, -9999, output_path)
+                        toolbox.export_tif(self.dem_path, self.out_drn, output_path, -9999)
                 self.dict_outflow_drain[item] = self.out_drn
             
             if groundwater_flux == True:
@@ -913,7 +913,7 @@ class Modflow:
                 # self.gw_flux.to_hdf(self.dict_groundwater_flux, lead_numb)
                 output_path = self.tifs_file+'/groundwater_flux_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.flux_top, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.flux_top, output_path, -9999)
                 self.dict_groundwater_flux[item] = self.flux_top
             
             if groundwater_storage == True:
@@ -924,7 +924,7 @@ class Modflow:
                 self.wt_sto = ( self.wt_sto - self.zbot[-1] ) * (self.resolution**2) * self.porosity
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.wt_sto, -9999, output_path)
+                    toolbox.export_tif(self.dem_path, self.wt_sto, output_path, -9999)
                 self.dict_saturated_storage[item] = self.wt_sto
 
                 if item == 0:
@@ -992,7 +992,7 @@ class Modflow:
             pi_export[mask<=0] = -9999
             output_path = self.tifs_file+'/persistency_index_t('+'-'+').tif'
             # if export_tif==True:
-            toolbox.export_tif(self.dem_path, pi_export, -9999, output_path)
+            toolbox.export_tif(self.dem_path, pi_export, output_path, -9999)
         
             np.save(self.save_file+'/persistency_index', self.dict_persistency_index)
                     
@@ -1033,7 +1033,7 @@ class Modflow:
                         # if export_tif==True:
                         toolbox.export_tif(self.geographic.watershed_dem,
                                            tempo_export,
-                                           -9999, output_path)
+                                           output_path, -9999)
                         compt+=1                    
                     inf+=12
                     sup+=12
@@ -1077,7 +1077,7 @@ class Modflow:
                         # if export_tif==True:
                         toolbox.export_tif(self.geographic.watershed_dem,
                                            tempo_export,
-                                           -9999, output_path)
+                                           output_path, -9999)
                         compt+=1                    
                     inf+=52
                     sup+=52
@@ -1120,7 +1120,7 @@ class Modflow:
                         # if export_tif==True:
                         toolbox.export_tif(self.geographic.watershed_dem,
                                            tempo_export,
-                                           -9999, output_path)
+                                           output_path, -9999)
                         compt+=1                    
                     inf+=365
                     sup+=365                    
