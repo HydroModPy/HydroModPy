@@ -559,25 +559,19 @@ class Watershed:
         self.elt_def.append('safransurfex')
         self.save_object()
         
-    def add_lakeres(self, stable_folder=None):
+    def add_lakeres(self):
         """
         
 
         Parameters
         ----------
-        stable_folder : str, optional
-            User-defined folder where the lake/reservoir files will be
-            generated. If None, the default folder will be used: 
-                <out_path>/<watershed_name>/'results_stable'/'lakeres'
 
         Returns
         -------
         None. Create an empty lakeres object within the watershed object. 
 
         """
-        if stable_folder is None:
-            stable_folder = self.stable_folder
-        self.lakeres = lakeres.Lakeres(stable_folder)
+        self.lakeres = lakeres.Lakeres(self.stable_folder)
         self.elt_def.append('lakeres')
         self.save_object()
         
