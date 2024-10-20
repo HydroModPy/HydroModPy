@@ -260,8 +260,8 @@ BV.lakeres.update_stagemax(lake_id, 87.3) # [m]
 BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # débit de fuite du lit du réservoir [m/day]
                                                               # ici équiv. à 1e-6 m/s
 bathymetry_raster = os.path.join(data_path, "Reservoir", "Bathymetrie",
-                             "Cheze_bathy_1m_NGF-elevation_v2enlarged.nc")
-                             # "bathymetry_25m_NGF-elevation.tif")
+                                 "Cheze_bathy_1m_NGF-elevation_v2enlarged.nc")
+                                 # "bathymetry_25m_NGF-elevation.tif")
 BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 # =============================================================================
 # BV.lakeres.update_bathymetry(lake_id, bathymetry_raster, mode = 'elevation')
@@ -333,6 +333,8 @@ rules = {
 dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 
 # ---- Raffinage des débits de la Chèze
+# Ce n'est plus utile maintenant que les débits modélisés sont utilisés à la
+# place, grace à la section suivante: "ECOULEMENTS DE SURFACE avec SFR2"
 # =============================================================================
 # print("   . Raffinage des débits de la Chèze à partir de eaufrance.fr")
 # 
