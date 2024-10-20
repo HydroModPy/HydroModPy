@@ -578,8 +578,8 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                         # index_col = 0,
                         skiprows = 6, # [5],
                         header = None, #[3, 4],
-                        usecols = [1, 9, 11, 13, 14],
-                        names = ['time', 'cheze', 'resti', 'meu', 'usine'],
+                        usecols = [1, 7, 9, 11, 13, 14],
+                        names = ['time', 'canut', 'cheze', 'resti', 'meu', 'usine'],
                         index_col = 0,
                         skipfooter = 4,
                         parse_dates = False,
@@ -594,8 +594,8 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                         # index_col = 0,
                         skiprows = 6, # [5],
                         header = None, #[3, 4],
-                        usecols = [1, 9, 10, 12, 14, 15],
-                        names = ['time', 'radar', 'cheze', 'resti', 'meu', 'usine'],
+                        usecols = [1, 7, 9, 10, 12, 14, 15],
+                        names = ['time', 'canut', 'radar', 'cheze', 'resti', 'meu', 'usine'],
                         index_col = 0,
                         skipfooter = 4,
                         parse_dates = False,
@@ -630,7 +630,7 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                         data.cheze.loc[t] = abaque_interp[abaque_interp.level <= data.cheze.loc[t].item()].iloc[-1].volume
 
 
-                for col in ['cheze', 'resti', 'meu', 'usine']:
+                for col in ['cheze', 'resti', 'meu', 'canut', 'usine']:
                     dam_input_df[col].update(data[col])
                 # dam_input_df[['cheze', 'resti', 'meu', 'usine']].update(data)
 
