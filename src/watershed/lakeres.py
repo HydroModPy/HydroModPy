@@ -767,7 +767,7 @@ class Lakeres:
         
         # Export lake outlet
         outlet_map = acc_map.copy()
-        outlet_map[:]= nodata
+        outlet_map[:] = nodata
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
             outlet_map[self.ij_outlet_by_lake[lake_id][0],
