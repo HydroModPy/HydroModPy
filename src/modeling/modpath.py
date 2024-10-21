@@ -487,8 +487,8 @@ class Modpath:
             sflows = sflux/drow/dcol
             toolbox.export_tif(self.geographic.watershed_box_buff_dem,
                                sflows,
-                               -9999,
-                               self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif')
+                               self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
+                               -9999)
             wbt.extract_raster_values_at_points(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
                                                 self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
                                                 out_text=False)
@@ -674,7 +674,7 @@ if residence_times == True:
         res_time[e[k].i,e[k].j] = (e[k].time) / 365 # where outputed in years
     if export_tif==True:
         output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
-        toolbox.export_tif(self.dem_path, res_time, -9999, output_path)
+        toolbox.export_tif(self.dem_path, res_time, output_path, -9999)
     self.dict_residence_times[item] = res_time
     
 try:
