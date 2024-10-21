@@ -96,15 +96,15 @@ class Downslope:
         ### Loading ###
         im = imageio.imread(self.raw_rast_path)
         im[im<0] = 0
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.load_rast_path)
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.load_rast_path, -99999)
         ### Efficiency ###
         im = imageio.imread(self.watershed_buff_fill_surflow)
         im[im>=0] = 1
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.eff_rast_path)        
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)        
         ### Adsorption ###
         im = imageio.imread(self.watershed_buff_fill_surflow)
         im[im>=0] = 0
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, -99999, self.abs_rast_path)
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
         ### d8massflux ###
         wbt.d8_mass_flux(self.watershed_buff_fill_surflow,
                          self.load_rast_path, self.eff_rast_path,
