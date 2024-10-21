@@ -262,7 +262,7 @@ BV.add_oceanic(sea_level)
 BV.settings.update_split_temporal(split_temp)
 
 # Particle tracking settings
-BV.settings.update_input_particles(zone_partic=zone_partic, track_dir=tracking_dir)
+BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
 
 #%% ---- MODELING
 
