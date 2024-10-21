@@ -590,30 +590,44 @@ class Visualization():
         for i in range (0,len(object_list)):
             obj = object_list[i]
             print(obj)
-            if obj == 'grid':
-                plt.show(grid_mesh,contour,stream,"Topographic elevation [m]", at=i,
-                         camera=cam, viewup='z', axes = 13, bg=bg)
-            if obj == 'watertable':
-                plt.show(grid_wireframe,contour,stream, watertable_elev,"Watertable elevation [m]",
-                         camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
-            if obj == 'watertable_depth':
-                plt.show(grid_wireframe,contour,stream, watertable_depth,"Watertable depth [m]",
-                         camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
-            if obj == 'pathlines':
-                #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [d]",
-                         camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
-                #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
-                #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
-            if obj == 'surface_flow':
-                plt.show(grid_wireframe,contour, watertable_blue, surface_flow, "Accumulated outflow log [m3/d]",
-                         camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
-            if obj == 'drain_flow':
-                #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Groundwater seepage",camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,"Seepage outflow log [m3/d]",
-                         camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
-                #plt.show(grid_wireframe,contour,stream, watertable_blue, drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
-                #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
+            if 'contour' in globals():
+                if obj == 'grid':
+                    plt.show(grid_mesh, contour, stream,"Topographic elevation [m]", at=i,
+                             camera=cam, viewup='z', axes = 13, bg=bg)
+                if obj == 'watertable':
+                    plt.show(grid_wireframe, contour, stream, watertable_elev,"Watertable elevation [m]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'watertable_depth':
+                    plt.show(grid_wireframe, contour, stream, watertable_depth,"Watertable depth [m]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'pathlines':
+                    plt.show(grid_wireframe, contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [d]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'surface_flow':
+                    plt.show(grid_wireframe, contour, watertable_blue, surface_flow, "Accumulated outflow log [m3/d]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'drain_flow':
+                    plt.show(grid_wireframe, contour, stream, watertable_blue, drain_flow,"Seepage outflow log [m3/d]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+            else:
+                if obj == 'grid':
+                    plt.show(grid_mesh, "Topographic elevation [m]", at=i,
+                             camera=cam, viewup='z', axes = 13, bg=bg)
+                if obj == 'watertable':
+                    plt.show(grid_wireframe, watertable_elev,"Watertable elevation [m]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'watertable_depth':
+                    plt.show(grid_wireframe, watertable_depth,"Watertable depth [m]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'pathlines':
+                    plt.show(grid_wireframe, watertable_blue, pathlines_mesh, "Time pathlines log [d]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'surface_flow':
+                    plt.show(grid_wireframe, watertable_blue, surface_flow, "Accumulated outflow log [m3/d]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
+                if obj == 'drain_flow':
+                    plt.show(grid_wireframe, watertable_blue, drain_flow,"Seepage outflow log [m3/d]",
+                             camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
         if interactive == True:
             plt.show(interactive=1)
         else:
