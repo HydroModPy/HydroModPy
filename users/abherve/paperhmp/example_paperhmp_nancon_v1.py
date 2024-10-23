@@ -38,7 +38,7 @@ wbt.verbose = False
 # ROOT DIRECTORY
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+root_dir = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -56,8 +56,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PERSONAL PATHS
 
-example_path = os.path.join(root_dir, "examples/00_simplified example presentend in the paper")
-data_path = os.path.join(example_path, "data")
+# example_path = os.path.join(root_dir, "examples/03_simplified example presentend in the paper")
+data_path = 'C:/Users/ronan/GitHub/repository/hydromodpy-dev0.1/examples/03_streamflow intermittence in transient/data/'
 # To automatically retrieve/initialize the HydroModPy results path:
 # out_path = folder_root.root_folder_results()
 # When it needs modifying: out_path = folder_root.update_root_folder_results()
@@ -67,19 +67,22 @@ out_path = 'C:/Users/ronan/Simulations/HydroModPy/' # for example
 #%% ---- EXTRACT CATCHMENT
 
 # Name of the study site
-watershed_name = 'Example_00_Canut'
+watershed_name = 'Example_HMP_Nancon'
+# watershed_name = 'Naizin'
 print('##### '+watershed_name.upper()+' #####')
 
 # Regional DEM
 dem_path = os.path.join(data_path, 'regional dem.tif')
 
 # Outlet coordinates of the catchment
-from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
+# from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
+from_xyv = [389285.910, 6816518.749, 150, 10 , 'EPSG:2154']
+# from_xyv = [266711.599, 6779913.998, 150, 10 , 'EPSG:2154']
 
 # Extract the catchment from a regional DEM
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
-                              load=True,
+                              load=False,
                               watershed_name=watershed_name,
                               from_lib=None, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=None, # [path, cell size]
@@ -202,14 +205,14 @@ BV.climatic.update_recharge(350 / 1000 / 365, sim_state=BV.settings.sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
 
 # Hydraulic settings
-BV.hydraulic.update_nlay(5)
-BV.hydraulic.update_lay_decay(1.5) # 1 if not activated
-BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
-BV.hydraulic.update_thick(50) # Not consider if bottom != of None
+BV.hydraulic.update_nlay(25)
+BV.hydraulic.update_lay_decay(1.2) # 1 if not activated
+BV.hydraulic.update_bottom(0) # Set a value to set a flat bottom
+BV.hydraulic.update_thick(100) # Not consider if bottom != of None
 BV.hydraulic.update_hyd_cond(2e-5 * 24 * 3600) # m/d
 BV.hydraulic.update_porosity(1/100) # -
-BV.hydraulic.update_cond_decay(1/20) # Exponential decay with depth : 1/10 (about half decrease at 10m)
-BV.hydraulic.update_poro_decay(1/20)
+BV.hydraulic.update_cond_decay(1/30) # Exponential decay with depth : 1/10 (about half decrease at 10m)
+BV.hydraulic.update_poro_decay(1/30)
 BV.hydraulic.update_cond_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 BV.hydraulic.update_cond_drain(None)
 
@@ -219,6 +222,26 @@ BV.add_oceanic('None')
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
+
+tif_file = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+tif_file_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+wbt.clip_raster_to_polygon(
+    tif_file, 
+    BV.stable_folder + '/geographic/watershed.shp', 
+    tif_file_clip, 
+    maintain_dimensions=True)
+
+BV.settings.update_input_particles(
+                                    # zone_partic = BV.geographic.watershed_box_buff_dem,
+                                    zone_partic = tif_file,
+                                    cell_div = 1, # 1
+                                    zloc_div = False,  # or False, add cells at cell bottom
+                                    bore_depth = None, # '[0,5,10] for 3 particles, or None
+                                    # track_dir = 'backward',
+                                    track_dir = 'backward', # backward
+                                    sel_random = None, # or int
+                                    sel_slice = None, # or int
+                                    )
 
 #%% ---- GROUNDWATER FLOW MODEL RUN
 
@@ -255,12 +278,30 @@ if success_modflow == True:
 
 # Post-processing
 if success_modpath == True:
+    # BV.postprocessing_modpath(model_modpath,
+    #                           ending_point=True,
+    #                           starting_point=True,
+    #                           pathlines_shp=True,
+    #                           particles_shp=False,
+    #                           random_id=None) # None
+    
     BV.postprocessing_modpath(model_modpath,
                               ending_point=True,
                               starting_point=True,
                               pathlines_shp=True,
                               particles_shp=False,
-                              random_id=None) # None
+                              random_id=None, # select randomly to save (for pathlines and particles)
+                              ) # None
+    
+    BV.filtprocessing_modpath(model_modpath,
+                              norm_flux=True, # for forward only
+                              filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                              filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                              filt_inout=True, # delete particles in and out in the same cell (first layer)
+                              calc_rtd=True, # compute residence time distribution
+                              random_id=None, # select randomly to keep
+                              ) # None
+
 
 #%% ---- GENERATE TIMESERIES
 
@@ -323,19 +364,37 @@ fig, axs = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 axs = axs.ravel()
 
 ax = axs[0]
-modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+modelxsect = flopy.plot.PlotCrossSection(model=mf,
+                                         # line={'Row': int((grid_model.shape[1])/2)}
+                                         line = {'Row': 100}
+                                         
+                                         )
 val = hk_grid.array/24/3600 # m/s
 try:
     for i in range(val.shape[0]):
         val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
 except:
     pass
-cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-3,vmax=1e-8))
+cb = modelxsect.plot_array(val, ax=ax, cmap='BrBG', alpha=0.3,
+                           lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-7,vmax=1e-5),
+                           )
+fname = 'C:/Users/ronan/Simulations/HydroModPy/Example_HMP_Nancon/results_simulations/test_0/test_0.hds'
+hdobj = flopy.utils.HeadFile(fname)
+head = hdobj.get_data()
+# pc = modelxsect.plot_array(head, ax=ax, masked_values=[999.0], head=head, alpha=0.5)
+wt = modelxsect.plot_surface(head, ax=ax, color="blue", lw=2)
+# levels = np.arange(0, 200, 10)
+# contour_set = modelxsect.contour_array(head, head=head, levels=levels, colors="k")
+# plt.clabel(contour_set, fmt="%.1f", colors="k", fontsize=11)
 ax.set_title('Hydraulic conductivity [m/s] - W to E (center)', fontsize=12)
-ax.set_xlim(0, 9000)
-ax.set_ylim(40, 150)
-ax.set_xticks([0,2000,4000,6000,8000])
-ax.set_yticks([50,75,100,125,150])
+# ax.set_xlim(0, 9000)
+# ax.set_ylim(40, 150)
+# ax.set_xticks([0,2000,4000,6000,8000])
+# ax.set_yticks([50,75,100,125,150])
+ax.set_xlim(0, 10000)
+ax.set_ylim(0, 220)
+ax.set_xticks([0,2500,5000,7500,10000])
+ax.set_yticks([50,100,150,200])
 ax.set_xlabel('Distance [m]')
 ax.set_ylabel('Elevation [m]')
 fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
@@ -348,11 +407,12 @@ cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
                             # vmin=0, vmax=30,
                             norm=mpl.colors.LogNorm(vmin=0.1, 
                                                     vmax=10))
+
 ax.set_title('Specific yield [%] - N to S (center)', fontsize=12)
 ax.set_xlim(0, 5500)
-ax.set_ylim(40, 150)
-ax.set_xticks([0,1000,2000,3000,4000,5000])
-ax.set_yticks([50,75,100,125,150])
+# ax.set_ylim(40, 150)
+# ax.set_xticks([0,1000,2000,3000,4000,5000])
+# ax.set_yticks([50,75,100,125,150])
 ax.set_xlabel('Distance [m]')
 fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
 fig.colorbar(cb)
@@ -362,7 +422,7 @@ plt.tight_layout()
 
 #%% FIXED CROSS-SECTION
 
-fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
+fig, ax = plt.subplots(1, 1, figsize=(4,4), dpi=300)
 print(stable_folder)
 
 mask = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
@@ -378,6 +438,8 @@ xx, yy = np.meshgrid(xvalues,yvalues)
 cur_x = dem_data.shape[1] /2
 cur_x = 65
 
+cur_y = 100
+
 wt_prof = wt_data.astype(float)
 wt_prof[wt_prof<0] = np.nan
 dem_max = dem_data.max()
@@ -388,17 +450,66 @@ dem_v_plot = dem_prof[:,int(cur_x)]
 dem_v_plot[dem_v_plot == 0] = np.nan
 wt_v_plot = wt_prof[:,int(cur_x)]
 wt_v_plot[wt_v_plot == 0] = np.nan
-           
-wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-20, wt_v_plot, color='dodgerblue', alpha=0.5, lw=0)
-w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1.5)
-wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot, color='saddlebrown', alpha=0.5, lw=0)
-d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
-ax.fill_between(np.arange(xx.shape[0])*75, 0, dem_v_plot-20, color='lightgrey', alpha=0.5, lw=0)
-ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-20, color='dimgray', lw=1.5)
 
-ax.set_xlim(1000, 4000)
-ax.set_ylim(90, 130)
-ax.set_yticks([90,100,110,120,130])
+if watershed_name == 'Example_HMP_Nancon':
+    dem_h_plot = dem_prof[int(cur_y),:]
+    dem_h_plot[dem_h_plot == 0] = np.nan
+    wt_h_plot = wt_prof[int(cur_y),:]
+    wt_h_plot[wt_h_plot == 0] = np.nan
+
+    # wt_prof_min = watertable_elevation[res_both[0]].astype(float)
+    wt_prof_min = wt_prof
+    wt_prof_min[wt_prof_min<0] = np.nan
+    wt_h_plot_min = wt_prof_min[int(cur_y),:]
+    wt_h_plot_min[wt_h_plot_min == 0] = np.nan
+    
+           
+# wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-20, wt_v_plot, color='dodgerblue', alpha=0.5, lw=0)
+# w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1.5)
+# wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot, color='saddlebrown', alpha=0.5, lw=0)
+# d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
+# ax.fill_between(np.arange(xx.shape[0])*75, 0, dem_v_plot-20, color='lightgrey', alpha=0.5, lw=0)
+# ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-20, color='dimgray', lw=1.5)
+
+if watershed_name == 'Example_HMP_Nancon':
+    # wt_v_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-30, wt_h_plot_min,
+    #                                     color='navy', alpha=0.5, lw=0)
+    w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot_min, color='navy', lw=1.5, zorder=1000)
+    store_w_c_plot = wt_h_plot_min.copy()
+    # store_w_c_plot = wt_h_plot.copy()
+    
+    wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, dem_h_plot-100, wt_h_plot,
+                                    color='dodgerblue', alpha=0.5, lw=0)
+    # w_prof = ax.plot(np.arange(xx.shape[1])*75, wt_h_plot, color='dodgerblue', lw=1)
+    wt_h_fill = ax.fill_between(np.arange(xx.shape[1])*75, wt_h_plot, dem_h_plot,
+                                    color='saddlebrown', alpha=0.5, lw=0)
+    d_prof = ax.plot(np.arange(xx.shape[1])*75, dem_h_plot, 'saddlebrown', lw=1.5)
+    ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-30,
+                                    color='lightgrey', alpha=0.1, lw=0)
+    ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-32.5,
+                                    color='lightgrey', alpha=0.2, lw=0)
+    ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-35,
+                                    color='lightgrey', alpha=0.3, lw=0)
+    ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-37.5,
+                                    color='lightgrey', alpha=0.4, lw=0)
+    ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-40,
+                                    color='lightgrey', alpha=0.5, lw=0)
+    ax.fill_between(np.arange(xx.shape[1])*75, 0, dem_h_plot-42.5,
+                                    color='lightgrey', alpha=0.6, lw=0)
+
+    # ax.plot(np.arange(xx.shape[1])*75, dem_h_plot-30, color='dimgray', lw=1.5,
+    #         alpha=0.1)
+
+# ax.set_xlim(1000, 4000)
+# ax.set_ylim(90, 130)
+# ax.set_yticks([90,100,110,120,130])
+# ax.set_xlim(5500, 8500)
+# ax.set_ylim(125, 170)
+# ax.set_yticks([130,140,150,160,170])
+ax.set_xlim(2500, 7500)
+ax.set_ylim(100, 200)
+ax.set_xticks([2500,5000,7500])
+ax.set_yticks([100,150,200])
 ax.set_xlabel('Distance [m]')
 ax.set_ylabel('Elevation [m]')
 
@@ -416,8 +527,8 @@ visu.visual2D(object_list = [
                              'watertable_depth',
                              'drain_flow',
                              'surface_flow',
-                             'pathlines',
-                             'residence_times'
+                             # 'pathlines',
+                             # 'residence_times'
                              ],
               color_scale = [
                              (None,None),
@@ -426,8 +537,8 @@ visu.visual2D(object_list = [
                              (0,10),
                              (0,200),
                              (0,30000),
-                             (0,3),
-                             (0,3),
+                             # (0,3),
+                             # (0,3),
                              ], 
                              lines=750)
 
