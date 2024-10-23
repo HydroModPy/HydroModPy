@@ -58,7 +58,7 @@ class Sim2:
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
                  spatial_mean=False, geographic, 
-                 disk_clip: str=False):
+                 disk_clip: str=None):
         """
         Parameters
         ----------
@@ -87,7 +87,7 @@ class Sim2:
         geographic : object
             Watershed.geographic object including infos such as crs, mask...
         disk_clip : str
-            Shapefile path or flag ('watershed' | False) to indicate how to clip
+            Shapefile path or flag ('watershed' | None) to indicate how to clip
             the netcdf files that are stored on the nc_data_path folder.
             The only purpose of clipping these files is to save disk space
 
@@ -118,8 +118,8 @@ class Sim2:
         self.final_filelist = {}
         if disk_clip == 'watershed':
             self.clip_mask = self.geographic.watershed_box_shp
-        elif disk_clip == False:
-            self.clip_mask = False
+        elif disk_clip is None:
+            self.clip_mask = None
         else:
             if os.path.splitext(disk_clip)[-1] == '.shp':
                 self.clip_mask = disk_clip
@@ -197,6 +197,7 @@ class Sim2:
                     #     date_i = pd.to_datetime(f"{years[0]-01-01}", format = "%Y-%m-%d")
                     # self.dates_by_var[self.HyMoPy_var_by_sim_var[sim_var]] = date_i
                     
+                    remove_file = False
                     with xr.open_dataset(file, decode_coords = 'all', decode_times = True) as ds_temp:
                         # Dates
                         if pd.date_range(start = ds_temp.time[0].item(), 
@@ -207,17 +208,20 @@ class Sim2:
                         # Spatial extent
                         resolution = abs(ds_temp.rio.transform()[0])
                         ds_extent = np.array(ds_temp.rio.bounds())
-                        if self.clip_mask == False:
-                            mask_extent = (56000.0, 1613000.0, 1200000.0, 2685000.0) # whole France
-                        else:
+                        if self.clip_mask is not None:
                             mask = gpd.read_file(self.clip_mask)
                             mask_extent = mask.buffer(resolution).total_bounds
+                        else:
+                            mask_extent = (56000.0, 1613000.0, 1200000.0, 2685000.0) # whole France
                         
-                        if (ds_extent[0:2] < mask_extent[0:2]).any() | (ds_extent[2:4] > mask_extent[2:4]).any() :
+                        if (ds_extent[0:2] <= mask_extent[0:2]).any() | (ds_extent[2:4] >= mask_extent[2:4]).any() :
                             self.local_data.loc[var, 'extent'] = True
                         else:
                             print(f"   Local data {os.path.split(file)[-1]} does not cover desired spatial extent")
-                            os.remove(file)
+                            remove_file = True # the file will be deleted (outside this 'with' section)
+                    
+                    if remove_file:
+                        os.remove(file)
                             
             self.local_data.iloc[:, 0:3][self.local_data.extent == True] = np.nan
         
@@ -229,9 +233,10 @@ class Sim2:
         # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC_Q', 'RUNC_Q'...)
         sim_varlist = self.sim_var_by_HyMoPy_var.loc[self.var_list].sim_var.values
         
-        self.clip_folder(self.nc_data_path, 
-                          self.clip_mask,
-                          sim_varlist)
+        if self.clip_mask is not None:
+            self.clip_folder(self.nc_data_path, 
+                              self.clip_mask,
+                              sim_varlist)            
         
         # ---- Merge NetCDF files
         self.merge_folder(self.nc_data_path, sim_varlist)
