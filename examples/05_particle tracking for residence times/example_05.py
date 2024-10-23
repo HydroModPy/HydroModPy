@@ -279,16 +279,17 @@ seep[40,48] = 1
 plt.imshow(seep)
 toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
                    seep,
-                   0,
-                   BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif')
+                   
+                   BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
+                   0)
 tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
 
 BV.settings.update_input_particles(
                                     # zone_partic = BV.geographic.watershed_box_buff_dem,
-                                    zone_partic = tif_bore,
+                                    zone_partic = tif_file_clip,
                                     cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
-                                    bore_depth = True, # '[0,5,10] for 3 particles
+                                    bore_depth = None, # '[0,5,10] for 3 particles or None
                                     track_dir = 'backward',
                                     # track_dir = 'forward', # backward
                                     sel_random = None, # or int
@@ -304,7 +305,7 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particles_shp=True,
+                                  particles_shp=False,
                                   random_id=None, # select randomly to save (for pathlines and particles)
                                   ) # None
         
