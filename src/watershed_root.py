@@ -825,8 +825,13 @@ class Watershed:
 
         """
         model_modpath.filt_processing(model_modpath,
-                                      random_id=random_id,
-                                      norm_flux=norm_flux)
+                                      norm_flux,
+                                      filt_time, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                                      filt_seep, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                                      filt_inout, # delete particles in and out in the same cell (first layer)
+                                      calc_rtd, # compute residence time distribution
+                                      random_id # select randomly to keep
+                                      )
 
     #%% EXTRACT TIMESERIES
     
