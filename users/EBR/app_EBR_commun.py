@@ -879,7 +879,7 @@ model_modflow = mdflw_dict['model_modflow']
 #%% POST-PROCESSING
 start_time = datetime.datetime.now()
 print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
-##%%% Netcdf
+##%%% General
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation = True,
