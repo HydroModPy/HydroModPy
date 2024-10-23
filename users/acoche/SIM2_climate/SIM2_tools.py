@@ -403,7 +403,7 @@ def clip_folder(folder, maskpath):
     
 
 #%% Plot synthetic maps
-def plot_map(var, *, mode = "sum", timemode = 'annual'):
+def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     """
     Generates interactive maps from SIM2 data (html).
     
@@ -435,22 +435,24 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
     
     #%%% Loading
     # Finding the most recent file
-    root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
-    file_folder = os.path.join(root_folder, "compressed")
+    if file_folder is None:
+        file_folder = input("file folder: ")
+    # Personal shortcut @Alexandre:
+    if file_folder == '':
+        root_folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
+        file_folder = os.path.join(root_folder, "compressed")
     
-    var_pattern = re.compile(var)
+    var_pattern = re.compile(f"^{var}_Q")
     filelist = [f for f in os.listdir(file_folder) 
                 if (os.path.isfile(os.path.join(file_folder, f))) \
                     & (os.path.splitext(f)[-1] == '.nc') \
                         & (len(var_pattern.findall(f)) > 0)]
     
-    years = 0
     for f in filelist:
-        sim_pattern = re.compile('\d{4,6}')
-        years2 = int(sim_pattern.findall(f)[-1])
-        if years2 > years:
-            years = years2
-            file_suffix = var_pattern.split(f)[1][1:]    
+        print(f)
+        # sim_pattern = re.compile('\d{4,6}')
+        # years = int(sim_pattern.findall(f)[-1])
+        file_suffix = 'Q_' + var_pattern.split(f)[1][1:]    
     print(f"   . File suffix: {file_suffix}")
     filename = f"{var}_{file_suffix}"
     filepath = os.path.join(file_folder, filename)
@@ -841,7 +843,7 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
                         )
 
     # ---- Save the .html figures
-    version = 'v6'
+    version = 'v7'
     if not os.path.exists(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2)):
         os.makedirs(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2))
     
@@ -897,8 +899,11 @@ def plot_map(var, *, mode = "sum", timemode = 'annual'):
         smt.plot_map('WG_RACINE', mode = "mean", timemode = timemode)
         smt.plot_map('SWI', mode = "mean", timemode = timemode)
     for timemode in ['annual', 'ONDJFM', 'AMJJAS']:
-        for var in ['EVAP', 'ETP', 'DRAINC', 'RUNC']:
+        for var in ['PRETOT', 'EVAP', 'ETP', 'DRAINC', 'RUNC']:
             smt.plot_map(var, mode = "ratio", timemode = timemode)
+    for timemode in ['annual', 'ONDJFM', 'AMJJAS']:
+        for var in ['EVAP', 'ETP', 'DRAINC', 'RUNC']:
+            smt.plot_map(var, mode = "ratio_precip", timemode = timemode)
             
     # Display the run time:
     now = datetime.datetime.now()
