@@ -163,7 +163,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo\Historiques SIM2"),
-                                       first_year=pd.to_datetime('today').year-15,
+                                       first_year=pd.to_datetime('today').year-1,
                                        # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
@@ -176,7 +176,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
 BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
 BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
 BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-BV.climatic.temp = BV.climatic.temp / 1000 # from mm to m
+BV.climatic.t = BV.climatic.t / 1000 # from mm to m
 BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
 BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
 
@@ -866,15 +866,17 @@ mdflw_dict['model_modflow'] = model_modflow
 dd.io.save(h5file, mdflw_dict)
 
 #%%% Rechargement des résultats du modèle Modflow
-model_name = 'base'
-
-h5file = os.path.join(BV.simulations_folder,
-                      'results_listing_' + model_name)
-
-mdflw_dict = dd.io.load(h5file)
-model_name = mdflw_dict['model_name']
-success_modflow = mdflw_dict['success_modflow']
-model_modflow = mdflw_dict['model_modflow']
+# =============================================================================
+# model_name = 'base'
+# 
+# h5file = os.path.join(BV.simulations_folder,
+#                       'results_listing_' + model_name)
+# 
+# mdflw_dict = dd.io.load(h5file)
+# model_name = mdflw_dict['model_name']
+# success_modflow = mdflw_dict['success_modflow']
+# model_modflow = mdflw_dict['model_modflow']
+# =============================================================================
 
 #%% POST-PROCESSING
 start_time = datetime.datetime.now()
