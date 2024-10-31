@@ -293,7 +293,7 @@ class Lakeres:
         self.rtrn_by_lake[lake_id] = timeseries
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
-    def format_to_modflow(self, geographic, climatic, nper, thickfact, dem, dem_path):
+    def format_to_modflow(self, geographic, climatic, nper, thickfact, dem, dem_watershed_path):
         print("\nLakes/Reservoirs: formating all attributes...")
         
         #%%% Standardize lake identifiers
@@ -589,7 +589,7 @@ class Lakeres:
         bdlknc = lakarr.copy()*0 + self.bdlknc_by_lake[lake_id]
         
         #%%% Format outlets
-        self.format_outlets(lakarr, geographic, dem_path)
+        self.format_outlets(lakarr, geographic, dem_watershed_path)
         
         #%%% Format fluxes data
         # ---------------------
@@ -727,7 +727,7 @@ class Lakeres:
         
 
     #%% FORMAT OUTLETS
-    def format_outlets(self, lakarr, geographic, dem_path):
+    def format_outlets(self, lakarr, geographic, dem_watershed_path):
         self.ij_outlet_by_lake = {}
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
@@ -737,13 +737,13 @@ class Lakeres:
                 acc_map, _, _, nodata = toolbox.load_to_numpy(
                     os.path.join(geographic.reg_path, 'region_acc.tif'), 
                     src_crs = geographic.crs_proj, 
-                    base_path = dem_path, 
+                    base_path = dem_watershed_path, 
                     dst_crs = geographic.crs_proj)
 # =============================================================================
 #                 watershed_mask, _, _, nodata = toolbox.load_to_numpy(
-#                     dem_path,
+#                     dem_watershed_path,
 #                     src_crs = self.geographic.crs_proj, 
-#                     base_path = dem_path,
+#                     base_path = dem_watershed_path,
 #                     dst_crs = self.geographic.crs_proj)
 # =============================================================================
                 acc_map = np.ma.array(
