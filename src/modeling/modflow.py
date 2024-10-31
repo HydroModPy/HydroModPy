@@ -373,7 +373,7 @@ class Modflow:
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_path)
+                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_watershed_path)
             
             self.nlay = self.nlay + 1
             self.top = laklay_top
@@ -1433,7 +1433,7 @@ class Modflow:
                 self.lake_vertical_leakage[self.dem_mask] = -9999
                 output_path = self.tifs_file+'/lake_leakage_t('+lead_numb+').tif'
                 if export_tif==True:
-                    toolbox.export_tif(self.dem_path, self.lake_vertical_leakage, output_path, -9999)                  
+                    toolbox.export_tif(self.dem_watershed_path, self.lake_vertical_leakage, output_path, -9999)                  
                 self.dict_lake_leakage[item] = self.lake_vertical_leakage
         print(f"\nNOTE: Lake lateral flows have been non null for {lake_lateralflow_count} time steps\n")
             
