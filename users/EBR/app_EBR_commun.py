@@ -290,7 +290,8 @@ dam_input_df = pd.read_csv(dam_data_path,
                            index_col = 'time',
                            parse_dates = True)
 
-# Conversion des valeurs (sommes mensuelles) en flux journaliers
+#### Gestion de la temporalité des valeurs :
+# 1. Conversion des valeurs (sommes mensuelles) en flux journaliers
 days_in_month = pd.DataFrame( 
     index = dam_input_df.index,
     data = dam_input_df.index.days_in_month)
@@ -300,26 +301,15 @@ sum_col = dam_input_df.columns != 'cheze'
 dam_input_df.loc[:, sum_col] = dam_input_df.loc[:, sum_col].divide(
     days_in_month.n_days, axis="index")
 
-# Sous-échantillonage des données d'entrée selon la temporalité de la recharge
-# =============================================================================
-# # interpolation method
-# dam_input_df = dam_input_df.shift(periods = -15, freq = 'D') # 15 should be replaced with a more accurate value
-# dam_input_df = dam_input_df.resample('D').mean()
-# dam_input_df.interpolate(method = "time", limit_direction = 'backward', inplace = True)
-# =============================================================================
-# d'abord en journalier
+# 2. Sous-échantillonage des données d'entrée en journalier
 daily_index = pd.date_range(start = BV.climatic.recharge.index[0], 
                              periods = (BV.climatic.recharge.index[-1] \
                                  - BV.climatic.recharge.index[0]).days + 1,
                                  freq = 'D') 
 dam_input_df = dam_input_df.reindex(index = daily_index)
-# =============================================================================
-# # other (partial) method
-# dam_input_df = dam_input_df.resample('D').mean()
-# =============================================================================
 dam_input_df.fillna(method = 'bfill', inplace = True) # backward fill
 dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
-# puis en hebdomadaire
+# 3. puis sur-échantillonage selon la temporalité de la recharge
 rules = {
     'cheze': 'mean',
     'canut':'mean',
@@ -331,6 +321,15 @@ rules = {
     'ae_oudin':'mean',
     }
 dam_input_df = dam_input_df.resample(freq_input).agg(rules)
+
+# Méthode alternative pour 1., 2. et 3. : 
+# Sous-échantillonage des données d'entrée selon la temporalité de la recharge, avec interpolation
+# =============================================================================
+# # interpolation method
+# dam_input_df = dam_input_df.shift(periods = -15.21875, freq = 'D') # 15.21875 is half of average number of days per month
+# dam_input_df = dam_input_df.resample('D').agg(rules)
+# dam_input_df.interpolate(method = "time", limit_direction = 'backward', inplace = True)
+# =============================================================================
 
 # ---- Raffinage des débits de la Chèze
 # Ce n'est plus utile maintenant que les débits modélisés sont utilisés à la
@@ -442,21 +441,7 @@ abaque = pd.read_csv(os.path.join(data_path, "Reservoir", "Abaque",
                      names = ['level', 'volume'],
                      )
 
-# Monthly data
-# ------------
-# dam_data_path = os.path.join(
-#     os.path.split(data_path)[0], 
-#     r"1- Biblio locale\14- Barrage\Documents_travail_Ronan\dam_data",
-#     "dam_cheze_volume_raw_2000-2022.csv")
-# data = pd.read_csv(dam_data_path,
-#                    sep = ";",
-#                    header = 0,
-#                    skiprows = 0,
-#                    index_col = 'time',
-#                    # usecols = ['time', 'cheze'],
-#                    parse_dates = True)
 
-# data_volumes = data[['cheze']].copy()
 data_volumes = dam_input_df[['cheze']].copy()
 
 # Données hebdomadaires
@@ -471,17 +456,6 @@ except:
     Stock_Cheze_xls_path = os.path.join(
         Stock_Cheze_xls_folder,
         f"Villejean_Stock_Cheze_{datetime.datetime.now().year-1}_val.xlsx")
-        
-# =============================================================================
-# # methode 2 (debut)
-# Stock_Cheze_xls_list = [f for f in os.listdir(
-#     os.path.join(os.path.split(data_path)[0],
-#                  r"1- Biblio locale\14- Barrage\Donnees journalieres Cheze\Niveaux")) \
-#         if os.path.isfile(os.path.join(
-#                 os.path.split(data_path)[0],
-#                 r"1- Biblio locale\14- Barrage\Donnees journalieres Cheze\Niveaux", 
-#                 f))]
-# =============================================================================
         
 data = pd.read_excel(
     Stock_Cheze_xls_path,
@@ -540,8 +514,8 @@ for t in data_levels.index:
 if BV.climatic.recharge.index[0] in data_levels.index:
     level_init = data_levels.loc[BV.climatic.recharge.index[0]].item()
 else:
+    # Method 'nearest'
 # =============================================================================
-#     # Method 'nearest'
 #     level_init = float(data_levels.iloc[
 #         data_levels.index.get_indexer([BV.climatic.recharge.index[0]], 'nearest')[0]])
 # =============================================================================
