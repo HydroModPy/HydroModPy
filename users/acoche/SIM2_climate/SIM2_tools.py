@@ -890,20 +890,22 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
     print("The generation of all interactive graphic files can take 20 min\n")
     
+    folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2"
+    
     for timemode in ['annual', 'ONDJFM', 'AMJJAS']:
         for var in ['EVAP', 'ETP', 'PRETOT', 'DRAINC', 'RUNC']:
-            smt.plot_map(var, mode = "sum", timemode = timemode)
-        smt.plot_map('T', mode = "mean", timemode = timemode)
-        smt.plot_map('TINF_H', mode = "min", timemode = timemode)
-        smt.plot_map('TSUP_H', mode = "max", timemode = timemode)
-        smt.plot_map('WG_RACINE', mode = "mean", timemode = timemode)
-        smt.plot_map('SWI', mode = "mean", timemode = timemode)
+            smt.plot_map(var, mode = "sum", timemode = timemode, folder = folder)
+        smt.plot_map('T', mode = "mean", timemode = timemode, folder = folder)
+        smt.plot_map('TINF_H', mode = "min", timemode = timemode, folder = folder)
+        smt.plot_map('TSUP_H', mode = "max", timemode = timemode, folder = folder)
+        smt.plot_map('WG_RACINE', mode = "mean", timemode = timemode, folder = folder)
+        smt.plot_map('SWI', mode = "mean", timemode = timemode, folder = folder)
     for timemode in ['annual', 'ONDJFM', 'AMJJAS']:
         for var in ['PRETOT', 'EVAP', 'ETP', 'DRAINC', 'RUNC']:
-            smt.plot_map(var, mode = "ratio", timemode = timemode)
+            smt.plot_map(var, mode = "ratio", timemode = timemode, folder = folder)
     for timemode in ['annual', 'ONDJFM', 'AMJJAS']:
         for var in ['EVAP', 'ETP', 'DRAINC', 'RUNC']:
-            smt.plot_map(var, mode = "ratio_precip", timemode = timemode)
+            smt.plot_map(var, mode = "ratio_precip", timemode = timemode, folder = folder)
             
     # Display the run time:
     now = datetime.datetime.now()
