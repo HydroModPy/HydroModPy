@@ -69,10 +69,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = os.path.join(example_path, "data") + '/'
 # To automatically retrieve/initialize the HydroModPy results path:
-out_path = folder_root.root_folder_results()
+# out_path = folder_root.root_folder_results()
 # When it needs modifying: out_path = folder_root.update_root_folder_results()
 # Otherwise, to inform a results path specific to this script:
-# out_path = 'C:/Simulations/HydroModPy/' # for example
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/' # for example
 
 #%% ---- WATERSHED
 
@@ -277,9 +277,10 @@ seep[40,48] = 1
 # seep[60,20] = 1
 # seep[50,25] = 1
 plt.imshow(seep)
+particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
+toolbox.create_folder(particles_folder)
 toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
                    seep,
-                   
                    BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
                    0)
 tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
@@ -402,8 +403,8 @@ shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), 
                   zorder=1)
 
 shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=3,
-                 norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=10,
+                 norm=mpl.colors.LogNorm(vmin=0.1, vmax=10000), legend=True,
                  zorder=2)
 
 try:
