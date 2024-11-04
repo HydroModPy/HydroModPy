@@ -356,8 +356,8 @@ class Modpath:
             Write starting point files. The default is True.
         pathlines_shp : bool, optional
             Write pathlines shapefiles. The default is True.
-        particuls_shp : bool, optional
-            Write particuls shapefiles. The default is True.
+        particles_shp : bool, optional
+            Write particles shapefiles. The default is True.
         random_id : int, optional
             Export random pathlines. The default is None.
 
@@ -565,10 +565,10 @@ class Modpath:
                 if random_id != None:
                     if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(pathlines_up[:-1], random_id)
-                        with open(self.geographic.simulations_folder+'/'+'_id_particules_random.data', 'wb') as f:
+                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.geographic.simulations_folder+'/'+'_id_particules_random.data', 'rb') as f:
+                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]                    
                 pathlines_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
@@ -584,10 +584,10 @@ class Modpath:
                 if random_id != None:
                     if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
-                        with open(self.geographic.simulations_folder+'/'+'_id_particules_random.data', 'wb') as f:
+                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.geographic.simulations_folder+'/'+'_id_particules_random.data', 'rb') as f:
+                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
                 particles_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
