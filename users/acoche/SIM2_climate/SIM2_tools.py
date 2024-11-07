@@ -410,7 +410,11 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     Example
     -------
     import SIM2_tools as smt
+    
     smt.plot_map('PRETOT', mode = "sum", timemode = 'annual')
+    
+    for timemode in ['JJA', 'SON', 'DJF', 'MAM']:
+        smt.plot_map('SWI', mode = "mean", timemode = timemode, file_folder = folder)
 
     Parameters
     ----------
@@ -421,7 +425,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     mode : str, optional
         'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip'. The default is "sum".
     timemode : str, optional
-        'annual' | 'ONDJFM' | 'AMJJAS. The default is 'annual'.
+        'annual' | 'ONDJFM' | 'AMJJAS' | 'DJF' | 'MAM' | 'JJA' | 'SON'. The default is 'annual'.
 
     Returns
     -------
@@ -502,22 +506,46 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     suf_timemode = {
         'sum': {'annual': 'cumuls annuels',
                 'ONDJFM': 'cumuls oct-mar',
-                'AMJJAS': 'cumuls avr-sep'},
+                'AMJJAS': 'cumuls avr-sep',
+                'DJF': 'cumuls dec-fev',
+                'MAM': 'cumuls mar-mai',
+                'JJA': 'cumuls juin-aout',
+                'SON': 'cumuls sept-nov'},
         'min': {'annual': 'minimums annuels',
                 'ONDJFM': 'minimums oct-mar',
-                'AMJJAS': 'minimums avr-sep'},
+                'AMJJAS': 'minimums avr-sep',
+                'DJF': 'minimums dec-fev',
+                'MAM': 'minimums mar-mai',
+                'JJA': 'minimums juin-aout',
+                'SON': 'minimums sept-nov'},
         'max': {'annual': 'maximums annuels',
                 'ONDJFM': 'maximums oct-mar',
-                'AMJJAS': 'maximums avr-sep'},
+                'AMJJAS': 'maximums avr-sep',
+                'DJF': 'maximums dec-fev',
+                'MAM': 'maximums mar-mai',
+                'JJA': 'maximums juin-aout',
+                'SON': 'maximums sept-nov'},
         'mean': {'annual': 'moyennes annuelles',
                 'ONDJFM': 'moyennes oct-mar',
-                'AMJJAS': 'moyennes avr-sep'},
+                'AMJJAS': 'moyennes avr-sep',
+                'DJF': 'moyennes dec-fev',
+                'MAM': 'moyennes mar-mai',
+                'JJA': 'moyennes juin-aout',
+                'SON': 'moyennes sept-nov'},
         'ratio': {'annual': 'obsolète (cumuls annuels / cumuls annuels)',
                   'ONDJFM': 'cumuls oct-mar / cumuls annuels',
-                  'AMJJAS': 'cumuls avr-sep / cumuls annuels'},
+                  'AMJJAS': 'cumuls avr-sep / cumuls annuels',
+                  'DJF': 'cumuls dec-fev / cumuls annuels',
+                  'MAM': 'cumuls mar-mai / cumuls annuels',
+                  'JJA': 'cumuls juin-aout / cumuls annuels',
+                  'SON': 'cumuls sept-nov / cumuls annuels'},
         'ratio_precip': {'annual': 'cumuls annuels / précipitations annuelles',
                          'ONDJFM': 'cumuls oct-mar / précipitations annuelles',
-                         'AMJJAS': 'cumuls avr-sep / précipitations annuelles'},          
+                         'AMJJAS': 'cumuls avr-sep / précipitations annuelles',
+                         'DJF': 'cumuls dec-fev / précipitations annuelles',
+                         'MAM': 'cumuls mar-mai / précipitations annuelles',
+                         'JJA': 'cumuls juin-aout / précipitations annuelles',
+                         'SON': 'cumuls sept-nov / précipitations annuelles'},
         }
     
     metadata_by_var = {
@@ -605,6 +633,15 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         final_map = ds[(ds.time.dt.month <= 3) | (ds.time.dt.month >= 10)].copy()
     elif timemode == 'AMJJAS':
         final_map = ds[(ds.time.dt.month >= 4) & (ds.time.dt.month <= 9)].copy()
+    elif timemode == 'DJF':
+        final_map = ds[(ds.time.dt.month <= 2) | (ds.time.dt.month >= 12)].copy()
+    elif timemode== 'MAM':
+        final_map = ds[(ds.time.dt.month >= 3) & (ds.time.dt.month <= 5)].copy()
+    elif timemode == 'JJA':
+        final_map = ds[(ds.time.dt.month >= 6) & (ds.time.dt.month <= 8)].copy()
+    elif timemode == 'SON':
+        final_map = ds[(ds.time.dt.month >= 9) & (ds.time.dt.month <= 11)].copy()
+    
     elif timemode == 'annual':
         final_map = ds.copy()
         
@@ -687,6 +724,22 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
             suf_title.append((f"avr. {dates[0][1]}", f"sep. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
             dst_dir2 = 'semestriels'
+        elif timemode == 'DJF':
+            suf_title.append((f"dec. {dates[0][1]}", f"fev. {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
+            dst_dir2 = 'saisonniers'
+        elif timemode == 'MAM':
+            suf_title.append((f"mars {dates[0][1]}", f"mai {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
+            dst_dir2 = 'saisonniers'
+        elif timemode == 'JJA':
+            suf_title.append((f"juin {dates[0][1]}", f"aout {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
+            dst_dir2 = 'saisonniers'
+        elif timemode == 'SON':
+            suf_title.append((f"sept. {dates[0][1]}", f"nov. {dates[1][1]}"))
+            suf_slider.append(f"{dates[0][1]}-{dates[1][1]}")
+            dst_dir2 = 'saisonniers'
         elif timemode == 'annual':
             suf_title.append((f"oct. {dates[0][0]}", f"sep. {dates[1][1]}"))
             suf_slider.append(f"{dates[0][0]}-{dates[1][1]}")
