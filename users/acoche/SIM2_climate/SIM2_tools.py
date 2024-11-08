@@ -600,25 +600,25 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     if mode in ["sum", "min", "max", "mean", "mean_cumdiff", "sum_cumdiff"]:
         unit = metadata_by_var[main_var][0]
         if mode == "sum":
-            zmin = float(ds[main_var].groupby(
-                ds.time.dt.year).sum(min_count = 1).min(dim = ['x', 'y', 'year']))
-            zmax = float(ds[main_var].groupby(
-                ds.time.dt.year).sum(min_count = 1).max(dim = ['x', 'y', 'year']))
+            zmin = ds[main_var].groupby(
+                ds.time.dt.year).sum(min_count = 1).min(dim = ['x', 'y', 'year']).item()
+            zmax = ds[main_var].groupby(
+                ds.time.dt.year).sum(min_count = 1).max(dim = ['x', 'y', 'year']).item()
         elif mode == "min":
-            zmin = float(ds[main_var].groupby(
-                ds.time.dt.year).min().min(dim = ['x', 'y', 'year']))
-            zmax = float(ds[main_var].groupby(
-                ds.time.dt.year).min().max(dim = ['x', 'y', 'year']))
+            zmin = ds[main_var].groupby(
+                ds.time.dt.year).min().min(dim = ['x', 'y', 'year']).item()
+            zmax = ds[main_var].groupby(
+                ds.time.dt.year).min().max(dim = ['x', 'y', 'year']).item()
         elif mode == "max":
-            zmin = float(ds[main_var].groupby(
-                ds.time.dt.year).max().min(dim = ['x', 'y', 'year']))
-            zmax = float(ds[main_var].groupby(
-                ds.time.dt.year).max().max(dim = ['x', 'y', 'year']))
+            zmin = ds[main_var].groupby(
+                ds.time.dt.year).max().min(dim = ['x', 'y', 'year']).item()
+            zmax = ds[main_var].groupby(
+                ds.time.dt.year).max().max(dim = ['x', 'y', 'year']).item()
         elif mode == "mean":
-            zmin = float(ds[main_var].groupby(
-                ds.time.dt.year).mean().min(dim = ['x', 'y', 'year']))
-            zmax = float(ds[main_var].groupby(
-                ds.time.dt.year).mean().max(dim = ['x', 'y', 'year']))
+            zmin = ds[main_var].groupby(
+                ds.time.dt.year).mean().min(dim = ['x', 'y', 'year']).item()
+            zmax = ds[main_var].groupby(
+                ds.time.dt.year).mean().max(dim = ['x', 'y', 'year']).item()
         elif mode == 'mean_cumdiff':
 # =============================================================================
 #             zmin = (ds[main_var].groupby(
