@@ -620,19 +620,27 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
             zmax = float(ds[main_var].groupby(
                 ds.time.dt.year).mean().max(dim = ['x', 'y', 'year']))
         elif mode == 'mean_cumdiff':
-            zmin = float((ds[main_var].groupby(
-                ds.time.dt.year).mean() - ds[main_var].groupby(
-                    ds.time.dt.year).mean()[{'year' : 0}]).min(dim = ['x', 'y', 'year']))
-            zmax = float((ds[main_var].groupby(
-                ds.time.dt.year).mean() - ds[main_var].groupby(
-                    ds.time.dt.year).mean()[{'year' : 0}]).max(dim = ['x', 'y', 'year']))
+# =============================================================================
+#             zmin = (ds[main_var].groupby(
+#                 ds.time.dt.year).mean() - ds[main_var].groupby(
+#                     ds.time.dt.year).mean()[{'year' : 0}]).min(dim = ['x', 'y', 'year']).item()
+#             zmax = (ds[main_var].groupby(
+#                 ds.time.dt.year).mean() - ds[main_var].groupby(
+#                     ds.time.dt.year).mean()[{'year' : 0}]).max(dim = ['x', 'y', 'year']).item()
+# =============================================================================
+            # It is better here to use the grouped values for limits (computed later)            
+            zmin = 0
+            zmax = 0
         elif mode == 'sum_cumdiff':
-            zmin = float((ds[main_var].groupby(
-                ds.time.dt.year).sum(min_count = 1) - ds[main_var].groupby(
-                    ds.time.dt.year).sum(min_count = 1)[{'year' : 0}]).min(dim = ['x', 'y', 'year']))
-            zmax = float((ds[main_var].groupby(
-                ds.time.dt.year).sum(min_count = 1) - ds[main_var].groupby(
-                    ds.time.dt.year).sum(min_count = 1)[{'year' : 0}]).max(dim = ['x', 'y', 'year']))
+# =============================================================================
+#             zmin = (ds[main_var].groupby(
+#                 ds.time.dt.year).sum(min_count = 1) - ds[main_var].groupby(
+#                     ds.time.dt.year).sum(min_count = 1)[{'year' : 0}]).min(dim = ['x', 'y', 'year']).item()
+#             zmax = (ds[main_var].groupby(
+#                 ds.time.dt.year).sum(min_count = 1) - ds[main_var].groupby(
+#                     ds.time.dt.year).sum(min_count = 1)[{'year' : 0}]).max(dim = ['x', 'y', 'year']).item()
+# =============================================================================
+            # It is better here to use the grouped values for limits (computed later)            
             zmin = 0
             zmax = 0
 
