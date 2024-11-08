@@ -423,7 +423,8 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
           'ETP' | 'EVAP' | 'PRELIQ' | 'PRENEI' | 'PRETOT' | 'DRAINC' | 'RUNC' | 
           'T' | 'TINF_H' | 'TSUP_H' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' | ...
     mode : str, optional
-        'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip' | 'mean_cumdiff' | 'sum_cumdiff'. The default is "sum".
+        'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip' | 
+        'mean_cumdiff' | 'sum_cumdiff' | 'min_cumdiff' | 'max_cumdiff'. The default is "sum".
     timemode : str, optional
         'annual' | 'ONDJFM' | 'AMJJAS' | 'DJF' | 'MAM' | 'JJA' | 'SON'. The default is 'annual'.
 
@@ -546,20 +547,34 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                          'MAM': 'cumuls mar-mai / précipitations annuelles',
                          'JJA': 'cumuls juin-aout / précipitations annuelles',
                          'SON': 'cumuls sept-nov / précipitations annuelles'},
-        'mean_cumdiff': {'annual': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
-                      'ONDJFM': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
-                      'AMJJAS': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
-                      'DJF': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
-                      'MAM': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
-                      'JJA': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
-                      'SON': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
-        'sum_cumdiff': {'annual': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
-                      'ONDJFM': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
-                      'AMJJAS': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
-                      'DJF': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
-                      'MAM': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
-                      'JJA': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
-                      'SON': f'écarts avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'mean_cumdiff': {'annual': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'sum_cumdiff': {'annual': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'min_cumdiff': {'annual': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de minimums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'max_cumdiff': {'annual': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
         }
     
     metadata_by_var = {
@@ -597,7 +612,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     #%%% Units & colorscale
     dst_dir1 = 'valeurs'
     
-    if mode in ["sum", "min", "max", "mean", "mean_cumdiff", "sum_cumdiff"]:
+    if mode in ["sum", "min", "max", "mean", "mean_cumdiff", "sum_cumdiff", "min_cumdiff", "max_cumdiff"]:
         unit = metadata_by_var[main_var][0]
         if mode == "sum":
             zmin = ds[main_var].groupby(
@@ -643,6 +658,12 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
             # It is better here to use the grouped values for limits (computed later)            
             zmin = 0
             zmax = 0
+        elif mode == 'min_cumdiff':
+            zmin = 0
+            zmax = 0
+        elif mode == 'max_cumdiff':
+            zmin = 0
+            zmax = 0
 
     elif mode == "ratio":
         unit = "%"
@@ -661,7 +682,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     else:
         colorscale = "Viridis_r"
         
-    if mode in ['mean_cumdiff', 'sum_cumdiff']:
+    if mode in ['mean_cumdiff', 'sum_cumdiff', 'min_cumdiff', 'max_cumdiff']:
         colorscale = 'RdBu'
         if var in ['T', 'TSUP_H', 'TINF_H']:
             colorscale = 'RdBu_r'
@@ -713,6 +734,12 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         
     elif mode == 'sum_cumdiff':
         final_map = final_map.groupby(group).sum(min_count = 1)
+        
+    elif mode == 'min_cumdiff':
+        final_map = final_map.groupby(group).min()
+        
+    elif mode == 'max_cumdiff':
+        final_map = final_map.groupby(group).max()
     
     elif mode == 'ratio_precip': # values expressed as pourcentages of annual PRETOT
         filename_pretot = f"PRETOT_{file_suffix}"
@@ -758,7 +785,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         # ---- Compute the decade average
         temp_map = final_map.loc[{'group': slice(dates[0][0], dates[1][0])}].mean(dim = 'group')
         
-        if mode in ['mean_cumdiff', 'sum_cumdiff'] :
+        if mode in ['mean_cumdiff', 'sum_cumdiff', 'min_cumdiff', 'max_cumdiff'] :
             temp_map = temp_map - final_map.loc[{'group': slice(annual_bins[0][0][0], annual_bins[0][1][0])}].mean(dim = 'group')
             # This adjusts the color based on max among all GROUPED YEARS
             zmax = max([zmax, float(temp_map.max())])
