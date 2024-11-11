@@ -2072,7 +2072,7 @@ elem_p.to_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
 
 #%% ---- MIX HGS
 
-#%% ALL
+#%% ALL 1
 
 elem_k = pd.read_csv(hgs_path + "Properties/elem_k_fill.csv", sep=';')
 elem_p = pd.read_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
@@ -2145,6 +2145,160 @@ print('or', round((Pgeo),2))
 
 # df_k = elem_k.groupby('ZONE')['KXX'].unique()
 # df_k = elem_k.groupby(['ZONE']).sum()#.groupby(level='ZONE').mean()
+
+#%% ALL 2
+
+from scipy.stats import hmean, gmean
+
+elem_k = pd.read_csv(hgs_path + "Properties/elem_k_fill.csv", sep=';')
+elem_p = pd.read_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
+
+elem_hp = elem_k.copy()
+elem_hp['ZDIFF_MEAN'] = (elem_hp['ZDIFF1'] + elem_hp['ZDIFF2'] + elem_hp['ZDIFF3']) / 3
+elem_hp['SYX'] = elem_p['POR']
+elem_hp['SSX'] = np.nan
+elem_hp.loc[elem_hp['ZONE'].isin(np.arange(1,18+1,1)),'SSX'] = 1.6e-4 
+elem_hp.loc[elem_ss['ZONE'].isin(np.arange(19,25+1,1)),'SSX'] = 1.1e-5
+
+tot_area = elem_hp['AREA'].sum() / 23
+tot_vol = elem_hp['VOL_DELAUNAY'].sum()
+
+# elem_hp['KXX_w'] = elem_hp['VOL_DELAUNAY'] / tot_vol
+elem_hp['KXX_w'] = elem_hp['AREA'] / tot_area
+elem_hp['fac'] = elem_hp['VOL_DELAUNAY'] / elem_hp['VOL_DELAUNAY'].sum()
+elem_hp['KXX_ms'] = elem_hp['KXX']/24/3600
+
+elem_hp['ID_E_v'] = list(np.arange(1,9608+2,1))*23
+df_ev = pd.DataFrame()
+for i, z in enumerate(elem_hp['ID_E_v'].unique()):
+    mask = elem_hp[elem_hp['ID_E_v']==z]
+    df_ev.loc[i,'ID_E_v'] = int(z)
+    df_ev.loc[i,'AREA_val'] = mask['AREA'].iloc[0]
+    df_ev.loc[i,'VOL_DELAUNAY_sum'] = mask['VOL_DELAUNAY'].sum()
+    df_ev.loc[i,'Kh'] = np.sum(mask['KXX_w'] * mask['ZDIFF_MEAN']) / np.sum(mask['ZDIFF_MEAN'])
+    df_ev.loc[i,'Kv'] = np.sum(mask['ZDIFF_MEAN']) / np.sum(mask['ZDIFF_MEAN'] / mask['KXX_w'])
+df_ev['Kh/Kv'] = df_ev['Kh'] / df_ev['Kv']
+df_ev['Kh_w'] = (df_ev['Kh'] * df_ev['AREA_val']) / (tot_area)
+df_ev['Kv_w'] = (df_ev['Kv'] * df_ev['AREA_val']) / (tot_area)
+df_ev['Kh_w/Kv_w'] = df_ev['Kh_w'] / df_ev['Kv_w']
+
+df_hp = pd.DataFrame()
+for i, z in enumerate(elem_hp['ZONE'].unique()):
+    mask = elem_hp[elem_hp['ZONE']==z]
+    df_hp.loc[i,'ZONE'] = int(z)
+    df_hp.loc[i,'KXX_val'] = mask['KXX'].iloc[0]
+    df_hp.loc[i,'SYX_val'] = mask['SYX'].iloc[0]
+    df_hp.loc[i,'SSX_val'] = mask['SSX'].iloc[0]
+    df_hp.loc[i,'VOL_DELAUNAY_sum'] = mask['VOL_DELAUNAY'].sum()
+    df_hp.loc[i,'Z_mean'] = (mask['Z1'].mean()+mask['Z2'].mean()+mask['Z3'].mean()+mask['Z4'].mean()+mask['Z5'].mean()+mask['Z6'].mean())/6
+    df_hp.loc[i,'Z_max'] = np.array([mask['Z4'].max(),mask['Z5'].max(),mask['Z6'].max()]).max()
+df_hp['fac'] = df_hp['VOL_DELAUNAY_sum'] / (df_hp['VOL_DELAUNAY_sum'].sum())
+df_hp['KXX_val_ms'] = df_hp['KXX_val']/24/3600
+
+kh_arit = np.average(df_hp['KXX_val'], weights=None)/24/3600
+kh_geom = gmean(df_hp['KXX_val'], weights=None)/24/3600
+kh_harm = hmean(df_hp['KXX_val'], weights=None)/24/3600
+kh_arit_w = np.average(df_hp['KXX_val'], weights=df_hp['VOL_DELAUNAY_sum'])/24/3600
+kh_geom_w = gmean(df_hp['KXX_val'], weights=df_hp['VOL_DELAUNAY_sum'])/24/3600
+kh_harm_w = hmean(df_hp['KXX_val'], weights=df_hp['VOL_DELAUNAY_sum'])/24/3600
+
+# print('{:.2e}'.format(kh_arit), # https://fr.wikipedia.org/wiki/Moyenne_pond%C3%A9r%C3%A9e
+#       '{:.2e}'.format(kh_geom), # https://fr.wikipedia.org/wiki/Moyenne_g%C3%A9om%C3%A9trique_pond%C3%A9r%C3%A9e
+#       '{:.2e}'.format(kh_harm),  # https://fr.wikipedia.org/wiki/Moyenne_harmonique_pond%C3%A9r%C3%A9e
+#        kh_geom / kh_harm
+#       )
+
+print('{:.2e}'.format(kh_arit_w), # https://fr.wikipedia.org/wiki/Moyenne_pond%C3%A9r%C3%A9e
+      '{:.2e}'.format(kh_geom_w), # https://fr.wikipedia.org/wiki/Moyenne_g%C3%A9om%C3%A9trique_pond%C3%A9r%C3%A9e
+      '{:.2e}'.format(kh_harm_w),  # https://fr.wikipedia.org/wiki/Moyenne_harmonique_pond%C3%A9r%C3%A9e
+      round(kh_arit_w / kh_harm_w, 2),
+      round(kh_geom_w / kh_harm_w, 2)
+      )
+
+K_CP_min = np.average(hmean(df_ev['Kh']))
+K_CP_max = hmean(np.average(df_ev['Kh']))
+K_CP_geom = np.sqrt(K_CP_min*K_CP_max) # K_CP_geom = gmean([K_CP_min,K_CP_max])
+
+print('{:.2e}'.format(K_CP_min), '{:.2e}'.format(K_CP_geom), '{:.2e}'.format(K_CP_max), round(K_CP_max/K_CP_min, 2))
+
+fig, ax = plt.subplots(1, 1, figsize=(4,4))
+
+ax.boxplot(elem_hp['KXX']/24/3600, positions=[1])
+
+ax.scatter(1, kh_arit_w, marker='s', c='darkred', s=50, zorder=100)
+ax.scatter(1, kh_geom_w, marker='s', c='darkorange', s=50, zorder=100)
+ax.scatter(1, kh_harm_w, marker='s', c='gold', s=50, zorder=100)
+
+# ax.scatter(1, K_CP_min, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_max, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_geom, marker='o', c='limegreen', s=50, zorder=100)
+
+ax.set_yscale('log')
+ax.set_title('Hydraulic conductivity [m/s]')
+
+# Kh < Keff < Ka
+
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+df_sort = df_hp.sort_values(['SYX_val'])
+ax.plot(df_sort['SYX_val']*100, df_sort['fac'])
+ax.scatter(df_hp['SYX_val']*100, df_hp['fac'])
+ax.set_xscale('log')
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+ax.hist(df_hp['SYX_val']*100,
+        weights=df_hp['fac'],
+        bins=np.logspace(np.log10(100*df_hp['SYX_val'].min()),np.log10(100*df_hp['SYX_val'].max()), 100),
+        # density=True,
+        histtype='step')
+ax.set_xscale('log')
+# fig, ax = plt.subplots(1, 1, figsize=(7,4))
+# ax.hist(elem_hp['KXX_ms'],
+#         weights=elem_hp['VOL_DELAUNAY'],
+#         bins=np.logspace(np.log10(elem_hp['KXX_ms'].min()),np.log10(elem_hp['KXX_ms'].max()), 100),
+#         # density=True,
+#         histtype='step')
+# ax.set_xscale('log')
+
+# La deuxième expression ci-dessus montre que le logarithme de la moyenne géométrique pondérée 
+# est la moyenne arithmétique pondérée du logarithme des valeurs du jeu de données. 
+
+sy_arit_w = np.average(df_hp['SYX_val'], weights=df_hp['VOL_DELAUNAY_sum'])*100
+sy_geom_w = gmean(df_hp['SYX_val'], weights=df_hp['VOL_DELAUNAY_sum'])*100
+sy_harm_w = hmean(df_hp['SYX_val'], weights=df_hp['VOL_DELAUNAY_sum'])*100
+
+fig, ax = plt.subplots(1, 1, figsize=(4,4))
+
+ax.boxplot(elem_hp['SYX']*100, positions=[1])
+
+ax.scatter(1, sy_arit_w, marker='s', c='darkred', s=50, zorder=100)
+ax.scatter(1, sy_geom_w, marker='s', c='darkorange', s=50, zorder=100)
+ax.scatter(1, sy_harm_w, marker='s', c='gold', s=50, zorder=100)
+
+# ax.scatter(1, K_CP_min, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_max, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_geom, marker='o', c='limegreen', s=50, zorder=100)
+
+ax.set_yscale('log')
+ax.set_title('Specific yield [%]')
+
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+df_sort = df_hp.sort_values(['SYX'])
+ax.plot(df_sort['KXX_val_ms'], df_sort['fac'])
+ax.scatter(df_hp['KXX_val_ms'], df_hp['fac'])
+ax.set_xscale('log')
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+ax.hist(df_hp['KXX_val_ms'],
+        weights=df_hp['fac'],
+        bins=np.logspace(np.log10(df_hp['KXX_val_ms'].min()),np.log10(df_hp['KXX_val_ms'].max()), 100),
+        # density=True,
+        histtype='step')
+ax.set_xscale('log')
+# fig, ax = plt.subplots(1, 1, figsize=(7,4))
+# ax.hist(elem_hp['KXX_ms'],
+#         weights=elem_hp['VOL_DELAUNAY'],
+#         bins=np.logspace(np.log10(elem_hp['KXX_ms'].min()),np.log10(elem_hp['KXX_ms'].max()), 100),
+#         # density=True,
+#         histtype='step')
+# ax.set_xscale('log')
 
 #%% ---- CALIBRATION STREAMS
 
@@ -4896,4 +5050,15 @@ with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
   # return(Q)
 # }
 
- 
+#%% AVERAGES
+
+# kh_arit = np.average(elem_k['KXX'], weights=None)/24/3600
+# kh_geom = gmean(elem_k['KXX'], weights=None)/24/3600
+# kh_harm = hmean(elem_k['KXX'], weights=None)/24/3600
+# kh_arit_w = np.average(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_geom_w = gmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_harm_w = hmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_arit_weig = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+# kh_geom_weig = np.exp(np.sum((np.log(elem_k['KXX'])) * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])) # or 10** and np.log10
+# kh_harm_weig = np.sum(elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'] / elem_k['KXX']) # or 10** and np.log10
+
