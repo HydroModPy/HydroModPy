@@ -3376,7 +3376,7 @@ for w, w_name in enumerate(['Lasset'][:]):
         if iD_explo == 'e_isba2':
             list_id_mod = [6]
 
-        for id_mod_val in list_id_mod[:11]:
+        for id_mod_val in list_id_mod[:]:
         
             h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
             ######
@@ -3578,7 +3578,7 @@ df = dfcrit_Q.copy()
 # # fig.suptitle(df.model_name[0].upper(), y=1.05)
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
-n = 14
+n = 15
 # colors = pl.cm.jet(np.linspace(0,1,n))
 colors = pl.cm.plasma_r(np.linspace(0,1,n))
 
@@ -3703,9 +3703,9 @@ for icri, cri in enumerate([
             #             'Q_'+cri+'.png',
             #                         bbox_inches='tight')
             
-        # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
-        #             '_Q_'+'criteria_'+cri+'.png',
-        #                         bbox_inches='tight')
+        fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
+                    '_Q_'+'criteria_new_'+cri+'.png',
+                                bbox_inches='tight')
         
 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
@@ -4456,7 +4456,6 @@ iD_explos = ['z_isbaEXPLO']
 
 types_obs = ['hydrographic_mix_peren_upv1_pt']
 
-sat_typ = 'total_areas'
 
 areas = [
           3.7,
@@ -4494,11 +4493,15 @@ list_sat_obs = [6,8] # 7
 
 i=0
 
+sat_typ = 'total_areas'
+sat_typ = 'seepage_areas'
+
+
 for iD_explo in iD_explos:
     
     # list_id_mod = [6]
 
-    for id_mod_val in list_id_mod[:11]:
+    for id_mod_val in list_id_mod[:]:
     
         h5file = BV.calibration_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
         # if 'd' not in globals():
@@ -4755,7 +4758,7 @@ for iD_explo in iD_explos:
         
 dfcrit_S = df.copy()
 
-dfcrit_S.to_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'.csv', sep=';')
+dfcrit_S.to_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'_'+sat_typ+'.csv', sep=';')
 
 #%% SATURATION CRITERIA ALL  - NOPE
 
@@ -4846,6 +4849,7 @@ plt.tight_layout()
 #%% SATURATION CRITERIA ALL  - NEW
 
 dfcrit_S = pd.read_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'.csv', sep=';')
+# dfcrit_S = pd.read_csv(BV.simulations_folder+'dfcrit_S_'+iD_explo[0]+'_'+sat_typ+'.csv', sep=';')
 
 df = dfcrit_S.copy()
 
@@ -4860,7 +4864,7 @@ df = dfcrit_S.copy()
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'S_'+'criteria'+'.png',
 # #             bbox_inches='tight')
 
-n = 14
+n = 15
 colors = pl.cm.plasma_r(np.linspace(0,1,n))
 colors2 = pl.cm.plasma_r(np.linspace(0,1,n))
 
@@ -4911,11 +4915,15 @@ for icri, cri in enumerate(['Smin','Smax'][:]):
             
             if icri==0:
                 ls='-'
-                lw=2
+                lw=3
+            # if icri==1:
+            #     ls='--'
+            #     lw=0.5
+            #     y = y
             if icri==1:
                 ls='-'
                 lw=1
-                y = y+2.5
+                y = y
         
             # ax.plot(X_, Y_,
             #         marker='o', ms=0, mew=0,
@@ -4960,9 +4968,9 @@ plt.tight_layout()
 
 # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explos[0]+'/'+'_S_'+'criteria'+'.png', bbox_inches='tight')
 
-# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
-#             'S_'+'criteria'+'.png',
-#                         bbox_inches='tight')
+fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/b_sup_calibs/'+
+            'S_new_'+'minmax'+'.png',
+                        bbox_inches='tight', dpi=600)
 
 
 #%% SATURATION CHRONICS ONE - NOPE
@@ -15007,3 +15015,13 @@ x['area'] = x['geometry'].area
 x = x.groupby('CODE_12').sum()
 
 x['a'] = x['area']/(x['area'].sum())*100
+
+#%% OBSFLOW
+
+im_per = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_calibration/isba2_model6_30.0-0_9-2.87e-06/_matchingstreams/obsflow.tif')
+im_int = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_calibration/isbaint2_model6_30.0-0_10-1.80e-06/_matchingstreams/obsflow.tif')
+wt = imageio.imread(BV.geographic.watershed_dem)
+countwt = np.count_nonzero(wt>0)
+countimper = np.count_nonzero(im_per>0)
+countimint = np.count_nonzero(im_int>0)
+print(countimper/countwt, countimint/countwt)
