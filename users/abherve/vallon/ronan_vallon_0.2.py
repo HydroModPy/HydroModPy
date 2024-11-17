@@ -712,7 +712,7 @@ years_maj = mdates.YearLocator()   # every year
 months_maj = mdates.MonthLocator()  # every x month
 ax.xaxis.set_major_locator(years_maj)
 ax.xaxis.set_minor_locator(months_maj)
-ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
+# ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2019'))
 ax.legend(loc='upper right')
 ax.set_ylabel('Climatic inputs [mm/d]')
 ax.set_xlabel('Date')
@@ -2072,7 +2072,7 @@ elem_p.to_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
 
 #%% ---- MIX HGS
 
-#%% ALL
+#%% ALL 1
 
 elem_k = pd.read_csv(hgs_path + "Properties/elem_k_fill.csv", sep=';')
 elem_p = pd.read_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
@@ -2145,6 +2145,170 @@ print('or', round((Pgeo),2))
 
 # df_k = elem_k.groupby('ZONE')['KXX'].unique()
 # df_k = elem_k.groupby(['ZONE']).sum()#.groupby(level='ZONE').mean()
+
+#%% ALL 2
+
+from scipy.stats import hmean, gmean
+
+elem_k = pd.read_csv(hgs_path + "Properties/elem_k_fill.csv", sep=';')
+elem_p = pd.read_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
+
+elem_hp = elem_k.copy()
+elem_hp['ZDIFF_MEAN'] = (elem_hp['ZDIFF1'] + elem_hp['ZDIFF2'] + elem_hp['ZDIFF3']) / 3
+elem_hp['SYX'] = elem_p['POR']
+elem_hp['SSX'] = np.nan
+elem_hp.loc[elem_hp['ZONE'].isin(np.arange(1,18+1,1)),'SSX'] = 1.6e-4 
+elem_hp.loc[elem_hp['ZONE'].isin(np.arange(19,25+1,1)),'SSX'] = 1.1e-5
+
+tot_area = elem_hp['AREA'].sum() / 23
+tot_vol = elem_hp['VOL_DELAUNAY'].sum()
+
+# elem_hp['KXX_w'] = elem_hp['VOL_DELAUNAY'] / tot_vol
+elem_hp['KXX_w'] = elem_hp['AREA'] / tot_area
+elem_hp['fac'] = elem_hp['VOL_DELAUNAY'] / elem_hp['VOL_DELAUNAY'].sum()
+elem_hp['KXX_ms'] = elem_hp['KXX']/24/3600
+
+elem_hp['ID_E_v'] = list(np.arange(1,9608+2,1))*23
+df_ev = pd.DataFrame()
+for i, z in enumerate(elem_hp['ID_E_v'].unique()):
+    mask = elem_hp[elem_hp['ID_E_v']==z]
+    df_ev.loc[i,'ID_E_v'] = int(z)
+    df_ev.loc[i,'AREA_val'] = mask['AREA'].iloc[0]
+    df_ev.loc[i,'VOL_DELAUNAY_sum'] = mask['VOL_DELAUNAY'].sum()
+    # df_ev.loc[i,'Kh_init'] = mask['KXX'].iloc[0]
+    df_ev.loc[i,'Kh'] = np.sum(mask['KXX_w'] * mask['ZDIFF_MEAN']) / np.sum(mask['ZDIFF_MEAN'])
+    df_ev.loc[i,'Kv'] = np.sum(mask['ZDIFF_MEAN']) / np.sum(mask['ZDIFF_MEAN'] / mask['KXX_w'])
+    df_ev.loc[i,'Kh_geom'] = 10**(np.sum(np.log10(mask['KXX_ms']) * mask['ZDIFF_MEAN']) / np.sum(mask['ZDIFF_MEAN']))
+    df_ev.loc[i,'Kv_harm'] = 10**(np.sum(mask['ZDIFF_MEAN']) / np.sum((mask['ZDIFF_MEAN']/np.log10(mask['KXX_ms']))))
+df_ev['Kh/Kv'] = df_ev['Kh'] / df_ev['Kv']
+df_ev['Kh_w'] = (df_ev['Kh'] * df_ev['AREA_val']) / (tot_area)
+df_ev['Kv_w'] = (df_ev['Kv'] * df_ev['AREA_val']) / (tot_area)
+df_ev['Kh_w/Kv_w'] = df_ev['Kh_w'] / df_ev['Kv_w']
+df_ev['Kh_ms'] = df_ev['Kh'] / 3600/24
+df_ev['Kh_geom_ms'] = df_ev['Kh_geom']
+df_ev['Kv_harm_ms'] = df_ev['Kv_harm']
+
+df_hp = pd.DataFrame()
+for i, z in enumerate(elem_hp['ZONE'].unique()):
+    mask = elem_hp[elem_hp['ZONE']==z]
+    df_hp.loc[i,'ZONE'] = int(z)
+    df_hp.loc[i,'KXX_val'] = mask['KXX'].iloc[0]
+    df_hp.loc[i,'SYX_val'] = mask['SYX'].iloc[0]
+    df_hp.loc[i,'SSX_val'] = mask['SSX'].iloc[0]
+    df_hp.loc[i,'VOL_DELAUNAY_sum'] = mask['VOL_DELAUNAY'].sum()
+    df_hp.loc[i,'Z_mean'] = (mask['Z1'].mean()+mask['Z2'].mean()+mask['Z3'].mean()+mask['Z4'].mean()+mask['Z5'].mean()+mask['Z6'].mean())/6
+    df_hp.loc[i,'Z_max'] = np.array([mask['Z4'].max(),mask['Z5'].max(),mask['Z6'].max()]).max()
+df_hp['fac'] = df_hp['VOL_DELAUNAY_sum'] / (df_hp['VOL_DELAUNAY_sum'].sum())
+df_hp['KXX_val_ms'] = df_hp['KXX_val']/24/3600
+
+kh_arit = np.average(df_hp['KXX_val'], weights=None)/24/3600
+kh_geom = gmean(df_hp['KXX_val'], weights=None)/24/3600
+kh_harm = hmean(df_hp['KXX_val'], weights=None)/24/3600
+kh_arit_w = np.average(df_hp['KXX_val'], weights=df_hp['VOL_DELAUNAY_sum'])/24/3600
+kh_geom_w = gmean(df_hp['KXX_val'], weights=df_hp['VOL_DELAUNAY_sum'])/24/3600
+kh_harm_w = hmean(df_hp['KXX_val'], weights=df_hp['VOL_DELAUNAY_sum'])/24/3600
+
+# print('{:.2e}'.format(kh_arit), # https://fr.wikipedia.org/wiki/Moyenne_pond%C3%A9r%C3%A9e
+#       '{:.2e}'.format(kh_geom), # https://fr.wikipedia.org/wiki/Moyenne_g%C3%A9om%C3%A9trique_pond%C3%A9r%C3%A9e
+#       '{:.2e}'.format(kh_harm),  # https://fr.wikipedia.org/wiki/Moyenne_harmonique_pond%C3%A9r%C3%A9e
+#        kh_geom / kh_harm
+#       )
+
+print('{:.2e}'.format(kh_arit_w), # https://fr.wikipedia.org/wiki/Moyenne_pond%C3%A9r%C3%A9e
+      '{:.2e}'.format(kh_geom_w), # https://fr.wikipedia.org/wiki/Moyenne_g%C3%A9om%C3%A9trique_pond%C3%A9r%C3%A9e
+      '{:.2e}'.format(kh_harm_w),  # https://fr.wikipedia.org/wiki/Moyenne_harmonique_pond%C3%A9r%C3%A9e
+      round(kh_arit_w / kh_harm_w, 2),
+      round(kh_geom_w / kh_harm_w, 2)
+      )
+
+K_CP_min = np.average(hmean(df_ev['Kh']))
+K_CP_max = hmean(np.average(df_ev['Kh']))
+K_CP_geom = np.sqrt(K_CP_min*K_CP_max) # K_CP_geom = gmean([K_CP_min,K_CP_max])
+
+print('{:.2e}'.format(K_CP_min), '{:.2e}'.format(K_CP_geom), '{:.2e}'.format(K_CP_max), round(K_CP_max/K_CP_min, 2))
+
+fig, ax = plt.subplots(1, 1, figsize=(4,4))
+
+ax.boxplot(elem_hp['KXX']/24/3600, positions=[1])
+ax.boxplot(df_ev['Kh_geom_ms'], positions=[2])
+ax.boxplot(df_ev['Kv_harm_ms'], positions=[2.5])
+
+ax.scatter(1, kh_arit_w, marker='s', c='darkred', s=50, zorder=100)
+ax.scatter(1, kh_geom_w, marker='s', c='darkorange', s=50, zorder=100)
+ax.scatter(1, kh_harm_w, marker='s', c='gold', s=50, zorder=100)
+ax.scatter(2, df_ev['Kh_geom_ms'].mean(), marker='s', c='dodgerblue', s=50, zorder=100)
+ax.scatter(2.5, df_ev['Kv_harm_ms'].mean(), marker='s', c='navy', s=50, zorder=100)
+
+# ax.scatter(1, K_CP_min, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_max, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_geom, marker='o', c='limegreen', s=50, zorder=100)
+
+ax.set_yscale('log')
+ax.set_title('Hydraulic conductivity [m/s]')
+
+# Kh < Keff < Ka
+
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+df_sort = df_hp.sort_values(['SYX_val'])
+ax.plot(df_sort['SYX_val']*100, df_sort['fac'])
+ax.scatter(df_hp['SYX_val']*100, df_hp['fac'])
+ax.set_xscale('log')
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+ax.hist(df_hp['SYX_val']*100,
+        weights=df_hp['fac'],
+        bins=np.logspace(np.log10(100*df_hp['SYX_val'].min()),np.log10(100*df_hp['SYX_val'].max()), 100),
+        # density=True,
+        histtype='step')
+ax.set_xscale('log')
+# fig, ax = plt.subplots(1, 1, figsize=(7,4))
+# ax.hist(elem_hp['KXX_ms'],
+#         weights=elem_hp['VOL_DELAUNAY'],
+#         bins=np.logspace(np.log10(elem_hp['KXX_ms'].min()),np.log10(elem_hp['KXX_ms'].max()), 100),
+#         # density=True,
+#         histtype='step')
+# ax.set_xscale('log')
+
+# La deuxième expression ci-dessus montre que le logarithme de la moyenne géométrique pondérée 
+# est la moyenne arithmétique pondérée du logarithme des valeurs du jeu de données. 
+
+sy_arit_w = np.average(df_hp['SYX_val'], weights=df_hp['VOL_DELAUNAY_sum'])*100
+sy_geom_w = gmean(df_hp['SYX_val'], weights=df_hp['VOL_DELAUNAY_sum'])*100
+sy_harm_w = hmean(df_hp['SYX_val'], weights=df_hp['VOL_DELAUNAY_sum'])*100
+
+fig, ax = plt.subplots(1, 1, figsize=(4,4))
+
+ax.boxplot(elem_hp['SYX']*100, positions=[1])
+
+ax.scatter(1, sy_arit_w, marker='s', c='darkred', s=50, zorder=100)
+ax.scatter(1, sy_geom_w, marker='s', c='darkorange', s=50, zorder=100)
+ax.scatter(1, sy_harm_w, marker='s', c='gold', s=50, zorder=100)
+
+# ax.scatter(1, K_CP_min, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_max, marker='o', c='limegreen', s=50, zorder=100)
+# ax.scatter(1, K_CP_geom, marker='o', c='limegreen', s=50, zorder=100)
+
+ax.set_yscale('log')
+ax.set_title('Specific yield [%]')
+
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+df_sort = df_hp.sort_values(['KXX_val'])
+ax.plot(df_sort['KXX_val_ms'], df_sort['fac'])
+ax.scatter(df_hp['KXX_val_ms'], df_hp['fac'])
+ax.set_xscale('log')
+fig, ax = plt.subplots(1, 1, figsize=(7,4))
+ax.hist(df_hp['KXX_val_ms'],
+        weights=df_hp['fac'],
+        bins=np.logspace(np.log10(df_hp['KXX_val_ms'].min()),np.log10(df_hp['KXX_val_ms'].max()), 100),
+        # density=True,
+        histtype='step')
+ax.set_xscale('log')
+# fig, ax = plt.subplots(1, 1, figsize=(7,4))
+# ax.hist(elem_hp['KXX_ms'],
+#         weights=elem_hp['VOL_DELAUNAY'],
+#         bins=np.logspace(np.log10(elem_hp['KXX_ms'].min()),np.log10(elem_hp['KXX_ms'].max()), 100),
+#         # density=True,
+#         histtype='step')
+# ax.set_xscale('log')
 
 #%% ---- CALIBRATION STREAMS
 
@@ -4896,4 +5060,334 @@ with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
   # return(Q)
 # }
 
- 
+#%% AVERAGES
+
+# kh_arit = np.average(elem_k['KXX'], weights=None)/24/3600
+# kh_geom = gmean(elem_k['KXX'], weights=None)/24/3600
+# kh_harm = hmean(elem_k['KXX'], weights=None)/24/3600
+# kh_arit_w = np.average(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_geom_w = gmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_harm_w = hmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_arit_weig = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+# kh_geom_weig = np.exp(np.sum((np.log(elem_k['KXX'])) * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])) # or 10** and np.log10
+# kh_harm_weig = np.sum(elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'] / elem_k['KXX']) # or 10** and np.log10
+
+#%% PREPARE INPUT HGS
+
+rain_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*rain*')
+rain_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_daily_all_rain_plus_melt.data'
+rain_df = pd.DataFrame(rain_list)
+rain_df.to_csv(rain_file, sep='\t', header=None)
+
+etp_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*etp*')
+etp_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_monthly_then_daily_PET.data'
+etp_df = pd.DataFrame(etp_list)
+etp_df.to_csv(etp_file, sep='\t', header=None)
+
+#%% COMPARE INPUT RAIN ETP HGS
+
+#%% OPEN TECPLOT
+
+file = hgs_path + '_HGS_v1_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
+datall = [i.strip().split() for i in open(file).readlines()]
+VARIABLES = ["X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"]
+
+# TITLE = "Mesh version 11                                             "
+# VARIABLES ="X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+# ZONE  T="pm", SOLUTIONTIME= 1.0000000000E-01, DATAPACKING=BLOCK, N=    272376, E=    507771, ZONETYPE=FEBRICK        , VARLOCATION=([         4,      8,      9,     10,     11,     12,     13]=CELLCENTERED)                                                                                                                                                                                                                                                                                                                  
+# # x
+
+start = datall.index(['#', 'x'])
+dat = datall[start:]
+super_list_X = []
+print('X')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'y']:
+        super_list_X.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'y'])
+dat = datall[start:]
+super_list_Y = []
+print('Y')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'z']:
+        super_list_Y.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'z'])
+dat = datall[start:]
+super_list_Z = []
+print('Z')
+for i in range(len(dat[start:])):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'zone', '(cell', 'centred']:
+        super_list_Z.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'zone','(cell', 'centred'])
+dat = datall[start:]
+super_list_ZONE = []
+print('ZONE')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'head']:
+        super_list_ZONE.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'kxx', '(cell-centered)'])
+dat = datall[start:]
+super_list_KXX = []
+print('KXX')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'kyy', '(cell-centered)']:
+        super_list_KXX.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+    
+nodes = pd.DataFrame(columns=['X','Y','Z'])
+nodes['X'] = super_list_X
+nodes['Y'] = super_list_Y
+nodes['Z'] = super_list_Z
+nodes['ID'] = np.arange(1, len(nodes)+1, 1)   
+     
+starts = datall.index(['#', 'head'])
+starts = [i for i in range(len(datall)) if datall[i] == ['#','head']]
+for si, start in enumerate(starts):
+    dat = datall[start:]
+    super_list_HEAD = []
+    print('HEAD')
+    for i in range(len(dat)):
+        # print(i)
+        # print(start)
+        # if i+1 > start:
+        if dat[i+1] != ['#', 'saturation']:
+            super_list_HEAD.extend(dat[i+1][:])
+            # print(i+1)
+        else:
+            break
+    nodes['HEAD_'+str(si)] = super_list_HEAD
+    
+starts = datall.index(['#', 'saturation'])
+starts = [i for i in range(len(datall)) if datall[i] == ['#','saturation']]
+for si, start in enumerate(starts):
+    dat = datall[start:]
+    super_list_SAT = []
+    print('SAT')
+    for i in range(len(dat)):
+        # print(i)
+        # print(start)
+        # if i+1 > start:
+        if dat[i+1] != ['#', 'Depth2GWT']:
+            super_list_SAT.extend(dat[i+1][:])
+            # print(i+1)
+        else:
+            break
+    nodes['SAT_'+str(si)] = super_list_SAT
+        
+# if 'clipped' not in globals():
+shp = nodes.copy()
+geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
+gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
+gdf.to_file(hgs_path + "Postprocess/points_mesh_sat.shp")
+nant = gpd.read_file(hgs_path + "_HGS_v0_James/full_model/Nant_shape.shp")
+clipped = gdf.clip(nant)
+clipped.to_file(hgs_path + "Postprocess/points_mesh_sat_nant.shp")
+clipped.plot()
+
+nodes = clipped.copy()
+nodes = nodes.reset_index()
+
+nodes['Z'] = nodes['Z'].apply(pd.to_numeric, errors='coerce')
+nodes['SAT_0'] = nodes['SAT_0'].apply(pd.to_numeric, errors='coerce')
+nodes['XY'] = nodes['X']+'-'+nodes['Y']
+fil_nodes = pd.DataFrame()
+# for i in nodes['XY'].unique():
+#     tempo = nodes[nodes['XY']==i]
+#     keep = tempo[tempo['Z']==tempo['Z'].max()]
+xt = nodes.groupby(['XY'])['Z'].max()
+xt = xt.to_frame()
+xt = xt.reset_index()
+xt['X-Y'] = xt['XY'].str.split('-')
+for i, j in xt.iterrows():
+    print(i)
+    xt.loc[i,'X'] = float(j['X-Y'][0])
+    xt.loc[i,'Y'] = float(j['X-Y'][1])
+xt['Cond'] = xt['X'] + xt['Y'] + xt['Z']
+Cond_list =  xt['Cond'].values
+nodes['Cond'] = nodes['X'].astype(float) + nodes['Y'].astype(float) + nodes['Z'].astype(float)
+nodes = nodes[nodes['Cond'].isin(Cond_list)]
+
+nodes_save = nodes[nodes['SAT_0']>=0]
+nodes_save.plot('SAT_0', cmap='jet', ec='None', markersize=3)
+nodes_save.to_file(hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp")
+
+# wbt.trend_surface_vector_points(
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
+#     'SAT_0', 
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
+#     30, 
+#     order=1)
+
+# wbt.vector_points_to_raster(
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
+#     field="FID", 
+#     assign="last", 
+#     nodata=True, 
+#     cell_size=2, 
+#     # base=BV.geographic.watershed_dem
+#     )
+
+#%% VTK 1
+
+from vtk import vtkStructuredPointsReader
+from vtk.util import numpy_support as VN
+from vtk.util.numpy_support import vtk_to_numpy
+reader = vtkStructuredPointsReader()
+reader.SetFileName(file_name)
+reader.ReadAllVectorsOn()
+reader.ReadAllScalarsOn()
+reader.Update()
+data = reader.GetOutput()
+dim = data.GetDimensions()
+vec = list(dim)
+vec = [i-1 for i in dim]
+vec.append(3)
+
+u = VN.vtk_to_numpy(data.GetCellData().GetArray('saturation'))
+b = VN.vtk_to_numpy(data.GetCellData().GetArray('cell_centered_B'))
+
+u = u.reshape(vec,order='F')
+b = b.reshape(vec,order='F')
+
+x = zeros(data.GetNumberOfPoints())
+y = zeros(data.GetNumberOfPoints())
+z = zeros(data.GetNumberOfPoints())
+
+for i in range(data.GetNumberOfPoints()):
+        x[i],y[i],z[i] = data.GetPoint(i)
+
+x = x.reshape(dim,order='F')
+y = y.reshape(dim,order='F')
+z = z.reshape(dim,order='F')
+
+#%% VTK 2
+
+import SimpleITK as sitk
+
+
+import vtk
+from vtk.util.numpy_support import vtk_to_numpy
+import scipy.interpolate
+import numpy as np
+
+file_name = "D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_hgs/_HGS_v1_Ronan/full_model/nant_v100fo.pm.0001.vtk"
+file_out = "D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_hgs/_HGS_v1_Ronan/full_model/nant_v100fo.pm.0001.tif"
+
+img_vtk = sitk.ReadImage(file_name)
+
+reader = vtk.vtkGenericDataObjectReader() # Using generic to allow it to match either Unstructured or PolyData
+reader.SetFileName(file_name)
+reader.Update()
+output = reader.GetOutput()
+
+nparray = vtk_to_numpy(output.GetPointData().GetArray(0))
+
+output_bounds = output.GetBounds()
+x_grid = range(math.floor(output_bounds[0]),math.ceil(output_bounds[1]),1)
+y_grid = range(math.floor(output_bounds[2]),math.ceil(output_bounds[3]),1)
+z_grid = range(math.floor(output_bounds[4]),math.ceil(output_bounds[5]),1)
+grid = list()
+for x in x_grid:
+   for y in y_grid:
+      for z in z_grid:
+         grid.append((x,y,z))
+dummy = np.array([1 for i in range(nparray.shape[0])])
+npgrid = scipy.interpolate.griddata(nparray,dummy,grid,fill_value=0)
+
+npgrid.reshape(len(x_grid),len(y_grid),len(z_grid))
+img = sitk.GetImageFromArray(npgrid)
+sitk.WriteImage(img, file_out)
+
+# import meshio
+# file_name = "D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_hgs/_HGS_v1_Ronan/full_model/nant_v100fo.pm.0001.vtk"
+# mesh = meshio.read('file.vtk')
+
+#%% VTK 3
+
+import vtk
+from vtk import *
+from vtk.util.numpy_support import vtk_to_numpy
+from scipy.interpolate import griddata
+import numpy as np
+
+file_name = "D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_hgs/_HGS_v1_Ronan/full_model/nant_v100fo.pm.0001.vtk"
+
+# load a vtk file as input
+reader = vtk.vtkXMLUnstructuredGridReader()
+reader = vtk.vtkGenericDataObjectReader()
+reader.SetFileName(file_name)
+reader.Update()
+
+# Get the coordinates of nodes in the mesh
+nodes_vtk_array= reader.GetOutput().GetPoints().GetData()
+
+#The "Temperature" field is the third scalar in my vtk file
+temperature_vtk_array = reader.GetOutput().GetPointData().GetArray(0)
+
+#Get the coordinates of the nodes and their temperatures
+nodes_nummpy_array = vtk_to_numpy(nodes_vtk_array)
+x,y,z= nodes_nummpy_array[:,0] , nodes_nummpy_array[:,1] , nodes_nummpy_array[:,2]
+
+temperature_numpy_array = vtk_to_numpy(temperature_vtk_array)
+T = temperature_numpy_array
+
+#Draw contours
+npts = 1000
+xmin, xmax = min(x), max(x)
+ymin, ymax = min(y), max(y)
+
+# define grid
+xi = np.linspace(xmin, xmax, npts)
+yi = np.linspace(ymin, ymax, npts)
+# grid the data
+Ti = griddata((x, y), T, (xi[None,:], yi[:,None]), method='cubic')  
+
+plt.imshow(Ti)
+
+# ## CONTOUR: draws the boundaries of the isosurfaces
+# CS = plt.contour(xi,yi,Ti,10,linewidths=3,cmap=cm.jet) 
+
+# ## CONTOUR ANNOTATION: puts a value label
+# plt.clabel(CS, inline=1,inline_spacing= 3, fontsize=12, colors='k', use_clabeltext=1)
+
+# plt.colorbar() 
+# plt.show() 
