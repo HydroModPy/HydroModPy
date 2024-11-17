@@ -234,7 +234,7 @@ class Streamflow_seepage:
 
 
     #%% Define seepage area where StreamFLow Routing will be applied
-    def SFR_seepage_area(self, geographic, dem):
+    def SFR_seepage_area(self, geographic, dem, dem_domain_path ):
         self.dem = dem
         # Discretization: by default, the number of rows and columns is the DEM discretization
         self.nrow = dem.shape[0]
@@ -276,7 +276,7 @@ class Streamflow_seepage:
         elif self.area == 'domain':
         # SFR seepage is applied on the whole domain
             self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
-                self.dem,
+                dem_domain_path,
                 src_crs = geographic.crs_proj, 
                 base_path = geographic.watershed_dem,
                 dst_crs = geographic.crs_proj)
