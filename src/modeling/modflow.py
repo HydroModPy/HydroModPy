@@ -675,7 +675,8 @@ class Modflow:
             irtflg = 0 # if =1, nstrm should be = -nstrm
             
             # ---- Initiate the SFR_seepage module
-            self.streamflow_seepage.SFR_seepage_area(self.geographic, self.dem)
+            self.streamflow_seepage.SFR_seepage_area(self.geographic, self.dem,
+                                                     self.dem_watershed_path)
             if self.use_lakeres:
                 self.streamflow_seepage.compute_data(lakarr_lay0)
             else:
