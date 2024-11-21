@@ -286,13 +286,14 @@ toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
 tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
 
 BV.settings.update_input_particles(
-                                    # zone_partic = BV.geographic.watershed_box_buff_dem,
-                                    zone_partic = tif_file_clip,
+                                    zone_partic = BV.geographic.watershed_dem,
+                                    # zone_partic = BV.geographic.watershed_dem,
+                                    # zone_partic = tif_file_clip,
                                     cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
                                     bore_depth = None, # '[0,5,10] for 3 particles or None
-                                    track_dir = 'backward',
-                                    # track_dir = 'forward', # backward
+                                    # track_dir = 'backward',
+                                    track_dir = 'forward', # backward
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
@@ -380,8 +381,8 @@ plt.tight_layout()
 #%% RAW MAP 2
 
 shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines.shp')
-# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
+# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting.shp')
 
 try:
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')

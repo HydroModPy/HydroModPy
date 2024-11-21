@@ -51,6 +51,9 @@ from matplotlib.colors import LightSource
 # import earthpy.spatial as es
 # import earthpy.plot as ep
 
+
+import flopy.utils.postprocessing as pp
+
 # Gis
 import imageio
 import whitebox
@@ -6059,7 +6062,7 @@ figm.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lass
                         bbox_inches='tight')
 
 
-#%% ---- MODPATH THINGS
+#%% ---- MODPATH OLD
 
 #%% UPDATE PARAMETERS 2
 
@@ -6697,7 +6700,714 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
                                                               freq_time='D') # or None
             
             id_mod_val += 1
+
+#%% ---- MODPATH NEW
+
+#%% UPDATE PARAMETERS 4
+
+vers = 'isba2' # dichotomy isba
+iD_explo = 'zSTEADY_isbaEXPLO3' # with isba recharge ==> change ss with decay factor (details for bad models)
+
+decay_factor = 2
+
+box = True # or False
+sink_fill = False # or True
+sim_state = 'steady' # 'steady' or 'transient'
+plot_cross = True
+nlay = 25
+lay_decay = 1.25 # 1 for no decay
+verti_cond = None # or [ [1e-5, [0, 20]],
+verti_poro = None # or [ [1e-5, [0, 20]],
+cond_drain = None # or value of conductance
+porosity = 5 / 100 # -
+poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+bc_left = None # or value
+bc_right = None # or value
+sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+# zone_partic = 'domain' # or watershed
+
+split_temp = True
+
+BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+area = BV.geographic.area
+
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+
+BV.add_settings()
+BV.add_climatic()
+BV.add_geometric() # soon
+BV.add_hydraulic()
+
+BV.settings.update_split_temporal(split_temp)
+
+BV.settings.update_box_model(box)
+BV.settings.update_sink_fill(sink_fill)
+BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.hydraulic.update_nlay(nlay) # 1
+BV.hydraulic.update_lay_decay(lay_decay) # 1
+BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_poro_vertical(verti_poro)
+BV.hydraulic.update_cond_drain(cond_drain)
+BV.settings.update_bc_sides(bc_left, bc_right)
+BV.add_oceanic(sea_level)
+# BV.settings.update_input_particles(zone_partic=zone_partic)
+BV.settings.update_simulation_state(sim_state)
+
+thick = 30 # if bottom is None, aquifer thickness
+BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+
+# recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
+recharge = select_period(rea_recharge_isba, 2020, 2023)
+# plt.plot(all_proj['REC_REA_historic'], c='blue', lw=3)
+# plt.plot(rea_recharge_isba, c='red', lw=2)
+# plt.plot(isba['REC_REA_historic']/1000, c='green')
+# plt.plot(recharge, c='gold')
+# plt.yscale('log')
+# plt.xlim(pd.to_datetime('2020'), pd.to_datetime('2024'))
+# recharge = select_period(recharge, 2021, 2021)
+recharge_w_res = recharge.resample('W', label='right').mean()
+recharge_w_off = recharge.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+recharge_w_int = recharge.interpolate()[::7]
+recharge_w_sli = recharge.groupby(np.arange(len(recharge))//7).mean()
+recharge_w_sli.index = recharge_w_off.iloc[:-1].index
+# recharge_w_sli.index = recharge_w_off.iloc[:].index
+# recharge_w_sli = recharge_w_sli.iloc[:-1]
+
+# runoff = (sim2['RUNC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# runoff = (isba['RUN_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
+runoff = select_period(rea_runoff_isba, 2020, 2023)
+# runoff = select_period(runoff, 2021, 2021)
+runoff_w_res = runoff.resample('W', label='right').mean()
+runoff_w_off = runoff.resample('W', label='right', closed='left', loffset=pd.DateOffset(days=3)).mean() # loffset='2T'
+runoff_w_int = runoff.interpolate()[::7]
+runoff_w_sli = runoff.groupby(np.arange(len(runoff))//7).mean()
+runoff_w_sli.index = runoff_w_off.iloc[:-1].index
+# runoff_w_sli.index = runoff_w_off.iloc[:].index
+# runoff_w_sli = runoff_w_sli.iloc[:-1]
+
+BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
+BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
+
+# BV.climatic.update_recharge(recharge, sim_state=sim_state)
+# BV.climatic.update_runoff(runoff, sim_state=sim_state)
+
+if iD_explo == 't_isba2':
+    BV.climatic.update_recharge(recharge_w_sli[:2], sim_state=sim_state)
+    BV.climatic.update_runoff(runoff_w_sli[:2], sim_state=sim_state)
+
+# plt.plot(recharge_w_res, c='k')
+# plt.plot(recharge_w_off, c='green')
+# plt.plot(recharge_w_int, c='red')
+# plt.plot(recharge_w_sli, c='darkorange')
+# plt.plot(runoff_w_res, c='k')
+# plt.plot(runoff_w_off, c='green')
+# plt.plot(runoff_w_int, c='red')
+# plt.plot(runoff_w_sli, c='darkorange')
+# plt.yscale('log')
+# plt.xlim(pd.to_datetime('2020'), pd.to_datetime('2021'))
+
+# recharge_ete = sim2[sim2.index.month.isin([7,8,9])]
+# recharge_ete = (recharge_ete['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
+# print(BV.climatic.recharge.mean())
+first_clim = recharge.mean() # or 'first or value
+BV.climatic.update_first_clim(first_clim)
+plt.plot(BV.climatic.recharge, marker='o')
+plt.axhline(first_clim, c='k')
+
+# Aquifer bottom
+list_bottom = [None, 0] # aquifer flat or not
+list_bottom.extend([0] * 14) ### ATTENTION ###
+
+# Decay of K
+# list_d_values = [0, 0]
+# list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
+# print(list_d_values)
+list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
+list_cond_decay = list(1/np.array(list_d_values))
+list_cond_decay[0] = 0
+list_cond_decay[1] = 0
+        
+list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+
+df_optim = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
+
+# For transient
+list_cond_decay = list_cond_decay
+list_bottom = list_bottom
+list_koptim = df_optim['K']
+list_kroptim = df_optim['KR']
+
+# Test compartimentalized porosity
+# BV.hydraulic.update_poro_vertical([ [1/100, [0,15]] ])
+# list_porosity = [0.1/100]
+ 
+# list_koptim = [4.82e-6]
+# BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,20]] ])
+
+# list_porosity = np.arange(0.2, 10.2, 0.2)/100
+list_porosity = np.geomspace(0.1, 5, 10)/100
+# list_porosity = np.array([1])/100
+
+##################################
+
+# list_cond_decay = [0, 1/30]
+# list_bottom = [0, 0]
+# list_koptim = [0.0040, 0.2470]
+# list_id_mod = [0, 1]
+# list_kroptim = [100, 100]
+# list_porosity = [1/100]
+
+list_cond_decay = [1/300, 1/30]
+list_bottom = [0, 0]
+list_koptim = [0.0185, 0.2470]
+list_id_mod = [0, 1]
+list_kroptim = [100, 100]
+
+list_porosity = [1/100]
+
+#%% RUN
+
+run_model = True
+# run_model = False
+ 
+# for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[6:7],
+#                                                                             list_bottom[6:7],
+#                                                                             list_koptim[6:7],
+#                                                                             list_id_mod[6:7],
+#                                                                             list_kroptim[6:7]):    
+
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
+                                                                            list_bottom[:],
+                                                                            list_koptim[:],
+                                                                            list_id_mod[:],
+                                                                            list_kroptim[:]):    
+    
+    # if id_mod_val in [0,2,3,4,5,6]:
+    #     list_porosity = np.array([0.1,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,2,4,8,16])/100
+    # else:
+    #     list_porosity = np.array([0.1,0.5,1,2,4,8,16])/100
+    
+    ### e17
+    # if id_mod_val in [0,2,3,4,5]:
+    #     list_porosity = np.array([0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,2.0,4.0,8.0,16.0])/100
+    # else:
+    #     list_porosity = np.array([0.1,0.5,1.0,2.0,4.0,8.0,16.0])/100
+    
+    ## isba1
+    # if id_mod_val in [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
+
+    # print(id_mod_val)
+    # print(kroptim_val)
+    # koptim_from_kr = kroptim_val * (BV.climatic.recharge.mean())
+    # print(koptim_from_kr, koptim_val)
+    
+    BV.hydraulic.update_cond_decay(cond_decay_val) # 0
+    # BV.hydraulic.update_cond_decay(0) # 0
+    BV.hydraulic.update_bottom(bottom_val) # None
+    # BV.hydraulic.update_hyd_cond(koptim_val)
+    # koptim_val = 0
+    # koptim_val = 4e-6 * 24 * 3600
+    BV.hydraulic.update_hyd_cond(koptim_val)
+    # BV.hydraulic.update_hyd_cond(koptim_from_kr)
+    BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
+    # BV.hydraulic.update_poro_decay(0)
+    BV.hydraulic.update_ss_decay(cond_decay_val/decay_factor)
+    
+    dictio = {}
+    
+    list_model_name = []
+    list_model_success = []
+    list_model_modflow = []
+        
+    # for ip, poro_val in enumerate(list_porosity[-1:]):
+    for ip, poro_val in enumerate(list_porosity[:]):
+        
+        BV.hydraulic.update_porosity(poro_val)
+        
+        Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
+        # print(Ss_formula)
+
+        BV.hydraulic.update_ss(Ss_formula)
+        
+        if cond_decay_val == 0 :
+            str_cond_decay = cond_decay_val
+            str_poro_decay = cond_decay_val/decay_factor
+        else:
+            str_cond_decay = 1/cond_decay_val
+            str_poro_decay = 1/(cond_decay_val/decay_factor)
+        if bottom_val==None:
+            str_bottom = thick
+        else:
+            str_bottom = bottom_val
             
+        if poro_val == 0:
+            str_poro_decay = 0
+        
+        model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
+                     str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
+                     str(ip)+'_'+\
+                     str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))+'-'+str("{:.2e}".format(Ss_formula))
+        
+        print(model_name)
+        
+        BV.settings.update_model_name(model_name)
+        
+        now = datetime.now()
+        oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
+
+        model_modflow = BV.preprocessing_modflow(for_calib=False)
+        
+        model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
+        
+        # if model_success == True:
+        BV.postprocessing_modflow(model_modflow,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = True,
+                                  groundwater_storage = True,
+                                  accumulation_flux = True,
+                                  persistency_index = True,
+                                  intermittency_monthly = False,
+                                  intermittency_weekly = True,
+                                  intermittency_daily = False,
+                                  export_all_tif = False)
+        
+        list_model_name.append(model_name)
+        list_model_success.append(model_success)
+        list_model_modflow.append(model_modflow)
+        
+        dictio['list_model_name'] = list_model_name
+        dictio['list_model_success'] = list_model_success
+        dictio['list_model_modflow'] = list_model_modflow
+        h5file = BV.simulations_folder+'/'+'results_listing_'+iD_explo+'_'+str('model')+str(id_mod_val)
+        # dd.io.save(h5file, dictio)
+
+        
+        # Particle tracking settings
+        tif_file = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+        tif_file_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+        # wbt.clip_raster_to_polygon(
+        #     tif_file, 
+        #     # BV.stable_folder + '/geographic/watershed.shp', 
+        #     'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/subbasin/subbasin_Qbombee/watershed.shp',
+        #     tif_file_clip, 
+        #     maintain_dimensions=True)
+        
+        # tif_file_clip = 'E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/subbasin/subbasin_Qbombee/watershed_dem.tif'
+        wbt.clip_raster_to_polygon(
+            tif_file, 
+            # BV.stable_folder + '/geographic/watershed.shp', 
+            'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/watershed_all_grenou.shp',
+            tif_file_clip, 
+            maintain_dimensions=True)
+        
+        # test = plt.imshow(tif_file_clip)
+        # toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
+        #                    seep,
+        #                    BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
+        #                    0)
+        
+        
+        # seep = imageio.imread(BV.geographic.watershed_box_buff_dem)
+        # seep = seep*0
+        # # seep[30,25] = 1
+        # # seep[25,30] = 1
+        # seep[40,48] = 1
+        # # seep[60,20] = 1
+        # # seep[50,25] = 1
+        # plt.imshow(seep)
+        # particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
+        # toolbox.create_folder(particles_folder)
+        # toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
+        #                    seep,
+        #                    BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
+        #                    0)
+        # tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
+
+        BV.settings.update_input_particles(
+                                            # zone_partic = BV.geographic.watershed_box_buff_dem,
+                                            # zone_partic = BV.geographic.watershed_dem,
+                                            zone_partic = tif_file_clip,
+                                            # zone_partic = tif_file,
+                                            cell_div = 1, # 1
+                                            zloc_div = False,  # or False, add cells at cell bottom
+                                            bore_depth = None, # '[0,5,10] for 3 particles or None
+                                            track_dir = 'backward',
+                                            # track_dir = 'forward', # backward
+                                            sel_random = None, # or int
+                                            sel_slice = None, # or int
+                                            )
+        
+        model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=False)
+        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+        
+        # if success_modpath == True:
+        BV.postprocessing_modpath(model_modpath,
+                                  ending_point=True,
+                                  starting_point=True,
+                                  pathlines_shp=True,
+                                  particles_shp=True,
+                                  random_id=None, # select randomly to save (for pathlines and particles)
+                                  ) # None
+        
+        BV.filtprocessing_modpath(model_modpath,
+                                  norm_flux=True, # for forward only
+                                  filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                                  filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                                  filt_inout=True, # delete particles in and out in the same cell (first layer)
+                                  calc_rtd=True, # compute residence time distribution
+                                  random_id=None, # select randomly to keep
+                                  ) # None
+        
+        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                          model_modpath=model_modpath,
+                                                          actual_date=True, 
+                                                          subbasin_results=True,
+                                                          freq_time='D') # or None
+    
+#%% PLOT PATHLINES 3D
+
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+from mpl_toolkits.mplot3d import Axes3D
+
+list_model_names = ['zSTEADY_isbaEXPLO3_model1_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06',
+                    'zSTEADY_isbaEXPLO3_model0_300.0-0-2.14e-07_0_600.0-1.0-1.02e-06'
+                    ]
+
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+
+im_dem_data = imageio.imread(BV.geographic.watershed_dem)
+# im_dem = plt.imshow()
+
+# dem_data = imageio.imread('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/subbasin/subbasin_Qgrenou/watershed_dem.tif')
+
+# fig2, ax2 = plt.subplots(1,1, figsize=(5, 5), dpi=300)
+
+for i, model_name in enumerate(list_model_names[:]):
+    
+    fig = plt.figure(figsize= (10,10), dpi=300)
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # ax.set_proj_type('ortho')
+    # ax.set_proj_type('persp', focal_length=0.2)
+    ax.set_proj_type('persp', focal_length=1)
+    
+    ax.view_init(elev=10, azim=0, roll=0)
+    
+    # export_vtuvtk.VTK(BV, model_name)
+    # visu = visualization_results.Visualization(BV, model_name)
+    # visu.visual3D(interactive=True, object_list=[
+    #                                               # 'grid',
+    #                                               # 'watertable',
+    #                                               # 'watertable_depth',
+    #                                               # 'surface_flow',
+    #                                               # 'drain_flow',
+    #                                               'pathlines'
+    #                                               ],
+    #                                                 view='south-west',
+    #                                               # view='north',
+    #                                               lines=None,
+    #                                               cloc=(0.7,0.1),
+    #                                               z_scale=1)
+        
+    print(model_name)
+    
+    mf = flopy.modflow.Modflow.load(BV.simulations_folder+'/'+model_name+'/'+model_name+'.nam')
+    
+    fname = BV.simulations_folder+'/'+model_name+'/'+model_name+'.hds'
+    gridname = BV.simulations_folder+'/'+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    pthobj = flopy.utils.PathlineFile(BV.simulations_folder+'/'+model_name+'/'+model_name+'.mppth')
+    pth_data = pthobj.get_alldata()
+    
+    prt_path = BV.simulations_folder + '/' + model_name + '/_postprocess/_particles/particles_weighted.shp'
+    prt_file = gpd.read_file(prt_path)
+    
+    # list_id_prt = prt_file['particleid'].unique()
+    # if i == 0:
+    #     list_id_prt = np.random.choice(list_id_prt, 100)
+    # if i == 1:
+    #     list_id_prt = np.random.choice(list_id_prt, 100)
+    # prt_file_plot =  prt_file[prt_file['particleid'].isin(list_id_prt)]
+    
+    srt_path = BV.simulations_folder + '/' + model_name + '/_postprocess/_particles/starting_weighted.shp'
+    srt_file = gpd.read_file(srt_path)
+    
+    if i == 0:        
+        list_id_prt = srt_file['particleid'].unique()
+        # list_id_prt_spe = list_id_prt_spe.copy()
+        list_id_prt_spe = np.random.choice(list_id_prt, 300)
+        print('    ', len(list_id_prt))
+        list_id_prt_temp = np.random.choice(list_id_prt, 200)
+        srt_file_fil =  srt_file[srt_file['particleid'].isin(list_id_prt_temp)]
+        srt_file_fil['xy'] = srt_file_fil['geometry'].values
+        list_geom_fil = srt_file_fil['geometry'].values
+        
+        prt_file_plot = prt_file[prt_file['particleid'].isin(list_id_prt_spe)]
+            
+    if i ==1:        
+        srt_file_fil = srt_file.copy()
+        srt_file_fil['xy'] = srt_file_fil['geometry'].values
+        srt_file_fil =  srt_file_fil[srt_file_fil['xy'].isin(list_geom_fil)]        
+        list_id_prt = srt_file_fil['particleid'].unique()
+        print('    ', len(list_id_prt))
+        
+        prt_file_plot = prt_file[prt_file['particleid'].isin(list_id_prt_temp)]
+    
+    # ax = Axes3D(fig)
+     
+    z = prt_file_plot['z']
+    x = prt_file_plot['x']
+    y = prt_file_plot['y']
+    c = prt_file_plot['time_y']
+     
+    # For scatter plot
+    # ax.scatter(x, y, t, c='r', marker='o')
+    # ax.plot(x, y, z, c='r', marker='o', ms=0.2, markeredgecolor='None')
+    # ax.scatter(x, y, z, c=c)
+    # For line plot
+    if i == 1:
+        color = 'darkmagenta'
+    if i == 0:
+        color = 'darkorange'
+    # prt_file.plot(column='time')
+    
+    # ax.plot(x, y, z, marker='o', lw=0, ms=1, color=color, mec='None')
+
+    for pi in prt_file_plot['particleid'].unique():
+        # print(pi, len(prt_file_plot['particleid'].unique()))
+        toplot = prt_file_plot[prt_file_plot['particleid']==pi]
+        
+        # if all(z >= 1000 for z in toplot['z']):
+        #     ax.plot(toplot['x'], toplot['y'], toplot['z'], ms=0, lw=1, color=color,
+        #             zorder=0)
+        
+        ax.plot(toplot['x'], toplot['y'], toplot['z'], ms=0, lw=1, color=color,
+                zorder=0)
+        
+    # test = gdal.Open(BV.geographic.watershed_box_buff_dem)
+    test = gdal.Open(BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/'+'watertable_elevation_t(0).tif')
+    dem = test.ReadAsArray()
+    # transformation of coordinates
+    gt = test.GetGeoTransform()
+    # x = (col * gt[1]) + gt[0]
+    # y = (row * gt[5]) + gt[3]
+    xres = abs(gt[1])
+    yres = abs(gt[5])
+    # X = np.arange(gt[0], gt[0] + dem.shape[1]*xres, xres)
+    # Y = np.arange(gt[3], gt[3] + dem.shape[0]*yres, yres)
+    X = np.arange(0, im_dem_data.shape[1]*xres, xres)
+    Y = np.arange(0, im_dem_data.shape[0]*yres, yres)
+    # creation of a simple grid without interpolation
+    X, Y = np.meshgrid(X, Y)
+    # plot the raster
+
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    surf = ax.plot_surface(X, Y[::-1], dem,
+                            rstride=1, cstride=1,
+                            cmap=mpl.colors.ListedColormap('dodgerblue'),                       
+                            # cmap=cm.Greys,
+                            # facecolors=None,
+                            # eddgecolor=None,
+                            lw=0, antialiased=False, alpha=0.1, zorder=1000,
+                            clip_on=True)
+    ax.plot_wireframe(X, Y[::-1], dem, rstride=1, cstride=1, lw=0.1, alpha=0.5, edgecolor='k', zorder=2000)
+
+    xlims = ax.get_xlim()
+    ylims = ax.get_ylim()
+    zlims = ax.get_zlim()
+    
+    # ax.set_xlim(0,xlims[1])
+    # ax.set_ylim(0,ylims[1])
+    ax.set_xlim(0,4000)
+    ax.set_ylim(0,5000)
+    ax.set_zlim(1000,2200)
+    ax.set_xticks([0,1000,2000,3000,4000])
+    ax.set_yticks([0,1000,2000,3000,4000,5000])
+    
+    # ax.set_xticks([])
+    # ax.set_yticks([])
+    # ax.set_zticks([])
+    
+    plt.setp( ax.get_xticklabels(), visible=False)
+    plt.setp( ax.get_yticklabels(), visible=False)
+    plt.setp( ax.get_zticklabels(), visible=False)
+    
+    # ax.grid(alpha=0.5)
+        
+    if i == 0:
+        fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/f_sup_pathlines/'+
+                    '3D_plot_'+str(i)+'_toplt'+'.png',
+                                bbox_inches='tight', dpi=300)
+
+# import mayavi.mlab as mlab
+# mlab.plot3d(prt_file['x'], prt_file['y'], prt_file['z'], lw=2)
+
+#%% PLOT PATHLINES 2D
+
+list_model_names = ['zSTEADY_isbaEXPLO3_model0_300.0-0-2.14e-07_0_600.0-1.0-1.02e-06',
+                    'zSTEADY_isbaEXPLO3_model1_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06']
+
+
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+for i, model_name in enumerate(list_model_names[:]):
+    
+    fig, ax = plt.subplots(1,1, figsize=(8, 4), dpi=300)
+
+    # export_vtuvtk.VTK(BV, model_name)
+    # visu = visualization_results.Visualization(BV, model_name)
+    # visu.visual3D(interactive=True, object_list=[
+    #                                              # 'grid',
+    #                                              # 'watertable',
+    #                                              # 'watertable_depth',
+    #                                              # 'surface_flow',
+    #                                              # 'drain_flow',
+    #                                              'pathlines'
+    #                                              ],
+    #                                                view='south-west',
+    #                                               # view='north',
+    #                                               lines=None,
+    #                                               cloc=(0.7,0.1),
+    #                                               z_scale=1)
+        
+    print(model_name)
+    
+    mf = flopy.modflow.Modflow.load(BV.simulations_folder+'/'+model_name+'/'+model_name+'.nam')          
+    fname = BV.simulations_folder+'/'+model_name+'/'+model_name+'.hds'
+    hk_grid = mf.upw.hk
+    
+    # prt_path = BV.simulations_folder + '/' + model_name + '/_postprocess/_particles/particles_weighted.shp'
+    # prt_file = gpd.read_file(prt_path)
+    
+    # modelmap = flopy.plot.PlotMapView(model=mf)
+    # linecollection = modelmap.plot_grid(linewidth=0.5, color='royalblue')
+    # line_cross = np.array([(20, 20),(50,50)])
+    # plt.plot(line_cross)
+    # xsect = flopy.plot.PlotCrossSection(model=mf, line={'line': line_cross})
+    xsect = flopy.plot.PlotCrossSection(model=mf, line={'column': 80})
+    # xsect.plot_grid()
+    # xsect = flopy.plot.PlotCrossSection(model=mf, line={'row': 50})
+    linecollection = xsect.plot_grid(color='k', alpha=0.25, lw=0)
+    xsect.get_extent()
+    # xsect.plot_bc()
+    hdobj = flopy.utils.HeadFile(fname)
+    head = hdobj.get_data(mflay=None)
+    
+    nrow = mf.dis.nrow
+    ncol = mf.dis.ncol
+    
+    wt = pp.get_water_table(head, -100) # -9999
+    wt = np.ones((nrow, ncol)) * wt
+    
+    xsect.plot_fill_between(head, color='saddlebrown', edgecolor='none', alpha=0.25)
+    # pc = xsect.plot_array(head,
+    #                       masked_values=[-9999.0], head=head, alpha=0.25,
+    #                       cmap = 'Blues', lw=0,
+    #                       vmin=0, vmax=2350)
+    
+    val = hk_grid.array/24/3600
+    # if i ==0:
+    #     cb = xsect.plot_array(val, ax=ax, cmap='plasma', lw=0.1,
+    #                                 norm=mpl.colors.LogNorm(vmin=2e-7, 
+    #                                                         vmax=1e-10), alpha=0.5
+    #                                )
+    # if i ==1:
+    #     cb = xsect.plot_array(val, ax=ax, cmap='plasma', lw=0.1,
+    #                                 norm=mpl.colors.LogNorm(vmin=2e-6, 
+    #                                                         vmax=1e-9), alpha=0.5
+    #                                )
+    
+    cb = xsect.plot_array(val, ax=ax, cmap='Greys_r', lw=0.1,
+                                norm=mpl.colors.LogNorm(vmin=3e-6, 
+                                                        vmax=1e-10), alpha=0.5
+                               )
+    
+    if i == 0:
+        color = 'purple'
+    if i == 1:
+        color = 'darkorange'
+    ps = xsect.plot_surface(head)
+    patches = xsect.plot_ibound(head=head, lw=3)
+    # linecollection = xsect.plot_grid()
+    # cb = plt.colorbar(pc, shrink=0.75)
+    ax.set_ylim(1000,2350)
+    xlims = ax.get_xlim()
+    # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+    #                             cmap='Blues', alpha=0.5, ax=axs[1])
+    ax.set_title(model_name.upper(), fontsize=6)
+    # ax.set_title('Hydraulic conductivity [m/s]', fontsize=12)
+    # ax.set_xlim(150, 350)
+    # ax.set_ylim(0, 2500)
+    ax.set_yticks([1000,1200,1400,1600,1800,2000,2200])
+    
+    ax.invert_xaxis()
+    plt.tight_layout()
+    fig.colorbar(cb)
+    
+    # r, c = np.arange(nrow-1), np.arange(ncol-1)
+    # for er in np.arange(nrow-1):
+    #     for ec in np.arange(ncol-1):
+    for er in [68]:
+        for ec in [114]:
+            print(er, ec)
+            trans = flopy.utils.get_transmissivities(heads=head, m=mf,r=np.array([er]), c=np.array([ec]))
+            # hk_cell = mf.lpf.hk.array[:, er, ec]
+            # grid_cell = mf.modelgrid.cell_thickness[:, er, ec]
+            tfrac = trans / trans.sum(axis=0)
+    trans = trans[:,0]
+                     
+    botm_thick = mf.dis.botm[:,68,114] 
+    cell_thick = botm_thick.copy()
+    for b in range(len(cell_thick)):
+        if b>0:
+            cell_thick[b] = botm_thick[b-1] - botm_thick[b]
+    cell_thick[0] = mf.dis.top[68,114] - botm_thick[0]
+    
+    mean_n = trans[trans>0].mean()
+    mean_w = np.sum((trans[trans>0] * cell_thick[trans>0])) / cell_thick[trans>0].sum()
+    mean_g = 10**(np.sum((np.log10(trans[trans>0]) * cell_thick[trans>0])) / cell_thick[trans>0].sum())
+    print(mean_n/24/3600)
+    # print(mean_w/24/3600)
+    # print(mean_g/24/3600)
+
+    # fig2, ax2 = plt.subplots(1,1, figsize=(8, 4), dpi=300)
+    # ax2.boxplot(trans/24/3600)
+
+
+    # head_profile = pc.get_array()[0:170]
+    # xsect.plot_pathline(pth_data[:], method='cell', colors='k',
+    #                     # head=pc.get_array()
+    #                     )
+    # xsect.plot_endpoint(e, direction='ending')
+    
+    # if i ==0:
+    #     toplot = prt_file[prt_file['particleid']==693]
+    # if i ==1:
+    #     toplot = prt_file[prt_file['particleid']==360]
+    # ax.plot(toplot['y'],toplot['z'], marker='o')
+    
+    # for i in prt_file['particleid'].unique():
+    #     toplot = prt_file[prt_file['particleid']==i]
+    #     toplot = toplot.sort_values('y')
+    #     ax.plot(abs(toplot['y']-xlims[1]), toplot['z'], lw=0.1, ms=2, color=color)
+    
+    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/f_sup_pathlines/'+
+                'CROSS_DECAY_'+str(i)+'.png',
+                            bbox_inches='tight')
+        
 #%% ---- METHODOLOGY
 
 #%% CROSS SECTIONS PLOT
@@ -6913,7 +7623,7 @@ axk.tick_params(right=False)
 #             'K_'+'.png',
 #                         bbox_inches='tight')
 
-#%% GRAPH DECAY K 2
+#%% GRAPH DECAY K GOOD ONE
 
 run = True
 
