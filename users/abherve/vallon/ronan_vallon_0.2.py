@@ -2310,6 +2310,275 @@ ax.set_xscale('log')
 #         histtype='step')
 # ax.set_xscale('log')
 
+#%% ---- OUT HGS RESULTS
+
+#%% CLIP NEW CLIMATE
+
+hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
+shp_path = hgs2_path + 'full_model/Nant_shape.shp'
+shp_file = gpd.read_file(shp_path)
+
+rain_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*rain*')
+etp_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')
+
+for i in range(len(rain_list[:])):
+    
+    print(i, len(rain_list[:]))
+    
+    name_input_rain = rain_list[0].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        rain_list[0], 
+        shp_path, 
+        hgs2_path + 'DailyForcingDataClip/' + name_input_rain, 
+        maintain_dimensions=False)
+    
+    name_input_etp = etp_list[0].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        etp_list[0], 
+        shp_path, 
+        hgs2_path + 'DailyForcingDataClip/' + name_input_etp, 
+        maintain_dimensions=False)
+    
+#%% CLIP OLD CLIMATE
+
+hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
+shp_path = hgs3_path + 'full_model/Nant_shape.shp'
+shp_file = gpd.read_file(shp_path)
+
+rain_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*rain*')
+etp_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*etp*')
+
+for i in range(len(rain_list[:])):
+    
+    print(i+1, len(rain_list[:]))
+    
+    name_input_rain = rain_list[0].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        rain_list[0], 
+        shp_path, 
+        hgs3_path + 'DailyForcingDataClip/' + name_input_rain, 
+        maintain_dimensions=False)
+    
+    name_input_etp = etp_list[0].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        etp_list[0], 
+        shp_path, 
+        hgs3_path + 'DailyForcingDataClip/' + name_input_etp, 
+        maintain_dimensions=False)
+
+#%% OPEN AND STORE NEW OLD CLIMATE
+
+df_clim = pd.DataFrame()
+df_clim.index = pd.to_datatime()
+
+hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
+hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
+
+rain_list_old = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*rain*')
+etp_list_old = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*etp*')
+
+rain_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*rain*')
+etp_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*etp*')
+
+for i in range(len(rain_list_old[:])):
+    print(i+1, len(rain_list_old[:]))
+    im = imageio.imread(i)
+    
+
+
+
+#%% PREPARE INPUT HGS
+
+rain_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*rain*')
+rain_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_daily_all_rain_plus_melt.data'
+rain_df = pd.DataFrame(rain_list)
+rain_df.to_csv(rain_file, sep='\t', header=None)
+
+etp_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*etp*')
+etp_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_monthly_then_daily_PET.data'
+etp_df = pd.DataFrame(etp_list)
+etp_df.to_csv(etp_file, sep='\t', header=None)
+
+#%% OPEN TECPLOT
+
+file = hgs_path + '_HGS_v1_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
+datall = [i.strip().split() for i in open(file).readlines()]
+VARIABLES = ["X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"]
+
+# TITLE = "Mesh version 11                                             "
+# VARIABLES ="X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+# ZONE  T="pm", SOLUTIONTIME= 1.0000000000E-01, DATAPACKING=BLOCK, N=    272376, E=    507771, ZONETYPE=FEBRICK        , VARLOCATION=([         4,      8,      9,     10,     11,     12,     13]=CELLCENTERED)                                                                                                                                                                                                                                                                                                                  
+# # x
+
+start = datall.index(['#', 'x'])
+dat = datall[start:]
+super_list_X = []
+print('X')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'y']:
+        super_list_X.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'y'])
+dat = datall[start:]
+super_list_Y = []
+print('Y')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'z']:
+        super_list_Y.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'z'])
+dat = datall[start:]
+super_list_Z = []
+print('Z')
+for i in range(len(dat[start:])):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'zone', '(cell', 'centred']:
+        super_list_Z.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'zone','(cell', 'centred'])
+dat = datall[start:]
+super_list_ZONE = []
+print('ZONE')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'head']:
+        super_list_ZONE.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'kxx', '(cell-centered)'])
+dat = datall[start:]
+super_list_KXX = []
+print('KXX')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'kyy', '(cell-centered)']:
+        super_list_KXX.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+    
+nodes = pd.DataFrame(columns=['X','Y','Z'])
+nodes['X'] = super_list_X
+nodes['Y'] = super_list_Y
+nodes['Z'] = super_list_Z
+nodes['ID'] = np.arange(1, len(nodes)+1, 1)   
+     
+starts = datall.index(['#', 'head'])
+starts = [i for i in range(len(datall)) if datall[i] == ['#','head']]
+for si, start in enumerate(starts):
+    dat = datall[start:]
+    super_list_HEAD = []
+    print('HEAD')
+    for i in range(len(dat)):
+        # print(i)
+        # print(start)
+        # if i+1 > start:
+        if dat[i+1] != ['#', 'saturation']:
+            super_list_HEAD.extend(dat[i+1][:])
+            # print(i+1)
+        else:
+            break
+    nodes['HEAD_'+str(si)] = super_list_HEAD
+    
+starts = datall.index(['#', 'saturation'])
+starts = [i for i in range(len(datall)) if datall[i] == ['#','saturation']]
+for si, start in enumerate(starts):
+    dat = datall[start:]
+    super_list_SAT = []
+    print('SAT')
+    for i in range(len(dat)):
+        # print(i)
+        # print(start)
+        # if i+1 > start:
+        if dat[i+1] != ['#', 'Depth2GWT']:
+            super_list_SAT.extend(dat[i+1][:])
+            # print(i+1)
+        else:
+            break
+    nodes['SAT_'+str(si)] = super_list_SAT
+        
+# if 'clipped' not in globals():
+shp = nodes.copy()
+geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
+gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
+gdf.to_file(hgs_path + "Postprocess/points_mesh_sat.shp")
+nant = gpd.read_file(hgs_path + "_HGS_v0_James/full_model/Nant_shape.shp")
+clipped = gdf.clip(nant)
+clipped.to_file(hgs_path + "Postprocess/points_mesh_sat_nant.shp")
+clipped.plot()
+
+nodes = clipped.copy()
+nodes = nodes.reset_index()
+
+nodes['Z'] = nodes['Z'].apply(pd.to_numeric, errors='coerce')
+nodes['SAT_0'] = nodes['SAT_0'].apply(pd.to_numeric, errors='coerce')
+nodes['XY'] = nodes['X']+'-'+nodes['Y']
+fil_nodes = pd.DataFrame()
+# for i in nodes['XY'].unique():
+#     tempo = nodes[nodes['XY']==i]
+#     keep = tempo[tempo['Z']==tempo['Z'].max()]
+xt = nodes.groupby(['XY'])['Z'].max()
+xt = xt.to_frame()
+xt = xt.reset_index()
+xt['X-Y'] = xt['XY'].str.split('-')
+for i, j in xt.iterrows():
+    print(i)
+    xt.loc[i,'X'] = float(j['X-Y'][0])
+    xt.loc[i,'Y'] = float(j['X-Y'][1])
+xt['Cond'] = xt['X'] + xt['Y'] + xt['Z']
+Cond_list =  xt['Cond'].values
+nodes['Cond'] = nodes['X'].astype(float) + nodes['Y'].astype(float) + nodes['Z'].astype(float)
+nodes = nodes[nodes['Cond'].isin(Cond_list)]
+
+nodes_save = nodes[nodes['SAT_0']>=0]
+nodes_save.plot('SAT_0', cmap='jet', ec='None', markersize=3)
+nodes_save.to_file(hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp")
+
+# wbt.trend_surface_vector_points(
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
+#     'SAT_0', 
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
+#     30, 
+#     order=1)
+
+# wbt.vector_points_to_raster(
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
+#     field="FID", 
+#     assign="last", 
+#     nodata=True, 
+#     cell_size=2, 
+#     # base=BV.geographic.watershed_dem
+#     )
+
 #%% ---- CALIBRATION STREAMS
 
 #%% DICHOTOMY FUNCTION
@@ -5071,200 +5340,6 @@ with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
 # kh_arit_weig = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
 # kh_geom_weig = np.exp(np.sum((np.log(elem_k['KXX'])) * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])) # or 10** and np.log10
 # kh_harm_weig = np.sum(elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'] / elem_k['KXX']) # or 10** and np.log10
-
-#%% PREPARE INPUT HGS
-
-rain_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*rain*')
-rain_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_daily_all_rain_plus_melt.data'
-rain_df = pd.DataFrame(rain_list)
-rain_df.to_csv(rain_file, sep='\t', header=None)
-
-etp_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*etp*')
-etp_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_monthly_then_daily_PET.data'
-etp_df = pd.DataFrame(etp_list)
-etp_df.to_csv(etp_file, sep='\t', header=None)
-
-#%% COMPARE INPUT RAIN ETP HGS
-
-#%% OPEN TECPLOT
-
-file = hgs_path + '_HGS_v1_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
-datall = [i.strip().split() for i in open(file).readlines()]
-VARIABLES = ["X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"]
-
-# TITLE = "Mesh version 11                                             "
-# VARIABLES ="X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-# ZONE  T="pm", SOLUTIONTIME= 1.0000000000E-01, DATAPACKING=BLOCK, N=    272376, E=    507771, ZONETYPE=FEBRICK        , VARLOCATION=([         4,      8,      9,     10,     11,     12,     13]=CELLCENTERED)                                                                                                                                                                                                                                                                                                                  
-# # x
-
-start = datall.index(['#', 'x'])
-dat = datall[start:]
-super_list_X = []
-print('X')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'y']:
-        super_list_X.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-        
-start = datall.index(['#', 'y'])
-dat = datall[start:]
-super_list_Y = []
-print('Y')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'z']:
-        super_list_Y.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-
-start = datall.index(['#', 'z'])
-dat = datall[start:]
-super_list_Z = []
-print('Z')
-for i in range(len(dat[start:])):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'zone', '(cell', 'centred']:
-        super_list_Z.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-
-start = datall.index(['#', 'zone','(cell', 'centred'])
-dat = datall[start:]
-super_list_ZONE = []
-print('ZONE')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'head']:
-        super_list_ZONE.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-        
-start = datall.index(['#', 'kxx', '(cell-centered)'])
-dat = datall[start:]
-super_list_KXX = []
-print('KXX')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'kyy', '(cell-centered)']:
-        super_list_KXX.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-    
-nodes = pd.DataFrame(columns=['X','Y','Z'])
-nodes['X'] = super_list_X
-nodes['Y'] = super_list_Y
-nodes['Z'] = super_list_Z
-nodes['ID'] = np.arange(1, len(nodes)+1, 1)   
-     
-starts = datall.index(['#', 'head'])
-starts = [i for i in range(len(datall)) if datall[i] == ['#','head']]
-for si, start in enumerate(starts):
-    dat = datall[start:]
-    super_list_HEAD = []
-    print('HEAD')
-    for i in range(len(dat)):
-        # print(i)
-        # print(start)
-        # if i+1 > start:
-        if dat[i+1] != ['#', 'saturation']:
-            super_list_HEAD.extend(dat[i+1][:])
-            # print(i+1)
-        else:
-            break
-    nodes['HEAD_'+str(si)] = super_list_HEAD
-    
-starts = datall.index(['#', 'saturation'])
-starts = [i for i in range(len(datall)) if datall[i] == ['#','saturation']]
-for si, start in enumerate(starts):
-    dat = datall[start:]
-    super_list_SAT = []
-    print('SAT')
-    for i in range(len(dat)):
-        # print(i)
-        # print(start)
-        # if i+1 > start:
-        if dat[i+1] != ['#', 'Depth2GWT']:
-            super_list_SAT.extend(dat[i+1][:])
-            # print(i+1)
-        else:
-            break
-    nodes['SAT_'+str(si)] = super_list_SAT
-        
-# if 'clipped' not in globals():
-shp = nodes.copy()
-geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
-gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
-gdf.to_file(hgs_path + "Postprocess/points_mesh_sat.shp")
-nant = gpd.read_file(hgs_path + "_HGS_v0_James/full_model/Nant_shape.shp")
-clipped = gdf.clip(nant)
-clipped.to_file(hgs_path + "Postprocess/points_mesh_sat_nant.shp")
-clipped.plot()
-
-nodes = clipped.copy()
-nodes = nodes.reset_index()
-
-nodes['Z'] = nodes['Z'].apply(pd.to_numeric, errors='coerce')
-nodes['SAT_0'] = nodes['SAT_0'].apply(pd.to_numeric, errors='coerce')
-nodes['XY'] = nodes['X']+'-'+nodes['Y']
-fil_nodes = pd.DataFrame()
-# for i in nodes['XY'].unique():
-#     tempo = nodes[nodes['XY']==i]
-#     keep = tempo[tempo['Z']==tempo['Z'].max()]
-xt = nodes.groupby(['XY'])['Z'].max()
-xt = xt.to_frame()
-xt = xt.reset_index()
-xt['X-Y'] = xt['XY'].str.split('-')
-for i, j in xt.iterrows():
-    print(i)
-    xt.loc[i,'X'] = float(j['X-Y'][0])
-    xt.loc[i,'Y'] = float(j['X-Y'][1])
-xt['Cond'] = xt['X'] + xt['Y'] + xt['Z']
-Cond_list =  xt['Cond'].values
-nodes['Cond'] = nodes['X'].astype(float) + nodes['Y'].astype(float) + nodes['Z'].astype(float)
-nodes = nodes[nodes['Cond'].isin(Cond_list)]
-
-nodes_save = nodes[nodes['SAT_0']>=0]
-nodes_save.plot('SAT_0', cmap='jet', ec='None', markersize=3)
-nodes_save.to_file(hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp")
-
-# wbt.trend_surface_vector_points(
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
-#     'SAT_0', 
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
-#     30, 
-#     order=1)
-
-# wbt.vector_points_to_raster(
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
-#     field="FID", 
-#     assign="last", 
-#     nodata=True, 
-#     cell_size=2, 
-#     # base=BV.geographic.watershed_dem
-#     )
 
 #%% VTK 1
 
