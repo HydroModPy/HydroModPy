@@ -2310,7 +2310,34 @@ ax.set_xscale('log')
 #         histtype='step')
 # ax.set_xscale('log')
 
-#%% ---- OUT HGS RESULTS
+#%% ---- IN OUT HGS RESULTS
+
+#%% CLIP OLD CLIMATE
+
+hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
+shp_path = hgs3_path + 'full_model/Nant_shape.shp'
+shp_file = gpd.read_file(shp_path)
+
+rain_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*rain*')
+etp_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*etp*')
+
+for i in range(len(rain_list[:])):
+    
+    print(i+1, len(rain_list[:]))
+    
+    name_input_rain = rain_list[i].split('\\')[-1]    
+    wbt.clip_raster_to_polygon(
+        rain_list[i], 
+        shp_path, 
+        hgs3_path + 'DailyForcingDataClip/' + name_input_rain, 
+        maintain_dimensions=False)
+    
+    name_input_etp = etp_list[i].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        etp_list[i], 
+        shp_path, 
+        hgs3_path + 'DailyForcingDataClip/' + name_input_etp, 
+        maintain_dimensions=False)
 
 #%% CLIP NEW CLIMATE
 
@@ -2325,83 +2352,147 @@ for i in range(len(rain_list[:])):
     
     print(i, len(rain_list[:]))
     
-    name_input_rain = rain_list[0].split('\\')[-1]
+    name_input_rain = rain_list[i].split('\\')[-1]
     wbt.clip_raster_to_polygon(
-        rain_list[0], 
+        rain_list[i], 
         shp_path, 
         hgs2_path + 'DailyForcingDataClip/' + name_input_rain, 
         maintain_dimensions=False)
     
-    name_input_etp = etp_list[0].split('\\')[-1]
+    name_input_etp = etp_list[i].split('\\')[-1]
     wbt.clip_raster_to_polygon(
-        etp_list[0], 
+        etp_list[i], 
         shp_path, 
         hgs2_path + 'DailyForcingDataClip/' + name_input_etp, 
         maintain_dimensions=False)
-    
-#%% CLIP OLD CLIMATE
+
+#%% STORE OLD CLIMATE
+
+df_clim_old = pd.DataFrame()
+df_clim_old['date'] = pd.date_range('10/01/14', '09/30/2018', freq='D') # m/d/y
+# pd.to_datetime(x.index, format = "%d/%m/%Y")
 
 hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
-shp_path = hgs3_path + 'full_model/Nant_shape.shp'
-shp_file = gpd.read_file(shp_path)
 
-rain_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*rain*')
-etp_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*etp*')
+# rain_list_old = glob.glob(hgs3_path + 'DailyForcingDataClip/' + '*rain*')
+# etp_list_old = glob.glob(hgs3_path + 'DailyForcingDataClip/' + '*etp*')
 
-for i in range(len(rain_list[:])):
+rain_list_old = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*rain*')
+etp_list_old = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*etp*')
+
+cp = 0
+for rm_path, pe_path in zip( rain_list_old[:], etp_list_old[:] ):
+    print(cp+1, len(rain_list_old[:]))
     
-    print(i+1, len(rain_list[:]))
+    rm_name = rm_path.split('\\')[-1]
+    rm_year = str('20'+rm_name.split('_')[4].split('.')[0][:2])
+    rm_month = str(rm_name.split('_')[4].split('.')[0][2:])
+    rm_day = str(rm_name.split('_')[4].split('.')[1][:2])
+    rm_date = rm_year+'-'+rm_month+'-'+rm_day
     
-    name_input_rain = rain_list[0].split('\\')[-1]
-    wbt.clip_raster_to_polygon(
-        rain_list[0], 
-        shp_path, 
-        hgs3_path + 'DailyForcingDataClip/' + name_input_rain, 
-        maintain_dimensions=False)
+    rm_data = np.loadtxt(rm_path, skiprows=6) 
+    rm_data = np.ma.masked_where(rm_data==-9999, rm_data)
     
-    name_input_etp = etp_list[0].split('\\')[-1]
-    wbt.clip_raster_to_polygon(
-        etp_list[0], 
-        shp_path, 
-        hgs3_path + 'DailyForcingDataClip/' + name_input_etp, 
-        maintain_dimensions=False)
+    pe_data = np.loadtxt(pe_path, skiprows=6)
+    pe_data = np.ma.masked_where(pe_data==-9999, pe_data)
+    
+    df_clim_old.loc[cp,'find_date'] = rm_date
+    df_clim_old.loc[cp,'rain_mean'] = rm_data.mean()
+    df_clim_old.loc[cp,'rain_sum'] = rm_data.sum()
+    df_clim_old.loc[cp,'petp_mean'] = pe_data.mean()
+    df_clim_old.loc[cp,'petp_sum'] = pe_data.sum()
+    cp += 1
 
-#%% OPEN AND STORE NEW OLD CLIMATE
+# df_clim_old.index = pd.to_datetime(df_clim_old['date'], format = "%d/%m/%Y")
+df_clim_old.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                   'df_clim_old.csv', sep=';')
+    
+#%% STORE NEW CLIMATE
 
-df_clim = pd.DataFrame()
-df_clim.index = pd.to_datatime()
+df_clim_new = pd.DataFrame()
+df_clim_new['date'] = pd.date_range('10/01/12', '12/31/2023', freq='D') # m/d/y
+# pd.to_datetime(x.index, format = "%d/%m/%Y")
 
 hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
-hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
 
-rain_list_old = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*rain*')
-etp_list_old = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*etp*')
+# rain_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*rain*')
+# etp_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*etp*')
 
-rain_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*rain*')
-etp_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*etp*')
+rain_list_new = glob.glob(hgs2_path + 'DailyForcingData/' + '*rain*')
+etp_list_new = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')
 
-for i in range(len(rain_list_old[:])):
-    print(i+1, len(rain_list_old[:]))
-    im = imageio.imread(i)
+cp = 0
+for rm_path, pe_path in zip( rain_list_new[:], etp_list_new[:] ):
+    print(cp+1, len(rain_list_new[:]))
+    rm_data = np.loadtxt(rm_path, skiprows=6)
+    pe_data = np.loadtxt(pe_path, skiprows=6)
+    rm_data = np.ma.masked_where(rm_data==-9999, rm_data)
+    pe_data = np.ma.masked_where(pe_data==-9999, pe_data)
+    df_clim_new.loc[cp,'rain_mean'] = rm_data.mean()
+    df_clim_new.loc[cp,'rain_sum'] = rm_data.sum()
+    df_clim_new.loc[cp,'petp_mean'] = pe_data.mean()
+    df_clim_new.loc[cp,'petp_sum'] = pe_data.sum()
+    cp += 1
     
+# df_clim_new.index = pd.to_datetime(df_clim_new['date'], format = "%d/%m/%Y")
+df_clim_new.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                   'df_clim_new.csv', sep=';')
 
+#%% PLOT OLD A NEW CLIMATE
 
+df_clim_old = pd.read_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                          'df_clim_old.csv', sep=';', index_col=0)
+df_clim_old.index = pd.to_datetime(df_clim_old['date'], format = "%Y/%m/%d")
+df_clim_new = pd.read_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                          'df_clim_new.csv', sep=';', index_col=0)
+df_clim_new.index = pd.to_datetime(df_clim_new['date'], format = "%Y/%m/%d")
 
-#%% PREPARE INPUT HGS
+fig, ax = plt.subplots(figsize=(10,4))
+ax.plot(hgs_wb['rain_plus_all_melt'] / (37*1e6) * 1000, c='k', lw=5)
+ax.plot(df_clim_old['rain_mean']*1000, color='dodgerblue', lw=3)
+ax.plot(df_clim_new['rain_mean']*1000, color='cyan', lw=1)
+ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2017'))
+# ax.set_yscale('log')
 
-rain_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*rain*')
-rain_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_daily_all_rain_plus_melt.data'
+fig, ax = plt.subplots(figsize=(10,4))
+ax.plot(hgs_wb['ET_4_PET'] / (37*1e6) * 1000, c='k', lw=5)
+ax.plot(df_clim_old['petp_mean']*1000, color='red', lw=3)
+ax.plot(df_clim_new['petp_mean']*1000, color='darkorange', lw=1)
+ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2017'))
+
+fig, ax = plt.subplots(figsize=(10,4))
+ax.plot((df_clim_old['rain_mean']-df_clim_old['petp_mean'])*1000, color='darkgreen', lw=3)
+ax.plot((df_clim_new['rain_mean']-df_clim_new['petp_mean'])*1000, color='limegreen', lw=1)
+ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2017'))
+
+#%% PREPARE CLIMATE INPUT HGS
+
+# v10 : 10-2014 to 31/12/2023
+
+hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
+
+rain_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*rain*')[730:]
+rain_file = hgs2_path + 'full_model/' + 'WaSiM_v10_Ronan_mod_d_daily_all_rain_plus_melt.data'
 rain_df = pd.DataFrame(rain_list)
 rain_df.to_csv(rain_file, sep='\t', header=None)
 
-etp_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*etp*')
-etp_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_monthly_then_daily_PET.data'
+etp_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')[730:]
+etp_file = hgs2_path + 'full_model/' + 'WaSiM_v10_Ronan_mod_d_monthly_then_daily_PET.data'
 etp_df = pd.DataFrame(etp_list)
 etp_df.to_csv(etp_file, sep='\t', header=None)
 
-#%% OPEN TECPLOT
+out_list = list(np.arange(1,len(rain_df)+1,1))
+out_file = hgs2_path + 'full_model/' + 'output.times.v10_Ronan.daily'
+with open(out_file, 'w') as f:
+    for line in out_list:
+        f.write(f"{line}\n")
 
-file = hgs_path + '_HGS_v1_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
+#%% OPEN TECPLOT RESULTS
+
+hgs_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_hgs/'
+hgs2_path = 'D:/Users/abherve/HGS/'
+
+file = hgs2_path + '_HGS_v2_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
 datall = [i.strip().split() for i in open(file).readlines()]
 VARIABLES = ["X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"]
 
@@ -2470,20 +2561,20 @@ for i in range(len(dat)):
         # print(i+1)
         break
         
-start = datall.index(['#', 'kxx', '(cell-centered)'])
-dat = datall[start:]
-super_list_KXX = []
-print('KXX')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'kyy', '(cell-centered)']:
-        super_list_KXX.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
+# start = datall.index(['#', 'kxx', '(cell', ' centred)'])
+# dat = datall[start:]
+# super_list_KXX = []
+# print('KXX')
+# for i in range(len(dat)):
+#     # print(i)
+#     # print(start)
+#     # if i+1 > start:
+#     if dat[i+1] != ['#', 'kyy', '(cell', ' centred)']:
+#         super_list_KXX.extend(dat[i+1][:])
+#         # print(i+1)
+#     else:
+#         # print(i+1)
+#         break
     
 nodes = pd.DataFrame(columns=['X','Y','Z'])
 nodes['X'] = super_list_X
