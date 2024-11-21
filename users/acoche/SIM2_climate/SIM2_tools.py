@@ -684,7 +684,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         
     if mode in ['mean_cumdiff', 'sum_cumdiff', 'min_cumdiff', 'max_cumdiff']:
         colorscale = 'RdBu'
-        if var in ['T', 'TSUP_H', 'TINF_H']:
+        if var in ['T', 'TSUP_H', 'TINF_H', 'ETP', 'EVAP']:
             colorscale = 'RdBu_r'
     
     #%%% Prepare data
