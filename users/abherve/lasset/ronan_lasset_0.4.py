@@ -6706,9 +6706,10 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
 #%% UPDATE PARAMETERS 4
 
 vers = 'isba2' # dichotomy isba
-iD_explo = 'zSTEADY_isbaEXPLO3' # with isba recharge ==> change ss with decay factor (details for bad models)
+# iD_explo = 'zSTEADY_isbaEXPLO3' # with isba recharge ==> change ss with decay factor (details for bad models)
+iD_explo = 'ySTEADY_isbaEXPLO4' # with isba recharge ==> change ss with decay factor (details for bad models)
 
-decay_factor = 2
+decay_factor = 5
 
 box = True # or False
 sink_fill = False # or True
@@ -6866,6 +6867,12 @@ list_koptim = [0.0185, 0.2470]
 list_id_mod = [0, 1]
 list_kroptim = [100, 100]
 
+list_cond_decay = [1/30]
+list_bottom = [0]
+list_koptim = [0.2470]
+list_id_mod = [1]
+list_kroptim = [100]
+
 list_porosity = [1/100]
 
 #%% RUN
@@ -6914,7 +6921,6 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     # BV.hydraulic.update_hyd_cond(koptim_from_kr)
     BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
     # BV.hydraulic.update_poro_decay(0)
-    BV.hydraulic.update_ss_decay(cond_decay_val/decay_factor)
     
     dictio = {}
     
@@ -6927,10 +6933,12 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
         
         BV.hydraulic.update_porosity(poro_val)
         
-        Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
+        # Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
+        Ss_formula = 1e-5 # rho*g*(alpha+nBeta)
         # print(Ss_formula)
 
         BV.hydraulic.update_ss(Ss_formula)
+        BV.hydraulic.update_ss_decay(0)
         
         if cond_decay_val == 0 :
             str_cond_decay = cond_decay_val
@@ -7100,7 +7108,7 @@ for i, model_name in enumerate(list_model_names[:]):
     # ax.set_proj_type('persp', focal_length=0.2)
     ax.set_proj_type('persp', focal_length=1)
     
-    ax.view_init(elev=10, azim=0, roll=0)
+    ax.view_init(elev=20, azim=20, roll=0)
     
     # export_vtuvtk.VTK(BV, model_name)
     # visu = visualization_results.Visualization(BV, model_name)
@@ -7246,10 +7254,10 @@ for i, model_name in enumerate(list_model_names[:]):
     
     # ax.grid(alpha=0.5)
         
-    if i == 0:
-        fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/f_sup_pathlines/'+
-                    '3D_plot_'+str(i)+'_toplt'+'.png',
-                                bbox_inches='tight', dpi=300)
+    # if i == 0:
+    #     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/f_sup_pathlines/'+
+    #                 '3D_plot_'+str(i)+'_toplt'+'.png',
+    #                             bbox_inches='tight', dpi=300)
 
 # import mayavi.mlab as mlab
 # mlab.plot3d(prt_file['x'], prt_file['y'], prt_file['z'], lw=2)
@@ -7407,7 +7415,192 @@ for i, model_name in enumerate(list_model_names[:]):
     fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/f_sup_pathlines/'+
                 'CROSS_DECAY_'+str(i)+'.png',
                             bbox_inches='tight')
-        
+
+#%% FILTER
+
+x = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_simulations/e_isba2_model6_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06/_postprocess/_particules/ending.shp')
+# z = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_simulations/e_isba2_model6_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06/_postprocess/_particules/starting.shp')
+
+# pa = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_simulations/e_isba2_model6_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06/_postprocess/_particules/pathlines.shp')
+# pt = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_simulations/e_isba2_model6_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06/_postprocess/_particules/particules.shp')
+
+# pa = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_simulations/zSTEADY_isbaEXPLO3_model1_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06/_postprocess/_particles/pathlines_weighted.shp')
+# pt = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_simulations/zSTEADY_isbaEXPLO3_model1_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06/_postprocess/_particles/pathlines_weighted.shp')
+
+y = x.copy()
+y = y[y['k']==1]
+y = y[y['time']>0]
+# y.plot()
+y['time_y'] = y['time']/365
+y = y[y['zone']!=0]
+
+# s = z.copy()
+# s = s[s['k']==1]
+# s = s[s['time']>0]
+# # y.plot()
+# s['time'] = s['time']/365
+# s = s[s['zone']!=0]
+
+# print((y['time']).mean(), (y['time']).median(), (y['time']).quantile(0.95))
+
+box = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/box_buff.shp')
+shp = gpd.read_file('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed.shp')
+# test = plt.hist(y['time'], bins=1000)
+# plt.yscale('log')
+
+end = y.clip(shp)
+end['time_win_y']= end['time_y']
+end[end['time_win_y']==0] = np.nan
+end = end.dropna()
+tau = np.average(end['time_win_y'],
+                 # weights=end['rchPerc']
+                 )
+def pdf_function(M, nbin, Weight):    
+    bin_min = np.quantile(M, 0.01)
+    bin_max = np.quantile(M, 0.99)
+    bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
+    pdf, binEdges = np.histogram(M, bins=bins,density=True,
+                                 weights=Weight
+                                 )
+    dx = np.diff(binEdges)  
+    xh =  (binEdges[1:] + binEdges[:-1])/2
+    xh = np.array(xh)
+    return (xh, pdf)
+nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
+[xh, yh] = pdf_function(end['time_win_y'],
+                        # end['time_win_y']/tau,
+                        nbin,
+                        None
+                        # end.rchPerc
+                        )
+idzeros = np.where(yh != 0)
+xfil = xh[idzeros]
+yfil = yh[idzeros]
+x_log = np.log10(xfil)
+y_log = np.log10(yfil)
+# x_log = (xfil)
+# y_log = (yfil)
+
+def func(x, a, b, c, d, e):
+    return a * x**4 + b * x**3 + c * x**2 + d * x + e
+
+from scipy.optimize import curve_fit
+
+params, covariance = curve_fit(func, x_log, y_log)
+a, b, c, d, e = params
+x_fit = np.linspace(min(x_log), max(x_log), 100)
+y_fit = func(x_fit, a, b, c, d, e)
+
+fig = plt.figure(figsize=(5,3))
+ax = fig.add_subplot(111)
+ax.plot(xh, yh, '.', c='r')
+ax.plot(xfil, yfil, '-',c = 'r')
+ax.plot(10**x_fit, 10**y_fit, '-',c = 'b')
+ax.set_ylabel("PDF")
+ax.set_xlabel("t / "+r'$\tau$')
+ax.set_xscale('log')
+# ax.set_xlim(tmin, tmax)
+# ax.set_ylim(-0.1, 13)
+
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatlasset_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatlasset_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatgrenou_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatbomb_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peattruites_only.shp')
+
+# final = y.clip(laa)
+# final.plot()
+# print((final['time']).mean(), (final['time']).median(), (final['time']).quantile(0.95), (final['time']).max())
+# fig, ax = plt.subplots()
+# ax.boxplot(final['time'])
+
+# y = y[y['time']>1]
+
+# plt.scatter(pa['time'], pa['k'])
+# plt.yscale('log')
+# plt.xscale('log')
+
+"""
+pa_p = pa[pa['particleid'].isin(y['particleid'])]
+pa_p['time'] = pa_p['time']/365
+pa_p = pa_p[pa_p['time']>0.1]
+
+pt_p = pt[pt['particleid'].isin(y['particleid'])]
+pt_p['time'] = pt_p['time']/365
+# pt_p = pt_p[pt_p['k']>15]
+
+list_id = []
+for unique in pt_p['particleid'].unique():
+    print(unique, len(pt_p['particleid'].unique()))
+    t = pt_p[pt_p['particleid']==unique]
+    t_k = t['k']
+    if (t_k > 15).sum() > 0:
+        list_id.append(unique)
+pt_p = pt_p[pt_p['particleid'].isin(list_id)]
+
+fig, ax = plt.subplots(1,1, dpi=600)
+pa_p.plot(ax=ax, column='time', cmap='jet', zorder=-1, lw=0.1, alpha=0.5,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10))
+im = y.plot(ax=ax, column='time', cmap='jet', zorder=+1,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10),
+                                    markersize=2, linewidth=0, legend=False)
+# pt_p.plot(ax=ax, color='k', zorder=+2, lw=0.5)
+pa_p[pa_p['particleid'].isin(list_id)].plot(ax=ax, column='time', cmap='jet', zorder=-1, lw=0.5, alpha=0.5,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10))
+# s[s['particleid'].isin(list_id)].plot(ax=ax, column='time', cmap='jet', zorder=+1,
+#                                     norm=mpl.colors.LogNorm(vmin=0.1, 
+#                                                             vmax=10),
+#                                     markersize=2, linewidth=0)
+box.plot(ax=ax, lw=1, ec='k', facecolor='None')
+shp.plot(ax=ax, lw=1, ec='k', facecolor='None')
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+plt.axis('off')
+
+dem = rasterio.open('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif')
+hil = rasterio.open('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/hillshade_classic.tif')
+
+# rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+#                           ax=ax, transform=dem.transform,
+#                           cmap='Greys_r', alpha=1, zorder=-5)
+
+rasterio.plot.show(np.ma.masked_where(hil.read(1) < 0, hil.read(1)), 
+                          ax=ax, transform=dem.transform,
+                          cmap='Greys_r', alpha=0.5, zorder=-5)
+
+# cb = plt.colorbar(im, ax=ax,
+#                   cax = fig.add_axes([0.95, 0.10, 0.03, 0.8]))
+# cb.set_ticks([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300])
+# cb.set_ticklabels([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300], fontsize=8)
+# cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
+#                   grid_color='k', grid_alpha=0.5)
+# for t in cb.ax.get_yticklabels():
+#      t.set_fontsize(5.5)
+# cb.minorticks_off()
+# cb.clim()
+# cb.ax.set_ylabel('τ [y]', rotation=270, labelpad=25)
+
+# # add colorbar
+# fig = ax.get_figure()
+# cax = fig.add_axes([0.8, 0.1, 0.02, 0.5])
+# sm = plt.cm.ScalarMappable(cmap='jet', norm=mpl.colors.LogNorm(vmin=0.1, 
+#                         vmax=10),)
+# # fake up the array of the scalar mappable. Urgh...
+# sm._A = []
+# cb = fig.colorbar(sm, cax=cax)
+# cb.tick_params(direction='in', length=2, width=1, colors='k',
+#                   grid_color='k', grid_alpha=0.5)
+# cb.ax.minorticks_on()
+
+
+fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
+            'pathlines_2'+'.png',
+                        bbox_inches='tight', dpi=600)
+"""
+
 #%% ---- METHODOLOGY
 
 #%% CROSS SECTIONS PLOT

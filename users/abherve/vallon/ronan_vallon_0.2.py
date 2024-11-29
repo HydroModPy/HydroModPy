@@ -2477,7 +2477,7 @@ rain_df = pd.DataFrame(rain_list)
 rain_df.to_csv(rain_file, sep='\t', header=None)
 
 etp_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')[730:]
-etp_file = hgs2_path + 'full_model/' + 'WaSiM_v10_Ronan_mod_d_monthly_then_daily_PET.data'
+etp_file = hgs2_path + 'full_model/' + 'WaSiM_v10_Ronan_mod_d_daily_PET.data'
 etp_df = pd.DataFrame(etp_list)
 etp_df.to_csv(etp_file, sep='\t', header=None)
 
@@ -2647,7 +2647,7 @@ for i, j in xt.iterrows():
 xt['Cond'] = xt['X'] + xt['Y'] + xt['Z']
 Cond_list =  xt['Cond'].values
 nodes['Cond'] = nodes['X'].astype(float) + nodes['Y'].astype(float) + nodes['Z'].astype(float)
-nodes = nodes[nodes['Cond'].isin(Cond_list)]
+nodes = nodes[nodes['Cond'].isin(Cond_list)] #### KEEP SURFACE ! ####
 
 nodes_save = nodes[nodes['SAT_0']>=0]
 nodes_save.plot('SAT_0', cmap='jet', ec='None', markersize=3)
