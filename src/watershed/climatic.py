@@ -18,6 +18,7 @@ import numpy as np
 import os
 from scipy.optimize import curve_fit
 from watershed import sim2
+import re
 
 #%% CLASS
 
@@ -205,13 +206,26 @@ class Climatic:
             Select the simulation type, steady-state or transient.
         """       
         self.freq = time_step
-        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = pd.read_csv(path_file, sep=';', index_col=0,
+                               # parse_dates=True
+                               )
+        
+        test_str = climatic.index[0]
+        pattern_str_tir = r'^\d{4}-\d{2}-\d{2}$'
+        pattern_str_sla = r'^\d{2}/\d{2}/\d{4}$'
+        if re.match(pattern_str_tir, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%Y-%m-%d")
+        if re.match(pattern_str_sla, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%d/%m/%Y")
+        
+        climatic.index = date_obj
+        
         climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic # recharge in meters
         # self.recharge.index = self.recharge.asfreq(self.freq).index
         self.recharge = self.recharge.resample(self.freq).mean()
-        self.recharge.fillna(method = 'ffill', inplace = True)
+        self.recharge.fillna(method = 'ffill', inplace = True)        
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
@@ -237,7 +251,20 @@ class Climatic:
             Select the simulation type, steady-state or transient.
         """       
         self.freq = time_step
-        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = pd.read_csv(path_file, sep=';', index_col=0,
+                               # parse_dates=True
+                               )
+        
+        test_str = climatic.index[0]
+        pattern_str_tir = r'^\d{4}-\d{2}-\d{2}$'
+        pattern_str_sla = r'^\d{2}/\d{2}/\d{4}$'
+        if re.match(pattern_str_tir, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%Y-%m-%d")
+        if re.match(pattern_str_sla, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%d/%m/%Y")
+        
+        climatic.index = date_obj
+        
         climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic # recharge in meters
@@ -279,7 +306,20 @@ class Climatic:
             Select the simulation type, steady-state or transient.
         """   
         self.freq = time_step
-        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = pd.read_csv(path_file, sep=';', index_col=0,
+                               # parse_dates=True
+                               )
+        
+        test_str = climatic.index[0]
+        pattern_str_tir = r'^\d{4}-\d{2}-\d{2}$'
+        pattern_str_sla = r'^\d{2}/\d{2}/\d{4}$'
+        if re.match(pattern_str_tir, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%Y-%m-%d")
+        if re.match(pattern_str_sla, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%d/%m/%Y")
+        
+        climatic.index = date_obj
+        
         climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic/1000 # recharge in meters
@@ -313,7 +353,20 @@ class Climatic:
             Select the simulation type, steady-state or transient.
         """   
         self.freq = time_step
-        climatic = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        climatic = pd.read_csv(path_file, sep=';', index_col=0,
+                               # parse_dates=True
+                               )
+        
+        test_str = climatic.index[0]
+        pattern_str_tir = r'^\d{4}-\d{2}-\d{2}$'
+        pattern_str_sla = r'^\d{2}/\d{2}/\d{4}$'
+        if re.match(pattern_str_tir, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%Y-%m-%d")
+        if re.match(pattern_str_sla, test_str):
+            date_obj = pd.to_datetime(climatic.index, format="%d/%m/%Y")
+        
+        climatic.index = date_obj
+        
         climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic/1000 # recharge in meters
@@ -353,7 +406,20 @@ class Climatic:
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
         """  
-        data = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        data = pd.read_csv(path_file, sep=';', index_col=0,
+                           # parse_dates=True
+                           )
+        
+        test_str = data.index[0]
+        pattern_str_tir = r'^\d{4}-\d{2}-\d{2}$'
+        pattern_str_sla = r'^\d{2}/\d{2}/\d{4}$'
+        if re.match(pattern_str_tir, test_str):
+            date_obj = pd.to_datetime(data.index, format="%Y-%m-%d")
+        if re.match(pattern_str_sla, test_str):
+            date_obj = pd.to_datetime(data.index, format="%d/%m/%Y")
+        
+        data.index = date_obj
+        
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
@@ -381,7 +447,20 @@ class Climatic:
         sim_state : TYPE, optional
             Select the simulation type, steady-state or transient.
         """  
-        data = pd.read_csv(path_file, sep=';', index_col=0, parse_dates=True)
+        data = pd.read_csv(path_file, sep=';', index_col=0,
+                           # parse_dates=True
+                           )
+        
+        test_str = data.index[0]
+        pattern_str_tir = r'^\d{4}-\d{2}-\d{2}$'
+        pattern_str_sla = r'^\d{2}/\d{2}/\d{4}$'
+        if re.match(pattern_str_tir, test_str):
+            date_obj = pd.to_datetime(data.index, format="%Y-%m-%d")
+        if re.match(pattern_str_sla, test_str):
+            date_obj = pd.to_datetime(data.index, format="%d/%m/%Y")
+        
+        data.index = date_obj
+        
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
         self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
@@ -392,7 +471,7 @@ class Climatic:
     def update_sim2_reanalysis(self, *, var_list, nc_data_path,
                                first_year, last_year=None, time_step='D', 
                                sim_state='transient', spatial_mean=False,
-                               geographic, disk_clip='watershed'):
+                               geographic, disk_clip=None):
         """
         Download the SIM2 historical reanalysis data into watershed.climatic
         objects and save them to netCDF files (not compressed, clipped on
@@ -419,7 +498,7 @@ class Climatic:
         geographic : object
             Watershed.geographic object, including info such as crs, mask...
         disk_clip : str
-            Shapefile_path or flag ('watershed' | False) to indicate how to clip
+            Shapefile_path or flag ('watershed' | None) to indicate how to clip
             the netcdf files that are stored on the nc_data_path folder.
             The only purpose of clipping these files is to save disk space.
                 

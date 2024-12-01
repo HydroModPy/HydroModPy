@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -14,6 +17,7 @@ Created on 2023.
 # Libraries installed by default
 import sys
 import glob
+
 import os
 import warnings
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
@@ -23,6 +27,7 @@ warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*"
 warnings.filterwarnings("ignore")
 from sys import platform
 import geopandas as gpd
+from datetime import datetime
 
 # Libraries need to be installed if not
 import numpy as np
@@ -48,11 +53,7 @@ xr.set_options(keep_attrs = True)
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
@@ -65,23 +66,29 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+def select_period(df, first, last):
+    df = df[(df.index.year>=first) & (df.index.year<=last)]
+    return df
+
 #%% ---- PATHS
 
 #%% PERSONAL
 
 example_path = os.path.join(root_dir, r"examples/03_streamflow intermittence in transient")
 data_path = os.path.join(example_path, "data")
-# To get or initialize the folder path:
+# To automatically retrieve/initialize the HydroModPy results path:
 out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# When it needs modifying: out_path = folder_root.update_root_folder_results()
+# Otherwise, to inform a results path specific to this script:
+# out_path = 'C:/Simulations/HydroModPy/' # for example
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
 dem_path = os.path.join(data_path, 'regional dem.tif')
-load = False
-watershed_name = 'Nancon'
+load = True
+watershed_name = 'Example_03_Nancon'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
@@ -93,7 +100,6 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -111,64 +117,85 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 #%% DATA
 
-if from_dem == None:
-    # Clip specific data at the catchment scale
-    BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-    BV.add_hydrography(data_path, types_obs=['regional stream network'])
-    BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    BV.add_intermittency(data_path, 'regional onde stations.shp')
-    # BV.add_piezometry()
+# Clip specific data at the catchment scale
+BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+BV.add_hydrography(data_path, types_obs=['regional stream network'])
+BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
+BV.add_intermittency(data_path, 'regional onde stations.shp')
+# BV.add_piezometry()
 
-    # Extract some subbasin from data available above
-    BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
+# Extract some subbasin from data available above
+BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # General plot of the study site
-if from_dem == None:
-    visualization_watershed.watershed_local(dem_path, BV)
-    visualization_watershed.watershed_geology(BV)
+visualization_watershed.watershed_local(dem_path, BV)
+visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
 
 #%% CASES
 
-# # Necessary to set model parameters
+# Necessary to set model parameters
 BV.add_climatic()
 
-BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',], 
-                                       nc_data_path=data_path,
-                                       first_year=2000,
-                                       last_year=2002,
-                                       time_step='D',
-                                       sim_state='transient',
-                                       spatial_mean=True,
-                                       geographic=BV.geographic,
-                                       disk_clip='watershed')
+clim_data_mode = 'local' # local climatic data
+# clim_data_mode = 'SIM2' # SIM2 online climatic data (https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7)
 
-### Units
-BV.climatic.recharge = BV.climatic.recharge / 1000 # from mm to m
-BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
+if clim_data_mode == 'SIM2':
+    BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',
+                                                ], 
+                                            nc_data_path=os.path.join(
+                                                stable_folder,
+                                                'add_data',
+                                                'climatic'),
+                                            first_year=2000,
+                                            last_year=2002,
+                                            time_step='M',
+                                            sim_state='transient',
+                                            spatial_mean=True,
+                                            geographic=BV.geographic,
+                                            disk_clip='watershed')
 
-### Figures of time series
-if isinstance(BV.climatic.recharge, float):
-    print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
-    print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
-else:
-    fig, ax = plt.subplots(1,1, figsize=(6,3))
-    if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
-        R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        R = R.resample('M').sum()
-        r = r.resample('M').sum()
-    elif isinstance(BV.climatic.recharge, pd.core.series.Series):  
-        R = BV.climatic.recharge.resample('M').sum()
-        r = BV.climatic.runoff.resample('M').sum()
-    ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
-    ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
-    ax.set_xlabel('Date')
-    ax.set_ylabel('[m/month]')
-    plt.xticks(rotation=45, ha="right")
-    ax.legend()
+    ### Units
+    BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state='transient') # from mm to m
+    BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state='transient') # from mm to m
+    
+    ### Format for plots
+    if isinstance(BV.climatic.recharge, float):
+        print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
+        print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
+    else:
+        fig, ax = plt.subplots(1,1, figsize=(6,3))
+        if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
+            R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+            r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+            # R = R.resample('M').sum()
+            # r = r.resample('M').sum()
+        elif isinstance(BV.climatic.recharge, pd.core.series.Series):  
+            R = BV.climatic.recharge
+            r = BV.climatic.runoff
+        
+elif clim_data_mode == 'local':
+    x = pd.read_csv(data_path+'/'+'_climate_REANALYSIS.csv', sep=';', index_col=0)
+    date_object = pd.to_datetime(x.index, format = "%d/%m/%Y")
+    x.index = date_object
+    x = x.sort_index()
+    x = x.resample('M').mean()
+    x = select_period(x, 2000, 2002)
+    BV.climatic.update_recharge(x['REC_REA_historic'] / 1000, sim_state='transient') # from mm to m
+    BV.climatic.update_runoff(x['RUN_REA_historic'] / 1000, sim_state='transient') # from mm to m
+    R = BV.climatic.recharge
+    r = BV.climatic.runoff
+    
+# Plots
+fig, ax = plt.subplots(1,1, figsize=(6,3))
+ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
+ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
+ax.set_xlabel('Date')
+ax.set_ylabel('[m/month]')
+plt.xticks(rotation=45, ha="right")
+ax.legend()
 
 #%% ---- PARAMETRIZATION
 
@@ -182,7 +209,7 @@ sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
 
 # Climatic settings
-first_clim = 'mean' # or 'first or value
+first_clim = 'first' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
@@ -190,7 +217,8 @@ nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-hyd_cond = 5e-5 * 3600 * 24 * 30  # m/month
+hyd_cond = 5e-5 * 3600 * 24 # m/day
+# hyd_cond = 1.8e-6 * 3600 * 24 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
@@ -203,9 +231,14 @@ list_porosity = np.array([0.1, 5, 30]) / 100 # [-]
 bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+split_temp = True
 
 # Particle tracking settings
 zone_partic = 'domain' # or watershed
+
+# plt.plot(hyd_cond/R)
+
+iD_set_simulations = 'explorSy_test1'
 
 #%% UPDATE
 
@@ -239,15 +272,14 @@ BV.hydraulic.update_lay_decay(poro_decay)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
+BV.settings.update_split_temporal(split_temp)
 
 # Particle tracking settings
-BV.settings.update_input_particules(zone_partic=zone_partic)
+BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
 
 #%% ---- MODELING
 
 #%% MODFLOW
-
-iD_set_simulations = 'explorSy_test1'
 
 list_model_name = []
 list_success_modflow = []
@@ -361,8 +393,8 @@ for i, simul in enumerate(simul_list[:]):
 
         dem_data = imageio.imread(BV.geographic.watershed_dem)
         wt_data = watertable_elevation[key]
-        river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
-                                                 'regional stream network.tif'))
+        # river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
+        #                                           'regional stream network.tif'))
     
         xvalues = np.linspace(-1,1,dem_data.shape[1])
         yvalues = np.linspace(-1,1,dem_data.shape[0])
@@ -424,9 +456,9 @@ for i, simul in enumerate(simul_list[:]):
             
 fig.tight_layout
         
-fig.savefig(os.path.join(simulations_folder, '_figures',
-            'CROSS_'+iD_set_simulations+'.png'),
-            bbox_inches='tight')
+# fig.savefig(os.path.join(simulations_folder, '_figures',
+#             'CROSS_'+iD_set_simulations+'.png'),
+#             bbox_inches='tight')
     
 #%% MAP MIN MAX
 
@@ -526,9 +558,9 @@ for simul in simul_list[:]:
     
     fig.tight_layout()
                 
-    fig.savefig(os.path.join(simulations_folder, '_figures',
-                'MAPminmax_'+model_name+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(simulations_folder, '_figures',
+    #             'MAPminmax_'+model_name+'.png'),
+    #             bbox_inches='tight')
 
 #%% PERSISTENCY
 
@@ -579,17 +611,19 @@ for i, simul in enumerate(simul_list[:]):
 
 fig.tight_layout
         
-fig.savefig(os.path.join(simulations_folder, '_figures',
-            'PI'+iD_set_simulations+'.png'),
-            bbox_inches='tight')
+# fig.savefig(os.path.join(simulations_folder, '_figures',
+#             'PI'+iD_set_simulations+'.png'),
+#             bbox_inches='tight')
     
 #%% STREAMFLOW
 
-def select_period(df, first, last):
-    df = df[(df.index.year>=first) & (df.index.year<=last)]
-    return df
+# iD_set_simulations = 'explorSy_mperday_monthly_steady'
+# iD_set_simulations = 'explorSy_mperday_monthly_transient'
+# iD_set_simulations = 'explorSy_mpermonth_monthly_transient'
+# iD_set_simulations = 'explorSy_mpermonth_monthly_steady'
 
-Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
+
+Qobs_path = os.path.join(data_path, 'hydrometry catchment Nancon.csv')
 Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
 
 area = int(round(BV.geographic.area))
@@ -613,9 +647,9 @@ for i, simul in enumerate(simul_list[:]):
     
     Qmod = Smod['outflow_drain'] 
     Qmod = Qmod.squeeze() * 1000
-    Qmod = Qmod + (r * 1000)
+    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
     
-    Rmod = Smod['recharge'] * 1000
+    Rmod = Smod['recharge'] * Qmod.index.day
     
     yearsmaj = mdates.YearLocator(1)   # every year
     yearsmin = mdates.YearLocator(1)
@@ -627,10 +661,11 @@ for i, simul in enumerate(simul_list[:]):
     ax = a0
     ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='observed')
     ax.plot(Qmod, color='red', lw=2, label='modeled')
+    # ax.plot(Rmod.index, Rmod*1000, color='blue', lw=2.5)
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/month]')
-    # ax.set_yscale('log')
-    ax.set_ylim(0,200)
+    ax.set_yscale('log')
+    ax.set_ylim(2,200)
     ax.xaxis.set_major_locator(yearsmaj)
     ax.xaxis.set_minor_locator(yearsmin)
     ax.xaxis.set_major_formatter(years_fmt)
@@ -673,9 +708,9 @@ for i, simul in enumerate(simul_list[:]):
 
     fig.tight_layout()
                 
-    fig.savefig(os.path.join(simulations_folder, '_figures',
-                'STREAMFLOW_'+model_name+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(simulations_folder, '_figures',
+    #             'STREAMFLOW_'+model_name+'.png'),
+    #             bbox_inches='tight')
 
 #%% SATURATION
 
@@ -683,7 +718,7 @@ def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
 
-Qobs_path = os.path.join(data_path, 'hydrometriy catchment Nancon.csv')
+Qobs_path = os.path.join(data_path, 'hydrometry catchment Nancon.csv')
 Qobs = pd.read_csv(Qobs_path, sep=';', index_col=0, parse_dates=True)
 
 area = int(round(BV.geographic.area))
@@ -715,15 +750,15 @@ for i, simul in enumerate(simul_list[:]):
 
     # BV.add_intermittency(data_path, 'regional onde stations.shp')
 
-    d = BV.intermittency.flowing
-    assec = d[d==1].dropna()
-    invi = d[d==2].dropna()
-    low = d[d==3].dropna()
-    accep = d[d==4].dropna()
-    visib = d[d==5].dropna()
-    d = d.resample('M').mean()
+    # d = BV.intermittency.flowing
+    # assec = d[d==1].dropna()
+    # invi = d[d==2].dropna()
+    # low = d[d==3].dropna()
+    # accep = d[d==4].dropna()
+    # visib = d[d==5].dropna()
+    # d = d.resample('M').mean()
     
-    Smod['onde'] = d
+    # Smod['onde'] = d
     
     from datetime import timedelta
     x_months = Smod.index + timedelta(days=-30)
@@ -748,8 +783,8 @@ for i, simul in enumerate(simul_list[:]):
             markersize=5, lw=1, label='upstream',
             where='pre')
 
-    ax.set_ylim(-0,15)
-    ax.set_yticks(np.arange(0,15.05,2.5))
+    ax.set_ylim(-0,12)
+    # ax.set_yticks(np.arange(0,15.05,2.5))
     ax.set_ylabel('$A_{sat}$ [%]')
     ax.set_xlim(pd.to_datetime('2000-01'), pd.to_datetime('2002-12'))
     plt.xticks(rotation=0, ha="right")
@@ -763,9 +798,9 @@ for i, simul in enumerate(simul_list[:]):
     
     fig.tight_layout()
                 
-    fig.savefig(os.path.join(simulations_folder, '_figures',
-                'SATURATION_'+model_name+'.png'),
-                bbox_inches='tight')
+    # fig.savefig(os.path.join(simulations_folder, '_figures',
+    #             'SATURATION_'+model_name+'.png'),
+    #             bbox_inches='tight')
                 
 #%% ---- NOTES
 

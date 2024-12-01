@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
-Created on 2023.
-
-@author: Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 #%% ---- LIBRAIRIES
@@ -44,11 +47,7 @@ wbt.verbose = False
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-
-cwd = os.getcwd()
-if not cwd == root_dir:
-    os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
@@ -69,19 +68,21 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = root_dir + "/examples/05_particle tracking for residence times/"
 data_path = os.path.join(example_path, "data") + '/'
-# To get or initialize the folder path:
-out_path = folder_root.root_folder_results()
-# To change the folder path: out_path = folder_root.update_root_folder_results()
+# To automatically retrieve/initialize the HydroModPy results path:
+# out_path = folder_root.root_folder_results()
+# When it needs modifying: out_path = folder_root.update_root_folder_results()
+# Otherwise, to inform a results path specific to this script:
+out_path = 'C:/Users/ronan/Simulations/HydroModPy/' # for example
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
-case = 'Lasset'
-# case = 'Hillslope_2D'
-# case = 'Hillslope_1D'
+case = 'Example_05_Lasset'
+# case = 'Example_05_Hillslope_1D'
+# case = 'Example_05_Hillslope_2D'
 
-if case == 'Hillslope_1D':
+if case == 'Example_05_Hillslope_1D':
     dem_path = data_path + 'hillslope_1D.tif'
     load = False
     watershed_name = case
@@ -93,7 +94,7 @@ if case == 'Hillslope_1D':
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
     
-if case == 'Hillslope_2D':
+if case == 'Example_05_Hillslope_2D':
     dem_path = data_path + 'hillslope_2D.tif'
     load = False
     watershed_name = case
@@ -105,9 +106,9 @@ if case == 'Hillslope_2D':
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
-if case == 'Lasset':
+if case == 'Example_05_Lasset':
     dem_path = data_path + 'regional dem.tif'
-    load = False
+    load = True
     watershed_name = case
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
@@ -173,18 +174,18 @@ first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
-nlay = 20
+nlay = 50
 lay_decay = 1.25 # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 50 # if bottom is None, aquifer thickness
-if watershed_name == 'Lasset':
+thick = 100 # if bottom is None, aquifer thickness
+if watershed_name == 'Example_05_Lasset':
     hyd_cond = 1e-8 * 24 * 3600 # m/day
 else:
     hyd_cond = 5e-7 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
+porosity = 1 / 100 # -
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Boundary settings
@@ -193,7 +194,14 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 
 # Particle tracking settings
-zone_partic = 'domain' # or watershed
+zone_partic = 'domain'
+tif_file = 'None'
+tracking_dir = 'forward'
+
+# If you want to test the backward settings
+# zone_partic = 'path' # domain or watershed or path
+# tif_file = 'xxx/results_simulations/default/_postprocess/_rasters/seepage_areas_t(0).tif'
+# tracking_dir = 'backward' # backward or forward
 
 #%% UPDATE
 
@@ -228,9 +236,7 @@ BV.hydraulic.update_lay_decay(poro_decay)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-
-# Particle tracking settings
-BV.settings.update_input_particules(zone_partic=zone_partic)
+BV.settings.update_split_temporal(split_temp=False)
 
 #%% ---- MODELING
 
@@ -254,6 +260,44 @@ if success_modflow == True:
 
 #%% MODPATH
 
+# Particle tracking settings
+tif_file = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+tif_file_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+wbt.clip_raster_to_polygon(
+    tif_file, 
+    BV.stable_folder + '/geographic/watershed.shp', 
+    tif_file_clip, 
+    maintain_dimensions=True)
+        
+seep = imageio.imread(BV.geographic.watershed_box_buff_dem)
+seep = seep*0
+# seep[30,25] = 1
+# seep[25,30] = 1
+seep[40,48] = 1
+# seep[60,20] = 1
+# seep[50,25] = 1
+plt.imshow(seep)
+particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
+toolbox.create_folder(particles_folder)
+toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
+                   seep,
+                   BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
+                   0)
+tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
+
+BV.settings.update_input_particles(
+                                    zone_partic = BV.geographic.watershed_dem,
+                                    # zone_partic = BV.geographic.watershed_dem,
+                                    # zone_partic = tif_file_clip,
+                                    cell_div = 1, # 1
+                                    zloc_div = False,  # or False, add cells at cell bottom
+                                    bore_depth = None, # '[0,5,10] for 3 particles or None
+                                    # track_dir = 'backward',
+                                    track_dir = 'forward', # backward
+                                    sel_random = None, # or int
+                                    sel_slice = None, # or int
+                                    )
+
 if sim_state == 'steady':
     if success_modflow == True:
         model_modpath = BV.preprocessing_modpath(model_modflow)
@@ -263,8 +307,18 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particules_shp=True,
-                                  random_id=None) # None
+                                  particles_shp=False,
+                                  random_id=None, # select randomly to save (for pathlines and particles)
+                                  ) # None
+        
+        BV.filtprocessing_modpath(model_modpath,
+                                  norm_flux=True, # for forward only
+                                  filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                                  filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                                  filt_inout=True, # delete particles in and out in the same cell (first layer)
+                                  calc_rtd=True, # compute residence time distribution
+                                  random_id=None, # select randomly to keep
+                                  ) # None
 
 #%% TIMESERIES
 
@@ -321,13 +375,14 @@ cf=ax.imshow(outflow, cmap='YlGnBu', alpha=1, vmin=outflow.min(), vmax=outflow.m
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'
 plt.tight_layout()
 
-fig.savefig(os.path.join(simulations_folder, model_name,
-                            '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
+# fig.savefig(os.path.join(simulations_folder, model_name,
+#                             '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
 
 #%% RAW MAP 2
 
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/pathlines.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/ending.shp')
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
+# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting.shp')
 
 try:
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
@@ -344,13 +399,13 @@ rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
                     cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
 
 shp_pathlines['time'] = shp_pathlines['time'] / 365
-shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.5,
+shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.1,
                   norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
                   zorder=1)
 
 shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=5,
-                 norm=mpl.colors.LogNorm(vmin=1, vmax=10000), legend=True,
+shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=10,
+                 norm=mpl.colors.LogNorm(vmin=0.1, vmax=10000), legend=True,
                  zorder=2)
 
 try:
@@ -365,12 +420,12 @@ ax.get_yaxis().set_visible(False)
 
 fig.tight_layout()
 
-fig.savefig(os.path.join(simulations_folder, model_name,
-                            '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
+# fig.savefig(os.path.join(simulations_folder, model_name,
+#                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
 #%% CROSS
 
-if case != 'Lasset':
+if case != 'Example_05_Lasset':
 
     import flopy.utils.binaryfile as fpu
     
@@ -414,7 +469,7 @@ if case != 'Lasset':
     Q_print = Q[0,0,0] # m/m
     
     # Particules plot
-    shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particules/particules.shp')
+    shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
     # list_particules = shp['particleid'].unique()
     shp['time'] = shp['time'] / 365
     shp_fil = shp[shp['time']>1]
@@ -423,9 +478,22 @@ if case != 'Lasset':
     cbsc = plt.colorbar(sc, shrink=0.75)
     cbsc.set_label('Residence times [y]', labelpad=+10)
     
-    fig.savefig(os.path.join(simulations_folder, model_name,
-                                '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
+    # fig.savefig(os.path.join(simulations_folder, model_name,
+    #                             '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
 
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
+# wbt.geomorphons(
+#     'xxx/watershed_box_buff_dem.tif', 
+#     'xxx/watershed_box_geomorphons.tif', 
+#     search=5, # in cell
+#     threshold=0, # angle in degree
+#     fdist=0, # in cell  
+#     skip=0, # in cell
+#     forms=True, 
+#     residuals=False, 
+# )
+
+
