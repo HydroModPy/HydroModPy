@@ -492,8 +492,8 @@ data_volumes.fillna(method = 'bfill', inplace = True) # backward fill
 data_volumes.fillna(0, inplace = True) # replace remaining NaN with 0
 dam_input_df['cheze'].update(data_volumes.vol)
 
-# Conversion des volumes en stages
-# --------------------------------
+# Conversion des volumes en niveaux
+# ---------------------------------
 data_levels = data_volumes.copy()
 data_levels.rename(columns = {'vol': 'lvl'}, inplace = True)
 for t in data_levels.index:
@@ -511,6 +511,8 @@ for t in data_levels.index:
             abaque_interp = pd.DataFrame(data = {'level':add_level, 'volume':data_volumes.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
         data_levels.loc[t] = abaque_interp[abaque_interp.volume <= data_volumes.loc[t].item()].iloc[-1].level
 
+# Déterminer le niveau (dans data_levels) qui correspond à la date de début de simulation (BV.climatic.recharge.index[0])
+# -----------------------------------------------------------------------------------------------------------------------
 if BV.climatic.recharge.index[0] in data_levels.index:
     level_init = data_levels.loc[BV.climatic.recharge.index[0]].item()
 else:
