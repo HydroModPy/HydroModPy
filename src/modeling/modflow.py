@@ -1094,6 +1094,10 @@ class Modflow:
     def update(self, model_modflow:object,
                update_dict:dict):
         
+        #%%% Update sim_state
+        if 'sim_state' in update_dict:
+            self.sim_state = update_dict['sim_state']
+        
         #%%% Update heads
         if 'heads' in update_dict:
             self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=update_dict['heads'], hnoflo=-9999)
