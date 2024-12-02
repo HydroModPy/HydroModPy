@@ -163,14 +163,23 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo\Historiques SIM2"),
-                                       first_year=pd.to_datetime('today').year-1,
-                                       # last_year=2021,
+                                       # first_year=pd.to_datetime('today').year-1,
+                                       first_year=2023,
+                                       # last_year=2024,
                                        time_step=freq_input,
                                        sim_state=sim_state,
                                        spatial_mean=True,
                                        geographic=BV.geographic,
                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
                                                                 # can be a shapefile path or a flag: 'watershed' or False
+
+# [TEMP] Ajuster la période historique pour qu'elle finisse le jour de départ des prédiction
+
+# for var in ['evt', 'etp', 'precip', 't', 'recharge', 'runoff']:
+#     exec(f"BV.climatic.{var} = BV.climatic.{var}[slice(None, '2024-09-30')]")
+# Le code suivant est plus rigoureux :
+BV.climatic.update_recharge(BV.climatic.recharge[slice(None, '2024-09-30')], sim_state=sim_state)
+BV.climatic.update_runoff(BV.climatic.runoff[slice(None, '2024-09-30')], sim_state=sim_state)
 
 # Units
 BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
