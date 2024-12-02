@@ -76,7 +76,7 @@ from src.tools import toolbox, folder_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% SCENARIO
-scenario = 'tendance'
+scenario = '2022_jan-dec_daily'
 # A terme il faut que ce scenario soit un argument d'entrée, et donc que ce script soit lancé comme une fonction !
 
 #%% DOSSIERS UTILISATEUR
@@ -667,7 +667,15 @@ print("   . Mise à jour des flux d'entrée avec les scénarios de gestion :")
 #                 # dam_input_df[['cheze', 'resti', 'meu', 'usine']].update(data)
 # =============================================================================
 
->>> dam_input_df = lecture du scenario de gestion
+dam_data_path = os.path.join(data_path, "Reservoir", "Scenarios de gestion",
+                             scenario + '.csv')
+
+dam_input_df = pd.read_csv(dam_data_path,
+                           sep = ";",
+                           header = 0,
+                           skiprows = 0,
+                           index_col = 'time',
+                           parse_dates = True)
 
 
 # ---- Mise-à-jour des données d'entrée du réservoir
