@@ -1089,7 +1089,109 @@ class Modflow:
             # success_model = model_modflow.mf.run_model(silent=not verbose) # True without msg
         
         return success_model
+     
+    #%% UPDATE
+    def update(self, model_modflow:object,
+               update_dict:dict):
         
+        #%%% Update heads
+        if 'heads' in update_dict:
+            self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=update_dict['heads'], hnoflo=-9999)
+        
+        #%%% Update recharge
+        if 'recharge' in update_dict:
+            self.climatic = update_dict['recharge']
+            
+            # ---- Update time discretization (driven by recharge)
+            if self.sim_state == 'steady': # if isinstance(self.climatic,(int,float))==True
+                # Steady state
+                self.nper = 1               # Number of forcing periods (recharge)
+                self.perlen = 1             # Length of period
+                self.nstp = [1]             # Steps in a given period (not used here)
+                self.steady = True          # Steady state
+                self.start_datetime = None
+                
+            if self.sim_state == 'transient':
+                # Transient state
+                if isinstance(self.climatic,(dict))==True:
+                    self.start_datetime = 0 
+                else:
+                    self.start_datetime = self.climatic.index[0]            # First date of climatic recharge
+                    # To cooridate with forcing and/or climatic
+                    """
+                    if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
+                        if pd.infer_freq(self.climatic.index) != 'D':
+                            for i in range(1,len(self.climatic)):      
+                                dif = self.climatic.index[i]-self.climatic.index[i-1]
+                                self.perlen[i] = dif.days
+                    """
+                self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
+                self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
+                self.nstp = np.ones(len(self.climatic))     # One step per time step
+                self.nper = len(self.climatic)
+                # Definition of period duration (forcing is constant on a period)
+                #       As many periods as recharge values 
+                #       Extracts from climatic data the time steps (self.perlen)
+                
+                if self.split_temp == True:
+                    ### DISCUSS WITH ALEXANDREFOR THIS PART
+                    if isinstance(self.climatic, pd.core.series.Series):
+                        if isinstance(self.climatic.index[0], datetime.datetime):
+                            # self.perlen = self.climatic.index.to_series().diff().dt.days.values
+                            self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+                        else:
+                            self.perlen = self.climatic.index.to_series().diff().values
+                if isinstance(self.split_temp, list) == True:
+                    self.perlen = self.split_temp
+                if self.split_temp == False:
+                    self.perlen = np.ones(len(self.climatic))
+                # print(self.split_temp)
+                # First timestep is steady state:
+                self.perlen[0] = 1
+            
+            # Imposes discretization to modflow model through flopy
+            self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
+                                                nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
+                                                delr=self.resolution, delc=self.resolution,
+                                                top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                                nper=self.nper, perlen=self.perlen, nstp=self.nstp,
+                                                steady=self.steady, start_datetime=self.start_datetime) 
+                                                # itmuni = 0 ==> undefined
+                                                # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
+            
+            # ---- Update recharge values
+                # over the surface: rch package (should always be positive)        
+            self.rchData = {}
+            for kper in range(0, self.nper):
+                if isinstance(self.climatic,(dict))==True:
+                    self.rchData = self.climatic
+                else:
+                    if isinstance(self.climatic,(int,float)):
+                        # Only value in self.climatic (steady)
+                        self.rchData[kper] = self.climatic
+                    else:
+                        if kper == 0:
+                            # First value: steady (to reach equilibrium before starting the transient state of the simulation)
+                            # By default mean of the climatic chronicle
+                            if self.first_clim == 'mean':
+                                self.rchData[kper] = np.nanmean(self.climatic)
+                            if self.first_clim == 'first':
+                                # First value of the cimatic chronicle
+                                self.rchData[kper] = self.climatic.iloc[0]
+                            if isinstance(self.first_clim,(int,float)):
+                                # Imposed value (if steady state: just one value)
+                                self.rchData[kper] = self.first_clim
+                        else:
+                            # More flexibility in the possible format of the climatic chronicles 
+                            # Should only be used exceptionnaly (pandas series recommended)
+                            try:
+                                self.rchData[kper] = self.climatic[kper]
+                            except:
+                                self.rchData[kper] = self.climatic.iloc[kper].values[0]        
+            
+            # Sets recharge to modflow through flopy
+            flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+    
     #%% POST-PROCESSING
     
     def post_processing(self, model_modflow:object,
@@ -1613,5 +1715,6 @@ class Modflow:
                     inf+=365
                     sup+=365                    
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
-                                
+            
+    
 #%% NOTES

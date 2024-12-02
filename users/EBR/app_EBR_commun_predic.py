@@ -51,6 +51,9 @@ wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
 
+# Pour recharger les résultats de l'historique
+import flopy.utils.binaryfile as fpu
+
 #% DOSSIER RACINE
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
@@ -72,6 +75,9 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+#%% SCENARIO
+scenario = 'tendance'
+# A terme il faut que ce scenario soit un argument d'entrée, et donc que ce script soit lancé comme une fonction !
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
@@ -90,7 +96,6 @@ if len(os.listdir(data_path)) == 0:
 dem_path = os.path.join(data_path, 
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
-load = False
 watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
@@ -98,22 +103,24 @@ from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buff
 save_object = True
 
 #%%% Créer GEOGRAPHIC
+# =============================================================================
+# print('##### '+watershed_name.upper()+' #####')
+# 
+# BV = watershed_root.Watershed(dem_path=dem_path,
+#                               out_path=out_path,
+#                               load=False, # load = False
+#                               watershed_name=watershed_name,
+#                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+#                               save_object=save_object)
+# =============================================================================
+
+#%%% Recharger GEOGRAPHIC
 print('##### '+watershed_name.upper()+' #####')
 
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
-                              load=load, # load = False
                               watershed_name=watershed_name,
-                              from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              save_object=save_object)
-
-#%%% Recharger GEOGRAPHIC
-# =============================================================================
-# BV = watershed_root.Watershed(dem_path=dem_path,
-#                               out_path=out_path,
-#                               watershed_name=watershed_name,
-#                               load=True)
-# =============================================================================
+                              load=True)
 
 #%% SOUS-BASSINS
 # =============================================================================
@@ -687,198 +694,234 @@ BV.save_object()
 
 
 #%% ECOULEMENTS DE SURFACE avec StreamFlow Routing
-BV.add_streamflow_seepage(icalc = 1)
-# icalc = 0: instant routing (default)
-# icalc = 1: rectangular Manning
-
-# ---- Generate reach and segment inputs
-# Note: segment and reach data are first defined as pandas.DataFrames.
-# They are converted into numpy.recarrays in modflow.py
-
-# Load data from files
 # =============================================================================
-# temp_data_folder = r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\dev_perso\couplage lac-riviere\SFR"
-# BV.streamflow_seepage.load_data(
-#     reach_data = os.path.join(temp_data_folder, r"ex3_test1_reach_data.csv"),
-#     segment_data = os.path.join(temp_data_folder, r"ex3_test1_segment_data.csv"))
+# BV.add_streamflow_seepage(icalc = 1)
+# # icalc = 0: instant routing (default)
+# # icalc = 1: rectangular Manning
+# 
+# # ---- Generate reach and segment inputs
+# # Note: segment and reach data are first defined as pandas.DataFrames.
+# # They are converted into numpy.recarrays in modflow.py
+# 
+# # Load data from files
+# # =============================================================================
+# # temp_data_folder = r"D:\2- Postdoc\2- Travaux\8_Dam_EBR\dev_perso\couplage lac-riviere\SFR"
+# # BV.streamflow_seepage.load_data(
+# #     reach_data = os.path.join(temp_data_folder, r"ex3_test1_reach_data.csv"),
+# #     segment_data = os.path.join(temp_data_folder, r"ex3_test1_segment_data.csv"))
+# # =============================================================================
+# 
+# # ---- Update data
+# ### These values can also be passed as arguments in the 'add_streamflow_seepage' call
+# 
+# # Area where the SFR seepage will be applied:
+# # BV.streamflow_seepage.update_area('watershed')
+# BV.streamflow_seepage.update_area('watershed', 0.7)
+# # Standard values for segment_data:
+# depth = 0 # 0.1 # self.thick # 1 # arbitrary
+# hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
+# # width = 1 # self.resolution # 1.5  # arbitrary
+# thickm = 0.1 # Modflow does not run if thickm = 0
+# # Update segment data
+# BV.streamflow_seepage.update_segment_data('thickm', thickm)
+# BV.streamflow_seepage.update_segment_data('depth', depth)
+# BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
+# BV.streamflow_seepage.update_segment_data('roughch', 0.03)
+# # BV.streamflow_seepage.update_segment_data('width', width)
+# 
+# # The following option drastically increases the loading time of Modflow processing
+# # Instead, here, the runoff is added directly to the lake.
+# # It should not be forgotten to sum it as well to the accumulation_flux in post-processing
+# # =============================================================================
+# # BV.streamflow_seepage.update_segment_data('runoff', BV.climatic.runoff)
+# # =============================================================================
+# 
+# # Update reach data
+# # =============================================================================
+# # BV.streamflow_seepage.update_reach_data(<name>, <val>)
+# # =============================================================================
+# 
+# # ---- Correct cells critical for convergence
+# # =============================================================================
+# # hcond_min = 0.000100
+# # # critical_area_path = r"file.tif"
+# # BV.streamflow_seepage.critical_cells(hcond = hcond_min, area = 'sinks', 
+# #                                      sink_threshold = 300)
+# # =============================================================================
+# 
+# # ---- Activate input corrections
+# BV.streamflow_seepage.correct('multiple_reaches', False)
+# BV.streamflow_seepage.correct('elevations', True)
 # =============================================================================
-
-# ---- Update data
-### These values can also be passed as arguments in the 'add_streamflow_seepage' call
-
-# Area where the SFR seepage will be applied:
-# BV.streamflow_seepage.update_area('watershed')
-BV.streamflow_seepage.update_area('watershed', 0.7)
-# Standard values for segment_data:
-depth = 0 # 0.1 # self.thick # 1 # arbitrary
-hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
-# width = 1 # self.resolution # 1.5  # arbitrary
-thickm = 0.1 # Modflow does not run if thickm = 0
-# Update segment data
-BV.streamflow_seepage.update_segment_data('thickm', thickm)
-BV.streamflow_seepage.update_segment_data('depth', depth)
-BV.streamflow_seepage.update_segment_data('hcond', hcond_max)
-BV.streamflow_seepage.update_segment_data('roughch', 0.03)
-# BV.streamflow_seepage.update_segment_data('width', width)
-
-# The following option drastically increases the loading time of Modflow processing
-# Instead, here, the runoff is added directly to the lake.
-# It should not be forgotten to sum it as well to the accumulation_flux in post-processing
-# =============================================================================
-# BV.streamflow_seepage.update_segment_data('runoff', BV.climatic.runoff)
-# =============================================================================
-
-# Update reach data
-# =============================================================================
-# BV.streamflow_seepage.update_reach_data(<name>, <val>)
-# =============================================================================
-
-# ---- Correct cells critical for convergence
-# =============================================================================
-# hcond_min = 0.000100
-# # critical_area_path = r"file.tif"
-# BV.streamflow_seepage.critical_cells(hcond = hcond_min, area = 'sinks', 
-#                                      sink_threshold = 300)
-# =============================================================================
-
-# ---- Activate input corrections
-BV.streamflow_seepage.correct('multiple_reaches', False)
-BV.streamflow_seepage.correct('elevations', True)
 
 
 #%% PARAMETRISATION
-
-##%%% Définitions :
-# Paramètres cadres
-box = False # or False
-sink_fill = False # or True
-plot_cross = True
-
-# Paramètres hydrauliques
-nlay = 1
-lay_decay = 1 # 1 for no decay
-bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 35 # if bottom is None, aquifer thickness
-hyd_cond = 1e-4 * 24 * 3600 # m/day
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
-cond_drain = None # or value of conductance
-porosity = 0.1 / 100 # [%]
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-
-# Conditions aux limites
-bc_left = None # or value
-bc_right = None # or value
-sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-
-# Paramètres de suivi des particules
-zone_partic = 'watershed' # or 'domain''
-
-# "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
-split_temp = True
-
-##%%% Mise à jour :
-BV.add_settings()
-
-# Nom du modèle
-model_name = 'historique'
-BV.settings.update_model_name(model_name)
-
-BV.add_geometric() # soon
-BV.add_hydraulic()
-
-# Paramètres cadre
-BV.settings.update_box_model(box)
-BV.settings.update_sink_fill(sink_fill)
-BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
-
-# Paramètres hydrauliques
-BV.hydraulic.update_nlay(nlay) # 1
-BV.hydraulic.update_lay_decay(lay_decay) # 1
-BV.hydraulic.update_bottom(bottom) # None
-BV.hydraulic.update_thick(thick) # 30 / n'intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
-BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
-
-# Conditions aux limites
-BV.settings.update_bc_sides(bc_left, bc_right)
-BV.add_oceanic(sea_level)
-
-# Paramètres du suivi des particules
 # =============================================================================
-# BV.settings.update_input_particules(zone_partic=zone_partic)
+# 
+# ##%%% Définitions :
+# # Paramètres cadres
+# box = False # or False
+# sink_fill = False # or True
+# plot_cross = True
+# 
+# # Paramètres hydrauliques
+# nlay = 1
+# lay_decay = 1 # 1 for no decay
+# bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+# thick = 35 # if bottom is None, aquifer thickness
+# hyd_cond = 1e-4 * 24 * 3600 # m/day
+# cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+# verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+# cond_drain = None # or value of conductance
+# porosity = 0.1 / 100 # [%]
+# poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+# 
+# # Conditions aux limites
+# bc_left = None # or value
+# bc_right = None # or value
+# sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+# 
+# # Paramètres de suivi des particules
+# zone_partic = 'watershed' # or 'domain''
+# 
+# # "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
+# split_temp = True
+# 
+# ##%%% Mise à jour :
+# BV.add_settings()
+# 
+# BV.add_geometric() # soon
+# BV.add_hydraulic()
+# 
+# # Paramètres cadre
+# BV.settings.update_box_model(box)
+# BV.settings.update_sink_fill(sink_fill)
+# BV.settings.update_simulation_state(sim_state)
+# BV.settings.update_active_plot(plot_cross=plot_cross)
+# 
+# # Paramètres hydrauliques
+# BV.hydraulic.update_nlay(nlay) # 1
+# BV.hydraulic.update_lay_decay(lay_decay) # 1
+# BV.hydraulic.update_bottom(bottom) # None
+# BV.hydraulic.update_thick(thick) # 30 / n'intervient pas si bottom != None
+# BV.hydraulic.update_hyd_cond(hyd_cond)
+# BV.hydraulic.update_porosity(porosity)
+# BV.hydraulic.update_cond_vertical(verti_cond)
+# BV.hydraulic.update_cond_drain(cond_drain)
+# BV.hydraulic.update_lay_decay(poro_decay)
+# 
+# # Conditions aux limites
+# BV.settings.update_bc_sides(bc_left, bc_right)
+# BV.add_oceanic(sea_level)
+# 
+# # Paramètres du suivi des particules
+# # =============================================================================
+# # BV.settings.update_input_particules(zone_partic=zone_partic)
+# # =============================================================================
+#     
+# # "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
+# BV.settings.update_split_temporal(split_temp)
 # =============================================================================
-    
-# "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
-BV.settings.update_split_temporal(split_temp)
 
 BV.save_object()
 
 #%% SIMULATION DU MODELE (Modflow)
-model_name = BV.settings.model_name
+model_name = 'historique'
 sim_state = BV.settings.sim_state
 
-# model_modflow = BV.preprocessing_modflow(BV.simulations_folder)
-model_modflow = BV.preprocessing_modflow()
-BV.save_object() # because self.lakeres.lake_by_num_id has been updated
-
-success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+#%%% Récupération des résultats de la simulation historique
+# (Retrieve head_fpu and call modflow with these previous heads)
+head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder, f'{model_name}.hds'))
+prev_head_val = head_fpu.get_data(totim = head_fpu.get_times()[0]) # recharge les dernières charges hydrauliques de l'historique
+head_fpu.close()
 
 h5file = os.path.join(BV.simulations_folder,
                       'results_listing_' + model_name)
+mdflw_dict = dd.io.load(h5file)
+success_modflow = mdflw_dict['success_modflow']
+model_modflow = mdflw_dict['model_modflow']
+model_modflow = BV.preprocessing_modflow(model_modflow, prev_heads = prev_head_val)
 
-##%%% Save
+#%%% Lancement des simulations prédictives (et mise à jour du modèle)
+# ---- Créer un dossier par scénario de gestion
+os.makedirs(os.path.join(out_path, BV.simulations_folder, scenario))
+
+list_model_name = []
+list_success_modflow = []
+list_model_modflow = []
+
+# ---- Boucle sur chaque run disponible dans les données
+for i in range(0, 50):    
+    model_name = f'predic{i}'
+    BV.settings.update_model_name(model_name)
+    print(model_name)
+    
+    # ---- Extraction de la recharge
+    # freq_input = 'W'
+    recharge = 0
+    
+    # ---- Mise à jour du modèle modflow
+    # model_modflow = BV.preprocessing_modflow(for_calib=False)
+    model_modflow = BV.update_modflow(model_modflow, {'heads': prev_head_val, 'recharge': recharge}) # ('sim_state': 'steady' si on veut)
+    
+    # ---- Simulation
+    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+    
+    list_model_name.append(model_name)
+    list_success_modflow.append(success_modflow)
+    list_model_modflow.append(model_modflow)
+
 mdflw_dict = {}
-mdflw_dict['model_name'] = model_name
-mdflw_dict['success_modflow'] = success_modflow
-mdflw_dict['model_modflow'] = model_modflow
-
+mdflw_dict['list_model_name'] = list_model_name
+mdflw_dict['list_success_modflow'] = list_success_modflow
+mdflw_dict['list_model_modflow'] = list_model_modflow
+h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
+    
 dd.io.save(h5file, mdflw_dict)
 
 #%%% Rechargement des résultats du modèle Modflow
 # =============================================================================
-# model_name = 'base'
-# 
 # h5file = os.path.join(BV.simulations_folder,
-#                       'results_listing_' + model_name)
+#                       'results_listing_predic')
 # 
 # mdflw_dict = dd.io.load(h5file)
-# model_name = mdflw_dict['model_name']
-# success_modflow = mdflw_dict['success_modflow']
-# model_modflow = mdflw_dict['model_modflow']
+# list_model_name = mdflw_dict['model_name']
+# list_success_modflow = mdflw_dict['success_modflow']
+# list_model_modflow = mdflw_dict['model_modflow']
 # =============================================================================
 
 #%% POST-PROCESSING
 start_time = datetime.datetime.now()
 print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
-##%%% General
-if success_modflow == True:
-    BV.postprocessing_modflow(model_modflow,
-                              watertable_elevation = True,
-                              watertable_depth= True, 
-                              seepage_areas = True,
-                              outflow_drain = True,
-                              groundwater_flux = True,
-                              groundwater_storage = True,
-                              accumulation_flux = True,
-                              # lake_seepage = True,
-                              export_all_tif = False,)
 
+for model_name, success_modflow, model_modflow in zip(list_model_name,
+                                                      list_success_modflow,
+                                                      list_model_modflow):
 
-##%%% Timeseries
-model_modpath = None # because transient
-timeseries_results = BV.postprocessing_timeseries(model_modflow,
-                                                  model_modpath,
-                                                  actual_date=True, 
-                                                  subbasin_results=True) # or None
-
-##%%% NetCDF
-netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                          actual_date=True)
+    ##%%% General
+    if success_modflow == True:
+        BV.postprocessing_modflow(model_modflow,
+                                  watertable_elevation = True,
+                                  watertable_depth= True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = True,
+                                  groundwater_storage = True,
+                                  accumulation_flux = True,
+                                  # lake_seepage = True,
+                                  export_all_tif = False,)
+    
+    
+    ##%%% Timeseries
+    model_modpath = None # because transient
+    timeseries_results = BV.postprocessing_timeseries(model_modflow,
+                                                      model_modpath,
+                                                      actual_date=True, 
+                                                      subbasin_results=True) # or None
+    
+    ##%%% NetCDF
+    netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                              actual_date=True)
 
 now = datetime.datetime.now()
 print("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))
