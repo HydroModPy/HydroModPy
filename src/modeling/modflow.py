@@ -1126,7 +1126,9 @@ class Modflow:
                                 self.perlen[i] = dif.days
                     """
                 self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
-                self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
+# =============================================================================
+#                 self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
+# =============================================================================
                 self.nstp = np.ones(len(self.climatic))     # One step per time step
                 self.nper = len(self.climatic)
                 # Definition of period duration (forcing is constant on a period)
