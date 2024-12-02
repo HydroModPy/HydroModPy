@@ -159,117 +159,126 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 # =============================================================================
 
 #%% RECHARGE et RUISSELLEMENT DE SURFACE DIRECT (données d'entrée)
-BV.add_climatic()
-sim_state = 'transient' # transitoire
 freq_input = 'W' # hebdomadaire
 
-##%%% Reanalyse
-BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-                                             'evt', 'etp', 't',
-                                              ],
-                                       nc_data_path=os.path.join(
-                                           data_path,
-                                           r"Meteo\Historiques SIM2"),
-                                       first_year=pd.to_datetime('today').year-1,
-                                       # last_year=2021,
-                                       time_step=freq_input,
-                                       sim_state=sim_state,
-                                       spatial_mean=True,
-                                       geographic=BV.geographic,
-                                       disk_clip='watershed') # for clipping the netcdf files saved on disk
-                                                                # can be a shapefile path or a flag: 'watershed' or False
+>>> Charger les evt et precip
 
-# Units
-BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
-BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
-BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-BV.climatic.t = BV.climatic.t / 1000 # from mm to m
-BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
-BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
-
-# Paramètres climatiques
-first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
-# BV.climatic.update_recharge(recharge, sim_state=sim_state)
-BV.climatic.update_first_clim(first_clim)
-
-### Figures des chroniques
-if isinstance(BV.climatic.recharge, float):
-    print(f"Recharge moyenne = {BV.climatic.recharge} m")
-    print(f"Ruissellement de surface moyen = {BV.climatic.runoff} m")
-else:
-    # Yearly (matplotlib)
-    fig, ax = plt.subplots(1,1, figsize=(6,3))
-    # =============================================================================
-    # R = recharge.resample('Y').sum()*1000 # [m] -> [mm]
-    # r = runoff.resample('Y').sum()*1000 # [m] -> [mm]
-    # =============================================================================
-    if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
-        R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        R = R.resample('Y').sum()*1000 # [m] -> [mm]
-        r = r.resample('Y').sum()*1000 # [m] -> [mm]
-    elif isinstance(BV.climatic.recharge, pd.core.series.Series):
-        R = BV.climatic.recharge.resample('Y').sum()*1000 # [m] -> [mm]
-        r = BV.climatic.runoff.resample('Y').sum()*1000 # [m] -> [mm]
-    ax.plot(R, label='recharge (réanalyse)', c='dodgerblue', lw=1)
-    ax.plot(r, label='ruissellement de surface (réanalyse)', c='navy', lw=1)
-    ax.set_xlabel('Temps')
-    ax.set_ylabel('[mm/an]')
-    ax.legend()
-    
-    # Daily (or weekly) (matplotlib)
-    fig, ax = plt.subplots(1,1, figsize=(6,3))
-    if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
-        R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        R = R*1000 # [m] -> [mm]
-        r = r*1000 # [m] -> [mm]
-    elif isinstance(BV.climatic.recharge, pd.core.series.Series):
-        R = BV.climatic.recharge*1000 # [m] -> [mm]
-        r = BV.climatic.runoff*1000 # [m] -> [mm]
-    
-    # =============================================================================
-    # R = recharge*1000 # [m] -> [mm]
-    # r = runoff*1000 # [m] -> [mm]
-    # =============================================================================
-    ax.plot(R, label='recharge (réanalyse)', c='dodgerblue', lw=1)
-    ax.plot(r, label='ruissellement de surface (réanalyse)', c='navy', lw=1)
-    ax.set_xlabel('Temps')
-    ax.set_ylabel('[mm/j]')
-    ax.legend()
+# =============================================================================
+# BV.add_climatic()
+# sim_state = 'transient' # transitoire
+# 
+# ##%%% Reanalyse
+# BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
+#                                              'evt', 'etp', 't',
+#                                               ],
+#                                        nc_data_path=os.path.join(
+#                                            data_path,
+#                                            r"Meteo\Historiques SIM2"),
+#                                        first_year=pd.to_datetime('today').year-1,
+#                                        # last_year=2021,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state,
+#                                        spatial_mean=True,
+#                                        geographic=BV.geographic,
+#                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
+#                                                                 # can be a shapefile path or a flag: 'watershed' or False
+# 
+# # Units
+# BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
+# BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
+# BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
+# BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+# BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
+# BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
+# 
+# # Paramètres climatiques
+# first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
+# # BV.climatic.update_recharge(recharge, sim_state=sim_state)
+# BV.climatic.update_first_clim(first_clim)
+# 
+# ### Figures des chroniques
+# if isinstance(BV.climatic.recharge, float):
+#     print(f"Recharge moyenne = {BV.climatic.recharge} m")
+#     print(f"Ruissellement de surface moyen = {BV.climatic.runoff} m")
+# else:
+#     # Yearly (matplotlib)
+#     fig, ax = plt.subplots(1,1, figsize=(6,3))
+#     # =============================================================================
+#     # R = recharge.resample('Y').sum()*1000 # [m] -> [mm]
+#     # r = runoff.resample('Y').sum()*1000 # [m] -> [mm]
+#     # =============================================================================
+#     if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
+#         R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+#         r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+#         R = R.resample('Y').sum()*1000 # [m] -> [mm]
+#         r = r.resample('Y').sum()*1000 # [m] -> [mm]
+#     elif isinstance(BV.climatic.recharge, pd.core.series.Series):
+#         R = BV.climatic.recharge.resample('Y').sum()*1000 # [m] -> [mm]
+#         r = BV.climatic.runoff.resample('Y').sum()*1000 # [m] -> [mm]
+#     ax.plot(R, label='recharge (réanalyse)', c='dodgerblue', lw=1)
+#     ax.plot(r, label='ruissellement de surface (réanalyse)', c='navy', lw=1)
+#     ax.set_xlabel('Temps')
+#     ax.set_ylabel('[mm/an]')
+#     ax.legend()
+#     
+#     # Daily (or weekly) (matplotlib)
+#     fig, ax = plt.subplots(1,1, figsize=(6,3))
+#     if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
+#         R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+#         r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+#         R = R*1000 # [m] -> [mm]
+#         r = r*1000 # [m] -> [mm]
+#     elif isinstance(BV.climatic.recharge, pd.core.series.Series):
+#         R = BV.climatic.recharge*1000 # [m] -> [mm]
+#         r = BV.climatic.runoff*1000 # [m] -> [mm]
+#     
+#     # =============================================================================
+#     # R = recharge*1000 # [m] -> [mm]
+#     # r = runoff*1000 # [m] -> [mm]
+#     # =============================================================================
+#     ax.plot(R, label='recharge (réanalyse)', c='dodgerblue', lw=1)
+#     ax.plot(r, label='ruissellement de surface (réanalyse)', c='navy', lw=1)
+#     ax.set_xlabel('Temps')
+#     ax.set_ylabel('[mm/j]')
+#     ax.legend()
+# =============================================================================
 
 #%% BARRAGE
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
 
 # ---- Activer le module lac/réservoir
-BV.add_lakeres()
+# =============================================================================
+# BV.add_lakeres()
+# =============================================================================
 
 
 # Ajouter un nouveau réservoir
 # ----------------------
 lake_id = 'reservoir_cheze'
 
-print("\n-----------" + "-"*len(lake_id))
-print(f"Ajout de '{lake_id}'")
-print("-----------" + "-"*len(lake_id))
-print("   . Définition de la géographie du réservoir :")
-
-# maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_lake_75m_larger.tif")
-maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_polygon_larger.shp")
-
-BV.lakeres.new_lakeres(maskmx, lake_id)
-
-# Géométrie et propriétés physiques
-# ---------------------------------
-# BV.lakeres.update_stageinit(lake_id, 85) # [m] # initialisé plus tard
-BV.lakeres.update_stagemax(lake_id, 87.3) # [m]
-# BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
-BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # débit de fuite du lit du réservoir [m/day]
-                                                              # ici équiv. à 1e-6 m/s
-bathymetry_raster = os.path.join(data_path, "Reservoir", "Bathymetrie",
-                                 "Cheze_bathy_1m_NGF-elevation_v2enlarged.nc")
-                                 # "bathymetry_25m_NGF-elevation.tif")
-BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
+# =============================================================================
+# print("\n-----------" + "-"*len(lake_id))
+# print(f"Ajout de '{lake_id}'")
+# print("-----------" + "-"*len(lake_id))
+# print("   . Définition de la géographie du réservoir :")
+# 
+# # maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_lake_75m_larger.tif")
+# maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_polygon_larger.shp")
+# 
+# BV.lakeres.new_lakeres(maskmx, lake_id)
+# 
+# # Géométrie et propriétés physiques
+# # ---------------------------------
+# # BV.lakeres.update_stageinit(lake_id, 85) # [m] # initialisé plus tard
+# BV.lakeres.update_stagemax(lake_id, 87.3) # [m]
+# # BV.lakeres.update_volumemax(lake_id, 14e6) # [m3]
+# BV.lakeres.update_lakebed_leakance(lake_id, 1e-6 * 24 * 3600) # débit de fuite du lit du réservoir [m/day]
+#                                                               # ici équiv. à 1e-6 m/s
+# bathymetry_raster = os.path.join(data_path, "Reservoir", "Bathymetrie",
+#                                  "Cheze_bathy_1m_NGF-elevation_v2enlarged.nc")
+#                                  # "bathymetry_25m_NGF-elevation.tif")
+# BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
+# =============================================================================
 # =============================================================================
 # BV.lakeres.update_bathymetry(lake_id, bathymetry_raster, mode = 'elevation')
 # # mode can be 'elevation', 'depth', 'height' (= -depth)
@@ -284,50 +293,52 @@ BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 # =============================================================================
 
 # ---- Chargement des flux d'entrée à partir des données mensuelles
-print("   . Chargement des flux d'entrée mensuels")
-
-dam_data_path = os.path.join(data_path, "Reservoir", 
-                             "Donnees mensuelles base historique",
-                             r"dam_cheze_volume_raw_2000-2022.csv")
-
-dam_input_df = pd.read_csv(dam_data_path,
-                           sep = ";",
-                           header = 0,
-                           skiprows = 0,
-                           index_col = 'time',
-                           parse_dates = True)
-
-#### Gestion de la temporalité des valeurs :
-# 1. Conversion des valeurs (sommes mensuelles) en flux journaliers
-days_in_month = pd.DataFrame( 
-    index = dam_input_df.index,
-    data = dam_input_df.index.days_in_month)
-days_in_month.rename(columns = {'time':'n_days'}, inplace = True)
-# dam_input_df = dam_input_df.divide(days_in_month.n_days, axis="index")
-sum_col = dam_input_df.columns != 'cheze'
-dam_input_df.loc[:, sum_col] = dam_input_df.loc[:, sum_col].divide(
-    days_in_month.n_days, axis="index")
-
-# 2. Sous-échantillonage des données d'entrée en journalier
-daily_index = pd.date_range(start = BV.climatic.recharge.index[0], 
-                             periods = (BV.climatic.recharge.index[-1] \
-                                 - BV.climatic.recharge.index[0]).days + 1,
-                                 freq = 'D') 
-dam_input_df = dam_input_df.reindex(index = daily_index)
-dam_input_df.fillna(method = 'bfill', inplace = True) # backward fill
-dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
-# 3. puis sur-échantillonage selon la temporalité de la recharge
-rules = {
-    'cheze': 'mean',
-    'canut':'mean',
-    'meu':'mean',
-    'usine':'mean',
-    'resti':'mean',
-    'stream':'mean',
-    'ppt_surf':'mean',
-    'ae_oudin':'mean',
-    }
-dam_input_df = dam_input_df.resample(freq_input).agg(rules)
+# =============================================================================
+# print("   . Chargement des flux d'entrée mensuels")
+# 
+# dam_data_path = os.path.join(data_path, "Reservoir", 
+#                              "Donnees mensuelles base historique",
+#                              r"dam_cheze_volume_raw_2000-2022.csv")
+# 
+# dam_input_df = pd.read_csv(dam_data_path,
+#                            sep = ";",
+#                            header = 0,
+#                            skiprows = 0,
+#                            index_col = 'time',
+#                            parse_dates = True)
+# 
+# #### Gestion de la temporalité des valeurs :
+# # 1. Conversion des valeurs (sommes mensuelles) en flux journaliers
+# days_in_month = pd.DataFrame( 
+#     index = dam_input_df.index,
+#     data = dam_input_df.index.days_in_month)
+# days_in_month.rename(columns = {'time':'n_days'}, inplace = True)
+# # dam_input_df = dam_input_df.divide(days_in_month.n_days, axis="index")
+# sum_col = dam_input_df.columns != 'cheze'
+# dam_input_df.loc[:, sum_col] = dam_input_df.loc[:, sum_col].divide(
+#     days_in_month.n_days, axis="index")
+# 
+# # 2. Sous-échantillonage des données d'entrée en journalier
+# daily_index = pd.date_range(start = BV.climatic.recharge.index[0], 
+#                              periods = (BV.climatic.recharge.index[-1] \
+#                                  - BV.climatic.recharge.index[0]).days + 1,
+#                                  freq = 'D') 
+# dam_input_df = dam_input_df.reindex(index = daily_index)
+# dam_input_df.fillna(method = 'bfill', inplace = True) # backward fill
+# dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
+# # 3. puis sur-échantillonage selon la temporalité de la recharge
+# rules = {
+#     'cheze': 'mean',
+#     'canut':'mean',
+#     'meu':'mean',
+#     'usine':'mean',
+#     'resti':'mean',
+#     'stream':'mean',
+#     'ppt_surf':'mean',
+#     'ae_oudin':'mean',
+#     }
+# dam_input_df = dam_input_df.resample(freq_input).agg(rules)
+# =============================================================================
 
 # Méthode alternative pour 1., 2. et 3. : 
 # Sous-échantillonage des données d'entrée selon la temporalité de la recharge, avec interpolation
@@ -438,191 +449,200 @@ dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 # =============================================================================
 
 
-# ---- Raffinage du niveau initial
-print("   . Raffinage du niveau initial de la retenue avec l'abaque")
+# ---- Mise à jour du niveau initial
+print("   . Mise à jour du niveau initial de la retenue avec les résultats de la simulation historique")
 
-abaque = pd.read_csv(os.path.join(data_path, "Reservoir", "Abaque",
-    "abaque_cheze_2020.csv"),
-                     sep = "\t",
-                     header = 0,
-                     names = ['level', 'volume'],
-                     )
-
-
-data_volumes = dam_input_df[['cheze']].copy()
-
-# Données hebdomadaires
-# ---------------------
-Stock_Cheze_xls_folder = os.path.join(data_path, "Reservoir", 
-                                      "Donnees journalieres EBR", "Niveaux")
-try:
-    Stock_Cheze_xls_path = os.path.join(
-        Stock_Cheze_xls_folder,
-        f"Villejean_Stock_Cheze_{datetime.datetime.now().year}_val.xlsx")
-except:
-    Stock_Cheze_xls_path = os.path.join(
-        Stock_Cheze_xls_folder,
-        f"Villejean_Stock_Cheze_{datetime.datetime.now().year-1}_val.xlsx")
-        
-data = pd.read_excel(
-    Stock_Cheze_xls_path,
-    sheet_name = "Histos",
-    header = 3, 
-    # index_col = 0,
-    # skiprows = 3,
-    )
-data = data.iloc[:, 3:-2]
-if data.iloc[:, -1].count() == 0:
-    print(f"        Warning: Les dernières valeurs ({data.columns[-1]}) n'ont pas été correctement récupérées.")
-    print("        Aller sur la feuille 'Histos', puis effectuer Ctrl+A, Ctrl+C, Maj+F10+V, et enregistrer sous un nouveau fichier <nom>_val.xlsx")
-
-# Pivot from wide-format to long-format
-data_volumes = pd.lreshape(data, 
-                           groups = {'vol':data.columns},
-                           dropna = False)
-
-weekly_index = pd.date_range(start = pd.to_datetime(f'{data.columns[0]}:01_1', format = '%Y:%W_%w'),
-                             periods = data_volumes.size*1.05, # extended
-                             freq = 'W')
-
-data_volumes.set_index(weekly_index[weekly_index.week != 53][0:data_volumes.size], 
-                          inplace = True)
-data_volumes = data_volumes.reindex(
-    weekly_index[weekly_index <= data_volumes[data_volumes.notna().vol].index[-1]])
-
-data_volumes.interpolate(method = 'time', inplace = True)
-
-# Mise à jour des données d'entrées (optionnel)
-# ---------------------------------------------
-data_volumes = data_volumes.resample(freq_input).mean()
-data_volumes.fillna(method = 'bfill', inplace = True) # backward fill
-data_volumes.fillna(0, inplace = True) # replace remaining NaN with 0
-dam_input_df['cheze'].update(data_volumes.vol)
-
-# Conversion des volumes en stages
-# --------------------------------
-data_levels = data_volumes.copy()
-data_levels.rename(columns = {'vol': 'lvl'}, inplace = True)
-for t in data_levels.index:
-    if not abaque[abaque.volume <= data_volumes.loc[t].item()].empty:
-        data_levels.loc[t] = abaque[abaque.volume <= data_volumes.loc[t].item()].iloc[-1].level
-    else:
-        if data_volumes.loc[t].item() > abaque.volume.max():
-            slope = (abaque.volume.iloc[-1] - abaque.volume.iloc[-2]) / (abaque.level.iloc[-1] - abaque.level.iloc[-2])
-            add_level = abaque.level.iloc[-1] + (data_volumes.loc[t].item() - abaque.volume.iloc[-1])/slope
-            abaque_interp = abaque.append({'level':add_level, 'volume':data_volumes.loc[t].item()}, 
-                                          ignore_index = True)
-        elif data_volumes.loc[t].item() < abaque.volume.min():
-            slope = (abaque.volume.iloc[1] - abaque.volume.iloc[0]) / (abaque.level.iloc[1] - abaque.level.iloc[0])
-            add_level = abaque.level.iloc[0] + (data_volumes.loc[t].item() - abaque.volume.iloc[0])/slope
-            abaque_interp = pd.DataFrame(data = {'level':add_level, 'volume':data_volumes.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
-        data_levels.loc[t] = abaque_interp[abaque_interp.volume <= data_volumes.loc[t].item()].iloc[-1].level
-
-if BV.climatic.recharge.index[0] in data_levels.index:
-    level_init = data_levels.loc[BV.climatic.recharge.index[0]].item()
-else:
-    # Method 'nearest'
 # =============================================================================
-#     level_init = float(data_levels.iloc[
-#         data_levels.index.get_indexer([BV.climatic.recharge.index[0]], 'nearest')[0]])
+# abaque = pd.read_csv(os.path.join(data_path, "Reservoir", "Abaque",
+#     "abaque_cheze_2020.csv"),
+#                      sep = "\t",
+#                      header = 0,
+#                      names = ['level', 'volume'],
+#                      )
+# 
+# 
+# data_volumes = dam_input_df[['cheze']].copy()
+# 
+# # Données hebdomadaires
+# # ---------------------
+# Stock_Cheze_xls_folder = os.path.join(data_path, "Reservoir", 
+#                                       "Donnees journalieres EBR", "Niveaux")
+# try:
+#     Stock_Cheze_xls_path = os.path.join(
+#         Stock_Cheze_xls_folder,
+#         f"Villejean_Stock_Cheze_{datetime.datetime.now().year}_val.xlsx")
+# except:
+#     Stock_Cheze_xls_path = os.path.join(
+#         Stock_Cheze_xls_folder,
+#         f"Villejean_Stock_Cheze_{datetime.datetime.now().year-1}_val.xlsx")
+#         
+# data = pd.read_excel(
+#     Stock_Cheze_xls_path,
+#     sheet_name = "Histos",
+#     header = 3, 
+#     # index_col = 0,
+#     # skiprows = 3,
+#     )
+# data = data.iloc[:, 3:-2]
+# if data.iloc[:, -1].count() == 0:
+#     print(f"        Warning: Les dernières valeurs ({data.columns[-1]}) n'ont pas été correctement récupérées.")
+#     print("        Aller sur la feuille 'Histos', puis effectuer Ctrl+A, Ctrl+C, Maj+F10+V, et enregistrer sous un nouveau fichier <nom>_val.xlsx")
+# 
+# # Pivot from wide-format to long-format
+# data_volumes = pd.lreshape(data, 
+#                            groups = {'vol':data.columns},
+#                            dropna = False)
+# 
+# weekly_index = pd.date_range(start = pd.to_datetime(f'{data.columns[0]}:01_1', format = '%Y:%W_%w'),
+#                              periods = data_volumes.size*1.05, # extended
+#                              freq = 'W')
+# 
+# data_volumes.set_index(weekly_index[weekly_index.week != 53][0:data_volumes.size], 
+#                           inplace = True)
+# data_volumes = data_volumes.reindex(
+#     weekly_index[weekly_index <= data_volumes[data_volumes.notna().vol].index[-1]])
+# 
+# data_volumes.interpolate(method = 'time', inplace = True)
+# 
+# # Mise à jour des données d'entrées (optionnel)
+# # ---------------------------------------------
+# data_volumes = data_volumes.resample(freq_input).mean()
+# data_volumes.fillna(method = 'bfill', inplace = True) # backward fill
+# data_volumes.fillna(0, inplace = True) # replace remaining NaN with 0
+# dam_input_df['cheze'].update(data_volumes.vol)
+# 
+# # Conversion des volumes en stages
+# # --------------------------------
+# data_levels = data_volumes.copy()
+# data_levels.rename(columns = {'vol': 'lvl'}, inplace = True)
+# for t in data_levels.index:
+#     if not abaque[abaque.volume <= data_volumes.loc[t].item()].empty:
+#         data_levels.loc[t] = abaque[abaque.volume <= data_volumes.loc[t].item()].iloc[-1].level
+#     else:
+#         if data_volumes.loc[t].item() > abaque.volume.max():
+#             slope = (abaque.volume.iloc[-1] - abaque.volume.iloc[-2]) / (abaque.level.iloc[-1] - abaque.level.iloc[-2])
+#             add_level = abaque.level.iloc[-1] + (data_volumes.loc[t].item() - abaque.volume.iloc[-1])/slope
+#             abaque_interp = abaque.append({'level':add_level, 'volume':data_volumes.loc[t].item()}, 
+#                                           ignore_index = True)
+#         elif data_volumes.loc[t].item() < abaque.volume.min():
+#             slope = (abaque.volume.iloc[1] - abaque.volume.iloc[0]) / (abaque.level.iloc[1] - abaque.level.iloc[0])
+#             add_level = abaque.level.iloc[0] + (data_volumes.loc[t].item() - abaque.volume.iloc[0])/slope
+#             abaque_interp = pd.DataFrame(data = {'level':add_level, 'volume':data_volumes.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
+#         data_levels.loc[t] = abaque_interp[abaque_interp.volume <= data_volumes.loc[t].item()].iloc[-1].level
+# 
+# if BV.climatic.recharge.index[0] in data_levels.index:
+#     level_init = data_levels.loc[BV.climatic.recharge.index[0]].item()
+# else:
+#     # Method 'nearest'
+# # =============================================================================
+# #     level_init = float(data_levels.iloc[
+# #         data_levels.index.get_indexer([BV.climatic.recharge.index[0]], 'nearest')[0]])
+# # =============================================================================
+#     
+#     # Method 'interpolated'
+#     idx = data_levels.index.get_indexer([BV.climatic.recharge.index[0]], 'pad').item()
+#     
+#     data_levels_interp = data_levels.reindex(index = [data_levels.index[idx],
+#                                                       BV.climatic.recharge.index[0],
+#                                                       data_levels.index[idx+1]])
+#     data_levels_interp.interpolate(method = "time", inplace = True)
+#     level_init = data_levels_interp.loc[BV.climatic.recharge.index[0]].item()
 # =============================================================================
-    
-    # Method 'interpolated'
-    idx = data_levels.index.get_indexer([BV.climatic.recharge.index[0]], 'pad').item()
-    
-    data_levels_interp = data_levels.reindex(index = [data_levels.index[idx],
-                                                      BV.climatic.recharge.index[0],
-                                                      data_levels.index[idx+1]])
-    data_levels_interp.interpolate(method = "time", inplace = True)
-    level_init = data_levels_interp.loc[BV.climatic.recharge.index[0]].item()
 
+>>> level_init = ...
 
 BV.lakeres.update_stageinit(
     lake_id,
     level_init) # [m]
 
 
-# ---- Raffinage des flux d'entrée récents à partir des données journalières
-print("   . Raffinage des flux d'entrée avec les données journalières :")
+# ---- Mise à jour des flux d'entrée 
+print("   . Mise à jour des flux d'entrée avec les scénarios de gestion :")
 
-Flux_Cheze_xls_folder = os.path.join(data_path, "Reservoir",
-                                     "Donnees journalieres EBR", "Flux")
+# =============================================================================
+# Flux_Cheze_xls_folder = os.path.join(data_path, "Reservoir",
+#                                      "Donnees journalieres EBR", "Flux")
+# 
+# for path, folders, files in os.walk(Flux_Cheze_xls_folder):
+#     if len(files) > 0:
+#         print(f"        mise-à-jour {os.path.split(path)[-1]}")
+#         for f in files:
+#             if (f[0] != '~') & (f[-8:-5].casefold() != 'old'):
+#                 if f[-11:-5] in ['1_2020', '2_2020', '3_2020',
+#                                  '4_2020', '5_2020']: # ancien format
+#                     data = pd.read_excel(
+#                         os.path.join(path, f),
+#                         # sheet_name = "Histos",
+#                         # index_col = 0,
+#                         skiprows = 6, # [5],
+#                         header = None, #[3, 4],
+#                         usecols = [1, 7, 9, 11, 13, 14],
+#                         names = ['time', 'canut', 'cheze', 'resti', 'meu', 'usine'],
+#                         index_col = 0,
+#                         skipfooter = 4,
+#                         parse_dates = False,
+#                         # date_format = '%d/%m/%Y',
+#                         na_values = ['No Data'],
+#                         )
+#                     data['radar'] = data['cheze']
+#                 else:
+#                     data = pd.read_excel(
+#                         os.path.join(path, f),
+#                         # sheet_name = "Histos",
+#                         # index_col = 0,
+#                         skiprows = 6, # [5],
+#                         header = None, #[3, 4],
+#                         usecols = [1, 7, 9, 10, 12, 14, 15],
+#                         names = ['time', 'canut', 'radar', 'cheze', 'resti', 'meu', 'usine'],
+#                         index_col = 0,
+#                         skipfooter = 4,
+#                         parse_dates = False,
+#                         # date_format = '%d/%m/%Y',
+#                         na_values = ['No Data'],
+#                         )
+#                 data = data[data.index.notna()] # remove the rows with no date
+#                 # data.dropna(axis = 0, how = 'all', inplace = True) # remove the last rows if empty
+#                 data.index = pd.to_datetime(data.index, format = '%d/%m/%Y')
+#                 # Use radar values to fill in missing piezo values:
+#                 data.cheze[data.cheze.isna()] = data.radar[data.cheze.isna()] 
+#                 data = data.loc[:, data.columns != 'radar']
+#                 data.interpolate(method = 'time', inplace = True)
+#                 
+#                 data = data.resample(freq_input).agg({var:rules[var] for var in data.columns})
+# 
+#                 # Conversion des niveaux en volumes
+#                 # ---------------------------------
+#                 for t in data.index:
+#                     if not abaque[abaque.level <= data.cheze.loc[t].item()].empty:
+#                         data.cheze.loc[t] = abaque[abaque.level <= data.cheze.loc[t].item()].iloc[-1].volume
+#                     else:
+#                         if data.cheze.loc[t].item() > abaque.level.max():
+#                             slope = (abaque.level.iloc[-1] - abaque.level.iloc[-2]) / (abaque.volume.iloc[-1] - abaque.volume.iloc[-2])
+#                             add_volume = abaque.volume.iloc[-1] + (data.cheze.loc[t].item() - abaque.level.iloc[-1])/slope
+#                             abaque_interp = abaque.append({'volume':add_volume, 'level':data.cheze.loc[t].item()}, 
+#                                                           ignore_index = True)
+#                         elif data.cheze.loc[t].item() < abaque.level.min():
+#                             slope = (abaque.level.iloc[1] - abaque.level.iloc[0]) / (abaque.volume.iloc[1] - abaque.volume.iloc[0])
+#                             add_volume = abaque.volume.iloc[0] + (data.cheze.loc[t].item() - abaque.level.iloc[0])/slope
+#                             abaque_interp = pd.DataFrame(data = {'volume':add_volume, 'level':data.cheze.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
+#                         data.cheze.loc[t] = abaque_interp[abaque_interp.level <= data.cheze.loc[t].item()].iloc[-1].volume
+# 
+# 
+#                 for col in ['cheze', 'resti', 'meu', 'canut', 'usine']:
+#                     dam_input_df[col].update(data[col])
+#                 # dam_input_df[['cheze', 'resti', 'meu', 'usine']].update(data)
+# =============================================================================
 
-for path, folders, files in os.walk(Flux_Cheze_xls_folder):
-    if len(files) > 0:
-        print(f"        mise-à-jour {os.path.split(path)[-1]}")
-        for f in files:
-            if (f[0] != '~') & (f[-8:-5].casefold() != 'old'):
-                if f[-11:-5] in ['1_2020', '2_2020', '3_2020',
-                                 '4_2020', '5_2020']: # ancien format
-                    data = pd.read_excel(
-                        os.path.join(path, f),
-                        # sheet_name = "Histos",
-                        # index_col = 0,
-                        skiprows = 6, # [5],
-                        header = None, #[3, 4],
-                        usecols = [1, 7, 9, 11, 13, 14],
-                        names = ['time', 'canut', 'cheze', 'resti', 'meu', 'usine'],
-                        index_col = 0,
-                        skipfooter = 4,
-                        parse_dates = False,
-                        # date_format = '%d/%m/%Y',
-                        na_values = ['No Data'],
-                        )
-                    data['radar'] = data['cheze']
-                else:
-                    data = pd.read_excel(
-                        os.path.join(path, f),
-                        # sheet_name = "Histos",
-                        # index_col = 0,
-                        skiprows = 6, # [5],
-                        header = None, #[3, 4],
-                        usecols = [1, 7, 9, 10, 12, 14, 15],
-                        names = ['time', 'canut', 'radar', 'cheze', 'resti', 'meu', 'usine'],
-                        index_col = 0,
-                        skipfooter = 4,
-                        parse_dates = False,
-                        # date_format = '%d/%m/%Y',
-                        na_values = ['No Data'],
-                        )
-                data = data[data.index.notna()] # remove the rows with no date
-                # data.dropna(axis = 0, how = 'all', inplace = True) # remove the last rows if empty
-                data.index = pd.to_datetime(data.index, format = '%d/%m/%Y')
-                # Use radar values to fill in missing piezo values:
-                data.cheze[data.cheze.isna()] = data.radar[data.cheze.isna()] 
-                data = data.loc[:, data.columns != 'radar']
-                data.interpolate(method = 'time', inplace = True)
-                
-                data = data.resample(freq_input).agg({var:rules[var] for var in data.columns})
-
-                # Conversion des niveaux en volumes
-                # ---------------------------------
-                for t in data.index:
-                    if not abaque[abaque.level <= data.cheze.loc[t].item()].empty:
-                        data.cheze.loc[t] = abaque[abaque.level <= data.cheze.loc[t].item()].iloc[-1].volume
-                    else:
-                        if data.cheze.loc[t].item() > abaque.level.max():
-                            slope = (abaque.level.iloc[-1] - abaque.level.iloc[-2]) / (abaque.volume.iloc[-1] - abaque.volume.iloc[-2])
-                            add_volume = abaque.volume.iloc[-1] + (data.cheze.loc[t].item() - abaque.level.iloc[-1])/slope
-                            abaque_interp = abaque.append({'volume':add_volume, 'level':data.cheze.loc[t].item()}, 
-                                                          ignore_index = True)
-                        elif data.cheze.loc[t].item() < abaque.level.min():
-                            slope = (abaque.level.iloc[1] - abaque.level.iloc[0]) / (abaque.volume.iloc[1] - abaque.volume.iloc[0])
-                            add_volume = abaque.volume.iloc[0] + (data.cheze.loc[t].item() - abaque.level.iloc[0])/slope
-                            abaque_interp = pd.DataFrame(data = {'volume':add_volume, 'level':data.cheze.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
-                        data.cheze.loc[t] = abaque_interp[abaque_interp.level <= data.cheze.loc[t].item()].iloc[-1].volume
-
-
-                for col in ['cheze', 'resti', 'meu', 'canut', 'usine']:
-                    dam_input_df[col].update(data[col])
-                # dam_input_df[['cheze', 'resti', 'meu', 'usine']].update(data)
+>>> dam_input_df = lecture du scenario de gestion
 
 
 # ---- Mise-à-jour des données d'entrée du réservoir
 print("   . Mise à jour des paramètres du réservoir")
 
 # Set the first value (used for steady initialization) as the average value
-dam_input_df.iloc[0] = toolbox.hydrological_mean(dam_input_df, 4)
+# =============================================================================
+# dam_input_df.iloc[0] = toolbox.hydrological_mean(dam_input_df, 4)
+# =============================================================================
 
 ##%%% Mise-à-jour des flux
 
@@ -857,8 +877,7 @@ for i in range(0, 50):
     print(model_name)
     
     # ---- Extraction de la recharge
-    # freq_input = 'W'
-    recharge = 0
+    recharge = 0 blabla (freq_input)
     
     # ---- Mise à jour du modèle modflow
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
