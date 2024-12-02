@@ -241,6 +241,20 @@ freq_input = 'W' # hebdomadaire
 #     ax.legend()
 # =============================================================================
 
+#%% RECHARGEMENT DES CHARGES PRECEDENTES
+model_name = 'historique'
+head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder, f'{model_name}.hds'))
+
+# sim_times = head_fpu.get_times()
+# prev_end_time = sim_times[list(sim_times.keys())[-1]]
+prev_end_time = head_fpu.get_times()[0]
+
+# Retrieve head_fpu and call modflow with these previous heads
+prev_head_3D = head_fpu.get_data(totim = prev_end_time) # recharge les dernières charges hydrauliques de l'historique
+                                                        # 3 dim = layer, y, x
+
+head_fpu.close()
+
 #%% BARRAGE
 # In this version, the lake is defined in a new modflow layer added on top of the modeL
 
@@ -547,7 +561,29 @@ print("   . Mise à jour du niveau initial de la retenue avec les résultats de 
 #     level_init = data_levels_interp.loc[BV.climatic.recharge.index[0]].item()
 # =============================================================================
 
->>> level_init = ...
+# Récupération du niveau final du réservoir
+# -----------------------------------------
+
+### Conserve only the first positive value from the top to bottom layer:
+# Negative values will be considered as nodata
+prev_head_3D[prev_head_3D < 0] = np.nan 
+# Squish (flatten) the 4D array into a single-layer array
+head_2D = prev_head_3D[0, :, :].copy() # 2 dim = y, x
+# Browse all the layers, from the top to the bottom, and keep the first 
+# encountered postive (or null) values
+for layer in range(0, head_3D.shape[0]):
+    head_2D[np.isnan(head_2D)] = prev_head_3D[layer, :, :][np.isnan(head_2D)]
+# =============================================================================
+# # Apply the mask
+# head_2D[self.dem_mask] = np.nan
+# =============================================================================
+
+outlet_mask = head_2D.copy()*0
+i, j = BV.lakeres.ij_outlet_by_lake[lake_id]
+outlet_mask[i, j] = 1
+outlet_mask = outlet_mask.astype(bool)
+
+level_init = head_2D[outlet_mask][0]
 
 BV.lakeres.update_stageinit(
     lake_id,
@@ -846,21 +882,15 @@ BV.save_object()
 BV.save_object()
 
 #%% SIMULATION DU MODELE (Modflow)
-model_name = 'historique'
 sim_state = BV.settings.sim_state
 
 #%%% Récupération des résultats de la simulation historique
-# (Retrieve head_fpu and call modflow with these previous heads)
-head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder, f'{model_name}.hds'))
-prev_head_val = head_fpu.get_data(totim = head_fpu.get_times()[0]) # recharge les dernières charges hydrauliques de l'historique
-head_fpu.close()
-
 h5file = os.path.join(BV.simulations_folder,
                       'results_listing_' + model_name)
 mdflw_dict = dd.io.load(h5file)
 success_modflow = mdflw_dict['success_modflow']
 model_modflow = mdflw_dict['model_modflow']
-model_modflow = BV.preprocessing_modflow(model_modflow, prev_heads = prev_head_val)
+model_modflow = BV.preprocessing_modflow(model_modflow, prev_heads = prev_head_3D)
 
 #%%% Lancement des simulations prédictives (et mise à jour du modèle)
 # ---- Créer un dossier par scénario de gestion
@@ -887,7 +917,7 @@ for i in range(0, 50):
     
     # ---- Mise à jour du modèle modflow
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
-    model_modflow = BV.update_modflow(model_modflow, {'heads': prev_head_val, 'recharge': recharge}) # ('sim_state': 'steady' si on veut)
+    model_modflow = BV.update_modflow(model_modflow, {'heads': prev_head_3D, 'recharge': recharge}) # ('sim_state': 'steady' si on veut)
     
     # ---- Simulation
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
