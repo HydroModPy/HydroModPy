@@ -110,6 +110,7 @@ dependencies:
   - zlib=1.2.13=hd590300_5
   - zstd=1.4.8=hdf46e1d_0
   - pip:
+      - rioxarray==0.13.4
       - alabaster==0.7.13
       - anyio==3.7.1
       - argon2-cffi==21.3.0

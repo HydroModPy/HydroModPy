@@ -10,6 +10,15 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
+"""
+In comparison with the previous version of the script modflow.py, this version
+enables the use of a sequential non-iterative operator-splitting method to couple the modflow simulation of the
+watertable with the user-defined computation of related processes such as surface
+stream routing, reservoir inputs (stream flows and runoff) and outputs (overflow),
+and any further considered process.
+This approache also requires specific launchers (for instance example_99_seq.py).
+"""
+
 #%% LIBRAIRIES
 
 # Python
@@ -70,7 +79,8 @@ class Modflow:
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
                  # Boundary settings
                  cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None,
-                 streamflow_seepage:object=None, inputflow=None, lakeres:object=None):
+                 streamflow_seepage:object=None, inputflow=None, lakeres:object=None,
+                 timestep=None):
         """
         Initialize method.
 
@@ -228,6 +238,9 @@ class Modflow:
         self.verti_poro = verti_poro
         self.verti_ss = verti_ss
         self.cond_drain = cond_drain
+            
+        #%% Sequential coupling
+        self.timestep = timestep
         
         #%% Seepage modeled with StreamFlow Routing instead of Drain
         
@@ -258,7 +271,7 @@ class Modflow:
 
     #%% PRE-PROCESSING
 
-    def pre_processing(self):
+    def pre_processing(self, timestep=None):
         """
         Pre-processing to build the hydrologic model.
 
@@ -268,24 +281,46 @@ class Modflow:
 
         """
         #%% Initialization
+        # Sequential coupling
+        self.timestep = timestep
+        if self.timestep in [0, None]:
+            self.init = True
+        else:
+            self.init = False
+        
+        if self.init:
+            # Flopy initialization of Modflow model
+            self.mf = flopy.modflow.Modflow(self.model_name, 
+                                            exe_name=self.exe,
+                                            version='mfnwt',
+                                            listunit=2,
+                                            verbose=False,
+                                            model_ws=self.full_path) # external_path=self.full_path
             
-        # Flopy initialization of Modflow model
-        self.mf = flopy.modflow.Modflow(self.model_name, 
-                                        exe_name=self.exe,
-                                        version='mfnwt',
-                                        listunit=2,
-                                        verbose=False,
-                                        model_ws=self.full_path) # external_path=self.full_path
-        
-        # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
-        # Sets up numerical parameters 
-        thickfact = 1e-05 # also used for lake/reservoir thickness computations
-        
-        self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
-                                            thickfact=thickfact, linmeth=1, iprnwt=1, ibotav=1,
-                                            options='COMPLEX', Continue=False, backflag=0) # ibotav=0
-        # Change headtol and fluxtol with results ==> convergency criteria
+            # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
+            # Sets up numerical parameters 
+            thickfact = 1e-05 # also used for lake/reservoir thickness computations
+            
+            self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
+                                                thickfact=thickfact, linmeth=1, iprnwt=1, ibotav=1,
+                                                options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+            # Change headtol and fluxtol with results ==> convergency criteria
 
+        # Recharge
+        if self.timestep is None:
+            climatic_sel = self.climatic
+        else:
+            # Extract (as a pd.dataframe) the row corresponding to the current timestep
+            climatic_sel = self.climatic.iloc[[self.timestep]]
+            
+        # Watertable level
+        if not self.init:
+            self.path_file = os.path.join(self.full_path, self.model_name)
+            head_fpu = fpu.HeadFile(self.path_file+'.hds')
+            self.head_val = head_fpu.get_data(totim = head_fpu.get_times()[0])
+            head_fpu.close()
+            
+        
         #%% Discretization
         
         ### Time step is driven by recharge
@@ -299,11 +334,36 @@ class Modflow:
             self.start_datetime = None
             
         if self.sim_state == 'transient':
+            if self.init:
+                # Definition of period duration (forcing is constant on a period)
+                #       As many periods as recharge values 
+                #       Extracts from climatic data the time steps (self.perlen)
+                if self.split_temp == True:
+                    ### DISCUSS WITH ALEXANDREFOR THIS PART
+                    if isinstance(climatic_sel, pd.core.series.Series): # pd.dataframe
+                        if isinstance(climatic_sel.index[0], datetime.datetime):
+                            # self.perlen = climatic_sel.index.to_series().diff().dt.days.values
+                            self.perlen = climatic_sel.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
+                        else:
+                            self.perlen = climatic_sel.index.to_series().diff().values
+                if isinstance(self.split_temp, list) == True:
+                    self.perlen = self.split_temp
+                if self.split_temp == False:
+                    self.perlen = np.ones(len(climatic_sel))
+                # print(self.split_temp)
+                # First timestep is steady state:
+                self.perlen[0] = 1
+            
+            if self.timestep is None:
+                perlen_sel = self.perlen
+            else:
+                perlen_sel = self.perlen[self.timestep]
+
             # Transient state
-            if isinstance(self.climatic,(dict))==True:
+            if isinstance(climatic_sel,(dict))==True:
                 self.start_datetime = 0 
             else:
-                self.start_datetime = self.climatic.index[0]            # First date of climatic recharge
+                self.start_datetime = climatic_sel.index[0]            # First date of climatic recharge
                 # To cooridate with forcing and/or climatic
                 """
                 if type(self.climatic.index)==pd.core.indexes.datetimes.DatetimeIndex:
@@ -312,63 +372,48 @@ class Modflow:
                             dif = self.climatic.index[i]-self.climatic.index[i-1]
                             self.perlen[i] = dif.days
                 """
-            self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
-            self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
-            self.nstp = np.ones(len(self.climatic))     # One step per time step
-            self.nper = len(self.climatic)
-            # Definition of period duration (forcing is constant on a period)
-            #       As many periods as recharge values 
-            #       Extracts from climatic data the time steps (self.perlen)
-            
-            if self.split_temp == True:
-                ### DISCUSS WITH ALEXANDREFOR THIS PART
-                if isinstance(self.climatic, pd.core.series.Series):
-                    if isinstance(self.climatic.index[0], datetime.datetime):
-                        # self.perlen = self.climatic.index.to_series().diff().dt.days.values
-                        self.perlen = self.climatic.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
-                    else:
-                        self.perlen = self.climatic.index.to_series().diff().values
-            if isinstance(self.split_temp, list) == True:
-                self.perlen = self.split_temp
-            if self.split_temp == False:
-                self.perlen = np.ones(len(self.climatic))
-            # print(self.split_temp)
-            # First timestep is steady state:
-            self.perlen[0] = 1
+            self.steady = np.zeros(len(climatic_sel),dtype=bool)   # Vector of booleans (transient state at each time step)
+            if self.init:
+                self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
+            else:
+                self.steady[0] = False
+            self.nstp = np.ones(len(climatic_sel))     # One step per time step
+            self.nper = len(climatic_sel)
                         
         ### Model Domain definition and discretization 
-                
-        # Bottom definition for each of the layers 
-        self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
-        if self.bottom is None:
-            self.bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
-            self.bottom_layer[self.dem<=-9999]=-9999
-        else:
-            if isinstance(self.bottom,(int,float))==True:
-                self.bottom_layer = self.bottom              # Float for flat bottom case or 2D
+              
+        if self.init:
+            # Bottom definition for each of the layers 
+            self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
+            if self.bottom is None:
+                self.bottom_layer = self.dem - self.thick    # Matrix for constant thickness case
+                self.bottom_layer[self.dem<=-9999]=-9999
             else:
-                if len(self.bottom.shape) == 2:
-                    self.bottom_layer = self.bottom
-                    self.bottom_layer[self.dem<=-9999]=-9999
+                if isinstance(self.bottom,(int,float))==True:
+                    self.bottom_layer = self.bottom              # Float for flat bottom case or 2D
+                else:
+                    if len(self.bottom.shape) == 2:
+                        self.bottom_layer = self.bottom
+                        self.bottom_layer[self.dem<=-9999]=-9999
         
-        # Modification of layer thickness exponentially
-        if self.lay_decay != 1.:
-            exp_scale = 1-self.lay_decay**self.nlay
-    
-        # Parameters for proportions of bottom layer to surface values
-        for i in range(1, self.nlay+1):
-            if self.lay_decay <= 1:
-                p = i / self.nlay    # Uniform thicknesses
-            else:
-                p = (1-self.lay_decay**i) / exp_scale   # Increasing thicknesses with depth
-            # Weighted formula to go from bottom_layer to surface (self.dem)
-            if i == 1:
-                self.zbot[i-1] = self.dem  - ((self.dem - self.bottom_layer) * p)
-            else:
-                self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
+            # Modification of layer thickness exponentially
+            if self.lay_decay != 1.:
+                exp_scale = 1-self.lay_decay**self.nlay
         
-        # Definition of top (when there are lakes, top != dem)
-        self.top = self.dem
+            # Parameters for proportions of bottom layer to surface values
+            for i in range(1, self.nlay+1):
+                if self.lay_decay <= 1:
+                    p = i / self.nlay    # Uniform thicknesses
+                else:
+                    p = (1-self.lay_decay**i) / exp_scale   # Increasing thicknesses with depth
+                # Weighted formula to go from bottom_layer to surface (self.dem)
+                if i == 1:
+                    self.zbot[i-1] = self.dem  - ((self.dem - self.bottom_layer) * p)
+                else:
+                    self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
+            
+            # Definition of top (when there are lakes, top != dem)
+            self.top = self.dem
         
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
@@ -390,7 +435,7 @@ class Modflow:
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
                                             top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
-                                            nper=self.nper, perlen=self.perlen, nstp=self.nstp,
+                                            nper=self.nper, perlen=perlen_sel, nstp=self.nstp,
                                             steady=self.steady, start_datetime=self.start_datetime) 
                                             # itmuni = 0 ==> undefined
                                             # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
@@ -399,39 +444,43 @@ class Modflow:
         #%% Boundary conditions
         
         ### Constant Head boundary conditions of No Flow (sides of domain)
-        
-        # iboundData=1: Should compute head in cells 
-        # iboundData=0: Nothing is calculated in celles (should not be really used)
-        # iboundData=-1: Values imposed at the value of strtData
-        self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
-        
-        # Correct ibound in the lake/reservoir layer (1st layer)
-        if self.use_lakeres:
-            self.iboundData[0, :, :] = 0
-        
-        # Free surface level is set to the surface (altitude of DEM)
-        self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
-        
-        # SYNTHETIC CASE: FIXED HEAD ON THE LEFT BORDER (square domain), no longer actively used
-        if  isinstance(self.bc_left,(int,float)) == True: ### BE CAREFUL !
-           self.iboundData[:,:,0] = -1                      
-           self.strtData[:,:,0] = self.bc_left
-       
-        # SYNTHETIC CASE: FIXED HEAD ON THE RIGHT BORDER (square domain), no longer actively used
-        if  isinstance(self.bc_right,(int,float)) == True: ### BE CAREFUL !
-           self.iboundData[:,:,-1] = -1
-           self.strtData[:,:,-1] = self.bc_right
-           
-        # NO FLOW BOUNDARY CONDITIONS 
-        for i in range (self.nlay):
-            if isinstance(self.sea_level,(int,float)) == True:
-                # print('niv0')
-                self.iboundData[i][self.dem <= self.sea_level] = -1
-                self.strtData[self.iboundData == -1] = self.sea_level
-            self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
-
-        self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
+        if self.init:
+            # iboundData=1: Should compute head in cells 
+            # iboundData=0: Nothing is calculated in celles (should not be really used)
+            # iboundData=-1: Values imposed at the value of strtData
+            self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
             
+            # Correct ibound in the lake/reservoir layer (1st layer)
+            if self.use_lakeres:
+                self.iboundData[0, :, :] = 0
+
+            # Free surface level is set to the surface (altitude of DEM)
+            self.strtData = np.ones((self.nlay, self.nrow, self.ncol))* self.dem   
+            
+            # SYNTHETIC CASE: FIXED HEAD ON THE LEFT BORDER (square domain), no longer actively used
+            if  isinstance(self.bc_left,(int,float)) == True: ### BE CAREFUL !
+               self.iboundData[:,:,0] = -1                      
+               self.strtData[:,:,0] = self.bc_left
+           
+            # SYNTHETIC CASE: FIXED HEAD ON THE RIGHT BORDER (square domain), no longer actively used
+            if  isinstance(self.bc_right,(int,float)) == True: ### BE CAREFUL !
+               self.iboundData[:,:,-1] = -1
+               self.strtData[:,:,-1] = self.bc_right
+               
+            # NO FLOW BOUNDARY CONDITIONS 
+            for i in range (self.nlay):
+                if isinstance(self.sea_level,(int,float)) == True:
+                    # print('niv0')
+                    self.iboundData[i][self.dem <= self.sea_level] = -1
+                    self.strtData[self.iboundData == -1] = self.sea_level
+                self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW
+    
+            self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
+            
+        else:
+            self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, 
+                                                strt=self.head_val, hnoflo=-9999)
+        
         ### Constant Head boundary conditions of No Flow (at sea level)
         
         self.drain_array = np.ones((self.nrow, self.ncol))
@@ -457,104 +506,105 @@ class Modflow:
                     
         #%% Parametrization
         
-        # lpf package
-        self.laywet = np.zeros(self.nlay)
-        self.laytype = np.ones(self.nlay)
+        if self.init:
+            # lpf package
+            self.laywet = np.zeros(self.nlay)
+            self.laytype = np.ones(self.nlay)
 
-        # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
-        # Homogeneous or heterogeneous hydraulic conductivity 
-        # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
-        # print(self.nlay, self.nrow, self.ncol)
-        # print(self.hyd_cond)
-        # print(self.hyd_cond.shape)        
-        self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
+            # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
+            # Homogeneous or heterogeneous hydraulic conductivity 
+            # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
+            # print(self.nlay, self.nrow, self.ncol)
+            # print(self.hyd_cond)
+            # print(self.hyd_cond.shape)        
+            self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
         
-        if self.cond_decay != 0.:
-            # print('DECAY EXPO CONDH')
-            depth = np.zeros(self.hk.shape)
-            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-            self.hk *= np.exp(-self.cond_decay*depth)
+            if self.cond_decay != 0.:
+                # print('DECAY EXPO CONDH')
+                depth = np.zeros(self.hk.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
+                self.hk *= np.exp(-self.cond_decay*depth)
         
-        self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
-        self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss
+            self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
+            self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss
             
-        if self.poro_decay != 0.:
-            # print('DECAY EXPO POROSITY')
-            depth = np.zeros(self.ps.shape)
-            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-            self.ps *= np.exp(-(self.poro_decay)*depth)
-            # η=2 is a coefficient related to
-            # the medium structure that we chose to be equal to 2, as com-
-            # monly reported in the literature (Cardenas and Jiang, 2010;
-            # Bernabé et al., 2003)
+            if self.poro_decay != 0.:
+                # print('DECAY EXPO POROSITY')
+                depth = np.zeros(self.ps.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
+                self.ps *= np.exp(-(self.poro_decay)*depth)
+                # η=2 is a coefficient related to
+                # the medium structure that we chose to be equal to 2, as com-
+                # monly reported in the literature (Cardenas and Jiang, 2010;
+                # Bernabé et al., 2003)
 
-        if self.ss_decay != 0.:
-            # print('DECAY EXPO POROSITY')
-            depth = np.zeros(self.ps.shape)
-            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-            self.ss *= np.exp(-(self.ss_decay)*depth)
-            # η=2 is a coefficient related to
-            # the medium structure that we chose to be equal to 2, as com-
-            # monly reported in the literature (Cardenas and Jiang, 2010;
-            # Bernabé et al., 2003)
+            if self.ss_decay != 0.:
+                # print('DECAY EXPO POROSITY')
+                depth = np.zeros(self.ps.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
+                self.ss *= np.exp(-(self.ss_decay)*depth)
+                # η=2 is a coefficient related to
+                # the medium structure that we chose to be equal to 2, as com-
+                # monly reported in the literature (Cardenas and Jiang, 2010;
+                # Bernabé et al., 2003)
             
-        # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
-        if self.verti_cond != None:
-            for j in range(len(self.verti_cond)):
-                # print('j', j)
-                for i in range(len(self.zbot)):
-                    # print('i', i)
-                    k_val = self.verti_cond[j][0]
-                    d1 = self.verti_cond[j][1][0]
-                    d2 = self.verti_cond[j][1][1]
-                    cond_d1 = (self.dem - d1)
-                    cond_d2 = (self.dem - d2)
-                    mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
-                    self.hk[i][mask] = k_val
-                    # print(k_val)
+            # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
+            if self.verti_cond != None:
+                for j in range(len(self.verti_cond)):
+                    # print('j', j)
+                    for i in range(len(self.zbot)):
+                        # print('i', i)
+                        k_val = self.verti_cond[j][0]
+                        d1 = self.verti_cond[j][1][0]
+                        d2 = self.verti_cond[j][1][1]
+                        cond_d1 = (self.dem - d1)
+                        cond_d2 = (self.dem - d2)
+                        mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
+                        self.hk[i][mask] = k_val
+                        # print(k_val)
         
-        # Depth-dependent porosity (disconnected from the vertical discretization)
-        if self.verti_poro != None:
-            for j in range(len(self.verti_poro)):
-                # print('j', j)
-                for i in range(len(self.zbot)):
-                    # print('i', i)
-                    sy_val = self.verti_poro[j][0]
-                    d1 = self.verti_poro[j][1][0]
-                    d2 = self.verti_poro[j][1][1]
-                    poro_d1 = (self.dem - d1)
-                    poro_d2 = (self.dem - d2)
-                    mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
-                    self.ps[i][mask] = sy_val
-                    # print(k_val)
-                
-            for j in range(len(self.verti_ss)):
-                # print('j', j)
-                for i in range(len(self.zbot)):
-                    # print('i', i)
-                    ss_val = self.verti_ss[j][0]
-                    d1 = self.verti_ss[j][1][0]
-                    d2 = self.verti_ss[j][1][1]
-                    ss_d1 = (self.dem - d1)
-                    ss_d2 = (self.dem - d2)
-                    mask = ((self.zbot[i] <= ss_d1) & (self.zbot[i] >= ss_d2))
-                    self.ss[i][mask] = ss_val
-                    # print(k_val)   
+            # Depth-dependent porosity (disconnected from the vertical discretization)
+            if self.verti_poro != None:
+                for j in range(len(self.verti_poro)):
+                    # print('j', j)
+                    for i in range(len(self.zbot)):
+                        # print('i', i)
+                        sy_val = self.verti_poro[j][0]
+                        d1 = self.verti_poro[j][1][0]
+                        d2 = self.verti_poro[j][1][1]
+                        poro_d1 = (self.dem - d1)
+                        poro_d2 = (self.dem - d2)
+                        mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
+                        self.ps[i][mask] = sy_val
+                        # print(k_val)           
+
+                for j in range(len(self.verti_ss)):
+                    # print('j', j)
+                    for i in range(len(self.zbot)):
+                        # print('i', i)
+                        ss_val = self.verti_ss[j][0]
+                        d1 = self.verti_ss[j][1][0]
+                        d2 = self.verti_ss[j][1][1]
+                        ss_d1 = (self.dem - d1)
+                        ss_d2 = (self.dem - d2)
+                        mask = ((self.zbot[i] <= ss_d1) & (self.zbot[i] >= ss_d2))
+                        self.ss[i][mask] = ss_val
+                        # print(k_val)   
         
-        # Lateral heterogeneity of hk ?
-        # for i in range(0,len(self.number_structure)):
-        #     for j in range(0,nlay):
-        #         self.hk[j][self.structure.geology==self.number_structure[i]]= logParamValue[i]*3600*24
+            # Lateral heterogeneity of hk ?
+            # for i in range(0,len(self.number_structure)):
+            #     for j in range(0,nlay):
+            #         self.hk[j][self.structure.geology==self.number_structure[i]]= logParamValue[i]*3600*24
 		   
-        self.upw = flopy.modflow.ModflowUpw(self.mf, 
-                                            laytyp=self.laytype, laywet=self.laywet, 
-                                            hk=self.hk, sy=self.ps,
-                                            ss=self.ss,
-                                            iphdry=1, hdry=-100, vka=1, noparcheck=False,
-                                            extension='upw',
-                                            # unitnumber=31
-                                            unitnumber=None
-                                            )
+            self.upw = flopy.modflow.ModflowUpw(self.mf, 
+                                                laytyp=self.laytype, laywet=self.laywet, 
+                                                hk=self.hk, sy=self.ps,
+                                                ss=self.ss,
+                                                iphdry=1, hdry=-100, vka=1, noparcheck=False,
+                                                extension='upw', 
+                                                # unitnumber=31,
+                                                unitnumber=None
+                                                )
         
         #%% Source terms (other than artificial filling/pumping of lakes/reservoirs)
         
@@ -594,12 +644,17 @@ class Modflow:
 #             self.climatic[self.lakeres.masks[lake_id]] = 0
 #             # Usefull to store the value, in order to compare to dam leakage
 # =============================================================================
+                if self.timestep is None:
+                    evt_sel = self.evt
+                else:
+                    # Extract (as a pd.dataframe) the row corresponding to the current timestep
+                    evt_sel = self.evt.iloc[[self.timestep], :]
                 self.evtData = {}
                 # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
                 for kper in range(0, self.nper):
-                    if isinstance(self.evt,(int,float)):
+                    if isinstance(evt_sel,(int,float)):
                         # If integer or float, do it only once (steady state)
-                        self.evtData[kper] = self.evt
+                        self.evtData[kper] = evt_sel
                     else:
                         # Transient state: 
                         if kper == 0:
@@ -624,14 +679,14 @@ class Modflow:
             # over the surface: rch package (should always be positive)        
         self.rchData = {}
         for kper in range(0, self.nper):
-            if isinstance(self.climatic,(dict))==True:
-                self.rchData = self.climatic
+            if isinstance(climatic_sel,(dict))==True:
+                self.rchData = climatic_sel
             else:
-                if isinstance(self.climatic,(int,float)):
+                if isinstance(climatic_sel,(int,float)):
                     # Only value in self.climatic (steady)
-                    self.rchData[kper] = self.climatic
+                    self.rchData[kper] = climatic_sel
                 else:
-                    if kper == 0:
+                    if (kper == 0) & self.init:
                         # First value: steady (to reach equilibrium before starting the transient state of the simulation)
                         # By default mean of the climatic chronicle
                         if self.first_clim == 'mean':
@@ -646,9 +701,9 @@ class Modflow:
                         # More flexibility in the possible format of the climatic chronicles 
                         # Should only be used exceptionnaly (pandas series recommended)
                         try:
-                            self.rchData[kper] = self.climatic[kper]
+                            self.rchData[kper] = climatic_sel[kper]
                         except:
-                            self.rchData[kper] = self.climatic.iloc[kper].values[0]        
+                            self.rchData[kper] = climatic_sel.iloc[kper].values[0]        
             
         # Sets recharge to modflow through flopy
         self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
@@ -773,10 +828,10 @@ class Modflow:
                         self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
                     if self.lakeres.rtrn_by_lake[lake_id] is not None:
                         for d in self.lakeres.rtrn_by_lake[lake_id].index:
-                            per = self.climatic.index.get_loc(d)
+                            per = climatic_sel.index.get_loc(d)
                             runoff_prev = segment_data[per]['runoff'].copy()
                             runoff = runoff_prev.copy()
-                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[self.climatic.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
+                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[climatic_sel.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
                             segment_data[per]['runoff'] = runoff_prev + runoff
                             itmp[per] = nss # time-varying inputs
             
@@ -790,7 +845,7 @@ class Modflow:
                     itmp[:] = nss
                 elif isinstance(self.streamflow_seepage.runoff, pd.core.series.Series):
                     for d in self.streamflow_seepage.runoff.index:
-                        per = self.climatic.index.get_loc(d)
+                        per = climatic_sel.index.get_loc(d)
                         runoff_prev = segment_data[per]['runoff'].copy()
                         runoff = runoff_prev + self.streamflow_seepage.runoff
                         segment_data[per]['runoff'] = runoff
@@ -929,7 +984,7 @@ class Modflow:
         # This function is run in #%% Discretization section:
 # =============================================================================
 #         stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
-#             self.geographic, self.climatic, self.nper, thickfact)
+#             self.geographic, climatic_sel, self.nper, thickfact)
 # =============================================================================
        
         if self.use_lakeres:       
@@ -951,57 +1006,58 @@ class Modflow:
 # =============================================================================
 
         #%% Drain package
+        
+        if self.init:
+            # (DRN)
+            # Applied to all the surface of the model : enables seepage on the top layer
     
-        # (DRN)
-        # Applied to all the surface of the model : enables seepage on the top layer
-
 # =============================================================================
-#         if self.streamflow_seepage != None: # if the object streamflow_seepage is not None:
-#             if self.cond_drain != None:
-#                 print("cond_drain overwritten with streamflow_seepage values")
-#                 self.cond_drain = self.streamflow_seepage.cond_drain*100
+#             if self.streamflow_seepage != None: # if the object streamflow_seepage is not None:
+#                 if self.cond_drain != None:
+#                     print("cond_drain overwritten with streamflow_seepage values")
+#                     self.cond_drain = self.streamflow_seepage.cond_drain*100
 # =============================================================================
-            
-        self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
-        compt = 0
-        # First value (0): layer number
-        self.drnData[:, 0] = self.aquifer_top_layer
-        for i in range (0,self.nrow):
-            for j in range (0, self.ncol):
-                if self.drain_array[i,j] == 1:
-                    self.drnData[compt, 1] = i # Second value (1): row number
-                    self.drnData[compt, 2] = j # Third value (2): column number
-                    self.drnData[compt, 3] = self.dem[i, j] # Fourth value (3): altitude
-                    # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
-                    if self.sink_fill == False:
-                        if self.cond_drain != None:
-                            #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
-                            self.drnData[compt, 4] = self.cond_drain 
-                        else:
-                            self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
-                    else:
-                        if self.sink[i,j]>0:
-                            #ALEXANDRE: when filled, no possible drains, why?
-                            self.drnData[compt, 4] = 0 # hcond_low
-                        else:
+                
+            self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
+            compt = 0
+            self.drnData[:, 0] = self.aquifer_top_layer
+            for i in range (0,self.nrow):
+                for j in range (0, self.ncol):
+                    if self.drain_array[i,j] == 1:
+                        self.drnData[compt, 1] = i # Second value (1): row number
+                        self.drnData[compt, 2] = j # Third value (2): column number
+                        self.drnData[compt, 3] = self.dem[i, j] # Fourth value (3): altitude
+                        # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
+                        if self.sink_fill == False:
                             if self.cond_drain != None:
+                                #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
                                 self.drnData[compt, 4] = self.cond_drain 
                             else:
-                                self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2 
+                                self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution** 2)
+                        else:
+                            if self.sink[i,j]>0:
+                                #ALEXANDRE: when filled, no possible drains, why?
+                                self.drnData[compt, 4] = 0 # hcond_low
+                            else:
+                                if self.cond_drain != None:
+                                    #ALEXANDRE: pourquoi self.multip_cond utilisée ici aussi, faut-il modifier pour avoir 2 noms de variables différents? 
+                                    self.drnData[compt, 4] = self.cond_drain 
+                                else:
+                                    self.drnData[compt, 4] = self.hk[0, i, j] * self.resolution** 2                             
                     
-                    # If a correction of conductances is needed for SFR, 
-                    # then it is also applied to DRN:
-                    if self.streamflow_seepage is not None:
-                        if self.streamflow_seepage.critical_mode is not None:
-                            if self.streamflow_seepage.crit_area[i,j] >= self.streamflow_seepage.sink_threshold:
-                                self.drnData[compt, 4] = min(self.drnData[compt, 4], 
-                                                             self.streamflow_seepage.hcond_min)
-                            
-                    compt += 1
+                        # If a correction of conductances is needed for SFR, 
+                        # then it is also applied to DRN:
+                        if self.streamflow_seepage is not None:
+                            if self.streamflow_seepage.critical_mode is not None:
+                                if self.streamflow_seepage.crit_area[i,j] >= self.streamflow_seepage.sink_threshold:
+                                    self.drnData[compt, 4] = min(self.drnData[compt, 4], 
+                                                                 self.streamflow_seepage.hcond_min)
+                                
+                        compt += 1
 
-        # Imposes condition to Modflow through flopy
-        lrcec= {0:self.drnData}
-        self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+            # Imposes condition to Modflow through flopy
+            lrcec= {0:self.drnData}
+            self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
 
         #%% Output control
         
@@ -1053,6 +1109,7 @@ class Modflow:
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
             
             fig.suptitle(self.model_name.upper(), y=1.05, fontsize=8)
+
 
     #%% PROCESSING
     
@@ -1139,6 +1196,15 @@ class Modflow:
             Write all files .tif at each time step. The default is False.
 
         """
+
+        # Time management for sequential coupling
+        # Recharge
+        if self.timestep is None:
+            climatic_sel = self.climatic
+        else:
+            # Extract (as a pd.dataframe) the row corresponding to the current timestep
+            climatic_sel = self.climatic.iloc[[self.timestep]]
+            
         # Correct lake_leakage condition
         if self.use_lakeres == False:
             lake_leakage = False
@@ -1167,13 +1233,17 @@ class Modflow:
         # Files have been output in the processing phase and are re-read here
         self.dem_mask = (self.dem<-4000)  # 4000 meters (sure no DEM value below: equivalent to no data value)
         # heads
-        self.head_fpu = fpu.HeadFile(self.path_file+'.hds') 
+        head_fpu = fpu.HeadFile(self.path_file+'.hds') 
         # fluxes
-        self.cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
+        cbb = fpu.CellBudgetFile(self.path_file+'.cbc')
+        
+        # NB: head_fpu and cbb are not saved as self attributes, to avoid 
+        # buffer errors when saving the self to a file
+        # (dd.io.save(h5file, mdflw_dict) in launcher)
         
         # Import times
-        self.times = self.head_fpu.get_times()
-        self.kstpkper = self.head_fpu.get_kstpkper()
+        self.times = head_fpu.get_times()
+        self.kstpkper = head_fpu.get_kstpkper()
         # Stress periods (flopy "language")
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
@@ -1193,30 +1263,75 @@ class Modflow:
         
         # Fill dictionnaries (save to .h5) over times and create .tifs 
         
-        # Create dictionnaries for each of the results to extract 
-        # x[time]=matrix
-        #   - x: type of output
-        #   - time: time at which it is taken
-        #   - matrix: 2D matrix of values
-        self.dict_watertable_elevation = {}
-        self.dict_watertable_depth = {}
-        self.dict_seepage_areas = {}
-        self.dict_outflow_drain = {}
-        self.dict_groundwater_flux = {}
-        self.dict_specific_discharge = {}
-        self.dict_accumulation_flux = {}
-        self.dict_lake_leakage = {}
-        self.dict_saturated_storage = {}
-        self.dict_groundwater_storage = {}
-        # self.dict_residence_times = {}
-        self.dict_persistency_index = {}
-        self.dict_intermittency_monthly = {}
-        self.dict_intermittency_weekly = {}
-        self.dict_intermittency_daily = {}
-        self.list_traces = []
+        if self.init:
+            # Create dictionnaries for each of the results to extract 
+            # x[time]=matrix
+            #   - x: type of output
+            #   - time: time at which it is taken
+            #   - matrix: 2D matrix of values
+            self.dict_watertable_elevation = {}
+            self.dict_watertable_depth = {}
+            self.dict_seepage_areas = {}
+            self.dict_outflow_drain = {}
+            self.dict_groundwater_flux = {}
+            self.dict_specific_discharge = {}
+            self.dict_accumulation_flux = {}
+            self.dict_lake_leakage = {}
+            self.dict_saturated_storage = {}
+            self.dict_groundwater_storage = {}
+            # self.dict_residence_times = {}
+            self.dict_persistency_index = {}
+            self.dict_intermittency_monthly = {}
+            self.dict_intermittency_weekly = {}
+            self.dict_intermittency_daily = {}
+            self.list_traces = []
+        
+# =============================================================================
+#         else:
+#             ### Load dictionaries from npy
+#             if watertable_elevation == True:
+#                 np.load(self.save_file+'/watertable_elevation', 
+#                         allow_pickle=True)
+#             if watertable_depth == True:
+#                 np.load(self.save_file+'/watertable_depth', 
+#                         allow_pickle=True)
+#             if seepage_areas == True:
+#                 np.load(self.save_file+'/seepage_areas', 
+#                         allow_pickle=True)
+#             if outflow_drain == True:
+#                 np.load(self.save_file+'/outflow_drain', 
+#                         allow_pickle=True)
+#             if groundwater_flux == True:
+#                 np.load(self.save_file+'/groundwater_flux', 
+#                         allow_pickle=True)
+#             if groundwater_storage == True:
+#                 np.load(self.save_file+'/groundwater_storage', 
+#                         allow_pickle=True)
+#             if accumulation_flux == True:
+#                 np.load(self.save_file+'/accumulation_flux', 
+#                         allow_pickle=True)
+#             if lake_leakage == True:
+#                 np.load(self.save_file+'/lake_leakage', 
+#                         allow_pickle=True)
+#             if persistency_index == True:
+#                 np.save(self.save_file+'/persistency_index', 
+#                         allow_pickle=True)
+#             if intermittency_monthly == True:
+#                 np.save(self.save_file+'/intermittency_monthly', 
+#                         allow_pickle=True)
+#             if intermittency_weekly == True:
+#                 np.save(self.save_file+'/intermittency_weekly', 
+#                         allow_pickle=True)
+#             if intermittency_daily == True:
+#                 np.save(self.save_file+'/intermittency_daily', 
+#                         self.dict_intermittency_daily,
+#                         allow_pickle=True)
+# =============================================================================
         
         # Loop over times, fills each of the previous structures 
         for item, time in enumerate(self.times):
+            if self.timestep is not None:
+                item = self.timestep
             print('    Time: ', item)
             lake_lateralflow_count = 0
                      
@@ -1231,7 +1346,7 @@ class Modflow:
                     export_tif = False
             
             # Search watertable data positive values
-            self.head = self.head_fpu.get_data(totim=time)
+            self.head = head_fpu.get_data(totim=time)
             if self.nlay == 1:
                 self.head_data = self.head[0]
             else:
@@ -1244,10 +1359,10 @@ class Modflow:
                                 break   
                 self.head_data = head_final.copy()
             # if self.nlay > 1:
-            #     self.head_all = self.head_fpu.get_alldata() # mflay=None
+            #     self.head_all = head_fpu.get_alldata() # mflay=None
             #     self.head_data = self.head_all[item][0]
             # else:
-            #     self.head_data = self.head_fpu.get_data(totim=time)
+            #     self.head_data = head_fpu.get_data(totim=time)
             #     self.head_data = self.head_data[0]
             
             if watertable_elevation == True:   
@@ -1286,7 +1401,7 @@ class Modflow:
                 # Standard case: seepage is modeled with DRN package
                 if not self.streamflow_seepage: 
                     ### Outflow drain
-                    self.drain = self.cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
+                    self.drain = cbb.get_data(text='DRAINS', kstpkper=self.kstpkper, totim=time)            
                     self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
                     sim = 0
                     count = 0
@@ -1316,13 +1431,13 @@ class Modflow:
 
             if groundwater_flux == True:
                 ### Groundwater flux
-                self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
-                self.frf = self.cbb.get_data(text='FLOW RIGHT FACE', kstpkper=self.kstpkper, totim=time)[0]
-                self.fff = self.cbb.get_data(text='FLOW FRONT FACE', kstpkper=self.kstpkper, totim=time)[0]
+                cbb_data = cbb.get_data(kstpkper=(0, 0))
+                self.frf = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=self.kstpkper, totim=time)[0]
+                self.fff = cbb.get_data(text='FLOW FRONT FACE', kstpkper=self.kstpkper, totim=time)[0]
                 if self.nlay == 1:
                     self.flux = np.sqrt(self.frf**2 + self.fff**2)        
                 if self.nlay > 1:
-                    self.flf = self.cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
+                    self.flf = cbb.get_data(text='FLOW LOWER FACE', kstpkper=self.kstpkper, totim=time)[0] # > 1 lay
                     self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
                 self.flux_top = self.flux[self.aquifer_top_layer]
                 self.flux_top[self.dem_mask] = -9999
@@ -1348,7 +1463,7 @@ class Modflow:
                 else:
                     self.kstpkper_bis = (self.kstp[item], time)
                     try:
-                        self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper_bis)[0]
+                        self.sto = cbb.get_data(text='STORAGE', kstpkper=self.kstpkper_bis)[0]
                     except:
                         pass
                 self.gw_storage = np.sum(self.sto, axis=0)
@@ -1613,5 +1728,8 @@ class Modflow:
                     inf+=365
                     sup+=365                    
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
-                                
+        
+        head_fpu.close()
+        cbb.close()
+                        
 #%% NOTES
