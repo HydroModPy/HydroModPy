@@ -161,8 +161,6 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 #%% RECHARGE et RUISSELLEMENT DE SURFACE DIRECT (données d'entrée)
 freq_input = 'W' # hebdomadaire
 
->>> Charger les evt et precip
-
 # =============================================================================
 # BV.add_climatic()
 # sim_state = 'transient' # transitoire
@@ -648,16 +646,18 @@ print("   . Mise à jour des paramètres du réservoir")
 
 # Environmental fluxes (by default, fluxes are set to 0) 
 # ------------------------------------------------------
-# User can update these fluxes with float, file path, or "from_climatic" mode
-# BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e6) # because Ronan's values were summed over 1.73 km² area
-# BV.lakeres.update_precip(lake_id, 'from_climatic')
-BV.lakeres.update_precip(lake_id, BV.climatic.precip)
-# BV.lakeres.update_evap(lake_id, dam_input_df['ae_oudin']/1.73e6)
-# BV.lakeres.update_evap(lake_id, 'from_climatic')
-BV.lakeres.update_evap(lake_id, BV.climatic.evt)
-# Note: runoff has to be a volume
-# BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6) # because runoff has to be a volume (summed over the area runing off towards the lake)
-BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (BV.geographic.resolution**2), runoff_accumulation = True)
+# =============================================================================
+# # User can update these fluxes with float, file path, or "from_climatic" mode
+# # BV.lakeres.update_precip(lake_id, dam_input_df['ppt_surf']/1.73e6) # because Ronan's values were summed over 1.73 km² area
+# # BV.lakeres.update_precip(lake_id, 'from_climatic')
+# BV.lakeres.update_precip(lake_id, BV.climatic.precip)
+# # BV.lakeres.update_evap(lake_id, dam_input_df['ae_oudin']/1.73e6)
+# # BV.lakeres.update_evap(lake_id, 'from_climatic')
+# BV.lakeres.update_evap(lake_id, BV.climatic.evt)
+# # Note: runoff has to be a volume
+# # BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (30-3.31)*1e6) # because runoff has to be a volume (summed over the area runing off towards the lake)
+# BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (BV.geographic.resolution**2), runoff_accumulation = True)
+# =============================================================================
 
 # Anthropic fluxes (including withdrawing return flow)
 # ----------------
@@ -877,7 +877,13 @@ for i in range(0, 50):
     print(model_name)
     
     # ---- Extraction de la recharge
-    recharge = 0 blabla (freq_input)
+    >>> recharge = 0 blabla (freq_input)
+    >>> Charger les evt et precip
+    
+    # ---- Mise à jour des flux naturels sur le réservoir
+    BV.lakeres.update_precip(lake_id, BV.climatic.precip)
+    BV.lakeres.update_evap(lake_id, BV.climatic.evt)
+    BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (BV.geographic.resolution**2), runoff_accumulation = True)
     
     # ---- Mise à jour du modèle modflow
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
