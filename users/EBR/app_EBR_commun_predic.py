@@ -915,8 +915,25 @@ for i in range(0, 50):
     print(model_name)
     
     # ---- Extraction de la recharge
-    >>> recharge = 0 blabla (freq_input)
-    >>> Charger les evt et precip
+    prevision_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
+    # Donnees climatiques
+    with xr.open_dataset(os.path.join(prevision_path, 'C3S_2024-10.nc'), 
+                         decode_times = False, 
+                         decode_coords = 'all') as clim_ds:
+        clim_ds.load()
+    
+    # Frequence
+# =============================================================================
+#     clim_ds = clim_ds.resample(freq_input).mean()
+# =============================================================================
+    # A terme il faudrait pouvoir utiliser directement des donnees spatio-temporelles
+    # Pour l'instant on convertit ca en chroniques (pandas)
+    >>> clim_df = ...
+    clim_df = clim_df.resample(freq_input).mean()
+    
+    recharge = clim_df['SSRO']
+    precip = clim_df['TP']
+    evap = clim_df['E']
     
     # ---- Mise à jour des flux naturels sur le réservoir
     BV.lakeres.update_precip(lake_id, BV.climatic.precip)
