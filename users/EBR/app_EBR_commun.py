@@ -717,7 +717,7 @@ BV.add_streamflow_seepage(icalc = 1)
 
 # Area where the SFR seepage will be applied:
 # BV.streamflow_seepage.update_area('watershed')
-BV.streamflow_seepage.update_area('watershed', 0.7)
+BV.streamflow_seepage.update_area('watershed')
 # Standard values for segment_data:
 depth = 0 # 0.1 # self.thick # 1 # arbitrary
 hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
