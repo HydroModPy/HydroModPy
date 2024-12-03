@@ -50,6 +50,7 @@ wbt.verbose = False
 # =============================================================================
 import xarray as xr
 xr.set_options(keep_attrs = True)
+import yaml
 
 # Pour recharger les résultats de l'historique
 import flopy.utils.binaryfile as fpu
@@ -75,10 +76,6 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% SCENARIO
-scenario = '2022_jan-dec_daily'
-# A terme il faut que ce scenario soit un argument d'entrée, et donc que ce script soit lancé comme une fonction !
-
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
 # Pour modifier ce chemin : out_path = folder_root.update_root_folder_results()
@@ -91,12 +88,31 @@ if not os.path.exists(data_path):
 if len(os.listdir(data_path)) == 0:
     print(f"Warning : Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)\n")
 
+#%% CHARGEMENT DU FICHIER DE PARAMETRES
+with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
+    settings = yaml.load(file_object, Loader = yaml.SafeLoader)
+
+# Corrections
+if 'scenarios' in settings:
+    # Les scenarios doivent etre sous forme de liste (meme s'il y en qu'un)
+    if not isinstance(settings['scenarios'], list):
+        settings['scenarios'] = [settings['scenarios']]
+    # Les extensions doivent etre rajoutees aux noms des fichiers (si nécessaire)
+    for s in range(0, len(settings['scenarios'])):
+        if os.path.splitext(settings['scenarios'][s])[-1] == '':
+            settings['scenarios'][s] += '.csv'
+            
+# Raffinage de la startdate
+if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
+    settings['startdate'] = pd.to_datetime("today").strftime("%Y-%m-%d")   
+
+
 #%% BASSIN VERSANT 
 ##%%% Options: Charger MNT
 dem_path = os.path.join(data_path, 
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
-watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', pd.to_datetime("today").strftime("%Y-%m-%d")])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', settings['startdate']])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -832,12 +848,12 @@ BV.save_object()
 # nlay = 1
 # lay_decay = 1 # 1 for no decay
 # bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-# thick = 35 # if bottom is None, aquifer thickness
-# hyd_cond = 1e-4 * 24 * 3600 # m/day
+# thick = settings['thick'] # 35 # if bottom is None, aquifer thickness
+# hyd_cond = settings['hyd_cond'] # 1e-4 * 24 * 3600 # m/day
 # cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 # verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 # cond_drain = None # or value of conductance
-# porosity = 0.1 / 100 # [%]
+# porosity = settings['porosity'] # 0.1 / 100 # [%]
 # poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 # 
 # # Conditions aux limites
@@ -921,6 +937,9 @@ for i in range(0, 50):
                          decode_times = False, 
                          decode_coords = 'all') as clim_ds:
         clim_ds.load()
+    
+    # Période
+    clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
     
     # Frequence
 # =============================================================================
