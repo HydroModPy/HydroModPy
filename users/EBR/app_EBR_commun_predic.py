@@ -76,6 +76,9 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+#% Personal toolbox to handle NetCDF
+import trajectoire_toolbox as ttbox
+
 #%% ARGUMENTS D'ENTREE
 scenario = sys.argv[1]
 
@@ -273,29 +276,39 @@ list_success_modflow = []
 list_model_modflow = []
 
 # ---- Boucle sur chaque run disponible dans les données
-for i in range(0, 50):    
+for i in range(0, 51):    
     model_name = f'predic{i}'
     BV.settings.update_model_name(model_name)
     print(model_name)
     
     # ---- Extraction de la recharge
-    prevision_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
+    forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
     # Donnees climatiques
-    with xr.open_dataset(os.path.join(prevision_path, 'C3S_2024-10.nc'), 
-                         decode_times = False, 
-                         decode_coords = 'all') as clim_ds:
-        clim_ds.load()
+    # with xr.open_dataset(os.path.join(forecast_path, 'C3S_2024-10.nc'), 
+    #                      decode_times = False, 
+    #                      decode_coords = 'all') as clim_ds:
+    #     clim_ds.load()
+    clim_ds = ttbox.ouvrir(
+        os.path.join(forecast_path, 'Seasonal_forecast_2023-10-01.nc'), # 'C3S_2024-10.nc'),
+        decode_times = True, decode_coords = 'all')
     
     # Période
     clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
     
     # Frequence
-# =============================================================================
-#     clim_ds = clim_ds.resample(freq_input).mean()
-# =============================================================================
-    # A terme il faudrait pouvoir utiliser directement des donnees spatio-temporelles
-    # Pour l'instant on convertit ca en chroniques (pandas)
-    >>> clim_df = ...
+    """
+    A terme il faudrait pouvoir utiliser directement des donnees spatio-temporelles
+    Pour l'instant on convertit ca en chroniques (pandas).
+    Toute cette gestion devrait à terme pouvoir être faite dans un script dédié,
+    de la même manière que pour sim2 :
+        BV.climatic.update_c3s_previsions(....)
+    """
+    # clim_ds = clim_ds.resample(freq_input).mean()
+
+    clipped_ds = ttbox.reprojeter(clim_ds, mask = BV.geographic.watershed_shp,
+                                  dst_crs = BV.geographic.crs_proj)
+    
+    clim_df = clipped_ds.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
     clim_df = clim_df.resample(freq_input).mean()
     
     recharge = clim_df['SSRO']
