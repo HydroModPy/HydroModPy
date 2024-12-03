@@ -118,18 +118,6 @@ from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buff
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
 save_object = True
 
-#%%% Créer GEOGRAPHIC
-# =============================================================================
-# print('##### '+watershed_name.upper()+' #####')
-# 
-# BV = watershed_root.Watershed(dem_path=dem_path,
-#                               out_path=out_path,
-#                               load=False, # load = False
-#                               watershed_name=watershed_name,
-#                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-#                               save_object=save_object)
-# =============================================================================
-
 #%%% Recharger GEOGRAPHIC
 print('##### '+watershed_name.upper()+' #####')
 
@@ -171,7 +159,7 @@ prev_head_3D[prev_head_3D < 0] = np.nan
 head_2D = prev_head_3D[0, :, :].copy() # 2 dim = y, x
 # Browse all the layers, from the top to the bottom, and keep the first 
 # encountered postive (or null) values
-for layer in range(0, head_3D.shape[0]):
+for layer in range(0, prev_head_3D.shape[0]):
     head_2D[np.isnan(head_2D)] = prev_head_3D[layer, :, :][np.isnan(head_2D)]
 # =============================================================================
 # # Apply the mask
