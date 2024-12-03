@@ -1197,6 +1197,12 @@ class Modflow:
             
             # Sets recharge to modflow through flopy
             flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+            
+        #%%% Update lakeres
+        if 'lakeres' in update_dict:
+            self.lakeres = update_dict['lakeres']
+            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
+                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_watershed_path)
     
     #%% POST-PROCESSING
     

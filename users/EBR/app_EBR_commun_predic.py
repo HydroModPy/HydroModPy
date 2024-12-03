@@ -312,7 +312,13 @@ for i in range(0, 51):
     
     # ---- Mise à jour du modèle modflow
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
-    model_modflow = BV.update_modflow(model_modflow, {'heads': prev_head_3D, 'recharge': recharge}) # ('sim_state': 'steady' si on veut)
+    model_modflow = BV.update_modflow(
+        model_modflow, 
+        {'heads': prev_head_3D, 
+         'recharge': recharge,
+         'lakeres': BV.lakeres,
+         # 'sim_state': 'steady' si on veut
+         })
     
     # ---- Simulation
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
