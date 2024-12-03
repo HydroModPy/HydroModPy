@@ -1,8 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem Define the folder with scenarios
-set scenario_files="D:\Dam_EBR_results\raw\data_Cheze\Reservoir\Scenarios de gestion\*.csv"
+rem Fill the folder with selected scenarios
+call python .\scenario_selection.py
+
+rem Define the folder with selected scenarios
+set scenario_files="D:\Dam_EBR_results\raw\data_Cheze\Reservoir\Scenarios de gestion\Selection\*.csv"
 
 rem Get the number of scenarios
 set n_scenario=0
