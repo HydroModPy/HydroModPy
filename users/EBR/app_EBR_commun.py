@@ -91,7 +91,7 @@ with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
    
 # Raffinage de la startdate
 if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
-    settings['startdate'] = pd.to_datetime("today").strftime("%Y-%m-%d")   
+    settings['startdate'] = pd.to_datetime("today")  
 
 
 #%% BASSIN VERSANT 
@@ -100,7 +100,7 @@ dem_path = os.path.join(data_path,
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', settings['startdate']])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', settings['startdate'].strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -187,8 +187,12 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
 # for var in ['evt', 'etp', 'precip', 't', 'recharge', 'runoff']:
 #     exec(f"BV.climatic.{var} = BV.climatic.{var}[slice(None, '2024-09-30')]")
 # Le code suivant est plus rigoureux :
-BV.climatic.update_recharge(BV.climatic.recharge[slice(None, '2024-09-30')], sim_state=sim_state)
-BV.climatic.update_runoff(BV.climatic.runoff[slice(None, '2024-09-30')], sim_state=sim_state)
+BV.climatic.update_recharge(BV.climatic.recharge[
+        slice(None, settings['startdate'] - datetime.timedelta(days = 1))
+        ], sim_state=sim_state)
+BV.climatic.update_runoff(BV.climatic.runoff[
+        slice(None, settings['startdate'] - datetime.timedelta(days = 1))
+        ], sim_state=sim_state)
 
 # Units
 BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m

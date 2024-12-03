@@ -80,7 +80,11 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 import trajectoire_toolbox as ttbox
 
 #%% ARGUMENTS D'ENTREE
-scenario = sys.argv[1]
+try:
+    scenario = sys.argv[1]
+except:
+    print("Le scenario est normalement défini lors du lancement du script dans la console.")
+    scenario = input("Comme ce n'est pas le cas ici, il est nécessaire d'indiquer manuellement le scenario choisi : ")
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
@@ -100,7 +104,7 @@ with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
             
 # Raffinage de la startdate
 if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
-    settings['startdate'] = pd.to_datetime("today").strftime("%Y-%m-%d")   
+    settings['startdate'] = pd.to_datetime("today")   
 
 
 #%% BASSIN VERSANT 
@@ -108,7 +112,7 @@ if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
 dem_path = os.path.join(data_path, 
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
-watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', settings['startdate']])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', settings['startdate'].strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
