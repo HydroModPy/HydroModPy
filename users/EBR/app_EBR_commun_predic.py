@@ -275,13 +275,8 @@ for i in range(0, 51):
     
     # ---- Extraction de la recharge
     forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
-    # Donnees climatiques
-    # with xr.open_dataset(os.path.join(forecast_path, 'C3S_2024-10.nc'), 
-    #                      decode_times = False, 
-    #                      decode_coords = 'all') as clim_ds:
-    #     clim_ds.load()
     clim_ds = ttbox.ouvrir(
-        os.path.join(forecast_path, 'Seasonal_forecast_2023-10-01.nc'), # 'C3S_2024-10.nc'),
+        os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), # 'C3S_2024-10.nc'),
         decode_times = True, decode_coords = 'all')
     
     # Période
@@ -289,11 +284,13 @@ for i in range(0, 51):
     
     # Frequence
     """
-    A terme il faudrait pouvoir utiliser directement des donnees spatio-temporelles
-    Pour l'instant on convertit ca en chroniques (pandas).
     Toute cette gestion devrait à terme pouvoir être faite dans un script dédié,
     de la même manière que pour sim2 :
         BV.climatic.update_c3s_previsions(....)
+    Ce script téléchargerait automatiquement les données via l'API.
+    
+    NB : A terme il faudrait aussi pouvoir utiliser directement des donnees spatio-temporelles
+    Pour l'instant on convertit ca en chroniques (pandas).
     """
     # clim_ds = clim_ds.resample(freq_input).mean()
 
@@ -303,9 +300,10 @@ for i in range(0, 51):
     clim_df = clipped_ds.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
     clim_df = clim_df.resample(freq_input).mean()
     
-    recharge = clim_df['SSRO']
-    precip = clim_df['TP']
-    evap = clim_df['E']
+    recharge = clim_df['ssro']
+    runoff = clim_df['sro']
+    precip = clim_df['tp']
+    evap = clim_df['e']
     
     # ---- Mise à jour des flux naturels sur le réservoir
     BV.lakeres.update_precip(lake_id, BV.climatic.precip)
