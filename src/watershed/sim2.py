@@ -77,7 +77,7 @@ class Sim2:
             'D' for daily
             'W' for weekly (aggregated on Sundays)
             'M' for monthly (aggregated on last day of the month)
-            ...
+            ...for offset alias list, see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases 
         sim_state : str
             'transient' | 'steady'
             If 'steady', the time mean will be used.
