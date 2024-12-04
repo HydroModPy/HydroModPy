@@ -25,12 +25,11 @@ Liste des branches :
   AG & Martin:
     Branch old-calibration
   AC:
-    Branch dev-lakeres  
+    Branch dev-lakeres 
+    Branch dev-lakeres/warm-up
     Branch dev-sequential
-    Branch dev-prediction
+    Branch dev-lakeres/sequential
     Branch dev-optim-postproc
-    Branch dev-sequential-lakeres
-    Branch dev-nodata
   Stage IRISA:
     Branch dev-jeremy
 
