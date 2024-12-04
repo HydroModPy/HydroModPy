@@ -1,8 +1,0 @@
-2024-12-02 11:58:12.575115 starting: opening PstFrom.log for logging
-2024-12-02 11:58:12.576116 starting PstFrom process
-2024-12-02 11:58:12.576116 starting: setting up dirs
-2024-12-02 11:58:12.576116 starting: removing existing new_d 'D:\Users\abherve\GITHUB\GMDSI\GMDSI_notebooks\models\template'
-2024-12-02 11:58:12.625113 finished: removing existing new_d 'D:\Users\abherve\GITHUB\GMDSI\GMDSI_notebooks\models\template' took: 0:00:00.048997
-2024-12-02 11:58:12.625113 starting: copying original_d 'D:\Users\abherve\GITHUB\GMDSI\GMDSI_notebooks\models\monthly_model_files_1lyr_newstress' to new_d 'D:\Users\abherve\GITHUB\GMDSI\GMDSI_notebooks\models\template'
-2024-12-02 11:58:12.712801 finished: copying original_d 'D:\Users\abherve\GITHUB\GMDSI\GMDSI_notebooks\models\monthly_model_files_1lyr_newstress' to new_d 'D:\Users\abherve\GITHUB\GMDSI\GMDSI_notebooks\models\template' took: 0:00:00.087688
-2024-12-02 11:58:12.712801 finished: setting up dirs took: 0:00:00.136685
