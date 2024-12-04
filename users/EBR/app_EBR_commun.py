@@ -780,12 +780,12 @@ plot_cross = True
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = settings['thick'] # 35 # if bottom is None, aquifer thickness
-hyd_cond = settings['hyd_cond'] # 1e-4 * 24 * 3600 # m/day
+thick = settings['parameters']['thick'] # 35 # if bottom is None, aquifer thickness
+hyd_cond = settings['parameters']['hyd_cond'] # 1e-4 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = settings['porosity'] # 0.1 / 100 # [%]
+porosity = settings['parameters']['porosity'] # 0.1 / 100 # [%]
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Conditions aux limites
