@@ -19,7 +19,7 @@ call %root%\Scripts\activate.bat
 call activate hydromodpy
 call D:
 
-rem Historic simulation (warm-up)
+rem Historical simulation (warm-up)
 echo SIMULATION DE L'ETAT INITIAL DU MODELE
 echo:
 call python .\app_EBR_commun.py -l -t
