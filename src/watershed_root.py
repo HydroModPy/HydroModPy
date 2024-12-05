@@ -138,8 +138,6 @@ class Watershed:
             if save_object == True:
                 self.save_object()
         
-        self.lakeres = None
-        self.streamflow_seepage = None
         
     #%% PYTHON OBJECT
     
