@@ -745,6 +745,8 @@ BV.streamflow_seepage.update_segment_data('roughch', 0.03)
 BV.streamflow_seepage.correct('multiple_reaches', False)
 BV.streamflow_seepage.correct('elevations', True)
 
+BV.save_object()
+
 
 #%% PARAMETRISATION
 
