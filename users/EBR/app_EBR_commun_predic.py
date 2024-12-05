@@ -85,6 +85,8 @@ try:
 except:
     print("Le scenario est normalement défini lors du lancement du script dans la console.")
     scenario = input("Comme ce n'est pas le cas ici, il est nécessaire d'indiquer manuellement le scenario choisi : ")
+    # Correction extension :
+    if os.path.splitext(scenario)[-1] == '': scenario += '.csv'
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
@@ -132,7 +134,9 @@ freq_input = 'W' # hebdomadaire
 
 #%% RECHARGEMENT DES CHARGES PRECEDENTES
 model_name = 'historique'
-head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder, f'{model_name}.hds'))
+head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder,
+                                     model_name,
+                                     f'{model_name}.hds'))
 
 # sim_times = head_fpu.get_times()
 # prev_end_time = sim_times[list(sim_times.keys())[-1]]
@@ -182,7 +186,7 @@ BV.lakeres.update_stageinit(
 print("   . Mise à jour des flux d'entrée avec les scénarios de gestion :")
 
 dam_data_path = os.path.join(data_path, "Reservoir", "Scenarios de gestion",
-                             "selection", scenario + '.csv')
+                             "selection", scenario)
 
 dam_input_df = pd.read_csv(dam_data_path,
                            sep = ";",
