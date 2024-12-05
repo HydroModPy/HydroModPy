@@ -26,9 +26,9 @@ Liste des branches :
     Branch old-calibration
   AC:
     Branch dev-lakeres 
-    Branch dev-lakeres/warm-up
+    Branch dev-lakeres-warm-up
     Branch dev-sequential
-    Branch dev-lakeres/sequential
+    Branch dev-lakeres-sequential
     Branch dev-optim-postproc
   Stage IRISA:
     Branch dev-jeremy
