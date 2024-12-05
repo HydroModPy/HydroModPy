@@ -149,7 +149,9 @@ prev_head_3D = head_fpu.get_data(totim = prev_end_time) # recharge les dernière
 head_fpu.close()
 
 #%% BARRAGE
-lake_id = 'reservoir_cheze'
+lake_id = 'reservoir_cheze' 
+# A terme il faudrait adapter le script et le settings.yaml pour pouvoir gérer 
+# des réservoirs multiples
 
 # ---- Mise à jour du niveau initial
 print("   . Mise à jour du niveau initial de la retenue avec les résultats de la simulation historique")
@@ -173,6 +175,7 @@ for layer in range(0, prev_head_3D.shape[0]):
 outlet_mask = head_2D.copy()*0
 i, j = BV.lakeres.ij_outlet_by_lake[lake_id]
 outlet_mask[i, j] = 1
+np.nan_to_num(outlet_mask, nan = 0, copy = False)
 outlet_mask = outlet_mask.astype(bool)
 
 level_init = head_2D[outlet_mask][0]
@@ -192,9 +195,14 @@ dam_input_df = pd.read_csv(dam_data_path,
                            sep = ";",
                            header = 0,
                            skiprows = 0,
-                           index_col = 'time',
+                           index_col = 0,
                            parse_dates = True)
 
+# Aligne les dates avec les dates de la simulation
+old_year = dam_input_df.index[
+    dam_input_df.index.month == settings['startdate'].month
+    ].year[0] # Trouve l'année du scénario du mois qui correspond au mois de départ de la simulation prédictive
+dam_input_df.index = dam_input_df.index + pd.DateOffset(years = settings['startdate'].year - old_year) # corrige les années du scénario en fonction
 
 # ---- Mise-à-jour des données d'entrée du réservoir
 print("   . Mise à jour des paramètres du réservoir")
@@ -261,27 +269,38 @@ h5file = os.path.join(BV.simulations_folder,
 mdflw_dict = dd.io.load(h5file)
 success_modflow = mdflw_dict['success_modflow']
 model_modflow = mdflw_dict['model_modflow']
-model_modflow = BV.preprocessing_modflow(model_modflow, prev_heads = prev_head_3D)
+# =============================================================================
+# model_modflow = BV.preprocessing_modflow(model_modflow)
+# =============================================================================
 
 #%%% Lancement des simulations prédictives (et mise à jour du modèle)
 # ---- Créer un dossier par scénario de gestion
-os.makedirs(os.path.join(out_path, BV.simulations_folder, scenario))
+if not os.path.exists(os.path.join(out_path, 
+                         BV.simulations_folder, 
+                         os.path.splitext(scenario)[0])):
+    os.makedirs(os.path.join(out_path, 
+                             BV.simulations_folder, 
+                             os.path.splitext(scenario)[0]))
 
 list_model_name = []
 list_success_modflow = []
 list_model_modflow = []
 
-# ---- Boucle sur chaque run disponible dans les données
-for i in range(0, 51):    
-    model_name = f'predic{i}'
-    BV.settings.update_model_name(model_name)
-    print(model_name)
-    
-    # ---- Extraction de la recharge
+# ---- Extraction des variables climatiques
     forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
-    clim_ds = ttbox.ouvrir(
-        os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), # 'C3S_2024-10.nc'),
-        decode_times = True, decode_coords = 'all')
+# =============================================================================
+#     clim_ds = ttbox.ouvrir(
+#         os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), # 'C3S_2024-10.nc'),
+#         decode_times = True, decode_coords = 'all')
+# =============================================================================
+    clim_ds = ttbox.convertir_cwatm(
+        os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), 
+        'C3S',
+        )
+    
+    clim_ds = ttbox.georeferencer(
+        data = clim_ds,
+        dst_crs = 4326, include_crs = True)
     
     # Période
     clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
@@ -298,11 +317,29 @@ for i in range(0, 51):
     """
     # clim_ds = clim_ds.resample(freq_input).mean()
 
-    clipped_ds = ttbox.reprojeter(clim_ds, mask = BV.geographic.watershed_shp,
-                                  dst_crs = BV.geographic.crs_proj)
+# ---- Boucle sur chaque run disponible dans les données
+for i in range(0, 51):    
+    model_name = f'predic{i}'
+    BV.settings.update_model_name(model_name)
+    print(model_name)
     
-    clim_df = clipped_ds.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
-    clim_df = clim_df.resample(freq_input).mean()
+    clim_ds_i = clim_ds.loc[{'number': i}]
+
+# =============================================================================
+#     clipped_ds = ttbox.reprojeter(clim_ds_i, mask = BV.geographic.watershed_shp,
+#                                   resolution = (BV.geographic.resolution_x,
+#                                                 BV.geographic.resolution_y),
+#                                   dst_crs = BV.geographic.crs_proj)
+#     
+#     clim_df = clipped_ds.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
+#     clim_df = clim_df.resample(freq_input).mean()
+# =============================================================================
+    
+    timeseries = gc.time_series(
+        input_file = f,
+        coords = BV.geographic.watershed_shp, epsg_coords = epsg_coords, 
+        epsg_data = epsg_data,
+        )
     
     recharge = clim_df['ssro']
     runoff = clim_df['sro']
