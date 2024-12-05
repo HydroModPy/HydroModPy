@@ -627,38 +627,43 @@ class Modflow:
         # CrossSection figure
         if self.plot_cross == True:
             
-            fig, axs = plt.subplots(1, 2, figsize=(12,3))
+            fig, axs = plt.subplots(1, 2, figsize=(14,4), dpi=300)
             axs = axs.ravel()
             
             grid_model = self.mf.modelgrid
             
-            # fig = plt.figure(figsize=(10, 5))
-            # ax = fig.add_subplot(1, 1, 1)
             modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
-            # modelxsect.plot_array(self.hk, ax=axs[0], cmap='viridis')
-            imhk = modelxsect1.plot_array(self.hk, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[0],
-                                   norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max()))
+            imhk = modelxsect1.plot_array(self.hk/24/3600, masked_values=[-9999], cmap='jet', alpha=0.5, lw=0.1, ax=axs[0],
+                                    # norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max())
+                                    norm=mpl.colors.LogNorm(vmin=1e-13, vmax=1e-1)
+                                   )
             # modelxsect1.plot_grid(ax=axs[0])
-            axs[0].set_title('Row, K')
+            axs[0].set_title('West-East (Row), K [m/s]', fontsize=12)
             axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
-            # imhk = axs[0].imshow(self.hk, masked_values=[-9999], cmap='tab10', alpha=0, norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max()))
+            axs[0].set_xlabel('Distance [m]')
+            axs[0].set_ylabel('Elevation [m]')
             # divider = make_axes_locatable(axs[0])
             # cax = divider.append_axes('right', size='5%', pad=0.05)
             # fig.colorbar(imhk, cax=cax, orientation='vertical')
-            # plt.colorbar(pc)
+            fig.colorbar(imhk)
             
-            # fig = plt.figure(figsize=(10, 5))
-            # ax = fig.add_subplot(1, 1, 1)
             modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
-            imsy = modelxsect2.plot_array(self.ps, masked_values=[-9999], cmap='rainbow', alpha=0.5, lw=0.1, ax=axs[1])
-            # modelxsect.plot_array(self.ps, ax=axs[0], cmap='plasma')
+            imsy = modelxsect2.plot_array(self.ps*100, masked_values=[-9999], cmap='jet', alpha=0.5, lw=0.1, ax=axs[1],
+                                           norm=mpl.colors.LogNorm(vmin=0.1, vmax=100))
             # modelxsect2.plot_grid(ax=axs[1])
-            axs[1].set_title('Column, Φ')
+            axs[1].set_title('North-South (Column), Sy [%]', fontsize=12)
             axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                             np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            axs[1].set_xlabel('Distance [m]')
+            axs[1].set_ylabel('Elevation [m]')
+            # divider = make_axes_locatable(axs[1])
+            # cax = divider.append_axes('right', size='5%', pad=0.05)
+            # fig.colorbar(imsy, cax=cax, orientation='vertical')
+            fig.colorbar(imsy)
             
-            fig.suptitle(self.model_name.upper(), y=1.05, fontsize=8)
+            fig.suptitle(self.model_name.upper(), y=1.0, fontsize=10)
+            fig.tight_layout()
 
     #%% PROCESSING
     
