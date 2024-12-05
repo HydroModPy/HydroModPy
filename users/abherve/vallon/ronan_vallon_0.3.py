@@ -410,14 +410,14 @@ hydrography_path = data_path + '_gis/Hydrography_clipped/' # add hydrographic sh
 #               ]
 
 types_obs = ['perennial_natural_streams_21781',
-              'fully_natural_streams_21781',
-              'fully_natural_streams_springs_21781',
-              'fully_natural_streams_springs_wetlands_21781'
+              # 'fully_natural_streams_21781',
+              # 'fully_natural_streams_springs_21781',
+              # 'fully_natural_streams_springs_wetlands_21781'
               ]
 fields_obs = ['fid',
-              'fid',
-              'fid',
-              'fid'
+              # 'fid',
+              # 'fid',
+              # 'fid'
               ]
 
 for watershed_name in watershed_names[:]:
@@ -2688,6 +2688,10 @@ hgs_wb.index = hgs_wb['datetime']
 
 hgs_wb['PPT_m/d'] = hgs_wb['Precipitation'] / (13.7*1e6)
 hgs_wb['AET_m/d'] = hgs_wb['Total_AET'] / (13.7*1e6) * -1
+hgs_wb['PPT-AET_m/d'] = hgs_wb['PPT_m/d'] - hgs_wb['AET_m/d']
+
+new_pe_input = hgs_wb.copy()
+new_pe_input['date'] = new_pe_input.index
 
 # plt.plot(hgs_wb['PPT_m/d']*1000)
 
@@ -2779,7 +2783,7 @@ ax.legend(loc='upper right')
 ax.set_ylabel('Q series [mm/d]')
 ax.set_xlabel('Date')
 
-#%% TECPLOT SATURATION - LOW
+#%% TECPLOT SATURATION - LIT FILE - MINE
 
 date_range = pd.date_range('10/01/14', '12/31/2023', freq='D') # m/d/y
 
@@ -2975,7 +2979,7 @@ for si, start in enumerate(starts[:]):
         esri_pntr=False, 
         zero_background=False)
 
-#%% TECPLOT SATURATION - BIG
+#%% TECPLOT SATURATION - BIG FILE - MINE
 
 date_range = pd.date_range('10/01/14', '12/31/2023', freq='D') # m/d/y
 
@@ -3154,7 +3158,7 @@ with open(input_file, "r", encoding="utf-8") as file:
     # if current_section:
     #     results.append(current_section)
 
-#%% CODE OPTIMIZED - CHAT GPT
+#%% TECPLOT SATURATION - BIG FILE - CHATGPT
 
 import pandas as pd
 import geopandas as gpd
@@ -3274,9 +3278,234 @@ if current_marker == "# saturation" and current_section:
     # Réutiliser le code de traitement ci-dessus
     pass
 
+#%% PLOT SATURATION HGS - MINE
+
+list_points_path = sorted(glob.glob(stable_folder+'saturation/'+'*points*.shp'), key=lambda x:float(x.split('\\')[-1].split('_')[1]))
+list_raster_path = sorted(glob.glob(stable_folder+'saturation/'+'*raster*.tif'), key=lambda x:float(x.split('\\')[-1].split('_')[1]))
+list_traces_path = sorted(glob.glob(stable_folder+'saturation/'+'*traces*.tif'), key=lambda x:float(x.split('\\')[-1].split('_')[1]))
+
+nant_dem = rasterio.open(stable_folder+'geographic/'+'watershed_dem.tif')
+nant_box_dem = rasterio.open(stable_folder+'geographic/'+'watershed_box_buff_dem.tif')
+nant_cont = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+
+wbt.hillshade(
+    stable_folder+'geographic/'+'watershed_dem.tif', 
+    stable_folder+'geographic/'+'watershed_hill.tif', 
+    azimuth=315.0, 
+    altitude=30.0, 
+    zfactor=None)
+wbt.hillshade(
+    stable_folder+'geographic/'+'watershed_box_buff_dem.tif', 
+    stable_folder+'geographic/'+'watershed_box_buff_hill.tif', 
+    azimuth=315.0, 
+    altitude=30.0, 
+    zfactor=None)
+nant_hill = rasterio.open(stable_folder+'geographic/'+'watershed_hill.tif')
+nant_box_hill = rasterio.open(stable_folder+'geographic/'+'watershed_box_buff_hill.tif')
+
+cp = 0
+for points_path, raster_path, traces_path in zip(list_points_path[:],
+                                                 list_raster_path[:],
+                                                 list_traces_path[:]):
+    print(cp)
+    cp+=1
+    
+    date_idx = points_path.split('\\')[-1].split('_')[-1].split('.')[0]
+    
+    points = gpd.read_file(points_path)
+    # raster = imageio.imread(raster_path)
+    # traces = imageio.imread(traces_path)
+    raster = rasterio.open(raster_path)
+    traces = rasterio.open(traces_path)
+    
+    fig, axs = plt.subplots(1,2, figsize=(15,10), dpi=300)
+    axs = axs.ravel()
+    ax = axs[0]
+    # rasterio.plot.show(np.ma.masked_where(nant_dem.read(1) < 0, nant_dem.read(1)), ax=ax, transform=nant_dem.transform, cmap='Greys', alpha=0.5, zorder=-2)
+    rasterio.plot.show(np.ma.masked_where(nant_hill.read(1) < 0, nant_hill.read(1)), ax=ax, transform=nant_hill.transform, cmap='Greys_r', alpha=0.5, zorder=-1)
+    rasterio.plot.show(np.ma.masked_where((raster.read(1) < 0)|(nant_dem.read(1) < 0), raster.read(1)), ax=ax, transform=raster.transform, 
+                       cmap=mpl.colors.ListedColormap('navy'), alpha=1, zorder=-1)
+    # points[points['SAT']==1].plot(ax=ax, column='SAT', ec='None', zorder=0)
+    nant_cont.plot(ax=ax, facecolor='None', ec='k', lw=3, zorder=1)
+    ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
+    # ax.set_title('SEEPAGE '+str(cp)+'   '+date_idx)
+    ax.set_axis_off()
+    ax = axs[1]
+    # rasterio.plot.show(np.ma.masked_where(nant_dem.read(1) < 0, nant_dem.read(1)), ax=ax, transform=nant_dem.transform, cmap='Greys', alpha=0.5, zorder=-2)
+    rasterio.plot.show(np.ma.masked_where(nant_hill.read(1) < 0, nant_hill.read(1)), ax=ax, transform=nant_hill.transform, cmap='Greys_r', alpha=0.5, zorder=-1)
+    rasterio.plot.show(np.ma.masked_where((traces.read(1) < 0)|(nant_dem.read(1) < 0), traces.read(1)), ax=ax, transform=traces.transform,
+                       cmap=mpl.colors.ListedColormap('navy'), alpha=1, zorder=-1)
+    # points[points['SAT']==1].plot(ax=ax, column='SAT', ec='None', zorder=0)
+    nant_cont.plot(ax=ax, facecolor='None', ec='k', lw=3, zorder=1)
+    ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
+    # ax.set_title('NETWORK '+str(cp)+'   '+date_idx)
+    ax.set_axis_off()
+    fig.suptitle('Time '+str(cp)+'\n'+date_idx, x=0.5, y=0.5)
+    fig.tight_layout()
+    
+    fig.savefig(stable_folder+'_figures/saturation/'+'Time_'+str(cp)+'_'+date_idx, dpi=300, bbox_inches='tight')
+    
+    plt.close()
+
+#%% PLOT SATURATION HGS - CHATGPT
+
+from rasterio.plot import show
+from PIL import Image
+
+# Setup paths
+list_points_path = sorted(glob.glob(stable_folder + 'saturation/' + '*points*.shp'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+list_raster_path = sorted(glob.glob(stable_folder + 'saturation/' + '*raster*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+list_traces_path = sorted(glob.glob(stable_folder + 'saturation/' + '*traces*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+
+# Preload reusable data
+nant_dem = rasterio.open(stable_folder + 'geographic/' + 'watershed_dem.tif')
+nant_hill = rasterio.open(stable_folder + 'geographic/' + 'watershed_hill.tif')
+nant_cont = gpd.read_file(stable_folder + 'geographic/' + 'watershed.shp')
+
+# Directory to save figures
+fig_dir = os.path.join(stable_folder, '_figures', 'saturation')
+os.makedirs(fig_dir, exist_ok=True)
+
+# Preload colormap
+# navy_colormap = plt.cm.get_cmap('Blues')
+navy_colormap = mpl.colors.ListedColormap('navy')
+
+# Process each dataset
+start = 325
+cp = start
+for enu, (points_path, raster_path, traces_path) in enumerate(zip(list_points_path[cp:], list_raster_path[cp:], list_traces_path[cp:]),
+                                                             # start=325
+                                                             ):
+    cp += 1
+    date_idx = points_path.split('\\')[-1].split('_')[-1].split('.')[0]
+    print(f"Processing Time Step {cp}: {date_idx}")
+
+    # Load rasters
+    with rasterio.open(raster_path) as raster, rasterio.open(traces_path) as traces:
+        # Create plot
+        fig, axs = plt.subplots(1, 2, figsize=(15, 10), dpi=300)
+        axs = axs.ravel()
+
+        for i, data in enumerate([raster, traces]):
+            ax = axs[i]
+            show(np.ma.masked_where(nant_hill.read(1) < 0, nant_hill.read(1)), ax=ax, transform=nant_hill.transform, cmap='Greys_r', alpha=0.5)
+            show(np.ma.masked_where((data.read(1) < 0) | (nant_dem.read(1) < 0), data.read(1)), ax=ax, transform=data.transform, cmap=navy_colormap, alpha=1)
+            nant_cont.plot(ax=ax, facecolor='None', ec='k', lw=3)
+            ax.set_axis_off()
+
+        fig.suptitle(f'Time {cp}\n{date_idx}', x=0.5, y=0.5)
+        fig.tight_layout()
+
+        # Save figure
+        fig_path = os.path.join(fig_dir, f'Time_{cp}_{date_idx}.png')
+        fig.savefig(fig_path, dpi=300, bbox_inches='tight')
+        plt.close(fig)
+
+# Create GIF
+fig_paths = sorted(glob.glob(os.path.join(fig_dir, 'Time_*.png')), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+gif_path = os.path.join(fig_dir, '_hgs_saturation_animation.gif')
+
+# Generate GIF without storing in memory
+# with Image.open(fig_paths[0]) as first_frame:
+#     first_frame.save(
+#         gif_path,
+#         save_all=True,
+#         append_images=(Image.open(fp) for fp in fig_paths[1:31]),
+#         duration=500,
+#         loop=0)
+
+images = []
+for enu, filename in enumerate(fig_paths[:365]):
+    print(enu)
+    images.append(imageio.imread(filename))
+imageio.mimsave(gif_path, images, duration=500, loop=0) # ms
+
+print(f"GIF created at: {gif_path}")
+
+#%% SAVE SATURATION HGS
+
+from rasterio.plot import show
+from PIL import Image
+
+# Setup paths
+list_points_path = sorted(glob.glob(stable_folder + 'saturation/' + '*points*.shp'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+list_raster_path = sorted(glob.glob(stable_folder + 'saturation/' + '*raster*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+list_traces_path = sorted(glob.glob(stable_folder + 'saturation/' + '*traces*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+
+# Preload reusable data
+nant_dem = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
+cell_dem = np.ma.masked_where(nant_dem < 0, nant_dem).count()
+
+df_sat_hgs = pd.DataFrame(columns=['date_idx'])
+
+# Process each dataset
+start = 0
+cp = start
+for enu, (points_path, raster_path, traces_path) in enumerate(zip(list_points_path[cp:], list_raster_path[cp:], list_traces_path[cp:]),
+                                                             # start=325
+                                                             ):
+    cp += 1
+    
+    time_step = points_path.split('\\')[-1].split('_')[1]
+    date_idx = points_path.split('\\')[-1].split('_')[-1].split('.')[0]
+    print(f"Processing Time Step {cp}: {date_idx}")
+
+    # Load rasters
+    raster = imageio.imread(raster_path)
+    traces = imageio.imread(traces_path)
+    
+    # for i, data in enumerate([raster, traces]):
+    dd_seep = round(100 * np.ma.masked_where((raster < 0) | (nant_dem < 0), raster).count() / cell_dem, 2)
+    dd_netw = round(100 * np.ma.masked_where((traces < 0) | (nant_dem < 0), traces).count() / cell_dem, 2)
+    print(dd_seep, dd_netw)
+    
+    df_sat_hgs.loc[enu,'time_step'] = float(time_step)
+    df_sat_hgs.loc[enu,'date_idx'] = date_idx
+    df_sat_hgs.loc[enu,'date'] =  pd.to_datetime(date_idx, format='%d-%m-%Y')
+    df_sat_hgs.loc[enu,'dd_seep'] = dd_seep
+    df_sat_hgs.loc[enu,'dd_netw'] = dd_netw
+
+df_sat_hgs.index = df_sat_hgs['date']
+
+df_sat_hgs.to_csv(stable_folder + 'saturation/' + '_saturation_simulated_timeseries.csv', sep=';')
+
+#%% OPEN SATURATION HGS
+
+df_sat_hgs = pd.read_csv(stable_folder + 'saturation/' + '_saturation_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
+
+fig, ax = plt.subplots(1,1, figsize=(7,4))
+ax.plot(df_sat_hgs['dd_seep'], lw=2, color='darkred')
+ax.plot(df_sat_hgs['dd_netw'], lw=2, color='darkorange')
+
+mseep = [df_sat_hgs['dd_seep'].agg(['min']).values[0], df_sat_hgs['dd_seep'].agg(['max']).values[0]]
+iseep = [df_sat_hgs['dd_seep'].idxmin(), df_sat_hgs['dd_seep'].idxmax()]
+tseep = [df_sat_hgs.loc[iseep[0],'time_step'],  df_sat_hgs.loc[iseep[1],'time_step']]
+print('SEEP MIN :', str(mseep[0])+'%', 't='+str(tseep[0]), str(iseep[0])[:10])
+print('SEEP MAX :', str(mseep[1])+'%', 't='+str(tseep[1]), str(iseep[1])[:10])
+
+mnetw = df_sat_hgs['dd_netw'].agg(['min', 'max'])
+inetw = [df_sat_hgs['dd_netw'].idxmin(), df_sat_hgs['dd_netw'].idxmax()]
+tnetw = [df_sat_hgs.loc[inetw[0],'time_step'],  df_sat_hgs.loc[inetw[1],'time_step']]
+print('NETW MIN :', str(mnetw[0])+'%', 't='+str(tnetw[0]), str(inetw[0])[:10])
+print('NETW MAX :', str(mnetw[1])+'%', 't='+str(tnetw[1]), str(inetw[1])[:10])
+
+path_min = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[0]))+'_*raster*'+'.tif')[0]
+path_max = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[1]))+'_*raster*'+'.tif')[0]
+
+path_min = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[0]))+'_*traces*'+'.tif')[0]
+path_max = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[1]))+'_*traces*'+'.tif')[0]
+
 #%% ---- CALIBRATION STREAMS
 
 #%% DICHOTOMY FUNCTION
+
+# wbt.euclidean_distance(
+#     i, 
+#     output, 
+#     callback=default_callback
+# )
 
 class MatchingStreams:
     """ 
@@ -3399,341 +3628,69 @@ class MatchingStreams:
 
 hydrography_path = data_path + '_gis/Hydrography_clipped/' # add hydrographic shapefiles
 
-types_obs = ['perennial_natural_streams',
-             'fully_natural_streams',
-             'fully_natural_streams_springs',
-             'fully_natural_streams_springs_wetlands']
-fields_obs = ['fid','fid','fid','fid']
+# types_obs = ['perennial_natural_streams',
+#              'fully_natural_streams',
+#              # 'fully_natural_streams_springs',
+#              # 'fully_natural_streams_springs_wetlands'
+#              ]
 
-# compt = 0
+paths_obs = [path_min,
+              path_max
+             ]
 
-for watershed_name in watershed_names[:]:
-    
-    # df = pd.DataFrame(np.nan, index=range(1), columns=types_obs)
-    
-    iD_iter = 't1'
-    
-    for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
+fields_obs = ['fid',
+               'fid',
+              # 'fid','fid'
+              ]
+
+recharge = new_pe_input.query("date >= '2014-10-01' and date <= '2016-12-31'")['PPT-AET_m/d']
+recharge[recharge<0] = 0
+runoff = recharge * 0.1
+
+iD_iter = 'hgs1'
+
+# for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
+for path_obs, field_obs in zip(paths_obs[:], fields_obs[:]):
+
+    df = pd.DataFrame()
    
-        df = pd.DataFrame()
-   
-        print('##### '+watershed_name.upper()+' #####')
-        
-        BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
-        area = BV.geographic.area
-
-        stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-        simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-        BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
-        toolbox.create_folder(BV.calibration_folder)
-        
-        BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
-        
-        box = False # or False
-        sink_fill = False # or True
-        sim_state = 'steady' # 'steady' or 'transient'
-        plot_cross = False
-        
-        recharge = select_period(hgs_wb['PPT-AET_m/d_sim1'],2017,2017)
-        runoff = select_period(hgs_wb['PPT-AET_m/d_sim1'],2017,2017)
-        # recharge = np.nanmean(select_period(dfd['REC_REA_historic'],2014,2019))/1000
-        
-        first_clim = 'mean' # or 'first or value
-        nlay = 1
-        lay_decay = 1 # 1 for no decay
-        bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-        thick = 30 # if bottom is None, aquifer thickness
-        cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-        verti_cond = None # or [ [1e-5, [0, 20]],
-        cond_drain = None # or value of conductance
-        porosity = 5 / 100 # -
-        poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-        bc_left = None # or value
-        bc_right = None # or value
-        sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-        zone_partic = 'domain' # or watershed
-        
-        BV.add_settings()
-        BV.add_climatic()
-        BV.add_geometric() # soon
-        BV.add_hydraulic()
-        BV.settings.update_box_model(box)
-        BV.settings.update_sink_fill(sink_fill)
-        BV.settings.update_simulation_state(sim_state)
-        BV.settings.update_active_plot(plot_cross=plot_cross)
-        BV.climatic.update_recharge(recharge, sim_state=sim_state)
-        BV.climatic.update_first_clim(first_clim)
-        BV.hydraulic.update_nlay(nlay) # 1
-        BV.hydraulic.update_lay_decay(lay_decay) # 1
-        BV.hydraulic.update_bottom(bottom) # None
-        BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-        BV.hydraulic.update_porosity(porosity)
-        BV.hydraulic.update_cond_vertical(verti_cond)
-        BV.hydraulic.update_cond_drain(cond_drain)
-        BV.hydraulic.update_lay_decay(poro_decay)
-        BV.settings.update_bc_sides(bc_left, bc_right)
-        BV.add_oceanic(sea_level)
-        BV.settings.update_input_particules(zone_partic=zone_partic)
-        
-        params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-        # params_df.loc[0] = ['k1','?',8.64e-04,8.64e-01,'m/j','lin']
-        params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-        params_file = 'calib_dicot_hom_1v_k1'
-        params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-        p_min = params_df['lower_bounds'].values[0]
-        p_max = params_df['higher_bounds'].values[0]
-        diff = p_max - p_min
-        half = (p_min + p_max) / 2
-        
-        gap = 1
-        
-        compt = 0
-        
-        while (diff > ((gap/100) * half)):
-            
-            half = (p_min + p_max) / 2
-            hyd_cond = half.copy() # if K in calib_params.csv
-            kr = hyd_cond / BV.climatic.recharge
-                        
-            BV.hydraulic.update_hyd_cond(hyd_cond)
-            
-            now = datetime.now()
-            oclock = now.strftime("%Y%m%d_%Hh%Mm%Ss") 
-            
-            model_name = iD_iter+'-'+str(compt)+'-'+type_obs+'-'+str(round(hyd_cond,4)) #+'-'+oclock
-            BV.settings.update_model_name(model_name)
-            print(model_name)
-            
-            model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
-            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-            
-            # if success_modflow == True:
-            BV.postprocessing_modflow(model_modflow,
-                                      watertable_elevation = True,
-                                      watertable_depth= True, 
-                                      seepage_areas = True,
-                                      outflow_drain = True,
-                                      groundwater_flux = True,
-                                      groundwater_storage = True,
-                                      accumulation_flux = True,
-                                      export_all_tif = False)
-
-            timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                              model_modpath=None,
-                                                              actual_date=True, 
-                                                              subbasin_results=True) # or None
-        
-            iter_results = MatchingStreams(BV, iteration_label=model_name)
-            
-            obs_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
-            obs_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
-            obsf_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
-            obsf_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflowf.shp'))
-            
-            sim_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
-            sim_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
-            simf_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
-            simf_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp'))
-        
-            mean_obs_to_sim = np.nanmean(obs_to_sim[obs_to_sim['VALUE1']>=0]['VALUE1'])
-            mean_obs_to_simf = np.nanmean(obs_to_simf[obs_to_simf['VALUE1']>=0]['VALUE1'])
-            mean_obsf_to_sim = np.nanmean(obsf_to_sim[obsf_to_sim['VALUE1']>=0]['VALUE1'])
-            mean_obsf_to_simf = np.nanmean(obsf_to_simf[obsf_to_simf['VALUE1']>=0]['VALUE1'])
-            
-            mean_sim_to_obs = np.nanmean(sim_to_obs[sim_to_obs['VALUE1']>=0]['VALUE1'])
-            mean_sim_to_obsf = np.nanmean(sim_to_obsf[sim_to_obsf['VALUE1']>=0]['VALUE1'])
-            mean_simf_to_obs = np.nanmean(simf_to_obs[simf_to_obs['VALUE1']>=0]['VALUE1'])
-            mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
-            
-            obs = mean_obs_to_sim
-            sim = mean_sim_to_obs
-            indicator = sim/obs
-            
-            if sim > obs:
-                p_min = half
-            if sim < obs:
-                p_max = half
-            if np.isnan(indicator):
-                p_max = half
-            
-            diff = p_max - p_min
-            
-            print('==> Simulation : '+str(compt))
-            print('    K/R = '+str(round(kr, 4)))
-            print('    Gap = '+str(round((gap/100) * kr, 4)))
-            print('    Indicator = '+str(round(indicator, 4)))
-            
-            df.loc[compt,'watershed_name'] = watershed_name
-            df.loc[compt,'model_name'] = model_name
-            df.loc[compt,'type_obs'] = type_obs
-            df.loc[compt,'oclock'] = oclock
-            
-            df.loc[compt,'KR'] = round(kr, 4)
-            df.loc[compt,'K'] = round(hyd_cond, 4)
-            df.loc[compt,'R'] = round(recharge, 4)
-            
-            df.loc[compt,'Obs'] = round(obs, 4)
-            df.loc[compt,'Sim'] = round(sim, 4)
-            df.loc[compt,'Indicator'] = round(indicator, 4)
-            
-            df.loc[compt,'mean_obs_to_sim'] = round(mean_obs_to_sim, 4)
-            df.loc[compt,'mean_obs_to_simf'] = round(mean_obs_to_simf, 4)
-            df.loc[compt,'mean_obsf_to_sim'] = round(mean_obsf_to_sim, 4)
-            df.loc[compt,'mean_obsf_to_simf'] = round(mean_obsf_to_simf, 4)
-            
-            df.loc[compt,'mean_sim_to_obs'] = round(mean_sim_to_obs, 4)
-            df.loc[compt,'mean_sim_to_obsf'] = round(mean_sim_to_obsf, 4)
-            df.loc[compt,'mean_simf_to_obs'] = round(mean_simf_to_obs, 4)
-            df.loc[compt,'mean_simf_to_obsf'] = round(mean_simf_to_obsf, 4)
-            
-            compt += 1
-        
-        df.to_csv(BV.calibration_folder+'/'+watershed_name+'_'+iD_iter+'_'+type_obs+'.csv', sep=';')
-
-#%% DICHOTOMY - APPEND
-
-watershed_names = ['Vallons_EUDTM30m',
-                   'Vare_EUDTM30m',
-                   'Nant_EUDTM30m']
-types_obs = ['perennial_natural_streams',
-             'fully_natural_streams',
-             'fully_natural_streams_springs',
-             'fully_natural_streams_springs_wetlands']
-fields_obs = ['fid','fid','fid','fid']
-
-dfs = pd.DataFrame()
-
-for watershed_name in watershed_names[:]:
-    
-    BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
-    BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
-    
-    iD_iter = 't1'
-    
-    for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
-        
-        df = pd.read_csv(BV.calibration_folder+'/'+watershed_name+'_'+iD_iter+'_'+type_obs+'.csv', sep=';')
-        
-        dfs = pd.concat([dfs, df],ignore_index = True)
-
-dfs = dfs.dropna(axis=1, how='all')
-dfs.to_csv(out_path+'/'+'_calib_'+iD_iter+'_'+'all'+'.csv', sep=';')
-
-#%% DICHOTOMY - PLOT
-
-dfs = pd.read_csv(out_path+'/'+'_calib_'+iD_iter+'_'+'all'+'.csv', sep=';')
-
-fig, ax = plt.subplots(1,1, figsize=(5,3.5))
-
-watershed_names = ['Vallons_EUDTM30m',
-                   'Vare_EUDTM30m',
-                   'Nant_EUDTM30m']
-types_obs = ['perennial_natural_streams',
-             'fully_natural_streams',
-             'fully_natural_streams_springs',
-             'fully_natural_streams_springs_wetlands']
-fields_obs = ['fid','fid','fid','fid']
-
-couleurs = {'Vallons_EUDTM30m':'grey',
-            'Vare_EUDTM30m':'forestgreen',
-            'Nant_EUDTM30m':'darkorange'}
-# couleurs = {'Vallons_EUDTM30m':'grey',
-#             'Vare_EUDTM30m':'darkcyan',
-#             'Nant_EUDTM30m':'chocolate'}
-styles = {'perennial_natural_streams':'v',
-          'fully_natural_streams':'^',
-          'fully_natural_streams_springs':'o',
-          'fully_natural_streams_springs_wetlands':'s'}
-
-for watershed_name in watershed_names[:]:
-    
-    d1 = dfs[dfs['watershed_name']==watershed_name]
-   
-    couleur = couleurs[watershed_name]
-    
-    xs = []
-    ys = []
-    
-    for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
-        
-        style = styles[type_obs]
-        
-        d2 = d1[d1['type_obs']==type_obs]
-        
-        d3 = d2.iloc[-1:]
-        
-        x = d3['K']/3600/24
-        y = (d3['Obs']+d3['Sim'])/2
-        ax.scatter(x, y,
-                   color=couleur, marker=style, s=100, lw=1, ec='k')
-        
-        ax.axhline(y=30, ls='--', c='k', lw=1)
-        
-        ax.set_xlabel('K [m/s]')
-        ax.set_xscale('log')
-        ax.set_xlim(1e-6,1.2e-4)
-        
-        ax.set_ylabel('($D_{obs}$ + $D_{sim}$) / 2 [m]')
-        # ax.set_yscale('log')
-        ax.set_ylim(0,800)
-        ax.set_yticks([0,200,400,600,800])
-        # ax.set_yticks([0,30,60,120,240,480,960])
-        
-        xs.append(x.values)
-        ys.append(y.values)
-    
-    ax.fill_between(np.arange(min(xs), max(xs), 1e-8), min(ys), max(ys), zorder=-1, alpha=0.5,
-                    color=couleur)
-    # ax.axvline(x=min(xs), color=couleur, zorder=-2)
-    # ax.axvline(x=max(xs), color=couleur, zorder=-2)
-
-#%% ---- EXPLORATION MODELING
-
-#%% PREPROCESSING
-
-watershed_names = ['Nant_EUDTM30m']
-        
-box = False # or False
-sink_fill = False # or True
-sim_state = 'transient' # 'steady' or 'transient'
-plot_cross = False
-first_clim = 'mean' # or 'first or value
-nlay = 1
-lay_decay = 1 # 1 for no decay
-bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 30 # if bottom is None, aquifer thickness
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]],
-cond_drain = None # or value of conductance
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-bc_left = None # or value
-bc_right = None # or value
-sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-zone_partic = 'domain' # or watershed
-
-recharge = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018)
-runoff = select_period(hgs_wb['PPT-AET_m/d_sim1'],2016,2018)
-
-# recharge = recharge.iloc[:7]
-# runoff = runoff.iloc[:7]
-
-# list_hyd_cond = np.array([1e-6]) * 3600 * 24
-# list_porosity = np.array([1.0]) / 100
-
-# iD_set_simulations = 'explorSy_test1'
-# iD_set_simulations = 'explorSy_pptaet1'
-# iD_set_simulations = 'TEST2'
-iD_set_simulations = 'EXPLO1'
-
-#%% PRO AND POSTPROCESSING
-
-for watershed_name in watershed_names[:]:
+    print('##### '+watershed_name.upper()+' #####')
     
     BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
     area = BV.geographic.area
+
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+    BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
+    toolbox.create_folder(BV.calibration_folder)
+    
+    # if not os.path.exists(stable_folder+ 'hydrography/' + type_obs + '.tif'):
+    #     BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
+    # else:
+    #     BV.hydrogrpahy.tif_streams = stable_folder+ 'hydrography/' + type_obs + '.tif'
+    
+    BV.hydrography.tif_streams = path_obs
+    type_obs = path_obs.split('\\')[-1].split('.')[0]
+    
+    box = False # or False
+    sink_fill = False # or True
+    sim_state = 'steady' # 'steady' or 'transient'
+    plot_cross = False
+    split_temp = True    
+    first_clim = 'mean' # or 'first or value
+    nlay = 1
+    lay_decay = 1 # 1 for no decay
+    bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+    thick = 100 # if bottom is None, aquifer thickness
+    cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+    verti_cond = None # or [ [1e-5, [0, 20]],
+    cond_drain = None # or value of conductance
+    porosity = 1 / 100 # -
+    poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+    bc_left = None # or value
+    bc_right = None # or value
+    sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+    zone_partic = 'domain' # or watershed
     
     BV.add_settings()
     BV.add_climatic()
@@ -3741,173 +3698,550 @@ for watershed_name in watershed_names[:]:
     BV.add_hydraulic()
     BV.settings.update_box_model(box)
     BV.settings.update_sink_fill(sink_fill)
+    BV.settings.update_simulation_state(sim_state)
     BV.settings.update_active_plot(plot_cross=plot_cross)
-    BV.settings.update_bc_sides(bc_left, bc_right)
-    BV.settings.update_input_particules(zone_partic=zone_partic)
     BV.climatic.update_recharge(recharge, sim_state=sim_state)
-    BV.climatic.update_runoff(runoff, sim_state=sim_state)
     BV.climatic.update_first_clim(first_clim)
     BV.hydraulic.update_nlay(nlay) # 1
     BV.hydraulic.update_lay_decay(lay_decay) # 1
     BV.hydraulic.update_bottom(bottom) # None
     BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+    BV.hydraulic.update_porosity(porosity)
     BV.hydraulic.update_cond_vertical(verti_cond)
     BV.hydraulic.update_cond_drain(cond_drain)
     BV.hydraulic.update_lay_decay(poro_decay)
+    BV.settings.update_bc_sides(bc_left, bc_right)
     BV.add_oceanic(sea_level)
+    BV.settings.update_input_particles(zone_partic=zone_partic)
+    BV.settings.update_split_temporal(split_temp)
     
-    BV.settings.update_simulation_state(sim_state)
+    params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
+    # params_df.loc[0] = ['k1','?',8.64e-04,8.64e-01,'m/j','lin']
+    params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+    params_file = 'calib_dicot_hom_1v_k1'
+    params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+    p_min = params_df['lower_bounds'].values[0]
+    p_max = params_df['higher_bounds'].values[0]
+    diff = p_max - p_min
+    half = (p_min + p_max) / 2
     
-    if watershed_name == 'Nant_EUDTM30m':
-        list_hyd_cond = np.geomspace(1e-4,1e-7,10) * 3600 * 24
-        list_porosity = np.geomspace(0.1,10,10) / 100
-    if watershed_name == 'Vare_EUDTM30m':
-        list_hyd_cond = np.geomspace(1e-4,1e-7,10) * 3600 * 24
-        list_porosity = np.geomspace(0.1,10,10) / 100
-    
-    # list_hyd_cond = np.geomspace(1e-4,1e-7,10) * 3600 * 24
-    # list_porosity = np.geomspace(0.1,10,10) / 100
+    gap = 1
     
     compt = 0
     
-    for k, hyd_cond in enumerate(list_hyd_cond[:]):
-        BV.hydraulic.update_hyd_cond(hyd_cond)
-       
-        for p, porosity in enumerate(list_porosity[:]):
-            BV.hydraulic.update_porosity(porosity)
-            
-            list_model_name = []
-            list_success_modflow = []
-            list_model_modflow = []
-            
-            now = datetime.now()
-            oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
-                
-            model_name = iD_set_simulations+'_'+str(compt)+'_'+str(k)+'-'+str(p)+'_'+str(round(hyd_cond,4))+'-'+str(round(porosity,4))+'-'+str(round(thick,4))#+'_'+oclock
-            BV.settings.update_model_name(model_name)
-            print(model_name)
-            
-            model_modflow = BV.preprocessing_modflow(for_calib=True)
-            
-            try:
-            
-                success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-                
-                list_model_name.append(model_name)
-                list_success_modflow.append(success_modflow)
-                list_model_modflow.append(model_modflow)
-                    
-                dictio = {}
-                dictio['list_model_name'] = list_model_name
-                dictio['list_success_modflow'] = list_success_modflow
-                dictio['list_model_modflow'] = list_model_modflow
-                h5file = calibration_folder+'/'+'results_listing_'+model_name
-                dd.io.save(h5file, dictio)
-                
-                compt += 1
-                
-                if success_modflow == True:
-                    BV.postprocessing_modflow(model_modflow,
-                                              watertable_elevation = True,
-                                              watertable_depth = True, 
-                                              seepage_areas = True,
-                                              outflow_drain = True,
-                                              groundwater_flux = True,
-                                              groundwater_storage = True,
-                                              accumulation_flux = True,
-                                              persistency_index = True,
-                                              intermittency_monthly = False,
-                                              intermittency_daily = True,
-                                              export_all_tif = False)
+    while (diff > ((gap/100) * half)):
         
-                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                                  model_modpath=True,
-                                                                  actual_date=True, 
-                                                                  subbasin_results=True,
-                                                                  freq_time='D')
+        half = (p_min + p_max) / 2
+        hyd_cond = half.copy() # if K in calib_params.csv
+        kr = hyd_cond / BV.climatic.recharge
+                    
+        BV.hydraulic.update_hyd_cond(hyd_cond)
+        
+        now = datetime.now()
+        oclock = now.strftime("%Y%m%d_%Hh%Mm%Ss") 
+        
+        model_name = iD_iter+'-'+str(compt)+'-'+type_obs+'-'+str(round(BV.climatic.recharge*1000, 1))+'-'+str(thick)+'-'+'{:.2e}'.format(float(hyd_cond/3600/24)) #+'-'+oclock
+        BV.settings.update_model_name(model_name)
+        print(model_name)
+        
+        model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
+        success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        
+        # if success_modflow == True:
+        BV.postprocessing_modflow(model_modflow,
+                                  watertable_elevation = True,
+                                  watertable_depth= True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = True,
+                                  groundwater_storage = True,
+                                  accumulation_flux = True,
+                                  export_all_tif = False)
+
+        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                          model_modpath=None,
+                                                          actual_date=True, 
+                                                          subbasin_results=True) # or None
+    
+        iter_results = MatchingStreams(BV, iteration_label=model_name)
+        
+        obs_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
+        obs_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
+        obsf_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
+        obsf_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflowf.shp'))
+        
+        sim_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
+        sim_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
+        simf_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
+        simf_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp'))
+    
+        mean_obs_to_sim = np.nanmean(obs_to_sim[obs_to_sim['VALUE1']>=0]['VALUE1'])
+        mean_obs_to_simf = np.nanmean(obs_to_simf[obs_to_simf['VALUE1']>=0]['VALUE1'])
+        mean_obsf_to_sim = np.nanmean(obsf_to_sim[obsf_to_sim['VALUE1']>=0]['VALUE1'])
+        mean_obsf_to_simf = np.nanmean(obsf_to_simf[obsf_to_simf['VALUE1']>=0]['VALUE1'])
+        
+        mean_sim_to_obs = np.nanmean(sim_to_obs[sim_to_obs['VALUE1']>=0]['VALUE1'])
+        mean_sim_to_obsf = np.nanmean(sim_to_obsf[sim_to_obsf['VALUE1']>=0]['VALUE1'])
+        mean_simf_to_obs = np.nanmean(simf_to_obs[simf_to_obs['VALUE1']>=0]['VALUE1'])
+        mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
+        
+        # obs = mean_obs_to_sim
+        # sim = mean_sim_to_obs
+        # indicator = sim/obs
+        
+        obs = mean_obsf_to_simf
+        sim = mean_simf_to_obsf
+        indicator = sim/obs
+        
+        if sim > obs:
+            p_min = half
+        if sim < obs:
+            p_max = half
+        if np.isnan(indicator):
+            p_max = half
+        
+        diff = p_max - p_min
+        
+        print('==> Simulation : '+str(compt))
+        print('    K/R = '+str(round(kr, 4)))
+        print('    Gap = '+str(round((gap/100) * kr, 4)))
+        print('    Indicator = '+str(round(indicator, 4)))
+        
+        df.loc[compt,'watershed_name'] = watershed_name
+        df.loc[compt,'model_name'] = model_name
+        df.loc[compt,'type_obs'] = type_obs
+        df.loc[compt,'oclock'] = oclock
+        
+        df.loc[compt,'KR'] = round(kr, 4)
+        df.loc[compt,'K'] = round(hyd_cond, 4)
+        df.loc[compt,'R'] = round(BV.climatic.recharge, 4)
+        
+        df.loc[compt,'Obs'] = round(obs, 4)
+        df.loc[compt,'Sim'] = round(sim, 4)
+        df.loc[compt,'Indicator'] = round(indicator, 4)
+        
+        df.loc[compt,'mean_obs_to_sim'] = round(mean_obs_to_sim, 4)
+        df.loc[compt,'mean_obs_to_simf'] = round(mean_obs_to_simf, 4)
+        df.loc[compt,'mean_obsf_to_sim'] = round(mean_obsf_to_sim, 4)
+        df.loc[compt,'mean_obsf_to_simf'] = round(mean_obsf_to_simf, 4)
+        
+        df.loc[compt,'mean_sim_to_obs'] = round(mean_sim_to_obs, 4)
+        df.loc[compt,'mean_sim_to_obsf'] = round(mean_sim_to_obsf, 4)
+        df.loc[compt,'mean_simf_to_obs'] = round(mean_simf_to_obs, 4)
+        df.loc[compt,'mean_simf_to_obsf'] = round(mean_simf_to_obsf, 4)
+        
+        compt += 1
+    
+    df.to_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+type_obs+'.csv', sep=';')
+
+#%% DICHOTOMY - APPEND
+
+dfs = pd.DataFrame()
+    
+BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
+
+# for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
+for path_obs, field_obs in zip(paths_obs[:], fields_obs[:]):
+
+    type_obs = path_obs.split('\\')[-1].split('.')[0]
+    
+    df = pd.read_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+type_obs+'.csv', sep=';')
+    
+    dfs = pd.concat([dfs, df],ignore_index = True)
+
+dfs = dfs.dropna(axis=1, how='all')
+dfs.to_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+'mixed_type_obs'+'.csv', sep=';')
+
+#%% DICHOTOMY - PLOT
+
+dfs = pd.read_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+'mixed_type_obs'+'.csv', sep=';')
+
+colors = ['navy', 'dodgerblue']
+
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+
+for i, (path_obs, field_obs) in enumerate(zip(paths_obs[:], fields_obs[:])):
+
+    type_obs = path_obs.split('\\')[-1].split('.')[0]        
+             
+    dp = dfs[dfs['type_obs']==type_obs]
+        
+    x = dp['K']/3600/24
+    y = (dp['Obs']+dp['Sim'])/2
+    ax.scatter(x, y, s=50, lw=1, color=colors[i], ec='k') # color=couleur, marker=style,
+    
+    ax.axhline(y=30, ls='--', c='k', lw=1)
+    
+    ax.set_xlabel('K [m/s]')
+    ax.set_xscale('log')
+    # ax.set_xlim(1e-8,1e-4)
+    
+    ax.set_ylabel('($D_{os}$ + $D_{so}$) / 2 [m]')
+    # ax.set_yscale('log')
+    # ax.set_ylim(0,800)
+    # ax.set_yticks([0,200,400,600,800])
+    # ax.set_yticks([0,30,60,120,240,480,960])
+    
+    ax.axvline(x.iloc[y.argmin()], color=colors[i], zorder=-2)
+        
+fig, ax = plt.subplots(1,1, figsize=(5,4))
+
+for i, (path_obs, field_obs) in enumerate(zip(paths_obs[:], fields_obs[:])):
+
+    type_obs = path_obs.split('\\')[-1].split('.')[0]        
+             
+    dp = dfs[dfs['type_obs']==type_obs]
+        
+    x = dp['K']/3600/24
+    y = (dp['Obs']+dp['Sim'])/2
+    ax.scatter(x*100, y, s=50, lw=1, color=colors[i], ec='k') # color=couleur, marker=style,
+    
+    ax.axhline(y=30, ls='--', c='k', lw=1)
+    
+    ax.set_xlabel('T [m$^2$/s]')
+    ax.set_xscale('log')
+    # ax.set_xlim(1e-8,1e-4)
+    
+    ax.set_ylabel('($D_{os}$ + $D_{so}$) / 2 [m]')
+    # ax.set_yscale('log')
+    # ax.set_ylim(0,800)
+    # ax.set_yticks([0,200,400,600,800])
+    # ax.set_yticks([0,30,60,120,240,480,960])
+    
+    ax.axvline(x.iloc[y.argmin()]*100, color=colors[i], zorder=-2)
+
+#%% ---- EXPLORATION MODELING
+
+#%% PARAMETERS
+        
+box = True # or False
+sink_fill = False # or True
+sim_state = 'transient' # 'steady' or 'transient'
+# sim_state = 'steady' # 'steady' or 'transient'
+split_temp = True
+plot_cross = True
+success_modflow = True
+# first_clim = 'first' # or 'first or value
+first_clim = 'mean' # or 'first or value
+# nlay = 25
+nlay = 1
+# lay_decay = 1.25 # 1 for no decay
+lay_decay = 1
+# bottom = 800 # elevation in meters, None for constant auifer thickness, or 2D matrix
+bottom = None
+verti_cond = None # or [ [1e-5, [0, 20]],
+cond_drain = None # or value of conductance
+bc_left = None # or value
+bc_right = None # or value
+sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+zone_partic = 'domain' # or watershed
+# decay_factor = 2
+decay_factor = 1
+Ss_value = 1e-5
+# Ss_formula = 1000*9.8*(1e-10+(1*4.4e-10)) # rho*g*(alpha+nBeta)
+
+# recharge = select_period(new_pe_input['PPT-AET_m/d'],2016,2018)
+# runoff = select_period(new_pe_input['PPT-AET_m/d'],2016,2018)*0.1
+
+# recharge = new_pe_input.query("date >= '2014-10-01' and date <= '2016-10-01'")['PPT-AET_m/d']
+recharge = new_pe_input.query("date >= '2014-10-01' and date <= '2016-12-31'")['PPT-AET_m/d']
+recharge[recharge<0] = 0
+runoff = recharge * 0.1
+
+plt.plot(recharge)
+plt.plot(runoff)
+# plt.ylim(-1,1)
+# plt.yscale('log')
+
+# recharge = recharge.iloc[:7]
+# runoff = runoff.iloc[:7]
+
+# list_hyd_cond = np.array([1e-6]) * 3600 * 24
+# list_porosity = np.array([1.0]) / 100
+
+# list_hyd_cond = np.array([1e-7,1e-6,1e-5])*24*3600
+# list_porosity = np.array([0.1,1,10])/100
+# list_alpha = 1/np.array([3,30,300])
+
+list_hyd_cond = np.array([3e-7,1e-6,3e-6,1e-5,3e-5])*24*3600
+list_porosity = np.array([0.1,1,2,5,10])/100
+# list_alpha = 1/np.array([10])
+# list_alpha = np.array([0])
+list_thick = np.array([25,50,100,150,200])
+
+# iD_set_simulations = 'stat0'
+# iD_set_simulations = 'stat1'
+# iD_set_simulations = 'thic0'
+# iD_set_simulations = 'thic1'
+iD_set_simulations = 'explo1'
+
+#%% UPDATE
+
+BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+area = BV.geographic.area
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
+simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
+calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+
+BV.add_oceanic(sea_level)
+
+BV.add_settings()
+BV.settings.update_box_model(box)
+BV.settings.update_sink_fill(sink_fill)
+BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_bc_sides(bc_left, bc_right)
+BV.settings.update_input_particles(zone_partic=zone_partic)
+BV.settings.update_simulation_state(sim_state)
+BV.settings.update_split_temporal(split_temp)
+
+BV.add_climatic()
+BV.climatic.update_first_clim(first_clim)
+BV.climatic.update_recharge(recharge, sim_state=sim_state)
+BV.climatic.update_runoff(runoff, sim_state=sim_state)
+
+BV.add_hydraulic()
+BV.hydraulic.update_nlay(nlay) # 1
+BV.hydraulic.update_lay_decay(lay_decay) # 1
+BV.hydraulic.update_bottom(bottom) # None
+BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_cond_drain(cond_drain)
+BV.hydraulic.update_lay_decay(lay_decay)
+BV.hydraulic.update_ss(Ss_value)
+
+#%% RUN
+
+cpg = 0
+
+list_model_name = []
+list_success_modflow = []
+list_model_modflow = []
+
+for k, hyd_cond in enumerate(list_hyd_cond[:]):
+    BV.hydraulic.update_hyd_cond(hyd_cond)
+   
+    for p, porosity in enumerate(list_porosity[:]):
+        BV.hydraulic.update_porosity(porosity)
+        
+        # for a, alpha in enumerate(list_alpha[:1]):
+        for t, thick in enumerate(list_thick[:]):
+            # BV.hydraulic.update_cond_decay(alpha)
+            # BV.hydraulic.update_poro_decay(alpha/decay_factor)
+            # BV.hydraulic.update_ss_decay(alpha/decay_factor)
+            
+            BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+            alpha = 0
+            BV.hydraulic.update_cond_decay(0)
+            BV.hydraulic.update_poro_decay(0)
+            BV.hydraulic.update_ss_decay(0)
+
+            # now = datetime.now()
+            # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
+            
+            if alpha != 0 :
+                val_thick = 1/alpha
+            if alpha == 0:
+                val_thick = thick
                 
-                #### DELETE POSTPROCESSING FILES ####
-                            
-                dir_modflow = calibration_folder + '/' + model_name
-                dir_postprocess = dir_modflow + '/' + '_postprocess'
-                dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
-                dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
-                dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'
+            model_name = iD_set_simulations+'_'+\
+                         str(cpg+1)+'_'+\
+                         str(k+1)+'-'+'{:.2e}'.format(float(hyd_cond/3600/24))+'_'+\
+                         str(p+1)+'-'+str(round(porosity*100,2))+'_'+\
+                         str(t+1)+'-'+str(round(val_thick,2))+'_'+\
+                         str(decay_factor)+'-'+'{:.2e}'.format(float(Ss_value))
+            BV.settings.update_model_name(model_name)
+            
+            # if (k==0) and (p == 1) and (a == 1):
+            print(model_name)
+
+            model_modflow = BV.preprocessing_modflow(for_calib=False)
+            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        
+            list_model_name.append(model_name)
+            list_success_modflow.append(success_modflow)
+            list_model_modflow.append(model_modflow)
+            
+            cpg += 1
                 
-                files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
-                files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
-                files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
-                
-                if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
-                    try:
-                        for file in files_rast_acc[1:]:
-                            os.remove(file)
-                    except:
-                        pass
-                if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
-                    try:
-                        for file in files_rast_out[1:]:
-                            os.remove(file)
-                    except:
-                        pass
-                if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
-                    try:
-                        for file in files_rast_int[1:]:
-                            os.remove(file)
-                    except:
-                        pass
-                        
-                if os.path.exists(dir_temporary):
-                    shutil.rmtree(dir_temporary)
-                
-                if os.path.exists(dir_figures):
-                    shutil.rmtree(dir_figures) 
-                
-                files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
-                try:
-                    for file in files_npy:
-                        os.remove(file)
-                except:
-                    pass
-                
+dictio = {}
+dictio['list_model_name'] = list_model_name
+dictio['list_model_success'] = list_success_modflow
+dictio['list_model_modflow'] = list_model_modflow
+h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+dd.io.save(h5file, dictio)
+
+#%% POSTPROCESS        
+
+h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name'][:]
+list_model_success = d['list_model_success'][:]
+list_model_modflow = d['list_model_modflow'][:]
+
+for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                    list_model_success[:],
+                                                    list_model_modflow[:]):
+        
+        if success_modflow == True:
+            BV.postprocessing_modflow(model_modflow,
+                                      watertable_elevation = True,
+                                      watertable_depth = True, 
+                                      seepage_areas = True,
+                                      outflow_drain = True,
+                                      groundwater_flux = True,
+                                      groundwater_storage = True,
+                                      accumulation_flux = True,
+                                      persistency_index = True,
+                                      intermittency_daily = True,
+                                      intermittency_monthly = False,
+                                      export_all_tif = False)
+
+        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                          model_modpath=False,
+                                                          actual_date=True, 
+                                                          subbasin_results=True,
+                                                          freq_time='D')
+        
+        """
+        #### DELETE FILES ####
+        dir_modflow = simulations_folder + '/' + model_name
+        dir_postprocess = dir_modflow + '/' + '_postprocess'
+        dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+        dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+        dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'        
+        files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+        files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+        files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+        if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+            try:
+                for file in files_rast_acc[1:]:
+                    os.remove(file)
             except:
                 pass
-
-#%% DELETE MODFLOW FILES
-
-for watershed_name in watershed_names[:]:
-
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-    calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
-
-    h5files = glob.glob(calibration_folder+'/'+'results_listing_'+iD_set_simulations+'*')
-    
-    for h5 in h5files[:]:
-    
-        d = dd.io.load(h5)
-        
-        list_model_name = d['list_model_name'][:]
-        list_success_modflow = d['list_success_modflow'][:]
-        list_model_modflow = d['list_model_modflow'][:]
-        
-        for model_name, success_modflow, model_modflow in zip(list_model_name[:],
-                                                              list_success_modflow[:],
-                                                              list_model_modflow[:]):
-
-            dir_modflow = calibration_folder + '/' + model_name
-            for file in glob.glob(dir_modflow+'/'+'*'):
-                if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
-                    # print(file)
-                    f = file
-                    if os.path.exists(f):
-                        try:
-                            os.rename(f, f)
-                            print('Access on file "' + f +'" is available!')
-                        except OSError as e:
-                            print('Access-error on file "' + f + '"! \n' + str(e))
+        if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+            try:
+                for file in files_rast_out[1:]:
                     os.remove(file)
-                    # shutil.rmtree(file)
+            except:
+                pass
+        if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
+            try:
+                for file in files_rast_int[1:]:
+                    os.remove(file)
+            except:
+                pass                
+        if os.path.exists(dir_temporary):
+            shutil.rmtree(dir_temporary)        
+        if os.path.exists(dir_figures):
+            shutil.rmtree(dir_figures) 
+        files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
+        try:
+            for file in files_npy:
+                os.remove(file)
+        except:
+            pass
+        """
+
+#%% CROSS SECTIONS PLOT
+
+h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name'][:]
+list_model_success = d['list_model_success'][:]
+list_model_modflow = d['list_model_modflow'][:]
+
+for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                    list_model_success[:],
+                                                    list_model_modflow[:]):
+
+    mf = model_modflow.mf
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    grid_model = mf.modelgrid
+    hk_grid = mf.upw.hk
+    sy_grid = model_modflow.ps # sy_grid = mf.upw.sy
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 4), dpi=300)
+    axs = axs.ravel()
+    
+    # linecollection = modelxsect.plot_grid()
+    # hdobj = flopy.utils.HeadFile(fname)
+    # head_data = hdobj.get_data()
+    # pc = modelxsect.plot_array(head_data, masked_values=[-9999], head=head_data,
+    #                             cmap='Blues', alpha=0.5, ax=axs[1])
+    
+    ax = axs[0]
+    modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+    val = hk_grid.array/24/3600
+    try:
+        for i in range(val.shape[0]):
+            val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+    except:
+        pass
+    cb = modelxsect.plot_array(val, ax=ax, cmap='jet', lw=0.1,
+                                norm=mpl.colors.LogNorm(vmin=1e-4, 
+                                                        vmax=1e-8),  alpha=0.5
+                               )
+
+    ax.set_title('West to East (Row), K [m/s]', fontsize=12)
+    ax.set_ylim(800, 2700)
+    ax.set_xticks([0,2000,4000,6000])
+    ax.set_xlabel('Distance [m]')
+    ax.set_ylabel('Elevation [m]')
+    fig.colorbar(cb)
+    
+    ax = axs[1]
+    modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
+    cb = modelxsect.plot_array(sy_grid*100, ax=ax, cmap='jet', lw=0.1,
+                                vmin=0.1, vmax=10, alpha=0.5,
+                                norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                        vmax=10)
+                                )
+
+    ax.set_title('North to South (Column), Sy [%]', fontsize=12)
+    ax.set_xticks([0,2000,4000,6000])
+    ax.set_ylim(800, 2700)
+    ax.set_xlabel('Distance [m]')
+    ax.set_ylabel('Elevation [m]')
+    fig.colorbar(cb)
+    
+    fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=10)
+    fig.tight_layout()
+
+#%% COMPUTE HYDR PROP
+
+
+#%% SEEPAGE
+
+seep = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess','_rasters','seepage_areas_t(0).tif'))
+seep[seep<=0] = np.nan
+fig, ax = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
+ax.imshow(np.ma.masked_where(seep<=0, seep))
+
+#%% DELETE FOLDERS
+"""
+h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+d = dd.io.load(h5file)
+list_model_name = d['list_model_name'][:]
+list_model_success = d['list_model_success'][:]
+list_model_modflow = d['list_model_modflow'][:]
+
+for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                    list_model_success[:],
+                                                    list_model_modflow[:]):
+    dir_modflow = simulations_folder + '/' + model_name
+    for file in glob.glob(dir_modflow+'/'+'*'):
+        if (file.split('\\')[-1] != '_postprocess') & (file.split('\\')[-1] != '_subbasins'):
+            f = file
+            if os.path.exists(f):
+                try:
+                    os.rename(f, f)
+                    print('Access on file "' + f +'" is available!')
+                except OSError as e:
+                    print('Access-error on file "' + f + '"! \n' + str(e))
+            os.remove(file)
+            # shutil.rmtree(file)
+"""
+#%% ---- EXPLORATION RESULTS
 
 #%% STREAMFLOW - OBS
 
