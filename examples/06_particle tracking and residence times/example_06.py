@@ -82,11 +82,11 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-case = 'Example_05_Lasset'
-# case = 'Example_05_Hillslope_1D'
-# case = 'Example_05_Hillslope_2D'
+case = 'Example_06_Lasset'
+# case = 'Example_06_Hillslope_1D'
+# case = 'Example_06_Hillslope_2D'
 
-if case == 'Example_05_Hillslope_1D':
+if case == 'Example_06_Hillslope1D':
     dem_path = data_path + 'hillslope_1D.tif'
     load = False
     watershed_name = case
@@ -98,7 +98,7 @@ if case == 'Example_05_Hillslope_1D':
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
     
-if case == 'Example_05_Hillslope_2D':
+if case == 'Example_06_Hillslope2D':
     dem_path = data_path + 'hillslope_2D.tif'
     load = False
     watershed_name = case
@@ -110,7 +110,7 @@ if case == 'Example_05_Hillslope_2D':
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
-if case == 'Example_05_Lasset':
+if case == 'Example_06_Lasset':
     dem_path = data_path + 'regional dem.tif'
     load = True
     watershed_name = case
@@ -182,7 +182,7 @@ nlay = 50
 lay_decay = 1.25 # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 100 # if bottom is None, aquifer thickness
-if watershed_name == 'Example_05_Lasset':
+if watershed_name == 'Example_06_Lasset':
     hyd_cond = 1e-8 * 24 * 3600 # m/day
 else:
     hyd_cond = 5e-7 * 24 * 3600 # m/day
@@ -290,15 +290,15 @@ toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
 tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
 
 BV.settings.update_input_particles(
-                                    # zone_partic = BV.geographic.box_buff_watershed_dem,
+                                    zone_partic = BV.geographic.watershed_box_buff_dem,
                                     # zone_partic = BV.geographic.watershed_dem,
                                     # zone_partic = tif_file_clip,
-                                    zone_partic = tif_file,
+                                    # zone_partic = tif_file,
                                     cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
                                     bore_depth = None, # '[0,5,10] for 3 particles or None
-                                    track_dir = 'backward',
-                                    # track_dir = 'forward', # backward
+                                    # track_dir = 'backward',
+                                    track_dir = 'forward',
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
@@ -351,7 +351,7 @@ visu.visual2D(object_list = ['map','grid',
                              ], 
               lines=500)
 
-#%% RAW MAP 1
+#%% SEEPAGE MAP
 
 lead_numb = '0'
 outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
@@ -376,6 +376,7 @@ ax.get_yaxis().set_visible(False)
 im = ax.imshow(demData, alpha=0.8, cmap=cmap)
 im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
 cf=ax.imshow(outflow, cmap='YlGnBu', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+ax.set_title('Seepage outflow (quick view)')
 
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'
 plt.tight_layout()
@@ -383,7 +384,7 @@ plt.tight_layout()
 # fig.savefig(os.path.join(simulations_folder, model_name,
 #                             '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
 
-#%% RAW MAP 2
+#%% RESIDENCE TIMES MAP
 
 shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines.shp')
 shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
@@ -418,7 +419,7 @@ try:
 except:
     pass
 
-ax.set_title('Ending residence times [y]')
+ax.set_title('Residence times [y]')
 
 ax.get_xaxis().set_visible(False)
 ax.get_yaxis().set_visible(False)  
@@ -430,7 +431,7 @@ fig.tight_layout()
 
 #%% CROSS
 
-if case != 'Example_05_Lasset':
+if case != 'Example_06_Lasset':
 
     import flopy.utils.binaryfile as fpu
     

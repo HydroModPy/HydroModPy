@@ -92,7 +92,7 @@ print('The results of the example will be saved here :', out_path)
 
 dem_path = os.path.join(data_path, 'regional dem.tif')
 load = True
-watershed_name = 'Example_03_Nancon'
+watershed_name = 'Example_04_Nancon'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]

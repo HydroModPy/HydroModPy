@@ -85,7 +85,7 @@ print('The results of the example will be saved here :', out_path)
 dem_path = os.path.join(data_path, 'regional dem.tif')
 # dem_path = 'C:/Users/ronan/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
 load = False
-watershed_name = 'Example_02_Canut'
+watershed_name = 'Example_03_Canut'
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]

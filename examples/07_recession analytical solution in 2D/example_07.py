@@ -84,9 +84,9 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-case = 'Example_09_Hillslope1D'
+case = 'Example_07_Hillslope1D'
 
-if case == 'Example_09_Hillslope1D':
+if case == 'Example_07_Hillslope1D':
     dem_path_ref = data_path + 'hillslope_1D.tif'
     
     resamp_res = 20
