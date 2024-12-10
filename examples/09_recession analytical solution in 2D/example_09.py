@@ -69,12 +69,13 @@ def select_period(df, first, last):
 #%% PERSONAL
 
 example_path = root_dir + "/examples/09_recession analytical solution in 2D/"
-data_path = os.path.join(example_path, "data") + '/'
-# To automatically retrieve/initialize the HydroModPy results path:
-# out_path = folder_root.root_folder_results()
-# When it needs modifying: out_path = folder_root.update_root_folder_results()
-# Otherwise, to inform a results path specific to this script:
-out_path = 'C:/Users/ronan/Simulations/HydroModPy/' # for example
+data_path = os.path.join(example_path, "data/")
+# To inform the folder path:
+#out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
+print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
 
@@ -111,7 +112,7 @@ if case == 'Example_09_Hillslope1D':
     x = imageio.imread(dem_path_res)
     x = (x*0)+100
     # x[1,:] = -99999
-    toolbox.export_tif(dem_path_res, x, -99999, data_path + 'hillslope_1D_userdefined.tif')
+    toolbox.export_tif(dem_path_res, x, data_path + 'hillslope_1D_userdefined.tif', -99999)
     dem_path = data_path + 'hillslope_1D_userdefined.tif'
     
     load = False

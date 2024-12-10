@@ -74,13 +74,14 @@ def select_period(df, first, last):
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, r"examples/03_streamflow intermittence in transient")
+example_path = os.path.join(root_dir, "examples/03_streamflow intermittence in transient")
 data_path = os.path.join(example_path, "data")
-# To automatically retrieve/initialize the HydroModPy results path:
-out_path = folder_root.root_folder_results()
-# When it needs modifying: out_path = folder_root.update_root_folder_results()
-# Otherwise, to inform a results path specific to this script:
-# out_path = 'C:/Simulations/HydroModPy/' # for example
+# To inform the folder path:
+#out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
+print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
 
@@ -477,7 +478,7 @@ simul_list = sorted(glob.glob(os.path.join(simulations_folder, iD_set_simulation
         
 for simul in simul_list[:]:
     
-    model_nam = os.path.split(simul)[-1]
+    model_name = os.path.split(simul)[-1]
         
     Smod_path = os.path.join(simul, r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
@@ -765,7 +766,7 @@ for i, simul in enumerate(simul_list[:]):
     Smod['date'] = x_months
     Smod.index = Smod['date']
     
-    fig, ax = plt.subplots(1, 1, figsize=(6,3))
+    fig, ax = plt.subplots(1, 1, figsize=(7,3.5))
     
     ax.fill_between(Smod.index, 0, Smod['total_areas'],
                     interpolate=False, color='dodgerblue', alpha=0.5,
@@ -785,7 +786,7 @@ for i, simul in enumerate(simul_list[:]):
 
     ax.set_ylim(-0,12)
     # ax.set_yticks(np.arange(0,15.05,2.5))
-    ax.set_ylabel('$A_{sat}$ [%]')
+    ax.set_ylabel('Drainge density [%]')
     ax.set_xlim(pd.to_datetime('2000-01'), pd.to_datetime('2002-12'))
     plt.xticks(rotation=0, ha="right")
 

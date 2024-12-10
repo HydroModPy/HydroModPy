@@ -66,13 +66,14 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = root_dir + "/examples/05_particle tracking for residence times/"
-data_path = os.path.join(example_path, "data") + '/'
-# To automatically retrieve/initialize the HydroModPy results path:
-# out_path = folder_root.root_folder_results()
-# When it needs modifying: out_path = folder_root.update_root_folder_results()
-# Otherwise, to inform a results path specific to this script:
-out_path = 'C:/Users/ronan/Simulations/HydroModPy/' # for example
+example_path = os.path.join(root_dir,"examples","05_particle tracking for residence times")
+data_path = os.path.join(example_path, "data/")
+# To inform the folder path:
+#out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
+print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
 
@@ -286,14 +287,15 @@ toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
 tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
 
 BV.settings.update_input_particles(
-                                    zone_partic = BV.geographic.watershed_dem,
+                                    # zone_partic = BV.geographic.box_buff_watershed_dem,
                                     # zone_partic = BV.geographic.watershed_dem,
                                     # zone_partic = tif_file_clip,
+                                    zone_partic = tif_file,
                                     cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
                                     bore_depth = None, # '[0,5,10] for 3 particles or None
-                                    # track_dir = 'backward',
-                                    track_dir = 'forward', # backward
+                                    track_dir = 'backward',
+                                    # track_dir = 'forward', # backward
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )

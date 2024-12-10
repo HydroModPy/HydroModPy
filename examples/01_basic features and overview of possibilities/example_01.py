@@ -67,11 +67,12 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 example_path = os.path.join(root_dir, "examples/01_basic features and overview of possibilities")
 data_path = os.path.join(example_path, "data")
-# To automatically retrieve/initialize the HydroModPy results path:
-out_path = folder_root.root_folder_results()
-# When it needs modifying: out_path = folder_root.update_root_folder_results()
-# Otherwise, to inform a results path specific to this script:
-# out_path = 'C:/Simulations/HydroModPy/' # for example
+# To inform the folder path:
+#out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
+print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
 
@@ -422,7 +423,7 @@ if sim_state == 'steady':
                                   ending_point=True,
                                   starting_point=True,
                                   pathlines_shp=True,
-                                  particuls_shp=True,
+                                  particles_shp=True,
                                   random_id=100)
 
 #%% TIMESERIES & NETCDF
