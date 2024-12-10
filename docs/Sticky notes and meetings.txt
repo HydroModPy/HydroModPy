@@ -1,0 +1,56 @@
+Date: 04/12/24 - 15h
+
+Participants: Ronan, Alexandre C., Alexandre G.
+
+Branch : master (branche utilisateur) - dev (branche centrale) - dev-features (branche de dévellopement d'une feature spécifique)
+
+Actions:
+(1) Envoyer un mail sur la mail-list de prévention
+(2) Back-up de toutes les branches
+(3) Merge v0.1 vers master 
+(4) Tag de la branch master : v1.0.0 (majeurs.features.corrections)
+(5) Merge v0.1 vers dev0.1 /!\ Attention conflits
+(6) Supprimer la v0.1
+(7) Créé old-calibration à la place de dev: /!\ Faire un back up
+(8) supprimer la branch dev
+(9) Créer la branch dev à partir de la dev0.1
+(10) Supprimer la dev0.1
+
+Liste des branches :
+  CB, JM & RA:
+    Branch teaching
+  RA:
+    Branch dev-examples
+    Branch dev-gr4j
+    Branch dev-pyhelp
+  AG & Martin:
+    Branch old-calibration
+  AC:
+    Branch dev-lakeres 
+    Branch dev-lakeres-warm-up
+    Branch dev-sequential
+    Branch dev-lakeres-sequential
+    Branch dev-optim-postproc
+  Stage IRISA:
+    Branch dev-jeremy
+
+Réunion HMP:
+  - Faire le point sur l'activité : commits/nouvelles branches
+  - Faire un guide du dev HydroModPy: Branch par feature
+  - Ajouter un fichier meeting.txt sur le git dev: rapport de réunion
+  
+Templates
+---------------------------------------------------------------------
+Date: 
+Participants: 
+  
+Recent commits:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
+--------------
+
+Gitlab Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
+-------------
+
+General discussions:
+-------------------
+
+----------------------------------------------------------------------
