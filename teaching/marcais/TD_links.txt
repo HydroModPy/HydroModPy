@@ -1,0 +1,8 @@
+LATEX TD1
+https://www.overleaf.com/project/64f090fe7a9ef6a3e6511866/invite/token/4dbd0ad0a4f0805b3ca47f264cc99d68b02f6ea68d61a607?project_name=HydroModpy_TD1&user_first_name=jean.marcais
+
+Google Drive documentation
+https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
+
+ReadTheDocs documentation
+https://hydromod.readthedocs.io/
