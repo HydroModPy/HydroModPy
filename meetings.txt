@@ -1,4 +1,5 @@
 Date: 04/12/24 - 15h
+
 Participants: Ronan, Alexandre C., Alexandre G.
 
 Branch : master (branche utilisateur) - dev (branche centrale) - dev-features (branche de dévellopement d'une feature spécifique)
