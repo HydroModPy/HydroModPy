@@ -16,7 +16,7 @@ Actions:
 (9) Créer la branch dev à partir de la dev0.1
 (10) Supprimer la dev0.1
 
-Liste des branches :
+Recap liste des branches à créer :
   CB, JM & RA:
     Branch teaching
   RA:
