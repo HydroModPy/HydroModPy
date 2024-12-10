@@ -66,13 +66,16 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples/02_hydrographic network in steady state")
-data_path = os.path.join(example_path, "data")
-# To inform the folder path:
-#out_path = folder_root.update_root_folder_results()
+example_path = os.path.join(root_dir, "examples", "03_hydrographic network in steady state/")
+data_path = os.path.join(example_path, "data/")
+
+# The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or for example:
+# Or use a function to update the root folder
+# out_path = folder_root.update_root_folder_results()
+# Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
+
 print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
@@ -448,7 +451,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     
 #%% GRAPH
 
-fig, ax = plt.subplots(1, 1, figsize=(4,3), dpi=300)
+fig, ax = plt.subplots(1, 1, figsize=(5,4), dpi=300)
 
 for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,

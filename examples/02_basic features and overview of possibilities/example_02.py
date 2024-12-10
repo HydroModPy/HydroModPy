@@ -65,13 +65,16 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples/01_basic features and overview of possibilities")
-data_path = os.path.join(example_path, "data")
-# To inform the folder path:
-#out_path = folder_root.update_root_folder_results()
+example_path = os.path.join(root_dir, "examples", "02_basic features and overview of possibilities/")
+data_path = os.path.join(example_path, "data/")
+
+# The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or for example:
+# Or use a function to update the root folder
+# out_path = folder_root.update_root_folder_results()
+# Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
+
 print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
@@ -207,7 +210,7 @@ if recharge_data == 'reanalysis':
     fig, ax = plt.subplots(1,1, figsize=(6,3))
     R = BV.climatic.recharge.resample('Y').sum()*1000
     r = BV.climatic.runoff.resample('Y').sum()*1000
-    ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
+    ax.plot(R, label='echarge_reanalysis', c='dodgerblue', lw=2)
     ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
     ax.set_xlabel('Date')
     ax.set_ylabel('[mm/year]')
@@ -505,7 +508,7 @@ ticks = np.linspace(0, 20, 5)
 cbar.set_ticks(ticks)
 # cbar.set_ticklabels(ticks.round(1))
 cbar.mappable.set_clim(0, 20)
-cbar.set_label('Seepage outflow log [mm/day]')
+cbar.set_label('Seepage outflow [mm/day]')
 
 plt.tight_layout()
 name_fig = 'map_discharge_' + str(lead_numb) + '.png'
