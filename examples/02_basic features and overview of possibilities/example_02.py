@@ -90,7 +90,7 @@ case = 'FromSHP'    # from a shapefile: clip a provided DEM
 
 if case == 'FromLIB':
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    watershed_name = 'Example_01_Library'
+    watershed_name = 'Example_02_Library'
     from_lib = os.path.join(data_path,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]
@@ -100,7 +100,7 @@ if case == 'FromLIB':
 
 if case == 'FromDEM':
     dem_path = os.path.join(data_path, 'conceptual dem.tif')
-    watershed_name = 'Example_01_Topography'
+    watershed_name = 'Example_02_Topography'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = [dem_path, 100] # [path, cell size]
     from_shp = None # [path, buffer size]
@@ -110,7 +110,7 @@ if case == 'FromDEM':
 
 if case == 'FromSHP':
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    watershed_name = 'Example_01_Shapefile'
+    watershed_name = 'Example_02_Shapefile'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = [data_path + '/' + 'conceptual shp.shp', 10] # [path, buffer size]
@@ -120,7 +120,7 @@ if case == 'FromSHP':
 
 if case == 'FromXYV':
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    watershed_name = 'Example_01_Coordinates'
+    watershed_name = 'Example_02_Coordinates'
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]

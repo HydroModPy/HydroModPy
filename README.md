@@ -4,11 +4,13 @@ HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater m
 
 Stable current version: v0.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 
-## Abstract
+## Presentation
 
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological models in catchments across the crystalline basement regions of Normandy and Brittany, France. The platform integrates a wide range of open-source packages (FloPy, WhiteBoxTools, etc.), making them easily accessible and shareable among scientific communities. 
 The development of HydroModPy was driven by two primary objectives.
+
 First, it automates the extraction and discretization of watersheds from Digital Elevation Models (DEMs), while adding essential data available (e.g. piezometry, hydrography, geology) from local data to national and global databases. This ensures a standardized process for setting up and running simulation batches across different watersheds with uniform input data.
+
 The second goal is to facilitate the visualization and comparison of results from the various modeling programs included within the platform. In addition to its scientific applications, HydroModPy also serves as a valuable educational tool, enabling students and researchers to explore hydrogeological modeling in a practical context.
 
 ## Authors
@@ -42,7 +44,7 @@ Option 2 : Clone a repository using a Git management tool like GitHub Desktop.
 To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your computer.
 A HydroModPy environment can be installed with "conda" using the ".yml" file available in the "install" directory:
 
-(0) Open from Anaconda Prompt :
+(0) Open Anaconda Prompt :
 ```
 cd /d "path/where/is/the/install/directory/"
 conda env create -f environment_windows.yml -n hydromodpy-0.1
@@ -69,10 +71,11 @@ jupyter notebook
  - 04_streamflow intermittence in transient
  - 05_piezometry in a heterogeneous coastal aquifer
  - 06_particle tracking for residence times
- - 07_recession analytical solution in 2D```
+ - 07_recession analytical solution in 2D
 ```
 
 ## Linked publications
+
 Papers published using HydroModPy.
 
 Marti, E., Leray, S., & Roques, C. (2024). Catchment landforms predict groundwater-dependent wetland sensitivity to recharge changes. Hydrology and Earth System Sciences Discussions. https://doi.org/10.5194/HESS-2024-381

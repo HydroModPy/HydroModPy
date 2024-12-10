@@ -84,7 +84,7 @@ print('The results of the example will be saved here :', out_path)
 
 dem_path = data_path + "MNT_gouville_25m.tif"
 
-watershed_name = 'Example_04_Gouville'
+watershed_name = 'Example_05_Gouville'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = [data_path + 'model_area.shp', 10] # [path, buffer size]
@@ -188,7 +188,7 @@ BV.oceanic.update_MSL(sea_level)
 sl = BV.oceanic.MSL
 
 fig, ax = plt.subplots(1,1, figsize=(7,4))
-ax.plot(sl, label='sea_level', c='navy', lw=2)
+ax.plot(sl, c='navy', lw=2)
 ax.set_xlabel('Days')
 ax.set_ylabel('Sea level [m.a.s.l]')
 plt.xticks(rotation=45, ha="right")
@@ -320,7 +320,7 @@ for t in range(len(watertable_depth)):
 df_simobs_piezo_depth = piezo_2016.copy()
 df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
 
-fig, axs = plt.subplots(2,1, figsize=(8,6), sharex=True)
+fig, axs = plt.subplots(2,1, figsize=(9,7), sharex=True)
 axs = axs.ravel()
 
 ax = axs[0]
@@ -331,20 +331,20 @@ months_maj = mdates.MonthLocator()  # every x month
 ax.xaxis.set_major_locator(years_maj)
 ax.xaxis.set_minor_locator(months_maj)
 ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Elevation [m]')
+ax.set_ylabel('Elevation [masl]')
 ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
 ax.set_title('Watertable')
 
 ax = axs[1]
-ax.axhline(dem_data[30,30], label='Topography', color='gold', lw=2)
-ax.plot(dem_data[30,30]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
+# ax.axhline(dem_data[30,30], label='Topography', color='gold', lw=2)
+ax.plot(dem_data[BV.piezometry.x_iloc,BV.piezometry.y_iloc]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
 ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
 years_maj = mdates.YearLocator()   # every year
 months_maj = mdates.MonthLocator()  # every x month
 ax.xaxis.set_major_locator(years_maj)
 ax.xaxis.set_minor_locator(months_maj)
-ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Depth [m]')
+ax.legend(loc='lower right', fontsize=8)
+ax.set_ylabel('Depth from surface [m]')
 ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
 
 fig, ax = plt.subplots(1,1, figsize=(10,3))

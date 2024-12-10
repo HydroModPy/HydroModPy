@@ -71,7 +71,7 @@ print('The results of the example will be saved here :', out_path)
 #%% ---- EXTRACT CATCHMENT
 
 # Name of the study site
-watershed_name = 'Example_00_Canut'
+watershed_name = 'Example_01_Canut'
 print('##### '+watershed_name.upper()+' #####')
 
 # Regional DEM
