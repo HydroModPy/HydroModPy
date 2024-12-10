@@ -1,5 +1,0 @@
-Google Drive documentation
-https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
-
-ReadTheDocs documentation
-https://hydromod.readthedocs.io/

@@ -1,0 +1,11 @@
+Git Lab
+https://gitlab.com/Alex-Gauvain/HydroModPy/
+
+ReadTheDocs
+https://hydromod.readthedocs.io/
+
+Google Drive
+https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
+
+Forum Group
+https://groups.google.com/g/hydromodpy
