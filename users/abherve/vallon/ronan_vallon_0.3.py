@@ -3499,7 +3499,7 @@ path_max = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[1]))+'_*
 
 #%% ---- CALIBRATION STREAMS
 
-#%% DICHOTOMY FUNCTION
+#%% DICHOTOMY - FUNCTION
 
 # wbt.euclidean_distance(
 #     i, 
@@ -3624,7 +3624,7 @@ class MatchingStreams:
         wbt.add_point_coordinates_to_table(self.pt_obs_flowf)
         wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
 
-#%% DICHOTOMY - RUN
+#%% DICHOTOMY - INIT
 
 hydrography_path = data_path + '_gis/Hydrography_clipped/' # add hydrographic shapefiles
 
@@ -3648,6 +3648,8 @@ recharge[recharge<0] = 0
 runoff = recharge * 0.1
 
 iD_iter = 'hgs1'
+
+#%% DICHOTOMY - RUN
 
 # for type_obs, field_obs in zip(types_obs[:], fields_obs[:]):
 for path_obs, field_obs in zip(paths_obs[:], fields_obs[:]):
@@ -3836,6 +3838,7 @@ for path_obs, field_obs in zip(paths_obs[:], fields_obs[:]):
 
 #%% DICHOTOMY - APPEND
 
+
 dfs = pd.DataFrame()
     
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
@@ -3854,6 +3857,9 @@ dfs = dfs.dropna(axis=1, how='all')
 dfs.to_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+'mixed_type_obs'+'.csv', sep=';')
 
 #%% DICHOTOMY - PLOT
+
+BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
+BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
 dfs = pd.read_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+'mixed_type_obs'+'.csv', sep=';')
 
@@ -3957,24 +3963,13 @@ plt.plot(runoff)
 # recharge = recharge.iloc[:7]
 # runoff = runoff.iloc[:7]
 
-# list_hyd_cond = np.array([1e-6]) * 3600 * 24
-# list_porosity = np.array([1.0]) / 100
-
-# list_hyd_cond = np.array([1e-7,1e-6,1e-5])*24*3600
-# list_porosity = np.array([0.1,1,10])/100
 # list_alpha = 1/np.array([3,30,300])
+list_T = np.geomspace(1e-5,1e-3,3)*24*3600
+list_thick = np.geomspace(10,1000,3)
+list_hyd_cond = list_T/list_thick
+list_porosity = np.array([0.1,1,10])/100
 
-list_hyd_cond = np.array([3e-7,1e-6,3e-6,1e-5,3e-5])*24*3600
-list_porosity = np.array([0.1,1,2,5,10])/100
-# list_alpha = 1/np.array([10])
-# list_alpha = np.array([0])
-list_thick = np.array([25,50,100,150,200])
-
-# iD_set_simulations = 'stat0'
-# iD_set_simulations = 'stat1'
-# iD_set_simulations = 'thic0'
-# iD_set_simulations = 'thic1'
-iD_set_simulations = 'explo1'
+iD_set_simulations = 'Ex1'
 
 #%% UPDATE
 
@@ -4011,136 +4006,148 @@ BV.hydraulic.update_ss(Ss_value)
 
 #%% RUN
 
+delete_files = False
+
 cpg = 0
 
 list_model_name = []
-list_success_modflow = []
-list_model_modflow = []
 
 for k, hyd_cond in enumerate(list_hyd_cond[:]):
     BV.hydraulic.update_hyd_cond(hyd_cond)
    
-    for p, porosity in enumerate(list_porosity[:]):
-        BV.hydraulic.update_porosity(porosity)
-        
-        # for a, alpha in enumerate(list_alpha[:1]):
-        for t, thick in enumerate(list_thick[:]):
-            # BV.hydraulic.update_cond_decay(alpha)
-            # BV.hydraulic.update_poro_decay(alpha/decay_factor)
-            # BV.hydraulic.update_ss_decay(alpha/decay_factor)
-            
-            BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-            alpha = 0
-            BV.hydraulic.update_cond_decay(0)
-            BV.hydraulic.update_poro_decay(0)
-            BV.hydraulic.update_ss_decay(0)
+    # for a, alpha in enumerate(list_alpha[:1]):
+    for t, thick in enumerate(list_thick[:]):
+        # BV.hydraulic.update_cond_decay(alpha)
+        BV.hydraulic.update_cond_decay(0)
+        alpha = BV.hydraulic.cond_decay
 
+        BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+        
+        if alpha != 0 :
+            val_thick = 1/alpha
+        if alpha == 0:
+            val_thick = thick
+   
+        for p, porosity in enumerate(list_porosity[:]):
+            # BV.hydraulic.update_poro_decay(alpha/decay_factor)
+            BV.hydraulic.update_poro_decay(0)
+            # BV.hydraulic.update_ss_decay(alpha/decay_factor)
+            BV.hydraulic.update_ss_decay(0)
+            
+            BV.hydraulic.update_porosity(porosity)
+            
             # now = datetime.now()
             # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
             
-            if alpha != 0 :
-                val_thick = 1/alpha
-            if alpha == 0:
-                val_thick = thick
-                
             model_name = iD_set_simulations+'_'+\
                          str(cpg+1)+'_'+\
-                         str(k+1)+'-'+'{:.2e}'.format(float(hyd_cond/3600/24))+'_'+\
-                         str(p+1)+'-'+str(round(porosity*100,2))+'_'+\
-                         str(t+1)+'-'+str(round(val_thick,2))+'_'+\
-                         str(decay_factor)+'-'+'{:.2e}'.format(float(Ss_value))
+                         str('K')+'-'+str(k+1)+'-'+'{:.2e}'.format(float(hyd_cond/3600/24))+'_'+\
+                         str('E')+'-'+str(t+1)+'-'+str(round(val_thick,2))+'_'+\
+                         str('T')+'-'+'{:.2e}'.format(float(val_thick*hyd_cond/3600/24))+'_'+\
+                         str('R')+'-'+str(round(hyd_cond/BV.climatic.recharge[0],2))+'_'+\
+                         str('P')+'-'+str(p+1)+'-'+str(round(porosity*100,2))+'_'+\
+                         str('F')+'-'+str(decay_factor)+'-'+'{:.2e}'.format(float(Ss_value))
             BV.settings.update_model_name(model_name)
-            
-            # if (k==0) and (p == 1) and (a == 1):
-            print(model_name)
-
-            model_modflow = BV.preprocessing_modflow(for_calib=False)
-            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-        
             list_model_name.append(model_name)
-            list_success_modflow.append(success_modflow)
-            list_model_modflow.append(model_modflow)
-            
+            print(model_name)
+                        
+            model_modflow = BV.preprocessing_modflow(for_calib=False)
+            # success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        
             cpg += 1
-                
-dictio = {}
-dictio['list_model_name'] = list_model_name
-dictio['list_model_success'] = list_success_modflow
-dictio['list_model_modflow'] = list_model_modflow
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
-dd.io.save(h5file, dictio)
+            
+            dictio_mf = {}
+            dictio_mf['model_modflow'] = model_modflow
+            ### ATTENTION NAMED .pkl ###
+            dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl', dictio_mf)
+            
+            # # if success_modflow == True:
+            # BV.postprocessing_modflow(model_modflow,
+            #                           watertable_elevation = True,
+            #                           watertable_depth = True, 
+            #                           seepage_areas = True,
+            #                           outflow_drain = True,
+            #                           groundwater_flux = True,
+            #                           groundwater_storage = True,
+            #                           accumulation_flux = True,
+            #                           persistency_index = True,
+            #                           intermittency_daily = True,
+            #                           intermittency_monthly = False,
+            #                           export_all_tif = False)
+
+            # timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+            #                                                   model_modpath=False,
+            #                                                   actual_date=True, 
+            #                                                   subbasin_results=True,
+            #                                                   freq_time='D')
+            
+            if delete_files == True :
+
+                #### DELETE FILES ####
+                dir_modflow = simulations_folder + '/' + model_name
+                dir_postprocess = dir_modflow + '/' + '_postprocess'
+                dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+                dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+                dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'        
+                files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+                files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+                files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+                if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+                    try:
+                        for file in files_rast_acc[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+                    try:
+                        for file in files_rast_out[1:]:
+                            os.remove(file)
+                    except:
+                        pass
+                if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
+                    try:
+                        for file in files_rast_int[1:]:
+                            os.remove(file)
+                    except:
+                        pass                
+                if os.path.exists(dir_temporary):
+                    shutil.rmtree(dir_temporary)        
+                if os.path.exists(dir_figures):
+                    shutil.rmtree(dir_figures) 
+                files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
+                try:
+                    for file in files_npy:
+                        os.remove(file)
+                except:
+                    pass
+
+# plt.plot(list_T/24/3600)
+# plt.plot(list_hyd_cond/24/3600)
+# plt.yscale('log')
+
+# x = np.save('my_file.npy', dictio) 
+# with open(h5file, 'wb') as f:
+#     pickle.dump(dictio, f)
+
+# dd.io.save(h5file, dictio)
+
+# h5file = simulations_folder+'/'+'reslist_'+iD_set_simulations
+
+dictio_id = {}
+dictio_id['list_model_name'] = list_model_name
+dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames', dictio_id)
 
 #%% POSTPROCESS        
 
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
-d = dd.io.load(h5file)
-list_model_name = d['list_model_name'][:]
-list_model_success = d['list_model_success'][:]
-list_model_modflow = d['list_model_modflow'][:]
+# h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
+# d = dd.io.load(h5file)
+# list_model_name = d['list_model_name'][:]
+# list_model_success = d['list_model_success'][:]
+# list_model_modflow = d['list_model_modflow'][:]
 
-for model_name, model_success, model_modflow in zip(list_model_name[:],
-                                                    list_model_success[:],
-                                                    list_model_modflow[:]):
-        
-        if success_modflow == True:
-            BV.postprocessing_modflow(model_modflow,
-                                      watertable_elevation = True,
-                                      watertable_depth = True, 
-                                      seepage_areas = True,
-                                      outflow_drain = True,
-                                      groundwater_flux = True,
-                                      groundwater_storage = True,
-                                      accumulation_flux = True,
-                                      persistency_index = True,
-                                      intermittency_daily = True,
-                                      intermittency_monthly = False,
-                                      export_all_tif = False)
-
-        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                          model_modpath=False,
-                                                          actual_date=True, 
-                                                          subbasin_results=True,
-                                                          freq_time='D')
-        
-        """
-        #### DELETE FILES ####
-        dir_modflow = simulations_folder + '/' + model_name
-        dir_postprocess = dir_modflow + '/' + '_postprocess'
-        dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
-        dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
-        dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'        
-        files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
-        files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
-        files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
-        if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
-            try:
-                for file in files_rast_acc[1:]:
-                    os.remove(file)
-            except:
-                pass
-        if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
-            try:
-                for file in files_rast_out[1:]:
-                    os.remove(file)
-            except:
-                pass
-        if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
-            try:
-                for file in files_rast_int[1:]:
-                    os.remove(file)
-            except:
-                pass                
-        if os.path.exists(dir_temporary):
-            shutil.rmtree(dir_temporary)        
-        if os.path.exists(dir_figures):
-            shutil.rmtree(dir_figures) 
-        files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
-        try:
-            for file in files_npy:
-                os.remove(file)
-        except:
-            pass
-        """
+# for model_name, model_success, model_modflow in zip(list_model_name[:],
+#                                                     list_model_success[:],
+#                                                     list_model_modflow[:]):
 
 #%% CROSS SECTIONS PLOT
 
