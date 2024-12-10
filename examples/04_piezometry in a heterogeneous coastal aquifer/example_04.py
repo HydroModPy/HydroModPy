@@ -67,26 +67,24 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% PERSONAL PATHS
 
 example_path = root_dir + "/examples/04_piezometry in a heterogeneous coastal aquifer/"
-data_path = os.path.join(example_path, "data") + '/'
-# To automatically retrieve/initialize the HydroModPy results path:
-out_path = folder_root.root_folder_results()
-# When it needs modifying: out_path = folder_root.update_root_folder_results()
-# Otherwise, to inform a results path specific to this script:
-# out_path = 'C:/Simulations/HydroModPy/' # for example
+data_path = os.path.join(example_path, "data/")
+# To inform the folder path:
+#out_path = folder_root.update_root_folder_results()
+out_path = os.path.join(root_dir,'examples', 'results')
+# Or for example:
+# out_path = 'C:/Simulations/HydroModPy/'
+print('The results of the example will be saved here :', out_path)
 
 #%% ---- WATERSHED
 
 #%% OPTIONS
 
 dem_path = data_path + "MNT_gouville_25m.tif"
-oceanic_path = data_path + 'oceanic/'
-recharge_path = data_path + 'recharge/_REC_D.csv'
-shape_calib_zones_path = os.path.join(data_path, 'shapefile', 'param_zones.shp')
 
 watershed_name = 'Example_04_Gouville'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
-from_shp = [data_path + 'shapefile/model_area.shp', 10] # [path, buffer size]
+from_shp = [data_path + 'model_area.shp', 10] # [path, buffer size]
 from_xyv = None # [x, y, snap distance, buffer size]
 bottom_path = None # path
 modflow_path = os.path.join(root_dir,'bin/')
@@ -118,8 +116,9 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 #%% INIT
 
 # Clip specific data at the catchment scale
-BV.add_piezometry()
+oceanic_path = data_path
 BV.add_oceanic(oceanic_path)
+BV.add_piezometry()
 
 # General plot of the study site
 visualization_watershed.watershed_local(dem_path, BV)
@@ -159,7 +158,7 @@ freq_time = 'D'
 BV.add_climatic()
 BV.climatic.update_first_clim(first_clim)
 
-BV.climatic.update_recharge_reanalysis(path_file = recharge_path,
+BV.climatic.update_recharge_reanalysis(path_file = data_path + '_REC_D.csv',
                                        clim_mod='REA',
                                        clim_sce='historic',
                                        first_year=2016,
@@ -256,6 +255,7 @@ BV.hydraulic.update_lay_decay(poro_decay)
 BV.settings.update_split_temporal(split_temp=False)
 
 # Lateral heterogeneity
+shape_calib_zones_path = os.path.join(data_path, 'param_zones.shp')
 BV.hydraulic.update_calib_zones_from_shp(shape_calib_zones_path)
 BV.hydraulic.update_hyd_cond_from_calib_zones(1, hyd_cond_1)
 BV.hydraulic.update_hyd_cond_from_calib_zones(2, hyd_cond_2)
