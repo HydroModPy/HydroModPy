@@ -9,6 +9,6 @@ src/display/__pycache__
 src/watershed/.DS_Store
 examples/results/*
 regression/results/*
-users/*
+users/
 !examples/results/readme.txt
 !regression/results/readme.txt
