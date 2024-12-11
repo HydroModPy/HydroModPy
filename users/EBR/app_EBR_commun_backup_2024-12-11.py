@@ -18,21 +18,19 @@ HydroModPy:
 
 
 #%% CHARGEMENT DES BIBLIOTHEQUES ET MODULES
+
 #% PYTHON
-
-# Filtrer les avertissements (avant les imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # A placer après DeprecationWarning car elle même obselète...
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # Bibliothèques installées par défaut
 import sys
 import os
-import requests 
+import requests
 import datetime
+import warnings
+warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore")
 
 # Bibliothèques additionnelles installées dans l'environnement
 import numpy as np
@@ -46,13 +44,12 @@ import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-# ========================================== ===================================
+# =============================================================================
 # if os.getenv('PROJ_LIB') is not None:
 #     os.environ.pop('PROJ_LIB')
 # =============================================================================
 import xarray as xr
 xr.set_options(keep_attrs = True)
-import yaml
 
 #% DOSSIER RACINE
 from os.path import dirname, abspath
@@ -64,6 +61,7 @@ if not cwd == root_dir:
     os.chdir(root_dir)
     # print("Root path directory is: {0}".format(cwd))
 
+
 #% Modules HydroModPy
 import src
 import importlib
@@ -73,6 +71,7 @@ from src.display import visualization_watershed, visualization_results, export_v
 from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
@@ -86,22 +85,13 @@ if not os.path.exists(data_path):
 if len(os.listdir(data_path)) == 0:
     print(f"Warning : Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)\n")
 
-#%% CHARGEMENT DU FICHIER DE PARAMETRES
-with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
-    settings = yaml.load(file_object, Loader = yaml.SafeLoader)
-   
-# Raffinage de la startdate
-if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
-    settings['startdate'] = pd.to_datetime("today")  
-
-
 #%% BASSIN VERSANT 
 ##%%% Options: Charger MNT
 dem_path = os.path.join(data_path, 
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
 load = False
-watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', settings['startdate'].strftime("%Y-%m-%d")])
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -173,27 +163,14 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo\Historiques SIM2"),
-                                       # first_year=pd.to_datetime('today').year-1,
-                                       first_year=2023,
-                                       last_year=settings['startdate'].year,
+                                       first_year=pd.to_datetime('today').year-1,
+                                       # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
                                        spatial_mean=True,
                                        geographic=BV.geographic,
                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
                                                                 # can be a shapefile path or a flag: 'watershed' or False
-
-# [TEMP] Ajuster la période historique pour qu'elle finisse le jour de départ des prédiction
-
-# for var in ['evt', 'etp', 'precip', 't', 'recharge', 'runoff']:
-#     exec(f"BV.climatic.{var} = BV.climatic.{var}[slice(None, '2024-09-30')]")
-# Le code suivant est plus rigoureux :
-BV.climatic.update_recharge(BV.climatic.recharge[
-        slice(None, settings['startdate'] - datetime.timedelta(days = 1))
-        ], sim_state=sim_state)
-BV.climatic.update_runoff(BV.climatic.runoff[
-        slice(None, settings['startdate'] - datetime.timedelta(days = 1))
-        ], sim_state=sim_state)
 
 # Units
 BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
@@ -731,7 +708,7 @@ BV.add_streamflow_seepage(icalc = 1)
 
 # Area where the SFR seepage will be applied:
 # BV.streamflow_seepage.update_area('watershed')
-BV.streamflow_seepage.update_area('watershed')
+BV.streamflow_seepage.update_area('watershed', 0.7)
 # Standard values for segment_data:
 depth = 0 # 0.1 # self.thick # 1 # arbitrary
 hcond_max = 0.08 # 3e-5 # self.hyd_cond[0, 0] # 864000
@@ -783,12 +760,12 @@ plot_cross = True
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = settings['parameters']['thick'] # 35 # if bottom is None, aquifer thickness
-hyd_cond = settings['parameters']['hyd_cond'] # 1e-4 * 24 * 3600 # m/day
+thick = 35 # if bottom is None, aquifer thickness
+hyd_cond = 1e-4 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = settings['parameters']['porosity'] # 0.1 / 100 # [%]
+porosity = 0.1 / 100 # [%]
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Conditions aux limites
@@ -806,7 +783,7 @@ split_temp = True
 BV.add_settings()
 
 # Nom du modèle
-model_name = 'historique'
+model_name = 'base'
 BV.settings.update_model_name(model_name)
 
 BV.add_geometric() # soon
