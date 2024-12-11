@@ -18,19 +18,21 @@ HydroModPy:
 
 
 #%% CHARGEMENT DES BIBLIOTHEQUES ET MODULES
-
 #% PYTHON
+
+# Filtrer les avertissements (avant les imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+import pkg_resources # A placer après DeprecationWarning car elle même obselète...
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
 # Bibliothèques installées par défaut
 import sys
 import os
-import requests
+import requests 
 import datetime
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
 
 # Bibliothèques additionnelles installées dans l'environnement
 import numpy as np
@@ -44,7 +46,7 @@ import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-# =============================================================================
+# ========================================== ===================================
 # if os.getenv('PROJ_LIB') is not None:
 #     os.environ.pop('PROJ_LIB')
 # =============================================================================
@@ -61,7 +63,6 @@ if not cwd == root_dir:
     os.chdir(root_dir)
     # print("Root path directory is: {0}".format(cwd))
 
-
 #% Modules HydroModPy
 import src
 import importlib
@@ -71,7 +72,6 @@ from src.display import visualization_watershed, visualization_results, export_v
 from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
-
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
