@@ -12,6 +12,10 @@
 
 #%% LIBRAIRIES
 
+# Warnings
+# import warnings
+# warnings.filterwarnings("ignore")
+
 # Python
 import sys
 import os
