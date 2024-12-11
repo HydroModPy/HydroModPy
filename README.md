@@ -38,6 +38,7 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3],  Alexandre Coche [1], Martin Le M
 Option 1 : Download the .zip folder directly on the GitLab project.
 
 Option 2 : Clone a repository using a Git management tool like GitHub Desktop.
+The local path should not contain any white space, to be compatible with MODFLOW/MODPATH.
 
 Option 3 : Use command line and classical Git functions to set up your work environment.
 
