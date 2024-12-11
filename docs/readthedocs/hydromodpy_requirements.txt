@@ -224,7 +224,7 @@ webcolors==1.13
 webencodings==0.5.1
 websocket-client==1.6.2
 wheel==0.41.2
-whitebox==2.3.1
+whitebox==2.3.5
 widgetsnbextension==4.0.8
 wrapt==1.15.0
 wsproto==1.2.0

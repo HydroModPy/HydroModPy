@@ -12,6 +12,10 @@
 
 #%% LIBRAIRIES
 
+# Warnings
+# import warnings
+# warnings.filterwarnings("ignore")
+
 # Python
 import sys
 import os
@@ -329,11 +333,11 @@ class Geographic:
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
             print('   Reshape tifs')
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), -99999, self.watershed_box_buff_dem)
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), -99999, self.watershed_box_buff_fill)
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), -32768, self.watershed_box_buff_direc)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
+            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)
             if self.bottom_path != None :
-                toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_bottom), -99999, self.watershed_box_buff_bottom)
+                toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_bottom), self.watershed_box_buff_bottom, -99999)
         
         """
         Create depressions raster
@@ -394,7 +398,7 @@ class Geographic:
         self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
         # Transform centroids to World Geodetic System 1984
         try:
-            transformer = Transformer.from_crs("epsg:2154", "epsg:4326")
+            transformer = Transformer.from_crs(self.crs_proj, "epsg:4326")
             self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
             self.ur_long_lat = transformer.transform(self.xmax,self.ymax)
             self.ul_long_lat = transformer.transform(self.xmin,self.ymax) 
