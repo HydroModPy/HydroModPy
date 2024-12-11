@@ -839,7 +839,7 @@ class Watershed:
         model_modpath = modpath.Modpath(self.geographic,
                                         model_modflow,
                                         # Frame settings
-                                        model_folder  =model_folder,
+                                        model_folder = model_folder,
                                         model_name = model_modflow.model_name,
                                         bin_path = self.bin_path,
                                         # Specific settings  

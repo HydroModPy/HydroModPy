@@ -601,7 +601,7 @@ class Visualization():
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'pathlines':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [d]",
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [y]",
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)

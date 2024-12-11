@@ -27,7 +27,6 @@ class Settings:
     """
     
     def __init__(self):
-        
         print('Init settings module to set model parameter')
     
     #%% UPDATE

@@ -327,8 +327,15 @@ hgs_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon
 out_path = 'E:/_RONAN/_E_SIMULATIONS/VALLON/'
 fig_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_bulk/'
 
+# watershed_names = ['Nant_2056_EUDTM30m']
+# from_xyvs = [ [2574600.362,1122366.973,100,25,'EPSG:2056'] ]
+# dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
+
+watershed_names = ['Nant_21781_EUDTM30m']
+from_xyvs = [ [574619.243,122415.969,100,25,'EPSG:21781'] ]
+dem_name = 'EUDTM_Alps_21781_bilinear_clip2.tif' # EUDTM_Alps_30m_vallon
+
 dems_path = data_path + '_gis/DEM/' # reginal DEM or conceptual DEM
-dem_name = 'EUDTM_Alps_2056_bilinear_clip.tif' # EUDTM_Alps_30m_vallon
 dem_path = dems_path + dem_name
 
 subbasin_path = True # generate subbasins from stations or manual points
@@ -342,9 +349,6 @@ from_shp = None
 # from_xyvs = [ [2572138.212,1122730.976,300,10,'EPSG:2056'],
 #               [2574842.267,1122488.817,150,10,'EPSG:2056'],
 #               [2574600.362,1122366.973,150,10,'EPSG:2056'] ]
-
-watershed_names = ['Nant_EUDTM30m']
-from_xyvs = [ [2574600.362,1122366.973,100,25,'EPSG:2056'] ]
 
 #%% LOAD
 
@@ -391,57 +395,80 @@ dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
 
 hydrography_path = data_path + '_gis/Hydrography_clipped/' # add hydrographic shapefiles
 
-types_obs = ['perennial_natural_streams',
-             # 'fully_natural_streams',
-             # 'fully_natural_streams_springs',
-             # 'fully_natural_streams_springs_wetlands'
-             ]
+# types_obs = ['perennial_natural_streams',
+#              'fully_natural_streams',
+#              'fully_natural_streams_springs',
+#              'fully_natural_streams_springs_wetlands'
+#               ]
+# fields_obs = ['fid',
+#               'fid',
+#               'fid',
+#               'fid'
+#               ]
+
+types_obs = ['perennial_natural_streams_21781',
+              'fully_natural_streams_21781',
+              'fully_natural_streams_springs_21781',
+              'fully_natural_streams_springs_wetlands_21781'
+              ]
 fields_obs = ['fid',
-              # 'fid',
-              # 'fid',
-              # 'fid'
+              'fid',
+              'fid',
+              'fid'
               ]
 
 for watershed_name in watershed_names[:]:
-    
     print('##### '+watershed_name.upper()+' #####')
-               
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_path, 
-                                  out_path=out_path,
-                                  load=True)
 
-    BV.add_hydrography(hydrography_path, types_obs=types_obs, fields_obs=fields_obs)
+    for type_obs, field_obs in zip(types_obs[:], fields_obs):
+        print(type_obs)
+        
+        # if not os.path.exists(hydrography_path + type_obs + '_21781' + '.shp'):
+        #     gdf_stream = gpd.read_file(hydrography_path + type_obs + '.shp')
+        #     gdf_proj = gdf_stream.to_crs("EPSG:21781")
+        #     gdf_proj.to_file(hydrography_path + type_obs + '_21781' + '.shp')
+        
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                      dem_path=dem_path, 
+                                      out_path=out_path,
+                                      load=True)
     
-    try:
-        visualization_watershed.watershed_local(dem_path, BV)
-        visualization_watershed.watershed_dem(BV)
-    except:
-        pass
-    
-    # import imageio
-    # import whitebox
-    # wbt = whitebox.WhiteboxTools()
-    # wbt.verbose = True
-    
-    # wbt.find_main_stem(
-    #     stable_folder+'geographic/'+'watershed_buff_direc.tif', 
-    #     BV.hydrology.tif_streams, 
-    #     stable_folder+'hydrology/'+types_obs[0]+'_main'+'.tif', 
-    #     esri_pntr=False, 
-    #     zero_background=False)
+        BV.add_hydrography(hydrography_path, types_obs=type_obs, fields_obs=field_obs)
+        
+        try:
+            # visualization_watershed.watershed_local(dem_path, BV)
+            visualization_watershed.watershed_dem(BV)
+        except:
+            pass
+        
+        # import imageio
+        # import whitebox
+        # wbt = whitebox.WhiteboxTools()
+        # wbt.verbose = True
+        
+        # wbt.find_main_stem(
+        #     stable_folder+'geographic/'+'watershed_buff_direc.tif', 
+        #     BV.hydrology.tif_streams, 
+        #     stable_folder+'hydrology/'+types_obs[0]+'_main'+'.tif', 
+        #     esri_pntr=False, 
+        #     zero_background=False)
 
 #%% ---- CLIMATE    
 
 #%% IMPORT SUFREX HGS
+
+watershed_name = watershed_names[0]
 
 ### SURFEX - CLIP / EXTRACT / DATA
 
 work_dir = data_path + '_safransurfex_climate/'
 raw_path = work_dir + 'france/'
 clip_path = work_dir + 'vallon/'
-mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93_2056.shp'
-# site_path = data_path + '_gis/SIG/boxbuff_ref.shp'
+if not os.path.exists(work_dir + 'mesh/maille_meteo_fr_pr93_21781.shp'):
+    gdf = gpd.read_file(work_dir + 'mesh/maille_meteo_fr_pr93_2056.shp')
+    gdf_proj = gdf.to_crs("EPSG:21781")
+    gdf_proj.to_file(work_dir + 'mesh/maille_meteo_fr_pr93_21781.shp')
+mesh_path = work_dir + 'mesh/maille_meteo_fr_pr93_21781.shp'
 site_path = BV.stable_folder+'/geographic/box_buff.shp'
 mesh = gpd.read_file(mesh_path)
 site = gpd.read_file(site_path)
@@ -507,12 +534,12 @@ for sim in simulations:
 mod = 'REA'
 sce = 'historic'
 
-BV = watershed_root.Watershed(watershed_name='Nant_EUDTM30m',
+BV = watershed_root.Watershed(watershed_name=watershed_name,
                               dem_path=dem_path, 
                               out_path=out_path,
                               load=True)
 
-stable_folder = out_path+'/'+'Nant_EUDTM30m'+'/'+'results_stable/'
+stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 surfex_data = stable_folder + 'climatic/'
 
 if not os.path.exists(stable_folder+'climatic/REA.h5'):
@@ -2070,9 +2097,7 @@ for i in range(len(elem)):
 elem_p = elem.copy()
 elem_p.to_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
 
-#%% ---- MIX HGS
-
-#%% ALL 1
+#%% MEANS K P PLOT 1
 
 elem_k = pd.read_csv(hgs_path + "Properties/elem_k_fill.csv", sep=';')
 elem_p = pd.read_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
@@ -2146,7 +2171,7 @@ print('or', round((Pgeo),2))
 # df_k = elem_k.groupby('ZONE')['KXX'].unique()
 # df_k = elem_k.groupby(['ZONE']).sum()#.groupby(level='ZONE').mean()
 
-#%% ALL 2
+#%% MEANS K P PLOT 2
 
 from scipy.stats import hmean, gmean
 
@@ -2309,6 +2334,396 @@ ax.set_xscale('log')
 #         # density=True,
 #         histtype='step')
 # ax.set_xscale('log')
+
+#%% ---- INPUT HGS PROCESSING
+
+#%% CLIP OLD CLIMATE
+
+hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
+shp_path = hgs3_path + 'full_model/Nant_shape.shp'
+shp_file = gpd.read_file(shp_path)
+
+rain_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*rain*')
+etp_list = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*etp*')
+
+for i in range(len(rain_list[:])):
+    
+    print(i+1, len(rain_list[:]))
+    
+    name_input_rain = rain_list[i].split('\\')[-1]    
+    wbt.clip_raster_to_polygon(
+        rain_list[i], 
+        shp_path, 
+        hgs3_path + 'DailyForcingDataClip/' + name_input_rain, 
+        maintain_dimensions=False)
+    
+    name_input_etp = etp_list[i].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        etp_list[i], 
+        shp_path, 
+        hgs3_path + 'DailyForcingDataClip/' + name_input_etp, 
+        maintain_dimensions=False)
+
+#%% CLIP NEW CLIMATE
+
+hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
+shp_path = hgs2_path + 'full_model/Nant_shape.shp'
+shp_file = gpd.read_file(shp_path)
+
+rain_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*rain*')
+etp_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')
+
+for i in range(len(rain_list[:])):
+    
+    print(i, len(rain_list[:]))
+    
+    name_input_rain = rain_list[i].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        rain_list[i], 
+        shp_path, 
+        hgs2_path + 'DailyForcingDataClip/' + name_input_rain, 
+        maintain_dimensions=False)
+    
+    name_input_etp = etp_list[i].split('\\')[-1]
+    wbt.clip_raster_to_polygon(
+        etp_list[i], 
+        shp_path, 
+        hgs2_path + 'DailyForcingDataClip/' + name_input_etp, 
+        maintain_dimensions=False)
+
+#%% STORE OLD CLIMATE
+
+df_clim_old = pd.DataFrame()
+df_clim_old['date'] = pd.date_range('10/01/14', '09/30/2018', freq='D') # m/d/y
+# pd.to_datetime(x.index, format = "%d/%m/%Y")
+
+hgs3_path = 'D:/Users/abherve/HGS/_HGS_v1_James/'
+
+# rain_list_old = glob.glob(hgs3_path + 'DailyForcingDataClip/' + '*rain*')
+# etp_list_old = glob.glob(hgs3_path + 'DailyForcingDataClip/' + '*etp*')
+
+rain_list_old = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*rain*')
+etp_list_old = glob.glob(hgs3_path + 'DailyForcingDataMod/' + '*etp*')
+
+cp = 0
+for rm_path, pe_path in zip( rain_list_old[:], etp_list_old[:] ):
+    print(cp+1, len(rain_list_old[:]))
+    
+    rm_name = rm_path.split('\\')[-1]
+    rm_year = str('20'+rm_name.split('_')[4].split('.')[0][:2])
+    rm_month = str(rm_name.split('_')[4].split('.')[0][2:])
+    rm_day = str(rm_name.split('_')[4].split('.')[1][:2])
+    rm_date = rm_year+'-'+rm_month+'-'+rm_day
+    
+    rm_data = np.loadtxt(rm_path, skiprows=6) 
+    rm_data = np.ma.masked_where(rm_data==-9999, rm_data)
+    
+    pe_data = np.loadtxt(pe_path, skiprows=6)
+    pe_data = np.ma.masked_where(pe_data==-9999, pe_data)
+    
+    df_clim_old.loc[cp,'find_date'] = rm_date
+    df_clim_old.loc[cp,'rain_mean'] = rm_data.mean()
+    df_clim_old.loc[cp,'rain_sum'] = rm_data.sum()
+    df_clim_old.loc[cp,'petp_mean'] = pe_data.mean()
+    df_clim_old.loc[cp,'petp_sum'] = pe_data.sum()
+    cp += 1
+
+# df_clim_old.index = pd.to_datetime(df_clim_old['date'], format = "%d/%m/%Y")
+df_clim_old.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                   'df_clim_old.csv', sep=';')
+    
+#%% STORE NEW CLIMATE
+
+df_clim_new = pd.DataFrame()
+df_clim_new['date'] = pd.date_range('10/01/12', '12/31/2023', freq='D') # m/d/y
+# pd.to_datetime(x.index, format = "%d/%m/%Y")
+
+hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
+
+# rain_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*rain*')
+# etp_list_new = glob.glob(hgs2_path + 'DailyForcingDataClip/' + '*etp*')
+
+rain_list_new = glob.glob(hgs2_path + 'DailyForcingData/' + '*rain*')
+etp_list_new = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')
+
+cp = 0
+for rm_path, pe_path in zip( rain_list_new[:], etp_list_new[:] ):
+    print(cp+1, len(rain_list_new[:]))
+    rm_data = np.loadtxt(rm_path, skiprows=6)
+    pe_data = np.loadtxt(pe_path, skiprows=6)
+    rm_data = np.ma.masked_where(rm_data==-9999, rm_data)
+    pe_data = np.ma.masked_where(pe_data==-9999, pe_data)
+    df_clim_new.loc[cp,'rain_mean'] = rm_data.mean()
+    df_clim_new.loc[cp,'rain_sum'] = rm_data.sum()
+    df_clim_new.loc[cp,'petp_mean'] = pe_data.mean()
+    df_clim_new.loc[cp,'petp_sum'] = pe_data.sum()
+    cp += 1
+    
+# df_clim_new.index = pd.to_datetime(df_clim_new['date'], format = "%d/%m/%Y")
+df_clim_new.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                   'df_clim_new.csv', sep=';')
+
+#%% PLOT OLD NEW CLIMATE
+
+df_clim_old = pd.read_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                          'df_clim_old.csv', sep=';', index_col=0)
+df_clim_old.index = pd.to_datetime(df_clim_old['date'], format = "%Y/%m/%d")
+df_clim_new = pd.read_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_data/_updated_climate/'+
+                          'df_clim_new.csv', sep=';', index_col=0)
+df_clim_new.index = pd.to_datetime(df_clim_new['date'], format = "%Y/%m/%d")
+
+fig, ax = plt.subplots(figsize=(10,4))
+ax.plot(hgs_wb['rain_plus_all_melt'] / (37*1e6) * 1000, c='k', lw=5)
+ax.plot(df_clim_old['rain_mean']*1000, color='dodgerblue', lw=3)
+ax.plot(df_clim_new['rain_mean']*1000, color='cyan', lw=1)
+ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2017'))
+# ax.set_yscale('log')
+
+fig, ax = plt.subplots(figsize=(10,4))
+ax.plot(hgs_wb['ET_4_PET'] / (37*1e6) * 1000, c='k', lw=5)
+ax.plot(df_clim_old['petp_mean']*1000, color='red', lw=3)
+ax.plot(df_clim_new['petp_mean']*1000, color='darkorange', lw=1)
+ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2017'))
+
+fig, ax = plt.subplots(figsize=(10,4))
+ax.plot((df_clim_old['rain_mean']-df_clim_old['petp_mean'])*1000, color='darkgreen', lw=3)
+ax.plot((df_clim_new['rain_mean']-df_clim_new['petp_mean'])*1000, color='limegreen', lw=1)
+ax.set_xlim(pd.to_datetime('2016'), pd.to_datetime('2017'))
+
+#%% PREPARE CLIMATE INPUT HGS
+
+# v10 : 10-2014 to 31/12/2023
+
+hgs2_path = 'D:/Users/abherve/HGS/_HGS_v2_Ronan/'
+
+rain_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*rain*')[730:] # from 14/10/2014 to 31/12/2023
+rain_file = hgs2_path + 'full_model/' + 'WaSiM_v10_Ronan_mod_d_daily_all_rain_plus_melt.data'
+rain_df = pd.DataFrame(rain_list)
+rain_df.to_csv(rain_file, sep='\t', header=None)
+
+etp_list = glob.glob(hgs2_path + 'DailyForcingData/' + '*etp*')[730:] # from 14/10/2014 to 31/12/2023
+etp_file = hgs2_path + 'full_model/' + 'WaSiM_v10_Ronan_mod_d_daily_PET.data'
+etp_df = pd.DataFrame(etp_list)
+etp_df.to_csv(etp_file, sep='\t', header=None)
+
+out_list = list(np.arange(1,len(rain_df)+1,1))
+out_file = hgs2_path + 'full_model/' + 'output.times.v10_Ronan.daily'
+with open(out_file, 'w') as f:
+    for line in out_list:
+        f.write(f"{line}\n")
+
+#%% ---- POSTPROCESSING HGS
+
+#%% TECPLOT SATURATION
+
+hgs_path = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_hgs/'
+hgs2_path = 'D:/Users/abherve/HGS/'
+
+file = hgs2_path + '_HGS_v2_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
+datall = [l.strip().split() for l in open(file).readlines()]
+VARIABLES = ["X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"]
+
+# datall.append(['#','end'])
+# datall.append(['end2'])
+
+# TITLE = "Mesh version 11                                             "
+# VARIABLES ="X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+# ZONE  T="pm", SOLUTIONTIME= 1.0000000000E-01, DATAPACKING=BLOCK, N=    272376, E=    507771, ZONETYPE=FEBRICK        , VARLOCATION=([         4,      8,      9,     10,     11,     12,     13]=CELLCENTERED)                                                                                                                                                                                                                                                                                                                  
+# # x
+
+start = datall.index(['#', 'x'])
+dat = datall[start:]
+super_list_X = []
+print('X')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'y']:
+        super_list_X.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+start = datall.index(['#', 'y'])
+dat = datall[start:]
+super_list_Y = []
+print('Y')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'z']:
+        super_list_Y.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'z'])
+dat = datall[start:]
+super_list_Z = []
+print('Z')
+for i in range(len(dat[start:])):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'zone', '(cell', 'centred']:
+        super_list_Z.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+
+start = datall.index(['#', 'zone', '(cell', 'centred'])
+dat = datall[start:]
+super_list_ZONE = []
+print('ZONE')
+for i in range(len(dat)):
+    # print(i)
+    # print(start)
+    # if i+1 > start:
+    if dat[i+1] != ['#', 'saturation']:
+        super_list_ZONE.extend(dat[i+1][:])
+        # print(i+1)
+    else:
+        # print(i+1)
+        break
+        
+# start = datall.index(['#', 'kxx', '(cell', ' centred)'])
+# dat = datall[start:]
+# super_list_KXX = []
+# print('KXX')
+# for i in range(len(dat)):
+#     # print(i)
+#     # print(start)
+#     # if i+1 > start:
+#     if dat[i+1] != ['#', 'kyy', '(cell', ' centred)']:
+#         super_list_KXX.extend(dat[i+1][:])
+#         # print(i+1)
+#     else:
+#         # print(i+1)
+#         break
+    
+# nodes = pd.DataFrame(columns=['X','Y','Z'])
+# nodes['X'] = super_list_X
+# nodes['Y'] = super_list_Y
+# nodes['Z'] = super_list_Z
+# nodes['ID'] = np.arange(1, len(nodes)+1, 1)   
+    
+# starts = datall.index(['#', 'head'])
+# starts = [i for i in range(len(datall)) if datall[i] == ['#','head']]
+# for si, start in enumerate(starts):
+#     dat = datall[start:]
+#     super_list_HEAD = []
+#     print('HEAD')
+#     for i in range(len(dat)):
+#         # print(i)
+#         # print(start)
+#         # if i+1 > start:
+#         if dat[i+1] != ['#', 'saturation']:
+#             super_list_HEAD.extend(dat[i+1][:])
+#             # print(i+1)
+#         else:
+#             break
+#     nodes['HEAD_'+str(si)] = super_list_HEAD
+
+nant = gpd.read_file(hgs2_path + '_HGS_v2_Ronan/' + 'full_model/Nant_shape.shp')
+    
+starts = datall.index(['#', 'saturation'])
+starts = [i for i in range(len(datall)) if datall[i] == ['#','saturation']]
+for si, start in enumerate(starts[:]):
+    nodes = pd.DataFrame(columns=['X','Y','Z'])
+    nodes['X'] = super_list_X
+    nodes['Y'] = super_list_Y
+    nodes['Z'] = super_list_Z
+    nodes['ID'] = np.arange(1, len(nodes)+1, 1) 
+    print(si)
+    dat = datall[start:]
+    super_list_SAT = []
+    for i in range(len(dat)):
+        if si == 0:
+            if dat[i+1] != ['#', 'element', 'node', 'lists']:
+                super_list_SAT.extend(dat[i+1][:])
+            else:
+                break
+        if (si > 0) and (si < len(starts)-1):
+            if dat[i+1][0] != 'ZONE':
+                super_list_SAT.extend(dat[i+1][:])
+            else:
+                break
+        if si == len(starts)-1:
+            if i > 0:
+                super_list_SAT.extend(dat[i])
+    # nodes['SAT_'+str(si+1)] = super_list_SAT
+    nodes['SAT'] = super_list_SAT
+    
+    shp = nodes.copy()
+    geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
+    gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
+    gdf = gdf.reset_index()
+
+    if si ==0 :    
+        gdf['Z'] = gdf['Z'].apply(pd.to_numeric, errors='coerce')
+        gdf['SAT'] = gdf['SAT'].apply(pd.to_numeric, errors='coerce')
+        # gdf.iloc[:, 4:] = gdf.iloc[:, 4:].apply(pd.to_numeric, errors='coerce')
+        gdf['XY'] = gdf['X']+'-'+gdf['Y']
+        fil_nodes = pd.DataFrame()
+        # for i in nodes['XY'].unique():
+        #     tempo = nodes[nodes['XY']==i]
+        #     keep = tempo[tempo['Z']==tempo['Z'].max()]
+        xt = gdf.groupby(['XY'])['Z'].max()
+        xt = xt.to_frame()
+        xt = xt.reset_index()
+        xt['X-Y'] = xt['XY'].str.split('-')
+        for i, j in xt.iterrows():
+            # print(i)
+            xt.loc[i,'X'] = float(j['X-Y'][0])
+            xt.loc[i,'Y'] = float(j['X-Y'][1])
+        xt['Cond'] = xt['X'] + xt['Y'] + xt['Z']
+        Cond_list =  xt['Cond'].values
+        
+    gdf['Cond'] = gdf['X'].astype(float) + gdf['Y'].astype(float) + gdf['Z'].astype(float)
+    gdf = gdf[gdf['Cond'].isin(Cond_list)] #### KEEP SURFACE ! ####
+    
+    # gdf.to_file(hgs_path + "Postprocess/points_mesh_sat.shp")
+    clipped = gdf.clip(nant)
+    clipped['SAT'] = clipped['SAT'].apply(pd.to_numeric, errors='coerce')
+    clipped = clipped[clipped['SAT']==1]
+    clipped.to_file(hgs2_path + '_HGS_v2_Ronan/' + "Postprocess/points_mesh_sat_nant_"+str(si+1)+".shp")
+    
+    fig, ax = plt.subplots(1,1, figsize=(10,10))
+    nant.plot(ax=ax, facecolor='None', ec='k')
+    clipped[clipped['SAT']==1].plot(ax=ax, column='SAT', ec='None')
+    ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
+    ax.set_title('SAT '+str(si+1))
+    
+    wbt.verbose = False
+    wbt.trace_downslope_flowpaths(
+        hgs2_path + '_HGS_v2_Ronan/' + "Postprocess/points_mesh_sat_nant_"+str(si+1)+".shp", 
+        'E:/_RONAN/_E_SIMULATIONS/VALLON/Nant_21781_EUDTM30m/results_stable/geographic/watershed_box_buff_direc.tif', 
+        hgs2_path + '_HGS_v2_Ronan/' + "Postprocess/points_mesh_sat_nant_"+str(si+1)+".tif", 
+        esri_pntr=False, 
+        zero_background=False)
+    
+# wbt.trend_surface_vector_points(
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
+#     'SAT_0', 
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
+#     30, 
+#     order=1)
+
+# wbt.vector_points_to_raster(
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
+#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
+#     field="FID", 
+#     assign="last", 
+#     nodata=True, 
+#     cell_size=2, 
+#     # base=BV.geographic.watershed_dem
+#     )
 
 #%% ---- CALIBRATION STREAMS
 
@@ -4963,308 +5378,8 @@ for i, simul in enumerate(simul_list[:]):
     # fig.savefig(os.path.join(simulations_folder, '_figures',
     #             'SATURATION_'+model_name+'.png'),
     #             bbox_inches='tight')
-          
-#%% ---- NOTES
-    
-"""
-wbt.polygons_to_lines(
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/REN_data/REN_1_LV95/humide.shp', 
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/REN_data/REN_1_LV95/humide_line.shp', 
-    # callback=default_callback
-)
-wbt.polygons_to_lines(
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1850_REC_OHNE_GROSSPRJ.shp', 
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1850_REC_OHNE_GROSSPRJ_line.shp', 
-    # callback=default_callback
-)
-wbt.polygons_to_lines(
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1900_REC_OHNE_GROSSPRJ.shp', 
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1900_REC_OHNE_GROSSPRJ_line.shp', 
-    # callback=default_callback
-)
-wbt.polygons_to_lines(
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1950_REC_OHNE_GROSSPRJ.shp', 
-    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1950_REC_OHNE_GROSSPRJ_line.shp', 
-    # callback=default_callback
-)
-"""
 
-# ax.xaxis.set(
-#     minor_locator=mdates.WeekdayLocator(),               # make minor ticks on each Tuesday
-#     minor_formatter=mdates.DateFormatter('%d\n%a'),      # format minor ticks
-#     major_locator=mdates.MonthLocator(),                 # make major ticks on first day of each month
-#     major_formatter=mdates.DateFormatter('\n\n\n%b\n%Y') # format major ticks
-# );
-
-### Resampling
-"""
-wbt.resample(
-    data_path+'DEM_2m.tif', 
-    data_path+'DEM_10m.tif', 
-    cell_size=10, 
-    base=None, 
-    method="cc")
-wbt.modify_no_data_value(
-    data_path+'DEM_10m.tif', 
-    new_value="-99999")
-
-with rasterio.open(data_path+'DEM_10m.tif') as src:
-    data = src.read()
-    ras_meta = src.profile
-    ras_meta['crs'] = 'EPSG:2056'
-with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
-    dest.write(data)
-"""
-
-    # plt.ticklabel_format(style='plain')
-    # ax.set_ylim(0.99,1.01)
-    # from matplotlib.ticker import ScalarFormatter
-    # plt.gca().yaxis.set_major_formatter(ScalarFormatter())
-    # ax.ticklabel_format(axis='y', scilimits=(0,10))
-    # plt.ticklabel_format(style='plain', axis='x', useOffset=False)
-    # import matplotlib.ticker as mticker
-    # plt.gca().yaxis.set_major_locator(mticker.MultipleLocator(1))
-    # ax.ticklabel_format(useOffset=False)
-    # ax.ticklabel_format(useOffset=False, style='plain')
-    # ax.ticklabel_format(style='plain', axis='y')
-
-#%% HUGO
-
-# df = pd.DataFrame({'x': [x_outlet], 'y': [y_outlet]})
-# gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=crs_proj)
-# outlet_shp = os.path.join(self.gis_path, 'outlet.shp')
-# gdf.to_file(outlet_shp)
-
-# wbt.vector_points_to_raster(
-#     i, 
-#     output, 
-#     field="FID", 
-#     assign="last", 
-#     nodata=True, 
-#     cell_size=None, 
-#     base=None, 
-#     callback=default_callback
-# )
-
-
-## Level correction and rating curve
-# convert_Hr<- function(Hm){
-  # Hr=(Hm - (5 - 1.83)) * 100
-  # return(Hr)
-  # }
-
-# rating_curve<- function(H){
-  ## H= hauteur d'eau en m
-  ## Q= débit en L.s⁻1
- # Q=19997.7043930816*H^1.62440197434267
-  # return(Q)
-# }
-
-#%% AVERAGES
-
-# kh_arit = np.average(elem_k['KXX'], weights=None)/24/3600
-# kh_geom = gmean(elem_k['KXX'], weights=None)/24/3600
-# kh_harm = hmean(elem_k['KXX'], weights=None)/24/3600
-# kh_arit_w = np.average(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
-# kh_geom_w = gmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
-# kh_harm_w = hmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
-# kh_arit_weig = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
-# kh_geom_weig = np.exp(np.sum((np.log(elem_k['KXX'])) * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])) # or 10** and np.log10
-# kh_harm_weig = np.sum(elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'] / elem_k['KXX']) # or 10** and np.log10
-
-#%% PREPARE INPUT HGS
-
-rain_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*rain*')
-rain_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_daily_all_rain_plus_melt.data'
-rain_df = pd.DataFrame(rain_list)
-rain_df.to_csv(rain_file, sep='\t', header=None)
-
-etp_list = glob.glob(hgs_path + '_HGS_v1_Ronan/' + 'DailyForcingData/' + '*etp*')
-etp_file = hgs_path + '_HGS_v1_Ronan/' + '_TempoSAS/' + 'WaSiM_v6_Ronan_mod_d_monthly_then_daily_PET.data'
-etp_df = pd.DataFrame(etp_list)
-etp_df.to_csv(etp_file, sep='\t', header=None)
-
-#%% COMPARE INPUT RAIN ETP HGS
-
-#%% OPEN TECPLOT
-
-file = hgs_path + '_HGS_v1_Ronan/' + 'full_model/' + 'nant_v100fo.pm.dat'
-datall = [i.strip().split() for i in open(file).readlines()]
-VARIABLES = ["X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"]
-
-# TITLE = "Mesh version 11                                             "
-# VARIABLES ="X","Y","Z","Zone","Head","Sat","Depth2GWT","Vx","Vy","Vz","Kxx","Kyy","Kzz","3D Subsurface evaporation","3D Subsurface transpiration"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-# ZONE  T="pm", SOLUTIONTIME= 1.0000000000E-01, DATAPACKING=BLOCK, N=    272376, E=    507771, ZONETYPE=FEBRICK        , VARLOCATION=([         4,      8,      9,     10,     11,     12,     13]=CELLCENTERED)                                                                                                                                                                                                                                                                                                                  
-# # x
-
-start = datall.index(['#', 'x'])
-dat = datall[start:]
-super_list_X = []
-print('X')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'y']:
-        super_list_X.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-        
-start = datall.index(['#', 'y'])
-dat = datall[start:]
-super_list_Y = []
-print('Y')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'z']:
-        super_list_Y.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-
-start = datall.index(['#', 'z'])
-dat = datall[start:]
-super_list_Z = []
-print('Z')
-for i in range(len(dat[start:])):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'zone', '(cell', 'centred']:
-        super_list_Z.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-
-start = datall.index(['#', 'zone','(cell', 'centred'])
-dat = datall[start:]
-super_list_ZONE = []
-print('ZONE')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'head']:
-        super_list_ZONE.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-        
-start = datall.index(['#', 'kxx', '(cell-centered)'])
-dat = datall[start:]
-super_list_KXX = []
-print('KXX')
-for i in range(len(dat)):
-    # print(i)
-    # print(start)
-    # if i+1 > start:
-    if dat[i+1] != ['#', 'kyy', '(cell-centered)']:
-        super_list_KXX.extend(dat[i+1][:])
-        # print(i+1)
-    else:
-        # print(i+1)
-        break
-    
-nodes = pd.DataFrame(columns=['X','Y','Z'])
-nodes['X'] = super_list_X
-nodes['Y'] = super_list_Y
-nodes['Z'] = super_list_Z
-nodes['ID'] = np.arange(1, len(nodes)+1, 1)   
-     
-starts = datall.index(['#', 'head'])
-starts = [i for i in range(len(datall)) if datall[i] == ['#','head']]
-for si, start in enumerate(starts):
-    dat = datall[start:]
-    super_list_HEAD = []
-    print('HEAD')
-    for i in range(len(dat)):
-        # print(i)
-        # print(start)
-        # if i+1 > start:
-        if dat[i+1] != ['#', 'saturation']:
-            super_list_HEAD.extend(dat[i+1][:])
-            # print(i+1)
-        else:
-            break
-    nodes['HEAD_'+str(si)] = super_list_HEAD
-    
-starts = datall.index(['#', 'saturation'])
-starts = [i for i in range(len(datall)) if datall[i] == ['#','saturation']]
-for si, start in enumerate(starts):
-    dat = datall[start:]
-    super_list_SAT = []
-    print('SAT')
-    for i in range(len(dat)):
-        # print(i)
-        # print(start)
-        # if i+1 > start:
-        if dat[i+1] != ['#', 'Depth2GWT']:
-            super_list_SAT.extend(dat[i+1][:])
-            # print(i+1)
-        else:
-            break
-    nodes['SAT_'+str(si)] = super_list_SAT
-        
-# if 'clipped' not in globals():
-shp = nodes.copy()
-geometry = gpd.points_from_xy(shp['X'], shp['Y'], shp['Z'])
-gdf = gpd.GeoDataFrame(shp, geometry=gpd.points_from_xy(shp['X'], shp['Y']))
-gdf.to_file(hgs_path + "Postprocess/points_mesh_sat.shp")
-nant = gpd.read_file(hgs_path + "_HGS_v0_James/full_model/Nant_shape.shp")
-clipped = gdf.clip(nant)
-clipped.to_file(hgs_path + "Postprocess/points_mesh_sat_nant.shp")
-clipped.plot()
-
-nodes = clipped.copy()
-nodes = nodes.reset_index()
-
-nodes['Z'] = nodes['Z'].apply(pd.to_numeric, errors='coerce')
-nodes['SAT_0'] = nodes['SAT_0'].apply(pd.to_numeric, errors='coerce')
-nodes['XY'] = nodes['X']+'-'+nodes['Y']
-fil_nodes = pd.DataFrame()
-# for i in nodes['XY'].unique():
-#     tempo = nodes[nodes['XY']==i]
-#     keep = tempo[tempo['Z']==tempo['Z'].max()]
-xt = nodes.groupby(['XY'])['Z'].max()
-xt = xt.to_frame()
-xt = xt.reset_index()
-xt['X-Y'] = xt['XY'].str.split('-')
-for i, j in xt.iterrows():
-    print(i)
-    xt.loc[i,'X'] = float(j['X-Y'][0])
-    xt.loc[i,'Y'] = float(j['X-Y'][1])
-xt['Cond'] = xt['X'] + xt['Y'] + xt['Z']
-Cond_list =  xt['Cond'].values
-nodes['Cond'] = nodes['X'].astype(float) + nodes['Y'].astype(float) + nodes['Z'].astype(float)
-nodes = nodes[nodes['Cond'].isin(Cond_list)]
-
-nodes_save = nodes[nodes['SAT_0']>=0]
-nodes_save.plot('SAT_0', cmap='jet', ec='None', markersize=3)
-nodes_save.to_file(hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp")
-
-# wbt.trend_surface_vector_points(
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
-#     'SAT_0', 
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
-#     30, 
-#     order=1)
-
-# wbt.vector_points_to_raster(
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.shp", 
-#     hgs_path + "Postprocess/points_mesh_sat_nant_sat0.tif", 
-#     field="FID", 
-#     assign="last", 
-#     nodata=True, 
-#     cell_size=2, 
-#     # base=BV.geographic.watershed_dem
-#     )
+#%% ---- VTKS POST PROCESS
 
 #%% VTK 1
 
@@ -5390,4 +5505,113 @@ plt.imshow(Ti)
 # plt.clabel(CS, inline=1,inline_spacing= 3, fontsize=12, colors='k', use_clabeltext=1)
 
 # plt.colorbar() 
-# plt.show() 
+# plt.show()
+
+#%% ---- NOTES
+    
+"""
+wbt.polygons_to_lines(
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/REN_data/REN_1_LV95/humide.shp', 
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/REN_data/REN_1_LV95/humide_line.shp', 
+    # callback=default_callback
+)
+wbt.polygons_to_lines(
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1850_REC_OHNE_GROSSPRJ.shp', 
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1850_REC_OHNE_GROSSPRJ_line.shp', 
+    # callback=default_callback
+)
+wbt.polygons_to_lines(
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1900_REC_OHNE_GROSSPRJ.shp', 
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1900_REC_OHNE_GROSSPRJ_line.shp', 
+    # callback=default_callback
+)
+wbt.polygons_to_lines(
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1950_REC_OHNE_GROSSPRJ.shp', 
+    'G:/UNINE/SIMULATIONS/VALLON/_data/_gis/Wetlands/feuchtgebiete_1850_2010/CH_1950_REC_OHNE_GROSSPRJ_line.shp', 
+    # callback=default_callback
+)
+"""
+
+# ax.xaxis.set(
+#     minor_locator=mdates.WeekdayLocator(),               # make minor ticks on each Tuesday
+#     minor_formatter=mdates.DateFormatter('%d\n%a'),      # format minor ticks
+#     major_locator=mdates.MonthLocator(),                 # make major ticks on first day of each month
+#     major_formatter=mdates.DateFormatter('\n\n\n%b\n%Y') # format major ticks
+# );
+
+### Resampling
+"""
+wbt.resample(
+    data_path+'DEM_2m.tif', 
+    data_path+'DEM_10m.tif', 
+    cell_size=10, 
+    base=None, 
+    method="cc")
+wbt.modify_no_data_value(
+    data_path+'DEM_10m.tif', 
+    new_value="-99999")
+
+with rasterio.open(data_path+'DEM_10m.tif') as src:
+    data = src.read()
+    ras_meta = src.profile
+    ras_meta['crs'] = 'EPSG:2056'
+with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
+    dest.write(data)
+"""
+
+    # plt.ticklabel_format(style='plain')
+    # ax.set_ylim(0.99,1.01)
+    # from matplotlib.ticker import ScalarFormatter
+    # plt.gca().yaxis.set_major_formatter(ScalarFormatter())
+    # ax.ticklabel_format(axis='y', scilimits=(0,10))
+    # plt.ticklabel_format(style='plain', axis='x', useOffset=False)
+    # import matplotlib.ticker as mticker
+    # plt.gca().yaxis.set_major_locator(mticker.MultipleLocator(1))
+    # ax.ticklabel_format(useOffset=False)
+    # ax.ticklabel_format(useOffset=False, style='plain')
+    # ax.ticklabel_format(style='plain', axis='y')
+
+#%% HUGO
+
+# df = pd.DataFrame({'x': [x_outlet], 'y': [y_outlet]})
+# gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=crs_proj)
+# outlet_shp = os.path.join(self.gis_path, 'outlet.shp')
+# gdf.to_file(outlet_shp)
+
+# wbt.vector_points_to_raster(
+#     i, 
+#     output, 
+#     field="FID", 
+#     assign="last", 
+#     nodata=True, 
+#     cell_size=None, 
+#     base=None, 
+#     callback=default_callback
+# )
+
+
+## Level correction and rating curve
+# convert_Hr<- function(Hm){
+  # Hr=(Hm - (5 - 1.83)) * 100
+  # return(Hr)
+  # }
+
+# rating_curve<- function(H){
+  ## H= hauteur d'eau en m
+  ## Q= débit en L.s⁻1
+ # Q=19997.7043930816*H^1.62440197434267
+  # return(Q)
+# }
+
+#%% AVERAGES
+
+# kh_arit = np.average(elem_k['KXX'], weights=None)/24/3600
+# kh_geom = gmean(elem_k['KXX'], weights=None)/24/3600
+# kh_harm = hmean(elem_k['KXX'], weights=None)/24/3600
+# kh_arit_w = np.average(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_geom_w = gmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_harm_w = hmean(elem_k['KXX'], weights=elem_k['VOL_DELAUNAY'])/24/3600
+# kh_arit_weig = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
+# kh_geom_weig = np.exp(np.sum((np.log(elem_k['KXX'])) * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])) # or 10** and np.log10
+# kh_harm_weig = np.sum(elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'] / elem_k['KXX']) # or 10** and np.log10
+

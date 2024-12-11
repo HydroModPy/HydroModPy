@@ -224,8 +224,9 @@ class Modpath:
         hds_1c = fpu.HeadFile(head_file)
         head_1c = hds_1c.get_alldata(mflay=None)
         
-        wt = pp.get_water_table(head_1c, -9999.0)
+        wt = pp.get_water_table(head_1c, -100) # -9999
         wt = np.ones((nrow, ncol)) * wt
+        
         compt = 0
         for i in range(0, nrow):
             for j in range(0, ncol):
@@ -233,9 +234,11 @@ class Modpath:
                     for r in range(prow):
                         for c in range(pcol):
                             for l in range(play):
-                                stldata[compt]['label'] = 'p' + str(compt + 1)
+                                stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
                                 for k in range(0, nlay):
                                     if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
+                                    # if head_1c[0][k, i, j] > 0:
+                                        # print('True', k)
                                         stldata[compt]['k0'] = k
                                         # print(i, j)
                                         break
@@ -244,6 +247,8 @@ class Modpath:
                                 stldata[compt]['i0'] = i
                                 stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
                                 stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
+                                # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2)
+                                # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2)
                                 if k == 0:
                                     ztop = self.mf.dis.top.array[i,j]
                                 else:
@@ -282,17 +287,17 @@ class Modpath:
             
         # print(self.point_data)
         
-        if sorted(self.point_data['particleid']) == list(self.point_data['particleid']):
-            print("list1 is sorted")
-        else:
-            print("list is not sorted")
+        # if sorted(self.point_data['particleid']) == list(self.point_data['particleid']):
+        #     print("list1 is sorted")
+        # else:
+        #     print("list is not sorted")
 
         stl.data = self.point_data
         
         self.poro_modpath = self.model_modflow.ps
         self.ss_modpath = self.model_modflow.ss
         
-        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999.0, hdry=-100,
+        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999, hdry=-100,
                                   # def_iface=[6, 6],
                                   def_face_ct=0,
                                   laytyp=laytype, ibound=iboundData,
@@ -600,26 +605,29 @@ class Modpath:
             shp = gpd.read_file(self.geographic.watershed_shp)
             # end = end.clip(shp)
             end[end['time_win_y']==0] = np.nan
-            end = end.dropna()                
-            tau = np.average(end['time_win_y'], weights=end['rchPerc'])
-            def pdf_function(M, nbin, Weight):    
-                bin_min = np.quantile(M, 0.01)
-                bin_max = np.quantile(M, 0.99)
-                bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
-                pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
-                dx = np.diff(binEdges)  
-                xh =  (binEdges[1:] + binEdges[:-1])/2
-                xh = np.array(xh)
-                return (xh, pdf)
-            nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
-            [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
-            idzeros = np.where(yh != 0)
-            xfil = xh[idzeros]
-            yfil = yh[idzeros]
-            x_log = np.log10(xfil)
-            y_log = np.log10(yfil)
-            # x_log = (xfil)
-            # y_log = (yfil)
+            end = end.dropna()
+            try:
+                tau = np.average(end['time_win_y'], weights=end['rchPerc'])
+                def pdf_function(M, nbin, Weight):    
+                    bin_min = np.quantile(M, 0.01)
+                    bin_max = np.quantile(M, 0.99)
+                    bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
+                    pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
+                    dx = np.diff(binEdges)  
+                    xh =  (binEdges[1:] + binEdges[:-1])/2
+                    xh = np.array(xh)
+                    return (xh, pdf)
+                nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
+                [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
+                idzeros = np.where(yh != 0)
+                xfil = xh[idzeros]
+                yfil = yh[idzeros]
+                x_log = np.log10(xfil)
+                y_log = np.log10(yfil)
+                # x_log = (xfil)
+                # y_log = (yfil)
+            except:
+                pass
             def func(x, a, b, c, d, e):
                 return a * x**4 + b * x**3 + c * x**2 + d * x + e
             try:
@@ -628,14 +636,15 @@ class Modpath:
                 x_fit = np.linspace(min(x_log), max(x_log), 100)
                 y_fit = func(x_fit, a, b, c, d, e)
                 
-                fig = plt.figure(figsize=(5,3))
+                fig = plt.figure(figsize=(6,4))
                 ax = fig.add_subplot(111)
-                ax.plot(xh, yh, '.', c='r')
-                ax.plot(xfil, yfil, '-',c = 'r')
-                ax.plot(10**x_fit, 10**y_fit, '-',c = 'b')
+                ax.plot(xh, yh, '.', lw=0, c='darkred')
+                ax.plot(xfil, yfil, '-', lw=2, c='darkred')
+                ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='navy')
                 ax.set_ylabel("PDF")
                 ax.set_xlabel("t / "+r'$\tau$')
                 ax.set_xscale('log')
+                ax.set_title('Residence times')
                 # ax.set_xlim(tmin, tmax)
                 # ax.set_ylim(-0.1, 13)
             except:
