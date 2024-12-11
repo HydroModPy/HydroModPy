@@ -12,16 +12,17 @@
 
 #%% ---- LIBRAIRIES
 
-# PYTHON PACKAGES
+# Filter warnings (before imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
+# PYTHON PACKAGES
 import sys
 import os
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import flopy
