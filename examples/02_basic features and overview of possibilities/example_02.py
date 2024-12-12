@@ -14,15 +14,17 @@
 
 #%% PYTHON
 
+# Filter warnings (before imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
 # Libraries installed by default
 import sys
 import os
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
 
 # Libraries need to be installed if not
 import numpy as np
