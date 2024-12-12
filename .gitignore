@@ -8,7 +8,8 @@ src/modeling/__pycache__
 src/display/__pycache__
 src/watershed/.DS_Store
 examples/results/*
-regression/results/*
-users/
 !examples/results/readme.txt
-!regression/results/readme.txt
+regression/
+users/
+docs/gitignores/
+
