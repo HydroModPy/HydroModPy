@@ -1,0 +1,12 @@
+TOUTE LES MODIFICATIONS ET UPDATE A FAIRE SUR LA BRANCHE DEV
+(Début de semaine pro, une fois que la branche 'dev' est béton, on merge sur la 'master' et on créé un tag nommé: hydromodpy 0.1)
+
+- Améliorer et reprendre  l'example 07, tester l'ensemble des exemples et commenter le plus possible (Ronan)
+- Faire pareil pour le test de non-regression (Ronan)
+- Ajout d'un dossier gitignores en y ajoutant le .gitignore-dev et .gitignore-master, qui ne sont pas les mêmes (Ronan)
+- Gérer les messages d'erreur en lançant les exemples et les cacher le plus possible, problèmes (Tout le monde, voir GitLab issues)
+- Parcourir le code et améliorer les "prints" pour que l'affichage des résultats sur la console soit plus clair (Ronan, + help)
+- Reparcourir le code et commenter au maximum pour clarifier le readthedocs en ligne (Tout le monde)
+- Check les codes dans le dossier 'User' et voir si vous souhaitez les conserver (Tout le monde)
+- Tester les autres branches avec la nouvelle branche 'dev' (Tout le monde check sa propre branche)
+- Voir pour HydroDataPy ou remettre en route le partage de données sur un OneDrive partagé (Alexandre)
