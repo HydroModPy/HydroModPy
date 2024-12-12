@@ -1,6 +1,7 @@
 *.DS_Store
 *.pyc
 *.chk
+**.chk
 src/__pycache__
 src/watershed/__pycache__
 src/tools/__pycache__
@@ -9,7 +10,7 @@ src/display/__pycache__
 src/watershed/.DS_Store
 examples/results/*
 !examples/results/readme.txt
-regression/
+test/
 users/
 docs/gitignores/
 
