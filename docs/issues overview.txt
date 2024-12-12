@@ -7,12 +7,19 @@ FAIRE
 - Ajout d'un dossier gitignores en y ajoutant le .gitignore-dev et .gitignore-master, qui ne sont pas les mêmes (Ronan)
 - Gérer les messages d'erreur en lançant les exemples et les cacher le plus possible, problèmes (Tout le monde, voir GitLab issues)
 - Parcourir le code et améliorer les "prints" pour que l'affichage des résultats sur la console soit plus clair (Ronan, + help)
-- Reparcourir le code et commenter au maximum pour clarifier le readthedocs en ligne (Tout le monde)
+- Au cours du temps : reparcourir le code et commenter au maximum pour clarifier le readthedocs en ligne (Tout le monde)
 - Check les codes dans le dossier 'User' et voir si vous souhaitez les conserver (Tout le monde)
 - Tester les autres branches avec la nouvelle branche 'dev' (Tout le monde check sa propre branche)
-- Voir pour HydroDataPy ou remettre en route le partage de données sur un OneDrive partagé (Alexandre)
+- Checker si on peut mettre des branches privées/public (Tout le monde)
+- Tester les problèmes de projection flopy, et tout les examples, avec un environnement contenant la nouvelle version de flopy (Bastien et /ou Alexandre)
+- En lien avec la projection : carrément checker l'installation de flopy
+- Léa Massin User (envoyer un we transfer)
+- Empêcher la création des fichier .chk de modflow
+
 
 DISCUTER
-- Rôle des différents membres, et voir pourquoi je ne peux pas changer ça ni supprimer des issues
 - Envoyer un mail à tout le monde concernant la marche à suivre et voir directement avec les utilisateurs "critiques"
 (Jean, Rock, Camille, Ronny, Clément)
+
+COMMUNAUTE
+- Voir pour HydroDataPy ou remettre en route le partage de données sur un OneDrive partagé (Alexandre)
