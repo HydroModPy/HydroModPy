@@ -18,7 +18,6 @@ HydroModPy:
 
 
 #%% CHARGEMENT DES BIBLIOTHEQUES ET MODULES
-#% PYTHON
 
 # Filtrer les avertissements (avant les imports)
 import warnings
@@ -46,23 +45,25 @@ import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-# ========================================== ===================================
-# if os.getenv('PROJ_LIB') is not None:
-#     os.environ.pop('PROJ_LIB')
-# =============================================================================
+
 import xarray as xr
 xr.set_options(keep_attrs = True)
 import yaml
 
 #% DOSSIER RACINE
-from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+try:
+    from os.path import abspath, dirname
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    root_dir = os.path.dirname(os.path.dirname(os.getcwd()))  # Pour les notebooks
+
 sys.path.append(root_dir)
 
 cwd = os.getcwd()
-if not cwd == root_dir:
+# print(f"Le répertoire courant est : {cwd}")
+if cwd != root_dir:
     os.chdir(root_dir)
-    # print("Root path directory is: {0}".format(cwd))
+    print(f"Répertoire racine défini : {root_dir}")
 
 #% Modules HydroModPy
 import src
