@@ -21,7 +21,6 @@ import geopandas as gpd
 from shapely.geometry.polygon import LineString, Polygon
 from shapely.ops import linemerge, unary_union, polygonize
 from datetime import datetime
-import os
 import re
 from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
 import scipy.stats as sp
@@ -44,6 +43,8 @@ from matplotlib.ticker import ScalarFormatter
 from matplotlib.ticker import MaxNLocator
 import shutil
 import pyreadr
+import hydroeval as he
+import os
 
 # Plot
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -3373,7 +3374,7 @@ os.makedirs(fig_dir, exist_ok=True)
 navy_colormap = mpl.colors.ListedColormap('navy')
 
 # Process each dataset
-start = 325
+start = 0
 cp = start
 for enu, (points_path, raster_path, traces_path) in enumerate(zip(list_points_path[cp:], list_raster_path[cp:], list_traces_path[cp:]),
                                                              # start=325
@@ -3496,6 +3497,46 @@ path_max = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[1]))+'_*
 
 path_min = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[0]))+'_*traces*'+'.tif')[0]
 path_max = glob.glob(stable_folder + 'saturation/' + '*_'+str(int(tseep[1]))+'_*traces*'+'.tif')[0]
+
+#%% CREATE PERSISTENCY INDEX
+
+# Setup paths
+list_traces_path = sorted(glob.glob(stable_folder + 'saturation/' + '*traces*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+dict_traces = {}
+# Preload reusable data
+nant_dem = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
+# Process each dataset
+start = 0
+cp = start
+for enu, traces_path in enumerate(list_traces_path[cp:]):
+    # cp += 1
+    print(enu)
+    dict_traces[enu] = imageio.imread(traces_path)
+np.save(stable_folder + 'saturation/' + '_dict_traces.npy', dict_traces)
+
+# Persistency index
+dict_persistency_index = {}
+acc_npy_raw = np.load(stable_folder + 'saturation/' + '_dict_traces.npy', allow_pickle=True).item()
+acc_npy = list(acc_npy_raw.items())[:823]
+for key in range(len(acc_npy)):
+    mask = imageio.imread(BV.geographic.watershed_dem)
+    # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
+    acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
+    acc_npy[key][acc_npy[key]<0] = 0
+zero = acc_npy[0] * 0
+for i in range(len(acc_npy)):
+    tempo = acc_npy[i].copy()
+    tempo[tempo>0] = 1
+    zero = zero + tempo
+days_flux = zero.copy() / len(acc_npy)
+pi_export = days_flux.copy()
+pi = np.ma.masked_where(days_flux <= 0, days_flux)
+dict_persistency_index[0] = pi
+pi_export[days_flux <= 0] = -9999
+pi_export[mask<=0] = -9999
+pi_output_path = stable_folder + 'saturation/' + '_hgs_persistency_index_t('+'-'+').tif'
+# if export_tif==True:
+toolbox.export_tif(stable_folder + 'geographic/' + 'watershed_dem.tif', pi_export, pi_output_path, -9999)
 
 #%% ---- CALIBRATION STREAMS
 
@@ -3837,8 +3878,6 @@ for path_obs, field_obs in zip(paths_obs[:], fields_obs[:]):
     df.to_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+type_obs+'.csv', sep=';')
 
 #%% DICHOTOMY - APPEND
-
-
 dfs = pd.DataFrame()
     
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
@@ -3964,12 +4003,16 @@ plt.plot(runoff)
 # runoff = runoff.iloc[:7]
 
 # list_alpha = 1/np.array([3,30,300])
-list_T = np.geomspace(1e-5,1e-3,3)*24*3600
-list_thick = np.geomspace(10,1000,3)
-list_hyd_cond = list_T/list_thick
+# list_T = np.geomspace(1e-5,1e-3,3)*24*3600
+# list_thick = np.geomspace(10,1000,3)
+# list_hyd_cond = list_T/list_thick
+# list_porosity = np.array([0.1,1,10])/100
+
+list_thick = np.array([10,100,1000])
+list_hyd_cond = np.array([1e-7,1e-6,1e-5])*24*3600
 list_porosity = np.array([0.1,1,10])/100
 
-iD_set_simulations = 'Ex1'
+iD_set_simulations = 'Ex2'
 
 #%% UPDATE
 
@@ -4050,36 +4093,35 @@ for k, hyd_cond in enumerate(list_hyd_cond[:]):
             BV.settings.update_model_name(model_name)
             list_model_name.append(model_name)
             print(model_name)
-                        
-            model_modflow = BV.preprocessing_modflow(for_calib=False)
-            # success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-        
+            
             cpg += 1
             
+            model_modflow = BV.preprocessing_modflow(for_calib=False)
+            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        
             dictio_mf = {}
             dictio_mf['model_modflow'] = model_modflow
-            ### ATTENTION NAMED .pkl ###
             dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl', dictio_mf)
             
-            # # if success_modflow == True:
-            # BV.postprocessing_modflow(model_modflow,
-            #                           watertable_elevation = True,
-            #                           watertable_depth = True, 
-            #                           seepage_areas = True,
-            #                           outflow_drain = True,
-            #                           groundwater_flux = True,
-            #                           groundwater_storage = True,
-            #                           accumulation_flux = True,
-            #                           persistency_index = True,
-            #                           intermittency_daily = True,
-            #                           intermittency_monthly = False,
-            #                           export_all_tif = False)
-
-            # timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-            #                                                   model_modpath=False,
-            #                                                   actual_date=True, 
-            #                                                   subbasin_results=True,
-            #                                                   freq_time='D')
+            if success_modflow == True:
+                BV.postprocessing_modflow(model_modflow,
+                                          watertable_elevation = True,
+                                          watertable_depth = True, 
+                                          seepage_areas = True,
+                                          outflow_drain = True,
+                                          groundwater_flux = True,
+                                          groundwater_storage = True,
+                                          accumulation_flux = True,
+                                          persistency_index = True,
+                                          intermittency_daily = True,
+                                          intermittency_monthly = False,
+                                          export_all_tif = False)
+    
+                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                                  model_modpath=False,
+                                                                  actual_date=True, 
+                                                                  subbasin_results=True,
+                                                                  freq_time='D')
             
             if delete_files == True :
 
@@ -4137,29 +4179,15 @@ dictio_id = {}
 dictio_id['list_model_name'] = list_model_name
 dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames', dictio_id)
 
-#%% POSTPROCESS        
+#%% CROSS SECTIONS CHECK
 
-# h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
-# d = dd.io.load(h5file)
-# list_model_name = d['list_model_name'][:]
-# list_model_success = d['list_model_success'][:]
-# list_model_modflow = d['list_model_modflow'][:]
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
 
-# for model_name, model_success, model_modflow in zip(list_model_name[:],
-#                                                     list_model_success[:],
-#                                                     list_model_modflow[:]):
-
-#%% CROSS SECTIONS PLOT
-
-h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
-d = dd.io.load(h5file)
-list_model_name = d['list_model_name'][:]
-list_model_success = d['list_model_success'][:]
-list_model_modflow = d['list_model_modflow'][:]
-
-for model_name, model_success, model_modflow in zip(list_model_name[:],
-                                                    list_model_success[:],
-                                                    list_model_modflow[:]):
+cpg = 0
+for model_name in list_model_name[:1]:
+    cpg+=1 
+    
+    model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
 
     mf = model_modflow.mf
     gridname = simulations_folder+model_name+'/'+model_name+'.dis'
@@ -4214,16 +4242,6 @@ for model_name, model_success, model_modflow in zip(list_model_name[:],
     fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=10)
     fig.tight_layout()
 
-#%% COMPUTE HYDR PROP
-
-
-#%% SEEPAGE
-
-seep = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess','_rasters','seepage_areas_t(0).tif'))
-seep[seep<=0] = np.nan
-fig, ax = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
-ax.imshow(np.ma.masked_where(seep<=0, seep))
-
 #%% DELETE FOLDERS
 """
 h5file = simulations_folder+'/'+'results_listing_'+iD_set_simulations
@@ -4248,9 +4266,625 @@ for model_name, model_success, model_modflow in zip(list_model_name[:],
             os.remove(file)
             # shutil.rmtree(file)
 """
-#%% ---- EXPLORATION RESULTS
 
-#%% STREAMFLOW - OBS
+#%% COMPUTE DOS DSO
+
+wbt.verbose = False
+
+# Setup paths
+list_points_path = sorted(glob.glob(stable_folder + 'saturation/' + '*points*.shp'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+list_raster_path = sorted(glob.glob(stable_folder + 'saturation/' + '*raster*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+list_traces_path = sorted(glob.glob(stable_folder + 'saturation/' + '*traces*.tif'), key=lambda x: float(x.split('\\')[-1].split('_')[1]))
+
+df_sat_hgs = pd.read_csv(stable_folder + 'saturation/' + '_saturation_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
+
+# Preload reusable data
+nant_dem = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
+cell_dem = np.ma.masked_where(nant_dem < 0, nant_dem).count()
+    
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
+
+for model_name in list_model_name[:]:
+    print(model_name)    
+
+    Sim = pd.read_csv(simulations_folder+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
+    len_sim = len(Sim)
+    
+    Sim['dd_seep_hgs'] = df_sat_hgs['dd_seep']
+    Sim['dd_netw_hgs'] = df_sat_hgs['dd_netw']
+    
+    list_points_path_fil = list_points_path[:len_sim]
+    list_raster_path_fil = list_raster_path[:len_sim]
+    list_traces_path_fil = list_traces_path[:len_sim]
+    
+    Sim = Sim.reset_index()
+    
+    # Process each dataset
+    for enu, (points_path, raster_path, traces_path) in enumerate(zip(list_points_path_fil[:], list_raster_path_fil[:], list_traces_path_fil[:]),
+                                                                 # start=325
+                                                                 ):
+        print('     ', enu, len(list_traces_path_fil))
+    
+        folder_arbit = simulations_folder+model_name+'/_postprocess/_matchingstreams/'
+        toolbox.create_folder(folder_arbit)
+        
+        obsflow_path = folder_arbit+'obsflow.tif'
+        shutil.copyfile(traces_path, obsflow_path)
+        obsflow = imageio.imread(obsflow_path)
+        obsflow[obsflow>0] = 1
+        obsflow[obsflow<=0] = -9999
+        toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", obsflow, obsflow_path, -9999)
+        
+        simflow_path = folder_arbit+'simflow.tif'
+        accumulation_path = simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t('+str(enu)+').tif'
+        shutil.copyfile(accumulation_path, simflow_path)
+        simflow = imageio.imread(simflow_path)
+        simflow[simflow>0] = 1
+        simflow[simflow<=0] = -9999
+        toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", simflow, simflow_path, -9999)
+
+        dem_to_obs_path = simulations_folder+'/'+model_name+'/'+'_postprocess/_matchingstreams/dem_to_obs_t(-).tif'
+        wbt.downslope_distance_to_stream(BV.geographic.watershed_box_buff_fill, obsflow_path, dem_to_obs_path)
+        dist_to_obs_path = simulations_folder+'/'+model_name+'/'+'_postprocess/_matchingstreams/sim_to_obs_t(-).tif'
+        dem_to_obs = imageio.v2.imread(dem_to_obs_path)
+        sim_to_obs = np.ma.masked_array(dem_to_obs, mask=simflow==-9999)
+        sim_to_obs = np.ma.masked_array(sim_to_obs, mask=(nant_dem<0))
+        sim_to_obs = sim_to_obs.filled(np.nan)
+        toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", sim_to_obs, dist_to_obs_path, -9999)
+        
+        dem_to_sim_path = simulations_folder+'/'+model_name+'/'+'_postprocess/_matchingstreams/dem_to_sim_t(-).tif'
+        wbt.downslope_distance_to_stream(BV.geographic.watershed_box_buff_fill, simflow_path, dem_to_sim_path)        
+        dist_to_sim_path = simulations_folder+'/'+model_name+'/'+'_postprocess/_matchingstreams/obs_to_sim_t(-).tif'
+        dem_to_sim = imageio.v2.imread(dem_to_sim_path)
+        obs_to_sim = np.ma.masked_array(dem_to_sim, mask=(obsflow==-9999))
+        obs_to_sim = np.ma.masked_array(obs_to_sim, mask=(nant_dem<0))
+        obs_to_sim = obs_to_sim.filled(np.nan)
+        toolbox.export_tif(stable_folder+"geographic/watershed_dem.tif", obs_to_sim, dist_to_sim_path, -9999)
+        
+        dso = imageio.v2.imread(dist_to_obs_path)
+        dos = imageio.v2.imread(dist_to_sim_path)
+        
+        Sim.loc[enu,'Dso_netw_min'] = np.nanmin(dso)
+        Sim.loc[enu,'Dos_netw_min'] = np.nanmin(dos)
+        Sim.loc[enu,'Dso_netw_med'] = np.nanmedian(dso)
+        Sim.loc[enu,'Dos_netw_med'] = np.nanmedian(dos)
+        Sim.loc[enu,'Dso_netw_mean'] = np.nanmean(dso)
+        Sim.loc[enu,'Dos_netw_mean'] = np.nanmean(dos)
+        Sim.loc[enu,'Dso_netw_max'] = np.nanmax(dso)
+        Sim.loc[enu,'Dos_netw_max'] = np.nanmax(dos)
+        Sim.loc[enu,'Dso_netw_std'] = np.nanstd(dso)
+        Sim.loc[enu,'Dos_netw_std'] = np.nanstd(dos)
+        Sim.loc[enu,'Dso_netw_cv'] = np.nanstd(dso) / np.nanmean(dso)
+        Sim.loc[enu,'Dos_netw_cv'] = np.nanstd(dos) / np.nanmean(dos)
+        
+        del(dso)
+        del(dos)
+                
+        # print(np.nanmean(so), np.nanmean(os))
+    
+    Sim = Sim.set_index(['date'], drop=True)
+    Sim.to_csv(simulations_folder+model_name+'/_postprocess/_timeseries/_simulated_timeseries_bis.csv', sep=';')
+    
+#%% ---- NEW PLOT RESULTS MAPS GRAPH
+
+#%% PERSISTENCY
+
+pi_rio = rasterio.open('E:/_RONAN/_E_SIMULATIONS/VALLON//Nant_21781_EUDTM30m/results_stable/saturation/_hgs_persistency_index_t(-).tif')
+pi_export = pi_rio.read(1)
+nant_dem = rasterio.open(stable_folder + 'geographic/' + 'watershed_dem.tif')
+nant_hill = rasterio.open(stable_folder + 'geographic/' + 'watershed_hill.tif')
+nant_cont = gpd.read_file(stable_folder + 'geographic/' + 'watershed.shp')
+jet_colormap = plt.cm.get_cmap('jet_r')
+fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=300)
+show(np.ma.masked_where(nant_hill.read(1) < 0, nant_hill.read(1)), ax=ax, transform=nant_hill.transform, cmap='Greys_r', alpha=0.5)
+show(np.ma.masked_where(pi_export<0, pi_export), ax=ax, transform=pi_rio.transform, cmap=jet_colormap, alpha=1, vmin=0, vmax=1)
+nant_cont.plot(ax=ax, facecolor='None', ec='k', lw=3)
+ax.set_title('HGS water occurence')
+ax.set_axis_off()
+fig.tight_layout()
+
+iD_set_simulations = 'Ex2'
+
+# seep = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess','_rasters','seepage_areas_t(0).tif'))
+# seep[seep<=0] = np.nan
+# fig, ax = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
+# ax.imshow(np.ma.masked_where(seep<=0, seep))
+
+# Preload reusable data
+nant_dem = rasterio.open(stable_folder + 'geographic/' + 'watershed_dem.tif')
+nant_hill = rasterio.open(stable_folder + 'geographic/' + 'watershed_hill.tif')
+nant_cont = gpd.read_file(stable_folder + 'geographic/' + 'watershed.shp')
+
+# Preload colormap
+jet_colormap = plt.cm.get_cmap('jet_r')
+navy_colormap = mpl.colors.ListedColormap('navy')
+
+# Process each dataset
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
+
+cpg = 0
+for model_name in list_model_name[:]:
+    cpg+=1 
+    
+    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+    
+        print(enu, model_name)
+        
+        model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
+    
+        seepage_path = simulations_folder+'/'+model_name+'/_postprocess/_rasters/seepage_areas_t(0).tif'
+        persistency_path = simulations_folder+'/'+model_name+'/_postprocess/_rasters/persistency_index_t(-).tif'
+    
+        # Load rasters
+        with rasterio.open(seepage_path) as seep, rasterio.open(persistency_path) as persis:
+            # Create plot
+            fig, axs = plt.subplots(1, 2, figsize=(15, 10), dpi=300)
+            axs = axs.ravel()
+    
+            for i, data in enumerate([seep, persis]):
+                ax = axs[i]
+                show(np.ma.masked_where(nant_hill.read(1) < 0, nant_hill.read(1)), ax=ax, transform=nant_hill.transform, cmap='Greys_r', alpha=0.5)
+                if i == 0:
+                    show(np.ma.masked_where((data.read(1) <= 0) | (nant_dem.read(1) < 0), data.read(1)), ax=ax, transform=data.transform, cmap=navy_colormap, alpha=1)
+                if i == 1:
+                    show(np.ma.masked_where((data.read(1) <= 0) | (nant_dem.read(1) < 0), data.read(1)), ax=ax, transform=data.transform, cmap=jet_colormap, alpha=1,
+                         vmin=0, vmax=1)
+                nant_cont.plot(ax=ax, facecolor='None', ec='k', lw=3)
+                ax.set_axis_off()
+                
+            fig.suptitle(model_name, x=0.5, y=0.85, fontsize=12)
+            left  = 0.125  # the left side of the subplots of the figure
+            right = 0.9    # the right side of the subplots of the figure
+            bottom = 0.1   # the bottom of the subplots of the figure
+            top = 0.9      # the top of the subplots of the figure
+            wspace = 0.2   # the amount of width reserved for blank space between subplots
+            hspace = 0.2   # the amount of height reserved for white space between subplots
+            fig.subplots_adjust(left=left, bottom=bottom, right=right, top=top, wspace=-0.5, hspace=hspace)
+            # fig.tight_layout()
+    
+            # Save figure
+            # fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex1_27models/'
+            fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+            fig_path = os.path.join(fig_dir, 'seep+pi'+model_name+'.png')
+            # fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
+            # plt.close(fig)
+
+#%% STREAMFLOW
+
+iD_set_simulations = 'Ex2'
+
+init_path = hgs_model_ronan_path + 'full_model/' + 'nant_v100fo.hydrograph.S2_Avancon_Nant_Weir.dat'
+dfQsim = pd.read_csv(init_path,delim_whitespace=True, header=2)
+dfQsim = dfQsim.reset_index()
+dfQsim.columns = ["Time","Surface","Porous media","Total"]
+dfQsim.iloc[0]['Time'] = 0
+dfQsim = dfQsim[dfQsim['Time'].mul(1e10).mod(1e10).astype(int).isin([0])]
+dfQsim['Time_y'] = dfQsim['Time'] / 365
+dfQsim['datetime'] = pd.date_range(start='10/01/2014', periods=len(dfQsim), freq='D')
+dfQsim.index = dfQsim['datetime']
+Qsim_new = dfQsim['Total']*1000 / (13.7*1e6) # m3/day to mm/day
+Qsim_hgs = Qsim_new.copy()
+
+# Process each dataset
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
+
+fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
+
+n = len(list_model_name)
+colors = pl.cm.jet(np.linspace(0, 1, n))
+
+cpg = 0
+for enu, model_name in enumerate(list_model_name[:]):
+    cpg+=1 
+        
+    K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
+    E = float(model_name.split('_')[3].split('-')[2])
+    T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
+    P = float(model_name.split('_')[6].split('-')[2])
+    
+    # if T == 1e-6:
+    #     c='red'
+    # if T == 1e-5:
+    #     c='gold'
+    # if T == 1e-4:
+    #     c='green'
+    # if T == 1e-3:
+    #     c='dodgerblue'
+    # if T == 1e-2:
+    #     c='navy'
+        
+    # if E == 10:
+    #     lw=1
+    # if E == 100:
+    #     lw=2
+    # if E == 1000:
+    #     lw=3
+    
+    # if P == 0.1:
+    #     ls='-'
+    # if P == 1.0:
+    #     ls='-'
+    # if P == 10.0:
+    #     ls='-'
+    
+    lw=2
+    ls='-'
+    c=colors[enu]
+    # print(c)
+
+    # model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
+    
+    Sim = pd.read_csv(simulations_folder+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
+    
+    # fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(20,5))
+
+    Qsim_mf = Sim['outflow_drain'] * 1000
+
+    Qsim_hgs_fil = Qsim_hgs.to_frame().query("datetime >= '2014-10-01' and datetime <= '2016-09-29'")
+    Qsim_mf_fil = Qsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    
+    NSE = he.evaluator(he.nse, Qsim_mf_fil, Qsim_hgs_fil)[0]
+    NSElog = he.evaluator(he.nse, Qsim_mf_fil, Qsim_hgs_fil, transform='log')[0]
+    RMSE = np.sqrt(np.nanmean((Qsim_hgs_fil.values-Qsim_mf_fil.values)**2))
+    KGE = he.evaluator(he.kge, Qsim_mf_fil, Qsim_hgs_fil)[0][0]
+
+    # print(enu, model_name)
+    # print('    ','NSE',round(NSE,2))   
+    # print('    ','NSElog',round(NSElog,2))
+    # print('    ','RMSE',round(RMSE,2))
+    # print('    ','KGE',round(KGE,2))
+
+    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+    # if NSElog>-0.3:    
+        print(enu, model_name)
+        print('    ','NSE',round(NSE,2))   
+        print('    ','NSElog',round(NSElog,2))        
+
+        ax = a0
+        ax.plot(Qsim_hgs, color='k', lw=3, ls='-', zorder=0, label='Qhgs')
+        ax.plot(Qsim_mf, color=c, lw=lw, ls=ls, label='MF')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Q [mm/day]')
+        ax.set_yscale('log')
+        ax.set_ylim(0.1,100)
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+        # ax.legend(loc='lower right')
+        ax.set_title('Streamflow', fontsize=15)
+        
+        ax = a1
+        ax.plot(Qsim_mf/Qsim_hgs, color=c, lw=lw, ls=ls, zorder=0)
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Qmf / Qhgs [-]')
+        # ax.set_yscale('log')
+        ax.set_ylim(-2,4)
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+        # ax.legend(loc='lower right')
+        ax.set_title('Residuals', fontsize=15)
+        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
+
+fig.tight_layout()
+
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+fig_path = os.path.join(fig_dir, '_streamflow_4models'+'.png')
+fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
+
+#%% SATURATION
+
+iD_set_simulations = 'Ex2'
+
+# Process each dataset
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
+
+fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
+
+n = len(list_model_name)
+colors = pl.cm.jet(np.linspace(0, 1, n))
+
+cpg = 0
+for enu, model_name in enumerate(list_model_name[:]):
+    cpg+=1 
+        
+    K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
+    E = float(model_name.split('_')[3].split('-')[2])
+    T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
+    P = float(model_name.split('_')[6].split('-')[2])
+    
+    # if T == 1e-5:
+    #     c='blue'
+    # if T == 1e-4:
+    #     c='green'
+    # if T == 1e-3:
+    #     c='red'
+        
+    # if E == 10:
+    #     lw=1
+    #     # c='darkred'
+    # if E == 100:
+    #     lw=2
+    #     # c='darkorange'
+    # if E == 1000:
+    #     lw=3
+    #     # c='gold'
+    
+    # if P == 0.1:
+    #     ls='-.'
+    # if P == 1.0:
+    #     ls='--'
+    # if P == 10.0:
+    #     ls='-'
+    
+    lw=2
+    ls='-'
+    c=colors[enu]
+    # print(c)
+
+    # model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
+    
+    Sim = pd.read_csv(simulations_folder+model_name+'/_postprocess/_timeseries/_simulated_timeseries_bis.csv', sep=';', index_col=0, parse_dates=True)
+    
+    # fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(20,5))
+
+    DDsim_hgs = Sim['dd_netw_hgs']
+    DDsim_mf = Sim['total_areas']
+    
+    DDsim_hgs_fil = DDsim_hgs.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    DDsim_mf_fil = DDsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    
+    NSE = he.evaluator(he.nse, DDsim_mf_fil, DDsim_hgs_fil)[0]
+    NSElog = he.evaluator(he.nse, DDsim_mf_fil, DDsim_hgs_fil, transform='log')[0]
+    RMSE = np.sqrt(np.nanmean((DDsim_hgs_fil.values-DDsim_mf_fil.values)**2))
+    KGE = he.evaluator(he.kge, DDsim_mf_fil, DDsim_hgs_fil)[0][0]
+    
+    # print(enu, model_name)
+    # print('    ','NSE',round(NSE,2))   
+    # print('    ','NSElog',round(NSElog,2))
+    # print('    ','RMSE',round(RMSE,2))
+    # print('    ','KGE',round(KGE,2))
+    
+    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+    # if NSElog>-0.3:
+        print(enu, model_name)
+        print('    ','NSElog',round(NSElog,2))     
+        
+        ax = a0
+        ax.plot(DDsim_hgs, color='k', lw=5, ls='-', zorder=0, label='DDhgs')
+        ax.plot(DDsim_mf, color=c, lw=lw, ls=ls, label='MF')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('DD [%]')
+        # ax.set_yscale('log')
+        ax.set_ylim(1,50)
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+        # ax.legend(loc='lower right')
+        ax.set_title('Saturation', fontsize=15)
+        
+        
+        ax = a1
+        ax.plot(DDsim_mf/DDsim_hgs, color=c, lw=lw, ls=ls, zorder=0)
+        ax.set_xlabel('Date')
+        ax.set_ylabel('DDmf / DDhgs [-]')
+        # ax.set_yscale('log')
+        ax.set_ylim(-2,4)
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+        # ax.legend(loc='lower right')
+        ax.set_title('Residuals', fontsize=15)
+        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
+
+fig.tight_layout()
+
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+fig_path = os.path.join(fig_dir, '_saturation_4models'+'.png')
+fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
+
+#%% MISMATCH
+
+iD_set_simulations = 'Ex2'
+
+# Process each dataset
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
+
+fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
+
+n = len(list_model_name)
+colors = pl.cm.jet(np.linspace(0, 1, n))
+
+cpg = 0
+for enu, model_name in enumerate(list_model_name[:]):
+    cpg+=1 
+    
+    # print(enu)
+    
+    K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
+    E = float(model_name.split('_')[3].split('-')[2])
+    T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
+    P = float(model_name.split('_')[6].split('-')[2])
+    
+    # if T == 1e-5:
+    #     c='blue'
+    # if T == 1e-4:
+    #     c='green'
+    # if T == 1e-3:
+    #     c='red'
+        
+    # if E == 10:
+    #     lw=1
+    #     # c='darkred'
+    # if E == 100:
+    #     lw=2
+    #     # c='darkorange'
+    # if E == 1000:
+    #     lw=3
+    #     # c='gold'
+    
+    # if P == 0.1:
+    #     ls='-.'
+    # if P == 1.0:
+    #     ls='--'
+    # if P == 10.0:
+    #     ls='-'
+    
+    lw=2
+    ls='-'
+    c=colors[enu]
+    # print(c)
+
+    # model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
+    
+    Sim = pd.read_csv(simulations_folder+model_name+'/_postprocess/_timeseries/_simulated_timeseries_bis.csv', sep=';', index_col=0, parse_dates=True)
+    
+    # fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(20,5))
+
+    Dso_sim_mf = Sim['Dso_netw_mean']
+    Dos_sim_mf = Sim['Dos_netw_mean']
+
+    Dos_sim_mf_plt = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    Dso_sim_mf_plt = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+
+    Dos_sim_mf_fil = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'").values
+    Dso_sim_mf_fil = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'").values
+    
+    NSE = he.evaluator(he.nse, Dso_sim_mf_fil, Dos_sim_mf_fil)[0]
+    NSElog = he.evaluator(he.nse, Dso_sim_mf_fil, Dos_sim_mf_fil, transform='log')[0]
+    RMSE = np.sqrt(np.nanmean((Dos_sim_mf_fil-Dso_sim_mf_fil)**2))
+    KGE = he.evaluator(he.kge, Dso_sim_mf_fil, Dos_sim_mf_fil)[0][0]
+    
+    Dos_sim_mf_calc = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    Dso_sim_mf_calc = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    Dos_sim_mf_calc['month'] = Dos_sim_mf_calc.index.month
+    Dso_sim_mf_calc['month'] = Dso_sim_mf_calc.index.month    
+    # Dos_sim_mf_calc = Dos_sim_mf_calc.query("month == "+"["+'7,8,9'+"]")
+    # Dso_sim_mf_calc = Dso_sim_mf_calc.query("month == "+"["+'7,8,9'+"]")
+    
+    Temp = Dso_sim_mf_calc['Dso_netw_mean']/Dos_sim_mf_calc['Dos_netw_mean']
+    Temp[Temp==np.inf] = np.nan
+    # RAT = np.quantile(Temp, 0.5)
+    RAT = np.mean(Temp)
+
+    # print(enu, model_name)
+    # print('    ','NSE',round(NSE,2))   
+    # print('    ','NSElog',round(NSElog,2))
+    # print('    ','RMSE',round(RMSE,2))
+    # print('    ','KGE',round(KGE,2))
+    # print('    ','RAT',round(RAT,2))
+    
+    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+        # if (RAT>0) and (RAT<10):
+        print(enu, model_name)
+        print('    ','RAT',round(RAT,2))
+        # print('    ','NSElog',round(NSE,2))
+    
+        ax = a0
+        ax.plot(Dso_sim_mf_plt, color=c, lw=lw, ls=ls, label='MF')
+        ax.plot(Dos_sim_mf_plt*-1, color=c, lw=lw, ls=ls, label='MF')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Dso and Dos [m]')
+        # ax.set_yscale('log')
+        # ax.set_ylim(-50,50)
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+        # ax.legend(loc='lower right')
+        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=-1000)
+        ax.set_title('Mismatch', fontsize=15)
+    
+        ax = a1
+        ax.plot((Dso_sim_mf_plt['Dso_netw_mean']/Dos_sim_mf_plt['Dos_netw_mean']), color=c, lw=lw, ls=ls, zorder=0)
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Dso / Dos [-]')
+        ax.set_yscale('log')
+        # ax.set_ylim(0,2)
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+        # ax.legend(loc='lower right')
+        ax.set_title('Residuals', fontsize=15)
+        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
+
+fig.tight_layout()
+
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+fig_path = os.path.join(fig_dir, '_mismatch_4models'+'.png')
+fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
+
+#%% CORRELATION
+
+from scipy.stats import linregress
+
+nant_dem = imageio.imread(stable_folder + 'geographic/' + 'watershed_dem.tif')
+
+pi_hgs = imageio.imread('E:/_RONAN/_E_SIMULATIONS/VALLON//Nant_21781_EUDTM30m/results_stable/saturation/_hgs_persistency_index_t(-).tif')
+pi_hgs[nant_dem<0] = np.nan
+pi_hgs[pi_hgs<=0] = 0
+pi_hgs_flat = pi_hgs.flatten()
+# pi_hgs_flat[pi_hgs_flat<0.1] = 0.1
+
+# Process each dataset
+list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
+
+# fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
+
+
+n = len(list_model_name)
+colors = pl.cm.jet(np.linspace(0, 1, n))
+
+cpg = 0
+for enu, model_name in enumerate(list_model_name[:]):
+    print(enu, model_name)
+    cpg += 1
+    
+    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+        fig, ax = plt.subplots(1, 1, figsize=(5,5))
+    
+        pi_mf = imageio.imread(simulations_folder+'/'+model_name+'/_postprocess/_rasters/persistency_index_t(-).tif')
+        pi_mf[nant_dem<0] = np.nan
+        pi_mf[pi_mf<=0] = 0
+        pi_mf_flat = pi_mf.flatten()
+        # pi_mf_flat[pi_mf_flat<0.1] = 0.1
+        
+        ax.plot(pi_mf_flat, pi_hgs_flat, color=colors[enu], lw=0, ms=3, mec='None', marker='o')
+        
+        # Linear regression
+        valid_indices = ~np.isnan(pi_mf_flat) & ~np.isnan(pi_hgs_flat)
+        slope, intercept, r_value, p_value, std_err = linregress(pi_mf_flat[valid_indices], pi_hgs_flat[valid_indices])
+    
+        # Regression line
+        x_fit = np.linspace(np.nanmin(pi_mf_flat), np.nanmax(pi_mf_flat), 500)
+        y_fit = slope * x_fit + intercept
+        ax.plot(x_fit, y_fit, color=colors[enu], lw=2, label=f"Fit: $R^2$={r_value**2:.2f}")
+        
+        ax.set_title(model_name, fontsize=8)
+        
+        # Configure axes
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlabel('pi_mf_flat')
+        ax.set_ylabel('pi_hgs_flat')
+        ax.legend(loc='lower left')
+        ax.set_xlim(0.01,1)
+        ax.set_ylim(0.01,1)
+        plt.tight_layout()
+        plt.show()
+        
+        fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+        fig_path = os.path.join(fig_dir, '_correlation_'+model_name+'.png')
+        fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
+
+#%% ---- OLD PLOT RESULTS MATRIX
+
+#%% STREAMFLOW ON OBS
 
 CRIT = 'RMSE'
 
@@ -4590,7 +5224,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     
     fig.savefig(fig_path+'OBSmatrix2d'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
 
-#%% STREAMFLOW - HGS
+#%% STREAMFLOW ON HGS
 
 CRIT = 'OWN'
 
@@ -4930,7 +5564,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     
     fig.savefig(fig_path+'HGSmatrix2d'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
 
-#%% SATURATION - OBS
+#%% SATURATION ON OBS
 
 types_obs = ['perennial_natural_streams',
              # 'fully_natural_streams',
@@ -5236,7 +5870,7 @@ for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
                 
     fig.savefig(fig_path+'OBSsat'+'_'+w_name+'_'+'BEST MODELS'+'.png', dpi=300, bbox_inches='tight')
 
-#%% CONVOLUTION - OBS
+#%% CONVOLUTION ON OBS
 
 for w, w_name in enumerate(['S1','Nant_EUDTM30m','Vare_EUDTM30m'][:]):
     
@@ -5433,4 +6067,19 @@ with rasterio.open(data_path+'DEM_10m.tif', "w", **ras_meta) as dest:
 # kh_arit_weig = np.sum(elem_k['KXX'] * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])
 # kh_geom_weig = np.exp(np.sum((np.log(elem_k['KXX'])) * elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'])) # or 10** and np.log10
 # kh_harm_weig = np.sum(elem_k['VOL_DELAUNAY']) / np.sum(elem_k['VOL_DELAUNAY'] / elem_k['KXX']) # or 10** and np.log10
+
+#%% COLORS
+
+# from matplotlib import pyplot as plt
+# import matplotlib.colors as colors
+# plt.get_cmap('jet')
+# def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+#     new_cmap = colors.LinearSegmentedColormap.from_list(
+#         'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+#         cmap(np.linspace(minval, maxval, n)))
+#     return new_cmap
+# new_cmap = truncate_colormap(plt.get_cmap('jet'), 0.0, 1.0)
+
+# mus = np.arange(0,27,1)
+# cmap = plt.cm.jet
 
