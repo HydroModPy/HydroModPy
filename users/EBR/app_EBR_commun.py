@@ -32,6 +32,7 @@ import sys
 import os
 import requests 
 import datetime
+import logging
 
 # Bibliothèques additionnelles installées dans l'environnement
 import numpy as np
@@ -62,7 +63,7 @@ cwd = os.getcwd()
 # print(f"Le répertoire courant est : {cwd}")
 if cwd != root_dir:
     os.chdir(root_dir)
-    print(f"Répertoire racine défini : {root_dir}")
+    # print(f"Répertoire racine défini : {root_dir}")
 
 #% Modules HydroModPy
 import src
@@ -70,21 +71,31 @@ import importlib
 importlib.reload(src)
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox, folder_root
+from src.tools import toolbox, folder_root, log_manager
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+#%% Initialiser le gestionnaire de logs en mode développement
+log_manager = log_manager.LogManager(mode="dev", # Utiliser mode="user" pour le mode utilisateur
+                                    #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
+                                    # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
+                                    # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
+                                     )
+
 #%% DOSSIERS UTILISATEUR
+
 out_path = folder_root.root_folder_results()
 # Pour modifier ce chemin : out_path = folder_root.update_root_folder_results()
+logging.info(f"Les résultats des simulations seront stockés dans le dossier {out_path}\n")
 
-print(f"Les résultats des simulations seront stockés dans le dossier {out_path}\n")
+data_path = os.path.join(out_path, 'LakeRes')
+os.makedirs(data_path, exist_ok=True)
 
-data_path = os.path.join(out_path, 'data_Cheze')
-if not os.path.exists(data_path):
-    os.makedirs(data_path)
-if len(os.listdir(data_path)) == 0:
-    print(f"Warning : Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)\n")
+if os.listdir(data_path):
+    logging.info(f"Les données d'entrée du modèle sont stockées dans le dossier {data_path}\n")
+else:
+    logging.critical(f"Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)\n")
+    sys.exit()
 
 #%% BASSIN VERSANT 
 ##%%% Options: Charger MNT
@@ -99,7 +110,7 @@ from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buff
 save_object = True
 
 #%%% Créer GEOGRAPHIC
-print('##### '+watershed_name.upper()+' #####')
+logging.info('##### '+watershed_name.upper()+' #####')
 
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
