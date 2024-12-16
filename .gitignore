@@ -12,3 +12,4 @@ examples/results/*
 test/results/*
 !examples/results/readme.txt
 !test/results/readme.txt
+logs/
