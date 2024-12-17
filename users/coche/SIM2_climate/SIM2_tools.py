@@ -978,7 +978,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                         )
 
     # ---- Save the .html figures
-    version = 'v7'
+    version = 'v8'
     if not os.path.exists(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2)):
         os.makedirs(os.path.join(root_folder, "cartes", version, dst_dir1, dst_dir2))
     
@@ -991,6 +991,19 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                   ]) + '.html'
         )
     )
+    
+    # This creates a png figure (need kaleido package)
+# =============================================================================
+#     fig.write_image(os.path.join(
+#         root_folder, "cartes", version, dst_dir1, dst_dir2,
+#         '_'.join([var,
+#                   timemode,
+#                   mode,
+#                   datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M"),
+#                   ]) + '.png'
+#         )
+#     )
+# =============================================================================
     
     # This creates the figure AND open it in the web browser
 # =============================================================================
