@@ -70,7 +70,7 @@ def select_period(df, first, last):
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "07_recession analytical solution in 2D/")
+example_path = os.path.join(root_dir, "examples", "analytical solution for streamflow recession/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:

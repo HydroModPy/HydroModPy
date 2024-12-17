@@ -136,7 +136,16 @@ class Hydraulic:
             Hydraulic conductivity of the aquifer model.
         """
         self.hyd_cond = np.ones(np.shape(self.hyd_cond)) * hyd_cond_value
-        
+    
+    def update_vka(self, vka_value: float):
+        """
+        Parameters
+        ----------
+        vka : float
+            Vertical hydraulic conductivity or the ratio of horizontal to vertical hydraulic conductivity of the aquifer model.
+        """
+        self.vka = vka_value
+    
     def update_porosity(self, porosity_value: float):
         """
         Parameters
