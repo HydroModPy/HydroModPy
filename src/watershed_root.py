@@ -105,7 +105,7 @@ class Watershed:
         self.from_xyv = from_xyv
         self.reg_fold = reg_fold
         self.bottom_path = bottom_path
-        self.bin_path = os.path.join(os.path.dirname(root_dir), 'bin/')
+        self.bin_path = os.path.join(os.path.dirname(root_dir), 'bin')
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
@@ -116,10 +116,10 @@ class Watershed:
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         toolbox.create_folder(self.simulations_folder)
         
-        # self.add_data_folder = os.path.join(self.stable_folder, 'add_data/')
+        # self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
         # toolbox.create_folder(self.add_data_folder)
         
-        self.figure_folder = os.path.join(self.stable_folder, '_figures/')
+        self.figure_folder = os.path.join(self.stable_folder, '_figures')
         toolbox.create_folder(self.figure_folder)
         
         self.elt_def = []
@@ -611,6 +611,7 @@ class Watershed:
                                         bottom=self.hydraulic.bottom,
                                         thick=self.hydraulic.thick,
                                         hyd_cond=self.hydraulic.hyd_cond,
+                                        vka=self.hydraulic.vka,
                                         cond_decay=self.hydraulic.cond_decay,
                                         verti_cond=self.hydraulic.verti_cond,
                                         verti_poro=self.hydraulic.verti_poro,

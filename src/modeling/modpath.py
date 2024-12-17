@@ -96,7 +96,7 @@ class Modpath:
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
         if (sys.platform == 'win32') or (sys.platform == 'win64'):
-            self.exe = self.exe = os.path.join(bin_path, 'win' ,'mp6.exe')
+            self.exe = os.path.join(bin_path, 'win' ,'mp6.exe')
         if (sys.platform == 'linux'):
             self.exe = os.path.join(bin_path, 'linux' ,'mp6')
         if (sys.platform == 'darwin'):

@@ -59,11 +59,11 @@ warnings.filterwarnings("ignore")
     
 #%% ---- PERSONAL PATHS
 
-regression_path = os.path.join(root_dir, "regression", "01_test_non-regression/")
+regression_path = os.path.join(root_dir, "test", "01_test_non-regression/")
 data_path = os.path.join(regression_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir, "regression", "results")
+out_path = os.path.join(root_dir, "test", "results")
 # Or use a function to update the root folder
 # out_path = folder_root.update_root_folder_results()
 # Or define it manually
