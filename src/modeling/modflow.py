@@ -68,6 +68,7 @@ class Modflow:
                  verti_cond=None, verti_poro=None, verti_ss=None,
                  hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
                  cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
+                 vka: float=1.0,
                  # Boundary settings
                  cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None,
                  streamflow_seepage:object=None, inputflow=None, lakeres:object=None):
@@ -223,6 +224,7 @@ class Modflow:
         self.ss = ss
         self.poro_decay = poro_decay
         self.ss_decay = ss_decay
+        self.vka = vka
         
         self.verti_cond = verti_cond
         self.verti_poro = verti_poro
@@ -545,16 +547,21 @@ class Modflow:
         # for i in range(0,len(self.number_structure)):
         #     for j in range(0,nlay):
         #         self.hk[j][self.structure.geology==self.number_structure[i]]= logParamValue[i]*3600*24
-		   
+        
         self.upw = flopy.modflow.ModflowUpw(self.mf, 
                                             laytyp=self.laytype, laywet=self.laywet, 
                                             hk=self.hk, sy=self.ps,
                                             ss=self.ss,
-                                            iphdry=1, hdry=-100, vka=1, noparcheck=False,
+                                            iphdry=1, hdry=-100, vka=self.vka, noparcheck=False,
+                                            layvka=1, # because 1, it is the anisotropy ratio
                                             extension='upw',
                                             # unitnumber=31
                                             unitnumber=None
                                             )
+        # layvka: a flag for each layer that indicates whether variable VKA is vertical hydraulic conductivity or the ratio of horizontal to vertical hydraulic conductivity
+        #   0—indicates VKA is vertical hydraulic conductivity
+        #   not 0—indicates VKA is the ratio of horizontal to vertical hydraulic conductivity, where the horizontal hydraulic conductivity is specified as HK in item 9.
+        # vka (float or array of floats (nlay, nrow, ncol)): vertical hydraulic conductivity or the ratio of horizontal to vertical hydraulic conductivity depending on the value of LAYVKA. (default is 1.0).
         
         #%% Source terms (other than artificial filling/pumping of lakes/reservoirs)
         
