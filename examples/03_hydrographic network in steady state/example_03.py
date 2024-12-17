@@ -467,7 +467,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                             sep=';')
     
     ax.plot(model_modflow.hyd_cond.mean()/24/3600,
-            simul_csv['seepage_areas'],
+            simul_csv['seepage_areas'][0],
             marker='o', ms=8, lw=0, color='k')
     
     ax.set_xscale('log')
