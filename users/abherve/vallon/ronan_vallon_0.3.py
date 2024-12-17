@@ -357,7 +357,7 @@ watershed_name = watershed_names[0]
 #%% LOAD
 
 load = True
-# load = False
+load = False
 
 for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
         
@@ -2099,7 +2099,7 @@ for i in range(len(elem)):
 elem_p = elem.copy()
 elem_p.to_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
 
-#%% MEANS K P PLOT 1 - FIRST TESTS
+#%% MEANS K P 1 - FIRST TESTS FOR ENTIRE
 
 elem_k = pd.read_csv(hgs_path + "Properties/elem_k_fill.csv", sep=';')
 elem_p = pd.read_csv(hgs_path + "Properties/elem_p_fill.csv", sep=';')
@@ -2173,7 +2173,7 @@ print('or', round((Pgeo),2))
 # df_k = elem_k.groupby('ZONE')['KXX'].unique()
 # df_k = elem_k.groupby(['ZONE']).sum()#.groupby(level='ZONE').mean()
 
-#%% MEANS K P PLOT 2 - DISTRIBUTION GENERAL
+#%% MEANS K P 2 - DISTRIBUTION GENERAL
 
 from scipy.stats import hmean, gmean
 
@@ -2343,7 +2343,7 @@ ax.set_xscale('log')
 #         histtype='step')
 # ax.set_xscale('log')
 
-#%% MEANS K P PLOT 3 - CUT MODEL BY ELEMENT
+#%% MEANS K P 3 - CUT MODEL TCICKNESS BY ELEMENT
 
 from scipy.stats import hmean, gmean
 
@@ -2405,7 +2405,7 @@ ax.set_yscale('log')
 # kh_geom = gmean(df_hp['KXX_val'], weights=None)/24/3600
 # kh_harm = hmean(df_hp['KXX_val'], weights=None)/24/3600
 
-#%% MEANS K P PLOT 3 - NAN DEPENDING ON THICKNESS
+#%% MEANS K P 4 - NAN DEPENDING ON THICKNESS
 
 from scipy.stats import hmean, gmean
 
@@ -2418,51 +2418,209 @@ elem_hp['SYX'] = elem_p['POR']
 elem_hp['SSX'] = np.nan
 elem_hp.loc[elem_hp['ZONE'].isin(np.arange(1,18+1,1)),'SSX'] = 1.6e-4 
 elem_hp.loc[elem_hp['ZONE'].isin(np.arange(19,25+1,1)),'SSX'] = 1.1e-5
-
 elem_hp['KXX_ms'] = elem_hp['KXX']/24/3600
 elem_hp['ID_E_v'] = list(np.arange(1,9608+2,1))*23
+elem_hp['SYX_perc'] = elem_hp['SYX']*100
 
+total_elem = len(elem_hp['ID_E_v'].unique())
+
+df_hp_means = pd.DataFrame()
+dict_hp_elems = {}
+
+### NO CUT
 elem_hp_copy = elem_hp.copy()
-for i, z in enumerate(elem_hp_copy['ID_E_v'].unique()):
-    print(i, len(elem_hp_copy['ID_E_v'].unique()))
-    thickness_value = 30
-    mask = elem_hp_copy[elem_hp_copy['ID_E_v']==z]
-    top_max_value = mask[['Z4', 'Z5', 'Z6']].max().max()
-    depth_thick = top_max_value - thickness_value
-    elem_hp_copy.loc[(elem_hp_copy['ID_E_v']==z)&((elem_hp_copy['Z1']<depth_thick)|(elem_hp_copy['Z2']<depth_thick)|(elem_hp_copy['Z3']<depth_thick)),:] = np.nan
-
-elem_hp_copy['fac'] = elem_hp_copy['VOL_DELAUNAY'] / np.nansum(elem_hp_copy['VOL_DELAUNAY'])
-
+df_hp_means.loc[0,'thick'] = 0
+elem_hp_copy['fac'] = elem_hp_copy['VOL_DELAUNAY'] / np.nansum(elem_hp_copy['VOL_DELAUNAY'])    
 elem_hp_plot = elem_hp_copy.dropna()
+for var in ['KXX_ms','SYX_perc']:
+    # kh_arit = np.average(elem_hp_plot[var], weights=None)
+    # kh_geom = gmean(elem_hp_plot[var], weights=None)
+    # kh_harm = hmean(elem_hp_plot[var], weights=None)
+    # kh_anis = kh_geom/kh_harm
+    kh_arit_w = np.average(elem_hp_plot[var], weights=(elem_hp_plot['VOL_DELAUNAY']))
+    kh_geom_w = gmean(elem_hp_plot[var], weights=(elem_hp_plot['VOL_DELAUNAY']))
+    kh_harm_w = hmean(elem_hp_plot[var], weights=(elem_hp_plot['VOL_DELAUNAY']))
+    kh_anis_w = kh_geom_w/kh_harm_w
+    print(var, 'arit', kh_arit_w)
+    print(var, 'geom', kh_geom_w)
+    print(var, 'harm', kh_harm_w)
+    print(var, 'anis', kh_anis_w)
+    # df_hp_means.loc[0,var+'_arit'] = kh_arit
+    # df_hp_means.loc[0,var+'_geom'] = kh_geom
+    # df_hp_means.loc[0,var+'_harm'] = kh_harm
+    # df_hp_means.loc[0,var+'_anis'] = kh_geom/harm
+    df_hp_means.loc[0,var+'_arit_w'] = kh_arit_w
+    df_hp_means.loc[0,var+'_geom_w'] = kh_geom_w
+    df_hp_means.loc[0,var+'_harm_w'] = kh_harm_w
+    df_hp_means.loc[0,var+'_anis_w'] = kh_geom_w/kh_harm_w
+dict_hp_elems[0] = elem_hp_plot
 
-kh_arit = np.average(elem_hp_plot['KXX_ms'], weights=None)
-kh_geom = gmean(elem_hp_plot['KXX_ms'], weights=None)
-kh_harm = hmean(elem_hp_plot['KXX_ms'], weights=None)
-kh_arit_w = np.average(elem_hp_plot['KXX_ms'], weights=(elem_hp_plot['VOL_DELAUNAY']))
-kh_geom_w = gmean(elem_hp_plot['KXX_ms'], weights=(elem_hp_plot['VOL_DELAUNAY']))
-kh_harm_w = hmean(elem_hp_plot['KXX_ms'], weights=(elem_hp_plot['VOL_DELAUNAY']))
+### CUT BY ZONE
+# zone_value = 18
+# for i, z in enumerate(elem_hp_copy['ID_E_v'].unique()):
+#     print(i, total_elem)
+#     mask = elem_hp_copy[elem_hp_copy['ID_E_v']==z]
+#     elem_hp_copy.loc[(elem_hp_copy['ZONE']==zone_value),:] = np.nan
+# elem_hp_copy['fac'] = elem_hp_copy['VOL_DELAUNAY'] / np.nansum(elem_hp_copy['VOL_DELAUNAY'])    
+# elem_hp_plot = elem_hp_copy.dropna()
+# kh_arit = np.average(elem_hp_plot['KXX_ms'], weights=None)
+# kh_geom = gmean(elem_hp_plot['KXX_ms'], weights=None)
+# kh_harm = hmean(elem_hp_plot['KXX_ms'], weights=None)
+# kh_arit_w = np.average(elem_hp_plot['KXX_ms'], weights=(elem_hp_plot['VOL_DELAUNAY']))
+# kh_geom_w = gmean(elem_hp_plot['KXX_ms'], weights=(elem_hp_plot['VOL_DELAUNAY']))
+# kh_harm_w = hmean(elem_hp_plot['KXX_ms'], weights=(elem_hp_plot['VOL_DELAUNAY']))
+# print('arit', kh_arit_w)
+# print('geom', kh_geom_w)
+# print('harm', kh_harm_w)
+# print('anis', kh_geom_w/kh_harm_w)
 
-print('arit', kh_arit_w)
-print('geom', kh_geom_w)
-print('harm', kh_harm_w)
+### CUT BY THICKS
+for enut, t in enumerate(np.arange(20,201,20)):
+# for enut, t in enumerate(np.arange(25,51,25)):
+    print(var, t)
+    df_hp_means.loc[enut+1,'thick'] = t
+    thickness_value = t
+    elem_hp_copy = elem_hp.copy()
+    for i, z in enumerate(elem_hp_copy['ID_E_v'].unique()):
+        if i % 1000 == 0:
+            print('    ',i, total_elem)
+        mask = elem_hp_copy[elem_hp_copy['ID_E_v']==z]
+        top_max_value = mask[['Z4', 'Z5', 'Z6']].max().max()
+        depth_thick = top_max_value - thickness_value
+        elem_hp_copy.loc[(elem_hp_copy['ID_E_v']==z)&((elem_hp_copy['Z1']<depth_thick)|(elem_hp_copy['Z2']<depth_thick)|(elem_hp_copy['Z3']<depth_thick)),:] = np.nan
+    elem_hp_copy['fac'] = elem_hp_copy['VOL_DELAUNAY'] / np.nansum(elem_hp_copy['VOL_DELAUNAY'])    
+    elem_hp_plot = elem_hp_copy.dropna()
+    for var in ['KXX_ms','SYX_perc']:
+        # kh_arit = np.average(elem_hp_plot[var], weights=None)
+        # kh_geom = gmean(elem_hp_plot[var], weights=None)
+        # kh_harm = hmean(elem_hp_plot[var], weights=None)
+        # kh_anis = kh_geom/kh_harm
+        kh_arit_w = np.average(elem_hp_plot[var], weights=(elem_hp_plot['VOL_DELAUNAY']))
+        kh_geom_w = gmean(elem_hp_plot[var], weights=(elem_hp_plot['VOL_DELAUNAY']))
+        kh_harm_w = hmean(elem_hp_plot[var], weights=(elem_hp_plot['VOL_DELAUNAY']))
+        kh_anis_w = kh_geom_w/kh_harm_w
+        print(var, 'arit', kh_arit_w)
+        print(var, 'geom', kh_geom_w)
+        print(var, 'harm', kh_harm_w)
+        print(var, 'anis', kh_anis_w)
+        # df_hp_means.loc[0,var+'_arit'] = kh_arit
+        # df_hp_means.loc[0,var+'_geom'] = kh_geom
+        # df_hp_means.loc[0,var+'_harm'] = kh_harm
+        # df_hp_means.loc[0,var+'_anis'] = kh_geom/harm
+        df_hp_means.loc[enut+1,var+'_arit_w'] = kh_arit_w
+        df_hp_means.loc[enut+1,var+'_geom_w'] = kh_geom_w
+        df_hp_means.loc[enut+1,var+'_harm_w'] = kh_harm_w
+        df_hp_means.loc[enut+1,var+'_anis_w'] = kh_geom_w/kh_harm_w
+    dict_hp_elems[enut+1] = elem_hp_plot
 
-fig, ax = plt.subplots(1, 1, figsize=(7,4))
-ax.hist(elem_hp_copy['KXX_ms'],
-        # weights=df_hp['fac'],
-        bins=np.logspace(np.log10(elem_hp_copy['KXX_ms'].min()),np.log10(elem_hp_copy['KXX_ms'].max()), 100),
-        # bins = 9000,
-        # density=True,
-        histtype='step')
-ax.set_xscale('log')
+df_hp_means.to_csv(stable_folder+'/geologic/'+'reslist_'+'df_hp_means'+'.csv',sep=';')
+dd.io.save(stable_folder+'/geologic/'+'reslist_'+'dict_hp_elems'+'.pkl', dict_hp_elems)
 
-fig, ax = plt.subplots(1, 1, figsize=(4,4))
-ax.boxplot(elem_hp_plot['KXX_ms'], positions=[1])
-ax.set_yscale('log')
+#%% PLOTYS K P 4 - NAN DEPENDING ON THICKNESS
 
-# kh_arit = np.average(df_hp['KXX_val'], weights=None)/24/3600
-# kh_geom = gmean(df_hp['KXX_val'], weights=None)/24/3600
-# kh_harm = hmean(df_hp['KXX_val'], weights=None)/24/3600
+df_hp_means = pd.read_csv(stable_folder+'/geologic/'+'reslist_'+'df_hp_means'+'.csv',sep=';', index_col=0)
+if 'dict_hp_elems' not in globals():
+    dict_hp_elems = dd.io.load(stable_folder+'/geologic/'+'reslist_'+'dict_hp_elems'+'.pkl')
 
+# fig1, axs1 = plt.subplots(1, 2, figsize=(12,4))
+# axs1 = axs1.ravel()
+
+fig2, axs2 = plt.subplots(1, 2, figsize=(10.5,3.5), dpi=300)
+axs2 = axs2.ravel()
+
+# col_list = ['dodgerblue','darkorange','k','red']
+# sce_list = ['RCP26','RCP45','historic','RCP85']
+# dict_scecol = dict(zip(sce_list, col_list))
+
+n = 10
+colors = pl.cm.jet_r(np.linspace(0, 1, n))
+
+for ip in range(len((list(dict_hp_elems.items())[:11]))):
+    print(ip)
+    elem_hp_dic = dict_hp_elems[ip]
+    
+    if ip == 0:
+        color='grey'
+    else:
+        color = colors[ip-1]
+    
+    for ai, var in enumerate(['KXX_ms','SYX_perc']):  
+        
+        df_hp_dic = df_hp_means.loc[ip]
+        
+        # ax = axs1[ai]
+        # ax.hist(elem_hp_dic[var],
+        #         # weights=df_hp['fac'],
+        #         bins=np.logspace(np.log10(elem_hp_copy[var].min()),np.log10(elem_hp_copy[var].max()), 100),
+        #         # bins = 9000,
+        #         density=True,
+        #         histtype='step', color='grey', lw=2)
+        # ax.axvline(df_hp_dic[var+'_geom_w'])
+        # ax.axvline(df_hp_dic[var+'_harm_w'])
+        # ax.set_xscale('log')
+        
+        ax = axs2[ai]
+        # ax.boxplot(elem_hp_dic[var], positions=[ip])
+        boxprops1 = dict(linestyle='-', linewidth=0, color='black',
+                        facecolor=color, 
+                        alpha=0.5,
+                        edgecolor='k')
+        boxprops2 = dict(linestyle='-', linewidth=1.5, color='black',
+                        facecolor='None',
+                        alpha=1,
+                        edgecolor='k',)
+        medianprops = dict(linestyle='-', linewidth=1.5, color='black')
+        meanpointprops = dict(markersize=0, marker='o', markeredgecolor='black',
+                              markerfacecolor='k', linestyle='-')
+        posbas = ip
+        bp = ax.boxplot(elem_hp_dic[var], widths=(0.5),
+                        positions=[posbas],
+                          whis=False, showfliers=False, showmeans=False, 
+                          medianprops=medianprops, meanprops=meanpointprops,
+                          patch_artist=True, boxprops=boxprops1)
+        bp = ax.boxplot(elem_hp_dic[var], widths=0.5,
+                        positions=[posbas],
+                          whis=False, showfliers=False, showmeans=False, 
+                          medianprops=medianprops, meanprops=meanpointprops,
+                          patch_artist=True, boxprops=boxprops2)
+        for element in bp['whiskers']:
+            element.set_color('k')
+            element.set_linestyle('-')
+        ax.vlines(x=posbas, lw=1.5,
+                    ymin=elem_hp_dic[var].quantile(0.75), 
+                    ymax=elem_hp_dic[var].quantile(0.90), color='k', zorder=2)
+        ax.vlines(x=posbas, lw=1.5,
+                    ymin=elem_hp_dic[var].quantile(0.10), 
+                    ymax=elem_hp_dic[var].quantile(0.25), color='k', zorder=2)
+        # ax.plot(ad, 
+        #           d.quantile(0.10), color='k', zorder=2, lw=0,
+        #           marker='_', mew=1)
+        # ax.plot(ad, 
+        #           d.quantile(0.90), color='k', zorder=2, lw=0,
+        #           marker='_', mew=1)
+          
+        # ax.plot(posbas, elem_hp_plot[var].mean(), marker='o', mec='k', ms=3, lw=0,
+        #         mfc='k', mew=1,
+        #         color='k', zorder=1000, clip_on=False)
+        # ax.set_axisbelow(True)
+        # ax.grid(zorder=-1000, alpha=0.5)
+        # ax.yaxis.grid(color='gray', alpha=0.2, zorder=-20)
+        ax.yaxis.grid(color='gray', alpha=0.5, zorder=-20, which='major')        
+        # ax.set_ylim(-100,70)
+        # ax.set_yticks([-100,-75,-50,-25,0,25,50])
+        # ax.axes.xaxis.set_ticklabels(['Idem'])        
+        ax.scatter(ip, df_hp_dic[var+'_geom_w'], marker='s', c='white', ec='k', lw=1.5, s=40, zorder=100)
+        ax.scatter(ip, df_hp_dic[var+'_harm_w'], marker='o', c='white', ec='k', lw=1.5, s=40, zorder=100)
+        ax.set_yscale('log')
+        ax.set_xlabel('Cases')
+        if ai==0:
+            ax.set_ylabel('K [m/s]')
+            ax.set_ylim(1e-8,5e-3)
+        else:
+            ax.set_ylabel('Sy [%]')
+            ax.set_ylim(0.05,30)
+# fig1.tight_layout()
+fig2.tight_layout()
 
 #%% ---- INPUT HGS PROCESSING
 
@@ -2642,7 +2800,7 @@ with open(out_file, 'w') as f:
     for line in out_list:
         f.write(f"{line}\n")
 
-#%% ---- POSTPROCESSING HGS
+#%% ---- GOOD INPUT HGS
 
 #%% CATCHMENT BALANCE TOTAL
 
@@ -2833,6 +2991,8 @@ ax.set_xlim(pd.to_datetime('2014-10'), pd.to_datetime('2020-09'))
 ax.legend(loc='upper right')
 ax.set_ylabel('P series [mm/d]')
 ax.set_xlabel('Date')
+
+#%% ---- POSTPROCESSING HGS
 
 #%% TIMESERIES STREAMFLOW 
 
@@ -4005,6 +4165,7 @@ for path_obs, field_obs in zip(paths_obs[:], fields_obs[:]):
     df.to_csv(BV.calibration_folder+'/'+'_'+iD_iter+'_'+type_obs+'.csv', sep=';')
 
 #%% DICHOTOMY - APPEND
+
 dfs = pd.DataFrame()
     
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
@@ -4098,7 +4259,7 @@ success_modflow = True
 first_clim = 'mean' # or 'first or value
 # nlay = 25
 nlay = 1
-# lay_decay = 1.25 # 1 for no decay
+# lay_decay = 1.2 # 1 for no decay
 lay_decay = 1
 # bottom = 800 # elevation in meters, None for constant auifer thickness, or 2D matrix
 bottom = None
@@ -4117,9 +4278,10 @@ Ss_value = 1.6e-4
 # runoff = select_period(new_pe_input['PPT-AET_m/d'],2016,2018)*0.1
 
 # recharge = new_pe_input.query("date >= '2014-10-01' and date <= '2016-10-01'")['PPT-AET_m/d']
-recharge = new_pe_input.query("date >= '2014-10-01' and date <= '2018-10-01'")['PPT-AET_m/d']
+recharge = new_pe_input.query("date >= '2014-10-01' and date <= '2015-10-01'")['PPT-AET_m/d']
 recharge[recharge<0] = 0
 runoff = recharge * 0.1
+print(len(recharge))
 
 plt.plot(recharge)
 plt.plot(runoff)
@@ -4135,11 +4297,23 @@ plt.plot(runoff)
 # list_hyd_cond = list_T/list_thick
 # list_porosity = np.array([0.1,1,10])/100
 
-list_thick = np.arange(10,1011,20)
-list_hyd_cond = np.array([2e-7])*24*3600
-list_porosity = np.array([0.2])/100
+# list_thick = np.arange(10,1011,20)
+# list_thick = np.array([50])
+# list_hyd_cond = np.array([3e-6])*24*3600
+# list_porosity = np.array([0.4])/100
 
-iD_set_simulations = 'Ex3'
+df_hp_means = pd.read_csv(stable_folder+'/geologic/'+'reslist_'+'df_hp_means'+'.csv',sep=';', index_col=0)
+if 'dict_hp_elems' not in globals():
+    dict_hp_elems = dd.io.load(stable_folder+'/geologic/'+'reslist_'+'dict_hp_elems'+'.pkl')
+
+list_hyd_cond = (df_hp_means['KXX_ms_geom_w']*24*3600).values
+list_sy = (df_hp_means['SYX_perc_geom_w']/100).values
+list_vka = df_hp_means['KXX_ms_anis_w'].values
+list_thick = df_hp_means['thick'].values
+
+iD_set_simulations = 'HGSHP1' # anisotropy activated but with only one layer not considered - bottom to 800
+iD_set_simulations = 'HGSHP2' # anisotropy activated but with only one layer not considered - bottom thick dependent
+# iD_set_simulations = 'HGSHP3' # anisotropy activated with 5 layers so it is considered
 
 #%% UPDATE
 
@@ -4182,112 +4356,137 @@ cpg = 0
 
 list_model_name = []
 
+"""
 for k, hyd_cond in enumerate(list_hyd_cond[:]):
     BV.hydraulic.update_hyd_cond(hyd_cond)
-   
+    BV.hydraulic.update_vka(1/10)    
     # for a, alpha in enumerate(list_alpha[:1]):
     for t, thick in enumerate(list_thick[:]):
         # BV.hydraulic.update_cond_decay(alpha)
         BV.hydraulic.update_cond_decay(0)
         alpha = BV.hydraulic.cond_decay
-
         BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-        
         if alpha != 0 :
             val_thick = 1/alpha
         if alpha == 0:
-            val_thick = thick
-   
+            val_thick = thick 
         for p, porosity in enumerate(list_porosity[:]):
             # BV.hydraulic.update_poro_decay(alpha/decay_factor)
             BV.hydraulic.update_poro_decay(0)
             # BV.hydraulic.update_ss_decay(alpha/decay_factor)
             BV.hydraulic.update_ss_decay(0)
-            
             BV.hydraulic.update_porosity(porosity)
-            
-            # now = datetime.now()
-            # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
-            
-            model_name = iD_set_simulations+'_'+\
-                         str(cpg+1)+'_'+\
-                         str('K')+'-'+str(k+1)+'-'+'{:.2e}'.format(float(hyd_cond/3600/24))+'_'+\
-                         str('E')+'-'+str(t+1)+'-'+str(round(val_thick,2))+'_'+\
-                         str('T')+'-'+'{:.2e}'.format(float(val_thick*hyd_cond/3600/24))+'_'+\
-                         str('KR')+'-'+str(round(hyd_cond/BV.climatic.recharge[0],2))+'_'+\
-                         str('P')+'-'+str(p+1)+'-'+str(round(porosity*100,2))+'_'+\
-                         str('F')+'-'+str(decay_factor)+'-'+'{:.2e}'.format(float(Ss_value))
-            BV.settings.update_model_name(model_name)
-            list_model_name.append(model_name)
-            print(model_name)
-            cpg += 1
+"""            
+BV.hydraulic.update_ss_decay(0)
+BV.hydraulic.update_cond_decay(0)
+BV.hydraulic.update_poro_decay(0)
 
-            model_modflow = BV.preprocessing_modflow(for_calib=False)
-            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-        
-            dictio_mf = {}
-            dictio_mf['model_modflow'] = model_modflow
-            dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl', dictio_mf)
-            
-            if success_modflow == True:
-                BV.postprocessing_modflow(model_modflow,
-                                          watertable_elevation = True,
-                                          watertable_depth = True, 
-                                          seepage_areas = True,
-                                          outflow_drain = True,
-                                          groundwater_flux = True,
-                                          groundwater_storage = True,
-                                          accumulation_flux = True,
-                                          persistency_index = True,
-                                          intermittency_daily = True,
-                                          intermittency_monthly = False,
-                                          export_all_tif = False)
+for hyd_cond, sy, vka, thick in zip(list_hyd_cond[:],list_sy[:],list_vka[:],list_thick[:]):
     
-                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                                  model_modpath=False,
-                                                                  actual_date=True, 
-                                                                  subbasin_results=True,
-                                                                  freq_time='D')
-            
-            if delete_files == True :
+    BV.hydraulic.update_hyd_cond(hyd_cond)
+    BV.hydraulic.update_vka(vka)    
+    BV.hydraulic.update_porosity(sy)   
+    BV.hydraulic.update_thick(thick)
+    if thick == 0:
+        BV.hydraulic.update_bottom(800)
+    else:
+        BV.hydraulic.update_bottom(None)
+        
+    # now = datetime.now()
+    # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
+    
+    """
+    model_name = iD_set_simulations+'_'+\
+                 str(cpg+1)+'_'+\
+                 str('K')+'-'+str(k+1)+'-'+'{:.2e}'.format(float(hyd_cond/3600/24))+'_'+\
+                 str('E')+'-'+str(t+1)+'-'+str(round(val_thick,2))+'_'+\
+                 str('T')+'-'+'{:.2e}'.format(float(val_thick*hyd_cond/3600/24))+'_'+\
+                 str('KR')+'-'+str(round(hyd_cond/BV.climatic.recharge.mean(),2))+'_'+\
+                 str('P')+'-'+str(p+1)+'-'+str(round(porosity*100,2))+'_'+\
+                 str('F')+'-'+str(decay_factor)+'-'+'{:.2e}'.format(float(Ss_value))
+    """
+    
+    model_name = iD_set_simulations+'_'+\
+                 str(cpg+1)+'_'+\
+                 str('K')+'-'+'{:.2e}'.format(float(hyd_cond/3600/24))+'_'+\
+                 str('A')+'-'+str(round(vka,2))+'_'+\
+                 str('E')+'-'+str(round(thick,2))+'_'+\
+                 str('T')+'-'+'{:.2e}'.format(float(thick*hyd_cond/3600/24))+'_'+\
+                 str('KR')+'-'+str(round(hyd_cond/BV.climatic.recharge.mean(),2))+'_'+\
+                 str('P')+'-'+str(round(sy*100,2))+'_'+\
+                 str('F')+'-'+str(decay_factor)+'-'+'{:.2e}'.format(float(Ss_value))
+                 
+    BV.settings.update_model_name(model_name)
+    list_model_name.append(model_name)
+    print(model_name)
+    cpg += 1
 
-                #### DELETE FILES ####
-                dir_modflow = simulations_folder + '/' + model_name
-                dir_postprocess = dir_modflow + '/' + '_postprocess'
-                dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
-                dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
-                dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'        
-                files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
-                files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
-                files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
-                if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
-                    try:
-                        for file in files_rast_acc[1:]:
-                            os.remove(file)
-                    except:
-                        pass
-                if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
-                    try:
-                        for file in files_rast_out[1:]:
-                            os.remove(file)
-                    except:
-                        pass
-                if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
-                    try:
-                        for file in files_rast_int[1:]:
-                            os.remove(file)
-                    except:
-                        pass                
-                if os.path.exists(dir_temporary):
-                    shutil.rmtree(dir_temporary)        
-                if os.path.exists(dir_figures):
-                    shutil.rmtree(dir_figures) 
-                files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
-                try:
-                    for file in files_npy:
-                        os.remove(file)
-                except:
-                    pass
+    model_modflow = BV.preprocessing_modflow(for_calib=False)
+    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+
+    dictio_mf = {}
+    dictio_mf['model_modflow'] = model_modflow
+    dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl', dictio_mf)
+    
+    if success_modflow == True:
+        BV.postprocessing_modflow(model_modflow,
+                                  watertable_elevation = True,
+                                  watertable_depth = True, 
+                                  seepage_areas = True,
+                                  outflow_drain = True,
+                                  groundwater_flux = True,
+                                  groundwater_storage = True,
+                                  accumulation_flux = True,
+                                  persistency_index = True,
+                                  intermittency_daily = True,
+                                  intermittency_monthly = False,
+                                  export_all_tif = False)
+
+        timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                          model_modpath=False,
+                                                          actual_date=True, 
+                                                          subbasin_results=True,
+                                                          freq_time='D')
+    
+    if delete_files == True :
+
+        #### DELETE FILES ####
+        dir_modflow = simulations_folder + '/' + model_name
+        dir_postprocess = dir_modflow + '/' + '_postprocess'
+        dir_temporary = dir_modflow + '/' + '_postprocess' + '/' + '_temporary'
+        dir_rasters = dir_modflow + '/' + '_postprocess' + '/' + '_rasters'
+        dir_figures = dir_modflow + '/' + '_postprocess' + '/' + '_figures'        
+        files_rast_acc = glob.glob(dir_rasters+ '/' +'accumulation_flux'+'*')
+        files_rast_out = glob.glob(dir_rasters+ '/' +'outflow_drain'+'*')
+        files_rast_int = glob.glob(dir_rasters+ '/' +'intermittency'+'*')
+        if os.path.exists(dir_rasters+ '/' +'accumulation_flux_t(0).tif'):
+            try:
+                for file in files_rast_acc[1:]:
+                    os.remove(file)
+            except:
+                pass
+        if os.path.exists(dir_rasters+ '/' +'outflow_drain_t(0).tif'):
+            try:
+                for file in files_rast_out[1:]:
+                    os.remove(file)
+            except:
+                pass
+        if os.path.exists(dir_rasters+ '/' +'intermittency_daily_t(0).tif'):
+            try:
+                for file in files_rast_int[1:]:
+                    os.remove(file)
+            except:
+                pass                
+        if os.path.exists(dir_temporary):
+            shutil.rmtree(dir_temporary)        
+        if os.path.exists(dir_figures):
+            shutil.rmtree(dir_figures) 
+        files_npy = glob.glob(dir_modflow + '/' + '_postprocess' + '/' + '*.npy')
+        try:
+            for file in files_npy:
+                os.remove(file)
+        except:
+            pass
 
 # plt.plot(list_T/24/3600)
 # plt.plot(list_hyd_cond/24/3600)
@@ -4304,6 +4503,11 @@ for k, hyd_cond in enumerate(list_hyd_cond[:]):
 dictio_id = {}
 dictio_id['list_model_name'] = list_model_name
 dd.io.save(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames', dictio_id)
+
+#%% SEEPAGE QUICK CHECK
+
+seep = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess','_rasters','seepage_areas_t(0).tif'))
+plt.imshow(np.ma.masked_where(seep<0,seep))
 
 #%% CROSS SECTIONS CHECK
 
@@ -4395,7 +4599,7 @@ for model_name, model_success, model_modflow in zip(list_model_name[:],
 
 #%% COMPUTE DOS DSO
 
-iD_set_simulations = 'Ex3'
+iD_set_simulations = 'HGSHP1' # anisotropy activated but with only one layer not considered
 
 wbt.verbose = False
 
@@ -4780,39 +4984,39 @@ for enu, model_name in enumerate(list_model_name[:]):
     # print('    ','RMSE',round(RMSE,2))
     # print('    ','KGE',round(KGE,2))
     
-    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+    # if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
     # if NSElog>-0.3:
-        print(enu, model_name)
-        print('    ','NSElog',round(NSElog,2))     
-        
-        ax = a0
-        ax.plot(DDsim_hgs, color='k', lw=5, ls='-', zorder=0, label='DDhgs')
-        ax.plot(DDsim_mf, color=c, lw=lw, ls=ls, label='MF')
-        ax.set_xlabel('Date')
-        ax.set_ylabel('DD [%]')
-        # ax.set_yscale('log')
-        ax.set_ylim(1,50)
-        ax.xaxis.set_major_locator(mdates.YearLocator())
-        ax.xaxis.set_minor_locator(mdates.MonthLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
-        # ax.legend(loc='lower right')
-        ax.set_title('Saturation', fontsize=15)
-        
-        
-        ax = a1
-        ax.plot(DDsim_mf/DDsim_hgs, color=c, lw=lw, ls=ls, zorder=0)
-        ax.set_xlabel('Date')
-        ax.set_ylabel('DDmf / DDhgs [-]')
-        # ax.set_yscale('log')
-        ax.set_ylim(-2,4)
-        ax.xaxis.set_major_locator(mdates.YearLocator())
-        ax.xaxis.set_minor_locator(mdates.MonthLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
-        # ax.legend(loc='lower right')
-        ax.set_title('Residuals', fontsize=15)
-        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
+    print(enu, model_name)
+    print('    ','NSElog',round(NSElog,2))     
+    
+    ax = a0
+    ax.plot(DDsim_hgs, color='k', lw=5, ls='-', zorder=0, label='DDhgs')
+    ax.plot(DDsim_mf, color=c, lw=lw, ls=ls, label='MF')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('DD [%]')
+    # ax.set_yscale('log')
+    ax.set_ylim(1,50)
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    # ax.legend(loc='lower right')
+    ax.set_title('Saturation', fontsize=15)
+    
+    
+    ax = a1
+    ax.plot(DDsim_mf/DDsim_hgs, color=c, lw=lw, ls=ls, zorder=0)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('DDmf / DDhgs [-]')
+    # ax.set_yscale('log')
+    ax.set_ylim(-2,4)
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    # ax.legend(loc='lower right')
+    ax.set_title('Residuals', fontsize=15)
+    ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
 
 fig.tight_layout()
 
@@ -4911,44 +5115,45 @@ for enu, model_name in enumerate(list_model_name[:]):
     # print('    ','KGE',round(KGE,2))
     # print('    ','RAT',round(RAT,2))
     
-    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
-        # if (RAT>0) and (RAT<10):
-        print(enu, model_name)
-        print('    ','RAT',round(RAT,2))
-        # print('    ','NSElog',round(NSE,2))
-    
-        ax = a0
-        ax.plot(Dso_sim_mf_plt, color=c, lw=lw, ls=ls, label='MF')
-        ax.plot(Dos_sim_mf_plt*-1, color=c, lw=lw, ls=ls, label='MF')
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Dso and Dos [m]')
-        # ax.set_yscale('log')
-        # ax.set_ylim(-50,50)
-        ax.xaxis.set_major_locator(mdates.YearLocator())
-        ax.xaxis.set_minor_locator(mdates.MonthLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
-        # ax.legend(loc='lower right')
-        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=-1000)
-        ax.set_title('Mismatch', fontsize=15)
-    
-        ax = a1
-        ax.plot((Dso_sim_mf_plt['Dso_netw_mean']/Dos_sim_mf_plt['Dos_netw_mean']), color=c, lw=lw, ls=ls, zorder=0)
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Dso / Dos [-]')
-        ax.set_yscale('log')
-        # ax.set_ylim(0,2)
-        ax.xaxis.set_major_locator(mdates.YearLocator())
-        ax.xaxis.set_minor_locator(mdates.MonthLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
-        # ax.legend(loc='lower right')
-        ax.set_title('Residuals', fontsize=15)
-        ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
+    # if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+    # if (RAT>0) and (RAT<10):
+    print(enu, model_name)
+    print('    ','RAT',round(RAT,2))
+    # print('    ','NSElog',round(NSE,2))
+
+    ax = a0
+    ax.plot(Dso_sim_mf_plt, color=c, lw=lw, ls=ls, label='MF')
+    ax.plot(Dos_sim_mf_plt*-1, color=c, lw=lw, ls=ls, label='MF')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Dso and Dos [m]')
+    # ax.set_yscale('log')
+    # ax.set_ylim(-50,50)
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    # ax.legend(loc='lower right')
+    ax.axhline(y=1, c='k', lw=3, ls='-', zorder=-1000)
+    ax.set_title('Mismatch', fontsize=15)
+
+    ax = a1
+    ax.plot((Dso_sim_mf_plt['Dso_netw_mean']/Dos_sim_mf_plt['Dos_netw_mean']), color=c, lw=lw, ls=ls, zorder=0)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Dso / Dos [-]')
+    ax.set_yscale('log')
+    # ax.set_ylim(0,2)
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    # ax.legend(loc='lower right')
+    ax.set_title('Residuals', fontsize=15)
+    ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
 
 fig.tight_layout()
 
-fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+# fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
 fig_path = os.path.join(fig_dir, '_mismatch_4models'+'.png')
 fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
 
@@ -4978,17 +5183,18 @@ for enu, model_name in enumerate(list_model_name[:]):
     print(enu, model_name)
     cpg += 1
     
-    if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
-        fig, ax = plt.subplots(1, 1, figsize=(5,5))
+    # if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
+    fig, ax = plt.subplots(1, 1, figsize=(5,5))
+
+    pi_mf = imageio.imread(simulations_folder+'/'+model_name+'/_postprocess/_rasters/persistency_index_t(-).tif')
+    pi_mf[nant_dem<0] = np.nan
+    pi_mf[pi_mf<=0] = 0
+    pi_mf_flat = pi_mf.flatten()
+    # pi_mf_flat[pi_mf_flat<0.1] = 0.1
     
-        pi_mf = imageio.imread(simulations_folder+'/'+model_name+'/_postprocess/_rasters/persistency_index_t(-).tif')
-        pi_mf[nant_dem<0] = np.nan
-        pi_mf[pi_mf<=0] = 0
-        pi_mf_flat = pi_mf.flatten()
-        # pi_mf_flat[pi_mf_flat<0.1] = 0.1
-        
-        ax.plot(pi_mf_flat, pi_hgs_flat, color=colors[enu], lw=0, ms=3, mec='None', marker='o')
-        
+    ax.plot(pi_mf_flat, pi_hgs_flat, color=colors[enu], lw=0, ms=3, mec='None', marker='o')
+    
+    try:
         # Linear regression
         valid_indices = ~np.isnan(pi_mf_flat) & ~np.isnan(pi_hgs_flat)
         slope, intercept, r_value, p_value, std_err = linregress(pi_mf_flat[valid_indices], pi_hgs_flat[valid_indices])
@@ -4997,23 +5203,26 @@ for enu, model_name in enumerate(list_model_name[:]):
         x_fit = np.linspace(np.nanmin(pi_mf_flat), np.nanmax(pi_mf_flat), 500)
         y_fit = slope * x_fit + intercept
         ax.plot(x_fit, y_fit, color=colors[enu], lw=2, label=f"Fit: $R^2$={r_value**2:.2f}")
-        
-        ax.set_title(model_name, fontsize=8)
-        
-        # Configure axes
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.set_xlabel('pi_mf_flat')
-        ax.set_ylabel('pi_hgs_flat')
-        ax.legend(loc='lower left')
-        ax.set_xlim(0.01,1)
-        ax.set_ylim(0.01,1)
-        plt.tight_layout()
-        plt.show()
-        
-        fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
-        fig_path = os.path.join(fig_dir, '_correlation_'+model_name+'.png')
-        fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
+    except:
+        pass
+    
+    ax.set_title(model_name, fontsize=8)
+    
+    # Configure axes
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('pi_mf_flat')
+    ax.set_ylabel('pi_hgs_flat')
+    ax.legend(loc='lower left')
+    ax.set_xlim(0.01,1)
+    ax.set_ylim(0.01,1)
+    plt.tight_layout()
+    plt.show()
+    
+    # fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
+    fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
+    fig_path = os.path.join(fig_dir, '_correlation_'+model_name+'.png')
+    fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
 
 #%% ---- OLD PLOT RESULTS MATRIX
 
