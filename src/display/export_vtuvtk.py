@@ -588,13 +588,13 @@ class VTK():
         y_store = []
         z_store = []
         nb_points = 0
-        for index, values in lineDf.iterrows():
+        for line in lineDf.iloc[0].geometry.geoms:
             xs = []
             ys = []
             zs = []
-            for i in range (len(values.geometry.xy[0])):   
-                x = values.geometry.xy[0][i]
-                y = values.geometry.xy[1][i]
+            for i in range (len(line.xy[0])):   
+                x = line.xy[0][i]
+                y = line.xy[1][i]
                 xidx = (np.abs(geographic.x_coord- x)).argmin()
                 yidx = (np.abs(geographic.y_coord- y)).argmin()
                 z = geographic.dem_data[yidx,xidx]
@@ -1147,11 +1147,11 @@ class VTK():
         v_store = []
         for i in range(0, len(pth_data)):
             Data = pth_data[i]
-            x = [x for (x, y, z, t, l, a) in Data]
-            z = [z for (x, y, z, t, l, a) in Data]
-            y = [y for (x, y, z, t, l, a) in Data]
-            t = [t for (x, y, z, t, l, a) in Data]
-            l = [l for (x, y, z, t, l, a) in Data]
+            x = Data['x']
+            z = Data['z']
+            y = Data['y']
+            t = Data['time']
+            l = Data['k']
             t = np.asarray(t)
             t_store.append(t)
             l_store.append(l)

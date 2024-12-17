@@ -396,16 +396,14 @@ class Modpath:
                                    shpname=os.path.join(self.particles_file, 'ending.shp'),
                                    direction='ending',
                                    mg=grid_model,
-                                   epsg=epsg,
-                                   sr=None)
+                                   epsg=epsg)
         
         if starting_point == True:
             endobj.write_shapefile(endpoint_data=e,
                                    shpname=os.path.join(self.particles_file, 'starting.shp'),
                                    direction='starting',
                                    mg=grid_model,
-                                   epsg=epsg,
-                                   sr=None)
+                                   epsg=epsg)
         
         if (pathlines_shp == True) or (particles_shp == True):
         
@@ -439,7 +437,7 @@ class Modpath:
                                         direction='ending',
                                         mg=grid_model,
                                         epsg=epsg,
-                                        sr=None, verbose=False)
+                                        verbose=False)
             
             if particles_shp == True:
                 pthobj.write_shapefile(pathline_data=pth_data_save,
@@ -448,7 +446,7 @@ class Modpath:
                                         direction='ending',
                                         mg=grid_model,
                                         epsg=epsg,
-                                        sr=None, verbose=False)
+                                        verbose=False)
 
     def filt_processing(self,
                         model_modpath:object,
