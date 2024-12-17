@@ -44,6 +44,7 @@ class Hydraulic:
                  poro_decay_init: float=0.,
                  ss_decay_init: float=0.,
                  lay_decay_init: float=1.,
+                 vka: float=1.,
                  verti_cond_init=None,
                  verti_poro_init=None,
                  verti_ss_init=None
@@ -116,6 +117,7 @@ class Hydraulic:
         self.verti_cond = verti_cond_init 
         self.verti_poro = verti_poro_init
         self.verti_ss = verti_ss_init
+        self.vka = vka
             
     #%% UPDATE LATERAL HOMOGENEOUS
     
