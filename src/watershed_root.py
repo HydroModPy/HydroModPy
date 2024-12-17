@@ -706,6 +706,7 @@ class Watershed:
                                         bottom=self.hydraulic.bottom,
                                         thick=self.hydraulic.thick,
                                         hyd_cond=self.hydraulic.hyd_cond,
+                                        vka=self.hydraulic.vka,
                                         cond_decay=self.hydraulic.cond_decay,
                                         verti_cond=self.hydraulic.verti_cond,
                                         verti_poro=self.hydraulic.verti_poro,

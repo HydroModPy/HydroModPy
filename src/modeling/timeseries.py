@@ -101,14 +101,14 @@ class Timeseries:
             
         if self.actual_date==True:            
             if isinstance(self.recharge,(int,float)) == True:
-                time=[0]
+                time="1970-01-01"
                 recharge = self.recharge
             else:
                 time = self.recharge.index
                 recharge = self.recharge.squeeze().values
         else:
             if isinstance(self.recharge,(int,float)) == True:
-                time=[0]
+                time="1970-01-01"
                 recharge = self.recharge
             else:
                 if isinstance(self.recharge,(dict))==False:
@@ -122,14 +122,14 @@ class Timeseries:
             self.runoff = model_modflow.runoff
             if self.actual_date==True:            
                 if isinstance(self.runoff,(int,float)) == True:
-                    time=[0]
+                    time="1970-01-01"
                     runoff = self.runoff
                 else:
                     time = self.runoff.index
                     runoff = self.runoff.squeeze().values
             else:
                 if isinstance(self.runoff,(int,float)) == True:
-                    time=[0]
+                    time="1970-01-01"
                     runoff = self.runoff
                 else:
                     if isinstance(self.runoff,(dict))==False:
@@ -464,7 +464,7 @@ class Timeseries:
         
         ### residence_times
         try:
-            for key in [0]:
+            for key in ["1970-01-01"]:
                 try:
                     shp_frame = gpd.read_file(self.geographic.watershed_shp)
                     self.residence_times = self.residence_times.clip(shp_frame)
