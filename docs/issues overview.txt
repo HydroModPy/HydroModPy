@@ -15,6 +15,7 @@ FAIRE
 - En lien avec la projection : carrément checker l'installation de flopy
 - Léa Massin User (envoyer un we transfer)
 - Empêcher la création des fichier .chk de modflow
+- Contrôler la date pour les timeseries (actual_dat en datetime_format) (Ronan)
 
 
 DISCUTER
