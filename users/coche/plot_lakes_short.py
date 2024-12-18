@@ -44,8 +44,8 @@ coords_overflow = (331050, 6780900) # 1st cell downstream the reservoir
 # Alternatively, coords can also be a filepath to a mask. In that case, the
 # mean value over this mask will be retrieved.
 
-# ---- Load input data
-# root_path = r"D:\Dam_EBR_results\raw"
+# ---- Load input data [USER CHOICE]
+# res_path = r"D:\Dam_EBR_results\raw"
 res_path = r"D:\HyMoPy\results\raw2"
 data_path = os.path.join(res_path, "LakeRes")
 
@@ -206,7 +206,7 @@ data.loc[:, sum_col] = data.loc[:, sum_col].divide(
 
 # ---- Load results to plot [USER CHOICE]
 for run in [
-            # 'barrage_Cheze_SFR_LAK_2024-10-24', ### user-defined runs
+            # <watershed_names (str)>, ### user-defined runs
             'barrage_Cheze_SFR_LAK_2024-12-17',
             'barrage_Cheze_SFR_LAK_corr_2024-12-17',
             ]:
