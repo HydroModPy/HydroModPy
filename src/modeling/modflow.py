@@ -62,9 +62,9 @@ class Modflow:
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
-                 verti_cond=None, verti_poro=None, verti_ss=None,
-                 hyd_cond=0.0864, porosity: float=0.1, ss: float=1e-5,
-                 cond_decay: float=0., poro_decay: float=0., ss_decay: float=0.,
+                 verti_hk=None, verti_sy=None, verti_ss=None,
+                 hk_value=0.0864, sy_value: float=0.1, ss_value: float=1e-5,
+                 hk_decay: list=[0.,None,False], sy_decay: list=[0.,None,False], ss_decay: list=[0.,None,False],
                  vka: float=1.0,
                  # Boundary settings
                  cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None):
@@ -104,21 +104,21 @@ class Modflow:
             Fixe a flat boundary at the bottom of the model. The default is None.
         thick : float, optional
             Fixe the tickness of the model. The default is 100..
-        hyd_cond : float or 2D float 
+        hk_value : float or 2D float 
             Fixe the hydraulic conductivity value. default is 0.0864.
-        cond_decay : float, optional
+        hk_decay : float, optional
             Modification of hydraulic conductivity for exponentially decreasing whit depth. The default is 0..
-        verti_cond : list, optional
+        verti_hc : list, optional
             Depth-dependent hydraulic conductivity. The default is None.
-        verti_poro : list, optional
+        verti_sy : list, optional
             Depth-dependent porosity. The default is None.
         cond_drain : float, optional
             Fixe the conductance value of the drainage package. The default is None.
-        porosity : float or 2D float, optional
-            Fixe the porosity value. The default is 0.1.
-        ss : float or 2D float, optional
+        sy_value : float or 2D float, optional
+            Fixe the specific yield value. The default is 0.1.
+        ss_value : float or 2D float, optional
             Fixe the specifc storage value. Activate for confined layers. The default is 1e-5 (1/day).
-        poro_decay : float, optional
+        sy_decay : float, optional
             Modification of porosity (specific yield) for exponentially decreasing whit depth. The default is 0.
         ss_decay : float, optional
             Modification of porosity (specific storage) for exponentially decreasing whit depth. The default is 0.
@@ -199,16 +199,16 @@ class Modflow:
         self.bottom = bottom
         self.thick = thick
         
-        self.hyd_cond = hyd_cond
-        self.cond_decay = cond_decay
-        self.porosity = porosity
-        self.ss = ss
-        self.poro_decay = poro_decay
+        self.hk_value = hk_value
+        self.hk_decay = hk_decay
+        self.sy_value = sy_value
+        self.ss_value = ss_value
+        self.sy_decay = sy_decay
         self.ss_decay = ss_decay
         self.vka = vka
         
-        self.verti_cond = verti_cond
-        self.verti_poro = verti_poro
+        self.verti_hk = verti_hk
+        self.verti_sy = verti_sy
         self.verti_ss = verti_ss
         self.cond_drain = cond_drain
         
@@ -219,8 +219,8 @@ class Modflow:
         try:
             # For heterogeneous cases of hydraulic conducitivy, inactivation of part of the dem 
             # Should still be checked: is it still used? Remove? 
-            if len(self.hyd_cond)!=1:
-                self.dem[self.hyd_cond<0]=-9999
+            if len(self.hk_value)!=1:
+                self.dem[self.hk_value<0]=-9999
         except:
             pass
 
@@ -247,9 +247,24 @@ class Modflow:
         
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters 
-        self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
-                                            thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
-                                            options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+        # self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.0001, fluxtol=1000, maxiterout=5000,
+        #                                     thickfact=1e-05, linmeth=1, iprnwt=1, ibotav=1,
+        #                                     options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+        self.nwt = flopy.modflow.ModflowNwt(self.mf, 
+                                            # headtol=1e-5*(np.nanmax(self.dem)-np.nanmin(self.dem)), # 1e-4
+                                            # fluxtol=1e-3*np.nanmean(self.climatic)*self.resolution*self.resolution, # 500
+                                            headtol=1e-4, # 1e-4
+                                            fluxtol=500, # 500
+                                            maxiterout=5000,
+                                            thickfact=1e-05,
+                                            linmeth=1,
+                                            iprnwt=1,
+                                            ibotav=1,
+                                            options='COMPLEX',
+                                            Continue=False,
+                                            backflag=0,
+                                            stoptol=1e-10 # 1e-10
+                                            ) # ibotav=0
         # Change headtol and fluxtol with results ==> convergency criteria
 
         #%% Discretization
@@ -280,7 +295,7 @@ class Modflow:
                 """
             self.steady = np.zeros(len(self.climatic),dtype=bool)   # Vector of booleans (transient state at each time step)
             self.steady[0] = True       # Steady state for the first time step (initialization of head values by a steady state)
-            self.nstp = np.ones(len(self.climatic))     # One step per time step
+            self.nstp = np.ones(len(self.climatic))    # One step per time step
             self.nper = len(self.climatic)
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
@@ -379,7 +394,7 @@ class Modflow:
         ### Constant Head boundary conditions of No Flow (at sea level)
         
         self.drain_array = np.ones((self.nrow, self.ncol))
-        if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
+        if isinstance(self.sea_level, (int,float,pd.Series)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             # print('niv1')
             if isinstance(self.sea_level,(int,float)) == False:
@@ -407,68 +422,94 @@ class Modflow:
 
         # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
         # Homogeneous or heterogeneous hydraulic conductivity 
-        # self.hyd_cond is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
+        # self.hk_value is either a scalar (for homogeneous cases) or a 2D array (for heterogeneous cases)
         # print(self.nlay, self.nrow, self.ncol)
-        # print(self.hyd_cond)
-        # print(self.hyd_cond.shape)        
-        self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hyd_cond
+        # print(self.hc_value)
+        # print(self.hc_value.shape)        
         
-        if self.cond_decay != 0.:
-            # print('DECAY EXPO CONDH')
+        self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hk_value
+                
+        # Exponential decay
+        if self.hk_decay[0] != 0:
             depth = np.zeros(self.hk.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-            self.hk *= np.exp(-self.cond_decay*depth)
+            kdec = self.hk_decay[0]
+            kmin = self.hk_decay[1]
+            kmax = self.hk_value
+            hklog_trans = self.hk_decay[2]
+            if kmin == None:
+                self.hk *= np.exp(-kdec*depth)
+            if kmin != None:
+                self.hk *= (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
+            if (kmin != None) and (hklog_trans==True):
+                self.hk *= np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
+                self.hk = 10**self.hk
+            
+        self.sy = np.ones((self.nlay, self.nrow, self.ncol))*self.sy_value
         
-        self.ps = np.ones((self.nlay, self.nrow, self.ncol))*self.porosity
-        self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss
-            
-        if self.poro_decay != 0.:
-            # print('DECAY EXPO POROSITY')
-            depth = np.zeros(self.ps.shape)
+        if self.sy_decay[0] != 0:
+            depth = np.zeros(self.sy.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-            self.ps *= np.exp(-(self.poro_decay)*depth)
+            sydec = self.sy_decay[0]
+            symin = self.sy_decay[1]
+            symax = self.sy_value
+            sylog_trans = self.sy_decay[2]
+            if symin == None:
+                self.sy *= np.exp(-sydec*depth)
+            if symin != None:
+                self.sy *= (symin)+((symax)-(symin))*np.exp(-sydec*depth)
+            if (symin != None) and (sylog_trans==True):
+                self.sy *= np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-sydec*depth)
+                self.sy = 10**self.sy
             # η=2 is a coefficient related to
             # the medium structure that we chose to be equal to 2, as com-
             # monly reported in the literature (Cardenas and Jiang, 2010;
             # Bernabé et al., 2003)
+            
+        self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss_value
 
-        if self.ss_decay != 0.:
-            # print('DECAY EXPO POROSITY')
-            depth = np.zeros(self.ps.shape)
+        if self.ss_decay[0] != 0:
+            depth = np.zeros(self.ss.shape)
             depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-            self.ss *= np.exp(-(self.ss_decay)*depth)
-            # η=2 is a coefficient related to
-            # the medium structure that we chose to be equal to 2, as com-
-            # monly reported in the literature (Cardenas and Jiang, 2010;
-            # Bernabé et al., 2003)
-            
+            ssdec = self.ss_decay[0]
+            ssmin = self.ss_decay[1]
+            ssmax = self.ss_value
+            sslog_trans = self.ss_decay[2]
+            if symin == None:
+                self.ss *= np.exp(-ssdec*depth)
+            if symin != None:
+                self.ss *= (ssmin)+((ssmax)-(ssmin))*np.exp(-ssdec*depth)
+            if (symin != None) and (sslog_trans==True):
+                self.ss *= np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-ssdec*depth)
+                self.ss = 10**self.ss
+
         # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
-        if self.verti_cond != None:
-            for j in range(len(self.verti_cond)):
+        if self.verti_hk != None:
+            for j in range(len(self.verti_hk)):
                 # print('j', j)
                 for i in range(len(self.zbot)):
                     # print('i', i)
-                    k_val = self.verti_cond[j][0]
-                    d1 = self.verti_cond[j][1][0]
-                    d2 = self.verti_cond[j][1][1]
-                    cond_d1 = (self.dem - d1)
-                    cond_d2 = (self.dem - d2)
-                    mask = ((self.zbot[i] <= cond_d1) & (self.zbot[i] >= cond_d2))
+                    k_val = self.verti_hk[j][0]
+                    d1 = self.verti_hk[j][1][0]
+                    d2 = self.verti_hk[j][1][1]
+                    hk_d1 = (self.dem - d1)
+                    hk_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= hk_d1) & (self.zbot[i] >= hk_d2))
                     self.hk[i][mask] = k_val
                     # print(k_val)
         
         # Depth-dependent porosity (disconnected from the vertical discretization)
-        if self.verti_poro != None:
-            for j in range(len(self.verti_poro)):
+        if self.verti_sy != None:
+            for j in range(len(self.verti_sy)):
                 # print('j', j)
                 for i in range(len(self.zbot)):
                     # print('i', i)
-                    sy_val = self.verti_poro[j][0]
-                    d1 = self.verti_poro[j][1][0]
-                    d2 = self.verti_poro[j][1][1]
-                    poro_d1 = (self.dem - d1)
-                    poro_d2 = (self.dem - d2)
-                    mask = ((self.zbot[i] <= poro_d1) & (self.zbot[i] >= poro_d2))
+                    sy_val = self.verti_sy[j][0]
+                    d1 = self.verti_sy[j][1][0]
+                    d2 = self.verti_sy[j][1][1]
+                    sy_d1 = (self.dem - d1)
+                    sy_d2 = (self.dem - d2)
+                    mask = ((self.zbot[i] <= sy_d1) & (self.zbot[i] >= sy_d2))
                     self.ps[i][mask] = sy_val
                     # print(k_val)
                 
@@ -492,7 +533,7 @@ class Modflow:
         
         self.upw = flopy.modflow.ModflowUpw(self.mf, 
                                             laytyp=self.laytype, laywet=self.laywet, 
-                                            hk=self.hk, sy=self.ps,
+                                            hk=self.hk, sy=self.sy,
                                             ss=self.ss,
                                             iphdry=1, hdry=-100, vka=self.vka, noparcheck=False,
                                             layvka=1, # because 1, it is the anisotropy ratio
@@ -787,6 +828,7 @@ class Modflow:
         # Import times
         self.times = self.head_fpu.get_times()
         self.kstpkper = self.head_fpu.get_kstpkper()
+        
         # Stress periods (flopy "language")
         if len(self.times) == 1:
             self.kstpkper = self.kstpkper[0]
@@ -815,7 +857,6 @@ class Modflow:
         self.dict_accumulation_flux = {}
         self.dict_saturated_storage = {}
         self.dict_groundwater_storage = {}
-        # self.dict_residence_times = {}
         self.dict_persistency_index = {}
         self.dict_intermittency_monthly = {}
         self.dict_intermittency_weekly = {}
@@ -932,8 +973,10 @@ class Modflow:
                 ### Groundwater storage
                 self.wt_sto = self.wt_elev.copy()
                 self.wt_sto[self.dem<0] = np.nan
+                zbot_ref = self.zbot[-1].copy()
+                zbot_ref[self.dem<0] = np.nan
                 # self.wt_sto = ( self.wt_sto - (self.dem-self.thick) ) * (self.resolution**2) * self.porosity
-                self.wt_sto = ( self.wt_sto - self.zbot[-1] ) * (self.resolution**2) * self.porosity
+                self.wt_sto = ( self.wt_sto - self.zbot[-1] ) * (self.resolution**2) * self.sy
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_watershed_path, self.wt_sto, output_path, -9999)
