@@ -431,19 +431,23 @@ class Modflow:
                 
         # Exponential decay
         if self.hk_decay[0] != 0:
-            depth = np.zeros(self.hk.shape)
-            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             kdec = self.hk_decay[0]
             kmin = self.hk_decay[1]
             kmax = self.hk_value
             hklog_trans = self.hk_decay[2]
             if kmin == None:
+                depth = np.zeros(self.hk.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.hk *= np.exp(-kdec*depth)
             if kmin != None:
-                self.hk *= (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
+                depth = np.zeros(self.hk.shape)
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
+                self.hk = (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
+                self.hk[self.hk<kmin] = kmin
             if (kmin != None) and (hklog_trans==True):
-                self.hk *= np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
+                self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
                 self.hk = 10**self.hk
+                self.hk[self.hk<10**kmin] = 10**kmin
             
         self.sy = np.ones((self.nlay, self.nrow, self.ncol))*self.sy_value
         
@@ -457,10 +461,12 @@ class Modflow:
             if symin == None:
                 self.sy *= np.exp(-sydec*depth)
             if symin != None:
-                self.sy *= (symin)+((symax)-(symin))*np.exp(-sydec*depth)
+                self.sy = (symin)+((symax)-(symin))*np.exp(-sydec*depth)
+                self.sy[self.sy<symin] = symin
             if (symin != None) and (sylog_trans==True):
-                self.sy *= np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-sydec*depth)
+                self.sy = np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-sydec*depth)
                 self.sy = 10**self.sy
+                self.sy[self.sy<10**symin] = 10**symin
             # η=2 is a coefficient related to
             # the medium structure that we chose to be equal to 2, as com-
             # monly reported in the literature (Cardenas and Jiang, 2010;
@@ -478,10 +484,12 @@ class Modflow:
             if symin == None:
                 self.ss *= np.exp(-ssdec*depth)
             if symin != None:
-                self.ss *= (ssmin)+((ssmax)-(ssmin))*np.exp(-ssdec*depth)
+                self.ss = (ssmin)+((ssmax)-(ssmin))*np.exp(-ssdec*depth)
+                self.ss[self.ss<ssmin] = ssmin
             if (symin != None) and (sslog_trans==True):
-                self.ss *= np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-ssdec*depth)
+                self.ss = np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-ssdec*depth)
                 self.ss = 10**self.ss
+                self.ss[self.ss<10**ssmin] = 10**ssmin
 
         # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
         if self.verti_hk != None:
@@ -697,7 +705,7 @@ class Modflow:
             fig.colorbar(imhk)
             
             modelxsect2 = flopy.plot.PlotCrossSection(model=self.mf, line={'Column': int((grid_model.shape[2])/2)})
-            imsy = modelxsect2.plot_array(self.ps*100, masked_values=[-9999], cmap='jet', alpha=0.5, lw=0.1, ax=axs[1],
+            imsy = modelxsect2.plot_array(self.sy*100, masked_values=[-9999], cmap='jet', alpha=0.5, lw=0.1, ax=axs[1],
                                            norm=mpl.colors.LogNorm(vmin=0.1, vmax=100))
             # modelxsect2.plot_grid(ax=axs[1])
             axs[1].set_title('North-South (Column), Sy [%]', fontsize=12)
@@ -973,25 +981,14 @@ class Modflow:
                 ### Groundwater storage
                 self.wt_sto = self.wt_elev.copy()
                 self.wt_sto[self.dem<0] = np.nan
-                zbot_ref = self.zbot[-1].copy()
-                zbot_ref[self.dem<0] = np.nan
+                # zbot_ref = self.zbot[-1].copy()
+                # zbot_ref[self.dem<0] = np.nan
                 # self.wt_sto = ( self.wt_sto - (self.dem-self.thick) ) * (self.resolution**2) * self.porosity
-                self.wt_sto = ( self.wt_sto - self.zbot[-1] ) * (self.resolution**2) * self.sy
+                self.wt_sto = ( self.wt_sto - self.zbot[-1] ) * (self.resolution**2) * np.nanmean(self.sy)
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_watershed_path, self.wt_sto, output_path, -9999)
                 self.dict_saturated_storage[item] = self.wt_sto
-
-                if item == 0:
-                    self.sto = np.ones((1, self.dis.nrow, self.dis.ncol)) * np.nan
-                else:
-                    self.kstpkper_bis = (self.kstp[item], time)
-                    try:
-                        self.sto = self.cbb.get_data(text='STORAGE', kstpkper=self.kstpkper_bis)[0]
-                    except:
-                        pass
-                self.gw_storage = np.sum(self.sto, axis=0)
-                self.dict_groundwater_storage[item] = self.gw_storage
 
             if accumulation_flux == True:
                 ### Accumulation flux
@@ -1021,7 +1018,6 @@ class Modflow:
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
             np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
-            np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
 
