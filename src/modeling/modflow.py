@@ -443,30 +443,36 @@ class Modflow:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.hk = (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
-                self.hk[self.hk<kmin] = kmin
+                # self.hk[self.hk<kmin] = kmin
             if (kmin != None) and (hklog_trans==True):
+                depth = np.zeros(self.hk.shape)
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
                 self.hk = 10**self.hk
-                self.hk[self.hk<10**kmin] = 10**kmin
+                # self.hk[self.hk<10**kmin] = 10**kmin
             
         self.sy = np.ones((self.nlay, self.nrow, self.ncol))*self.sy_value
         
         if self.sy_decay[0] != 0:
-            depth = np.zeros(self.sy.shape)
-            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             sydec = self.sy_decay[0]
             symin = self.sy_decay[1]
             symax = self.sy_value
             sylog_trans = self.sy_decay[2]
             if symin == None:
+                depth = np.zeros(self.sy.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.sy *= np.exp(-sydec*depth)
             if symin != None:
+                depth = np.zeros(self.sy.shape)
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.sy = (symin)+((symax)-(symin))*np.exp(-sydec*depth)
-                self.sy[self.sy<symin] = symin
+                # self.sy[self.sy<symin] = symin
             if (symin != None) and (sylog_trans==True):
+                depth = np.zeros(self.sy.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.sy = np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-sydec*depth)
                 self.sy = 10**self.sy
-                self.sy[self.sy<10**symin] = 10**symin
+                # self.sy[self.sy<10**symin] = 10**symin
             # η=2 is a coefficient related to
             # the medium structure that we chose to be equal to 2, as com-
             # monly reported in the literature (Cardenas and Jiang, 2010;
@@ -475,21 +481,25 @@ class Modflow:
         self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss_value
 
         if self.ss_decay[0] != 0:
-            depth = np.zeros(self.ss.shape)
-            depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
             ssdec = self.ss_decay[0]
             ssmin = self.ss_decay[1]
             ssmax = self.ss_value
             sslog_trans = self.ss_decay[2]
             if symin == None:
+                depth = np.zeros(self.ss.shape)
+                depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.ss *= np.exp(-ssdec*depth)
             if symin != None:
+                depth = np.zeros(self.ss.shape)
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.ss = (ssmin)+((ssmax)-(ssmin))*np.exp(-ssdec*depth)
-                self.ss[self.ss<ssmin] = ssmin
+                # self.ss[self.ss<ssmin] = ssmin
             if (symin != None) and (sslog_trans==True):
+                depth = np.zeros(self.ss.shape)
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.ss = np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-ssdec*depth)
                 self.ss = 10**self.ss
-                self.ss[self.ss<10**ssmin] = 10**ssmin
+                # self.ss[self.ss<10**ssmin] = 10**ssmin
 
         # Depth-dependent hydraulic conductivity (disconnected from the vertical discretization)
         if self.verti_hk != None:
