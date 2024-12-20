@@ -332,7 +332,7 @@ class Geographic:
                                        maintain_dimensions=False)
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
-            print('   Reshape tifs')
+            # print('   Reshape tifs')
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)
@@ -438,7 +438,7 @@ class Geographic:
         """
         
         # Paths
-        print(self.out_path)
+        # print(self.out_path)
         self.gis_path = os.path.join(self.out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file

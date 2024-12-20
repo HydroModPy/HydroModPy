@@ -57,12 +57,12 @@ class Settings:
     
     def update_sink_fill(self, sink_fill):
         """
-        ???
+        xxx
         
         Parameters
         ----------
-        sink_fill : ???
-            ???.
+        sink_fill : xxx
+            xxx
         """
         self.sink_fill = sink_fill
     
@@ -104,12 +104,12 @@ class Settings:
         self.plot_cross = plot_cross
     
     def update_input_particles(self, zone_partic, # path of a raster (injecting where pixels > 0)
-                                      cell_div = 1, # 1
-                                      zloc_div = False,
-                                      bore_depth = None, # '[0,5,10] for 3 particles
-                                      track_dir = 'forward', # backward
-                                      sel_random = None,
-                                      sel_slice = None):
+                                     cell_div = 1, # 1
+                                     zloc_div = False,
+                                     bore_depth = None, # '[0,5,10] for 3 particles
+                                     track_dir = 'forward', # backward
+                                     sel_random = None,
+                                     sel_slice = None):
         """
         Select the limited area to inject particles onto the surface..
 
@@ -132,7 +132,7 @@ class Settings:
         self.sel_random = sel_random
         self.sel_slice = sel_slice
     
-    def update_split_temporal(self, split_temp=False):
+    def update_dis_temporal(self, dis_temp=False):
         """
         Activate the split discretization of recharge with time length.
 
@@ -141,7 +141,7 @@ class Settings:
         split_temp : bool, optional
             The default is False.
         """
-        self.split_temp = split_temp
+        self.dis_temp = dis_temp
     
 #%% NOTES
         
