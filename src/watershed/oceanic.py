@@ -45,6 +45,7 @@ class Oceanic:
             The default is None.
         """
         self.MSL = None
+        self.oceanic_path = None
 
 #%% FUNCTIONS
         

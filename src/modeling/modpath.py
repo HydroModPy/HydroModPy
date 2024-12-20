@@ -82,6 +82,13 @@ class Modpath:
             'watershed':inject particles only in cells inside watershed boundaries or 'domain': inject particles in all cells. The default is 'domain'.
         """
         
+        self.geographic = geographic
+        self.model_name = model_name
+        
+        self.model_folder = model_folder
+        self.full_path = os.path.join(model_folder, model_name)
+        
+        
         self.zone_partic = zone_partic
         self.track_dir = track_dir
         self.bore_depth = bore_depth
@@ -89,10 +96,7 @@ class Modpath:
         self.zloc_div = zloc_div
         self.sel_random = sel_random
         self.sel_slice = sel_slice
-        self.model_name = model_name
-        self.geographic = geographic
-        self.model_folder = model_folder
-        self.full_path = os.path.join(model_folder, model_name)
+
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
         if (sys.platform == 'win32') or (sys.platform == 'win64'):
@@ -396,16 +400,14 @@ class Modpath:
                                    shpname=os.path.join(self.particles_file, 'ending.shp'),
                                    direction='ending',
                                    mg=grid_model,
-                                   epsg=epsg,
-                                   sr=None)
+                                   epsg=epsg)
         
         if starting_point == True:
             endobj.write_shapefile(endpoint_data=e,
                                    shpname=os.path.join(self.particles_file, 'starting.shp'),
                                    direction='starting',
                                    mg=grid_model,
-                                   epsg=epsg,
-                                   sr=None)
+                                   epsg=epsg)
         
         if (pathlines_shp == True) or (particles_shp == True):
         
@@ -439,7 +441,7 @@ class Modpath:
                                         direction='ending',
                                         mg=grid_model,
                                         epsg=epsg,
-                                        sr=None, verbose=False)
+                                        verbose=False)
             
             if particles_shp == True:
                 pthobj.write_shapefile(pathline_data=pth_data_save,
@@ -448,7 +450,7 @@ class Modpath:
                                         direction='ending',
                                         mg=grid_model,
                                         epsg=epsg,
-                                        sr=None, verbose=False)
+                                        verbose=False)
 
     def filt_processing(self,
                         model_modpath:object,

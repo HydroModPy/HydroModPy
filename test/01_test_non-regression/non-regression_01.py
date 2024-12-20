@@ -43,12 +43,9 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODULES
 
-#import src
-import importlib
-#importlib.reload(src)
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
-from src.modeling import downslope, modflow, modpath, timeseries
+from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
+from src.modeling import downslope, modflow, modpath
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -113,34 +110,49 @@ model_name = 'reg_0'
 BV.add_settings()
 BV.add_climatic()
 BV.add_hydraulic()
+BV.add_oceanic('None')
 
 # Frame settings
 BV.settings.update_model_name(model_name) # Name of the model/simulation
 BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
-BV.settings.update_simulation_state('steady') # Transient
+BV.settings.update_simulation_state('transient') # 
+# BV.settings.update_simulation_state('steady') # Transient
 BV.settings.update_active_plot(plot_cross=False)
-BV.settings.update_split_temporal(split_temp=False)
+BV.settings.update_dis_temporal(dis_temp=False)
 
 # Climatic settings
-BV.climatic.update_recharge(100 / 1000 / 365, sim_state=BV.settings.sim_state)
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=2018,
+                                       last_year=2018,
+                                       time_step='M',
+                                       sim_state='transient')
+# BV.climatic.update_recharge(pd.Series([50, 100, 200, 80, 20, 10, 300, 100, 30, 50, 10, 1]) / 1000 / 365, sim_state=BV.settings.sim_state)
+# BV.climatic.update_recharge(pd.Series([50 / 1000 / 365, 100 / 1000 / 365]), sim_state=BV.settings.sim_state)
+# print(BV.climatic.recharge)
+BV.climatic.update_runoff(BV.climatic.recharge * 0.1, sim_state=BV.settings.sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
 
 # Hydraulic settings
-BV.hydraulic.update_nlay(1)
-BV.hydraulic.update_lay_decay(1) # 1 if not activated
 BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
 BV.hydraulic.update_thick(50) # Not consider if bottom != of None
-BV.hydraulic.update_hyd_cond(1e-5 * 24 * 3600) # m/d
-BV.hydraulic.update_porosity(1/100) # -
-BV.hydraulic.update_cond_decay(0) # Exponential decay with depth : 1/10 (about half decrease at 10m)
-BV.hydraulic.update_poro_decay(0)
-BV.hydraulic.update_cond_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+BV.hydraulic.update_nlay(1)
+BV.hydraulic.update_lay_decay(1) # 1 if not activated
+BV.hydraulic.update_hk(1e-5 * 24 * 3600) # m/d
+BV.hydraulic.update_sy(1/100) # -
+BV.hydraulic.update_ss(1e-5) # -
+BV.hydraulic.update_hk_decay(0, None, False) # alpha, kmin, log_transf
+BV.hydraulic.update_sy_decay(0, None, False)
+BV.hydraulic.update_ss_decay(0, None, False)
+BV.hydraulic.update_hk_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+BV.hydraulic.update_sy_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+BV.hydraulic.update_vka(1) # anisotropy ratio Kxy/Kz
 BV.hydraulic.update_cond_drain(None)
 
 # Boundary settings
 BV.settings.update_bc_sides(None, None)
-BV.add_oceanic('None')
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem)
@@ -154,29 +166,39 @@ model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 
 # Post-processing
-if success_modflow == True:
-    BV.postprocessing_modflow(model_modflow,
-                              watertable_elevation=True,
-                              watertable_depth=True, 
-                              seepage_areas=True,
-                              outflow_drain=True,
-                              groundwater_flux=True,
-                              groundwater_storage=True,
-                              accumulation_flux=True,
-                              persistency_index=False, # only in transient
-                              intermittency_monthly=False, # only in transient
-                              intermittency_weekly=False, # only in transient
-                              intermittency_daily=False, # only in transient
-                              export_all_tif=False)
+BV.postprocessing_modflow(model_modflow,
+                          watertable_elevation=True,
+                          watertable_depth=True, 
+                          seepage_areas=True,
+                          outflow_drain=True,
+                          groundwater_flux=True,
+                          groundwater_storage=True,
+                          accumulation_flux=True,
+                          persistency_index=False, # only in transient
+                          intermittency_monthly=True, # only in transient
+                          intermittency_weekly=False, # only in transient
+                          intermittency_daily=True, # only in transient
+                          export_all_tif=False)
+
+BV.postprocessing_netcdf(model_modflow,
+                         datetime_format=False)
+
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath=None,
+                                                  datetime_format=False, 
+                                                  subbasin_results=True,
+                                                  intermittency_monthly=True, # only in transient
+                                                  intermittency_weekly=False, # only in transient
+                                                  intermittency_daily=True, # only in transient                        
+                                                  ) # or 'M' or None
 
 #%% ---- PARTICLE TRACKING RUN
 
 # Pre-processing
-if success_modflow == True:
-    model_modpath = BV.preprocessing_modpath(model_modflow)
+model_modpath = BV.preprocessing_modpath(model_modflow)
 
 # Processing
-    success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
 
 # Post-processing
 if success_modpath == True:
@@ -200,7 +222,7 @@ if success_modpath == True:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  actual_date=False, 
+                                                  datetime_format=False, 
                                                   subbasin_results=True,
                                                   freq_time='D') # or 'M' or None
 

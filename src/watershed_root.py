@@ -94,7 +94,9 @@ class Watershed:
         save_object : bool, optional
             True : To save the watershed object (using pickle). The default is True.
         """
+        
         toolbox.print_hydromodpy()
+        
         self.dem_path = dem_path
         self.out_path = out_path
         self.load = load
@@ -116,8 +118,8 @@ class Watershed:
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         toolbox.create_folder(self.simulations_folder)
         
-        # self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
-        # toolbox.create_folder(self.add_data_folder)
+        self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
+        toolbox.create_folder(self.add_data_folder)
         
         self.figure_folder = os.path.join(self.stable_folder, '_figures')
         toolbox.create_folder(self.figure_folder)
@@ -169,7 +171,7 @@ class Watershed:
             if ('subbasin' in BV.__dir__()) == True:   # Generates basin where there are hydrological stations
                 self.subbasin = BV.subbasin
                 self.elt_def.append('subbasin')
-            # Sub-surface (compulsory: hydrodynamic)
+            # Sub-surface
             if ('hydraulic' in BV.__dir__()) == True:
                 self.hydraulic = BV.hydraulic
                 self.elt_def.append('hydraulic')
@@ -192,7 +194,7 @@ class Watershed:
             if ('intermittency' in BV.__dir__()) == True:
                 self.intermittency = BV.intermittency
                 self.elt_def.append('intermittency')
-            # Atmospheric (compulsory: hydrodynamic)
+            # Atmospheric
             if ('safransurfex' in BV.__dir__()) == True:
                 self.safransurfex = BV.safransurfex
                 self.elt_def.append('safransurfex')
@@ -364,9 +366,7 @@ class Watershed:
                                           watershed_shp=self.geographic.watershed_shp,
                                           list_models=list_models, 
                                           list_vars=list_vars)
-        # drias.Merge(out_path=self.watershed_folder)
         self.elt_def.append('driasclimat')
-        # self.save_object()
     
     def add_driaseau(self, driaseau_path, list_models='all', list_vars='all'):
         """
@@ -382,9 +382,7 @@ class Watershed:
                                           watershed_shp=self.geographic.watershed_shp,
                                           list_models=list_models, 
                                           list_vars=list_vars)
-        # drias.Merge(out_path=self.watershed_folder)
         self.elt_def.append('driaseau')
-        # self.save_object()
         
     def add_geology(self, 
                     geology_path: str,
@@ -593,16 +591,23 @@ class Watershed:
         
         # Type of run: classical simulation or calibration
         model_modflow = modflow.Modflow(self.geographic,
-                                        # Frame settings
+                                        # Workflow settings
                                         model_folder=model_folder,   # self.simulations_folder
-                                        model_name=self.settings.model_name,
+                                        model_name=self.settings.model_name,                                        
                                         bin_path=self.bin_path,
+                                        # Model settings
                                         box=self.settings.box,
                                         sink_fill=self.settings.sink_fill,
-                                        sim_state=self.settings.sim_state,
+                                        sim_state=self.settings.sim_state,                                        
+                                        dis_temp=self.settings.dis_temp,
+                                        # Output settings
                                         plot_cross=self.settings.plot_cross,
+                                        # Boundary settings
+                                        sea_level=self.oceanic.MSL,
+                                        bc_left=self.settings.bc_left, 
+                                        bc_right=self.settings.bc_right,
                                         # Climatic settings
-                                        climatic=self.climatic.recharge,
+                                        recharge=self.climatic.recharge,
                                         runoff=self.climatic.runoff,
                                         first_clim=self.climatic.first_clim,
                                         # Hydraulic settings
@@ -620,12 +625,7 @@ class Watershed:
                                         sy_value=self.hydraulic.sy_value,
                                         ss_value=self.hydraulic.ss_value,
                                         sy_decay=self.hydraulic.sy_decay,
-                                        ss_decay=self.hydraulic.ss_decay,
-                                        # Boundary settings
-                                        sea_level=self.oceanic.MSL,
-                                        bc_left=self.settings.bc_left, 
-                                        bc_right=self.settings.bc_right,
-                                        split_temp=self.settings.split_temp)
+                                        ss_decay=self.hydraulic.ss_decay)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose
@@ -843,9 +843,12 @@ class Watershed:
     def postprocessing_timeseries(self,
                                   model_modflow: object,
                                   model_modpath: object,
-                                  actual_date: bool=True,
+                                  datetime_format: bool=True,
                                   subbasin_results: bool=True,
-                                  freq_time: str='D'):
+                                  intermittency_monthly: bool=False,
+                                  intermittency_weekly: bool=False,
+                                  intermittency_daily: bool=False,
+                                  ):
         """
         Public method to postprocess the watershed timeseries.
 
@@ -869,17 +872,19 @@ class Watershed:
             timeseries_results = timeseries.Timeseries(self.geographic,
                                                         model_modflow=model_modflow,
                                                         model_modpath=model_modpath,
-                                                        actual_date=actual_date,
+                                                        datetime_format=datetime_format,
                                                         subbasin_results=subbasin_results,
-                                                        freq_time=freq_time)
-            
+                                                        intermittency_monthly=intermittency_monthly,
+                                                        intermittency_weekly=intermittency_weekly,
+                                                        intermittency_daily=intermittency_daily,
+                                                        )
             return timeseries_results
         
     #%% EXTRACT NETCDF
     
     def postprocessing_netcdf(self,
                                   model_modflow: object,
-                                  actual_date: bool=True):
+                                  datetime_format: bool=True):
         """
         Public method to postprocess the watershed timeseries.
 
@@ -898,7 +903,7 @@ class Watershed:
         if model_modflow != None:
             netcdf_results = netcdf.Netcdf(self.geographic,
                                            model_modflow=model_modflow,
-                                           actual_date=actual_date)
+                                           datetime_format=datetime_format)
             
             return netcdf_results
 
