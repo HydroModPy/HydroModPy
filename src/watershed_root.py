@@ -127,15 +127,23 @@ class Watershed:
         self.elt_def = []
         
         success = False
+        
         if load==True:
-             # Load from previously stored (saved) watershed
-             success = self.__load_object()
-             print("Object was loaded successfully")
-        else: 
-             print("Object was not loaded as demanded, but created from scratch")
-             
-        if load==False or success==False: 
-            print("Create new object, will removed previousy stored object")
+            # Load from previously stored (saved) watershed
+            success = self.__load_object()
+            if success == True:
+                print("Python object was successfully loaded as requested; imported from output directory")
+            else:
+                print("Python object was not successfully loaded as requested; so it was created from scratch instead")
+                # Definition of the watershed
+                self.__init_object()
+                # Creation of the watershed defined at the previous line
+                self.__create_object()
+                # Save object
+                if save_object == True:
+                    self.save_object()
+        else:
+            print("Python object was not loaded as requested; it was created from scratch")
             # Definition of the watershed
             self.__init_object()
             # Creation of the watershed defined at the previous line
@@ -166,7 +174,7 @@ class Watershed:
                 self.geographic = BV.geographic
                 self.elt_def.append('geographic')
             else:
-                print("Warning : geographic doesn't exist in object")
+                # print("Warning: geographic doesn't exist in object")
                 return False
             if ('subbasin' in BV.__dir__()) == True:   # Generates basin where there are hydrological stations
                 self.subbasin = BV.subbasin
@@ -217,7 +225,7 @@ class Watershed:
             return True 
         
         else:
-            print("Warning : file doesn't exist, watershed_object", self.watershed_folder)
+            # print("Warning: watershed_object doesn't exist in", self.watershed_folder)
             
             return False
 
@@ -600,8 +608,11 @@ class Watershed:
                                         sink_fill=self.settings.sink_fill,
                                         sim_state=self.settings.sim_state,                                        
                                         dis_temp=self.settings.dis_temp,
+                                        well_coords=self.settings.well_coords,
+                                        well_fluxes=self.settings.well_fluxes,
                                         # Output settings
                                         plot_cross=self.settings.plot_cross,
+                                        check_grid=self.settings.check_grid,
                                         # Boundary settings
                                         sea_level=self.oceanic.MSL,
                                         bc_left=self.settings.bc_left, 
@@ -611,21 +622,21 @@ class Watershed:
                                         runoff=self.climatic.runoff,
                                         first_clim=self.climatic.first_clim,
                                         # Hydraulic settings
-                                        nlay=self.hydraulic.nlay,
-                                        lay_decay=self.hydraulic.lay_decay,
                                         bottom=self.hydraulic.bottom,
                                         thick=self.hydraulic.thick,
+                                        nlay=self.hydraulic.nlay,
+                                        lay_decay=self.hydraulic.lay_decay,
                                         hk_value=self.hydraulic.hk_value,
-                                        vka=self.hydraulic.vka,
-                                        hk_decay=self.hydraulic.hk_decay,
-                                        verti_hk=self.hydraulic.verti_hk,
-                                        verti_sy=self.hydraulic.verti_sy,
-                                        verti_ss=self.hydraulic.verti_ss,
-                                        cond_drain=self.hydraulic.cond_drain,
                                         sy_value=self.hydraulic.sy_value,
                                         ss_value=self.hydraulic.ss_value,
+                                        hk_decay=self.hydraulic.hk_decay,
                                         sy_decay=self.hydraulic.sy_decay,
-                                        ss_decay=self.hydraulic.ss_decay)
+                                        ss_decay=self.hydraulic.ss_decay,                          
+                                        verti_hk=self.hydraulic.verti_hk,
+                                        verti_sy=self.hydraulic.verti_sy,
+                                        verti_ss=self.hydraulic.verti_ss,                                       
+                                        cond_drain=self.hydraulic.cond_drain,
+                                        vka=self.hydraulic.vka)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose

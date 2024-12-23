@@ -98,27 +98,27 @@ class VTK():
             modelfolder= os.path.join(watershed.simulations_folder, modelname)
             save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
             toolbox.create_folder(save_file)
-            print('Export vtuvtk grid')
+            print('  Export vtuvtk results for grid')
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
-            print('Export vtuvtk watertable')
+            print('  Export vtuvtk results for watertable')
             self.watertable(modelname, modelfolder, save_file, watershed.geographic)
             try:
-                print('Export vtuvtk boundary')
+                print('  Export vtuvtk results for boundary')
                 self.watershed_boundary(save_file, watershed.geographic)
             except:
                 pass
             try:
                 self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
-                print('Export vtuvtk pathlines')
+                print('  Export vtuvtk results for pathlines')
             except:
                 pass
             try:
                 self.piezometers(save_file, watershed.piezometry)
-                print('Export vtuvtk piezometers')
+                print('  Export vtuvtk results for piezometers')
             except:
                 pass
             try:
-                print('Export vtuvtk streams')
+                print('  Export vtuvtk results for streams')
                 self.streams(save_file, watershed.hydrography, watershed.geographic)
             except:
                 pass

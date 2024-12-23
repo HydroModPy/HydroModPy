@@ -28,6 +28,8 @@ class Settings:
     
     def __init__(self):
         print('Init settings module to set model parameter')
+        
+        self.update_well_pumping()
     
     #%% UPDATE
     
@@ -92,7 +94,7 @@ class Settings:
         """
         self.sim_state = sim_state
         
-    def update_active_plot(self, plot_cross=True):
+    def update_check_model(self, plot_cross=True, check_grid=True):
         """
         Activate of not the cross-section plot of the aquifer model.
 
@@ -102,6 +104,7 @@ class Settings:
             The default is True.
         """
         self.plot_cross = plot_cross
+        self.check_grid = check_grid
     
     def update_input_particles(self, zone_partic, # path of a raster (injecting where pixels > 0)
                                      cell_div = 1, # 1
@@ -142,6 +145,18 @@ class Settings:
             The default is False.
         """
         self.dis_temp = dis_temp
+        
+    def update_well_pumping(self, well_coords=[], well_fluxes=[]):
+        """
+        xxx
+        
+        Parameters
+        ----------
+        xxx : xxx
+            xxx
+        """
+        self.well_coords=well_coords
+        self.well_fluxes=well_fluxes
     
 #%% NOTES
         

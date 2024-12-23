@@ -75,9 +75,12 @@ class Climatic:
         self.runoff = values # recharge
         if isinstance(values,(dict))==False:
             if sim_state == 'steady':
-                self.runoff = np.mean(self.runoff)
-                if isinstance(self.runoff,(int,float))==False:
-                    self.runoff = self.runoff[0]
+                try:
+                    self.runoff = np.mean(self.runoff)
+                    if isinstance(self.runoff,(int,float))==False:
+                        self.runoff = self.runoff[0]
+                except:
+                    pass
     
     def update_first_clim(self, first_clim):
         """

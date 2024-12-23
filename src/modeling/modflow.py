@@ -57,9 +57,9 @@ class Modflow:
                  # Worflow settings
                  model_folder: str='HydroModPy_outputs',  model_name: str='Default', 
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
-                 plot_cross: bool=True, 
+                 plot_cross: bool=True, check_grid: bool=True,
                  # Climatic settings
-                 recharge=0.001, runoff=0.001/10, first_clim: str='mean', dis_temp: bool=False,
+                 recharge=0.001, runoff=None, first_clim: str='mean', dis_temp: bool=False,
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
@@ -67,6 +67,8 @@ class Modflow:
                  hk_value=0.0864, sy_value: float=0.1, ss_value: float=1e-5,
                  hk_decay: list=[0.,None,False], sy_decay: list=[0.,None,False], ss_decay: list=[0.,None,False],
                  vka: float=1.0,
+                 # Well settings
+                 well_coords: list=[], well_fluxes: list=[],
                  # Boundary settings
                  cond_drain: float=None, sea_level=None, bc_left: float=None, bc_right: float=None):
 
@@ -232,6 +234,12 @@ class Modflow:
         #%% Plot things
         
         self.plot_cross = plot_cross
+        self.check_grid = check_grid
+        
+        #%% Well settings
+        
+        self.well_coords = well_coords
+        self.well_fluxes = well_fluxes
         
     #%% PRE-PROCESSING
 
@@ -309,6 +317,8 @@ class Modflow:
                 self.perlen = self.dis_temp
             if self.dis_temp == False:
                 self.perlen = np.ones(len(self.recharge))
+            if isinstance(self.recharge,(dict))==True:
+                self.perlen = np.ones(len(self.recharge))
             # First timestep is steady state:
             self.perlen[0] = 1
                         
@@ -381,7 +391,7 @@ class Modflow:
             if isinstance(self.sea_level,(int,float)) == True:
                 self.iboundData[i][self.dem <= self.sea_level] = -1
                 self.strtData[self.iboundData == -1] = self.sea_level
-            self.iboundData[i][self.dem < -1000] = 0     # O is for NO FLOW               
+            self.iboundData[i][self.dem < -1000] = 0     # 0 is for NO FLOW               
 
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
@@ -392,7 +402,7 @@ class Modflow:
         
         ### Constant head boundary conditions of no f : specific for sea level
         
-        if isinstance(self.sea_level, (int,float,pd.Series)) == True:
+        if isinstance(self.sea_level, (int,float,pd.Series,list)) == True:
             package = np.zeros((self.nper,self.nrow, self.ncol))
             if isinstance(self.sea_level,(int,float)) == False:
                 self.chData = {}
@@ -407,7 +417,7 @@ class Modflow:
                                     chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper
                 # ---- flopy.modflow.ModflowChd
-                flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+                self.chd = flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
                     
         #%% Parametrization
         
@@ -426,7 +436,7 @@ class Modflow:
             kdec = self.hk_decay[0]
             kmin = self.hk_decay[1]
             kmax = self.hk_value
-            hklog_trans = self.hk_decay[2]
+            hklog_transf = self.hk_decay[2]
             if kmin == None:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
@@ -436,7 +446,7 @@ class Modflow:
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.hk = (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
                 # self.hk[self.hk<kmin] = kmin
-            if (kmin != None) and (hklog_trans==True):
+            if (kmin != None) and (hklog_transf==True):
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
@@ -464,7 +474,7 @@ class Modflow:
             sydec = self.sy_decay[0]
             symin = self.sy_decay[1]
             symax = self.sy_value
-            sylog_trans = self.sy_decay[2]
+            sylog_transf = self.sy_decay[2]
             if symin == None:
                 depth = np.zeros(self.sy.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
@@ -474,7 +484,7 @@ class Modflow:
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.sy = (symin)+((symax)-(symin))*np.exp(-sydec*depth)
                 # self.sy[self.sy<symin] = symin
-            if (symin != None) and (sylog_trans==True):
+            if (symin != None) and (sylog_transf==True):
                 depth = np.zeros(self.sy.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.sy = np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-sydec*depth)
@@ -502,7 +512,7 @@ class Modflow:
             ssdec = self.ss_decay[0]
             ssmin = self.ss_decay[1]
             ssmax = self.ss_value
-            sslog_trans = self.ss_decay[2]
+            sslog_transf = self.ss_decay[2]
             if symin == None:
                 depth = np.zeros(self.ss.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
@@ -512,7 +522,7 @@ class Modflow:
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.ss = (ssmin)+((ssmax)-(ssmin))*np.exp(-ssdec*depth)
                 # self.ss[self.ss<ssmin] = ssmin
-            if (symin != None) and (sslog_trans==True):
+            if (symin != None) and (sslog_transf==True):
                 depth = np.zeros(self.ss.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
                 self.ss = np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-ssdec*depth)
@@ -646,7 +656,30 @@ class Modflow:
         lrcec= {0:self.drnData}
         # ---- flopy.modflow.ModflowDrn
         self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+        
+        #%% Well package
+        
+        if (self.well_coords != []) or (len(self.well_coords) > 0):
 
+            # Number of stress periods
+            n_stress_periods = len(self.recharge)
+            n_wells = len(self.well_coords)
+            
+            # Initialize the dictionary
+            self.lrcq = {}
+            
+            # Populate the dictionary with well data for each stress period
+            for t in range(n_stress_periods):
+                list_t = []
+                for n in range(n_wells):
+                    list_t.append([*self.well_coords[n], self.well_fluxes[n][t]])
+                self.lrcq[t] = list_t
+            
+            # ---- flopy.modflow.ModflowWel
+            self.wel = flopy.modflow.ModflowWel(self.mf,
+                                                ipakcb=1,
+                                                stress_period_data=self.lrcq)
+        
         #%% Output control
                 
         stress_period_data = {}
@@ -660,6 +693,57 @@ class Modflow:
                                 compact=True)
         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
 
+        # Check grid
+        def check_water_flow_connectivity(grid):
+            layers, rows, cols = grid.shape
+            problematic_cells = []  # Store problematic cells
+
+            for z in range(layers - 1):  # Focus on flow between layers
+                # print(f"Checking layer {z}")
+                for y in range(rows):
+                    for x in range(cols):
+                        # Skip if the current cell is inactive (e.g., NaN or specific inactive value)
+                        if np.isnan(grid[z, y, x]) or np.isnan(grid[z+1, y, x]):
+                            continue
+
+                        # Current cell's top and bottom elevations
+                        current_top = grid[z, y, x]
+                        current_bottom = grid[z+1, y, x]
+
+                        neighbors = []
+
+                        # Collect adjacent neighbors' top and bottom elevations
+                        if y > 0 and not (np.isnan(grid[z, y-1, x]) or np.isnan(grid[z+1, y-1, x])):  # Left neighbor
+                            neighbors.append((grid[z, y-1, x], grid[z+1, y-1, x]))
+                        if y < rows - 1 and not (np.isnan(grid[z, y+1, x]) or np.isnan(grid[z+1, y+1, x])):  # Right neighbor
+                            neighbors.append((grid[z, y+1, x], grid[z+1, y+1, x]))
+                        if x > 0 and not (np.isnan(grid[z, y, x-1]) or np.isnan(grid[z+1, y, x-1])):  # Front neighbor
+                            neighbors.append((grid[z, y, x-1], grid[z+1, y, x-1]))
+                        if x < cols - 1 and not (np.isnan(grid[z, y, x+1]) or np.isnan(grid[z+1, y, x+1])):  # Back neighbor
+                            neighbors.append((grid[z, y, x+1], grid[z+1, y, x+1]))
+
+                        # If there are neighbors, check if water can flow
+                        if neighbors:
+                            can_flow = False
+                            for neighbor_top, neighbor_bottom in neighbors:
+                                # Check if current cell's range overlaps with neighbor's range
+                                if (current_bottom <= neighbor_top and current_top >= neighbor_bottom):
+                                    can_flow = True
+                                    break
+                            
+                            if not can_flow:
+                                problematic_cells.append((z, y, x))
+
+            return problematic_cells
+        
+        if self.check_grid == True:
+            grid_to_check = self.mf.modelgrid.top_botm
+            problematic_cells = check_water_flow_connectivity(grid_to_check)
+            if not problematic_cells:
+                print("Check model grid:", "all cells satisfy the water flow connectivity condition")
+            else:
+                print("Check model grid:", f"total number of problematic cells is {len(problematic_cells)}")
+            
         # CrossSection figure
         if self.plot_cross == True:
             
@@ -815,7 +899,7 @@ class Modflow:
         
         # Import times
         self.times = self.head_fpu.get_times()
-        self.kstpkper = self.head_fpu.get_kstpkper()
+        self.kstpkpers = self.head_fpu.get_kstpkper()
         
         # Params model
         self.nper = self.dis.nper
@@ -849,10 +933,10 @@ class Modflow:
         
         # Loop over times: fills each of the previous structures and create raster
         for item, time in enumerate(self.times):
-            print(' Post-processing:  Stressperiod:   ', str(int(time)), ' / ', str(len(self.times)))
+            print(' Post-processing:  Stress period:   ', str(int(item+1)), ' / ', str(len(self.times)))
             
             if len(self.times) == 1:
-                self.kstpkper = self.kstpkper[0]
+                self.kstpkper = self.kstpkpers[0]
             
             if len(self.times) > 1:
                 self.kstpkper = (self.kstp[item], self.kper[item])

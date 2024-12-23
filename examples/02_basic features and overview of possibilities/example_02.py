@@ -72,8 +72,6 @@ data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
 # Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -333,23 +331,23 @@ sink_fill = False # or True
 # sim_state = 'transient' # 'steady' or 'transient'
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
+check_grid = True
+dis_temp = True
 
 # Climatic settings
 recharge = R.copy()
 first_clim = 'mean' # or 'first or value
-freq_time = 'M' # or 'D'
 
 # Hydraulic settings
 nlay = 5
 lay_decay = 1. # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
-hyd_cond = 1e-5 * 24 * 3600 # m/day
+hk = 1e-5 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+verti_hk = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+sy = 10 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -372,7 +370,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -383,16 +381,15 @@ BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_hk(hk)
+BV.hydraulic.update_sy(sy)
+BV.hydraulic.update_hk_vertical(verti_hk)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_poro_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_split_temporal(split_temp=False)
+BV.settings.update_dis_temporal(dis_temp=dis_temp)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
@@ -445,12 +442,11 @@ else:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  actual_date=True, 
                                                   subbasin_results=subbasin_results,
-                                                  freq_time=freq_time) # or None
+                                                  datetime_format=True) # or None
 
 netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                          actual_date=True)
+                                          datetime_format=True)
 
 #%% ---- PLOT
 

@@ -34,8 +34,8 @@ class Hydraulic:
                  nrow: int,
                  ncol: int,
                  nlay_init: int=1,
-                 hk_init: float=8.64,
                  cond_drain_init: float=864000,
+                 hk_init: float=8.64,
                  sy_init: float=0.1,
                  ss_init: float=1e-5,
                  thick_init: float=50.,
@@ -102,23 +102,38 @@ class Hydraulic:
         print('Init hydraulic module to set model parameter')
         
         self.box_dem = box_dem
+        
+        self.thick = thick_init
+        self.bottom = bottom_init
+        
         self.nrow = nrow
         self.ncol = ncol
         self.nlay = nlay_init
-        self.hk_grid = hk_init
-        self.cond_drain = cond_drain_init
+        self.lay_decay = lay_decay_init
+        
+        self.hk_value = hk_init
         self.sy_value = sy_init
         self.ss_value = ss_init
-        self.thick = thick_init
-        self.bottom = bottom_init
+        
+        self.hk_grid = np.ones((self.nrow, self.ncol))
+        self.sy_grid = np.ones((self.nrow, self.ncol))
+        self.calib_zones = np.ones((self.nrow, self.ncol))
+
         self.hk_decay = hk_decay_init
         self.sy_decay = sy_decay_init
         self.ss_decay = ss_decay_init
-        self.lay_decay = lay_decay_init
+
         self.verti_hk = verti_hk_init 
         self.verti_sy = verti_sy_init
         self.verti_ss = verti_ss_init
-        self.calib_zones = np.ones((nlay_init, nrow, ncol))
+
+        self.cond_drain = cond_drain_init
+        
+        self.vka = vka_init
+                
+        self.update_hk_decay()
+        self.update_sy_decay()
+        self.update_ss_decay()
 
     #%% UPDATE LATERAL HOMOGENEOUS
     
@@ -185,7 +200,7 @@ class Hydraulic:
         """
         self.bottom = bottom_value
     
-    def update_hk_decay(self, hk_decay_value: float, kmin_value: float, hklog_tranf: bool):
+    def update_hk_decay(self, hk_decay_value: float=0, min_value: float=None, log_transf: bool=False):
         """
         Parameters
         ----------
@@ -194,9 +209,9 @@ class Hydraulic:
             For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
             K = K0 * np.exp(-cond_decay_value*z)
         """
-        self.hk_decay =  [hk_decay_value, kmin_value, hklog_tranf] 
+        self.hk_decay =  [hk_decay_value, min_value, log_transf] 
     
-    def update_sy_decay(self, sy_decay_value: float, symin_value: float, sylog_tranf: bool):
+    def update_sy_decay(self, sy_decay_value: float=0, min_value: float=None, log_transf: bool=False):
         """
         Parameters
         ----------
@@ -205,9 +220,9 @@ class Hydraulic:
             For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
             Sy = Sy0 * np.exp(-poro_decay_value*z)
         """
-        self.sy_decay = [sy_decay_value, symin_value, sylog_tranf]
+        self.sy_decay = [sy_decay_value, min_value, log_transf]
     
-    def update_ss_decay(self, ss_decay_value: float, ssmin_value: float, sslog_tranf: bool):
+    def update_ss_decay(self, ss_decay_value: float=0, min_value: float=None, log_transf: bool=False):
         """
         Parameters
         ----------
@@ -216,7 +231,7 @@ class Hydraulic:
             For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
             Sy = Sy0 * np.exp(-poro_decay_value*z)
         """
-        self.ss_decay =  [ss_decay_value, ssmin_value, sslog_tranf]  
+        self.ss_decay =  [ss_decay_value, min_value, log_transf]  
     
     def update_lay_decay(self, lay_decay_value: float or int):
         """
@@ -278,7 +293,7 @@ class Hydraulic:
 
         self.calib_zones = zones
 
-    def update_calib_zones_from_shp(self, shp_path, default_zone = 1):
+    def update_calib_zones_from_shp(self, shp_path, default_zone=1):
         """
         Shapefile must be with different features.
         Field must be "CALIB_ZONE" = 1,2,3,4
@@ -289,12 +304,12 @@ class Hydraulic:
             shp_path, 
             output, 
             field="FID", #Field name should be changed , error : thread 'main' panicked at 'Error: Specified field is greater than the number of fields.'
-            nodata=default_zone, 
+            # nodata=default_zone,
             cell_size=None, 
             base=self.box_dem)
         
         raster_load = imageio.imread(output)
-        raster_load[raster_load==-99999] = default_zone
+        raster_load[raster_load<=-9999] = default_zone
 
         # src = rasterio.open(output)
         # plt.imshow(src.read(1), cmap='pink')
@@ -308,9 +323,9 @@ class Hydraulic:
         :param num_zone: the zone number
         :param hyd_cond_value: hydraulic conductivy of the aquifer.        
         """        
-        self.hk_value = np.ones(self.row, self.col)
-        self.hk_value[self.calib_zones==num_zone] = hk_value
-        self.hk_value = np.tile(self.hk_value, (self.nlay, 1, 1))
+        self.hk_grid[self.calib_zones==num_zone] = hk_value
+        # self.hk_grid = np.tile(self.hk_grid, (self.nlay, 1, 1))
+        self.hk_value = self.hk_grid.copy()
     
     def update_sy_from_calib_zones(self, num_zone: int, sy_value: float):
         """
@@ -318,9 +333,9 @@ class Hydraulic:
         :param num_zone: the zone number
         :param porosity_value: porosity of the aquifer.        
         """       
-        self.sy_value = np.ones(self.row, self.col)
-        self.sy_value[self.calib_zones==num_zone] = sy_value
-        self.sy_value = np.tile(self.sy_value, (self.nlay, 1, 1))
+        self.sy_grid[self.calib_zones==num_zone] = sy_value
+        # self.sy_grid = np.tile(self.sy_grid, (self.nlay, 1, 1))
+        self.sy_value = self.sy_grid.copy()
         
     def update_thick_from_calib_zones(self, num_zone: int, thick_value: float):
         """
@@ -340,7 +355,7 @@ class Hydraulic:
         :param hyd_cond_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
         :type hyd_cond_values: :class:`list of float`           
         """
-        self.hk_value = np.ones(self.row, self.col)
+        self.hk_value = np.ones((self.nrow, self.ncol))
         for i in range(0,len(geology_code)):
             self.hk_value[geology_array==geology_code[i]] = hk_values[i]
         self.hk_value = np.tile(self.hk_value, (self.nlay, 1, 1))
@@ -355,7 +370,7 @@ class Hydraulic:
         :param porosity_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
         :type porosity_values: :class:`list of float`         
         """        
-        self.sy_value = np.ones(self.row, self.col)
+        self.sy_value = np.ones((self.nrow, self.ncol))
         for i in range(0,len(geology_code)):
             self.sy_value[geology_array==geology_code[i]] = sy_values[i]
         self.sy_value = np.tile(self.sy_value, (self.nlay, 1, 1))
