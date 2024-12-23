@@ -109,10 +109,10 @@ class Timeseries:
             recharge = self.recharge.values
         if isinstance(self.recharge,(dict)) == True:
             time = range(len(self.recharge))
-            recharge = pd.Series(np.nan, index=range(len(self.recharge)))
+            recharge = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.recharge.items()}).values())), index=range(len(self.recharge)))
             
         ### Runoff management to fill the .csv file results
-        try:
+        if self.runoff != None:
             if isinstance(self.runoff,(int,float)) == True:
                 time=[0]
                 runoff = self.runoff
@@ -121,10 +121,9 @@ class Timeseries:
                 runoff = self.runoff.values
             if isinstance(self.runoff,(dict)) == True:
                 time = range(len(self.runoff))
-                runoff = pd.Series(np.nan, index=range(len(self.runoff)))
-        except:
-            runoff = None
-            pass
+                runoff = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.runoff.items()}).values())), index=range(len(self.runoff)))
+        else:
+            runoff = recharge*np.nan
         
         # npy_list = [] 
         # for f in os.listdir(self.save_file):
@@ -165,15 +164,17 @@ class Timeseries:
         try:
             self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
         except:
-            pass  
-        try:
-            try:
-                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', 'ending_weighted'+'.shp'))
+            pass
+        if model_modpath != None:
+            if model_modpath.track_dir == 'forward':
+                type_dir = 'ending'
+            else:
+                type_dir = 'starting'
+            try:            
+                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'_weighted'+'.shp'))
             except:
-                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', 'ending'+'.shp'))
+                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'.shp'))
                 pass
-        except:
-            pass 
                 
         ### For total catchment
         dem_clip = imageio.imread(self.geographic.watershed_dem)
@@ -187,7 +188,7 @@ class Timeseries:
             try:
                 self.zones_folder = os.path.join(self.stable_folder, 'subbasin')
                 self.zones_list = os.listdir(self.zones_folder)
-                for zone_name in self.zones_list:
+                for zi, zone_name in enumerate(self.zones_list):
                     sub_file = os.path.join(self.full_path, '_subbasins', zone_name)
                     if not os.path.exists(sub_file):
                         toolbox.create_folder(sub_file) 
@@ -195,7 +196,7 @@ class Timeseries:
                         dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
                         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()                        
                         self.extract_results(dem_clip, time, recharge, runoff, sub_file)
-                        print('  ','Export results for subbasins')
+                        print('  ','Export results for subbasin'+str(zi+1))
                     except:
                         pass
             except:
@@ -435,7 +436,7 @@ class Timeseries:
                 except:
                     pass
                 try:
-                    calc = np.nanmean(self.residence_times['time_win_y'])
+                    calc = np.nanmean(self.residence_times['time_win'])
                 except:
                     calc = np.nanmean(self.residence_times['time'])
                     pass

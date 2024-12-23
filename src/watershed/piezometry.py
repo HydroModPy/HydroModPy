@@ -64,7 +64,7 @@ class Piezometry:
         geographic : object
             Variable object of the model domain (watershed).
         """
-        print('Extract piezometry from web and specific data')
+        print('Extract piezometry from web or specific data')
         
         data_folder = os.path.join(out_path,'results_stable','piezometry')
         if not os.path.exists(data_folder):
@@ -127,7 +127,7 @@ class Piezometry:
         bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
         url = 'http://infoterre.brgm.fr/telechargements/ExportsPublicsBSS/' + bss
         #url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
-        print('     '+'Piezometric page loaded')
+        print('    '+'Piezometric web page loaded')
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
@@ -258,7 +258,7 @@ class Piezometry:
         """
         for code in self.codes_bss:
             code_ = code.replace('_','/')
-            print('          '+code)
+            print('    '+code)
             if not os.path.exists(data_folder+'/'+code):
                 url = 'https://ades.eaufrance.fr/Fiche/PtEau?Code=' + code_
                 chrome_options = webdriver.ChromeOptions()
@@ -375,7 +375,7 @@ class Piezometry:
         
     #%% DISPLAY PLOT
     
-    def display_data(self, value='elevation',start=None, end=None):
+    def display_data(self, value='elevation', start=None, end=None):
         """
         Parameters
         ----------
@@ -406,6 +406,6 @@ class Piezometry:
     
         plt.tight_layout()
         name_out = os.path.join(self.figure_folder,'plot')
-        fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')
 
 #%% NOTES
