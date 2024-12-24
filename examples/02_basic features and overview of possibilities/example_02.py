@@ -82,10 +82,10 @@ print('The results of the example will be saved here :', out_path)
 #%% OPTIONS
 
 ### Choice of model domain initialization (shapefile, .csv library of coordinates, )
-case = 'FromSHP'    # from a shapefile: clip a provided DEM 
+# case = 'FromSHP'    # from a shapefile: clip a provided DEM 
 # case = 'FromLIB'  # from a library of coordinates: extract the catchment from a DEM
-# case = 'FromDEM'  # from a DEM: the model domain is directly the DEM provided
 # case = 'FromXYV'  # from a XY coordinates: the catchment is extracted from outlet coordinates
+case = 'FromDEM'  # from a DEM: the model domain is directly the DEM provided
 ###
 
 if case == 'FromLIB':
@@ -170,13 +170,14 @@ visualization_watershed.watershed_dem(BV)
 BV.add_climatic()
 
 ### Choice the case of recharge input
-recharge_data = 'manual'
+# recharge_data = 'manual'
 # recharge_data = 'reanalysis'
 # recharge_data = 'explore1'
 # recharge_data = 'explore2'
 # recharge_data = 'synthetic'
 # recharge_data = 'raster'
 # recharge_data = 'evapotranspiration'
+recharge_data = 'dictionary'
 ###
 
 if recharge_data == 'manual':
@@ -319,6 +320,18 @@ if recharge_data == 'evapotranspiration':
     ax.set_xlabel('Months')
     ax.set_ylabel('[mm/month]')
     ax.legend()
+    
+if recharge_data == 'dictionary':
+    
+    shape_rec = np.random.rand(BV.geographic.dem_clip.shape[0],BV.geographic.dem_clip.shape[1])*100 # mm/month
+    dict_rec = {}
+    dict_rec[0] = shape_rec
+    fig, ax = plt.subplots(1,1, figsize=(7,7))
+    im = ax.imshow(dict_rec[0])
+    ax.set_title('Recharge [mm/month]')
+    fig.colorbar(im)
+    R = dict_rec[0] / 1000 / 30
+    r = R
 
 #%% ---- PARAMETRIZATION
 
@@ -342,10 +355,18 @@ first_clim = 'mean' # or 'first or value
 nlay = 5
 lay_decay = 1. # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
+if case == 'FromDEM':
+    bottom = BV.geographic.dem_clip*-1
+x = imageio.imread('C:/Users/Ronan/GitHub/HydroModPy-dev-ronan-restructuration/examples/results/Example_02_Topography/results_simulations/default/_postprocess/_rasters/watertable_depth_t(0).tif')
 thick = 50 # if bottom is None, aquifer thickness
 hk = 1e-5 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_hk = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+if case == 'FromDEM':
+    nlay = 10
+    lay_decay = 1.5
+    hk = 1e-7 * 24 * 3600 # m/day
+    verti_hk = [ [1e-5*24*3600, [0, 20]], [1e-6*24*3600, [20,40]] ]
 cond_drain = None # or value of conductance
 sy = 10 / 100 # -
 

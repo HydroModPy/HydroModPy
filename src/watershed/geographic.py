@@ -464,7 +464,7 @@ class Geographic:
             dem = gdal.Open(self.dem_path)
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
-            print(self.crs)
+            # print(self.crs)
             # Copy tif
             self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
             shutil.copyfile(self.dem_path, self.watershed_raw)

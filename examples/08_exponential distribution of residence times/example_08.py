@@ -12,7 +12,6 @@ Created on Thu Dec 12 11:21:03 2024
 # Filter warnings (before imports)
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-
 import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
 warnings.filterwarnings('ignore', message='.*pkg_resources.*')
 warnings.filterwarnings('ignore', message='.*declare_namespace.*')
@@ -33,8 +32,10 @@ import rasterio
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
+import flopy.utils.binaryfile as fpu
 import imageio
-from osgeo import gdal
+from osgeo import gdal # Error warnings to fix
+from scipy.optimize import curve_fit
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -68,28 +69,31 @@ def select_period(df, first, last):
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "07_recession analytical solution in 2D/")
+example_path = os.path.join(root_dir, "examples", "08_exponential distribution of residence times/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
 # Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
 
 print('The results of the example will be saved here :', out_path)
 
-#%% TESTING PARAMETERS
+#%% TESTING
+
 dL_fact = 0.01              # ratio between thickness and lenght of the aquifer d/L
 dx = 10                     # discretization in the x-axis
-part_num = 20               # particle number per cell
-model_name = 'text_v7'
+part_num = 1                # particle number per cell
+tracking_dir = 'forward'
+# tracking_dir = 'backward'
+
+model_name = 'test_v5'
+
 #%% OPTIONS
 
-case = 'Example_08_Hillslope1D'         #name of the folder in examples folder
+case = 'Example_08_Synthetic'         #name of the folder in examples folder
 
-if case == 'Example_08_Hillslope1D':
+if case == 'Example_08_Synthetic':
     dem_path_ref = data_path + 'hillslope_1D.tif'
     
     resamp_res = dx
@@ -107,17 +111,8 @@ if case == 'Example_08_Hillslope1D':
         ds = gdal.Warp(outputFile, inputFile, **kwargs)
         del(ds)
         
-    # wbt.verbose = True
-    # wbt.resample(
-    #     dem_path_ref, 
-    #     dem_path_res, 
-    #     cell_size=100, 
-    #     base=None, 
-    #     method="cc")
-    
     x = imageio.imread(dem_path_res)
     x = (x*0)+1000*dL_fact
-    # x[1,:] = -99999
     toolbox.export_tif(dem_path_res, x, data_path + 'hillslope_1D_userdefined.tif', -99999)
     dem_path = data_path + 'hillslope_1D_userdefined.tif'
     
@@ -151,62 +146,42 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-#%% ---- RECHARGE
-
-#%% CASES
-
-# # Necessary to set model parameters
-# BV.add_climatic()
-
-# Different cases of recharge implementation
-# time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])
-# BV.climatic.update_recharge(time_series, sim_state='transient')
-
-
 #%% ---- PARAMETRIZATION
 
 #%% DEFINE
-
-
 
 # Frame settings
 box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = False
-split_temp =  True
-plot = True
+dis_temp =  True
+check_grid = True
+
+# Ratio to reach 
+KR = 15000 # hydraulic conductivity divided by recharge
+# KR = 10 # hydraulic conductivity divided by recharge
 
 # Climatic settings
-hyd_cond = 1e-2             #m/d
-
-recharge = 1e-3
-
-first_clim = 'mean' # or 'first or value
-freq_time = 'M'
+recharge = 1 / 1000 # 33 mm/day
+first_clim = 'mean'
 
 # Hydraulic settings
-nlay = 5
+hk = KR * recharge
+nlay = 10
 lay_decay = 1 # 1 for no decay
 bottom = 0 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 1000*dL_fact # if bottom is None, aquifer thickness
-
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
-cond_drain = None # or value of conductance
-porosity = 1 / 100 # -
-Ss_formula = 1000*9.8*(1e-10+(porosity*4.4e-10))
-poro_decay = 1 # exponential decay : 1/20 (half decrease at 20m)
+hk_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+cond_drain = 0 # if 0, DRN is not actvated, with None: linked to hk value of the first layer
+sy = 10 / 100 # -
+ss = 1e-10
 
 # Boundary settings
-bc_left = thick # or value
+bc_left = 5 # or value
+# bc_left = thick # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-
-# Particle tracking settings
-zone_partic = 'watershed' # domain or watershed or path
-tif_file = '' # or 'path with .tif'
-tracking_dir = 'forward' # backward or forward
 
 #%% UPDATE
 
@@ -221,7 +196,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -232,206 +207,206 @@ BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
-BV.hydraulic.update_cond_drain(0)
-BV.hydraulic.update_lay_decay(poro_decay)
-BV.hydraulic.update_ss(Ss_formula)
+BV.hydraulic.update_hk(hk)
+BV.hydraulic.update_sy(sy)
+BV.hydraulic.update_ss(ss)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_split_temporal(split_temp)
-
-# Particle tracking settings
-BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
+BV.settings.update_dis_temporal(dis_temp)
 
 #%% ---- MODELING
 
-#%% MODFLOW
+#%% MODFLOW - MODPATH
 
 model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 
-#%% MODPATH
+BV.postprocessing_modflow(model_modflow,
+                          watertable_elevation = True,
+                          watertable_depth= True, 
+                          seepage_areas = True,
+                          outflow_drain = True,
+                          groundwater_flux = True,
+                          groundwater_storage = True,
+                          accumulation_flux = True,
+                          persistency_index = False,
+                          intermittency_monthly = False,
+                          intermittency_daily = False,
+                          export_all_tif = False)
 
-BV.settings.update_input_particles(
-                                    zone_partic = BV.geographic.watershed_box_buff_dem,
-                                    # zone_partic = tif_file,
-                                    # zone_partic = shp_transform_tif,
-                                    # zone_partic = zone_partic,
-                                    # zone_partic = tif_bore,  # indicate where to inject particles, seepage, borehole or entire catchment
+BV.settings.update_input_particles(zone_partic = BV.geographic.watershed_dem,
                                     cell_div = part_num, # 1, distribution of partciles by cell in x and y direction
                                     zloc_div = False,  # False or True, inject partciles in z direction. Same number as cell_div
                                     bore_depth = None, # None or True, None 1 particle in the first layer, If True it will inject 1 particle in every layer.
                                     track_dir = tracking_dir, # backward or forward 
-                                    # track_dir = 'forward', # backward
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
 
-if sim_state == 'steady':
-    if success_modflow == True:
-        model_modpath = BV.preprocessing_modpath(model_modflow)
-        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-    if success_modpath == True:
-        BV.postprocessing_modpath(model_modpath,
-                                  ending_point=True,
-                                  starting_point=True,
-                                  pathlines_shp=True,
-                                  particles_shp=True,
-                                  random_id=None) # None
-        
-        BV.filtprocessing_modpath(model_modpath,
-                                  norm_flux=True, # for forward only
-                                  filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
-                                  filt_seep=False, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
-                                  filt_inout=True, # delete particles in and out in the same cell (first layer)
-                                  calc_rtd=False, # compute residence time distribution
-                                  random_id=None, # select randomly to keep
-                                  ) # None
+model_modpath = BV.preprocessing_modpath(model_modflow)
+success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
 
-# Esta ultima funcion requiere el watershed_shp, se tiene que simplicar
+BV.postprocessing_modpath(model_modpath,
+                          ending_point=True,
+                          starting_point=True,
+                          pathlines_shp=True,
+                          particles_shp=True,
+                          random_id=None) # None
+
+BV.filtprocessing_modpath(model_modpath,
+                          norm_flux=True, # for forward only
+                          filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                          filt_seep=False, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                          filt_inout=True, # delete particles in and out in the same cell (first layer)
+                          calc_rtd=False, # compute residence time distribution
+                          random_id=None, # select randomly to keep
+                          ) # None
+
+#%% ---- ANALYSIS
+
 #%% CROSS
 
+# Load model
+fname = simulations_folder+model_name+'/'+model_name
+ml = flopy.modflow.Modflow.load(fname+'.nam')
+hdobj = flopy.utils.HeadFile(fname + '.hds')
+times = hdobj.get_times()
 
-if plot == True:
-
-    import flopy.utils.binaryfile as fpu
+for i, t in enumerate([times[0]]):
     
-    # Load model
-    fname = simulations_folder+model_name+'/'+model_name
-    ml = flopy.modflow.Modflow.load(fname+'.nam')
-    hdobj = flopy.utils.HeadFile(fname + '.hds')
-    times = hdobj.get_times()
-    print('LOAD')
+    # Data
+    i = int(i)
+    head = hdobj.get_data(totim=t)
     
-
-    for i, t in enumerate([times[0]]):
-        i = int(i)
-        head = hdobj.get_data(totim=t)
-        
-        # Figure
-        fig = plt.figure(figsize=(10, 4), dpi=300)
-        ax = fig.add_subplot(1, 1, 1)
-        ax.set_title('Cross-section : '+str(i))
-        ax.set_xlabel('x [m]')
-        ax.set_ylabel('z [m]')
-        
-        xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
-        # Head color
-        pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues_r',
-                                vmin=0, vmax=100,
-                              alpha=0.8)
-        cb = plt.colorbar(pc, shrink=0.75)
-        cb.set_label('Head [m]', labelpad=+10)
-        wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
-        
-        # Boundary
-        patches = xsect.plot_ibound(head=head)
-        
-        # Grid
-        linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
-        
-        # General fluxes
-        # cbb = fpu.CellBudgetFile(fname + '.cbc')
-        # kstpkper = (0, 0)
-        # Qx = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=kstpkper, totim=t)[0]
-        # Qy = np.ones(shape=(10,1,100))
-        # Qz = cbb.get_data(text='FLOW LOWER FACE', kstpkper=kstpkper, totim=t)[0]
-        # drain = cbb.get_data(text='DRAINS', kstpkper=kstpkper, totim=t)[0]
-        # Qc = cbb.get_data(text='CONSTANT HEAD', kstpkper=kstpkper, totim=t)[0]
-        # Q = np.sqrt(Qx**2 + Qz**2) # ???
-        # Q_print = Q[0,0,0] # m/m
-        ax.set_ylim(0,thick*1.1)
-        if sim_state == 'steady':
+    # Figure
+    fig = plt.figure(figsize=(10, 4), dpi=300)
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_title('Cross-section : '+str(i))
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('z [m]')
     
-            # Particles plot
-            end = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
-            # end_fil = end[end['zone']==1]
-            end_fil = end
-            list_particles = end_fil['particleid'].unique()
-            shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
-            shp['time'] = shp['time'] / 365
-            # shp_fil = shp[shp['time']>1]
-            shp_fil = shp.copy()
-            shp_fil = shp_fil[shp_fil['particleid'].isin(list_particles)]
-            # shp_fil = shp_fil[shp_fil['particleid']==80]
-            sc = ax.scatter(shp_fil['x'], shp_fil['z'], c=shp_fil['time'],
-                       s=20, cmap='plasma_r', linewidths=0)
-            cbsc = plt.colorbar(sc, shrink=0.75)
-            cbsc.set_label('Residence times [y]', labelpad=+10)
-        
-        # ax.set_ylim(70,200)
-        ax.set_ylim(0,thick*1.1)
+    # Init cross-section
+    xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
+    
+    # Head color
+    pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues',
+                            vmin=0, vmax=None,
+                          alpha=0.75)
+    cb = plt.colorbar(pc, shrink=0.75)
+    cb.set_label('Head [m]', labelpad=+10)
+    wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
+    
+    # Boundary
+    patches = xsect.plot_ibound(head=head)
+    
+    # Grid
+    linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
+    
+    # # Particles plot
+    end = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
+    prt = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
+    list_particles = end[end['i0']==1]['particleid'].unique()
+    ### Filtering if necessary
+        # shp_fil = shp.copy()
+        # shp_fil = shp[shp['zone']==1]
+        # shp_fil = shp[shp['time']>1]
+        # shp_fil = shp_fil[shp_fil['particleid'].isin(list_particles)]
+        # shp_fil = shp_fil[shp_fil['particleid']==80]
+    prt_fil =  prt[prt['particleid'].isin(list_particles)]
+    sc = ax.scatter(prt_fil['x'], prt_fil['z'], c=prt_fil['time']/365, s=10, 
+                    cmap='spring', linewidths=0, norm=mpl.colors.LogNorm(vmin=1/365, vmax=10))
+    cbsc = plt.colorbar(sc, shrink=0.75)
+    cbsc.set_label('Residence times [y]', labelpad=+10)
+    
+    # Adjust
+    ax.set_ylim(0,thick*1.1)
+    fig.tight_layout()
 
-        
-        # fig.savefig(os.path.join(simulations_folder, model_name,
-        #                             '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
-#%%RTD
-from scipy.optimize import curve_fit
+#%% RTD
+
+# Data
 end = gpd.read_file(BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
 end[end['time_win_y']==0] = np.nan
 end = end.dropna()
-try:
+
+# Tau
+if tracking_dir == 'forward':
     tau = np.average(end['time_win_y'], weights=end['rchPerc'])
-    def pdf_function(M, nbin, Weight):    
-        bin_min = np.quantile(M, 0.01)
-        bin_max = np.quantile(M, 0.99)
-        bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
-        pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
-        dx = np.diff(binEdges)  
-        xh =  (binEdges[1:] + binEdges[:-1])/2
-        xh = np.array(xh)
-        return (xh, pdf)
-    nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
-    [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
-    idzeros = np.where(yh != 0)
-    xfil = xh[idzeros]
-    yfil = yh[idzeros]
-    x_log = np.log10(xfil)
-    y_log = np.log10(yfil)
-    # x_log = (xfil)
-    # y_log = (yfil)
-except:
-    pass
+else:
+    tau = np.average(end['time_win_y'])
+
+# Pdf
+def pdf_function(M, nbin, Weight):    
+    bin_min = np.quantile(M, 0.01)
+    bin_max = np.quantile(M, 0.99)
+    bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
+    pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
+    dx = np.diff(binEdges)  
+    xh =  (binEdges[1:] + binEdges[:-1])/2
+    xh = np.array(xh)
+    return (xh, pdf)
+
+# Bin
+nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
+if tracking_dir == 'forward':
+    [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end['rchPerc'])
+else:
+    [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, np.ones(len(end)))
+
+# Log
+idzeros = np.where(yh != 0)
+xfil = xh[idzeros]
+yfil = yh[idzeros]
+x_log = np.log10(xfil)
+y_log = np.log10(yfil)
+
+# Fit
 def func(x, a, b, c, d, e):
     return a * x**4 + b * x**3 + c * x**2 + d * x + e
-try:
-    params, covariance = curve_fit(func, x_log, y_log)
-    a, b, c, d, e = params
-    x_fit = np.linspace(min(x_log), max(x_log), 100)
-    y_fit = func(x_fit, a, b, c, d, e)
-    
-    fig = plt.figure(figsize=(6,5))
-    ax = fig.add_subplot(111)
-    
-    tau2 = 1
-    t = np.logspace(-3, 1, 100)
-    p_ttd = 1/tau2*np.exp(-t/tau2)
-    ax.plot(t, p_ttd, '-k', label='Exponential model')
-    ax.plot(xh, yh, '.', lw=0, c='red', label='PDF')
-    # ax.plot(xfil, yfil, '-', lw=2, c='darkred')
-    ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='blue', label='fitting curve')
-    intrp = np.interp(xh, t, p_ttd)        
-    ax.set_ylabel("PDF")
-    ax.set_xlabel("t / "+r'$\tau$')
-    ax.set_xscale('log')    
-    ax.set_yscale('log')
-    ax.set_title('Residence times')
-    ax.set_xlim(5e-3, 1.5e1)    
-    ax.set_ylim(9e-3, 3e0)
-    ax.legend()
-    # bx = fig.add_subplot(212)
-    # erro = (intrp - xh)/intrp * 100               #error calculus (teo - obs)/teo
-    # rms = np.sqrt(np.mean(erro**2))                 #rms calculus
-    # bx.plot(xh, erro, 'o', label = 'RMS = '+ str(round(rms, 2)))
-    # bx.legend()
-    # bx.set_ylim(-100, 100)
-    # bx.set_xscale('log')
-    # bx.set_xlim(5e-3, 1.5e1)
-    # bx.set_xlim(0.5e-3, 1.5e1)
-except:
-    pass
+params, covariance = curve_fit(func, x_log, y_log)
+a, b, c, d, e = params
+x_fit = np.linspace(min(x_log), max(x_log), 100)
+y_fit = func(x_fit, a, b, c, d, e)
 
+# Plot
+fig = plt.figure(figsize=(5,4))
+ax = fig.add_subplot(111)
+tau2 = 1
+t = np.logspace(-3, 1, 100)
+p_ttd = 1/tau2*np.exp(-t/tau2)
+ax.plot(t, p_ttd, '-k', lw=3, label='Exponential model')
+ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='forestgreen', label='Fitting curve')
+ax.plot(xh, yh, '.', lw=0, ms=10, c='red', label='PDF on particles')
+intrp = np.interp(xh, t, p_ttd)        
+ax.set_ylabel("PDF")
+ax.set_xlabel("t / "+r'$\tau$')
+ax.set_xscale('log')    
+ax.set_yscale('log')
+ax.set_title('Residence times distribution', fontsize=12)
+ax.set_xlim(5e-3, 1.5e1)    
+ax.set_ylim(9e-3, 3e0)
+ax.axvline(x=1, c='k', ls='--')
+ax.axhline(y=1, c='k', ls='--')
+ax.legend(loc='lower left')
+
+#%% ---- NOTES
+
+# wbt.verbose = True
+# wbt.resample(
+#     dem_path_ref, 
+#     dem_path_res, 
+#     cell_size=100, 
+#     base=None, 
+#     method="cc")
+
+# bx = fig.add_subplot(212)
+# erro = (intrp - xh)/intrp * 100        # error calculus (teo - obs)/teo
+# rms = np.sqrt(np.mean(erro**2))        # rms calculus
+# bx.plot(xh, erro, 'o', label = 'RMS = '+ str(round(rms, 2)))
+# bx.legend()
+# bx.set_ylim(-100, 100)
+# bx.set_xscale('log')
+# bx.set_xlim(5e-3, 1.5e1)
+# bx.set_xlim(0.5e-3, 1.5e1)
