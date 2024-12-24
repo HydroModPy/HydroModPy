@@ -57,7 +57,7 @@ class Modflow:
                  # Worflow settings
                  model_folder: str='HydroModPy_outputs',  model_name: str='Default', 
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
-                 plot_cross: bool=True, check_grid: bool=True,
+                 plot_cross: bool=True, cross_ylim: list=[], check_grid: bool=True,
                  # Climatic settings
                  recharge=0.001, runoff=None, first_clim: str='mean', dis_temp: bool=False,
                  # Hydraulic settings
@@ -234,6 +234,7 @@ class Modflow:
         #%% Plot things
         
         self.plot_cross = plot_cross
+        self.cross_ylim = cross_ylim
         self.check_grid = check_grid
         
         #%% Well settings
@@ -759,8 +760,11 @@ class Modflow:
                                           )
             # modelxsect1.plot_grid(ax=axs[0])
             axs[0].set_title('West-East (Row), K [m/s]', fontsize=12)
-            axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
-                            np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            if self.cross_ylim == []:
+                axs[0].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
+                                np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            else:
+                axs[0].set_ylim(self.cross_ylim[0], self.cross_ylim[1])
             axs[0].set_xlabel('Distance [m]')
             axs[0].set_ylabel('Elevation [m]')
             # divider = make_axes_locatable(axs[0])
@@ -775,8 +779,11 @@ class Modflow:
                                           )
             # modelxsect2.plot_grid(ax=axs[1])
             axs[1].set_title('North-South (Column), Sy [%]', fontsize=12)
-            axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
-                            np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            if self.cross_ylim == []:
+                axs[1].set_ylim(np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
+                                np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)))
+            else:
+                axs[1].set_ylim(self.cross_ylim[0], self.cross_ylim[1])
             axs[1].set_xlabel('Distance [m]')
             axs[1].set_ylabel('Elevation [m]')
             # divider = make_axes_locatable(axs[1])

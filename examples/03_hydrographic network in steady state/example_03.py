@@ -296,11 +296,11 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
-                                                          datetime_format=True, 
+                                                          datetime_format=False, 
                                                           subbasin_results=True) # or None
         
         netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                                  datetime_format=True)
+                                                  datetime_format=False)
 
 #%% ---- PLOT
 

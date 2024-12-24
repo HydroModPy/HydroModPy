@@ -6,6 +6,7 @@ RA, MP, CR:
 	dev-pyhelp
 	dev-pyemu
 	dev-geomodeller
+	dev-ronan-restructuration
 AC, BB:
 	dev-lakeres 
 	dev-lakeres-warm-up

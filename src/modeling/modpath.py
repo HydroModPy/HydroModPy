@@ -664,13 +664,14 @@ class Modpath:
                 
                 fig = plt.figure(figsize=(6,4))
                 ax = fig.add_subplot(111)
-                ax.plot(xh, yh, '.', lw=0, c='grey')
-                ax.plot(xfil, yfil, '-', lw=2, c='grey')
-                ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='k')
+                ax.plot(xfil, yfil, '-', lw=2, c='red', label='Binning on particles')
+                ax.plot(xh, yh, marker='o', markeredgecolor='none', lw=0, c='red')
+                ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='k', label='Fitting curve')
                 ax.set_ylabel("PDF")
                 ax.set_xlabel("t / "+r'$\tau$')
                 ax.set_xscale('log')
-                ax.set_title('Residence times')
+                ax.set_title('Residence times distribution')
+                ax.legend(loc='upper right')
                 # ax.set_xlim(tmin, tmax)
                 # ax.set_ylim(-0.1, 13)
             except:

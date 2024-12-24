@@ -344,6 +344,7 @@ sink_fill = False # or True
 # sim_state = 'transient' # 'steady' or 'transient'
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
+cross_ylim = [-100,100]
 check_grid = True
 dis_temp = True
 
@@ -364,9 +365,9 @@ cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 verti_hk = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 if case == 'FromDEM':
     nlay = 10
-    lay_decay = 1.5
-    hk = 1e-7 * 24 * 3600 # m/day
-    verti_hk = [ [1e-5*24*3600, [0, 20]], [1e-6*24*3600, [20,40]] ]
+    lay_decay = 1.2
+    hk = 1e-8 * 24 * 3600 # m/day
+    verti_hk = [ [1e-5*24*3600, [0, 30]], [1e-7*24*3600, [30,100]] ]
 cond_drain = None # or value of conductance
 sy = 10 / 100 # -
 
@@ -391,7 +392,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
+BV.settings.update_check_model(plot_cross=plot_cross, cross_ylim=cross_ylim, check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -464,10 +465,10 @@ else:
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
                                                   subbasin_results=subbasin_results,
-                                                  datetime_format=True) # or None
+                                                  datetime_format=False) # or None
 
 netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                          datetime_format=True)
+                                          datetime_format=False)
 
 #%% ---- PLOT
 
