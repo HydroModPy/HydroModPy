@@ -356,6 +356,9 @@ ax.set_ylabel('Residuals')
 ax.axhline(0, lw=2, zorder=-1, c='k')
 fig.tight_layout()
 
+fac = np.nanmean(np.log10(df['dQ/dt'])/np.log10(df['Bouss1904']))
+print('Ratio difference:', round(fac,3))
+
 #%% CHECK
 
 mf_list = flopy.utils.MfListBudget(simulations_folder+model_name+'/'+model_name+".list")
