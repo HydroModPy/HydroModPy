@@ -612,6 +612,7 @@ class Watershed:
                                         well_fluxes=self.settings.well_fluxes,
                                         # Output settings
                                         plot_cross=self.settings.plot_cross,
+                                        cross_ylim=self.settings.cross_ylim,
                                         check_grid=self.settings.check_grid,
                                         # Boundary settings
                                         sea_level=self.oceanic.MSL,

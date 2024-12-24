@@ -271,12 +271,12 @@ if success_modpath == True:
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
                                                   subbasin_results=True,
-                                                  datetime_format=True)
+                                                  datetime_format=False)
 
 #%% ---- GENERATE NETCDF FILES
 
 netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                          datetime_format=True)
+                                          datetime_format=False)
 
 #%% ---- PLOT OUTPUT RESULTS
 

@@ -314,7 +314,7 @@ if sim_state == 'steady':
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  datetime_format=True, 
+                                                  datetime_format=False, 
                                                   subbasin_results=True) # or None
 
 #%% ---- PLOT

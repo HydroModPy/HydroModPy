@@ -84,10 +84,9 @@ print('The results of the example will be saved here :', out_path)
 dL_fact = 0.01              # ratio between thickness and lenght of the aquifer d/L
 dx = 10                     # discretization in the x-axis
 part_num = 1                # particle number per cell
-tracking_dir = 'forward'
-# tracking_dir = 'backward'
+tracking_dir = 'forward'    # 'backward'
 
-model_name = 'test_v5'
+model_name = 'test_v1'
 
 #%% OPTIONS
 
@@ -260,7 +259,7 @@ BV.filtprocessing_modpath(model_modpath,
                           filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
                           filt_seep=False, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
                           filt_inout=True, # delete particles in and out in the same cell (first layer)
-                          calc_rtd=False, # compute residence time distribution
+                          calc_rtd=True, # compute residence time distribution
                           random_id=None, # select randomly to keep
                           ) # None
 
@@ -343,7 +342,7 @@ def pdf_function(M, nbin, Weight):
     bin_min = np.quantile(M, 0.01)
     bin_max = np.quantile(M, 0.99)
     bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
-    pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
+    pdf, binEdges = np.histogram(M, bins=bins, density=True, weights=Weight)
     dx = np.diff(binEdges)  
     xh =  (binEdges[1:] + binEdges[:-1])/2
     xh = np.array(xh)
@@ -371,14 +370,29 @@ a, b, c, d, e = params
 x_fit = np.linspace(min(x_log), max(x_log), 100)
 y_fit = func(x_fit, a, b, c, d, e)
 
-# Plot
-fig = plt.figure(figsize=(5,4))
+# PLot 1
+fig = plt.figure(figsize=(6,4.5))
+ax = fig.add_subplot(111)
+axb = ax.twinx()
+counts, bins = np.histogram(end['time_win_y'], density=True, weights=end['rchPerc'], bins=range(100))
+ax.hist(end['time_win_y'], density=True, bins=range(100), weights=end['rchPerc'], facecolor='dodgerblue', alpha=0.5, lw=0)
+ax.stairs(counts, bins, lw=3, color='b') # If the data has already been binned and counted, use bar or stairs to plot the distribution
+ax.set_xlabel('t [y]')
+ax.set_ylabel('PDF (classic hist) [-]')
+ax.set_xlim(0, 15)
+ax.set_ylim(0, 0.5)
+axb.plot(bins[:-1], np.cumsum(counts), lw=3, ls='-', color='red')
+axb.set_ylabel('Cumulative', color='red')
+axb.set_ylim(0,1)
+
+# Plot 2
+fig = plt.figure(figsize=(5,4.5))
 ax = fig.add_subplot(111)
 tau2 = 1
 t = np.logspace(-3, 1, 100)
 p_ttd = 1/tau2*np.exp(-t/tau2)
-ax.plot(t, p_ttd, '-k', lw=3, label='Exponential model')
-ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='forestgreen', label='Fitting curve')
+ax.plot(t, p_ttd, 'grey', lw=3, label='Exponential model')
+ax.plot(10**x_fit, 10**y_fit, '-', lw=3, c='dodgerblue', label='Fitting curve')
 ax.plot(xh, yh, '.', lw=0, ms=10, c='red', label='PDF on particles')
 intrp = np.interp(xh, t, p_ttd)        
 ax.set_ylabel("PDF")
@@ -386,10 +400,10 @@ ax.set_xlabel("t / "+r'$\tau$')
 ax.set_xscale('log')    
 ax.set_yscale('log')
 ax.set_title('Residence times distribution', fontsize=12)
-ax.set_xlim(5e-3, 1.5e1)    
-ax.set_ylim(9e-3, 3e0)
-ax.axvline(x=1, c='k', ls='--')
-ax.axhline(y=1, c='k', ls='--')
+ax.set_xlim(1e-2, 1e1)    
+ax.set_ylim(1e-2, 1e1)
+ax.axvline(x=1, c='k', ls='--', zorder=-1)
+ax.axhline(y=1, c='k', ls='--', zorder=-1)
 ax.legend(loc='lower left')
 
 #%% ---- NOTES
