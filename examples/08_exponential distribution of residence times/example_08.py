@@ -283,7 +283,7 @@ for i, t in enumerate([times[0]]):
     # Figure
     fig = plt.figure(figsize=(10, 4), dpi=300)
     ax = fig.add_subplot(1, 1, 1)
-    ax.set_title('Cross-section : '+str(i))
+    ax.set_title('Cross-section : '+'time '+str(i))
     ax.set_xlabel('x [m]')
     ax.set_ylabel('z [m]')
     
@@ -307,15 +307,16 @@ for i, t in enumerate([times[0]]):
     # # Particles plot
     end = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
     prt = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
-    list_particles = end[end['i0']==1]['particleid'].unique()
+    # list_particles = end[end['i0']==1]['particleid'].unique()
     ### Filtering if necessary
         # shp_fil = shp.copy()
         # shp_fil = shp[shp['zone']==1]
         # shp_fil = shp[shp['time']>1]
         # shp_fil = shp_fil[shp_fil['particleid'].isin(list_particles)]
-        # shp_fil = shp_fil[shp_fil['particleid']==80]
+    list_particles = [10,20,30,40,50,60,70,80,90,100]
+    # prt_fil = prt[prt['particleid']==100]
     prt_fil =  prt[prt['particleid'].isin(list_particles)]
-    sc = ax.scatter(prt_fil['x'], prt_fil['z'], c=prt_fil['time']/365, s=10, 
+    sc = ax.scatter(prt_fil['x'], prt_fil['z'], c=prt_fil['time']/365, s=20, 
                     cmap='spring', linewidths=0, norm=mpl.colors.LogNorm(vmin=1/365, vmax=10))
     cbsc = plt.colorbar(sc, shrink=0.75)
     cbsc.set_label('Residence times [y]', labelpad=+10)
