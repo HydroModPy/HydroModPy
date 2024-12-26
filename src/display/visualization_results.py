@@ -162,7 +162,7 @@ class Visualization():
             obj = object_list[i]
             
             if obj == 'grid':
-                axs[i].set_title('Topographic elevation, [m]')
+                axs[i].set_title('Topographic elevation [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)

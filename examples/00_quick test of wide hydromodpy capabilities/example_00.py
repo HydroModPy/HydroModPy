@@ -127,10 +127,10 @@ BV.climatic.update_runoff(None, sim_state=BV.settings.sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
 
 # Well settings
-well_1_coords = [1-1,15-1,15-1] 
-well_2_coords = [1-1,20-1,30-1]
-well_1_fluxes = pd.Series([-200, 0, -100, 0, 0, 0, 0, 0, 0, -100, -100, 0])
-well_2_fluxes = pd.Series([-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, -500, 0])
+well_1_coords = [1-1,9-1,29-1]
+well_2_coords = [1-1,17-1,29-1]
+well_1_fluxes = pd.Series([-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+well_2_fluxes = pd.Series([-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0])
 BV.settings.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
                                 well_fluxes=[well_1_fluxes, well_2_fluxes])
 
@@ -226,91 +226,105 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   intermittency_daily=False, # only in transient                        
                                                   ) # or 'M' or None
 
-#%% ---- PLOT QUICK VIEW RESULTS
+#%% ---- OPEN SIMULATED
 
-print('PLOT: VISUAL CHECK WITH 2D VIEW')
+sim_contour = gpd.read_file(BV.geographic.watershed_shp)
+sim_dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
+sim_wte_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/watertable_elevation_t(0).tif')
+sim_wte_data = sim_wte_rio.read(1)
+sim_wtd_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/watertable_depth_t(0).tif')
+sim_wtd_data = sim_wtd_rio.read(1)
+sim_seep_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/seepage_areas_t(0).tif')
+sim_seep_data = np.ma.masked_where(sim_seep_rio.read(1)<=0, sim_seep_rio.read(1))
+sim_pathlines = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
+sim_timeseries = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
 
-shp = gpd.read_file(BV.stable_folder+'/geographic/watershed.shp')
-wt_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/watertable_depth_t(0).tif')
-wt_data = wt_rio.read(1)
-seep_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/seepage_areas_t(0).tif')
-seep_data = np.ma.masked_where(seep_rio.read(1)<=0, seep_rio.read(1))
-shp_pathlines = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
+#%% ---- PLOT WATERSHED
 
-fig, ax = plt.subplots(1,1, figsize=(7, 5))
-retted = rasterio.plot.show(wt_data, ax=ax, transform=wt_rio.transform, cmap='RdBu', alpha=0.7, zorder=0, aspect="auto")
-rasterio.plot.show(seep_data, ax=ax, transform=seep_rio.transform, cmap=mpl.colors.ListedColormap(['k']), alpha=1, zorder=1, aspect="auto")
-shp.plot(ax=ax, lw=2, ec='k', fc='None')
-shp_pathlines.plot(ax=ax, color='k')
-ax.set_title('Water table [m]')
-im = retted.get_images()[0]
+print('PLOT: WATERSHED INFO')
+
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid'], color_scale = [(None,None),(None,None)], lines=None)
+
+#%% ---- PLOT MAPS
+
+print('PLOT: MAPS')
+
+fig, ax = plt.subplots(1,1, figsize=(8, 5), dpi=300)
+
+sim_wtd = rasterio.plot.show(sim_wtd_data, ax=ax, transform=sim_wtd_rio.transform, cmap='jet',
+                             vmin=0, vmax=10, alpha=0.5, zorder=0, aspect="auto")
+rasterio.plot.show(sim_seep_data, ax=ax, transform=sim_seep_rio.transform, cmap=mpl.colors.ListedColormap(['k']), alpha=1, zorder=1, aspect="auto")
+sim_contour.plot(ax=ax, lw=3, ec='k', fc='None')
+sim_pathlines.plot(ax=ax, color='k')
+ax.set_title('SIMULATED: time 1/12')
+im = sim_wtd.get_images()[0]
 divider = make_axes_locatable(ax)
 cax = divider.append_axes('right', size='5%', pad=0.5)
 fig.colorbar(im, cax=cax)
+ax.axvline(x=ax.get_xlim()[0]+((29)*75), color='k', ls='--', lw=3)
+
+fig.suptitle('Seepage fed by pathlines and map of water table depth [m]', y=1.02, fontsize=12)
 fig.tight_layout()
 
-del(wt_rio, wt_data, seep_rio, seep_data)
+#%% ---- PLOT CROSS-SECTION
 
-#%% ---- PLOT QUICK GRAPH RESULTS
+print('PLOT: CROSS-SECTION')
 
-print('PLOT: VISUAL CHECK WITH GRAPHS')
+fig, ax = plt.subplots(1,1, figsize=(7, 5), dpi=300)
 
-Sim = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
+x_sim_wte = np.arange(0,sim_wte_data.shape[0],1)
+y_sim_wte = sim_wte_data[:,28:29]
+y_sim_wte = np.concatenate(y_sim_wte, axis=0)
+ax.fill_between(x_sim_wte, x_sim_wte*0, y_sim_wte, lw=0, alpha=0.3, color='dodgerblue')
+ax.plot(x_sim_wte, y_sim_wte, lw=3, color='blue', label='Water table')
 
-fig, axs = plt.subplots(2,1, figsize=(10, 8), dpi=300)
-axs = axs.ravel()
+x_sim_dem = np.arange(0,sim_dem_data.shape[0],1)
+y_sim_dem = sim_dem_data[:,28:29]
+y_sim_dem = np.concatenate(y_sim_dem, axis=0)
+ax.fill_between(x_sim_dem, y_sim_wte, y_sim_dem, lw=0, alpha=0.3, color='saddlebrown')
+ax.plot(x_sim_dem, y_sim_dem, lw=3, color='saddlebrown', label='Topography')
 
-ax = axs[0]
-ax.axhline(BV.geographic.dem_data[BV.geographic.dem_data>0].mean(), c='saddlebrown', lw=3, label='Topography')
-ax.fill_between(Sim.index, 0, Sim['watertable_elevation'], ec='navy', fc='dodgerblue', alpha=0.5, lw=3, label='Water table')
-ax.set_ylabel('Water table elevation [m]')
-ax.set_xlim(pd.to_datetime('2017-02'), pd.to_datetime('2017-12'))
-ax.set_ylim(55, 65)
+ax.set_xlim(0,27)
+ax.set_ylim(50,72)
+ax.legend(prop={'size': 12})
+ax.set_xlabel('X pixels [75 m resolution]')
+ax.set_ylabel('Elevation [m.a.s.l]')
+ax.set_title('SIMULATED: time 1/12')
+
+fig.suptitle('Cross-section of water table elevation [m] at X=152737 crossing 2 pumping wells', y=1.02, fontsize=12)
+fig.tight_layout()
+
+#%% ---- PLOT GRAPHS
+
+print('PLOT: GRAPHS')
+
+well_1_fluxes_plot = well_1_fluxes.copy()
+well_1_fluxes_plot.index = sim_timeseries.index
+well_2_fluxes_plot = well_2_fluxes.copy()
+well_2_fluxes_plot.index = sim_timeseries.index
+well_all_fluxes_plot = well_1_fluxes_plot + well_2_fluxes_plot
+
+fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=300)
+
+axb = ax.twinx()
+ax.step(sim_timeseries.index, sim_timeseries['recharge']*30*1000, lw=8, color='blue', label='Recharge total', where='pre', clip_on=False)
+ax.step(sim_timeseries.index, sim_timeseries['outflow_drain']*30*1000, lw=5, color='red', alpha=1, label='Outflow at outlet', where='pre', clip_on=False)
+ax.set_xlim(pd.to_datetime('2017-01'), pd.to_datetime('2018-01'))
+ax.set_ylabel('Output flow results [mm/month]')
+ax.set_ylim(0, 70)
 ax.xaxis.set_major_locator(mdates.YearLocator())
 ax.xaxis.set_minor_locator(mdates.MonthLocator())
 ax.xaxis.set_minor_formatter(mdates.DateFormatter('%m'))
-ax.legend()
+ax.legend(prop={'size': 12})
+axb.bar(sim_timeseries.index, well_all_fluxes_plot, clip_on=False, width=5, lw=0, color='green', label='Water from wells')
+# axb.set_ylim(-110,0)
+axb.set_ylabel('Sum of pumping in wells [L$^3$/T]', rotation=270)
+ax.set_title('SIMULATED: time 1/12')
+axb.legend(prop={'size': 12}, loc='lower left', facecolor='white')
 
-ax = axs[1]
-ax.plot(Sim['recharge']*30*1000, lw=3, color='green', label='Recharge')
-ax.fill_between(Sim.index, 0, Sim['outflow_drain']*30*1000, lw=3, ec='red', fc='darkorange', alpha=0.5, label='Outflow')
-ax.set_xlim(pd.to_datetime('2017-02'), pd.to_datetime('2017-12'))
-ax.set_ylabel('Flow results [mm/month]')
-ax.set_ylim(0.1, 65)
-ax.xaxis.set_major_locator(mdates.YearLocator())
-ax.xaxis.set_minor_locator(mdates.MonthLocator())
-ax.xaxis.set_minor_formatter(mdates.DateFormatter('%m'))
-ax.legend()
-
-fig.suptitle('Date [year 2017: monthly stress-period (12) with daily time step length (335 total)]', fontsize=12)
+fig.suptitle('Date [Year 2017: monthly stress-period (12) with daily time step length (335 in total)]', y=1.02, fontsize=12)
 fig.tight_layout()
-
-#%% ---- PLOT COMPLETE RESULTS
-
-# print('Plot complete 2D visulization')
-
-# visu = visualization_results.Visualization(BV, model_name)
-# visu.visual2D(object_list = [
-#                               'map',
-#                               'grid',
-#                               'watertable',
-#                               'watertable_depth',
-#                               'drain_flow',
-#                               'surface_flow',
-#                               'pathlines',
-#                               'residence_times'
-#                               ],
-#               color_scale = [
-#                               (None,None),
-#                               (None,None),
-#                               (None,None),
-#                               (None,None),
-#                               (None,None),
-#                               (None,None),
-#                               (None,None),
-#                               (None,None),
-#                               ], 
-#                               lines=None)
 
 #%% ---- NOTES
 
