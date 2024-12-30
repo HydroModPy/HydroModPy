@@ -281,10 +281,10 @@ class Modflow:
         
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters 
-        thickfact = 1e-05 # also used for lake/reservoir thickness computations
+        self.thickfact = 1e-05 # also used for lake/reservoir thickness computations
         
         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
-                                            thickfact=thickfact, linmeth=1, iprnwt=1, ibotav=1,
+                                            thickfact=self.thickfact, linmeth=1, iprnwt=1, ibotav=1,
                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
         # Change headtol and fluxtol with results ==> convergency criteria
 
@@ -375,7 +375,7 @@ class Modflow:
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_watershed_path)
+                self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path)
             
             self.nlay = self.nlay + 1
             self.top = laklay_top
@@ -936,7 +936,7 @@ class Modflow:
         # This function is run in #%% Discretization section:
 # =============================================================================
 #         stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
-#             self.geographic, self.climatic, self.nper, thickfact)
+#             self.geographic, self.climatic, self.nper, self.thickfact)
 # =============================================================================
        
         if self.use_lakeres:       
@@ -1208,13 +1208,14 @@ class Modflow:
                                 self.rchData[kper] = self.climatic.iloc[kper].values[0]        
             
             # Sets recharge to modflow through flopy
-            flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+            # flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+            self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
             
         #%%% Update lakeres
         if 'lakeres' in update_dict:
             self.lakeres = update_dict['lakeres']
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_watershed_path)
+                self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path)
     
     #%% POST-PROCESSING
     
