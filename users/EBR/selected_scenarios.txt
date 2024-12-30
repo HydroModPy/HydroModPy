@@ -1,0 +1,3 @@
+
+D:\HyMoPy\results\raw2\LakeRes\Reservoir\Scenarios de gestion\2018oct-2019sep_weekly.csv
+D:\HyMoPy\results\raw2\LakeRes\Reservoir\Scenarios de gestion\2019_jan-dec_daily.csv

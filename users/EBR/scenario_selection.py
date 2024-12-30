@@ -15,36 +15,65 @@ Ce script :
 """
 
 import os
+import sys
 import yaml
 import shutil
 
+#% DOSSIER RACINE
+from os.path import dirname, abspath
+root_dir = dirname(dirname(dirname(abspath(__file__))))
+sys.path.append(root_dir)
+
+cwd = os.getcwd()
+if not cwd == root_dir:
+    os.chdir(root_dir)
+    # print("Root path directory is: {0}".format(cwd))
+
 from src.tools import folder_root
 
-#%% CHARGEMENT DU FICHIER DE PARAMETRES
-data_path = os.path.join(folder_root.root_folder_results(), 'LakeRes')
+#%% MAIN
+def main():
+    # ---- CHARGEMENT DU FICHIER DE PARAMETRES
+    data_path = os.path.join(folder_root.root_folder_results(), 'LakeRes')
+    # data_path = os.path.join(r'D:\HyMoPy\results\raw2', 'LakeRes')
+    
+    with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
+        settings = yaml.load(file_object, Loader = yaml.SafeLoader)
+    
+    # Corrections
+    if 'scenarios' in settings:
+        # Les scenarios doivent etre sous forme de liste (meme s'il y en qu'un)
+        if not isinstance(settings['scenarios'], list):
+            settings['scenarios'] = [settings['scenarios']]
+        # Les extensions doivent etre rajoutees aux noms des fichiers (si nécessaire)
+        for s in range(0, len(settings['scenarios'])):
+            if os.path.splitext(settings['scenarios'][s])[-1] == '':
+                settings['scenarios'][s] += '.csv'
+    
+    scenario_folder = os.path.join(data_path, "Reservoir", "Scenarios de gestion")
+    
+    # ---- CREATION D'UN FICHIER TEXTE (= 1re option)
+    for sce in settings['scenarios']:
+        print(os.path.join(scenario_folder, sce)) 
+        # these prints will be saved in a .txt file by the batch script
 
-with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
-    settings = yaml.load(file_object, Loader = yaml.SafeLoader)
-
-# Corrections
-if 'scenarios' in settings:
-    # Les scenarios doivent etre sous forme de liste (meme s'il y en qu'un)
-    if not isinstance(settings['scenarios'], list):
-        settings['scenarios'] = [settings['scenarios']]
-    # Les extensions doivent etre rajoutees aux noms des fichiers (si nécessaire)
-    for s in range(0, len(settings['scenarios'])):
-        if os.path.splitext(settings['scenarios'][s])[-1] == '':
-            settings['scenarios'][s] += '.csv'
-
-
-#%% COPIER-COLLER LES SCENARIOS SELECTIONNES
-scenario_folder = os.path.join(data_path, "Reservoir", "Scenarios de gestion")
-selected_folder = os.path.join(scenario_folder, "Selection")
-shutil.rmtree(selected_folder)
-os.makedirs(selected_folder)
-
-for sce in settings['scenarios']:   
-    shutil.copyfile(os.path.join(scenario_folder, sce), 
-                    os.path.join(selected_folder, sce))    
+    # ---- COPIER-COLLER LES SCENARIOS SELECTIONNES (= 2de option)
+# =============================================================================
+#     selected_folder = os.path.join(scenario_folder, "Selection")
+#     shutil.rmtree(selected_folder)
+#     os.makedirs(selected_folder)
+#     
+#     for sce in settings['scenarios']:   
+#         shutil.copyfile(os.path.join(scenario_folder, sce), 
+#                         os.path.join(selected_folder, sce))    
+# =============================================================================
+    
+#%% MAIN
+if __name__ == "__main__":
+# =============================================================================
+#     kargs = sys.argv
+#     main(*kargs[1:])
+# =============================================================================
+    main()
 
 

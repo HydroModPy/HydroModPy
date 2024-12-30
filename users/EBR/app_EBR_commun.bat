@@ -1,23 +1,25 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem Fill the folder with selected scenarios
-call python .\scenario_selection.py
-
-rem Define the folder with selected scenarios
-set scenario_files="D:\Dam_EBR_results\raw\data_Cheze\Reservoir\Scenarios de gestion\Selection\*.csv"
-
-rem Get the number of scenarios
-set n_scenario=0
-for %%i in (%scenario_files%) do (
-	set /a n_scenario=n_scenario+1
-)
-
 rem Set up the environment and folder
 set root=C:\ProgramData\Miniconda3
 call %root%\Scripts\activate.bat
 call activate hydromodpy
 call D:
+
+rem Fill the folder with selected scenarios
+call python .\scenario_selection.py > selected_scenarios.txt
+
+rem Define the folder with selected scenarios
+rem set scenario_files="D:\Dam_EBR_results\raw\data_Cheze\Reservoir\Scenarios de gestion\Selection\*.csv"
+set scenario_files=selected_scenarios.txt
+
+rem Get the number of scenarios
+set n_scenario=0
+rem for %%i in (%scenario_files%) do (
+for /f "tokens=*" %%i in (selected_scenarios.txt) do (
+	set /a n_scenario=n_scenario+1
+)
 
 rem Historical simulation (warm-up)
 echo SIMULATION DE L'ETAT INITIAL DU MODELE
@@ -30,7 +32,8 @@ timeout /t 2
 
 rem Predictive simulations
 set scenar=0
-for %%i in (%scenario_files%) do (
+rem for %%i in (%scenario_files%) do (
+for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	set /a scenar=scenar+1
 	start cmd /k ^
 	echo SCENARIO !scenar!/%n_scenario% ^& ^
