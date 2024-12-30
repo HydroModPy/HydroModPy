@@ -2249,8 +2249,12 @@ run = True
 # vers = 'isba1'
 # vers = 'isbaint1'
 
-vers = 'isba2'
+# vers = 'isba2'
+# types_obs = ['hydrographic_mix_peren_upv2_pt']
+
+vers = 'aniso1'
 types_obs = ['hydrographic_mix_peren_upv2_pt']
+vka = 1
 
 # vers = 'isbaint2'
 # types_obs = ['hydrographic_mix_inter_upv2_pt']
@@ -2332,12 +2336,14 @@ for watershed_name in watershed_names[:]:
         BV.hydraulic.update_poro_decay(poro_decay)
         BV.settings.update_bc_sides(bc_left, bc_right)
         BV.add_oceanic(sea_level)
-        BV.settings.update_input_particules(zone_partic=zone_partic)
+        BV.settings.update_input_particles(zone_partic=zone_partic)
+        BV.settings.update_split_temporal(True)
+        BV.hydraulic.update_vka(vka)
         
+        """
         # Aquifer bottom
         list_bottom = [None, 0] # aquifer flat or not
         list_bottom.extend([0] * 13) ### ATTENTION ###
-
         # Decay of K
         # list_d_values = [0, 0]
         # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
@@ -2345,12 +2351,26 @@ for watershed_name in watershed_names[:]:
         list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
         list_cond_decay = list(1/np.array(list_d_values))
         list_cond_decay[0] = 0
-        list_cond_decay[1] = 0
-                
+        list_cond_decay[1] = 0               
         list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-       
+        """
+        
+        # Aquifer bottom
+        list_bottom = [None, 0] # aquifer flat or not
+        list_bottom.extend([0] * 10) ### ATTENTION ###
+        # Decay of K
+        # list_d_values = [0, 0]
+        # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
+        # print(list_d_values)
+        list_d_values = [0, 0, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
+        list_cond_decay = list(1/np.array(list_d_values))
+        list_cond_decay[0] = 0
+        list_cond_decay[1] = 0               
+        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+        
         # for cond_decay, bottom, id_mod in zip(list_cond_decay[4:5], list_bottom[4:5], list_id_mod[4:5]):
-        for cond_decay, bottom, id_mod in zip(list_cond_decay[6:7], list_bottom[6:7], list_id_mod[6:7]):
+        # for cond_decay, bottom, id_mod in zip(list_cond_decay[6:7], list_bottom[6:7], list_id_mod[6:7]):
+        for cond_decay, bottom, id_mod in zip(list_cond_decay[2:], list_bottom[2:], list_id_mod[2:]):
         # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
             BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
             BV.hydraulic.update_cond_decay(cond_decay) # 0
@@ -2362,9 +2382,9 @@ for watershed_name in watershed_names[:]:
             if id_mod == 1:
                 params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod >= 2:
-                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod >= 9:
-                params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             # params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-4*3600*24,'m/j','lin']
             params_file = 'calib_dicot_hom_1v_k1'
             params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
@@ -2400,7 +2420,7 @@ for watershed_name in watershed_names[:]:
                 else:
                     model_name = vers+'_'+str('model')+str(id_mod)+'_'+str(round(str_cond_decay,4))+'-'+str(round(bottom,4))+'_'+str(compt)+'-'+str("{:.2e}".format(hyd_cond/24/3600)) #+'-'+oclock
                 BV.settings.update_model_name(model_name)
-                # print(model_name)
+                print(model_name)
                 
                 if run == True:
                 
