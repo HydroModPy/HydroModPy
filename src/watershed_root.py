@@ -814,26 +814,26 @@ class Watershed:
                                       intermittency_daily=intermittency_daily,
                                       export_all_tif=export_all_tif)
         
-        def update_modflow(self, 
-                           model_modflow: object, 
-                           update_dict: dict):
-            """
-            Public method to run the simulation of the model.
+    def update_modflow(self, 
+                       model_modflow: object, 
+                       update_dict: dict):
+        """
+        Public method to run the simulation of the model.
 
-            Parameters
-            ----------
-            model_modflow : object
-                Modflow model
+        Parameters
+        ----------
+        model_modflow : object
+            Modflow model
 
-            Returns
-            -------
-            model_modflow : object
-                Python object of the hydraulic model
-            """
-            # Update Modflow
-            model_modflow = model_modflow.update(model_modflow, update_dict)
-            
-            return model_modflow
+        Returns
+        -------
+        model_modflow : object
+            Python object of the hydraulic model
+        """
+        # Update Modflow
+        model_modflow = model_modflow.update(model_modflow, update_dict)
+        
+        return model_modflow
 
     #%% MODPATH MODEL        
     

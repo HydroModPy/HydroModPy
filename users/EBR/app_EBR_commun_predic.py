@@ -259,7 +259,9 @@ BV.lakeres.connect_returnflow(lake_id, resti_short)
 # =============================================================================
 
 
-BV.save_object()
+# =============================================================================
+# BV.save_object()
+# =============================================================================
 
 #%% SIMULATION DU MODELE (Modflow)
 sim_state = BV.settings.sim_state
@@ -322,7 +324,7 @@ Pour l'instant on convertit ca en chroniques (pandas).
 for i in range(0, 51):    
     model_name = f'predic{i}'
     BV.settings.update_model_name(model_name)
-    print(model_name)
+    print('\n--------\n' + model_name + '\n--------\n')
     
     clim_ds_i = clim_ds.loc[{'number': i}]
 
