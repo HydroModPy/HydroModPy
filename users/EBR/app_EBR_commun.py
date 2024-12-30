@@ -923,48 +923,50 @@ print("Total time:", now - start_time)
 
 #%% VISUALISATION DU MAILLAGE
 
-mf = flopy.modflow.Modflow.load(os.path.join(
-    BV.simulations_folder, model_name, model_name+'.nam'))
-gridname = os.path.join(BV.simulations_folder+model_name, model_name+'.dis')
-grid_model = mf.modelgrid
-hk_grid = mf.upw.hk
-sy_grid = mf.upw.sy
-
-fig, axs = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
-axs = axs.ravel()
-
-ax = axs[0]
-modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
-val = hk_grid.array/24/3600 # m/s
-try:
-    for i in range(val.shape[0]):
-        val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
-except:
-    pass
-cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-3,vmax=1e-8))
-ax.set_title('Hydraulic conductivity [m/s] - Meshgrid West to East', fontsize=12)
-ax.set_xlim(0, 9000)
-ax.set_ylim(40, 150)
-ax.set_xticks([0,2000,4000,6000,8000])
-ax.set_yticks([50,75,100,125,150])
-ax.set_xlabel('Distance [m]')
-ax.set_ylabel('Elevation [m]')
-fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
-fig.colorbar(cb)
-plt.tight_layout()
-
-ax = axs[1]
-modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
-cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
-                            # vmin=0, vmax=30,
-                            norm=mpl.colors.LogNorm(vmin=0.1, 
-                                                    vmax=10))
-ax.set_title('Specific yield [%] - Meshgrid South to North', fontsize=12)
-ax.set_xlim(0, 5500)
-ax.set_ylim(40, 150)
-ax.set_xticks([0,1000,2000,3000,4000,5000])
-ax.set_yticks([50,75,100,125,150])
-ax.set_xlabel('Distance [m]')
-fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
-fig.colorbar(cb)
-plt.tight_layout()
+# =============================================================================
+# mf = flopy.modflow.Modflow.load(os.path.join(
+#     BV.simulations_folder, model_name, model_name+'.nam'))
+# gridname = os.path.join(BV.simulations_folder+model_name, model_name+'.dis')
+# grid_model = mf.modelgrid
+# hk_grid = mf.upw.hk
+# sy_grid = mf.upw.sy
+# 
+# fig, axs = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+# axs = axs.ravel()
+# 
+# ax = axs[0]
+# modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
+# val = hk_grid.array/24/3600 # m/s
+# try:
+#     for i in range(val.shape[0]):
+#         val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
+# except:
+#     pass
+# cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-3,vmax=1e-8))
+# ax.set_title('Hydraulic conductivity [m/s] - Meshgrid West to East', fontsize=12)
+# ax.set_xlim(0, 9000)
+# ax.set_ylim(40, 150)
+# ax.set_xticks([0,2000,4000,6000,8000])
+# ax.set_yticks([50,75,100,125,150])
+# ax.set_xlabel('Distance [m]')
+# ax.set_ylabel('Elevation [m]')
+# fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
+# fig.colorbar(cb)
+# plt.tight_layout()
+# 
+# ax = axs[1]
+# modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
+# cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
+#                             # vmin=0, vmax=30,
+#                             norm=mpl.colors.LogNorm(vmin=0.1, 
+#                                                     vmax=10))
+# ax.set_title('Specific yield [%] - Meshgrid South to North', fontsize=12)
+# ax.set_xlim(0, 5500)
+# ax.set_ylim(40, 150)
+# ax.set_xticks([0,1000,2000,3000,4000,5000])
+# ax.set_yticks([50,75,100,125,150])
+# ax.set_xlabel('Distance [m]')
+# fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
+# fig.colorbar(cb)
+# plt.tight_layout()
+# =============================================================================
