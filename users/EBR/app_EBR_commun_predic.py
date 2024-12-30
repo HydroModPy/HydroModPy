@@ -78,6 +78,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #% Personal toolbox to handle NetCDF
 import trajectoire_toolbox as ttbox
+import geoconvert as gc
 
 #%% ARGUMENTS D'ENTREE
 try:
@@ -335,10 +336,9 @@ for i in range(0, 51):
 #     clim_df = clim_df.resample(freq_input).mean()
 # =============================================================================
     
-    timeseries = gc.time_series(
-        input_file = f,
-        coords = BV.geographic.watershed_shp, epsg_coords = epsg_coords, 
-        epsg_data = epsg_data,
+    clim_df = gc.time_series(
+        input_file = clim_ds_i,
+        coords = BV.geographic.watershed_shp, epsg_coords = BV.geographic.crs_proj, 
         )
     
     recharge = clim_df['ssro']
