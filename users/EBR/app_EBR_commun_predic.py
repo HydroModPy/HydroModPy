@@ -94,7 +94,7 @@ out_path = folder_root.root_folder_results()
 
 print(f"Les résultats des simulations seront stockés dans le dossier {out_path}\n")
 
-data_path = os.path.join(out_path, 'data_Cheze')
+data_path = os.path.join(out_path, 'LakeRes')
 if not os.path.exists(data_path):
     os.makedirs(data_path)
 if len(os.listdir(data_path)) == 0:
@@ -105,7 +105,7 @@ with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
     settings = yaml.load(file_object, Loader = yaml.SafeLoader)
             
 # Raffinage de la startdate
-if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
+if ('startdate' not in settings) | (settings['startdate'] in ["aujourd'hui", "today"]):
     settings['startdate'] = pd.to_datetime("today")   
 
 
@@ -287,35 +287,35 @@ list_success_modflow = []
 list_model_modflow = []
 
 # ---- Extraction des variables climatiques
-    forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
+forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
 # =============================================================================
-#     clim_ds = ttbox.ouvrir(
-#         os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), # 'C3S_2024-10.nc'),
-#         decode_times = True, decode_coords = 'all')
+# clim_ds = ttbox.ouvrir(
+#     os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), # 'C3S_2024-10.nc'),
+#     decode_times = True, decode_coords = 'all')
 # =============================================================================
-    clim_ds = ttbox.convertir_cwatm(
-        os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), 
-        'C3S',
-        )
-    
-    clim_ds = ttbox.georeferencer(
-        data = clim_ds,
-        dst_crs = 4326, include_crs = True)
-    
-    # Période
-    clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
-    
-    # Frequence
-    """
-    Toute cette gestion devrait à terme pouvoir être faite dans un script dédié,
-    de la même manière que pour sim2 :
-        BV.climatic.update_c3s_previsions(....)
-    Ce script téléchargerait automatiquement les données via l'API.
-    
-    NB : A terme il faudrait aussi pouvoir utiliser directement des donnees spatio-temporelles
-    Pour l'instant on convertit ca en chroniques (pandas).
-    """
-    # clim_ds = clim_ds.resample(freq_input).mean()
+clim_ds = ttbox.convertir_cwatm(
+    os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), 
+    'C3S',
+    )
+
+clim_ds = ttbox.georeferencer(
+    data = clim_ds,
+    dst_crs = 4326, include_crs = True)
+
+# Période
+clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
+
+# Frequence
+"""
+Toute cette gestion devrait à terme pouvoir être faite dans un script dédié,
+de la même manière que pour sim2 :
+    BV.climatic.update_c3s_previsions(....)
+Ce script téléchargerait automatiquement les données via l'API.
+
+NB : A terme il faudrait aussi pouvoir utiliser directement des donnees spatio-temporelles
+Pour l'instant on convertit ca en chroniques (pandas).
+"""
+# clim_ds = clim_ds.resample(freq_input).mean()
 
 # ---- Boucle sur chaque run disponible dans les données
 for i in range(0, 51):    

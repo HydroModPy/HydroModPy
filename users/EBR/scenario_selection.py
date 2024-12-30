@@ -21,7 +21,7 @@ import shutil
 from src.tools import folder_root
 
 #%% CHARGEMENT DU FICHIER DE PARAMETRES
-data_path = os.path.join(folder_root.root_folder_results(), 'data_Cheze')
+data_path = os.path.join(folder_root.root_folder_results(), 'LakeRes')
 
 with open(os.path.join(data_path, 'settings.yaml'), 'r') as file_object:
     settings = yaml.load(file_object, Loader = yaml.SafeLoader)
