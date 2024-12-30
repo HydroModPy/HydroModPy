@@ -31,6 +31,8 @@ echo:
 timeout /t 2
 
 rem Predictive simulations
+setlocal
+set PYTHONPATH=D:\2- Postdoc\2- Travaux\3_CWatM_EBR\source\Tools_AlexCoche
 set scenar=0
 rem for %%i in (%scenario_files%) do (
 for /f "tokens=*" %%i in (selected_scenarios.txt) do (
@@ -39,8 +41,9 @@ for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	echo SCENARIO !scenar!/%n_scenario% ^& ^
 	echo %%i ^& ^
 	echo: ^& ^
-	call python .\app_EBR_commun_predic.py !scenar! -l -t
+	call python .\app_EBR_commun_predic.py "%%i" -l -t
 )
+endlocal
 
 cmd /k
 
