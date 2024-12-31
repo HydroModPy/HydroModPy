@@ -136,7 +136,7 @@ class Settings:
         self.sel_random = sel_random
         self.sel_slice = sel_slice
     
-    def update_dis_temporal(self, dis_temp=False):
+    def update_dis_perlen(self, dis_perlen=False):
         """
         Activate the split discretization of recharge with time length.
 
@@ -145,7 +145,7 @@ class Settings:
         split_temp : bool, optional
             The default is False.
         """
-        self.dis_temp = dis_temp
+        self.dis_perlen = dis_perlen
         
     def update_well_pumping(self, well_coords=[], well_fluxes=[]):
         """

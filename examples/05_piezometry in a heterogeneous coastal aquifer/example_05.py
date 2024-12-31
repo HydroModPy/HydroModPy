@@ -209,7 +209,7 @@ box = False # or True
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = True
-dis_temp = False
+dis_perlen = False
 
 # Hydraulic settings
 nlay = 1
@@ -248,7 +248,7 @@ BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.settings.update_dis_temporal(dis_temp=dis_temp)
+BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 # Lateral heterogeneity
 shape_calib_zones_path = os.path.join(data_path, 'param_zones.shp')

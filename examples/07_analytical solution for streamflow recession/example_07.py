@@ -173,7 +173,7 @@ box = True # or False
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
-dis_temp =  True
+dis_perlen =  True
 check_grid = True
 
 # Ratio to reach 
@@ -238,7 +238,7 @@ BV.hydraulic.update_ss(ss)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_dis_temporal(dis_temp)
+BV.settings.update_dis_perlen(dis_perlen)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'

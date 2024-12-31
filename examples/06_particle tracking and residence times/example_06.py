@@ -228,7 +228,7 @@ BV.hydraulic.update_hk_decay(1/50, min_value=1e-10*24*3600, log_transf=False)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_dis_temporal(dis_temp=dis_temp)
+BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 #%% ---- MODELING
 

@@ -607,7 +607,7 @@ class Watershed:
                                         box=self.settings.box,
                                         sink_fill=self.settings.sink_fill,
                                         sim_state=self.settings.sim_state,                                        
-                                        dis_temp=self.settings.dis_temp,
+                                        dis_perlen=self.settings.dis_perlen,
                                         well_coords=self.settings.well_coords,
                                         well_fluxes=self.settings.well_fluxes,
                                         # Output settings

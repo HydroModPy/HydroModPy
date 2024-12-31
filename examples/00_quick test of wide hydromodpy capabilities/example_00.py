@@ -116,7 +116,7 @@ BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
 BV.settings.update_simulation_state('transient') # steady
 BV.settings.update_check_model(plot_cross=True, check_grid=True)
-BV.settings.update_dis_temporal(dis_temp=True)
+BV.settings.update_dis_perlen(dis_perlen=True)
 
 # Climatic settings
 time_index = pd.date_range(start='2017-01-01', end='2017-12-31', freq='M') # datetime in months
@@ -308,7 +308,7 @@ well_all_fluxes_plot = well_1_fluxes_plot + well_2_fluxes_plot
 fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=300)
 
 axb = ax.twinx()
-ax.step(sim_timeseries.index, sim_timeseries['recharge']*30*1000, lw=8, color='blue', label='Recharge total', where='pre', clip_on=False)
+ax.step(sim_timeseries.index, sim_timeseries['recharge']*30*1000, lw=8, color='dodgerblue', label='Recharge total', where='pre', clip_on=False)
 ax.step(sim_timeseries.index, sim_timeseries['outflow_drain']*30*1000, lw=5, color='red', alpha=1, label='Outflow at outlet', where='pre', clip_on=False)
 ax.set_xlim(pd.to_datetime('2017-01'), pd.to_datetime('2018-01'))
 ax.set_ylabel('Output flow results [mm/month]')
@@ -317,9 +317,9 @@ ax.xaxis.set_major_locator(mdates.YearLocator())
 ax.xaxis.set_minor_locator(mdates.MonthLocator())
 ax.xaxis.set_minor_formatter(mdates.DateFormatter('%m'))
 ax.legend(prop={'size': 12})
-axb.bar(sim_timeseries.index, well_all_fluxes_plot, clip_on=False, width=5, lw=0, color='green', label='Water from wells')
+axb.bar(sim_timeseries.index, well_all_fluxes_plot, clip_on=False, width=5, lw=0, color='darkorange', label='Water from wells')
 # axb.set_ylim(-110,0)
-axb.set_ylabel('Sum of pumping in wells [L$^3$/T]', rotation=270)
+axb.set_ylabel('Sum of pumping in wells [L$^3$/T]', rotation=270, labelpad=25)
 ax.set_title('SIMULATED: time 1/12')
 axb.legend(prop={'size': 12}, loc='lower left', facecolor='white')
 

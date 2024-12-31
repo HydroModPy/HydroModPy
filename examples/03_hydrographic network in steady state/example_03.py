@@ -175,7 +175,7 @@ sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = False
 check_grid = False
-dis_temp=False
+dis_perlen=False
 
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
@@ -230,7 +230,7 @@ BV.hydraulic.update_lay_decay(lay_decay)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_dis_temporal(dis_temp=dis_temp)
+BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
