@@ -294,7 +294,8 @@ class Lakeres:
         self.rtrn_by_lake[lake_id] = timeseries
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
-    def format_to_modflow(self, geographic, climatic, nper, thickfact, dem, dem_watershed_path):
+    def format_to_modflow(self, geographic, climatic, nper, thickfact, 
+                          dem, dem_watershed_path, export_lakarr=True):
         print("\nLakes/Reservoirs: formating all attributes...")
         
         #%%% Standardize lake identifiers
@@ -529,13 +530,14 @@ class Lakeres:
 #                       'w', **base_profile) as dst: 
 #             dst.write_band(1, lakarr.astype(int))
 # =============================================================================
-        toolbox.export_tif(
-            geographic.watershed_dem,
-            lakarr, #lakarr.astype(int): computation time appears to be a bit shorter when using float...
-            os.path.join(self.data_folder, "lakarr.tif"),
-            geographic.nodata,
-            geographic.crs_proj
-            )
+        if export_lakarr:
+            toolbox.export_tif(
+                geographic.watershed_dem,
+                lakarr, #lakarr.astype(int): computation time appears to be a bit shorter when using float...
+                os.path.join(self.data_folder, "lakarr.tif"),
+                geographic.nodata,
+                geographic.crs_proj
+                )
             
         #%%% Format the top of the lake/reservoir layer
         # ---------------------------------------------

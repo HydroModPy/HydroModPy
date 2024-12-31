@@ -1215,7 +1215,8 @@ class Modflow:
         if 'lakeres' in update_dict:
             self.lakeres = update_dict['lakeres']
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path)
+                self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path,
+                export_lakarr = False)
             
             lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
             lakarr[0] = lakarr_lay0
