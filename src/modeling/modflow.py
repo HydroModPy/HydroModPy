@@ -1234,6 +1234,71 @@ class Modflow:
                                                 lakarr = lakarr,
                                                 bdlknc = bdlknc,
                                                 flux_data = flux_data)
+            
+        #%%% Update StreaFlow Seepage
+        if self.streamflow_seepage is not None:
+            segment_data_1_rec = self.sfr2.segment_data[0]
+            segment_data_1_rec['runoff'] = 0
+            segment_data = {per: segment_data_1_rec.copy() for per in range(0, self.nper)}
+            
+            nstrm = len(self.sfr2.reach_data) # > 0
+            nss = len(self.sfr2.segment_data)
+            itmp = np.ones(self.nper, dtype = int) * -1 # first period input values repeated over time
+            
+            # Return flow (restitution)
+            if self.use_lakeres:
+                for num_id in self.lakeres.lake_by_num_id.keys():
+                    lake_id = self.lakeres.lake_by_num_id[num_id]
+                    nsegs = self.streamflow_seepage.segment_data_1[
+                        self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
+                    if self.lakeres.rtrn_by_lake[lake_id] is not None:
+                        for d in self.lakeres.rtrn_by_lake[lake_id].index:
+                            per = self.climatic.index.get_loc(d)
+                            runoff_prev = segment_data[per]['runoff'].copy()
+                            runoff = runoff_prev.copy()
+                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[self.climatic.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
+                            segment_data[per]['runoff'] = runoff_prev + runoff
+                            itmp[per] = nss # time-varying inputs
+            
+            # Runoff
+            if self.streamflow_seepage.runoff is not None:
+                if isinstance(self.streamflow_seepage.runoff, (int, float)):
+                    for per in range(0, self.nper):
+                        runoff_prev = segment_data[per]['runoff'].copy()
+                        runoff = runoff_prev + self.streamflow_seepage.runoff
+                        segment_data[per]['runoff'] = runoff
+                    itmp[:] = nss
+                elif isinstance(self.streamflow_seepage.runoff, pd.core.series.Series):
+                    for d in self.streamflow_seepage.runoff.index:
+                        per = self.climatic.index.get_loc(d)
+                        runoff_prev = segment_data[per]['runoff'].copy()
+                        runoff = runoff_prev + self.streamflow_seepage.runoff
+                        segment_data[per]['runoff'] = runoff
+                        itmp[per] = nss # time-varying inputs
+                elif isinstance(self.streamflow_seepage.runoff, xr.core.dataset.Dataset):
+                    print("xaray.Datasets not implemented yet for runoff input to SFR (modflow.py L781)")
+            
+            itmp[0] = nss # time-varying inputs
+            irdflag = 0 # to print input data
+            iptflag = 0 # to print streamflow routing outputs
+            dataset_5 = {per: [itmp[per], irdflag, iptflag] for per in range(0, self.nper)}
+            
+            nsfrpar = 0 # number of parameters
+            nparseg = 0 # number of parameters per segment
+            
+            self.sfr2 = flopy.modflow.ModflowSfr2(
+                self.mf, nstrm=nstrm, nss=nss, nsfrpar=nsfrpar, nparseg=nparseg,
+                isfropt=self.sfr2.isfropt, irtflg=self.sfr2.irtflg, dataset_5=dataset_5,
+                # streams parameters:
+                reach_data=self.sfr2.reach_data, segment_data=segment_data, 
+                # default values:
+                numtim=2, weight=0.75,
+                # to create the .sfr.out file
+                istcb2=self.sfr2.istcb2,
+                # uncertain how to use:
+                ipakcb=self.sfr2.ipakcb, 
+                const=86400, # m3/d, # value is not used because no Manning
+                )
     
     #%% POST-PROCESSING
     
