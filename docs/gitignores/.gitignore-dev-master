@@ -30,4 +30,6 @@ examples/results/*
 test/
 users/
 docs/gitignores/
+docs/community/
+docs/maintainers/
 

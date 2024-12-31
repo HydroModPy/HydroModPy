@@ -346,7 +346,7 @@ sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 cross_ylim = [-100,100]
 check_grid = True
-dis_temp = True
+dis_perlen = True
 
 # Climatic settings
 recharge = R.copy()
@@ -411,7 +411,7 @@ BV.hydraulic.update_cond_drain(cond_drain)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_dis_temporal(dis_temp=dis_temp)
+BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'

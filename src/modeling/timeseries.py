@@ -429,7 +429,7 @@ class Timeseries:
         
         ### residence_times
         try:
-            for key in ["1970-01-01"]:
+            for key in [0]:
                 try:
                     shp_frame = gpd.read_file(self.geographic.watershed_shp)
                     self.residence_times = self.residence_times.clip(shp_frame)

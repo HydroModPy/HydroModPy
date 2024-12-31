@@ -6105,7 +6105,7 @@ figm.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lass
 vers = 'isba2' # dichotomy isba
 iD_explo = 'e_isba2' # with isba recharge ==> change ss with decay factor (details for bad models)
 
-iD_explo = 'test15' # with isba recharge ==> change ss with decay factor (details for bad models)
+iD_explo = 'test14' # with isba recharge ==> change ss with decay factor (details for bad models)
 
 decay_factor = 2
 
@@ -6114,8 +6114,8 @@ sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 sim_state = 'transient'
 plot_cross = True
-nlay = 20
-lay_decay = 1.1 # 1 for no decay
+nlay = 10
+lay_decay = 1.5 # 1 for no decay
 verti_cond = None # or [ [1e-5, [0, 20]],
 verti_poro = None # or [ [1e-5, [0, 20]],
 cond_drain = None # or value of conductance
@@ -6257,13 +6257,11 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     
 
     # BV.hydraulic.update_hk_decay(1/100,1e-10*24*3600, False) # 0
-    BV.hydraulic.update_bottom(0) # None
-    BV.hydraulic.update_hk(1e-6*24*3600)
-    BV.hydraulic.update_hk_decay(1/100, 1e-10*24*3600, False) # 0
-    BV.hydraulic.update_sy(5/100)
-    BV.hydraulic.update_sy_decay((1/100)/2, 0.01/100, False)
-    BV.hydraulic.update_ss(1e-5)
-    BV.hydraulic.update_ss_decay((1/100)/2, 1e-10, False)
+    BV.hydraulic.update_hk_decay(1/100, 1e-13*24*3600, False) # 0
+    BV.hydraulic.update_bottom(bottom_val) # None
+    BV.hydraulic.update_hk(koptim_val)
+    BV.hydraulic.update_sy_decay(2/100, 1e-2/100, False)
+    BV.hydraulic.update_ss_decay(1e-5, 1e-10, False)
     
     dictio = {}
     
@@ -6271,48 +6269,47 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     list_model_success = []
     list_model_modflow = []
         
-    # for ip, poro_val in enumerate(list_porosity[:]):
+    for ip, poro_val in enumerate(list_porosity[:]):
         
-    
-    # Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
-
-    
-    
-    if cond_decay_val[0] == 0 :
-        str_cond_decay = cond_decay_val
-        str_poro_decay = cond_decay_val/decay_factor
-    else:
-        str_cond_decay = 1/cond_decay_val[0]
-        str_poro_decay = 1/(cond_decay_val[0])
-    if bottom_val==None:
-        str_bottom = thick
-    else:
-        str_bottom = bottom_val
-    
-    ip=0
-    poro_val=0
-    # if poro_val == 0:
-    #     str_poro_decay = 0
-    
-    model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
-                 str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
-                 str(ip)+'_'+\
-                 str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))+'-'
-    
-    print(model_name)
-    
-    BV.settings.update_model_name(model_name)
-    
-    # now = datetime.now()
-    # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
-
-    model_modflow = BV.preprocessing_modflow(for_calib=False)
-    
-    model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
+        BV.hydraulic.update_sy(poro_val)
         
-    list_model_name.append(model_name)
-    list_model_success.append(model_success)
-    list_model_modflow.append(model_modflow)
+        Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
+
+        BV.hydraulic.update_ss(Ss_formula)
+        
+        if cond_decay_val[0] == 0 :
+            str_cond_decay = cond_decay_val
+            str_poro_decay = cond_decay_val/decay_factor
+        else:
+            str_cond_decay = 1/cond_decay_val[0]
+            str_poro_decay = 1/(cond_decay_val[0])
+        if bottom_val==None:
+            str_bottom = thick
+        else:
+            str_bottom = bottom_val
+            
+        if poro_val == 0:
+            str_poro_decay = 0
+        
+        model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
+                     str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
+                     str(ip)+'_'+\
+                     str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))+'-'+str("{:.2e}".format(Ss_formula))
+        
+        print(model_name)
+        
+        BV.settings.update_model_name(model_name)
+        
+        # now = datetime.now()
+        # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
+
+        model_modflow = BV.preprocessing_modflow(for_calib=False)
+        
+        model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
+            
+        list_model_name.append(model_name)
+        list_model_success.append(model_success)
+        list_model_modflow.append(model_modflow)
                 
     # dictio['list_model_name'] = list_model_name
     # dictio['list_model_success'] = list_model_success

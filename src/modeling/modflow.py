@@ -59,7 +59,7 @@ class Modflow:
                  bin_path: str='bin', box: bool=True, sink_fill: bool=False, sim_state: str='steady', 
                  plot_cross: bool=True, cross_ylim: list=[], check_grid: bool=True,
                  # Climatic settings
-                 recharge=0.001, runoff=None, first_clim: str='mean', dis_temp: bool=False,
+                 recharge=0.001, runoff=None, first_clim: str='mean', dis_perlen: bool=False,
                  # Hydraulic settings
                  nlay: int=1, lay_decay: float=1.,
                  bottom: float=None, thick: float=100.,
@@ -196,7 +196,7 @@ class Modflow:
         
         self.sim_state = sim_state
         self.first_clim = first_clim  
-        self.dis_temp = dis_temp
+        self.dis_perlen = dis_perlen
             
         #%% Model parameters 
         
@@ -308,15 +308,15 @@ class Modflow:
             # Definition of period duration (forcing is constant on a period)
             #       As many periods as recharge values 
             #       Extracts from climatic data the time steps (self.perlen)            
-            if self.dis_temp == True:
+            if self.dis_perlen == True:
                 if isinstance(self.recharge, pd.core.series.Series):
                     if isinstance(self.recharge.index[0], datetime.datetime):
                         self.perlen = self.recharge.index.to_series().diff().dt.total_seconds().values/86400 # values converted into float days
                     else:
                         self.perlen = self.recharge.index.to_series().diff().values
-            if isinstance(self.dis_temp, list) == True:
-                self.perlen = self.dis_temp
-            if self.dis_temp == False:
+            if isinstance(self.dis_perlen, list) == True:
+                self.perlen = self.dis_perlen
+            if self.dis_perlen == False:
                 self.perlen = np.ones(len(self.recharge))
             if isinstance(self.recharge,(dict))==True:
                 self.perlen = np.ones(len(self.recharge))
