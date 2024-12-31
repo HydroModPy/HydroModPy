@@ -189,8 +189,8 @@ BV.lakeres.update_stageinit(
 # ---- Mise à jour des flux d'entrée 
 print("   . Mise à jour des flux d'entrée avec les scénarios de gestion :")
 
-dam_data_path = os.path.join(data_path, "Reservoir", "Scenarios de gestion",
-                             "selection", scenario)
+dam_data_path = os.path.join(data_path, "Reservoir", 
+                             "Scenarios de gestion", scenario)
 
 dam_input_df = pd.read_csv(dam_data_path,
                            sep = ";",

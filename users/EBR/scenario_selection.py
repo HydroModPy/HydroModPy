@@ -54,7 +54,7 @@ def main():
     
     # ---- CREATION D'UN FICHIER TEXTE (= 1re option)
     for sce in settings['scenarios']:
-        print(os.path.join(scenario_folder, sce)) 
+        print(sce) 
         # these prints will be saved in a .txt file by the batch script
 
     # ---- COPIER-COLLER LES SCENARIOS SELECTIONNES (= 2de option)
