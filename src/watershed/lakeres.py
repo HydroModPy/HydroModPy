@@ -25,6 +25,7 @@ import numbers
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+import numbers
 import rasterio as rio
 import matplotlib.pyplot as plt
 import whitebox
@@ -571,7 +572,7 @@ class Lakeres:
         stages = []
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
-            if isinstance(self.stageinit_by_lake[lake_id], (int, float)):
+            if isinstance(self.stageinit_by_lake[lake_id], numbers.Number):
                 stages.append(self.stageinit_by_lake[lake_id])
             else:
                 print(f" Warning: The lake/reservoir '{lake_id}' will be initially considered dry.")

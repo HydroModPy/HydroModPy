@@ -1216,6 +1216,23 @@ class Modflow:
             self.lakeres = update_dict['lakeres']
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
                 self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path)
+            
+            lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
+            lakarr[0] = lakarr_lay0
+            
+            bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
+            bdlknc[0] = bdlknc_lay0
+            
+            # NB: lakarr != self.lak.lakarr.array
+            
+            self.lak = flopy.modflow.ModflowLak(self.mf,
+                                                nlakes = self.lakeres.n_lakeres,
+                                                ipakcb = None,
+                                                theta = 0, # 0: explicit # 1: implicit
+                                                stages = stages,
+                                                lakarr = lakarr,
+                                                bdlknc = bdlknc,
+                                                flux_data = flux_data)
     
     #%% POST-PROCESSING
     
