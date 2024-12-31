@@ -205,6 +205,13 @@ old_year = dam_input_df.index[
     ].year[0] # Trouve l'année du scénario du mois qui correspond au mois de départ de la simulation prédictive
 dam_input_df.index = dam_input_df.index + pd.DateOffset(years = settings['startdate'].year - old_year) # corrige les années du scénario en fonction
 
+# Acolle 2 répétitions de l'année de dam_input_df, étant donné qu'on simule 6 mois et qu'ils sont parfois à cheval sur 2 ans
+dam_input_df_2 = dam_input_df.copy()
+dam_input_df_2.index = dam_input_df_2.index + pd.DateOffset(years = 1)
+dam_input_df = pd.concat([dam_input_df, dam_input_df_2], axis = 0)
+# Puis découpe cette chronique sur la période d'intérêt (date de départ + 6 mois)
+dam_input_df = dam_input_df[slice(settings['startdate'], settings['startdate'] + pd.DateOffset(months = 6))]
+
 # ---- Mise-à-jour des données d'entrée du réservoir
 print("   . Mise à jour des paramètres du réservoir")
 
