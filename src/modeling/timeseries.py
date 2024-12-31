@@ -154,10 +154,6 @@ class Timeseries:
         except:
             pass
         try:
-            self.saturated_storage = np.load(os.path.join(self.save_file, 'saturated_storage'+'.npy'), allow_pickle=True).item()
-        except:
-            pass
-        try:
             self.groundwater_storage = np.load(os.path.join(self.save_file, 'groundwater_storage'+'.npy'), allow_pickle=True).item()
         except:
             pass
@@ -298,9 +294,9 @@ class Timeseries:
         
         ### groundwater_storage
         try:
-            for key in self.saturated_storage:
-                calc = calc_sum(key, 'saturated_storage', self.saturated_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
-                self.mfdata.loc[key,'saturated_storage'] = calc
+            for key in self.groundwater_storage:
+                calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
+                self.mfdata.loc[key,'groundwater_storage'] = calc
         except:
             pass
         

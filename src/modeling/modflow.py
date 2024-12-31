@@ -930,7 +930,7 @@ class Modflow:
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
-        self.dict_saturated_storage = {}
+        self.dict_groundwater_storage = {}
         self.dict_persistency_index = {}
         self.dict_intermittency_monthly = {}
         self.dict_intermittency_weekly = {}
@@ -1047,7 +1047,7 @@ class Modflow:
                 output_path = self.tifs_file+'/groundwater_storage_t('+lead_numb+').tif'
                 if export_tif==True:
                     toolbox.export_tif(self.dem_watershed_path, self.wt_sto, output_path, -9999)
-                self.dict_saturated_storage[item] = self.wt_sto
+                self.dict_groundwater_storage[item] = self.wt_sto
 
             if accumulation_flux == True:
                 ### Accumulation flux
@@ -1081,8 +1081,8 @@ class Modflow:
             print('  ','Export groundwater flux')
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
-            print('  ','Export saturated storage')
-            np.save(self.save_file+'/saturated_storage', self.dict_saturated_storage)
+            print('  ','Export groundwater storage')
+            np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
             print('  ','Export accumulation flux')
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
