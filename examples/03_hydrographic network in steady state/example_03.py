@@ -57,7 +57,7 @@ importlib.reload(src)
 
 # Import HydroModPy modules
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
+from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
@@ -73,8 +73,6 @@ data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
 # Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -176,6 +174,8 @@ sink_fill = False # or True
 # sim_state = 'transient' # 'steady' or 'transient'
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = False
+check_grid = False
+dis_temp=False
 
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
@@ -187,12 +187,8 @@ nlay = 5
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 50 # if bottom is None, aquifer thickness
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]],
-                  #      [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 10 / 100 # -
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+sy = 10 / 100 # -
 
 ########## LOOP ##########
 list_hyd_cond = np.geomspace(1e-8,1e-3,10) * 24 * 3600 # m/day
@@ -217,7 +213,7 @@ BV.add_hydraulic()
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -225,18 +221,16 @@ BV.climatic.update_first_clim(first_clim)
 
 # Hydraulic settings
 BV.hydraulic.update_nlay(nlay) # 1
-BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_sy(sy)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
+BV.hydraulic.update_lay_decay(lay_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_split_temporal(split_temp=False)
+BV.settings.update_dis_temporal(dis_temp=dis_temp)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
@@ -252,7 +246,7 @@ list_success_modflow = []
 list_model_modflow = []
 
 for hyd_cond in list_hyd_cond:
-    BV.hydraulic.update_hyd_cond(hyd_cond)
+    BV.hydraulic.update_hk(hyd_cond)
     
     model_name = iD_set_simulations+'_'+str(round(hyd_cond,3))
     BV.settings.update_model_name(model_name)
@@ -302,12 +296,11 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
-                                                          actual_date=True, 
-                                                          subbasin_results=True,
-                                                          freq_time=freq_time) # or None
+                                                          datetime_format=False, 
+                                                          subbasin_results=True) # or None
         
         netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                                  actual_date=True)
+                                                  datetime_format=False)
 
 #%% ---- PLOT
 
@@ -384,7 +377,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     ax.set_yticks([90,100,110,120,130])
     ax.set_xlabel('Distance [m]')
     ax.set_ylabel('Elevation [m]')
-    ax.set_title('K = '+'{:.2e}'.format(model_modflow.hyd_cond.mean()/24/3600)+' m/s')
+    ax.set_title('K = '+'{:.2e}'.format(model_modflow.hk.mean()/24/3600)+' m/s')
     
     compt += 1
     
@@ -437,7 +430,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
     ax.set_xlabel('X [pixels]')
     ax.set_ylabel('Y [pixels]')
-    ax.set_title('K = '+'{:.2e}'.format(model_modflow.hyd_cond.mean()/24/3600)+' m/s')
+    ax.set_title('K = '+'{:.2e}'.format(model_modflow.hk.mean()/24/3600)+' m/s')
     
     compt += 1
     
@@ -466,8 +459,9 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                             r'_postprocess/_timeseries/', '_simulated_timeseries.csv'),
                             sep=';')
     
-    ax.plot(model_modflow.hyd_cond.mean()/24/3600,
-            simul_csv['seepage_areas'][0],
+
+    ax.plot(model_modflow.hk.mean()/24/3600,
+            simul_csv['seepage_areas'],
             marker='o', ms=8, lw=0, color='k')
     
     ax.set_xscale('log')

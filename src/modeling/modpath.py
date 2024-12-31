@@ -82,17 +82,15 @@ class Modpath:
             'watershed':inject particles only in cells inside watershed boundaries or 'domain': inject particles in all cells. The default is 'domain'.
         """
         
-        self.zone_partic = zone_partic
-        self.track_dir = track_dir
-        self.bore_depth = bore_depth
-        self.cell_div = cell_div
-        self.zloc_div = zloc_div
-        self.sel_random = sel_random
-        self.sel_slice = sel_slice
-        self.model_name = model_name
+        #%% Initialisation
+        
         self.geographic = geographic
+        
+        self.model_modflow = model_modflow
+        self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
+        
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
         if (sys.platform == 'win32') or (sys.platform == 'win64'):
@@ -102,8 +100,15 @@ class Modpath:
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
         
-        self.model_modflow = model_modflow
-        
+        # Parameters for particles
+        self.zone_partic = zone_partic
+        self.track_dir = track_dir
+        self.bore_depth = bore_depth
+        self.cell_div = cell_div
+        self.zloc_div = zloc_div
+        self.sel_random = sel_random
+        self.sel_slice = sel_slice
+
     #%% PRE-PROCESSING
     
     def pre_processing(self):
@@ -115,6 +120,8 @@ class Modpath:
         None.
 
         """
+        
+        #%% Load and import
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)
@@ -122,10 +129,13 @@ class Modpath:
         bud_file = '{}.cbc'.format(prefix)
         bas_file = '{}.bas'.format(prefix)
         lpf_file = '{}.upw'.format(prefix)
-
+        
+        # ---- flopy.modflow.Modflow.load
         self.mf = flopy.modflow.Modflow.load(nam_file, model_ws=self.full_path, verbose=False, check=False)
         
+        # ---- flopy.modflow.ModflowBas.load
         bas = flopy.modflow.ModflowBas.load(bas_file, self.mf)
+        # ---- flopy.modflow.ModflowUpw.load
         lpf = flopy.modflow.ModflowUpw.load(lpf_file, self.mf, check=False)
         nlay = self.mf.nlay
         ncol = self.mf.ncol
@@ -133,6 +143,7 @@ class Modpath:
         laytype = lpf.laytyp.array
         iboundData = bas.ibound.array
         
+        # ---- flopy.modpath.Modpath6
         self.mp = flopy.modpath.Modpath6(modelname=self.mf.name,
                                          model_ws=self.full_path,
                                          simfile_ext='mpsim',
@@ -154,11 +165,14 @@ class Modpath:
         self.mp.dis_file = dis_file
         self.mp.head_file = head_file
         self.mp.budget_file = bud_file
+                
+        #%% Specific parametrization
         
         if self.track_dir=='forward':
             track = 1
             zone_opt = 1
-            zone_inj = 1   
+            zone_inj = 1
+            
         if self.bore_depth==None:
             drn = np.ones((nrow, ncol))
             compti = 0
@@ -198,21 +212,22 @@ class Modpath:
                               1, # BudgetOutputOption : 1 = No budget checking 2 = A summary of cell-by-cell budgets is printed in the Listing File 3 = A list of cells is specified for which detailed budget information is summarized in the Listing File 4 = Trace mode is in effect
                               zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
                               1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
-                              1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.
-        
+                              1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
         # print(track, zone_opt, zone_inj)
+        
+        # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
                                   group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=zone_inj) # szone
         
         mask_dem = imageio.imread(self.zone_partic)
 
+        # ---- flopy.modpath.mp6sim.StartingLocationsFile
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
         
         prow = self.cell_div
         pcol = self.cell_div
         if self.zloc_div == True:
-            # play = self.cell_div
-            play = 2
+            play = self.cell_div
         else:
             play = 1
         if self.bore_depth != None:
@@ -222,10 +237,10 @@ class Modpath:
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem>0)*prow*pcol*play)
               
         hds_1c = fpu.HeadFile(head_file)
-        head_1c = hds_1c.get_alldata(mflay=None)
-        
+        # head_1c = hds_1c.get_alldata(mflay=None)
+        head_1c = hds_1c.get_data(totim=1)        
         wt = pp.get_water_table(head_1c, -100) # -9999
-        wt = np.ones((nrow, ncol)) * wt
+        # wt = np.ones((nrow, ncol)) * wt
         
         compt = 0
         for i in range(0, nrow):
@@ -237,18 +252,15 @@ class Modpath:
                                 stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
                                 for k in range(0, nlay):
                                     if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
-                                    # if head_1c[0][k, i, j] > 0:
-                                        # print('True', k)
                                         stldata[compt]['k0'] = k
-                                        # print(i, j)
                                         break
                                 # Calculate the starting location for each sub-cell
                                 stldata[compt]['j0'] = j
                                 stldata[compt]['i0'] = i
                                 stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
                                 stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
-                                # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2)
-                                # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2)
+                                # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
+                                # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
                                 if k == 0:
                                     ztop = self.mf.dis.top.array[i,j]
                                 else:
@@ -260,15 +272,18 @@ class Modpath:
                                     stldata[compt]['zloc0'] = val_z_wt
                                 else:
                                     if self.bore_depth == None:
-                                        # stldata[compt]['zloc0'] = (val_z_wt +1) * 1/(play +1) 
+                                        # stldata[compt]['zloc0'] = (val_z_wt+1)*1/(play +1)
                                         stldata[compt]['zloc0'] = 0
                                     else:
-                                        # z0 not exist at this step ==> need to find the good k (layer) to inject at different depth
-                                        # stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
+                                        # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
+                                        # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
                                         stldata[compt]['k0'] = l
                                         stldata[compt]['zloc0'] = 0.5 # Find a way to associate altitude/depth of injection with k and zloc0
                                 compt = compt + 1
         
+        #%% Select random particles to inject
+        
+        # Random
         if self.sel_random != None:
             if self.sel_random >= len(stldata):
                 val_random = len(stldata) - 1
@@ -277,35 +292,33 @@ class Modpath:
             self.point_data = np.random.choice(stldata, val_random)
             self.point_data = self.point_data.view(np.recarray)
             self.point_data = self.point_data[np.argsort(self.point_data['particleid'])] # do not work for pathlines, bug sometimes
-            print('randoming')
         else:
             self.point_data = stldata
         
+        # Slicing
         if self.sel_slice != None:
             self.point_data = stldata[::self.sel_slice]
-            print('slicing')
-            
-        # print(self.point_data)
         
-        # if sorted(self.point_data['particleid']) == list(self.point_data['particleid']):
-        #     print("list1 is sorted")
-        # else:
-        #     print("list is not sorted")
-
+        #%% Finalize settings
+        
         stl.data = self.point_data
         
-        self.poro_modpath = self.model_modflow.ps
+        self.poro_modpath = self.model_modflow.sy
         self.ss_modpath = self.model_modflow.ss
         
-        flopy.modpath.Modpath6Bas(self.mp, hnoflo=-9999, hdry=-100,
+        # ---- flflopy.modpath.Modpath6Basopy.modpath.mp6sim.StartingLocationsFile
+        flopy.modpath.Modpath6Bas(self.mp,
+                                  hnoflo=-9999,
+                                  hdry=-100,
                                   # def_iface=[6, 6],
-                                  def_face_ct=0,
-                                  laytyp=laytype, ibound=iboundData,
-        										prsity=self.poro_modpath, prsityCB=self.ss_modpath,
-                                  extension='mpbas', unitnumber=86)
-        
-        self.mp.write_input()
-        
+                                  def_face_ct=0,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
+                                  laytyp=laytype,
+                                  ibound=iboundData,
+        										prsity=self.poro_modpath,
+                                  prsityCB=self.ss_modpath,
+                                  extension='mpbas',
+                                  unitnumber=86)
+                
     #%% PROCESSING
     
     def processing(self,
@@ -329,7 +342,7 @@ class Modpath:
         """
         # Create modflow files
         if write_model == True:
-            self.mp.write_input()  
+            self.mp.write_input()
        
         # Run modflow files
         success_model = False
@@ -367,21 +380,20 @@ class Modpath:
             Export random pathlines. The default is None.
 
         """
+        
+        # The outputs to create
         self.starting_point = starting_point
         self.ending_point = ending_point
         self.pathlines_shp = pathlines_shp
         self.particles_shp = particles_shp
         
+        # Path and load
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
         toolbox.create_folder(self.particles_file)
-        
+                
         grid_model = model_modpath.mf.modelgrid
-        
-        path_mpend = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
-        endobj = flopy.utils.EndpointFile(path_mpend+'.mpend')
-        e = endobj.get_alldata()
         
         crs = model_modpath.geographic.crs_proj
         if isinstance(crs, (int,float)) == True:
@@ -390,7 +402,14 @@ class Modpath:
             epsg = int(crs.split(':')[-1])
         else:
             epsg = None
+            
+        # Import mpend file
+        path_mpend = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
+        # ---- flopy.utils.EndpointFile
+        endobj = flopy.utils.EndpointFile(path_mpend+'.mpend')
+        e = endobj.get_alldata()
         
+        # Create ending point file
         if ending_point == True:
             endobj.write_shapefile(endpoint_data=e,
                                    shpname=os.path.join(self.particles_file, 'ending.shp'),
@@ -398,6 +417,7 @@ class Modpath:
                                    mg=grid_model,
                                    epsg=epsg)
         
+        # Create starting point file
         if starting_point == True:
             endobj.write_shapefile(endpoint_data=e,
                                    shpname=os.path.join(self.particles_file, 'starting.shp'),
@@ -405,9 +425,11 @@ class Modpath:
                                    mg=grid_model,
                                    epsg=epsg)
         
+        # Import mppth file
         if (pathlines_shp == True) or (particles_shp == True):
         
             path_mppth = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
+            # ---- flopy.utils.PathlineFile
             pthobj = flopy.utils.PathlineFile(path_mppth+'.mppth')
             pth_data = pthobj.get_alldata()
                 
@@ -430,6 +452,7 @@ class Modpath:
             else:
                 pth_data_save = pth_data
             
+            # Create pathlines file
             if pathlines_shp == True:
                 pthobj.write_shapefile(pathline_data=pth_data_save,
                                         shpname=os.path.join(self.particles_file, 'pathlines.shp'),
@@ -439,6 +462,7 @@ class Modpath:
                                         epsg=epsg,
                                         verbose=False)
             
+            # Create particles file
             if particles_shp == True:
                 pthobj.write_shapefile(pathline_data=pth_data_save,
                                         shpname=os.path.join(self.particles_file, 'particles.shp'),
@@ -448,19 +472,46 @@ class Modpath:
                                         epsg=epsg,
                                         verbose=False)
 
+    #%% Filtering and normalization functions
+    
     def filt_processing(self,
                         model_modpath:object,
-                        norm_flux: bool=False,
+                        norm_flux: bool=False, # weight time by fluxes (recharge)
                         filt_time: bool=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
                         filt_seep: bool=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
                         filt_inout: bool=True, # delete particles in and out in the same cell (first layer)
                         calc_rtd: bool=True, # compute residence time distribution
                         random_id: int=None # select randomly to keep
                         ):
+    
+        # Convert days in years
+        def update_time(df, filt_time):
+            if filt_time == True:
+                df['time_y'] = df['time'] / 365 # convert in years
+                try:
+                    df['time_win_y'] = df['time_win'] / 365 # convert in years
+                except:
+                    pass
+                df = df[df['time']>0]
+            return df
         
+        # Keep particles ending in seepage and not in/out in the same cell
+        def update_locout(df, filt_seep, filt_inout):
+            if filt_seep == True:
+                if self.track_dir == 'forward':
+                    df = df[df['k']<=1] # out in first layer
+                    df = df[df['zone']==1] # out in seepage zone
+            if filt_inout == True:
+                df = df[df.i0.astype(str)+'-'+df.j0.astype(str)!=
+                        df.i.astype(str)+'-'+df.j.astype(str)] # NOT IN AND OUT FOR SAME CELL
+            keep_particles = df['particleid']
+            return df, keep_particles
+        
+        # Paths
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
         
+        # Create a new shapefile named '_weighted'
         if norm_flux == True:
             modeldir = self.full_path+'/'
             namepath = model_modpath.model_name
@@ -507,29 +558,7 @@ class Modpath:
             end_weighted = end.copy()
             end_weighted.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             
-            # if self.track_dir == 'backward':
             recharge_list = np.ones(len(end))*recharge_raw.mean()
-            
-            def update_time(df, filt_time):
-                if filt_time == True:
-                    df['time_y'] = df['time'] / 365 # convert in years
-                    try:
-                        df['time_win_y'] = df['time_win'] / 365 # convert in years
-                    except:
-                        pass
-                    df = df[df['time']>0]
-                return df
-            
-            def update_locout(df, filt_seep, filt_inout):
-                if filt_seep == True:
-                    if self.track_dir == 'forward':
-                        df = df[df['k']<=1] # out in first layer
-                        df = df[df['zone']==1] # out in seepage zone
-                if filt_inout == True:
-                    df = df[df.i0.astype(str)+'-'+df.j0.astype(str)!=
-                            df.i.astype(str)+'-'+df.j.astype(str)] # NOT IN AND OUT SAME CELL
-                keep_particles = df['particleid']
-                return df, keep_particles
             
             start_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             end_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
@@ -548,11 +577,10 @@ class Modpath:
             start_process['time_win'] = time_win
             end_process['time_win'] = time_win
             
-            # end_process[end_process['time_win']<=0] = np.nan
             end_up = update_time(end_process, filt_time)
             end_up, keep_particles = update_locout(end_up, filt_seep, filt_inout)
             end_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
-            # start_process[start_process['time_win']<=0] = np.nan
+
             start_up = update_time(start_process, filt_time)
             start_up, keep_particles = update_locout(start_up, filt_seep, filt_inout)
             start_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
@@ -578,12 +606,7 @@ class Modpath:
             
             if self.particles_shp == True:
                 particles_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
-                # if self.track_dir == 'forward':
-                #     particles_process['time_win'] = (end_process['time'])*end_process['rchPerc']
-                # if self.track_dir == 'backward':
-                #     particles_process['time_win'] = (start_process['time'])*start_process['rchPerc']
                 particles_up = update_time(particles_process, filt_time)
-                # particles_up = particles_up[particles_up['particleid'].isin(keep_particles)]
                 if random_id != None:
                     if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
@@ -594,18 +617,23 @@ class Modpath:
                             id_particles_random = pickle.load(f)
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
                 particles_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
-            
+        
+        #%% Plot RTD
+        
         if calc_rtd == True:
             if self.track_dir == 'forward': 
                 end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             if self.track_dir == 'backward': 
                 end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            shp = gpd.read_file(self.geographic.watershed_shp)
-            # end = end.clip(shp)
-            end[end['time_win_y']==0] = np.nan
+            try:
+                shp = gpd.read_file(self.geographic.watershed_shp)
+                end = end.clip(shp)
+            except:
+                pass
+            end[end['time_win']==0] = np.nan
             end = end.dropna()
             try:
-                tau = np.average(end['time_win_y'], weights=end['rchPerc'])
+                tau = np.average(end['time_win'], weights=end['rchPerc'])
                 def pdf_function(M, nbin, Weight):    
                     bin_min = np.quantile(M, 0.01)
                     bin_max = np.quantile(M, 0.99)
@@ -615,8 +643,8 @@ class Modpath:
                     xh =  (binEdges[1:] + binEdges[:-1])/2
                     xh = np.array(xh)
                     return (xh, pdf)
-                nbin = int(2*len(end['time_win_y'])**(2/5))          #Scott's Rules
-                [xh, yh] = pdf_function(end['time_win_y']/tau, nbin, end.rchPerc)
+                nbin = int(2*len(end['time_win'])**(2/5))          #Scott's Rules
+                [xh, yh] = pdf_function(end['time_win']/tau, nbin, end.rchPerc)
                 idzeros = np.where(yh != 0)
                 xfil = xh[idzeros]
                 yfil = yh[idzeros]
@@ -636,153 +664,24 @@ class Modpath:
                 
                 fig = plt.figure(figsize=(6,4))
                 ax = fig.add_subplot(111)
-                ax.plot(xh, yh, '.', lw=0, c='darkred')
-                ax.plot(xfil, yfil, '-', lw=2, c='darkred')
-                ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='navy')
+                ax.plot(xfil, yfil, '-', lw=2, c='red', label='Binning on particles')
+                ax.plot(xh, yh, marker='o', markeredgecolor='none', lw=0, c='red')
+                ax.plot(10**x_fit, 10**y_fit, '-', lw=2, c='k', label='Fitting curve')
                 ax.set_ylabel("PDF")
                 ax.set_xlabel("t / "+r'$\tau$')
                 ax.set_xscale('log')
-                ax.set_title('Residence times')
+                ax.set_title('Residence times distribution')
+                ax.legend(loc='upper right')
                 # ax.set_xlim(tmin, tmax)
                 # ax.set_ylim(-0.1, 13)
             except:
                 pass
-                    
-#%% KEEP
-
-"""
-rech_loop = np.zeros([nrow,ncol])
-for i in range(0,nrow):
-    for j in range (0,ncol):
-        if Qz_rech[0,i,j] == 0:
-            rech_loop[i,j] = -recharge*dcol*drow
-        else:
-            rech_loop[i,j] = Qz_rech[0,i,j]                        
-rech = -rech_loop
-rech[-1,:] = 0
-rech[:,-1] = 0
-rech[:,0] = 0
-"""
-
-"""
-if residence_times == True:
-    print('residence_times')
-    # path_file = "D:/Users/abherve/DYNAMIC/Lasset/results_simulations/case4_0.05500000000000001/case4_0.05500000000000001"
-    # res_time = np.zeros(np.shape(imageio.imread(BV.geographic.watershed_dem)))
-    # pthobj = flopy.utils.PathlineFile(self.path_file+'.mppth')
-    # pth_data = pthobj.get_alldata()
-    res_time = np.zeros(np.shape(self.dem)) * np.nan
-    endobj = flopy.utils.EndpointFile(self.path_file+'.mpend')
-    e = endobj.get_alldata()
-    for k in range(len(e)):
-        # time_out = pth_data[j].time[0] # explore pathlines
-        # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
-        # res_time[e[j].i,e[j].j] = np.log10(e[j].time) # where outputed
-        res_time[e[k].i,e[k].j] = (e[k].time) / 365 # where outputed in years
-    if export_tif==True:
-        output_path = self.tifs_file+'/residence_times_t('+lead_numb+').tif'
-        toolbox.export_tif(self.dem_path, res_time, output_path, -9999)
-    self.dict_residence_times[item] = res_time
-    
-try:
-    if residence_times == True:
-        np.save(self.save_file+'/residence_times', self.dict_residence_times)
-except:
-    pass
-"""
-
-"""
-stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
-prow = 3
-pcol = 3
-
-# To apply particles only on the pixels of the catchment, buff box
-if self.zone_partic == 'watershed':
-    mask_dem = self.geographic.dem_clip
-    stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem != self.geographic.nodata)*pcol*prow)
-if self.zone_partic == 'domain':
-    mask_dem = self.geographic.dem_clip
-    stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem >= self.geographic.nodata)*pcol*prow)
-if self.zone_partic == 'path':
-    mask_dem = imageio.imread(self.path)
-    stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem > 0)*pcol*prow)
-
-hds_1c = fpu.HeadFile(head_file)
-head_1c = hds_1c.get_alldata(mflay=None)
-
-head = np.full((nrow, ncol), np.nan)
-for i in range(0, nrow):
-    for j in range(0, ncol):
-        for k in range(0, nlay):
-            if head_1c[0][k][i, j] > 0:
-                head[i, j] = head_1c[0][k][i, j]
-                break
-
-compt = 0 
-for i in range(0, nrow):
-    for j in range(0, ncol):
-        if self.zone_partic == 'watershed':
-            if self.geographic.dem_clip[i,j] != self.geographic.nodata: # active or note
-                if head_1c[0][0][i][j] != 0.48:
-                    for ii in range (0, prow):
-                        for jj in range (0, pcol):
-                            stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
-                            for k in range(0, nlay):
-                                if head_1c[0][k, i, j] > 0:
-                                    stldata[compt]['k0'] = k
-                                    break
-                            stldata[compt]['j0'] = j
-                            stldata[compt]['i0'] = i
-                            stldata[compt]['zloc0'] = 1
-                            stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
-                            stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
-                            compt = compt + 1                                    
-        if self.zone_partic == 'domain':
-            if self.geographic.dem_clip[i,j] >= self.geographic.nodata: # active or note
-                if head_1c[0][0][i][j] != 0.48:
-                    for ii in range (0, prow):
-                        for jj in range (0, pcol):
-                            stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
-                            for k in range(0, nlay):
-                                if head_1c[0][k, i, j] > 0:
-                                    stldata[compt]['k0'] = k
-                                    break
-                            stldata[compt]['j0'] = j
-                            stldata[compt]['i0'] = i
-                            stldata[compt]['zloc0'] = 1
-                            stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
-                            stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
-                            # print(compt)
-                            compt = compt + 1                               
-        if self.zone_partic == 'path':
-            if mask_dem[i,j] > 0: # active or note
-                if head_1c[0][0][i][j] != 0.48: # TO CHANGE
-                    for ii in range (0, prow):
-                        for jj in range (0, pcol):
-                            stldata[compt]['label'] = 'p' + str(compt + 1) + '-'+str(ii)+ '-'+str(jj)
-                            for k in range(0, nlay):
-                                if head_1c[0][k, i, j] > 0:
-                                    stldata[compt]['k0'] = k # AG : Paticules injected 
-                                    break
-                            stldata[compt]['j0'] = j
-                            stldata[compt]['i0'] = i
-                            stldata[compt]['zloc0'] = 1 
-                            stldata[compt]['xloc0'] = (ii+0.1)/(prow+0.2)
-                            stldata[compt]['yloc0'] = (jj+0.1)/(pcol+0.2)
-                            # print(compt)
-                            compt = compt + 1
-"""
-
-"""
-head = np.full((nrow, ncol), np.nan)
-for i in range(0, nrow):
-    for j in range(0, ncol):
-        for k in range(0, nlay):
-            if head_1c[0][k][i, j] > 0:
-                head[i, j] = head_1c[0][k][i, j]
-                break
-"""
 
 #%% NOTES
 
-#ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
+# print(self.point_data)
+
+# if sorted(self.point_data['particleid']) == list(self.point_data['particleid']):
+#     print("list1 is sorted")
+# else:
+#     print("list is not sorted")
