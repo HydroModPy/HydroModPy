@@ -28,6 +28,8 @@ class Settings:
     
     def __init__(self):
         print('Init settings module to set model parameter')
+        
+        self.update_well_pumping()
     
     #%% UPDATE
     
@@ -57,12 +59,12 @@ class Settings:
     
     def update_sink_fill(self, sink_fill):
         """
-        ???
+        xxx
         
         Parameters
         ----------
-        sink_fill : ???
-            ???.
+        sink_fill : xxx
+            xxx
         """
         self.sink_fill = sink_fill
     
@@ -92,7 +94,7 @@ class Settings:
         """
         self.sim_state = sim_state
         
-    def update_active_plot(self, plot_cross=True):
+    def update_check_model(self, plot_cross=True, check_grid=True, cross_ylim=[]):
         """
         Activate of not the cross-section plot of the aquifer model.
 
@@ -102,14 +104,16 @@ class Settings:
             The default is True.
         """
         self.plot_cross = plot_cross
+        self.cross_ylim = cross_ylim
+        self.check_grid = check_grid
     
     def update_input_particles(self, zone_partic, # path of a raster (injecting where pixels > 0)
-                                      cell_div = 1, # 1
-                                      zloc_div = False,
-                                      bore_depth = None, # '[0,5,10] for 3 particles
-                                      track_dir = 'forward', # backward
-                                      sel_random = None,
-                                      sel_slice = None):
+                                     cell_div = 1, # 1
+                                     zloc_div = False,
+                                     bore_depth = None, # '[0,5,10] for 3 particles
+                                     track_dir = 'forward', # backward
+                                     sel_random = None,
+                                     sel_slice = None):
         """
         Select the limited area to inject particles onto the surface..
 
@@ -132,7 +136,7 @@ class Settings:
         self.sel_random = sel_random
         self.sel_slice = sel_slice
     
-    def update_split_temporal(self, split_temp=False):
+    def update_dis_temporal(self, dis_temp=False):
         """
         Activate the split discretization of recharge with time length.
 
@@ -141,7 +145,19 @@ class Settings:
         split_temp : bool, optional
             The default is False.
         """
-        self.split_temp = split_temp
+        self.dis_temp = dis_temp
+        
+    def update_well_pumping(self, well_coords=[], well_fluxes=[]):
+        """
+        xxx
+        
+        Parameters
+        ----------
+        xxx : xxx
+            xxx
+        """
+        self.well_coords=well_coords
+        self.well_fluxes=well_fluxes
     
 #%% NOTES
         
