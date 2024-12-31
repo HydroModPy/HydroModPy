@@ -355,7 +355,7 @@ for i in range(0, 51):
     
     # ---- Mise à jour du modèle modflow
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
-    model_modflow = BV.update_modflow(
+    BV.update_modflow(
         model_modflow, 
         {'heads': prev_head_3D, 
          'recharge': recharge,

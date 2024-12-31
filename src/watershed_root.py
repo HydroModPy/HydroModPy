@@ -831,9 +831,8 @@ class Watershed:
             Python object of the hydraulic model
         """
         # Update Modflow
-        model_modflow = model_modflow.update(model_modflow, update_dict)
-        
-        return model_modflow
+        model_modflow.update(model_modflow, update_dict)
+
 
     #%% MODPATH MODEL        
     
