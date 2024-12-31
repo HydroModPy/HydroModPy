@@ -716,15 +716,22 @@ class Lakeres:
                 dem = np.where(dem == -9999, geographic.nodata, dem)
                 # Update original DEM data
                 val = bathy_dem.read(1, window=window)
-                val = np.where(dem != geographic.nodata, dem, val) 
-                bathy_dem.write_band(1, val, window=window)
-        
-        # Repeat the generation of geographic maps
-        geographic.processing()
-        
-        # Remove the corrected original DEM and replace it with the previous backup
-        os.remove(geographic.dem_path)
-        os.rename(backup_path, geographic.dem_path)
+                val_up = np.where(dem != geographic.nodata, dem, val)
+                if not np.array_equal(val, val_up):
+                    bathy_dem.write_band(1, val_up, window=window)
+                    
+                    # Repeat the generation of geographic maps
+                    geographic.processing()
+                    
+                    # Remove the corrected original DEM and replace it with the previous backup
+                    os.remove(geographic.dem_path)
+                    os.rename(backup_path, geographic.dem_path)
+                    
+                else: # bathymetry is identical to dem
+                    try:
+                        os.remove(backup_path)
+                    except:
+                        0     
         
 
     #%% FORMAT OUTLETS

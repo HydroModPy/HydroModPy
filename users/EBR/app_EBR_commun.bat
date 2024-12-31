@@ -28,7 +28,7 @@ call python .\app_EBR_commun.py -l -t
 echo:
 echo SIMULATIONS DES 6 PROCHAINS MOIS : %n_scenario% SCENARIOS [nouvelles fenetres]
 echo:
-timeout /t 2
+timeout /t 5
 
 rem Predictive simulations
 setlocal
@@ -42,6 +42,7 @@ for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	echo %%i ^& ^
 	echo: ^& ^
 	call python .\app_EBR_commun_predic.py "%%i" -l -t
+	timeout /t 10
 )
 endlocal
 
