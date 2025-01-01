@@ -95,25 +95,27 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
-#%% ---- ADD DATA
+#%% ---- ADD DATA PLOT
+
+# General plot of the study site
+visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
+
+# Add hydrological data
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
 BV.add_intermittency(data_path, 'regional onde stations.shp')
 
 # Extract a subbasin inside the study site
 BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
-#%% ---- WATERSHED MAP
-
-# General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
+# Visualization
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
-# STREAMFLOW PLOT
+#%% ---- PLOT STREAMFLOW 
 
 Qobs = pd.read_csv(data_path+'/'+'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
 Qobs = Qobs.squeeze()

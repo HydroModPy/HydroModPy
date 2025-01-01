@@ -121,6 +121,8 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 #%% DATA
 
+visualization_watershed.watershed_local(dem_path, BV)
+
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
@@ -132,7 +134,6 @@ BV.add_intermittency(data_path, 'regional onde stations.shp')
 BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
@@ -170,7 +171,6 @@ if clim_data_mode == 'SIM2':
         print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
         print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
     else:
-        fig, ax = plt.subplots(1,1, figsize=(6,3))
         if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
             R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
             r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
@@ -197,7 +197,7 @@ fig, ax = plt.subplots(1,1, figsize=(6,3))
 ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
 ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
 ax.set_xlabel('Date')
-ax.set_ylabel('[m/month]')
+ax.set_ylabel('[m/d]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 

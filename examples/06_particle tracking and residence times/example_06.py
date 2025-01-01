@@ -173,7 +173,7 @@ box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
-dis_temp = False
+dis_perlen = False
 
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000

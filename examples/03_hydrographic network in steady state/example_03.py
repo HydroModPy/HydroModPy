@@ -116,6 +116,8 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 #%% DATA
 
+visualization_watershed.watershed_local(dem_path, BV)
+
 if from_dem == None:
     # Clip specific data at the catchment scale
     BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
@@ -129,8 +131,8 @@ if from_dem == None:
 
 # General plot of the study site
 if from_dem == None:
-    visualization_watershed.watershed_local(dem_path, BV)
     visualization_watershed.watershed_geology(BV)
+    
 visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
