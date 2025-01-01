@@ -117,13 +117,14 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 #%% INIT
 
+visualization_watershed.watershed_local(dem_path, BV)
+
 # Clip specific data at the catchment scale
 oceanic_path = data_path
 BV.add_oceanic(oceanic_path) # import specific data of tide temporal dynamcis
 BV.add_piezometry() # download data on the web
 
 # General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_dem(BV)
 
 #%% PIEZOMETRY
@@ -326,7 +327,7 @@ ax.xaxis.set_minor_locator(months_maj)
 ax.legend(loc='upper right', fontsize=8)
 ax.set_ylabel('Elevation [masl]')
 ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
-ax.set_title('Watertable')
+ax.set_title('Calibration on the water table')
 
 ax = axs[1]
 # ax.axhline(dem_data[30,30], label='Topography', color='gold', lw=2)

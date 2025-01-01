@@ -243,6 +243,8 @@ sim_timeseries = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess
 
 print('PLOT: WATERSHED INFO')
 
+# General plot of the study site
+visualization_watershed.watershed_local(dem_path, BV)
 visu = visualization_results.Visualization(BV, model_name)
 visu.visual2D(object_list = ['map','grid'], color_scale = [(None,None),(None,None)], lines=None)
 
