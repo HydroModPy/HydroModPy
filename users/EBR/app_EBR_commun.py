@@ -463,7 +463,7 @@ Stock_Cheze_xls_folder = os.path.join(data_path, "Reservoir",
 try:
     Stock_Cheze_xls_path = os.path.join(
         Stock_Cheze_xls_folder,
-        f"Villejean_Stock_Cheze_{settings['startdate'].year}_val.xlsx")
+        f"Villejean_Stock_Cheze_{pd.to_datetime('today').year}_val.xlsx")
     data = pd.read_excel(
         Stock_Cheze_xls_path,
         sheet_name = "Histos",
@@ -474,7 +474,7 @@ try:
 except:
     Stock_Cheze_xls_path = os.path.join(
         Stock_Cheze_xls_folder,
-        f"Villejean_Stock_Cheze_{settings['startdate'].year-1}_val.xlsx")
+        f"Villejean_Stock_Cheze_{pd.to_datetime('today').year-1}_val.xlsx")
     data = pd.read_excel(
         Stock_Cheze_xls_path,
         sheet_name = "Histos",
