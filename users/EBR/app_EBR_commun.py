@@ -463,19 +463,26 @@ Stock_Cheze_xls_folder = os.path.join(data_path, "Reservoir",
 try:
     Stock_Cheze_xls_path = os.path.join(
         Stock_Cheze_xls_folder,
-        f"Villejean_Stock_Cheze_{datetime.datetime.now().year}_val.xlsx")
+        f"Villejean_Stock_Cheze_{settings['startdate'].year}_val.xlsx")
+    data = pd.read_excel(
+        Stock_Cheze_xls_path,
+        sheet_name = "Histos",
+        header = 3, 
+        # index_col = 0,
+        # skiprows = 3,
+        )
 except:
     Stock_Cheze_xls_path = os.path.join(
         Stock_Cheze_xls_folder,
-        f"Villejean_Stock_Cheze_{datetime.datetime.now().year-1}_val.xlsx")
-        
-data = pd.read_excel(
-    Stock_Cheze_xls_path,
-    sheet_name = "Histos",
-    header = 3, 
-    # index_col = 0,
-    # skiprows = 3,
-    )
+        f"Villejean_Stock_Cheze_{settings['startdate'].year-1}_val.xlsx")
+    data = pd.read_excel(
+        Stock_Cheze_xls_path,
+        sheet_name = "Histos",
+        header = 3, 
+        # index_col = 0,
+        # skiprows = 3,
+        )        
+
 data = data.iloc[:, 3:-2]
 if data.iloc[:, -1].count() == 0:
     print(f"        Warning: Les dernières valeurs ({data.columns[-1]}) n'ont pas été correctement récupérées.")
