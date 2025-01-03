@@ -335,6 +335,7 @@ for i in range(0, 51):
     BV.settings.update_model_name(model_name)
     print('\n--------\n' + model_name + '\n--------\n')
     
+    # ---- Récupération et mise à jour des données climatiques
     clim_ds_i = clim_ds.loc[{'number': i}]
 
 # =============================================================================
@@ -352,10 +353,11 @@ for i in range(0, 51):
         coords = BV.geographic.watershed_shp, epsg_coords = BV.geographic.crs_proj, 
         )
     
-    recharge = clim_df['ssro']
-    runoff = clim_df['sro']
-    precip = clim_df['tp']
-    evap = clim_df['e']
+    BV.climatic.evt = clim_df['e']
+    BV.climatic.etp = clim_df['e']
+    BV.climatic.precip = clim_df['tp']
+    BV.climatic.update_recharge(clim_df['ssro'], sim_state=sim_state)
+    BV.climatic.update_runoff(clim_df['sro'], sim_state=sim_state)
     
     # ---- Mise à jour des flux naturels sur le réservoir
     BV.lakeres.update_precip(lake_id, BV.climatic.precip)
@@ -372,7 +374,7 @@ for i in range(0, 51):
              os.path.splitext(scenario)[0],
              model_name),
          'heads': prev_head_3D, 
-         'recharge': recharge,
+         'recharge': BV.climatic.recharge,
          'lakeres': BV.lakeres,
          # 'sim_state': 'steady' si on veut
          })
