@@ -122,21 +122,16 @@ class Timeseries:
             self.runoff = model_modflow.runoff
             if self.actual_date==True:            
                 if isinstance(self.runoff,(int,float)) == True:
-                    time="1970-01-01"
                     runoff = self.runoff
                 else:
-                    time = self.runoff.index
                     runoff = self.runoff.squeeze().values
             else:
                 if isinstance(self.runoff,(int,float)) == True:
-                    time="1970-01-01"
                     runoff = self.runoff
                 else:
                     if isinstance(self.runoff,(dict))==False:
-                        time = np.array(range(len(self.runoff)))
                         runoff = self.runoff.squeeze().values
                     else:
-                        time = pd.Series(range(len(self.runoff)), index=range(len(self.runoff)))
                         runoff = pd.Series(np.nan, index=range(len(self.runoff)))    
         except:
             runoff = None
