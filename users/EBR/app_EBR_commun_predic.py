@@ -187,7 +187,7 @@ BV.lakeres.update_stageinit(
 
 
 # ---- Mise à jour des flux d'entrée 
-print("   . Mise à jour des flux d'entrée avec les scénarios de gestion :")
+print(f"   . Mise à jour des flux d'entrée avec le scénarios de gestion : {os.path.splitext(scenario)[0]}")
 
 dam_data_path = os.path.join(data_path, "Reservoir", 
                              "Scenarios de gestion", scenario)
@@ -285,12 +285,14 @@ model_modflow = mdflw_dict['model_modflow']
 
 #%%% Lancement des simulations prédictives (et mise à jour du modèle)
 # ---- Créer un dossier par scénario de gestion
-if not os.path.exists(os.path.join(out_path, 
-                         BV.simulations_folder, 
-                         os.path.splitext(scenario)[0])):
-    os.makedirs(os.path.join(out_path, 
-                             BV.simulations_folder, 
-                             os.path.splitext(scenario)[0]))
+# =============================================================================
+# if not os.path.exists(os.path.join(out_path, 
+#                       BV.simulations_folder, 
+#                       os.path.splitext(scenario)[0])):
+#     os.makedirs(os.path.join(out_path, 
+#                              BV.simulations_folder, 
+#                              os.path.splitext(scenario)[0]))
+# =============================================================================
 
 list_model_name = []
 list_success_modflow = []
@@ -364,7 +366,12 @@ for i in range(0, 51):
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
     BV.update_modflow(
         model_modflow, 
-        {'heads': prev_head_3D, 
+        {'model_name': model_name,
+         'full_path': os.path.join(
+             os.path.split(model_modflow.full_path)[0], 
+             os.path.splitext(scenario)[0],
+             model_name),
+         'heads': prev_head_3D, 
          'recharge': recharge,
          'lakeres': BV.lakeres,
          # 'sim_state': 'steady' si on veut

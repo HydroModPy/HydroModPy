@@ -1106,6 +1106,27 @@ class Modflow:
     def update(self, model_modflow:object,
                update_dict:dict):
         
+        #%%% Update model name
+        if 'model_name' in update_dict:
+            self.model_name = update_dict['model_name']
+            self.mf.name = self.model_name
+            # To correct the filepath for results
+            if 'full_path' not in update_dict:
+                self.full_path = os.path.join(self.model_folder, self.model_name) #'modraw'
+                self.mf.model_ws = self.full_path
+            # to update the filepaths for .hds, .cbc and .sfr.out
+            self.mf.output_fnames = [
+                '.'.join([update_dict['model_name']] + elem.split('.')[1:])
+                for elem in self.mf.output_fnames
+                ]
+            
+            self.oc.reset_budgetunit(fname = self.model_name+'.cbc')
+        
+        #%%% Update model path
+        if 'full_path' in update_dict:
+            self.full_path = update_dict['full_path']
+            self.mf.model_ws = self.full_path
+        
         #%%% Update sim_state
         if 'sim_state' in update_dict:
             self.sim_state = update_dict['sim_state']
@@ -1114,7 +1135,7 @@ class Modflow:
         if 'heads' in update_dict:
             self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=update_dict['heads'], hnoflo=-9999)
         
-        #%%% Update recharge
+        #%%% Update time discretisation
         if 'recharge' in update_dict:
             self.climatic = update_dict['recharge']
             
@@ -1166,19 +1187,87 @@ class Modflow:
                 # print(self.split_temp)
                 # First timestep is steady state:
                 self.perlen[0] = 1
+        
+        #%%% Update lakeres
+        if ('lakeres' in update_dict) |  \
+        (('recharge' in update_dict) & (self.lakeres is not None)):
             
-            # Imposes discretization to modflow model through flopy
-            self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
-                                                nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
-                                                delr=self.resolution, delc=self.resolution,
-                                                top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
-                                                nper=self.nper, perlen=self.perlen, nstp=self.nstp,
-                                                steady=self.steady, start_datetime=self.start_datetime) 
-                                                # itmuni = 0 ==> undefined
-                                                # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
+            if 'lakeres' in update_dict:
+                self.lakeres = update_dict['lakeres']
+            else:
+                print('Warning: Recharge has been updated but lake/reservoir flux_data has not')
             
-            # ---- Update recharge values
-                # over the surface: rch package (should always be positive)        
+            # These lak parameters need to be updated when nper is changed
+            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
+                self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path,
+                export_lakarr = False)
+            
+            lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
+            lakarr[0] = lakarr_lay0
+            
+            bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
+            bdlknc[0] = bdlknc_lay0
+            
+            # NB: lakarr != self.lak.lakarr.array
+            
+            self.lak = flopy.modflow.ModflowLak(self.mf,
+                                                nlakes = self.lakeres.n_lakeres,
+                                                ipakcb = None,
+                                                theta = 0, # 0: explicit # 1: implicit
+                                                stages = stages,
+                                                lakarr = lakarr,
+                                                bdlknc = bdlknc,
+                                                flux_data = flux_data)
+            
+            # Remove drains under lakes
+            self.drain_array[lakarr_lay0 != 0] = 0
+        
+        #%%% Update recharge
+        if 'recharge' in update_dict:
+            
+            # ---- Update evapotranspiration from the aquifer (if applicable)
+                # from the watertable: evt package (from negative value, should always be positive)
+            if isinstance(self.climatic,(dict))==False:
+                if isinstance(self.climatic,float)==False and (self.climatic < 0).any().any() == True:
+                    # self.climatic : recharge values (float in steady state or chronicles in transient state)
+                    # Modifies ETP values (self.climatic): from negative to positive values (sink term)
+                    #      package evt requires positive values (negative values are not allowed)
+                    self.evt = self.climatic.copy() 
+                    # All positive values are set to 0 (no negative values)
+                    self.evt[self.evt>=0] = 0
+                    # All negative values are set to positive values
+                    self.evt = abs(self.evt)
+                    # Remove aquifer evaporation on lakes/reservoirs
+                    if self.use_lakeres:
+                        self.evt[lakarr_lay0 > 0] = 0
+                        self.climatic[lakarr_lay0 > 0] = 0
+                    self.evtData = {}
+                    # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
+                    for kper in range(0, self.nper):
+                        if isinstance(self.evt,(int,float)):
+                            # If integer or float, do it only once (steady state)
+                            self.evtData[kper] = self.evt
+                        else:
+                            # Transient state: 
+                            if kper == 0:
+                                # self.evtData[kper] = np.nanmean(self.evt)
+                                self.evtData[kper] = 0
+                            else:
+                                self.evtData[kper] = self.evt[kper]
+                    # expd = self.thick : ETP can take water all over the aquifer thickness
+                    self.evt = flopy.modflow.ModflowEvt(self.mf,
+                                                        evtr=self.evtData,
+                                                        surf = self.dem,
+                                                        nevtop = 1, # default: 1 (top), 2 (layer), 3 (highest active)
+                                                        exdp = 10, # default: 1 (from surf normally)
+                                                        ievt = 1, # default: 1 (if layer)
+                                                        ipakcb = 1 # default: 0 
+                                                        )
+                    # Sets all negative of self.climatic to values (they have just been accounted as pumping terms)
+                    if not isinstance(self.climatic,(int,float)):
+                        self.climatic[self.climatic<0] = 0
+            
+            # ---- Update recharge values over the surface: rch package (should always be positive)  
             self.rchData = {}
             for kper in range(0, self.nper):
                 if isinstance(self.climatic,(dict))==True:
@@ -1210,39 +1299,35 @@ class Modflow:
             # Sets recharge to modflow through flopy
             # flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
             self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
+        
+        #%%% Update Dis
+        if 'recharge' in update_dict:
+            # Discretization is impacted by nper
+            self.dis = flopy.modflow.ModflowDis(self.mf, itmuni=0, lenuni=2,
+                                                nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
+                                                delr=self.resolution, delc=self.resolution,
+                                                top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                                nper=self.nper, perlen=self.perlen, nstp=self.nstp,
+                                                steady=self.steady, start_datetime=self.start_datetime) 
+                                                # itmuni = 0 ==> undefined
+                                                # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
             
-        #%%% Update lakeres
-        if 'lakeres' in update_dict:
-            self.lakeres = update_dict['lakeres']
-            stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, self.thickfact, self.dem, self.dem_watershed_path,
-                export_lakarr = False)
-            
-            lakarr = np.zeros((self.nlay, self.nrow, self.ncol))
-            lakarr[0] = lakarr_lay0
-            
-            bdlknc = np.zeros((self.nlay, self.nrow, self.ncol))
-            bdlknc[0] = bdlknc_lay0
-            
-            # NB: lakarr != self.lak.lakarr.array
-            
-            self.lak = flopy.modflow.ModflowLak(self.mf,
-                                                nlakes = self.lakeres.n_lakeres,
-                                                ipakcb = None,
-                                                theta = 0, # 0: explicit # 1: implicit
-                                                stages = stages,
-                                                lakarr = lakarr,
-                                                bdlknc = bdlknc,
-                                                flux_data = flux_data)
-            
-        #%%% Update StreaFlow Seepage
-        if self.streamflow_seepage is not None:
+        #%%% Update StreamFlow Seepage
+# === In case of user-defined StreamFLow Seepage update (not implemented yet) =
+#         if ('streamflow_seepage' in update_dict) |  \
+#             (('recharge' in update_dict) & (self.streamflow_seepage is not None)):
+#             
+#             if 'streamflow_seepage' in update_dict:
+#                 self.streamflow_seepage = update_dict['streamflow_seepage']
+# =============================================================================
+
+        if ('recharge' in update_dict) & (self.streamflow_seepage is not None):    
             segment_data_1_rec = self.sfr2.segment_data[0]
             segment_data_1_rec['runoff'] = 0
             segment_data = {per: segment_data_1_rec.copy() for per in range(0, self.nper)}
             
             nstrm = len(self.sfr2.reach_data) # > 0
-            nss = len(self.sfr2.segment_data)
+            nss = len(segment_data_1_rec)
             itmp = np.ones(self.nper, dtype = int) * -1 # first period input values repeated over time
             
             # Return flow (restitution)
@@ -1297,8 +1382,64 @@ class Modflow:
                 istcb2=self.sfr2.istcb2,
                 # uncertain how to use:
                 ipakcb=self.sfr2.ipakcb, 
-                const=86400, # m3/d, # value is not used because no Manning
+                const=self.sfr2.const, # m3/d, # value is not used because no Manning
                 )
+            
+# === In case of user-defined StreamFLow Seepage update (not implemented yet) =
+#             # sfr2 correct, repair & check
+#             # Compute slopes
+#             self.sfr2.get_slopes(default_slope=0.005)
+# =============================================================================
+        
+                
+        #%%% Update Constant Head Boundary (sea level)
+        if ('sea_level' in update_dict) |  \
+            (('recharge' in update_dict) & (self.sea_level is not None)):
+            
+            if 'sea_level' in update_dict:
+                self.sea_level = update_dict['sea_level']
+                
+        if isinstance(self.sea_level, (int,float,pd.Series,list)) == True: # Martin on 15/11/2022: before was: if self.sea_level != None:
+            package = np.zeros((self.nper,self.nrow, self.ncol))
+            # print('niv1')
+            if isinstance(self.sea_level,(int,float)) == False:
+                # print('niv2')
+                self.chData = {} #Martin on 15/11/2022: before was: self.chdData = {}
+                for kper in range(0, self.nper):
+                    # print(kper)
+                    chdKper = []
+                    for i in range (0,self.nrow):
+                        for j in range (0, self.ncol):
+                            if self.dem[i,j] < np.max(self.sea_level):
+                                if self.iboundData[self.aquifer_top_layer,i,j] != 0: #no-flow cells cannot be converted to specified head cells
+                                    self.drain_array[i,j] = 0
+                                    package[kper,i,j] = 1
+                                    chdKper.append([self.aquifer_top_layer,i,j,self.sea_level[kper],self.sea_level[kper]])
+                            self.chData[kper] = chdKper #Martin on 15/11/2022: before was: self.rchData[kper] = chdKper
+                            
+                flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
+        
+        #%%% General updates        
+# =============================================================================
+#         # OC : output control
+#         stress_period_data = {}
+#         for kper in range(self.nper):
+#             kstp = self.nstp[kper]
+#             # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
+#             stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
+#         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
+#                                 # unitnumber=[14, 51, 52, 53, 0],
+#                                 unitnumber=None,
+#                                 compact=True)
+#         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
+# =============================================================================
+        
+# =============================================================================
+#         # Newton solver
+#         self.nwt = flopy.modflow.ModflowNwt(self.mf, headtol=0.001, fluxtol=500, maxiterout=5000,
+#                                             thickfact=self.thickfact, linmeth=1, iprnwt=1, ibotav=1,
+#                                             options='COMPLEX', Continue=False, backflag=0) # ibotav=0
+# =============================================================================
     
     #%% POST-PROCESSING
     
