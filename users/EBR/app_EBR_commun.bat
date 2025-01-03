@@ -42,7 +42,7 @@ for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	echo %%i ^& ^
 	echo: ^& ^
 	call python .\app_EBR_commun_predic.py "%%i" -l -t
-	timeout /t 10
+	timeout /t 60
 )
 endlocal
 

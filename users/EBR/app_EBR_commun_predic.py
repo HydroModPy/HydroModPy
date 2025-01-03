@@ -381,8 +381,11 @@ for i in range(0, 51):
          })
     
     # ---- Simulation
-    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-    
+    success_modflow = False
+    while not success_modflow:
+        try: success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        except: print(f"Err: Failed simulation launching: {scenario}:{model_name}")
+        
     list_model_name.append(model_name)
     list_success_modflow.append(success_modflow)
     list_model_modflow.append(model_modflow)
