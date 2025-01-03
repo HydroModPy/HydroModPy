@@ -87,7 +87,7 @@ class Timeseries:
 
         self.actual_date = actual_date
        
-        self.full_path = os.path.join(self.model_folder, self.model_name)
+        self.full_path = model_modflow.full_path
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         
         self.save_file = os.path.join(self.full_path, '_postprocess')
