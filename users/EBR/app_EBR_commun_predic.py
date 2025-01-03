@@ -294,9 +294,11 @@ model_modflow = mdflw_dict['model_modflow']
 #                              os.path.splitext(scenario)[0]))
 # =============================================================================
 
-list_model_name = []
-list_success_modflow = []
-list_model_modflow = []
+h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
+mdflw_dict = {}
+mdflw_dict['list_model_name'] = []
+mdflw_dict['list_success_modflow'] = []
+mdflw_dict['list_model_modflow'] = []
 
 # ---- Extraction des variables climatiques
 forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
@@ -386,36 +388,30 @@ for i in range(0, 51):
         try: success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
         except: print(f"Err: Failed simulation launching: {scenario}:{model_name}")
         
-    list_model_name.append(model_name)
-    list_success_modflow.append(success_modflow)
-    list_model_modflow.append(model_modflow)
+    mdflw_dict['list_model_name'].append(model_name)
+    mdflw_dict['list_success_modflow'].append(success_modflow)
+    mdflw_dict['list_model_modflow'].append(model_modflow)
+    save_success = False
+    while not save_success:
+        try: 
+            dd.io.save(h5file, mdflw_dict)
+            save_success = True
+        except: 
+            save_success = False
 
-mdflw_dict = {}
-mdflw_dict['list_model_name'] = list_model_name
-mdflw_dict['list_success_modflow'] = list_success_modflow
-mdflw_dict['list_model_modflow'] = list_model_modflow
-h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
-    
-dd.io.save(h5file, mdflw_dict)
 
 #%%% Rechargement des résultats du modèle Modflow
-# =============================================================================
-# h5file = os.path.join(BV.simulations_folder,
-#                       'results_listing_predic')
-# 
-# mdflw_dict = dd.io.load(h5file)
-# list_model_name = mdflw_dict['model_name']
-# list_success_modflow = mdflw_dict['success_modflow']
-# list_model_modflow = mdflw_dict['model_modflow']
-# =============================================================================
+h5file = os.path.join(BV.simulations_folder,
+                      'results_listing_predic')
+mdflw_dict = dd.io.load(h5file)
 
 #%% POST-PROCESSING
 start_time = datetime.datetime.now()
 print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
 
-for model_name, success_modflow, model_modflow in zip(list_model_name,
-                                                      list_success_modflow,
-                                                      list_model_modflow):
+for model_name, success_modflow, model_modflow in zip(mdflw_dict['model_name'],
+                                                      mdflw_dict['success_modflow'],
+                                                      mdflw_dict['model_modflow']):
 
     ##%%% General
     if success_modflow == True:
