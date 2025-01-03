@@ -1299,7 +1299,11 @@ class Modflow:
             # Sets recharge to modflow through flopy
             # flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
             self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
-        
+            
+        #%%% Update runoff
+        if 'runoff' in update_dict:
+            self.runoff = update_dict['runoff']
+                
         #%%% Update Dis
         if 'recharge' in update_dict:
             # Discretization is impacted by nper

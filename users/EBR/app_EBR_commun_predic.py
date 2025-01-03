@@ -375,6 +375,7 @@ for i in range(0, 51):
              model_name),
          'heads': prev_head_3D, 
          'recharge': BV.climatic.recharge,
+         'runoff': BV.climatic.runoff,
          'lakeres': BV.lakeres,
          # 'sim_state': 'steady' si on veut
          })
