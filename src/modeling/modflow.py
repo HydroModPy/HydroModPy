@@ -1120,7 +1120,9 @@ class Modflow:
                 for elem in self.mf.output_fnames
                 ]
             
-            self.oc.reset_budgetunit(fname = self.model_name+'.cbc')
+# =============================================================================
+#             self.oc.reset_budgetunit(fname = self.model_name+'.cbc')
+# =============================================================================
         
         #%%% Update model path
         if 'full_path' in update_dict:
@@ -1423,20 +1425,18 @@ class Modflow:
                             
                 flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
         
-        #%%% General updates        
-# =============================================================================
-#         # OC : output control
-#         stress_period_data = {}
-#         for kper in range(self.nper):
-#             kstp = self.nstp[kper]
-#             # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
-#             stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
-#         self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
-#                                 # unitnumber=[14, 51, 52, 53, 0],
-#                                 unitnumber=None,
-#                                 compact=True)
-#         self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
-# =============================================================================
+        #%%% Update OC : output control
+        if 'recharge' in update_dict:
+            stress_period_data = {}
+            for kper in range(self.nper):
+                kstp = self.nstp[kper]
+                # Saves head (hds) and budget (cbc) for each of the stress periods (flopy)
+                stress_period_data[(kper, kstp-1)] = ['save head', 'save budget'] #['save head','save budget',]
+            self.oc = flopy.modflow.ModflowOc(self.mf, stress_period_data=stress_period_data, extension=['oc','hds','cbc'],
+                                    # unitnumber=[14, 51, 52, 53, 0],
+                                    unitnumber=None,
+                                    compact=True)
+            self.oc.reset_budgetunit(fname= self.model_name+'.cbc')
         
 # =============================================================================
 #         # Newton solver
