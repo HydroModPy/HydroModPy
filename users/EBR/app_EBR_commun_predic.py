@@ -372,7 +372,7 @@ for i in range(0, 51):
         model_modflow, 
         {'model_name': model_name,
          'full_path': os.path.join(
-             os.path.split(model_modflow.full_path)[0], 
+             model_modflow.model_folder, 
              os.path.splitext(scenario)[0],
              model_name),
          'heads': prev_head_3D, 
