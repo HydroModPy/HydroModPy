@@ -942,7 +942,7 @@ class Modflow:
         if self.use_lakeres:       
             self.lak = flopy.modflow.ModflowLak(self.mf,
                                                 nlakes = self.lakeres.n_lakeres,
-                                                ipakcb = None,
+                                                ipakcb = 1, # save cell-by-cell seepage
                                                 theta = 0, # 0: explicit # 1: implicit
                                                 stages = stages,
                                                 lakarr = lakarr,
