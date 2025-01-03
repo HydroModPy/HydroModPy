@@ -212,6 +212,16 @@ dam_input_df = pd.concat([dam_input_df, dam_input_df_2], axis = 0)
 # Puis découpe cette chronique sur la période d'intérêt (date de départ + 6 mois)
 dam_input_df = dam_input_df[slice(settings['startdate'], settings['startdate'] + pd.DateOffset(months = 6))]
 
+# Sous-échantillonage des données d'entrée en journalier
+daily_index = pd.date_range(start = settings['startdate'], 
+                            periods = 6*30+1,
+                            freq = 'D') 
+dam_input_df = dam_input_df.reindex(index = daily_index)
+dam_input_df.fillna(method = 'bfill', inplace = True) # backward fill
+dam_input_df.fillna(0, inplace = True) # replace remaining NaN with 0
+# puis sur-échantillonage selon la temporalité de la recharge
+dam_input_df = dam_input_df.resample(freq_input).mean()
+
 # ---- Mise-à-jour des données d'entrée du réservoir
 print("   . Mise à jour des paramètres du réservoir")
 
@@ -320,6 +330,7 @@ clim_ds = ttbox.georeferencer(
 clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
 
 # Frequence
+clim_ds = clim_ds.resample(time = freq_input).mean()
 """
 Toute cette gestion devrait à terme pouvoir être faite dans un script dédié,
 de la même manière que pour sim2 :
@@ -329,7 +340,7 @@ Ce script téléchargerait automatiquement les données via l'API.
 NB : A terme il faudrait aussi pouvoir utiliser directement des donnees spatio-temporelles
 Pour l'instant on convertit ca en chroniques (pandas).
 """
-# clim_ds = clim_ds.resample(freq_input).mean()
+
 
 # ---- Boucle sur chaque run disponible dans les données
 for i in range(0, 51):    
