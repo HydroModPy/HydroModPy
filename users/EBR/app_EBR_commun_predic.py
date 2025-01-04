@@ -304,11 +304,11 @@ model_modflow = mdflw_dict['model_modflow']
 #                              os.path.splitext(scenario)[0]))
 # =============================================================================
 
-h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
 mdflw_dict = {}
 mdflw_dict['list_model_name'] = []
 mdflw_dict['list_success_modflow'] = []
 mdflw_dict['list_model_modflow'] = []
+h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
 
 # ---- Extraction des variables climatiques
 forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
@@ -420,9 +420,9 @@ mdflw_dict = dd.io.load(h5file)
 start_time = datetime.datetime.now()
 print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
 
-for model_name, success_modflow, model_modflow in zip(mdflw_dict['model_name'],
-                                                      mdflw_dict['success_modflow'],
-                                                      mdflw_dict['model_modflow']):
+for model_name, success_modflow, model_modflow in zip(mdflw_dict['list_model_name'],
+                                                      mdflw_dict['list_success_modflow'],
+                                                      mdflw_dict['list_model_modflow']):
 
     ##%%% General
     if success_modflow == True:
