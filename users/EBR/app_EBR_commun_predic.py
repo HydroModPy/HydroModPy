@@ -80,7 +80,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 import trajectoire_toolbox as ttbox
 import geoconvert as gc
 
-#%% ARGUMENTS D'ENTREE
+#%% ARGUMENTS D'ENTREE = SCENARIO
 try:
     scenario = sys.argv[1]
 except:
@@ -379,7 +379,7 @@ for i in range(0, 51):
     
     # ---- Mise à jour du modèle modflow
     # model_modflow = BV.preprocessing_modflow(for_calib=False)
-    BV.update_modflow(
+    model_modflow = BV.update_modflow(
         model_modflow, 
         {'model_name': model_name,
          'full_path': os.path.join(

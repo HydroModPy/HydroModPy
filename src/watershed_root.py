@@ -19,6 +19,7 @@ warnings.filterwarnings('ignore', message='.*imp module.*')
 # Python
 import sys
 import os
+import copy
 import pickle
 import pandas as pd
 import geopandas as gpd
@@ -830,8 +831,11 @@ class Watershed:
         model_modflow : object
             Python object of the hydraulic model
         """
-        # Update Modflow
+        # Duplicate the class instance (modflow object)
+        model_modflow = copy.copy(model_modflow)
+        # Update the new modflow object
         model_modflow.update(model_modflow, update_dict)
+        return model_modflow
 
 
     #%% MODPATH MODEL        
