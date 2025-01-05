@@ -122,7 +122,7 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                 # data_refined.dropna(axis = 0, how = 'all', inplace = True) # remove the last rows if empty
                 data_refined.index = pd.to_datetime(data_refined.index, format = '%d/%m/%Y')
                 # Use radar values to fill in missing piezo values:
-                data_refined.cheze[data_refined.cheze.isna()] = data_refined.radar[data_refined.cheze.isna()] 
+                data_refined.loc[data_refined.cheze.isna(), 'cheze'] = data_refined.radar[data_refined.cheze.isna()] 
                 data_refined = data_refined.loc[:, data_refined.columns != 'radar']
                 data_refined.interpolate(method = 'time', inplace = True)
                 
@@ -132,18 +132,18 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                 # ---------------------------------
                 for t in data_refined.index:
                     if not abaque[abaque.level <= data_refined.cheze.loc[t].item()].empty:
-                        data_refined.cheze.loc[t] = abaque[abaque.level <= data_refined.cheze.loc[t].item()].iloc[-1].volume
+                        data_refined.loc[t, 'cheze'] = abaque[abaque.level <= data_refined.cheze.loc[t].item()].iloc[-1].volume
                     else:
-                        if data_refined.cheze.loc[t].item() > abaque.level.max():
+                        if data_refined.loc[t, 'cheze'].item() > abaque.level.max():
                             slope = (abaque.level.iloc[-1] - abaque.level.iloc[-2]) / (abaque.volume.iloc[-1] - abaque.volume.iloc[-2])
                             add_volume = abaque.volume.iloc[-1] + (data_refined.cheze.loc[t].item() - abaque.level.iloc[-1])/slope
                             abaque_interp = abaque.append({'volume':add_volume, 'level':data_refined.cheze.loc[t].item()}, 
                                                           ignore_index = True)
-                        elif data_refined.cheze.loc[t].item() < abaque.level.min():
+                        elif data_refined.loc[t, 'cheze'].item() < abaque.level.min():
                             slope = (abaque.level.iloc[1] - abaque.level.iloc[0]) / (abaque.volume.iloc[1] - abaque.volume.iloc[0])
                             add_volume = abaque.volume.iloc[0] + (data_refined.cheze.loc[t].item() - abaque.level.iloc[0])/slope
                             abaque_interp = pd.DataFrame(data_refined = {'volume':add_volume, 'level':data_refined.cheze.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
-                        data_refined.cheze.loc[t] = abaque_interp[abaque_interp.level <= data_refined.cheze.loc[t].item()].iloc[-1].volume
+                        data_refined.loc[t, 'cheze'] = abaque_interp[abaque_interp.level <= data_refined.cheze.loc[t].item()].iloc[-1].volume
 
                 
                 data = data.reindex(index = data.index.union(data_refined.index))
@@ -242,7 +242,7 @@ for run in [
     
 ##%%% Load general results
     accumulation_dict[run] = ts_dict[run][['accumulation_flux']].copy()
-    accumulation_dict[run].rename(columns = {'accumulation_flux' : 'val'}, inplace = True)
+    accumulation_dict[run] = accumulation_dict[run].rename(columns = {'accumulation_flux' : 'val'})
     accumulation_dict[run]['time'] = accumulation_dict[run].index
 
     
@@ -254,24 +254,24 @@ for run in [
 # =============================================================================
     # levels_dict[run] = df_dict[run].drop(['x', 'y', 'spatial_ref']).to_dataframe()
     levels_dict[run] = df_dict[run]['level'][['watertable_elevation']]
-    levels_dict[run].rename(columns = {'watertable_elevation' : 'val'}, inplace = True)
+    levels_dict[run] = levels_dict[run].rename(columns = {'watertable_elevation' : 'val'})
     levels_dict[run]['time'] = levels_dict[run].index
     volumes_dict[run] = ts_dict[run][['reservoir_cheze_volume']].copy()
-    volumes_dict[run].rename(columns = {'reservoir_cheze_volume' : 'val'}, inplace = True)
+    volumes_dict[run] = volumes_dict[run].rename(columns = {'reservoir_cheze_volume' : 'val'})
     volumes_dict[run]['time'] = volumes_dict[run].index
     areas_dict[run] = ts_dict[run][['reservoir_cheze_area']].copy()
-    areas_dict[run].rename(columns = {'reservoir_cheze_area' : 'val'}, inplace = True)
+    areas_dict[run] = areas_dict[run].rename(columns = {'reservoir_cheze_area' : 'val'})
     areas_dict[run]['time'] = areas_dict[run].index
     
 ##%%% Load lake/reservoir flux results
     leakage_down_dict[run] = -ts_dict[run][['reservoir_cheze_lake_leakage_downwards']].copy()
-    leakage_down_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_downwards' : 'val'}, inplace = True)
+    leakage_down_dict[run] = leakage_down_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_downwards' : 'val'})
     leakage_down_dict[run]['time'] = leakage_down_dict[run].index
     leakage_up_dict[run] = ts_dict[run][['reservoir_cheze_lake_leakage_upwards']].copy()
-    leakage_up_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_upwards' : 'val'}, inplace = True)
+    leakage_up_dict[run] = leakage_up_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_upwards' : 'val'})
     leakage_up_dict[run]['time'] = leakage_up_dict[run].index
     leakage_dict[run] = -ts_dict[run][['reservoir_cheze_lake_leakage']].copy()
-    leakage_dict[run].rename(columns = {'reservoir_cheze_lake_leakage' : 'val'}, inplace = True)
+    leakage_dict[run] = leakage_dict[run].rename(columns = {'reservoir_cheze_lake_leakage' : 'val'})
     leakage_dict[run]['time'] = leakage_dict[run].index
 # =============================================================================
 #     leakage_dict[run] = -df_dict[run]['reservoir_cheze_lake_leakage'].drop(['x', 'y', 'spatial_ref']).to_dataframe()
@@ -280,7 +280,7 @@ for run in [
 # =============================================================================
     # downstream_dict[run] = -df_dict[run]['downstream'].drop(['x', 'y', 'spatial_ref']).to_dataframe()
     downstream_dict[run] = -df_dict[run]['downstream'][['accumulation_flux']]
-    downstream_dict[run].rename(columns = {'watertable_elevation' : 'val'}, inplace = True)
+    downstream_dict[run] = downstream_dict[run].rename(columns = {'watertable_elevation' : 'val'})
     downstream_dict[run]['time'] = accumulation_dict[run].index
     
 # =============================================================================
