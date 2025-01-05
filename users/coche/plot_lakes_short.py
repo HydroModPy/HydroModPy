@@ -18,7 +18,7 @@ import os
 import datetime
 import pandas as pd
 
-#%% LOAD
+#%% LOAD DATA & PARAMETERS
 # ---- Language [USER CHOICE]
 ### User-defined language:
 language = 'fr'
@@ -43,6 +43,7 @@ coords_overflow = (331050, 6780900) # 1st cell downstream the reservoir
 
 # Alternatively, coords can also be a filepath to a mask. In that case, the
 # mean value over this mask will be retrieved.
+
 
 # ---- Load input data [USER CHOICE]
 # res_path = r"D:\Dam_EBR_results\raw"
@@ -204,13 +205,16 @@ sum_col = data.columns != 'cheze'
 data.loc[:, sum_col] = data.loc[:, sum_col].divide(
     days_in_month.n_days, axis="index") # [m3/j]
 
-# ---- Load results to plot [USER CHOICE]
+
+#%% LOAD RESULTS [USER CHOICE]
+
 for run in [
             # <watershed_names (str)>, ### user-defined runs
             'barrage_Cheze_SFR_LAK_2024-12-17',
             'barrage_Cheze_SFR_LAK_corr_2024-12-17',
             ]:
-    
+
+    # ---- Load complete files    
     # The results can be loaded from 2 sources:
      # 1. The NetCDF watertable file:
     df_dict[run] = dict()
@@ -240,13 +244,13 @@ for run in [
                              index_col = 'date',
                              parse_dates = True)
     
-##%%% Load general results
+    # ---- Extract general results
     accumulation_dict[run] = ts_dict[run][['accumulation_flux']].copy()
     accumulation_dict[run] = accumulation_dict[run].rename(columns = {'accumulation_flux' : 'val'})
     accumulation_dict[run]['time'] = accumulation_dict[run].index
 
     
-##%%% Load lake/reservoir results
+    # ---- Extract lake/reservoir results
 # =============================================================================
 #     levels_dict[run] = ts_dict[run][['reservoir_cheze_level']].copy()
 #     levels_dict[run].rename(columns = {'reservoir_cheze_level' : 'val'}, inplace = True)
@@ -263,7 +267,7 @@ for run in [
     areas_dict[run] = areas_dict[run].rename(columns = {'reservoir_cheze_area' : 'val'})
     areas_dict[run]['time'] = areas_dict[run].index
     
-##%%% Load lake/reservoir flux results
+    # ---- Extract lake/reservoir flux results
     leakage_down_dict[run] = -ts_dict[run][['reservoir_cheze_lake_leakage_downwards']].copy()
     leakage_down_dict[run] = leakage_down_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_downwards' : 'val'})
     leakage_down_dict[run]['time'] = leakage_down_dict[run].index
