@@ -127,10 +127,10 @@ BV.climatic.update_runoff(None, sim_state=BV.settings.sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
 
 # Well settings
-well_1_coords = [1-1,9-1,29-1]
-well_2_coords = [1-1,17-1,29-1]
-well_1_fluxes = pd.Series([-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-well_2_fluxes = pd.Series([-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0])
+well_1_coords = [1-1,9-1,29-1] # [lay, row, col]
+well_2_coords = [1-1,17-1,29-1] # [lay, row, col]
+well_1_fluxes = pd.Series([-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0]) # [L3/T]
+well_2_fluxes = pd.Series([-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0]) # [L3/T]
 BV.settings.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
                                 well_fluxes=[well_1_fluxes, well_2_fluxes])
 

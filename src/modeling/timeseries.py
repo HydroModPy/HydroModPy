@@ -50,9 +50,9 @@ class Timeseries:
                  model_modpath: object,
                  datetime_format: bool=True,
                  subbasin_results: bool=True,
-                 intermittency_monthly:bool=False,
-                 intermittency_weekly:bool=False,
-                 intermittency_daily:bool=False):
+                 intermittency_monthly: bool=False,
+                 intermittency_weekly: bool=False,
+                 intermittency_daily: bool=False):
         """
         Parameters
         ----------
@@ -62,12 +62,16 @@ class Timeseries:
             MODFLOW model object.
         model_modpath : object
             MODPATH model object.
-        actual_date : bool, optional
-            Indicate if the model is actual time referenced with datetime. The default is True.
+        datetime_format : bool, optional
+            Indicate if the model is referenced with datetime format. The default is True.
         subbasin_results : bool, optional
             Indicated if simulation results need to be created at subassins scale. The default is True.
-        freq_time : str, optional
-            Time frequency of the .csv file. The default is 'D'.
+        intermittency_monthly : bool
+            If True, the intermittent and perennial part of hydrographic network is calculated on a monthly basis.
+        intermittency_weekly : bool
+            If True, the intermittent and perennial part of hydrographic network is calculated on a weekly basis.
+        intermittency_daily : bool
+            If True, the intermittent and perennial part of hydrographic network is calculated on a daily basis.
         """
         
         # Init parameters

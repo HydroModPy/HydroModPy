@@ -102,6 +102,10 @@ class Geographic:
             List of tow parameters: [path, buffer_size] 
         from_xyv : list, optional
             List of four parameters: [x, y, snap_distance, buffer_size]
+        reg_fold : str, None
+            Path of the folder with regional data/results.
+            If informed, the regional results will not be created, just loaded from folder.
+            The default is None.
         """
         print('Extract geography of the model area')
                 

@@ -92,45 +92,60 @@ class Modflow:
         sim_state : str, optional
             'steady' or 'transient'. simulation state. The default is 'steady'.
         plot_cross : bool, optional
-            if True, display a cross section of the model. The default is True.
-        climatic : float or list, optional
-            recharge value. The default is 0.001.
+            If True, display a cross section of the model. The default is True.
+        check_grid : bool, optional
+            If True, check if the water connectivity is respected with the meshgrid. The default is True.
+        recharge : float or list, optional
+            Recharge [L/T] as input of the model. The default is 0.001.
         runoff : float or list, optional
-            runoff value. The default is 0.0001.
+            Runoff [L/T] as an independent variable that can be added in post-processing to the model. The default is 0.0001.
         first_clim : str, optional
-            'mean': the first recharge value is the mean of the chronicle. 'first': the first recharge is keep. The default is 'mean'.
+            If 'mean': the first recharge value is the mean of the chronicle.
+            If 'first': the first recharge value is the first value of the timeseries.
+            If a 'float' : the first recharge is the fixed value.
+            The default is 'mean'.
         nlay : int, optional
             Number of layer. The default is 1.
         lay_decay : float, optional
-            Modification of layer thickness for exponentially decreasing whit depth. The default is 1..
+            Modification of layer thickness for exponentially decreasing whit depth. The default is 1.
         bottom : float, optional
-            Fixe a flat boundary at the bottom of the model. The default is None.
+            At this elevation, fix a flat no flow boundary at the bottom of the model. The default is None.
         thick : float, optional
-            Fixe the tickness of the model. The default is 100..
-        hk_value : float or 2D float 
-            Fixe the hydraulic conductivity value. default is 0.0864.
-        hk_decay : float, optional
-            Modification of hydraulic conductivity for exponentially decreasing whit depth. The default is 0..
+            Constant aquifer thickness of the the tickness of the model (if bottom is None). The default is 100.
         verti_hk : list, optional
             Depth-dependent hydraulic conductivity. The default is None.
         verti_sy : list, optional
-            Depth-dependent porosity. The default is None.
-        cond_drain : float, optional
-            Fixe the conductance value of the drainage package. The default is None.
+            Depth-dependent specific yield. The default is None.
+        verti_ss : list, optional
+            Depth-dependent specific storage. The default is None.
+        hk_value : float or 2D float 
+            Fix the hydraulic conductivity value. default is 0.0864.
         sy_value : float or 2D float, optional
             Fixe the specific yield value. The default is 0.1.
         ss_value : float or 2D float, optional
-            Fixe the specifc storage value. Activate for confined layers. The default is 1e-5 (1/day).
+            Fixe the specifc storage value. Activated for confined layers. The default is 1e-5 (1/day).
+        hk_decay : float, optional
+            Exponential decay of hydraulic conductivity whith depth. The default is 0.
         sy_decay : float, optional
-            Modification of porosity (specific yield) for exponentially decreasing whit depth. The default is 0.
+            Exponential specific yield of hydraulic conductivity whith depth. The default is 0.
         ss_decay : float, optional
-            Modification of porosity (specific storage) for exponentially decreasing whit depth. The default is 0.
+            Exponential specific storage of hydraulic conductivity whith depth. The default is 0.
+        vka : list, optional
+            Ratio of horizontal to vertical hydraulic conductivity. The default is 1.
+        wells_coord : list
+            Inform the outlet coordinates of wells [lay,row,col].
+            Example for 2 wells: [ [1,20,30], [1,15,15] ]
+        wells_fluxes : list
+            Inform the fluxes [L3/T] for each stress-periods, for different wells.
+            Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
+        cond_drain : float, optional
+            Fix the conductance value of the drai (DRN) package. The default is None.
         sea_level : float, optional
-            Fixed head on each cell below this value. The default is None.
+            Fix head on each cell below this value. The default is None.
         bc_left : float, optional
-            Fixed head on the left border of the domain. The default is None.
+            Fix head on the left border of the domain. The default is None.
         bc_right : float, optional
-            Fixed head on the right border of the domain. The default is None.
+            Fix head on the right border of the domain. The default is None.
         """
         
         #%% Initialization paths
@@ -849,7 +864,7 @@ class Modflow:
         Parameters
         ----------
         model_modflow : object
-            Object floyp modflow.
+            MODFLOW Python object.
         watertable_elevation : bool, optional
             Write watertable elevation outputs. The default is True.
         watertable_depth : bool, optional
@@ -874,7 +889,6 @@ class Modflow:
             Write intermittency daily outputs. The default is False.
         export_all_tif : bool, optional
             Write all files .tif at each time step. The default is False.
-
         """
         # Create folders 
         self.save_file = os.path.join(self.full_path, '_postprocess')

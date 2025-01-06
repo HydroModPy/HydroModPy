@@ -52,52 +52,58 @@ class Hydraulic:
         """
         Parameters
         ----------
+        box_dem : str
+            Path raster of maximal buffer extent of the model domain generated from geographic.
         nrow : int
             Number of rows of the model domain obtained from raster in geographic.
         ncol : int
             Number of columns of the model domain obtained from raster in geographic.
-        box_dem : str
-            Path raster of maximal buffer extent of the model domain generated from geographic.
         nlay_init : int, optional
             Initial value.
             Vertical layer of the mesh. The default is 1.
-        hyd_cond_init : float, optional
-            Initial value.
-            Hydraulic conductivity of the aaquifer. The default is 8.64 in [m/d].
         cond_drain_init : float, optional
             Initial value.
-            Conductance value for the drain package applied on top. 
+            Conductance value for the drain package applied on top.
             Considering a cell resolution of 100*100m, The default is 864000 [m3/day].
-        porosity_init : float, optional
+        hk_init : float, optional
             Initial value.
-            Porosity (specific yield) of the aquifer. The default is 10%.
+            Hydraulic conductivity of the aaquifer. The default is 8.64 in [m/d].
+        sy_init : float, optional
+            Initial value.
+            Specific yield of the aquifer. The default is 0.1 [-], so 10%.
         ss_init : float, optional
             Initial value.
             Specifc storage of the aquifer. The default is 1e-5 (1/day).
         thick_init : float, optional
             Initial value.
-            Constant aquifer thickness valid if bottom_init is None. The default is 50.
+            Constant aquifer thickness activated if bottom_init is None. The default is 50 m.
         bottom_init : float, optional
             Initial value.
             Apply a flat bottom at the aquifer from a elevation value. The default is None.
-        cond_decay_init : float, optional
-            Initial value.    
-            Ratio to modify the hydraulic conductivity exponentially decreasing whit depth. The default is 0.
-        poro_decay_init : float, optional
+        hk_decay_init : float, optional
             Initial value.
-            Ratio to modify the porosity (specific yield : sy) exponentially decreasing whit depth. The default is 0.
+            Alpha decay to modify the hydraulic conductivity exponentially decreasing whit depth (e.g. 1/30m). The default is 0.
+        sy_decay_init : float, optional
+            Initial value.
+            Alpha decay to modify the specific yield exponentially decreasing whit depth (e.g. 1/60m). The default is 0.
         ss_decay_init : float, optional
             Initial value.
-            Ratio to modify the porosity (specific storage : ss) exponentially decreasing whit depth. The default is 0.
+            Alpha decay to modify the specific storage exponentially decreasing whit depth (e.g. 1/120m). The default is 0.
         lay_decay_init : float, optional
             Initial value.
-            Modify vertical layer thickness exponentially decreasing whit depth. The default is 1.
-        verti_cond_init : list, optional
+            Modify vertical layer thickness exponentially decreasing whith depth. The default is 1 (no change).
+        verti_hk_init : list, optional
             Initial value.
-            Depth-dependent hydraulic conductivity. The default is None.
-        verti_poro_init : list, optional
+            Apply hydraulic conductivity values between different thickness. The default is None.
+        verti_sy_init : list, optional
             Initial value.
-            Depth-dependent porosity. The default is None.
+            Apply specific yield values between different thickness. The default is None.
+        verti_ss_init : list, optional
+            Initial value.
+            Apply specific storage values between different thickness. The default is None.
+        vka_init : list, optional
+            Initial value.
+            Ratio of horizontal to vertical hydraulic conductivity. The default is 1.
         """
         print('Init hydraulic module to set model parameter')
         
@@ -160,7 +166,7 @@ class Hydraulic:
         Parameters
         ----------
         vka : float
-            Vertical hydraulic conductivity or the ratio of horizontal to vertical hydraulic conductivity of the aquifer model.
+            Ratio of horizontal to vertical hydraulic conductivity.
         """
         self.vka = vka_value
     
@@ -168,8 +174,8 @@ class Hydraulic:
         """
         Parameters
         ----------
-        porosity_value : float
-            Porosity (specifc yield) of the aquifer model.
+        sy_value : float
+            Sspecifc yield of the aquifer model.
         """
         self.sy_value = sy_value
     
@@ -196,7 +202,7 @@ class Hydraulic:
         Parameters
         ----------
         bottom_value : float
-            Elevation of the flat bottom of the aquifer model.
+             Flat bottom elevation of the aquifer model.
         """
         self.bottom = bottom_value
     
@@ -204,10 +210,16 @@ class Hydraulic:
         """
         Parameters
         ----------
-        cond_decay_value : float
-            Exponential decay ratio of hydraulic conductivity.
-            For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
-            K = K0 * np.exp(-cond_decay_value*z)
+        hk_decay_value : float
+            Exponential decay ratio of hydraulic conductivity K.
+            For z=50m, if hk_decay_value=1/50, Kmax (or K0) divide by 2.7 at 50m.
+            K(z) = Kmax*np.exp(-hk_decay_value*z)
+        min_value : float
+            If not None, the exponential decay stop until this minimal value Kmin.
+            K(z) = Kmin-(Kmax-Kmin)*np.exp(-hk_decay_value*z)
+        log_transf : bool
+            If True, the log transform is applied to the formulation.
+            log(K(z)) = log(Kmin)-(log(Kmax)-log(Kmin))*np.exp(-hk_decay_value*z)
         """
         self.hk_decay =  [hk_decay_value, min_value, log_transf] 
     
@@ -215,10 +227,8 @@ class Hydraulic:
         """
         Parameters
         ----------
-        poro_decay_value : float
-            Exponential decay ratio of porosity (specific storage : sy).
-            For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
-            Sy = Sy0 * np.exp(-poro_decay_value*z)
+        sy_decay_value : float
+            Idem por specific yield. See 'update_hk_decay'.
         """
         self.sy_decay = [sy_decay_value, min_value, log_transf]
     
@@ -227,9 +237,7 @@ class Hydraulic:
         Parameters
         ----------
         ss_decay_value : float
-            Exponential decay ratio of porosity (specific storage : ss).
-            For z=50, if cond_decay_value=1/50, K0 divide by 2.7 at 50m.
-            Sy = Sy0 * np.exp(-poro_decay_value*z)
+            Idem por specific stotage. See 'update_hk_decay'.
         """
         self.ss_decay =  [ss_decay_value, min_value, log_transf]  
     
@@ -256,8 +264,10 @@ class Hydraulic:
         """
         Parameters
         ----------
-        verti_cond_value : list
+        verti_hk_value : list
             List of hydraulic conductivity values with associated vertical depth.
+            For example: [ [1, [0, 20]], [0.5, [20,80]] ]
+            1 m/d between 0 and 20 m depth, and 0.5 m/d between 20 and 80 m depth.
         """
         self.verti_hk = verti_hk_value   # None or [ [1e-5, [0, 20]],
                                              #           [1e-6, [20,80]] ]
@@ -266,8 +276,8 @@ class Hydraulic:
         """
         Parameters
         ----------
-        verti_poro_value : list
-            List of porosity (specific yield) values with associated vertical depth.
+        verti_sy_value : list
+            Idem for specific yield. See 'update_hk_vertical'.
         """
         self.verti_sy = verti_sy_value   # None or [ [0.5/100, [0, 20]],
                                              #           [0/100, [20,80]] ]
@@ -276,8 +286,8 @@ class Hydraulic:
         """
         Parameters
         ----------
-        verti_poro_value : list
-            List of porosity (specific storage) values with associated vertical depth.
+        verti_ss_value : list
+            Idem for specific storage. See 'update_hk_vertical'.
         """
         self.verti_ss = verti_ss_value   # None or [ [0.5/100, [0, 20]],
                                              #           [0/100, [20,80]] ]
@@ -319,9 +329,9 @@ class Hydraulic:
     
     def update_hk_from_calib_zones(self, num_zone: int, hk_value: float):
         """        
-        Updates :attr:`hyd_cond` with a value :data:`hyd_cond_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
+        Updates :attr:`hk_value` with a value :data:`hk_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
         :param num_zone: the zone number
-        :param hyd_cond_value: hydraulic conductivy of the aquifer.        
+        :param hk_value: hydraulic conductivy of the aquifer.        
         """        
         self.hk_grid[self.calib_zones==num_zone] = hk_value
         # self.hk_grid = np.tile(self.hk_grid, (self.nlay, 1, 1))
@@ -329,9 +339,9 @@ class Hydraulic:
     
     def update_sy_from_calib_zones(self, num_zone: int, sy_value: float):
         """
-        Updates :attr:`porosity` with a value :data:`porosity_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
+        Updates :attr:`sy_value` with a value :data:`sy_value` at the location of the :data:`num_zone` in the :attr:`calib_zones`
         :param num_zone: the zone number
-        :param porosity_value: porosity of the aquifer.        
+        :param sy_value: porosity of the aquifer.        
         """       
         self.sy_grid[self.calib_zones==num_zone] = sy_value
         # self.sy_grid = np.tile(self.sy_grid, (self.nlay, 1, 1))
@@ -347,13 +357,13 @@ class Hydraulic:
         
     def update_hk_with_geology(self, geology_code, geology_array, hk_values):
         """
-        Updates :attr:`hyd_cond` with values in :data:`hyd_cond_values` at the location of the :data:`geology_code` in the :data:`geology_array`
+        Updates :attr:`hk_value` with values in :data:`hk_values` at the location of the :data:`geology_code` in the :data:`geology_array`
         :param geology_code: list of geology entities.
         :type geology_code: :class:`list of int`
         :param geology_array: localisation of the geology entities in the DEM.
         :type geology_array: :class:`numpy.ndarray(int)`
-        :param hyd_cond_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
-        :type hyd_cond_values: :class:`list of float`           
+        :param hk_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
+        :type hk_values: :class:`list of float`           
         """
         self.hk_value = np.ones((self.nrow, self.ncol))
         for i in range(0,len(geology_code)):
@@ -362,13 +372,13 @@ class Hydraulic:
     
     def update_sy_with_geology(self, geology_code, geology_array, sy_values):
         """
-        Updates :attr:`porosity` with values in :data:`porosity_values` at the location of the :data:`geology_code` in the :data:`geology_array`
+        Updates :attr:`sy_value` with values in :data:`sy_values` at the location of the :data:`geology_code` in the :data:`geology_array`
         :param geology_code: list of geology entities.
         :type geology_code: :class:`list of int`
         :param geology_array: localisation of the geology entities in the DEM.
         :type geology_array: :class:`numpy.ndarray(int)`
-        :param porosity_values: hydraulic conductivity values for each geology code. Must be the same lenght of :data:`geology_code`.
-        :type porosity_values: :class:`list of float`         
+        :param sy_values: specific yields values for each geology code. Must be the same lenght of :data:`geology_code`.
+        :type sy_values: :class:`list of float`         
         """        
         self.sy_value = np.ones((self.nrow, self.ncol))
         for i in range(0,len(geology_code)):
