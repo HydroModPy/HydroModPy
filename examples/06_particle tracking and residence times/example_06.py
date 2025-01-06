@@ -173,6 +173,7 @@ box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
+dis_perlen = False
 
 # Climatic settings
 recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
@@ -180,34 +181,19 @@ first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
 # Hydraulic settings
-nlay = 50
-lay_decay = 1.25 # 1 for no decay
-bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
+nlay = 10
+lay_decay = 1.5 # 1 for no decay
+bottom = 1000 # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 100 # if bottom is None, aquifer thickness
-if watershed_name == 'Example_06_Lasset':
-    hyd_cond = 1e-8 * 24 * 3600 # m/day
-else:
-    hyd_cond = 5e-7 * 24 * 3600 # m/day
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+hk = 1e-6 * 24 * 3600 # m/day
 cond_drain = None # or value of conductance
-porosity = 1 / 100 # -
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+sy = 1 / 100 # -
+ss = 1e-10
 
 # Boundary settings
 bc_left = None # or value
 bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-
-# Particle tracking settings
-zone_partic = 'domain'
-tif_file = 'None'
-tracking_dir = 'forward'
-
-# If you want to test the backward settings
-# zone_partic = 'path' # domain or watershed or path
-# tif_file = 'xxx/results_simulations/default/_postprocess/_rasters/seepage_areas_t(0).tif'
-# tracking_dir = 'backward' # backward or forward
 
 #%% UPDATE
 
@@ -222,7 +208,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -233,16 +219,16 @@ BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_hk(hk)
+BV.hydraulic.update_sy(sy)
+BV.hydraulic.update_ss(ss)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
+BV.hydraulic.update_hk_decay(1/50, min_value=1e-10*24*3600, log_transf=False)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_split_temporal(split_temp=False)
+BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 #%% ---- MODELING
 
@@ -259,51 +245,48 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
-                              persistency_index=False,
-                              intermittency_monthly=False,
-                              intermittency_daily=False,
+                              persistency_index = False,
+                              intermittency_monthly = False,
+                              intermittency_daily = False,
                               export_all_tif = False)
 
 #%% MODPATH
 
-# Particle tracking settings
-tif_file = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
-tif_file_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+# Prepare particle tracking from seepage inside the catchment studied
+tif_seep = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+tif_seep_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
 wbt.clip_raster_to_polygon(
-    tif_file, 
+    tif_seep, 
     BV.stable_folder + '/geographic/watershed.shp', 
-    tif_file_clip, 
+    tif_seep_clip, 
     maintain_dimensions=True)
         
-seep = imageio.imread(BV.geographic.watershed_box_buff_dem)
-seep = seep*0
-# seep[30,25] = 1
-# seep[25,30] = 1
-seep[40,48] = 1
-# seep[60,20] = 1
-# seep[50,25] = 1
-plt.imshow(seep)
+# Prepare particle tracking from synthetic boreoles across the catchment
+bore = imageio.imread(BV.geographic.watershed_box_buff_dem)
+bore = bore*0
+bore[26,34] = 1
+bore[20,20] = 1
+bore[40,48] = 1
+bore[38,22] = 1
+bore[28,21] = 1
 particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
 toolbox.create_folder(particles_folder)
 toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
-                   seep,
+                   bore,
                    BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
                    0)
 tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
 
-BV.settings.update_input_particles(
-                                    zone_partic = BV.geographic.watershed_box_buff_dem,
-                                    # zone_partic = BV.geographic.watershed_dem,
-                                    # zone_partic = tif_file_clip,
-                                    # zone_partic = tif_file,
-                                    cell_div = 1, # 1
-                                    zloc_div = False,  # or False, add cells at cell bottom
-                                    bore_depth = None, # '[0,5,10] for 3 particles or None
-                                    # track_dir = 'backward',
-                                    track_dir = 'forward',
-                                    sel_random = None, # or int
-                                    sel_slice = None, # or int
-                                    )
+BV.settings.update_input_particles(#zone_partic = tif_seep,
+                                   zone_partic = tif_bore,
+                                   cell_div = 1, # 1
+                                   zloc_div = True,  # or True, add cells at cell bottom
+                                   bore_depth = True, # '[0,5,10] for 3 particles or None
+                                   track_dir = 'backward',
+                                   # track_dir = 'forward',
+                                   sel_random = None, # or int
+                                   sel_slice = None, # or int
+                                   )
 
 if sim_state == 'steady':
     if success_modflow == True:
@@ -331,9 +314,8 @@ if sim_state == 'steady':
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  actual_date=True, 
-                                                  subbasin_results=True,
-                                                  freq_time=freq_time) # or None
+                                                  datetime_format=False, 
+                                                  subbasin_results=True) # or None
 
 #%% ---- PLOT
 
@@ -388,9 +370,9 @@ plt.tight_layout()
 
 #%% RESIDENCE TIMES MAP
 
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
-# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting.shp')
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
+# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
+shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
 
 try:
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
@@ -404,20 +386,19 @@ dem_data = np.ma.masked_where(dem_data < 0, dem_data)
 fig, ax = plt.subplots(1,1, figsize=(7,5))
 
 rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
-                    cmap='Greys', alpha=0.7, zorder=0, aspect="auto")
+                    cmap='Greys', alpha=0.7, zorder=-10)
 
-shp_pathlines['time'] = shp_pathlines['time'] / 365
-shp_pathlines.plot(ax=ax, column='time', cmap=mpl.colors.ListedColormap(['k']), lw=0.1,
-                  norm=mpl.colors.LogNorm(vmin=1, vmax=10000),
-                  zorder=1)
+shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5,
+                   norm=mpl.colors.LogNorm(vmin=1, vmax=1000),
+                   zorder=1)
 
-shp_endpoints['time'] = shp_endpoints['time'] / 365
-shp_endpoints.plot(ax=ax, column='time', cmap='jet', lw=0, markersize=10,
-                 norm=mpl.colors.LogNorm(vmin=0.1, vmax=10000), legend=True,
-                 zorder=2)
+shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0, markersize=10,
+                   # norm=mpl.colors.LogNorm(vmin=0.1, vmax=1000),
+                   legend=True,
+                   zorder=2)
 
 try:
-    line.plot(ax=ax, color='k', lw=3)
+    line.plot(ax=ax, color='k', lw=2, zorder=-1)
 except:
     pass
 
@@ -430,64 +411,6 @@ fig.tight_layout()
 
 # fig.savefig(os.path.join(simulations_folder, model_name,
 #                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
-
-#%% CROSS
-
-if case != 'Example_06_Lasset':
-
-    import flopy.utils.binaryfile as fpu
-    
-    # Load model
-    fname = simulations_folder+model_name+'/'+model_name
-    ml = flopy.modflow.Modflow.load(fname+'.nam')
-    hdobj = flopy.utils.HeadFile(fname + '.hds')
-    times = hdobj.get_times()
-    head = hdobj.get_data(totim=times[0])
-    
-    # Figure
-    fig = plt.figure(figsize=(10, 4))
-    ax = fig.add_subplot(1, 1, 1)
-    ax.set_title('Cross-section : steady-state') 
-    ax.set_xlabel('x [m]')
-    ax.set_ylabel('z [m]')
-    
-    # Head color
-    xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
-    pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues_r',
-                          vmin=0, vmax=200,
-                          alpha=0.8)
-    cb = plt.colorbar(pc, shrink=0.75)
-    cb.set_label('Head [m]', labelpad=+10)
-    wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
-    
-    # Boundary
-    patches = xsect.plot_ibound(head=head)
-    
-    # Grid
-    linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
-    
-    # General fluxes
-    cbb = fpu.CellBudgetFile(fname + '.cbc')
-    kstpkper = (0, 0)
-    Qx = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=kstpkper, totim=times[0])[0]
-    Qy = np.ones(shape=(10,1,100))
-    Qz = cbb.get_data(text='FLOW LOWER FACE', kstpkper=kstpkper, totim=times[0])[0]
-    drain = cbb.get_data(text='DRAINS', kstpkper=kstpkper, totim=times[0])[0]
-    Q = np.sqrt(Qx**2 + Qz**2) # ???
-    Q_print = Q[0,0,0] # m/m
-    
-    # Particules plot
-    shp = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
-    # list_particules = shp['particleid'].unique()
-    shp['time'] = shp['time'] / 365
-    shp_fil = shp[shp['time']>1]
-    sc = ax.scatter(shp_fil['x'], shp_fil['z'], c=shp_fil['time'],
-               s=20, cmap='plasma_r', linewidths=0)
-    cbsc = plt.colorbar(sc, shrink=0.75)
-    cbsc.set_label('Residence times [y]', labelpad=+10)
-    
-    # fig.savefig(os.path.join(simulations_folder, model_name,
-    #                             '_postprocess', '_figures', 'CROSS_'+model_name+'.png'))
 
 #%% ---- NOTES
 

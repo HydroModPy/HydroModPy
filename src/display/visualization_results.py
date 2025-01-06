@@ -77,6 +77,8 @@ class Visualization():
             Structure of the frame figures 'h':horizontal or 'v': vertical. The default is 'v'.
         """
        
+        print('  Plot 2D maps visualization')
+       
         if len(object_list) == len(color_scale):
             pass
         elif color_scale == None:
@@ -85,7 +87,7 @@ class Visualization():
                            (None,None),(None,None),
                            (None,None),(None,None)]
         else:
-            print('object_list and color_scale must have the same lenght.')
+            # print('  object_list and color_scale must have the same lenght.')
             sys.exit()
         
         def trim_axs(axs, N):
@@ -160,7 +162,7 @@ class Visualization():
             obj = object_list[i]
             
             if obj == 'grid':
-                axs[i].set_title('Topographic elevation, [m]')
+                axs[i].set_title('Topographic elevation [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
                              cmap='terrain', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
@@ -182,7 +184,7 @@ class Visualization():
                 
             if obj == 'watertable':
                 axs[i].set_title('Watertable elevation [m]')
-                image_hidden = axs[i].imshow(np.ma.masked_where(watertable_elevation[time_step]< -100, watertable_elevation[time_step]), 
+                image_hidden = axs[i].imshow(np.ma.masked_where((watertable_elevation[time_step]< -100), watertable_elevation[time_step]), 
                              cmap='Blues_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
@@ -195,11 +197,11 @@ class Visualization():
                 
             if obj == 'watertable_depth':
                 axs[i].set_title('Watertable depth [m]')
-                image_hidden = axs[i].imshow(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), 
+                image_hidden = axs[i].imshow(np.ma.masked_where((watertable_depth[time_step]< -100) | (dem.read(1) < -100), watertable_depth[time_step]), 
                              cmap='coolwarm_r', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image.append(image_hidden)
                 basemap.append(0)
-                show(np.ma.masked_where(watertable_depth[time_step]< -100, watertable_depth[time_step]), ax=axs[i], 
+                show(np.ma.masked_where((watertable_depth[time_step]< -100) | (dem.read(1) < -100), watertable_depth[time_step]), ax=axs[i], 
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
@@ -410,6 +412,9 @@ class Visualization():
         lines : int, optional
             the number of random pathlines displayed
         """
+        
+        print('  Plot 3D maps visualization')
+        
         vedo.settings.default_backend= 'vtk'
         
         #vedo.settings.screeshot_scale = render
@@ -464,7 +469,7 @@ class Visualization():
             #plt += grid_mesh.isolines(5).lw(1).c('k')
     
         except:
-            print("VTK grid doesn't exist")
+            print("  File vtuvtk grid doesn't exist")
             
         #try: 
         watertable = os.path.join(self.watershed.simulations_folder, self.modelname,
@@ -589,7 +594,7 @@ class Visualization():
         
         for i in range (0,len(object_list)):
             obj = object_list[i]
-            print(obj)
+            # print(obj)
             if obj == 'grid':
                 plt.show(grid_mesh,contour,stream,"Topographic elevation [m]", at=i,
                          camera=cam, viewup='z', axes = 13, bg=bg)
@@ -601,7 +606,7 @@ class Visualization():
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
             if obj == 'pathlines':
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,"Groundwater flow paths",camera=cam, viewup ='z', at=i, axes = 13)
-                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [y]",
+                plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh, "Time pathlines log [d]",
                          camera=cam, viewup ='z', at=i, axes = 13, bg=bg)
                 #plt.show(grid_wireframe,contour,stream, watertable_blue, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
                 #plt.show(grid_mesh, pathlines_mesh,camera=cam, viewup ='z', at=i, axes = 13)
@@ -624,6 +629,8 @@ class Visualization():
     #%% CROSS
     
     def interactive_cross_section(self, dem_data, wt_data, river_data, interactive):
+        
+        print('  Plot 2D cross-section visualization')
         
         # Modules
         mpl.rcParams.update(mpl.rcParamsDefault)
@@ -676,7 +683,7 @@ class Visualization():
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except:
-            print('Problem to plot contour')
+            # print('Problem to plot contour')
             pass
         
         # Plot rivers
@@ -684,7 +691,7 @@ class Visualization():
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
             main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'), interpolation='none')
         except:
-            print('Problem to plot streams')
+            # print('Problem to plot streams')
             pass
         
         plt.gca().invert_yaxis()
