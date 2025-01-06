@@ -188,13 +188,6 @@ levels_dict['data'] = volumes_dict['data'].copy()
 for t in levels_dict['data'].index[0:-1]:
     levels_dict['data'].loc[t] = abaque[abaque.volume < levels_dict['data'].loc[t].values[0]].iloc[-1].level
 
-# Standardize the column names into 'times' and 'val'
-volumes_dict['data']['time'] = volumes_dict['data'].index
-volumes_dict['data'].rename(columns = {"cheze": "val"}, inplace = True)
-
-levels_dict['data']['time'] = levels_dict['data'].index
-levels_dict['data'].rename(columns = {"cheze": "val"}, inplace = True)
-
 # Convert values (monthly sums) into daily rates 
 days_in_month = pd.DataFrame( 
     index = data.index,
@@ -284,8 +277,6 @@ for scenario in scenario_list:
             
             # ---- Extract general results
             accumulation_dict[scenario][exp] = ts_dict[scenario][exp][['accumulation_flux']].copy()
-            accumulation_dict[scenario][exp] = accumulation_dict[scenario][exp].rename(columns = {'accumulation_flux' : 'val'})
-            accumulation_dict[scenario][exp]['time'] = accumulation_dict[scenario][exp].index
         
             
             # ---- Extract lake/reservoir results
@@ -296,25 +287,13 @@ for scenario in scenario_list:
 # =============================================================================
             # levels_dict[scenario][exp] = df_dict[scenario][exp].drop(['x', 'y', 'spatial_ref']).to_dataframe()
             levels_dict[scenario][exp] = df_dict[scenario][exp]['level'][['watertable_elevation']]
-            levels_dict[scenario][exp] = levels_dict[scenario][exp].rename(columns = {'watertable_elevation' : 'val'})
-            levels_dict[scenario][exp]['time'] = levels_dict[scenario][exp].index
             volumes_dict[scenario][exp] = ts_dict[scenario][exp][['reservoir_cheze_volume']].copy()
-            volumes_dict[scenario][exp] = volumes_dict[scenario][exp].rename(columns = {'reservoir_cheze_volume' : 'val'})
-            volumes_dict[scenario][exp]['time'] = volumes_dict[scenario][exp].index
             areas_dict[scenario][exp] = ts_dict[scenario][exp][['reservoir_cheze_area']].copy()
-            areas_dict[scenario][exp] = areas_dict[scenario][exp].rename(columns = {'reservoir_cheze_area' : 'val'})
-            areas_dict[scenario][exp]['time'] = areas_dict[scenario][exp].index
             
             # ---- Extract lake/reservoir flux results
             leakage_down_dict[scenario][exp] = -ts_dict[scenario][exp][['reservoir_cheze_lake_leakage_downwards']].copy()
-            leakage_down_dict[scenario][exp] = leakage_down_dict[scenario][exp].rename(columns = {'reservoir_cheze_lake_leakage_downwards' : 'val'})
-            leakage_down_dict[scenario][exp]['time'] = leakage_down_dict[scenario][exp].index
             leakage_up_dict[scenario][exp] = ts_dict[scenario][exp][['reservoir_cheze_lake_leakage_upwards']].copy()
-            leakage_up_dict[scenario][exp] = leakage_up_dict[scenario][exp].rename(columns = {'reservoir_cheze_lake_leakage_upwards' : 'val'})
-            leakage_up_dict[scenario][exp]['time'] = leakage_up_dict[scenario][exp].index
             leakage_dict[scenario][exp] = -ts_dict[scenario][exp][['reservoir_cheze_lake_leakage']].copy()
-            leakage_dict[scenario][exp] = leakage_dict[scenario][exp].rename(columns = {'reservoir_cheze_lake_leakage' : 'val'})
-            leakage_dict[scenario][exp]['time'] = leakage_dict[scenario][exp].index
 # =============================================================================
 #             leakage_dict[scenario][exp] = -df_dict[scenario][exp]['reservoir_cheze_lake_leakage'].drop(['x', 'y', 'spatial_ref']).to_dataframe()
 #             leakage_dict[scenario][exp].rename(columns = {'lake_leakage' : 'val'}, inplace = True)
@@ -322,8 +301,6 @@ for scenario in scenario_list:
 # =============================================================================
             # downstream_dict[scenario][exp] = -df_dict[scenario][exp]['downstream'].drop(['x', 'y', 'spatial_ref']).to_dataframe()
             downstream_dict[scenario][exp] = -df_dict[scenario][exp]['downstream'][['accumulation_flux']]
-            downstream_dict[scenario][exp] = downstream_dict[scenario][exp].rename(columns = {'watertable_elevation' : 'val'})
-            downstream_dict[scenario][exp]['time'] = accumulation_dict[scenario][exp].index
         
 # =============================================================================
 #         # Convert levels into volumes:
