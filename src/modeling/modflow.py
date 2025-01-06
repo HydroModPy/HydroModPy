@@ -96,7 +96,7 @@ class Modflow:
             'steady' or 'transient'. simulation state. The default is 'steady'.
         plot_cross : bool, optional
             if True, display a cross section of the model. The default is True.
-        climatic : float or list, optional
+        recharge : float or list, optional
             recharge value. The default is 0.001.
         runoff : float or list, optional
             runoff value. The default is 0.0001.
@@ -397,7 +397,7 @@ class Modflow:
         # Adding a superficial layer for lakes/reservoirs (if used)
         if self.use_lakeres:
             stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data, self.dem = self.lakeres.format_to_modflow(
-                self.geographic, self.climatic, self.nper, thickfact, self.dem, self.dem_watershed_path)
+                self.geographic, self.recharge, self.nper, thickfact, self.dem, self.dem_watershed_path)
             
             self.nlay = self.nlay + 1
             self.top = laklay_top
@@ -632,7 +632,7 @@ class Modflow:
                 # Remove aquifer evaporation on lakes/reservoirs
                 if self.use_lakeres:
                     self.evt[lakarr_lay0 > 0] = 0
-                    self.climatic[lakarr_lay0 > 0] = 0
+                    self.recharge[lakarr_lay0 > 0] = 0
 # Extract ETR on the lake
 # =============================================================================
 #                 for id_lakeres in range(0, len(self.lakeresData)): 
@@ -683,7 +683,7 @@ class Modflow:
                 self.rchData = self.recharge
             else:
                 if isinstance(self.recharge,(int,float)):
-                    # Only value in self.climatic (steady)
+                    # Only value in self.recharge (steady)
                     self.rchData[kper] = self.recharge
                 else:
                     if kper == 0:
@@ -825,10 +825,10 @@ class Modflow:
                         self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
                     if self.lakeres.rtrn_by_lake[lake_id] is not None:
                         for d in self.lakeres.rtrn_by_lake[lake_id].index:
-                            per = self.climatic.index.get_loc(d)
+                            per = self.recharge.index.get_loc(d)
                             runoff_prev = segment_data[per]['runoff'].copy()
                             runoff = runoff_prev.copy()
-                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[self.climatic.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
+                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[self.recharge.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
                             segment_data[per]['runoff'] = runoff_prev + runoff
                             itmp[per] = nss # time-varying inputs
             
@@ -842,7 +842,7 @@ class Modflow:
                     itmp[:] = nss
                 elif isinstance(self.streamflow_seepage.runoff, pd.core.series.Series):
                     for d in self.streamflow_seepage.runoff.index:
-                        per = self.climatic.index.get_loc(d)
+                        per = self.recharge.index.get_loc(d)
                         runoff_prev = segment_data[per]['runoff'].copy()
                         runoff = runoff_prev + self.streamflow_seepage.runoff
                         segment_data[per]['runoff'] = runoff
@@ -981,7 +981,7 @@ class Modflow:
         # This function is run in #%% Discretization section:
 # =============================================================================
 #         stages, lakarr_lay0, laklay_top, bdlknc_lay0, flux_data = self.lakeres.format_to_modflow(
-#             self.geographic, self.climatic, self.nper, thickfact)
+#             self.geographic, self.recharge, self.nper, thickfact)
 # =============================================================================
        
         if self.use_lakeres:       
