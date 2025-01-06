@@ -51,8 +51,8 @@ class Netcdf:
             Variable object of the model domain (watershed).
         model_modflow : object
             MODFLOW model object.
-        actual_date : bool, optional
-            Indicate if the model is actual time referenced with datetime. The default is True.
+        datetime_format : bool, optional
+            Indicate if the model is referenced with datetime format. The default is True.
         subbasin_results : bool, optional
             Indicated if simulation results need to be created at subassins scale. The default is True.
         """

@@ -39,8 +39,8 @@ class Settings:
 
         Parameters
         ----------
-        model_name : TYPE
-            DESCRIPTION.
+        model_name : str
+            Name of simulation.
         """
         self.model_name = model_name
     
@@ -58,14 +58,6 @@ class Settings:
         self.box = box
     
     def update_sink_fill(self, sink_fill):
-        """
-        xxx
-        
-        Parameters
-        ----------
-        sink_fill : xxx
-            xxx
-        """
         self.sink_fill = sink_fill
     
     def update_bc_sides(self, bc_left, bc_right):
@@ -115,18 +107,31 @@ class Settings:
                                      sel_random = None,
                                      sel_slice = None):
         """
-        Select the limited area to inject particles onto the surface..
+        Select the zones and configurations to inject particles.
 
         Parameters
         ----------
         zone_partic : str, optional
-            'watershed':inject particles only in cells inside watershed boundaries.
-            'domain': inject particles in all cells. The default is 'domain'.
-            'path': path of .tif file
-        path : str, optional
-            Path of .tif file
-        tracking_direction: str, otpional
-            'forward' or 'backward'
+            Path of the raster used to inject particles: where value > 0.
+            The default is 'domain', so the particles are injected where the model domain area > 0m. 
+        track_dir: str
+            Choice 'forward' or 'backward' particle tracking method.
+            The default is 'forward'.
+        bore_depth: list
+            [Not stable, currently in development]
+            If not None, inject a particle in the z direction (vertical), at the center position of each lays.
+        cell_div: int
+            Fix the number of particles injected uniformly distributed for each cell.
+            If 3 is set, 9 particles will be inejcted (3x*3y)
+            The dault is 1.
+        zloc_div: bool
+            If True, 'cell_div' is also applied vetically for the cells.
+            If cell_div is 3 and zloc_div is True, 18 particles will be injected (3x*3y*3z).
+            The default is False.
+        sel_random: int
+            Select randomly where inject a total number of particles.
+        sel_random: int
+            Select with slicing value where particles.
         """
         self.zone_partic = zone_partic
         self.cell_div = cell_div
@@ -142,19 +147,21 @@ class Settings:
 
         Parameters
         ----------
-        split_temp : bool, optional
+        dis_perlen : bool, optional
             The default is False.
         """
         self.dis_perlen = dis_perlen
         
     def update_well_pumping(self, well_coords=[], well_fluxes=[]):
         """
-        xxx
+        Add wells and associated fluxes across the model domain area.
         
-        Parameters
-        ----------
-        xxx : xxx
-            xxx
+        wells_coord : list
+            Inform the outlet coordinates of wells [lay,row,col].
+            Example for 2 wells: [ [1,20,30], [1,15,15] ]
+        wells_fluxes : list
+            Inform the fluxes [L3/T] for each stress-periods, for different wells.
+            Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
         """
         self.well_coords=well_coords
         self.well_fluxes=well_fluxes
