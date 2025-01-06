@@ -32,6 +32,7 @@ lang = language_dict[language]
 # Two formats are defined here: wide and paper
 wide = (1500, 700) # (width, height)
 paper = (1000, 550)
+plot_size = paper
 
 # ---- Coordinates [USER CHOICE]
 # (Coordinates where results will be extracted)
@@ -335,7 +336,7 @@ for scenario in scenario_list:
 #%% VISU Vol/Lvl/Area
 # ---- Colorscale [USER CHOICE]
 color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
-                                        black = True, alternate = True),
+                                        black = False, alternate = False),
 # =============================================================================
 #                       cmg.discrete_cmap('wong', alpha = 1, 
 #                                         black = False, alternate = False),
@@ -350,18 +351,79 @@ color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
 # ---- Metric [USER CHOICE]
 metric = 'level' ### user-defined (level | volume | area | accumulation)
 
-[fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [results[metric][k] for k in results[metric]],
-                                           labels = [
-                                                       ['Measurements', 'Mesures'][lang],
-                                                        # "SFR_LAK",
-                                                        "SFR_LAK <b>ref</b> e=35m | K=1e-4 m/s | p=0.5%",
-                                                        "SFR_LAK <b>correction vka</b> e=35m | K=1e-4 m/s | p=0.5%",
-                                                     ],
-                                           
-                                           color_map = color_map,
-                                           # lstyle = ['dotted', '-', '-', '-'],
-                                           # lwidth = [1],
-                                           )
+# ---- Determine min and max for each scenario
+merge_res = dict()
+graph_res = dict() # results formated for the graphics
+for scenario in scenario_p_list:
+    predic_list = list(results[metric][scenario].keys())
+    merge_res[scenario] = results[metric][scenario][predic_list[0]].copy()
+    for k in range(1, len(predic_list)):
+        predic = predic_list[k]
+        results[metric][scenario][predic] = results[metric][scenario][predic].rename(
+            columns = {results[metric][scenario][predic].columns.item(): predic})
+        merge_res[scenario] = merge_res[scenario].merge(results[metric][scenario][predic], 
+                                                        left_index = True, 
+                                                        right_index = True,
+                                                        how = 'outer')
+    # Extract min and max
+    min_res = merge_res[scenario].min(axis = 1)
+    min_res = min_res.to_frame('min')
+    max_res = merge_res[scenario].max(axis = 1)
+    max_res = max_res.to_frame('max')
+    min_res = min_res.merge(max_res, 
+                            left_index = True,
+                            right_index = True)
+    graph_res[scenario] = min_res
+
+
+# ---- Figures
+figweb = None
+# Historique
+[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
+                                           dataframes = [results[metric]['historique']['sim2']],
+                                           fill = None,
+                                           labels = ['Historique'],
+                                           color_map = np.array([[0.7, 0.7, 0.7, 1]]),
+                                           lwidth = [3],
+                                           lstyle = ['-'],
+                                           # legendgrouptitle_text = year_labels[p],
+                                           showlegend = True)
+# Predictions
+for p in range(0, len(scenario_p_list)):
+    scenario = scenario_p_list[p]
+    [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
+                                               dataframes = [graph_res[scenario]['min']],
+                                               fill = None,
+                                               labels = [scenario],
+                                               color_map = color_map[[p]],
+                                               # fillcolor = color_map2[[p]],
+                                               lwidth = [1.5],
+                                               lstyle = ['-'],
+                                               legendgroup = p,
+                                               # legendgrouptitle_text = year_labels[p],
+                                               showlegend = False)
+    [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
+                                               dataframes = [graph_res[scenario]['max']],
+                                               fill = 'tonexty',
+                                               labels = [scenario],
+                                               color_map = color_map[[p]],
+                                               # fillcolor = color_map2[[p]],
+                                               lwidth = [1.5],
+                                               lstyle = ['-'],
+                                               legendgroup = p,
+                                               # legendgrouptitle_text = year_labels[p],
+                                               showlegend = True)
+# Data
+[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
+                                           dataframes = [results[metric]['data'][:-1]],
+                                           labels = ['data'],
+                                           color_map = np.array([[0.0, 0.0, 0.0, 1]]),
+                                           # fillcolor = color_map2[[p]],
+                                           lwidth = [1],
+                                           lstyle = ['dotted'],
+                                           showlegend = True)
+
+
 
 # ---- MISE EN FORME *.html (figweb)   
 if metric == 'level':
@@ -380,10 +442,12 @@ elif metric == 'area':
     ylim = [0, 2e6]
 
 # ---- Dates [USER CHOICE]
-dates_lim = ['2000-01-01', '2024-02-23']
+# dates_lim = ['2000-01-01', '2024-02-23']
+dates_lim = [results[metric]['historique']['sim2'].index.min(),
+             results[metric][scenario][predic].index.max()]
 
 # ---- Title [USER CHOICE]
-title = "Connexion de tous les processus"
+title = f"Prévisions à date du {run[-10:]}"
 
 # ---- Generation of the figure
 figweb.update_layout(#font_family = 'Open Sans',
@@ -415,8 +479,8 @@ figweb.update_layout(#font_family = 'Open Sans',
                              },
                    plot_bgcolor = "white",
                    # legend = {'groupclick': 'togglegroup'},
-                   width = wide[0], # paper[0], # wide[0],
-                   height = wide[1], # paper[1], # wide[1],
+                   width = plot_size[0], # paper[0], # wide[0],
+                   height = plot_size[1], # paper[1], # wide[1],
                    )
 
 ##%%% Horizontal line
@@ -445,154 +509,8 @@ figweb.write_html(os.path.join(os.path.split(res_path)[0], "processed",
                                )
                   )
 
-
-#%% VISU Leakage
-# ---- Colorscale [USER CHOICE]
-color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
-                                        black = True, alternate = False),
-# =============================================================================
-#                       cmg.discrete_cmap('wong', alpha = 1, 
-#                                         black = False, alternate = False),
-#                       cmg.discrete_cmap('wong', alpha = 1, 
-#                                         black = False, alternate = False)
-# =============================================================================
-                      )
-color_map = color_map[[4, 1, 6, 0]]
-
-# ---- Select run [USER CHOICE]
-# run = 'barrage_Cheze_SFR_LAK_2024-10-24'
-run = list(results[metric].keys())[2]
-
-# ---- Trace plots
-# =============================================================================
-# [fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [
-#                                                          assumed_filling,
-#                                                          ],
-#                                            labels = [
-#                                                      "1.6x discharge from Cheze",
-#                                                      ],
-#                                            color_map = color_map[[3]],
-#                                            stack = True,
-#                                            lwidth = [1],
-#                                            # lstyle = ['--', '--'],
-#                                            )
-# 
-# [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-#                                            dataframes = [
-#                                                          missing_flux,
-#                                                          ],
-#                                            labels = [
-#                                                      "missing flux for balance",
-#                                                      ],
-#                                            color_map = color_map[[4]],
-#                                            stack = True,
-#                                            lwidth = [1],
-#                                            # lstyle = ['--', '--'],
-#                                            )
-# =============================================================================
-
-[fig1, ax1, figweb] = cwp.plot_time_series(# figweb = figweb,
-                                           dataframes = [
-                                                         results['leakage'][scenario][exp],
-                                                         ],
-                                           labels = [
-                                                     # ["Sum <br>(input flow to reservoir)",
-                                                     #  "Somme <br>(nappe → réservoir)"][lang],
-                                                     ["<b>Sum</b>",
-                                                      "<b>Somme</b>"][lang],
-                                                     ],
-                                           color_map = color_map[[3]],
-                                           stack = False, # True,
-                                           lwidth = [1.5],
-                                           )
-
-[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                           dataframes = [
-                                                         results['leakage_up'][scenario][exp],
-                                                         ],
-                                           labels = [
-                                                     ["<b>Flux upwards</b> <br>(watertable → reservoir)",
-                                                      "<b>Apports</b> <br>nappe → réservoir"][lang],
-                                                     ],
-                                           color_map = color_map[[1]],
-                                           stack = True,
-                                           )
-
-[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                           dataframes = [
-                                                         results['leakage_down'][scenario][exp],
-                                                         results['downstream'][scenario][exp],
-                                                         ],
-                                           labels = [
-                                                     ["<b>Leakage downards</b> <br>(reservoir → watertable)",
-                                                      "<b>Fuites</b> <br>réservoir → nappe"][lang],
-                                                     ["<b>Overflow and returnflow</b> <br>(reservoir → river)",
-                                                      "<b>Surverse et restitution</b> <br>réservoir → rivière"][lang],
-                                                     ],
-                                           color_map = color_map[[0, 2]],
-                                           stack = True,
-                                           )
-
-# =============================================================================
-# [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-#                                            dataframes = [
-#                                                          results['accumulation'][scenario][exp],
-#                                                          ],
-#                                            labels = [
-#                                                      ["Overflow and returnflow <br>(reservoir → river)",
-#                                                       "Surverse et restitution <br>réservoir → rivière"][lang],
-#                                                      ],
-#                                            color_map = color_map[[2]],
-#                                            stack = True,
-#                                            )
-# =============================================================================
-
-# ---- Labels and dates [USER CHOICE]
-ylabel = ['Flow [m3/d]', 'Flux [m3/j]'][lang]
-ylim = [-65000, 65000]
-# ylim = [-1.000e+5, 50000]
-# dates_lim = ['2004-01-04', '2020-01-05']
-# dates_lim = ['2004-10-01', '2015-09-30']
-    
-title = f"{run}"
-# title = f"run {run}: weekly | thick = 20m | poro = 0.1% | K = 1.4e-4 m/s"
-
-figweb.update_layout(#font_family = 'Open Sans',
-                   title = {'font': {'size': 20},
-                            'text': title,
-                            'xanchor': 'center',
-                            'x': 0.5,
-                            },
-                   # annotations = {'xanchor': 'middle',
-                   #                'yanchor': 'top',
-                   #                'size': 20,
-                   #                'text': add_title + "\nK = 5e-6 m/s   Poro = 0.1%   e = 25 m"},
-                   xaxis = {'title': {'font': {'size': 16},
-                                      'text': ['Time [d]', 'Temps [j]'][lang]},
-                            # 'range': dates_lim,
-                            },
-                   yaxis = {'title': {'font': {'size': 16},
-                                       'text': ylabel[lang]},
-                                      # 'text': field_title + ' [m3/s]'},
-                            'type': 'linear',
-                            'range': ylim,#_ylim_figweb,
-                            },
-                   legend = {'title': {'text': 'Légende'},
-                             'xanchor': 'right',
-                             'y': 0.1, # 1,
-                             'yanchor': 'bottom', # 'top',
-                             'bgcolor': 'rgba(255, 255, 255, 0.5)',
-                             # 'orientation': 'h',
-                             },
-                   plot_bgcolor = "white",
-                   # legend = {'groupclick': 'togglegroup'},
-                   width = paper[0], # wide[0],
-                   height = paper[1], # wide[1],
-                   )
-
-# ---- Export figure [USER CHOICE]
-figweb.write_html(os.path.join(os.path.split(res_path)[0], "processed",
-                               '_'.join(['lake_leakage',
+figweb.write_image(os.path.join(os.path.split(res_path)[0], "processed",
+                               '_'.join([metric, 
                                          datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M"),
                                          ]) + '.html'
                                )
