@@ -187,13 +187,6 @@ levels_dict['data'] = volumes_dict['data'].copy()
 for t in levels_dict['data'].index[0:-1]:
     levels_dict['data'].loc[t] = abaque[abaque.volume < levels_dict['data'].loc[t].values[0]].iloc[-1].level
 
-# Standardize the column names into 'times' and 'val'
-volumes_dict['data']['time'] = volumes_dict['data'].index
-volumes_dict['data'].rename(columns = {"cheze": "val"}, inplace = True)
-
-levels_dict['data']['time'] = levels_dict['data'].index
-levels_dict['data'].rename(columns = {"cheze": "val"}, inplace = True)
-
 # Convert values (monthly sums) into daily rates 
 days_in_month = pd.DataFrame( 
     index = data.index,
@@ -246,8 +239,6 @@ for run in [
     
     # ---- Extract general results
     accumulation_dict[run] = ts_dict[run][['accumulation_flux']].copy()
-    accumulation_dict[run] = accumulation_dict[run].rename(columns = {'accumulation_flux' : 'val'})
-    accumulation_dict[run]['time'] = accumulation_dict[run].index
 
     
     # ---- Extract lake/reservoir results
@@ -258,25 +249,13 @@ for run in [
 # =============================================================================
     # levels_dict[run] = df_dict[run].drop(['x', 'y', 'spatial_ref']).to_dataframe()
     levels_dict[run] = df_dict[run]['level'][['watertable_elevation']]
-    levels_dict[run] = levels_dict[run].rename(columns = {'watertable_elevation' : 'val'})
-    levels_dict[run]['time'] = levels_dict[run].index
     volumes_dict[run] = ts_dict[run][['reservoir_cheze_volume']].copy()
-    volumes_dict[run] = volumes_dict[run].rename(columns = {'reservoir_cheze_volume' : 'val'})
-    volumes_dict[run]['time'] = volumes_dict[run].index
     areas_dict[run] = ts_dict[run][['reservoir_cheze_area']].copy()
-    areas_dict[run] = areas_dict[run].rename(columns = {'reservoir_cheze_area' : 'val'})
-    areas_dict[run]['time'] = areas_dict[run].index
     
     # ---- Extract lake/reservoir flux results
     leakage_down_dict[run] = -ts_dict[run][['reservoir_cheze_lake_leakage_downwards']].copy()
-    leakage_down_dict[run] = leakage_down_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_downwards' : 'val'})
-    leakage_down_dict[run]['time'] = leakage_down_dict[run].index
     leakage_up_dict[run] = ts_dict[run][['reservoir_cheze_lake_leakage_upwards']].copy()
-    leakage_up_dict[run] = leakage_up_dict[run].rename(columns = {'reservoir_cheze_lake_leakage_upwards' : 'val'})
-    leakage_up_dict[run]['time'] = leakage_up_dict[run].index
     leakage_dict[run] = -ts_dict[run][['reservoir_cheze_lake_leakage']].copy()
-    leakage_dict[run] = leakage_dict[run].rename(columns = {'reservoir_cheze_lake_leakage' : 'val'})
-    leakage_dict[run]['time'] = leakage_dict[run].index
 # =============================================================================
 #     leakage_dict[run] = -df_dict[run]['reservoir_cheze_lake_leakage'].drop(['x', 'y', 'spatial_ref']).to_dataframe()
 #     leakage_dict[run].rename(columns = {'lake_leakage' : 'val'}, inplace = True)
@@ -284,8 +263,6 @@ for run in [
 # =============================================================================
     # downstream_dict[run] = -df_dict[run]['downstream'].drop(['x', 'y', 'spatial_ref']).to_dataframe()
     downstream_dict[run] = -df_dict[run]['downstream'][['accumulation_flux']]
-    downstream_dict[run] = downstream_dict[run].rename(columns = {'watertable_elevation' : 'val'})
-    downstream_dict[run]['time'] = accumulation_dict[run].index
     
 # =============================================================================
 # # Convert levels into volumes:
