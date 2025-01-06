@@ -76,7 +76,7 @@ from src.tools import toolbox, folder_root, log_manager
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% Initialiser le gestionnaire de logs en mode développement
-log_manager = log_manager.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
+log_manager = log_manager.LogManager(mode="verbose", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
                                     #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
                                     # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
                                     # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
@@ -175,7 +175,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo\Historiques SIM2"),
-                                       first_year=pd.to_datetime('today').year-1,
+                                       first_year=2023,
                                        # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
@@ -494,10 +494,10 @@ data_volumes = pd.lreshape(data,
                            dropna = False)
 
 weekly_index = pd.date_range(start = pd.to_datetime(f'{data.columns[0]}:01_1', format = '%Y:%W_%w'),
-                             periods = data_volumes.size*1.05, # extended
+                             periods = int(data_volumes.size*1.05), # extended
                              freq = 'W')
 
-data_volumes.set_index(weekly_index[weekly_index.week != 53][0:data_volumes.size], 
+data_volumes.set_index(weekly_index[weekly_index.isocalendar().week != 53][0:data_volumes.size], 
                           inplace = True)
 data_volumes = data_volumes.reindex(
     weekly_index[weekly_index <= data_volumes[data_volumes.notna().vol].index[-1]])
@@ -780,11 +780,11 @@ nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 35 # if bottom is None, aquifer thickness
-hyd_cond = 1e-4 * 24 * 3600 # m/day
+hk = 1e-4 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+hk_vertical = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-porosity = 0.1 / 100 # [%]
+sy = 0.1 / 100 # [%]
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Conditions aux limites
@@ -796,7 +796,7 @@ sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'watershed' # or 'domain''
 
 # "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
-split_temp = True
+dis_perlen = True
 
 ##%%% Mise à jour :
 BV.add_settings()
@@ -812,16 +812,16 @@ BV.add_hydraulic()
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross)
 
 # Paramètres hydrauliques
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / n'intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_hk(hk) # Ancient hyd_cond
+BV.hydraulic.update_sy(sy) # Ancient porosity
+BV.hydraulic.update_hk_vertical(hk_vertical)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
 
@@ -835,7 +835,7 @@ BV.add_oceanic(sea_level)
 # =============================================================================
     
 # "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
-BV.settings.update_split_temporal(split_temp)
+BV.settings.update_dis_perlen(dis_perlen)
 
 BV.save_object()
 
@@ -886,20 +886,21 @@ if success_modflow == True:
                               groundwater_flux = True,
                               groundwater_storage = True,
                               accumulation_flux = True,
+                              lake_leakage = True,
                               # lake_seepage = True,
                               export_all_tif = False,)
 
-
+#%%
 ##%%% Timeseries
 model_modpath = None # because transient
 timeseries_results = BV.postprocessing_timeseries(model_modflow,
                                                   model_modpath,
-                                                  actual_date=True, 
+                                                  datetime_format=True, 
                                                   subbasin_results=True) # or None
 
 ##%%% NetCDF
 netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                          actual_date=True)
+                                          datetime_format=True)
 
 now = datetime.datetime.now()
 print("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))
@@ -952,3 +953,4 @@ ax.set_xlabel('Distance [m]')
 fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
 fig.colorbar(cb)
 plt.tight_layout()
+# %%

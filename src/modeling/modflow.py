@@ -304,13 +304,17 @@ class Modflow:
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters
         # ---- flopy.modflow.ModflowNwt
+        
+        # For lakeres, there's a need to get out thickfact (use bellow)
+        thickfact = 1e-05
+        
         self.nwt = flopy.modflow.ModflowNwt(self.mf, 
                                             # headtol=1e-5*(np.nanmax(self.dem)-np.nanmin(self.dem)), # 1e-4
                                             # fluxtol=1e-3*np.nanmean(self.recharge)*self.resolution*self.resolution, # 500
                                             headtol=1e-4, # default 1e-4
                                             fluxtol=500, # default 500
                                             maxiterout=5000,
-                                            thickfact=1e-05,
+                                            thickfact=thickfact, # default 1e-05
                                             linmeth=1,
                                             iprnwt=1,
                                             ibotav=1,
@@ -1569,6 +1573,9 @@ class Modflow:
         if accumulation_flux == True:
             print('  ','Export accumulation flux')
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
+        if lake_leakage == True:
+            print('  ','Export lake leakage')
+            np.save(self.save_file+'/lake_leakage', self.dict_lake_leakage)
 
         if persistency_index == True:
             ### Persistency index
