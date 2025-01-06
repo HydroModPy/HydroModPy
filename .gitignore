@@ -2,6 +2,7 @@
 *.pyc
 *.chk
 **.chk
+*.gitignore
 src/watershed/.DS_Store
 src/__pycache__
 src/watershed/__pycache__
