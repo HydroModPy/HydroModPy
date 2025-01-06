@@ -10,4 +10,5 @@ To-do
 - ABHERVE	Voir avec les différents utilisateurs pour supprimer leur dossier 'users'
 - CHACUN 	Une fois le merge de la dev-restructuration ver dev, tester les branches liées
 - GAUVAIN 	Checker si on peut mettre des branches privées/public
+- GAUVAIN	Reprendre au propre et maintenir le readthedocs
 - BOIVIN	Voir pour reprendre HydroDataPy ou remettre en route le partage de données sur un OneDrive partagé
