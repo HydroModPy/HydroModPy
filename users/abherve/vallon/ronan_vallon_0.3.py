@@ -2535,7 +2535,7 @@ axs2 = axs2.ravel()
 n = 10
 colors = pl.cm.jet_r(np.linspace(0, 1, n))
 
-for ip in range(len((list(dict_hp_elems.items())[:11]))):
+for ip in range(len((list(dict_hp_elems.items())[:]))):
     print(ip)
     elem_hp_dic = dict_hp_elems[ip]
     
@@ -2621,6 +2621,12 @@ for ip in range(len((list(dict_hp_elems.items())[:11]))):
             ax.set_ylim(0.05,30)
 # fig1.tight_layout()
 fig2.tight_layout()
+
+fig, ax = plt.subplots(1, 1, figsize=(6,4.5), dpi=300)
+ax.scatter(df_hp_means.index, df_hp_means['KXX_ms_anis_w'], marker='^', c='white', ec='k', lw=1.5, s=40, zorder=100)
+ax.set_xlabel('Cases')
+ax.set_ylabel('Kgeom / Kharm (Kxy / Kz) [-]')
+fig.tight_layout()
 
 #%% ---- INPUT HGS PROCESSING
 
@@ -3804,7 +3810,7 @@ np.save(stable_folder + 'saturation/' + '_dict_traces.npy', dict_traces)
 # Persistency index
 dict_persistency_index = {}
 acc_npy_raw = np.load(stable_folder + 'saturation/' + '_dict_traces.npy', allow_pickle=True).item()
-acc_npy = list(acc_npy_raw.items())[:823]
+acc_npy = list(acc_npy_raw.items())[:366]
 for key in range(len(acc_npy)):
     mask = imageio.imread(BV.geographic.watershed_dem)
     # mask = imageio.imread(BV.geographic.watershed_box_buff_dem)
@@ -4311,7 +4317,7 @@ list_sy = (df_hp_means['SYX_perc_geom_w']/100).values
 list_vka = df_hp_means['KXX_ms_anis_w'].values
 list_thick = df_hp_means['thick'].values
 
-iD_set_simulations = 'HGSHP1' # anisotropy activated but with only one layer not considered - bottom to 800
+# iD_set_simulations = 'HGSHP1' # anisotropy activated but with only one layer not considered - bottom to 800
 iD_set_simulations = 'HGSHP2' # anisotropy activated but with only one layer not considered - bottom thick dependent
 # iD_set_simulations = 'HGSHP3' # anisotropy activated with 5 layers so it is considered
 
@@ -4599,7 +4605,7 @@ for model_name, model_success, model_modflow in zip(list_model_name[:],
 
 #%% COMPUTE DOS DSO
 
-iD_set_simulations = 'HGSHP1' # anisotropy activated but with only one layer not considered
+iD_set_simulations = 'HGSHP2'
 
 wbt.verbose = False
 
@@ -4699,6 +4705,11 @@ for model_name in list_model_name[:]:
     
 #%% ---- NEW PLOT RESULTS MAPS GRAPH
 
+#%% INITSIM
+
+# iD_set_simulations = 'Ex3'
+iD_set_simulations = 'HGSHP2' # anisotropy activated but with only one layer not considered - bottom thick dependent
+
 #%% PERSISTENCY
 
 pi_rio = rasterio.open('E:/_RONAN/_E_SIMULATIONS/VALLON//Nant_21781_EUDTM30m/results_stable/saturation/_hgs_persistency_index_t(-).tif')
@@ -4715,8 +4726,6 @@ ax.set_title('HGS water occurence')
 ax.set_axis_off()
 fig.tight_layout()
 
-iD_set_simulations = 'Ex3'
-
 # seep = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess','_rasters','seepage_areas_t(0).tif'))
 # seep[seep<=0] = np.nan
 # fig, ax = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
@@ -4728,8 +4737,8 @@ nant_hill = rasterio.open(stable_folder + 'geographic/' + 'watershed_hill.tif')
 nant_cont = gpd.read_file(stable_folder + 'geographic/' + 'watershed.shp')
 
 # Preload colormap
-jet_colormap = plt.cm.get_cmap('jet_r')
-navy_colormap = mpl.colors.ListedColormap('navy')
+jet_colormap = plt.cm.get_cmap('viridis_r')
+navy_colormap = mpl.colors.ListedColormap('darkorange')
 
 # Process each dataset
 list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
@@ -4776,14 +4785,12 @@ for model_name in list_model_name[:]:
 
         # Save figure
         # fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex1_27models/'
-        fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
+        fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_HGSHP2_11models/'
         fig_path = os.path.join(fig_dir, 'seep+pi'+model_name+'.png')
         fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
         plt.close(fig)
 
 #%% STREAMFLOW
-
-iD_set_simulations = 'Ex3'
 
 hgs_model_ronan_path = 'E:/_RONAN/_E_SIMULATIONS/HGS/_HGS_v2_Ronan/'
 
@@ -4805,17 +4812,17 @@ list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulation
 fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
 
 n = len(list_model_name)
-colors = pl.cm.jet(np.linspace(0, 1, n))
+colors = pl.cm.jet_r(np.linspace(0, 1, n-1))
 
 cpg = 0
 for enu, model_name in enumerate(list_model_name[:]):
     cpg+=1 
         
-    K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
-    E = float(model_name.split('_')[3].split('-')[2])
-    T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
-    P = float(model_name.split('_')[6].split('-')[2])
-    
+    # K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
+    # E = float(model_name.split('_')[3].split('-')[2])
+    # T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
+    # P = float(model_name.split('_')[6].split('-')[2])
+        
     # if T == 1e-6:
     #     c='red'
     # if T == 1e-5:
@@ -4841,9 +4848,12 @@ for enu, model_name in enumerate(list_model_name[:]):
     # if P == 10.0:
     #     ls='-'
     
-    lw=1
+    lw=1.5
     ls='-'
-    c=colors[enu]
+    if enu == 0:
+        c='grey'
+    else:
+        c=colors[enu-1]
     # print(c)
 
     # model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
@@ -4857,8 +4867,8 @@ for enu, model_name in enumerate(list_model_name[:]):
     # Qsim_hgs_fil = Qsim_hgs.to_frame().query("datetime >= '2014-10-01' and datetime <= '2016-09-29'")
     # Qsim_mf_fil = Qsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
 
-    Qsim_hgs_fil = Qsim_hgs.to_frame().query("datetime >= '2014-10-01' and datetime <= '2018-10-01'")
-    Qsim_mf_fil = Qsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2018-10-01'")
+    Qsim_hgs_fil = Qsim_hgs.to_frame().query("datetime >= '2014-10-01' and datetime <= '2015-09-30'")
+    Qsim_mf_fil = Qsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
     
     NSE = he.evaluator(he.nse, Qsim_mf_fil, Qsim_hgs_fil)[0]
     NSElog = he.evaluator(he.nse, Qsim_mf_fil, Qsim_hgs_fil, transform='log')[0]
@@ -4887,7 +4897,7 @@ for enu, model_name in enumerate(list_model_name[:]):
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('10-2015'))
     # ax.legend(loc='lower right')
     ax.set_title('Streamflow', fontsize=15)
     
@@ -4900,20 +4910,18 @@ for enu, model_name in enumerate(list_model_name[:]):
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('10-2015'))
     # ax.legend(loc='lower right')
     ax.set_title('Residuals', fontsize=15)
     ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
 
 fig.tight_layout()
 
-fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_HGSHP2_11models/'
 fig_path = os.path.join(fig_dir, '_streamflow_4models'+'.png')
 fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
 
 #%% SATURATION
-
-iD_set_simulations = 'Ex3'
 
 # Process each dataset
 list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
@@ -4921,16 +4929,16 @@ list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulation
 fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
 
 n = len(list_model_name)
-colors = pl.cm.jet(np.linspace(0, 1, n))
+colors = pl.cm.jet_r(np.linspace(0, 1, n-1))
 
 cpg = 0
 for enu, model_name in enumerate(list_model_name[:]):
     cpg+=1 
         
-    K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
-    E = float(model_name.split('_')[3].split('-')[2])
-    T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
-    P = float(model_name.split('_')[6].split('-')[2])
+    # K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
+    # E = float(model_name.split('_')[3].split('-')[2])
+    # T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
+    # P = float(model_name.split('_')[6].split('-')[2])
     
     # if T == 1e-5:
     #     c='blue'
@@ -4956,9 +4964,12 @@ for enu, model_name in enumerate(list_model_name[:]):
     # if P == 10.0:
     #     ls='-'
     
-    lw=2
+    lw=1.5
     ls='-'
-    c=colors[enu]
+    if enu == 0:
+        c='grey'
+    else:
+        c=colors[enu-1]
     # print(c)
 
     # model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
@@ -4970,8 +4981,8 @@ for enu, model_name in enumerate(list_model_name[:]):
     DDsim_hgs = Sim['dd_netw_hgs']
     DDsim_mf = Sim['total_areas']
     
-    DDsim_hgs_fil = DDsim_hgs.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
-    DDsim_mf_fil = DDsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    DDsim_hgs_fil = DDsim_hgs.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
+    DDsim_mf_fil = DDsim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
     
     NSE = he.evaluator(he.nse, DDsim_mf_fil, DDsim_hgs_fil)[0]
     NSElog = he.evaluator(he.nse, DDsim_mf_fil, DDsim_hgs_fil, transform='log')[0]
@@ -4990,7 +5001,7 @@ for enu, model_name in enumerate(list_model_name[:]):
     print('    ','NSElog',round(NSElog,2))     
     
     ax = a0
-    ax.plot(DDsim_hgs, color='k', lw=5, ls='-', zorder=0, label='DDhgs')
+    ax.plot(DDsim_hgs, color='k', lw=3, ls='-', zorder=0, label='DDhgs')
     ax.plot(DDsim_mf, color=c, lw=lw, ls=ls, label='MF')
     ax.set_xlabel('Date')
     ax.set_ylabel('DD [%]')
@@ -4999,7 +5010,7 @@ for enu, model_name in enumerate(list_model_name[:]):
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('10-2015'))
     # ax.legend(loc='lower right')
     ax.set_title('Saturation', fontsize=15)
     
@@ -5013,20 +5024,18 @@ for enu, model_name in enumerate(list_model_name[:]):
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('10-2015'))
     # ax.legend(loc='lower right')
     ax.set_title('Residuals', fontsize=15)
     ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
 
 fig.tight_layout()
 
-fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_HGSHP2_11models/'
 fig_path = os.path.join(fig_dir, '_saturation_4models'+'.png')
 fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
 
 #%% MISMATCH
-
-iD_set_simulations = 'Ex2'
 
 # Process each dataset
 list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
@@ -5034,7 +5043,7 @@ list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulation
 fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [1, 1]}, figsize=(18,5))
 
 n = len(list_model_name)
-colors = pl.cm.jet(np.linspace(0, 1, n))
+colors = pl.cm.jet_r(np.linspace(0, 1, n-1))
 
 cpg = 0
 for enu, model_name in enumerate(list_model_name[:]):
@@ -5042,10 +5051,10 @@ for enu, model_name in enumerate(list_model_name[:]):
     
     # print(enu)
     
-    K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
-    E = float(model_name.split('_')[3].split('-')[2])
-    T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
-    P = float(model_name.split('_')[6].split('-')[2])
+    # K = float(model_name.split('_')[2].split('-')[2]+'-'+model_name.split('_')[2].split('-')[3])
+    # E = float(model_name.split('_')[3].split('-')[2])
+    # T = float(model_name.split('_')[4].split('-')[1]+'-'+model_name.split('_')[4].split('-')[2])
+    # P = float(model_name.split('_')[6].split('-')[2])
     
     # if T == 1e-5:
     #     c='blue'
@@ -5071,9 +5080,12 @@ for enu, model_name in enumerate(list_model_name[:]):
     # if P == 10.0:
     #     ls='-'
     
-    lw=2
+    lw=1.5
     ls='-'
-    c=colors[enu]
+    if enu == 0:
+        c='grey'
+    else:
+        c=colors[enu-1]
     # print(c)
 
     # model_modflow = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_'+str(cpg)+'_'+model_name+'.pkl')['model_modflow']
@@ -5085,19 +5097,19 @@ for enu, model_name in enumerate(list_model_name[:]):
     Dso_sim_mf = Sim['Dso_netw_mean']
     Dos_sim_mf = Sim['Dos_netw_mean']
 
-    Dos_sim_mf_plt = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
-    Dso_sim_mf_plt = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    Dos_sim_mf_plt = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
+    Dso_sim_mf_plt = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
 
-    Dos_sim_mf_fil = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'").values
-    Dso_sim_mf_fil = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'").values
+    Dos_sim_mf_fil = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'").values
+    Dso_sim_mf_fil = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'").values
     
     NSE = he.evaluator(he.nse, Dso_sim_mf_fil, Dos_sim_mf_fil)[0]
     NSElog = he.evaluator(he.nse, Dso_sim_mf_fil, Dos_sim_mf_fil, transform='log')[0]
     RMSE = np.sqrt(np.nanmean((Dos_sim_mf_fil-Dso_sim_mf_fil)**2))
     KGE = he.evaluator(he.kge, Dso_sim_mf_fil, Dos_sim_mf_fil)[0][0]
     
-    Dos_sim_mf_calc = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
-    Dso_sim_mf_calc = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2016-09-29'")
+    Dos_sim_mf_calc = Dos_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
+    Dso_sim_mf_calc = Dso_sim_mf.to_frame().query("date >= '2014-10-01' and date <= '2015-09-30'")
     Dos_sim_mf_calc['month'] = Dos_sim_mf_calc.index.month
     Dso_sim_mf_calc['month'] = Dso_sim_mf_calc.index.month    
     # Dos_sim_mf_calc = Dos_sim_mf_calc.query("month == "+"["+'7,8,9'+"]")
@@ -5131,21 +5143,21 @@ for enu, model_name in enumerate(list_model_name[:]):
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('10-2015'))
     # ax.legend(loc='lower right')
     ax.axhline(y=1, c='k', lw=3, ls='-', zorder=-1000)
     ax.set_title('Mismatch', fontsize=15)
 
     ax = a1
-    ax.plot((Dso_sim_mf_plt['Dso_netw_mean']/Dos_sim_mf_plt['Dos_netw_mean']), color=c, lw=lw, ls=ls, zorder=0)
+    ax.plot(abs(1-(Dso_sim_mf_plt['Dso_netw_mean']/Dos_sim_mf_plt['Dos_netw_mean'])), color=c, lw=lw, ls=ls, zorder=0)
     ax.set_xlabel('Date')
-    ax.set_ylabel('Dso / Dos [-]')
+    ax.set_ylabel('|1-(Dso / Dos)| [-]')
     ax.set_yscale('log')
     # ax.set_ylim(0,2)
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('01-2017'))
+    ax.set_xlim(pd.to_datetime('10-2014'), pd.to_datetime('10-2015'))
     # ax.legend(loc='lower right')
     ax.set_title('Residuals', fontsize=15)
     ax.axhline(y=1, c='k', lw=3, ls='-', zorder=1000)
@@ -5153,7 +5165,7 @@ for enu, model_name in enumerate(list_model_name[:]):
 fig.tight_layout()
 
 # fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
-fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
+fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_HGSHP2_11models/'
 fig_path = os.path.join(fig_dir, '_mismatch_4models'+'.png')
 fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
 
@@ -5167,7 +5179,7 @@ pi_hgs = imageio.imread('E:/_RONAN/_E_SIMULATIONS/VALLON//Nant_21781_EUDTM30m/re
 pi_hgs[nant_dem<0] = np.nan
 pi_hgs[pi_hgs<=0] = 0
 pi_hgs_flat = pi_hgs.flatten()
-# pi_hgs_flat[pi_hgs_flat<0.1] = 0.1
+# pi_hgs_flat[pi_hgs_flat<0.05] = 0.05
 
 # Process each dataset
 list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulations+'_0_modelnames')['list_model_name'][:]
@@ -5176,23 +5188,28 @@ list_model_name = dd.io.load(simulations_folder+'/'+'reslist_'+iD_set_simulation
 
 
 n = len(list_model_name)
-colors = pl.cm.jet(np.linspace(0, 1, n))
+colors = pl.cm.jet_r(np.linspace(0, 1, n))
 
 cpg = 0
 for enu, model_name in enumerate(list_model_name[:]):
     print(enu, model_name)
     cpg += 1
     
+    if enu == 0:
+        c='grey'
+    else:
+        c=colors[enu-1]
+    
     # if (cpg == 7) | (cpg == 8) | (cpg == 13) | (cpg == 14):
-    fig, ax = plt.subplots(1, 1, figsize=(5,5))
+    fig, ax = plt.subplots(1, 1, figsize=(4.5,4))
 
     pi_mf = imageio.imread(simulations_folder+'/'+model_name+'/_postprocess/_rasters/persistency_index_t(-).tif')
     pi_mf[nant_dem<0] = np.nan
     pi_mf[pi_mf<=0] = 0
     pi_mf_flat = pi_mf.flatten()
-    # pi_mf_flat[pi_mf_flat<0.1] = 0.1
+    # pi_mf_flat[pi_mf_flat<0.05] = 0.05
     
-    ax.plot(pi_mf_flat, pi_hgs_flat, color=colors[enu], lw=0, ms=3, mec='None', marker='o')
+    ax.plot(pi_mf_flat, pi_hgs_flat, color=c, lw=0, ms=3, mec='None', marker='o')
     
     try:
         # Linear regression
@@ -5202,11 +5219,11 @@ for enu, model_name in enumerate(list_model_name[:]):
         # Regression line
         x_fit = np.linspace(np.nanmin(pi_mf_flat), np.nanmax(pi_mf_flat), 500)
         y_fit = slope * x_fit + intercept
-        ax.plot(x_fit, y_fit, color=colors[enu], lw=2, label=f"Fit: $R^2$={r_value**2:.2f}")
+        ax.plot(x_fit, y_fit, color=c, lw=2, label=f"Fit: $R^2$={r_value**2:.2f}")
     except:
         pass
     
-    ax.set_title(model_name, fontsize=8)
+    ax.set_title(model_name, fontsize=5)
     
     # Configure axes
     ax.set_xscale('log')
@@ -5220,7 +5237,7 @@ for enu, model_name in enumerate(list_model_name[:]):
     plt.show()
     
     # fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex2_27models/'
-    fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_Ex3_51models/'
+    fig_dir = 'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Vallon/_figures/_vs_hgs/_HGSHP2_11models/'
     fig_path = os.path.join(fig_dir, '_correlation_'+model_name+'.png')
     fig.savefig(fig_path, dpi=300, bbox_inches='tight', transparent=False)
 

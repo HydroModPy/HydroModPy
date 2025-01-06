@@ -59,7 +59,7 @@ importlib.reload(src)
 
 # Import HydroModPy modules
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
+from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
@@ -73,8 +73,6 @@ data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
 # Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -109,7 +107,6 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               bottom_path=bottom_path, # path
-                              # modflow_path=modflow_path, 
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -120,13 +117,14 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
 #%% INIT
 
+visualization_watershed.watershed_local(dem_path, BV)
+
 # Clip specific data at the catchment scale
 oceanic_path = data_path
-BV.add_oceanic(oceanic_path)
-BV.add_piezometry()
+BV.add_oceanic(oceanic_path) # import specific data of tide temporal dynamcis
+BV.add_piezometry() # download data on the web
 
 # General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_dem(BV)
 
 #%% PIEZOMETRY
@@ -152,7 +150,7 @@ if not os.path.exists(os.path.join(stable_folder, 'add_data')):
     os.mkdir(os.path.join(stable_folder, 'add_data'))
 piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
 
-#BV.piezometry.add_data()
+# BV.piezometry.add_data()
 BV.piezometry.display_data()
 
 #%% RECHARGE
@@ -212,22 +210,20 @@ box = False # or True
 sink_fill = False # or True
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = True
+dis_perlen = False
 
 # Hydraulic settings
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = -20 # elevation in meters, None for constant aquifer thickness, or 2D matrix
 thick = None # if bottom is None, aquifer thickness
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Lateral heterogeneity of hydrodynamic parameters
-hyd_cond_1 = 18.5 # m/day
-hyd_cond_2 = 95 # m/day
-porosity_1 = 8 / 100 # -
-porosity_2 = 45 / 100 # -
+hk_1 = 18.5 # m/day
+hk_2 = 95 # m/day
+sy_1 = 8 / 100 # -
+sy_2 = 45 / 100 # -
 
 # Boundary settings
 bc_left = None # or value
@@ -245,27 +241,24 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross)
 
 # Hydraulic settings
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-# BV.hydraulic.update_hyd_cond(hyd_cond)
-# BV.hydraulic.update_porosity(porosity)
-BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
-BV.settings.update_split_temporal(split_temp=False)
+BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 # Lateral heterogeneity
 shape_calib_zones_path = os.path.join(data_path, 'param_zones.shp')
 BV.hydraulic.update_calib_zones_from_shp(shape_calib_zones_path)
-BV.hydraulic.update_hyd_cond_from_calib_zones(1, hyd_cond_1)
-BV.hydraulic.update_hyd_cond_from_calib_zones(2, hyd_cond_2)
-BV.hydraulic.update_porosity_from_calib_zones(1, porosity_1)
-BV.hydraulic.update_porosity_from_calib_zones(2, porosity_2)
+calib_zones = BV.hydraulic.calib_zones
+BV.hydraulic.update_hk_from_calib_zones(1, hk_1)
+BV.hydraulic.update_hk_from_calib_zones(2, hk_2)
+BV.hydraulic.update_sy_from_calib_zones(1, sy_1)
+BV.hydraulic.update_sy_from_calib_zones(2, sy_2)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -293,11 +286,10 @@ if success_modflow == True:
                               export_all_tif = False)
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=None,
-                                                      actual_date=True, 
-                                                      subbasin_results=False,
-                                                      freq_time=freq_time)
+                                                      datetime_format=True, 
+                                                      subbasin_results=False)
     netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                              actual_date=True)
+                                              datetime_format=True)
 
 #%% SIMULATED VS OBSERVED PIEZOMETRY
 
@@ -335,7 +327,7 @@ ax.xaxis.set_minor_locator(months_maj)
 ax.legend(loc='upper right', fontsize=8)
 ax.set_ylabel('Elevation [masl]')
 ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
-ax.set_title('Watertable')
+ax.set_title('Calibration on the water table')
 
 ax = axs[1]
 # ax.axhline(dem_data[30,30], label='Topography', color='gold', lw=2)
@@ -388,8 +380,7 @@ else:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  actual_date=True, 
-                                                  subbasin_results=subbasin_results,
-                                                  freq_time=freq_time) # or None
+                                                  datetime_format=True, 
+                                                  subbasin_results=subbasin_results) # or None
 
 #%% ---- NOTES

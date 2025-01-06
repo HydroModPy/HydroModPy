@@ -102,6 +102,10 @@ class Geographic:
             List of tow parameters: [path, buffer_size] 
         from_xyv : list, optional
             List of four parameters: [x, y, snap_distance, buffer_size]
+        reg_fold : str, None
+            Path of the folder with regional data/results.
+            If informed, the regional results will not be created, just loaded from folder.
+            The default is None.
         """
         print('Extract geography of the model area')
                 
@@ -332,7 +336,7 @@ class Geographic:
                                        maintain_dimensions=False)
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
-            print('   Reshape tifs')
+            # print('   Reshape tifs')
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)
@@ -438,7 +442,7 @@ class Geographic:
         """
         
         # Paths
-        print(self.out_path)
+        # print(self.out_path)
         self.gis_path = os.path.join(self.out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
@@ -464,7 +468,7 @@ class Geographic:
             dem = gdal.Open(self.dem_path)
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
-            print(self.crs)
+            # print(self.crs)
             # Copy tif
             self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
             shutil.copyfile(self.dem_path, self.watershed_raw)
