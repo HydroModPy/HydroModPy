@@ -41,11 +41,6 @@ Modules
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: climatic.Climatic
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: settings.Settings
     :members:
     :undoc-members:
@@ -61,7 +56,10 @@ Modules
     :undoc-members:
     :show-inheritance:
 
-
+.. autoclass:: climatic.Climatic
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 
 
