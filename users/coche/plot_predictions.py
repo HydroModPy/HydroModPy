@@ -17,7 +17,7 @@ import numpy as np
 import os
 import datetime
 import pandas as pd
-from src.tools import toolbox, folder_root
+from src.tools import folder_root
 
 #%% LOAD DATA & PARAMETERS
 # ---- Language [USER CHOICE]
@@ -512,6 +512,6 @@ figweb.write_html(os.path.join(os.path.split(res_path)[0], "processed",
 figweb.write_image(os.path.join(os.path.split(res_path)[0], "processed",
                                '_'.join([metric, 
                                          datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M"),
-                                         ]) + '.html'
+                                         ]) + '.png'
                                )
                   )
