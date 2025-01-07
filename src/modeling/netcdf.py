@@ -15,6 +15,7 @@
 # Python
 import numpy as np
 import os
+import logging
 import pandas as pd
 import sys
 from os.path import dirname, abspath
@@ -57,7 +58,7 @@ class Netcdf:
             Indicated if simulation results need to be created at subassins scale. The default is True.
         """
         
-        print('  ','Export results as netcdf')
+        logging.info('  ','Export results as netcdf')
         
         self.geographic = geographic
     
@@ -366,7 +367,7 @@ class Netcdf:
 
     @staticmethod
     def pack_value(unpacked_value, scale_factor, add_offset):
-        print(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
+        logging.info(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
         return (unpacked_value - add_offset) / scale_factor
 
     @staticmethod
