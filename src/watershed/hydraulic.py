@@ -17,6 +17,7 @@ import numpy as np
 import whitebox
 from os.path import dirname
 import os
+import logging
 import imageio
 wbt = whitebox.WhiteboxTools()
 # wbt.set_compress_rasters(True)
@@ -105,7 +106,7 @@ class Hydraulic:
             Initial value.
             Ratio of horizontal to vertical hydraulic conductivity. The default is 1.
         """
-        print('Init hydraulic module to set model parameter')
+        logging.info('Init hydraulic module to set model parameter')
         
         self.box_dem = box_dem
         
