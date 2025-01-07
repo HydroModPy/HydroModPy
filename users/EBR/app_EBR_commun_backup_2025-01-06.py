@@ -30,7 +30,7 @@ warnings.filterwarnings('ignore', message='.*declare_namespace.*')
 # Bibliothèques installées par défaut
 import sys
 import os
-import requests
+import requests 
 import datetime
 import logging
 
@@ -76,13 +76,14 @@ from src.tools import toolbox, folder_root, log_manager
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% Initialiser le gestionnaire de logs en mode développement
-log_manager = log_manager.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
+log_manager = log_manager.LogManager(mode="verbose", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
                                     #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
                                     # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
                                     # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
                                      )
 
 #%% DOSSIERS UTILISATEUR
+
 out_path = folder_root.root_folder_results()
 # Pour modifier ce chemin : out_path = folder_root.update_root_folder_results()
 logging.info(f"Les résultats des simulations seront stockés dans le dossier {out_path}")
@@ -96,63 +97,13 @@ else:
     logging.critical(f"Le dossier {data_path} est vide. Avant toute utilisation, il est nécessaire de télécharger vers ce dossier les données d'entrée du modèle (voir lien fourni)")
     sys.exit()
 
-#%% PARAMETRISATION
-#==============================================================================
-
-# Date :
-dem_name = "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m"
-load_geographic = False
-
-first_year = 2023
-
-##%%% Définitions :
-# Paramètres cadres
-box = False # or False
-sink_fill = False # or True
-plot_cross = True
-
-# Paramètres hydrauliques
-nlay = 1
-lay_decay = 1 # 1 for no decay
-bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 35 # if bottom is None, aquifer thickness
-hk = 1e-4 * 24 * 3600 # m/day
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-hk_vertical = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
-cond_drain = None # or value of conductance
-sy = 0.1 / 100 # [%]
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-
-# Conditions aux limites
-bc_left = None # or value
-bc_right = None # or value
-sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-
-# Paramètres de suivi des particules
-zone_partic = 'watershed' # or 'domain''
-
-# "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
-dis_perlen = True
-
-# Nom du modèle
-model_name = 'base'
-
-#==============================================================================
 #%% BASSIN VERSANT 
 ##%%% Options: Charger MNT
 dem_path = os.path.join(data_path, 
                         "MNT",
-                        f"{dem_name}.tif")
-hk_str = f"{hk / (24 * 3600):.1e}"
-
-watershed_name = '_'.join([
-    'barrage_Cheze_SFR_LAK',
-    pd.to_datetime("today").strftime("%Y-%m-%d"),
-    f"thick_{thick}",
-    f"hk_{hk_str}",
-    f"sy_{sy*100:.1f}"
-])
-
+                        "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
+load = False
+watershed_name = '_'.join(['barrage_Cheze_SFR_LAK', pd.to_datetime("today").strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
@@ -163,39 +114,53 @@ logging.info('##### '+watershed_name.upper()+' #####')
 
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
-                              load=load_geographic,
+                              load=load, # load = False
                               watershed_name=watershed_name,
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               save_object=save_object)
 
+#%%% Recharger GEOGRAPHIC
+# =============================================================================
+# BV = watershed_root.Watershed(dem_path=dem_path,
+#                               out_path=out_path,
+#                               watershed_name=watershed_name,
+#                               load=True)
+# =============================================================================
+
 #%% SOUS-BASSINS
 # =============================================================================
-hydrometry_path = os.path.join(data_path,
-                               "Stations jaugeage")
-BV.add_hydrometry(hydrometry_path, 'france hydrometric stations.shp')
-
-intermittency_path= os.path.join(data_path,
-                                 "Stations ONDE")
-BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
-
+# hydrometry_path = os.path.join(data_path,
+#                                "Stations jaugeage")
+# BV.add_hydrometry(hydrometry_path, 'france hydrometric stations.shp')
+# 
+# intermittency_path= os.path.join(data_path,
+#                                  "Stations ONDE")
+# BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
+# 
 # # =============================================================================
-BV.add_subbasin(sub_snap_dist=200)
+# # BV.add_subbasin(os.path.join(root_dir, 'examples', 
+# #                              '99_reservoir and dam', 'data', 'additional'), 200)
 # # =============================================================================
 # # Normalement pas besoin car c'est déjà un point d'intérêt
-
-#%% (VISUALISATIONS DU SITE D'ETUDE)
-# Clip specific data at the catchment scale
-geol_path = os.path.join(data_path,
-                         "Geologie")
-BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-hydrography_path = os.path.join(data_path,
-                                r"Hydrographie")
-BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
-
-# General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
-visualization_watershed.watershed_geology(BV)
-visualization_watershed.watershed_dem(BV)
+# 
+# #%% (VISUALISATIONS DU SITE D'ETUDE)
+# # Clip specific data at the catchment scale
+# geol_path = os.path.join(data_path,
+#                          "Geologie")
+# BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+# hydrography_path = os.path.join(data_path,
+#                                 r"Hydrographie")
+# BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
+# 
+# # =============================================================================
+# # BV.add_piezometry()
+# # =============================================================================
+# # Erreur en cours
+# 
+# # General plot of the study site
+# visualization_watershed.watershed_local(dem_path, BV)
+# visualization_watershed.watershed_geology(BV)
+# visualization_watershed.watershed_dem(BV)
 # =============================================================================
 
 #%% RECHARGE et RUISSELLEMENT DE SURFACE DIRECT (données d'entrée)
@@ -210,7 +175,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        nc_data_path=os.path.join(
                                            data_path,
                                            r"Meteo\Historiques SIM2"),
-                                       first_year=first_year,
+                                       first_year=2023,
                                        # last_year=2021,
                                        time_step=freq_input,
                                        sim_state=sim_state,
@@ -659,6 +624,7 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
                             abaque_interp = pd.DataFrame(data = {'volume':add_volume, 'level':data.cheze.loc[t].item()}, index = [0]).append(abaque, ignore_index = True)
                         data.cheze.loc[t] = abaque_interp[abaque_interp.level <= data.cheze.loc[t].item()].iloc[-1].volume
 
+
                 for col in ['cheze', 'resti', 'meu', 'canut', 'usine']:
                     dam_input_df[col].update(data[col])
                 # dam_input_df[['cheze', 'resti', 'meu', 'usine']].update(data)
@@ -801,12 +767,42 @@ BV.streamflow_seepage.correct('elevations', True)
 BV.save_object()
 
 
-#%% UPDATE PARAMETRISATION
+#%% PARAMETRISATION
+
+##%%% Définitions :
+# Paramètres cadres
+box = False # or False
+sink_fill = False # or True
+plot_cross = True
+
+# Paramètres hydrauliques
+nlay = 1
+lay_decay = 1 # 1 for no decay
+bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+thick = 35 # if bottom is None, aquifer thickness
+hk = 1e-4 * 24 * 3600 # m/day
+cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+hk_vertical = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+cond_drain = None # or value of conductance
+sy = 0.1 / 100 # [%]
+poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+
+# Conditions aux limites
+bc_left = None # or value
+bc_right = None # or value
+sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+
+# Paramètres de suivi des particules
+zone_partic = 'watershed' # or 'domain''
+
+# "Split temp" : à supprimer à terme (split_temp -> dis_perlen, = 'days' par défaut)
+dis_perlen = True
 
 ##%%% Mise à jour :
 BV.add_settings()
 
-### Update
+# Nom du modèle
+model_name = 'base'
 BV.settings.update_model_name(model_name)
 
 BV.add_geometric() # soon
