@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -190,7 +191,7 @@ class Oceanic:
         """
         values_list = ['RMSL','RSL']
         if values not in values_list:
-            print('You must specify the values you want to display')
+            logging.info('You must specify the values you want to display')
         if values == 'RMSL':
             oceanic_display_data(self.RMSL, self.figure_folder+'RMSL', values)
         if values == 'RSL':

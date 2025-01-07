@@ -9,6 +9,7 @@ import geopandas as gpd
 import pandas as pd
 import os 
 import sys
+import logging
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
@@ -45,7 +46,7 @@ class SafranSurfex:
 
         if not os.path.exists(self.figure_folder):
                 os.makedirs(self.figure_folder)
-        print('Extraction des données climatiques')
+        logging.info('Extraction des données climatiques')
         self.extract_cells_from_shapefile(safransurfex_path, watershed_shp)
         self.extract_values_from_h5file(data_folder, safransurfex_path)
         
@@ -89,7 +90,7 @@ class SafranSurfex:
                 for sce in scenarios:
                     try:
                         values = pd.read_hdf(safransurfex_path+'/'+sim+'.h5',var+'/'+sce)
-                        print('Find: '+sim+'-'+var)
+                        logging.info('Find: '+sim+'-'+var)
                         if (sim == 'REA') | (sim == 'OLD') | (sim == 'REAUP'):
                             values.index.freq = values.index.inferred_freq
                         # values = values.loc[:,self.cells_list]
@@ -98,7 +99,7 @@ class SafranSurfex:
                         values.to_hdf(h5file, var+'/'+sce)
                         self.values[sim][var][sce] = values
                     except:
-                        print('None: '+sim+'-'+var)
+                        logging.warning('None: '+sim+'-'+var)
                         pass
 
 #%% CLASS 2
@@ -161,7 +162,7 @@ class Merge:
             # if (self.time_step == 'M'):
             dfm = df.copy() 
             dfm = dfm[~dfm.index.duplicated()]
-            # print(dfm)
+            logging.debug(dfm)
             mask = dfm.resample("M").count() >= 27
             if (var == 'TAS'):
                 dfm = dfm.resample("M").mean()[mask]

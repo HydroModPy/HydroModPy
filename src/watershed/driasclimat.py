@@ -13,7 +13,8 @@
 
 import geopandas as gpd
 import pandas as pd
-import os 
+import os
+import logging
 import sys
 from os.path import dirname, abspath
 import glob
@@ -87,7 +88,7 @@ class Driasclimat:
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
                 
-        print('Extraction des données explore2')
+        logging.info('Extraction des données explore2')
         
         df = pd.DataFrame()
         df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
@@ -110,28 +111,28 @@ class Driasclimat:
                          'FAO', # # 'FAO' at the end
                          'Hg0175']
             
-        print(list_models)
-        print(list_vars)
+        logging.info(list_models)
+        logging.info(list_vars)
 
         for model in list_models:
             models_path = glob.glob(os.path.join(driasclimat_path, model + '*'))
-            # print(os.path.join(driasclimat_path, model))
-            # print(models_path)
+            logging.debug(os.path.join(driasclimat_path, model))
+            logging.debug(models_path)
             for model in models_path:
-                print('     '+model)
+                logging.info('     '+model)
                 for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
                     files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
                     if (var == 'FAO'):
                         files_path = glob.glob(model + '/' + '*' + var + '.nc') # 'QGIS.nc'
                     if (var == 'Hg0175'):
                         files_path = glob.glob(model + '/' + '*' + var + '.nc') # 'QGIS.nc'
-                    # print(files_path)
+                    logging.debug(files_path)
                     for en, file_path in enumerate(files_path):
                         if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
-                            print('          '+file_path)
+                            logging.info('          '+file_path)
                             self.clip_netcdf(data_folder, file_path, watershed_shp, var)
                     # except:
-                    #     print('NOT FOUND : '+model+'  -  '+var)
+                    #     logging.error('NOT FOUND : '+model+'  -  '+var)
                     #     pass
     
         # self.extract_values(data_folder, df)
@@ -229,7 +230,7 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
         var_raw = None
         if var_init == 'evspsblpotAdjust':
             var_raw = path_netcdf.split('\\')[-1].split('_')[-1].split('.nc')[0] 
-            # print(var_raw)
+            logging.debug(var_raw)
         
         # list_vars = ['prtotAdjust',
         #              'prsnAdjust',
