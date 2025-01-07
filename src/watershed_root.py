@@ -19,6 +19,7 @@ warnings.filterwarnings('ignore', message='.*imp module.*')
 # Python
 import sys
 import os
+import logging
 import pickle
 import pandas as pd
 import geopandas as gpd
@@ -138,9 +139,9 @@ class Watershed:
             # Load from previously stored (saved) watershed
             success = self.__load_object()
             if success == True:
-                print("Python object was successfully loaded as requested; imported from output directory")
+                logging.info("Python object was successfully loaded as requested; imported from output directory")
             else:
-                print("Python object was not successfully loaded as requested; so it was created from scratch instead")
+                logging.warning("Python object was not successfully loaded as requested; so it was created from scratch instead")
                 # Definition of the watershed
                 self.__init_object()
                 # Creation of the watershed defined at the previous line
@@ -149,7 +150,7 @@ class Watershed:
                 if save_object == True:
                     self.save_object()
         else:
-            print("Python object was not loaded as requested; it was created from scratch")
+            logging.warning("Python object was not loaded as requested; it was created from scratch")
             # Definition of the watershed
             self.__init_object()
             # Creation of the watershed defined at the previous line
@@ -180,7 +181,7 @@ class Watershed:
                 self.geographic = BV.geographic
                 self.elt_def.append('geographic')
             else:
-                # print("Warning: geographic doesn't exist in object")
+                logging.error("geographic doesn't exist in object")
                 return False
             if ('subbasin' in BV.__dir__()) == True:   # Generates basin where there are hydrological stations
                 self.subbasin = BV.subbasin
@@ -231,7 +232,7 @@ class Watershed:
             return True 
         
         else:
-            # print("Warning: watershed_object doesn't exist in", self.watershed_folder)
+            logging.error("Warning: watershed_object doesn't exist in", self.watershed_folder)
             
             return False
 
