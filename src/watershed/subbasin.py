@@ -44,22 +44,22 @@ class Subbasin:
                  geographic: object, 
                  hydrometry: object, 
                  intermittency: object,
-                 add_path: str, 
                  sub_snap_dist: int,
+                 add_path: str = None, 
                  out_path: str=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         """
         Parameters
         ----------
         geographic : object
             Variable object of the model domain (watershed).
-        hydrometry : object
+        hydrometry : object, optional
             Variable object of the model domain (watershed).
-        intermittency : object
+        intermittency : object, optional
             Variable object of the model domain (watershed).
-        add_path : str
-            Path folder with manual data list.
+        add_path : str, optional
+            Path folder with manual data list. Default is None.
         sub_snap_dist : int
-            Maximum distance where the subasin outlet can be moved.
+            Maximum distance where the subbasin outlet can be moved.
         out_path : str
             Path of the HydroModPy outputs.
         """
@@ -74,24 +74,26 @@ class Subbasin:
         self.adddata_path = os.path.join(out_path, 'results_stable/add_data/')
         if not os.path.exists(self.adddata_path):
             toolbox.create_folder(self.adddata_path)
-        
+
         try:
-            code_bh = hydrometry.code_bh
+            code_bh = hydrometry.code_bh if hydrometry.code_bh else [None] * len(hydrometry.x_coord)
             x_coord = hydrometry.x_coord
             y_coord = hydrometry.y_coord
-            for i in range(len(code_bh)):
-                sub_path = os.path.join(self.subbasin_path, 'hydrometry_'+code_bh[i])
+            for i in range(len(x_coord)):
+                station_name = f'hydrometry_{code_bh[i]}' if code_bh[i] else f'hydrometry_default_{i + 1}'
+                sub_path = os.path.join(self.subbasin_path, station_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
             # print('     No hydrometry subbasin or problem')
             pass
         
         try:
-            code_onde = intermittency.code_onde
+            code_onde = intermittency.code_onde if intermittency.code_onde else [None] * len(intermittency.x_coord)
             x_coord = intermittency.x_coord
             y_coord = intermittency.y_coord
-            for i in range(len(code_onde)):
-                sub_path = os.path.join(self.subbasin_path, 'intermittency_'+code_onde[i])
+            for i in range(len(x_coord)):
+                onde_name = f'intermittency_{code_onde[i]}' if code_onde[i] else f'intermittency_default_{i + 1}'
+                sub_path = os.path.join(self.subbasin_path, onde_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
             # print('     No intermittency subbasin or problem')
