@@ -16,6 +16,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import logging
 import sys as sys
 import time as time
 import pathlib
@@ -49,7 +50,7 @@ def root_folder_results(user_folder_path = None):
     folder = os.getenv(env_name)
     
     if (folder != None) & (isinstance(user_folder_path, str)):
-        print(f"/!\ Result folder '{os.getenv(env_name)}' is already defined as an environment variable. Use update_root_folder_results() to modify it.")
+        logging.warning(f"/!\ Result folder '{os.getenv(env_name)}' is already defined as an environment variable. Use update_root_folder_results() to modify it.")
         
     # If environment variable does not exist, define it 
     if folder == None :
@@ -67,16 +68,16 @@ def root_folder_results(user_folder_path = None):
             exp='export ' + env_name + '="' + folder + '"'
         os.system(exp)
         os.environ[env_name] = folder
-        print("\nEnvironement variable set for results folder")
-        print(env_name, "=", folder)
-        print("/!\ Make sure to have restarted the conda session before the next spyder launching")
+        logging.warning("\nEnvironement variable set for results folder")
+        logging.warning(env_name, "=", folder)
+        logging.warning("/!\ Make sure to have restarted the conda session before the next spyder launching")
         
     # Creates folder if folder does not exist
     isExist = os.path.exists(folder)
     if not isExist:
         # Create a new directory because it does not exist
         os.makedirs(folder)
-        print("\nThe folder has been created!")
+        logging.info("\nThe folder has been created!")
     
     # Returns folder 
     print('')
@@ -130,8 +131,8 @@ def update_root_folder_results(user_folder_path = None):
 #     def actualize(self,nb=1):
 #         self.time_inter_end=time.time()
 #         self.simul_current=self.simul_current+nb
-#         print('time elapsed = ', (self.time_inter_end - self.time_start)/3600, " heures")
-#         print('time remaining = ', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
+#         logging.info('time elapsed = ', (self.time_inter_end - self.time_start)/3600, " heures")
+#         logging.info('time remaining = ', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
 
 
 # def setup_path():
