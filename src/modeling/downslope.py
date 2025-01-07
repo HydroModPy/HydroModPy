@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import whitebox
 import imageio
 wbt = whitebox.WhiteboxTools()
@@ -118,16 +119,16 @@ class Downslope:
         """
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
-        # print('raster_to_vector_points')
+        logging.debug('raster_to_vector_points')
         # # Trace downslope sim
         wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path)
-        # print('trace_downslope_flowpaths')
+        logging.debug('trace_downslope_flowpaths')
         # # # Simflow to points
         wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
-        # print('raster_to_vector_points')
+        logging.debug('raster_to_vector_points')
         # # Extra
         # wbt.add_point_coordinates_to_table(self.out_pt_path)
         # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
-        # print('extract_raster_values_at_points')
+        logging.debug('extract_raster_values_at_points')
         
 #%% NOTES

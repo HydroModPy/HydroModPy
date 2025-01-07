@@ -15,6 +15,7 @@
 # Python
 import os
 import sys
+import logging
 import flopy
 import flopy.utils.binaryfile as fpu
 import numpy as np
@@ -235,7 +236,7 @@ class Modpath:
                               zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
                               1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
                               1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
-        # print(track, zone_opt, zone_inj)
+        logging.debug(track, zone_opt, zone_inj)
         
         # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
@@ -466,7 +467,7 @@ class Modpath:
                         
                 pth_data_save = []
                 for o, i in enumerate(id_random_particles):
-                    # print(o, i, len(id_random_particles))
+                    logging.debug(o, i, len(id_random_particles))
                     for j in pth_data:
                         if i == j.particleid[0]:
                             pth_data_save.append(j)
@@ -700,9 +701,9 @@ class Modpath:
 
 #%% NOTES
 
-# print(self.point_data)
+# logging.debug(self.point_data)
 
 # if sorted(self.point_data['particleid']) == list(self.point_data['particleid']):
-#     print("list1 is sorted")
+#     logging.debug("list1 is sorted")
 # else:
-#     print("list is not sorted")
+#     logging.debug("list is not sorted")
