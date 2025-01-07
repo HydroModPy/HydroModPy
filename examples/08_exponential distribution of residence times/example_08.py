@@ -192,7 +192,6 @@ sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 # Import modules
 BV.add_settings()
 BV.add_climatic()
-BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings

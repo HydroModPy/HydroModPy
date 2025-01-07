@@ -208,7 +208,6 @@ zone_partic = 'domain' # or watershed
 # Import modules
 BV.add_settings()
 BV.add_climatic()
-BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings

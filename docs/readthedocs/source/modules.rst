@@ -46,11 +46,6 @@ Modules
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: geometric.Geometric
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: hydraulic.Hydraulic
     :members:
     :undoc-members:
