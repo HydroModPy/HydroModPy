@@ -332,7 +332,15 @@ if pc == 'tower':
     out_path = 'E:/_RONAN/_E_SIMULATIONS/LASSET/'
     # out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
 
-fig_path = out_path + 'figures/'
+pc = 'laptop'
+
+if pc == 'laptop':
+
+    git_path = 'C:/Users/Ronan/GitHub/HydroModPy-dev/'
+    data_path = 'C:/Users/Ronan/OneDrive/UNINE/8_Modeling/Lasset/_data/'
+    out_path = 'C:/Users/Ronan/Simulations/Lasset/'
+    fig_path = 'C:/Users/Ronan/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/'
+    # out_path = 'D:/Users/abherve/ONEDRIVE_UNINECHYN/OneDrive - unine.ch/SIMULATIONS/'
 
 dem_name = 'BDALTI_09_25m.tif' # EUDTM_Alps_30m_vallon
 dem_path = data_path +'_DEM/' + dem_name
@@ -388,310 +396,67 @@ if load == False:
 
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
-#%% ISBA HYDRO LOAD
-
-BV.add_safransurfex(data_path+'_h5_safransurfex/lasset/')
-
-surfex_data = BV.stable_folder + '/climatic/'
-
-dfd_both = pd.DataFrame()
-
-raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS','SNOW']
-variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS', 'SNOW', 'EFF']
-
-# ppt = pd.read_csv(surfex_data+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
-# etp = pd.read_csv(surfex_data+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
-# eff = ppt - etp
-# eff = eff.add_prefix('EFF'+'_')
-
-liste = []
-for raw in raws :
-    dfd = pd.read_csv(surfex_data+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
-    dfd = dfd.add_prefix(raw+'_')
-    liste.append(dfd)
-dfd = pd.concat(liste, join='inner', axis=1)
-# dfd = pd.concat([dfd,eff], join='inner', axis=1)
-dfd = dfd.apply(pd.to_numeric)
-
-for mod in ['REA']:
-    for sce in ['historic']:
-        dfd['EFF'+'_'+mod+'_'+sce] = dfd['PPT'+'_'+mod+'_'+sce] - dfd['ETP'+'_'+mod+'_'+sce]
-
-dfd = dfd.filter(regex=sce).filter(regex=mod)
-dfd = dfd.dropna(axis = 0, how = 'all')
-dfd = dfd.dropna(axis = 1, how = 'all')
-
-dfm = dfd.copy() 
-mask = dfm.resample("M").count() >= 27
-dfm = dfm.resample("M").mean()[mask]
-
-dfm_surf = dfm.copy()
-dfm_surf = select_period(dfm_surf, 1960, 2023)
-# tas = dfm_surf['TAS_REA_historic']
-# import pyet
-# dfm_surf['Oudin'] = abs(pyet.oudin(tas, lat=pyet.deg_to_rad(48)))
-# dfm_surf["Hargreaves"] = abs(pyet.hargreaves(tas, tmax=tas.max(), tmin=tas.min(), lat=pyet.deg_to_rad(48)))
-# dfm_surf["Hamon"] = abs(pyet.temperature.hamon(tas, lat=pyet.deg_to_rad(48)))
-# dfm_surf["Macguinness"] = abs(pyet.radiation.mcguinness_bordne(tas, lat=pyet.deg_to_rad(48)))
-# deficiency_evaporation(dfm_surf, 'PPT_REA_historic',
-#                             'Oudin', 'PPT-ETP',
-#                             'ETR', 'RU', 'DE')
-
-dfy = dfd.copy()
-mask = dfy.resample("Y").count() >= 364
-dfy = dfy.resample("Y").mean()[mask]
-
-rea = dfd[(dfd.index.year>=1960) & (dfd.index.year<=2023)].filter(regex='REA')
-
-def sum_hwlw(dfm):
-    hw = dfm.dropna(axis=1, how='all')
-    hw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
-    hw = hw.rename_axis(["year", "month"])
-    hw = hw.query("month == "+"["+'10,11,12,1,2,3'+"]")
-    hw = hw.groupby('year').mean()
-    hw.index =  pd.to_datetime(hw.index, format='%Y')
-    hw[hw==0] = np.nan
-    lw = dfm.dropna(axis=1, how='all')
-    lw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
-    lw = lw.rename_axis(["year", "month"])
-    lw = lw.query("month == "+"["+'4,5,6,7,8,9'+"]")
-    lw = lw.groupby('year').mean()
-    lw.index =  pd.to_datetime(lw.index, format='%Y')
-    lw[lw==0] = np.nan
-    return hw, lw
-hw, lw = sum_hwlw(dfm)
-
-def sum_wy(dfm):
-    wy = dfm.copy()
-    wy = wy.dropna(axis=1, how='all')
-    wy['wy_y'] = np.where(wy.index.month < 10, wy.index.year, wy.index.year + 1)
-    wy['wy_m'] = np.where(wy.index.month < 10, wy.index.month+3, wy.index.month-9)
-    wy['wy_m'] = wy['wy_m'].apply(lambda x: '{0:0>2}'.format(x))
-    wy['wy_d'] = wy.index.day
-    d = pd.to_datetime(wy['wy_y'].astype(str)+wy['wy_m']+wy['wy_d'].astype(str), format='%Y%M%d')
-    wy['date'] = wy.index
-    wy.index = d
-    wy = wy.drop(['wy_y','wy_m','wy_d'], axis=1)
-    wy = wy.groupby([(wy.index.year),(wy.index.month)]).mean()
-    wy = wy.rename_axis(["year", "month"])
-    wy = wy.iloc[:-1]
-    wy = wy.groupby('year').mean()
-    wy.index =  pd.to_datetime(wy.index, format='%Y')
-    wy[wy==0] = np.nan
-    return wy
-wy = sum_wy(dfm)
-
-#%% ISBA HYDRO NORMALIZE
-
-init_path = data_path + '_Q/'
-
-Qobs_list =[
-             'lasset_Q_Day.Cmd.txt'
-            ]
-
-areas = [3.7]
-
-for i, Qobs_name in enumerate(Qobs_list[:]):
-    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
-    dfQ = dfQ['q']/(areas[i]*1e6)
-
-dfFTP = pd.DataFrame()
-dfFTP['OBSER'] = dfQ
-dfFTP['DRAIN'] = dfd['REC_REA_historic']/1000
-dfFTP['RUNOF'] = dfd['RUN_REA_historic']/1000
-
-dfFTP = dfFTP.query("index >= '2021-08' and index <= '2023-07'")
-# dfFTP = dfFTP.query("index >= '2023-01' and index <= '2023-12'")
-
-# f = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']+dfSIM2['ECSNOW']).mean()
-# f = dfSIM2['OBSER'].mean() / dfSIM2['PPT'].mean()
-# norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
-norm_factor = dfFTP['OBSER'].sum() / (dfFTP['DRAIN']+dfFTP['RUNOF']).sum()
-print(norm_factor)
-
-dfFTP['INPUT'] = (dfFTP['DRAIN']+dfFTP['RUNOF']) * norm_factor
-
-fig, ax = plt.subplots(1,1, figsize=(9,3))
-ax.plot(dfFTP['DRAIN']+dfFTP['RUNOF'], label='R + r', c='darkorange')
-ax.plot(dfFTP['DRAIN'], label='R', c='forestgreen')
-ax.plot(dfFTP['OBSER'], label='Q', c='k')
-ax.plot(dfFTP['INPUT'], label='INPUT', c='red')
-ax.legend()
-ax.set_yscale('log')
-import matplotlib.dates as mdates
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-
-fig, ax = plt.subplots(1,1, figsize=(4,4))
-ax.scatter(dfFTP['OBSER'], dfFTP['INPUT'], lw=0, color='k')
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.set_xlim(1e-4,1)
-ax.set_ylim(1e-4,1)
-
-isba = select_period(dfd,2020,2024)
-
-rea_facnorm_isba = norm_factor
-rea_recharge_isba = (dfd['REC_REA_historic']/1000)*norm_factor
-rea_runoff_isba = (dfd['RUN_REA_historic']/1000)*norm_factor
-
-#%% HYDRO 1
+#%% HYDROGRAPHY
 
 wbt.verbose = True
 
 # HYDRO
 
 wbt.vector_lines_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1.tif', 
+    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.shp', 
+    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
     field="FID", 
     nodata=True, 
     cell_size=None, 
     base=BV.geographic.watershed_dem)
 
 wbt.vector_lines_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1.tif', 
+    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.shp', 
+    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
     field="FID", 
     nodata=True, 
     cell_size=None, 
     base=BV.geographic.watershed_dem)
 
 wbt.vector_polygons_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1.tif', 
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.shp', 
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
     field="fid", 
     nodata=True, 
     cell_size=None, 
     base=BV.geographic.watershed_dem)
 
 wbt.vector_polygons_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1.tif', 
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.shp', 
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
     field="osm_id", 
     nodata=True, 
     cell_size=None, 
     base=BV.geographic.watershed_dem)
 
 wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1_pt.shp')
+    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
+    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp')
 
 wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1_pt.shp')
+    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
+    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp')
 
 wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1_pt.shp')
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp')
 
 wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1_pt.shp')
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
+    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp')
 
 wbt.merge_vectors(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_peren_upv1_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_peren_upv1_pt.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/hydrographic_mix_peren_upv1_pt.shp')
+    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp', 
+    data_path+'_hydrography/_newhydro_v2/hydrographic_mix_peren_upv2_pt.shp')
 
 wbt.merge_vectors(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/streams_mix_inter_upv1_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/wetlands_mix_inter_upv1_pt.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v1/hydrographic_mix_inter_upv1_pt.shp')
-
-hydrography_path = data_path + '_hydrography/_newhydro_v1/' # add hydrographic shapefiles
-
-dem_data = imageio.imread(BV.geographic.watershed_dem)
-print(np.sum(dem_data >= 0))
-
-types_obs = ['hydrographic_mix_peren_upv1_pt','hydrographic_mix_inter_upv1_pt']
-# types_obs = ['stream_perennial_wetlands_osm_points']
-fields_obs = ['fid','fid']
-
-for watershed_name in watershed_names[:]:
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                              dem_path=dem_path, 
-                              out_path=out_path,
-                              load=True)
-    for type_obs, field_obs in zip(types_obs, fields_obs):
-    
-        # print('##### '+watershed_name.upper()+' #####')
-                   
-        BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
-        
-        try:
-            # visualization_watershed.watershed_local(dem_path, BV)
-            visualization_watershed.watershed_dem(BV)
-        except:
-            pass
-        
-    shp_per = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv1_pt_pt.shp')
-    shp_int = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_inter_upv1_pt_pt.shp')
-        
-    print(len(shp_per)/np.sum(dem_data >= 0)*100)
-    print(len(shp_int)/np.sum(dem_data >= 0)*100)
-
-#%% HYDRO 2
-
-wbt.verbose = True
-
-# HYDRO
-
-wbt.vector_lines_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_peren_upv2.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
-    field="FID", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.vector_lines_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_inter_upv2.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
-    field="FID", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.vector_polygons_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
-    field="fid", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.vector_polygons_to_raster(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
-    field="osm_id", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp')
-
-wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp')
-
-wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp')
-
-wbt.raster_to_vector_points(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp')
-
-wbt.merge_vectors(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/hydrographic_mix_peren_upv2_pt.shp')
-
-wbt.merge_vectors(
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp', 
-    'D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/hydrographic_mix_inter_upv2_pt.shp')
+    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp', 
+    data_path+'_hydrography/_newhydro_v2/hydrographic_mix_inter_upv2_pt.shp')
 
 hydrography_path = data_path + '_hydrography/_newhydro_v2/' # add hydrographic shapefiles
 
@@ -725,7 +490,7 @@ for watershed_name in watershed_names[:]:
     print(len(shp_per)/np.sum(dem_data >= 0)*100)
     print(len(shp_int)/np.sum(dem_data >= 0)*100)
 
-#%% OBSERVED
+#%% DISCHARGE
 
 init_path = data_path + '_Q/'
 
@@ -916,24 +681,46 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     #             'Q_obs'+'.png',
     #             bbox_inches='tight')
 
+#%% REANALYSIS
 
+BV.add_safransurfex(data_path+'_h5_safransurfex/lasset/')
 
-#%% SIM2 HYDROCLIMAT LOAD
+surfex_data = BV.stable_folder + '/climatic/'
 
-sim2_1 = pd.read_csv(data_path+'_SIM2/'+'QUOT_SIM2_2020_2023.csv', sep=';', parse_dates=True, index_col='DATE')
-sim2_2 = pd.read_csv(data_path+'_SIM2/'+'QUOT_SIM2_2023_2024.csv', sep=';', parse_dates=True, index_col='DATE')
+dfd_both = pd.DataFrame()
 
-sim2 = pd.concat([sim2_1, sim2_2]).drop_duplicates()
-# sim2 = pd.concat([sim2_1, sim2_2], verify_integrity=True)
+raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS','SNOW']
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS', 'SNOW', 'EFF']
 
-dfd = sim2.copy()
+# ppt = pd.read_csv(surfex_data+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+# etp = pd.read_csv(surfex_data+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+# eff = ppt - etp
+# eff = eff.add_prefix('EFF'+'_')
 
-dfm = dfd.copy()
+liste = []
+for raw in raws :
+    dfd = pd.read_csv(surfex_data+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+    dfd = dfd.add_prefix(raw+'_')
+    liste.append(dfd)
+dfd = pd.concat(liste, join='inner', axis=1)
+# dfd = pd.concat([dfd,eff], join='inner', axis=1)
+dfd = dfd.apply(pd.to_numeric)
+
+for mod in ['REA']:
+    for sce in ['historic']:
+        dfd['EFF'+'_'+mod+'_'+sce] = dfd['PPT'+'_'+mod+'_'+sce] - dfd['ETP'+'_'+mod+'_'+sce]
+
+dfd = dfd.filter(regex=sce).filter(regex=mod)
+dfd = dfd.dropna(axis = 0, how = 'all')
+dfd = dfd.dropna(axis = 1, how = 'all')
+
+dfm = dfd.copy() 
 mask = dfm.resample("M").count() >= 27
 dfm = dfm.resample("M").mean()[mask]
 
 dfm_surf = dfm.copy()
-
+dfm_surf = select_period(dfm_surf, 1960, 2023)
+# tas = dfm_surf['TAS_REA_historic']
 # import pyet
 # dfm_surf['Oudin'] = abs(pyet.oudin(tas, lat=pyet.deg_to_rad(48)))
 # dfm_surf["Hargreaves"] = abs(pyet.hargreaves(tas, tmax=tas.max(), tmin=tas.min(), lat=pyet.deg_to_rad(48)))
@@ -946,6 +733,8 @@ dfm_surf = dfm.copy()
 dfy = dfd.copy()
 mask = dfy.resample("Y").count() >= 364
 dfy = dfy.resample("Y").mean()[mask]
+
+rea = dfd[(dfd.index.year>=1960) & (dfd.index.year<=2023)].filter(regex='REA')
 
 def sum_hwlw(dfm):
     hw = dfm.dropna(axis=1, how='all')
@@ -985,194 +774,7 @@ def sum_wy(dfm):
     return wy
 wy = sum_wy(dfm)
 
-# SURFEX - PLOT RAW
-
-plt.rcParams["axes.axisbelow"] = False
-
-var_list2 = ['PRELIQ_Q','EVAP_Q','DRAINC_Q','RUNC_Q','PRENEI_Q']
-couleurs = ['purple','darkorange','forestgreen','dodgerblue','grey']
-
-fig, ax = plt.subplots(figsize=(8,4))
-axb = ax.twinx()
-for i, var in enumerate(var_list2):
-    x = dfd[var]#.loc[start:end]
-    if var == 'PRELIQ_Q' or var == 'PRENEI_Q':
-        axb.plot(x, c=couleurs[i], label=var)
-        axb.set_ylim(0,100)
-        axb.legend(loc='upper right')
-        axb.set_ylabel('PPT / SNOW [mm]')
-    else:
-        ax.plot(x, c=couleurs[i], label=var)
-        ax.set_ylim(0,20)
-        ax.legend(loc='lower left')
-        ax.set_ylabel('ETR / RUN / REC [mm]')
-    ax.set_xlabel('Date')	
-    ax.set_xlim([pd.to_datetime(str(x.first_valid_index().year)), 
-    pd.to_datetime(str(x.last_valid_index().year))])
-    axb.invert_yaxis()
-    # ax.set_title(mod + ' - ' + sce.upper())
-    import matplotlib.dates as mdates
-    years_maj = mdates.YearLocator()   # every year
-    months_maj = mdates.MonthLocator()  # every x month
-    ax.xaxis.set_major_locator(years_maj)
-    ax.xaxis.set_minor_locator(months_maj)
-    plt.tight_layout()
-    
-# SURFEX - PLOT BALANCE
-
-df_intm = dfd.resample('M').mean()[dfd.resample("M").count() >= 27]
-df_intm = df_intm.groupby([lambda x: x.month]).mean()
-
-fig, ax = plt.subplots(1,1, figsize=(4,5))
-axt = ax.twinx()
-step = 'pre'
-
-# axt.plot(df_intm.index,  ((df_intm['PRELIQ_Q']*30) + (df_intm['PRENEI_Q']*30)) - df_intm['EVAP_Q']*30,
-#                 color='grey', alpha=1, lw=1, ls='-')
-# axt.plot(df_intm.index,  ((df_intm['PRELIQ_Q']*30)) - df_intm['EVAP_Q']*30,
-#                 color='purple', alpha=1, lw=1, ls='-')
-# axt.plot(df_intm.index,  ((df_intm['PRELIQ_Q']*30)) + df_intm['PRENEI_Q']*30,
-#                 color='k', alpha=1, lw=1, ls=':')
-axt.fill_between(df_intm.index, 0, df_intm['PRELIQ_Q']*30,
-                interpolate=False, color='purple', alpha=1, lw=3, ec='purple',
-                fc='None',
-                step=step)
-axt.fill_between(df_intm.index, 0, df_intm['PRENEI_Q']*30,
-                interpolate=False, color='grey', alpha=1, lw=3, ec='grey',
-                fc='None',
-                step=step)
-axt.set_ylim(0,250)
-
-ax.fill_between(df_intm.index, 0, df_intm['DRAINC_Q']*30,
-                interpolate=False, color='forestgreen', alpha=1, lw=3, ec='forestgreen',
-                fc='None',
-                step=step)
-ax.fill_between(df_intm.index, 0, df_intm['RUNC_Q']*30,
-                interpolate=False, color='dodgerblue', alpha=1, lw=3, ec='dodgerblue',
-                fc='None',
-                step=step)
-ax.set_ylim(0,250)
-
-ax.plot(df_intm.index, df_intm['T_Q'],
-                color='red', alpha=1, lw=3, zorder=1)
-ax.plot(df_intm.index, df_intm['EVAP_Q']*30,
-                color='darkorange', alpha=1, lw=3, zorder=-1)
-
-ax.set_xticks(np.arange(1,13,1))
-ax.set_xticklabels(['J','F','M','A','M','J','J','A','S','O','N','D'])
-ax.set_xlim(1,12)
-
-axt.invert_yaxis()
-
-# SURFEX - PLOT INTERMENS
-
-var_list = ['T_Q','PRELIQ_Q','PRENEI_Q','EVAP_Q','RUNC_Q','DRAINC_Q']
-couleurs = ['red','purple','gray','darkorange','dodgerblue','forestgreen']
-
-fig, axs = plt.subplots(6,1,figsize=(3.5,11), sharex=True, sharey=False)
-# axb = ax.twinx()
-axs = axs.ravel()
-
-for i, var in enumerate(var_list):
-    
-    ax = axs[i]
-    
-    data_index = dfd[var]
-    
-    mean_mensual = data_index.resample('M').mean() # mensual mean
-    mean_annual = data_index.resample('Y').mean() # annual mean
-    Mean = round(data_index.mean(),2)
-    Mean = data_index.mean()
-    Min = data_index.resample('Y').min()
-    Q10 = data_index.resample('Y').quantile(0.10)
-    Q25 = data_index.resample('Y').quantile(0.25)
-    Q50 = data_index.resample('Y').quantile(0.50)
-    Q75 = data_index.resample('Y').quantile(0.75)
-    Q90 = data_index.resample('Y').quantile(0.90)
-    print(var)
-    print(Q10.min())
-    print(Q90.mean())
-    # print(data_index.resample('Y').sum()+data_index.resample('Y').sum())
-    Max = data_index.resample('Y').max()
-    mean_interan_days = data_index.groupby([data_index.index.month,
-                                    data_index.index.day], as_index=True).mean().to_frame()
-    std_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).std()
-    q10_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.10)
-    q90_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.90)
-    q50_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.50)
-    q25_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.25)
-    q75_interan_days = data_index.groupby([data_index.index.month,
-                        data_index.index.day], as_index=True).quantile(0.75)
-    mean_interan_days['std'] = std_interan_days
-    mean_interan_days['q10'] = q10_interan_days
-    mean_interan_days['q90'] = q90_interan_days
-    mean_interan_days['q50'] = q50_interan_days
-    mean_interan_days['q75'] = q75_interan_days
-    mean_interan_days['q25'] = q25_interan_days
-    mean_interan_days.index.names = ['months','days']
-    mean_interan_days = mean_interan_days.reset_index()
-    # mean_interan_days.months = mean_interan_days.months.replace(
-    #                                     [10,11,12,1,2,3,4,5,6,7,8,9],
-    #                                     [1,2,3,4,5,6,7,8,9,10,11,12])
-    mean_interan_days = mean_interan_days.sort_values(['months','days'])
-    mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
-    # mean_interan_days.q10 = mean_interan_days.q10.replace(0,0.01)
-    
-    # fig, ax = plt.subplots(figsize=(4,3))
-    # ax.plot(mean_interan_days.counts, mean_interan_days[station+'_mmm'],
-    #         lw=1, color='red', label='Mean')
-    ax.plot(mean_interan_days.counts, mean_interan_days.q50,
-            lw=2, color=couleurs[i], label='xxx')
-    yerrmax = mean_interan_days.q75
-    yerrmin = mean_interan_days.q25
-    # ax.legend('upper right')
-    # ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-    #                   color='cyan',edgecolor='grey',
-    #                   alpha = 0.5, label='10-90th')
-    ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax,
-                      color='gray',edgecolor='grey', lw=0.5,
-                      alpha = 0.25, label='10-90th')
-    # plt.yscale('log')
-    # ax.yaxis.set_major_formatter(ScalarFormatter())
-    ax.set_xlim(0,366)
-    if i == 0:
-        ax.set_ylim(-10,20)
-    if i == 1:
-        ax.set_ylim(0,10)
-    if i == 2:
-        ax.set_ylim(0,10) 
-    if i == 3:
-        ax.set_ylim(0,10) 
-    if i == 4:
-        ax.set_ylim(0,10) 
-    if i == 5:
-        ax.set_ylim(0,10) 
-    # ax.set_ylim(0.01,10)
-    ax.tick_params(axis='both', which='major', pad=10)
-    x1 = np.linspace(0,366,13)
-    squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
-    ax.set_xticks(x1)
-    ax.set_xticklabels(squad, minor=False, rotation='horizontal')
-    if i == 5:
-        ax.set_xlabel('Months', labelpad=+10)
-    if i >0:
-        ax.set_title(var + ' [mm/d]', color=couleurs[i], fontsize=12)
-    #     ax.set_ylabel(var + ' [mm/d]',labelpad=+10, color=couleurs[i], fontsize=15)
-    if i==0:
-        ax.set_title(var + ' [°C]', color=couleurs[i], fontsize=12)
-    #     ax.set_ylabel(var + ' [°C]',labelpad=+10, color=couleurs[i], fontsize=15)
-    # ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']')
-    # ax.grid(color='grey', lw=0.5, zorder=0)
-    
-    # ax.legend(loc='upper left')
-    plt.tight_layout()
-
-#%% SIM2 HYDROCLIMAT NORMALIZE
+# ISBA HYDRO NORMALIZE
 
 init_path = data_path + '_Q/'
 
@@ -1186,27 +788,27 @@ for i, Qobs_name in enumerate(Qobs_list[:]):
     dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
     dfQ = dfQ['q']/(areas[i]*1e6)
 
-dfSIM2 = pd.DataFrame()
-dfSIM2['OBSER'] = dfQ
-dfSIM2['PE'] = sim2['PE_Q']/1000
-dfSIM2['PPT'] = (sim2['PRENEI_Q']+sim2['PRELIQ_Q'])/1000
-dfSIM2['DRAIN'] = sim2['DRAINC_Q']/1000
-dfSIM2['RUNOF'] = sim2['RUNC_Q']/1000
-dfSIM2['ECSNOW'] = sim2['ECOULEMENT_Q']/1000
+dfFTP = pd.DataFrame()
+dfFTP['OBSER'] = dfQ
+dfFTP['DRAIN'] = dfd['REC_REA_historic']/1000
+dfFTP['RUNOF'] = dfd['RUN_REA_historic']/1000
+
+dfFTP = dfFTP.query("index >= '2021-08' and index <= '2023-07'")
+# dfFTP = dfFTP.query("index >= '2023-01' and index <= '2023-12'")
 
 # f = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']+dfSIM2['ECSNOW']).mean()
 # f = dfSIM2['OBSER'].mean() / dfSIM2['PPT'].mean()
-norm_factor = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']).mean()
+# norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
+norm_factor = dfFTP['OBSER'].sum() / (dfFTP['DRAIN']+dfFTP['RUNOF']).sum()
 print(norm_factor)
 
-dfSIM2['INPUT'] = (dfSIM2['DRAIN']+dfSIM2['RUNOF']) * norm_factor
+dfFTP['INPUT'] = (dfFTP['DRAIN']+dfFTP['RUNOF']) * norm_factor
 
 fig, ax = plt.subplots(1,1, figsize=(9,3))
-ax.plot(dfSIM2['DRAIN']+dfSIM2['RUNOF'], label='R + r', c='darkorange')
-ax.plot(dfSIM2['DRAIN'], label='R', c='forestgreen')
-ax.plot(dfSIM2['OBSER'], label='Q', c='k')
-ax.plot(dfSIM2['INPUT'], label='INPUT', c='red')
-
+ax.plot(dfFTP['DRAIN']+dfFTP['RUNOF'], label='R + r', c='darkorange')
+ax.plot(dfFTP['DRAIN'], label='R', c='forestgreen')
+ax.plot(dfFTP['OBSER'], label='Q', c='k')
+ax.plot(dfFTP['INPUT'], label='INPUT', c='red')
 ax.legend()
 ax.set_yscale('log')
 import matplotlib.dates as mdates
@@ -1216,331 +818,358 @@ ax.xaxis.set_major_locator(years_maj)
 ax.xaxis.set_minor_locator(months_maj)
 
 fig, ax = plt.subplots(1,1, figsize=(4,4))
-ax.scatter(dfSIM2['OBSER'], dfSIM2['INPUT'], lw=0, color='k')
+ax.scatter(dfFTP['OBSER'], dfFTP['INPUT'], lw=0, color='k')
 ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlim(1e-4,1)
 ax.set_ylim(1e-4,1)
 
-rea_facnorm_sim2 = norm_factor
-rea_recharge_sim2 = (sim2['DRAINC_Q']/1000)*norm_factor
-rea_runoff_sim2 = (sim2['RUNC_Q']/1000)*norm_factor
+isba = select_period(dfd,2020,2024)
 
-#%% FUTURE CLIMATE
+rea_facnorm_isba = norm_factor
+rea_recharge_isba = (dfd['REC_REA_historic']/1000)*norm_factor
+rea_runoff_isba = (dfd['RUN_REA_historic']/1000)*norm_factor
 
-#%% DRIAS EAU - NETCDF
-"""
-BV.add_driaseau('D:/Users/abherve/SIMULATIONS/PYRENEES/results_stable/driaseau/',
-                list_models=['all'],
-                list_vars=['all']) # 'all'
-"""
-#%% DRIAS EAU - CSV
+#%% ---- PROJECTIONS
 
-data_folder = stable_folder+'/driaseau/'
+#%% EXTRACT DRIAS
 
-df = pd.DataFrame()
-df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
+extract_drias = True
 
-list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06','Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+if extract_drias == True :
 
-list_of_paths = []
-for i in list_models:
-    list_of_paths_model = glob.glob(os.path.join(data_folder+'/', '*.nc'))
-    list_of_paths.extend(list_of_paths_model)
-
-driaseau.driaseau_extract_values(data_folder, list_of_paths, df)
-
-#%% DRIAS CLIMAT NETCDF
-"""
-BV.add_driasclimat('D:/Users/abherve/SIMULATIONS/PYRENEES/results_stable/driasclimat/',
-                   list_models=['all'],
-                   list_vars=['all']) # 'all'
-"""
-#%% DRIAS CLIMAT CSV
-
-data_folder = stable_folder+'/driasclimat/'
-
-df = pd.DataFrame()
-df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
-
-list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06','Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
-
-list_of_paths = []
-for i in list_models:
-    list_of_paths_model = glob.glob(os.path.join(data_folder+'/', '*.nc'))
-    list_of_paths.extend(list_of_paths_model)
-
-driasclimat.driasclimat_extract_values(data_folder, list_of_paths, df)
-
-#%% ---- PROJECTION
-
-#%% DRIAS EAU MIX DATA
-
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            'Model_04',
-            'Model_05',
-            'Model_06',
-            'Model_07',
-            'Model_08',
-            'Model_09',
-            'Model_10',
-            'Model_11',
-            'Model_12']
-
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            'IPS-RCA',
-            'CNR-RAC',
-            'NOR-R15',
-            'CNR-ALA',
-            'NOR-HIR',
-            'HAD-CCL',
-            'IPS-WRF',
-            'HAD-REG',
-            'MPI-R09']
-
-mod_dict = dict(zip(mod_list, num_list))
-
-# mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-#             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
-
-# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-# mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
-# mod_list = ['CNR-ALA']
-sce_list = ['RCP26','RCP45','RCP85']
-col_list = ['dodgerblue','darkorange','red']
-dict_scecol = dict(zip(sce_list, col_list))
-
-all_proj = pd.DataFrame()
-all_proj.index = pd.date_range(start='01/01/1975', end='31/12/2099', freq='D')
+    # DRIAS EAU - NETCDF
     
-for mod in mod_list:
+    drias_eau_datapath = data_path + '_pyrenees_projections/PYRENEES/results_stable/driaseau/'
+    drias_eau_outpath = stable_folder + 'driaseau/'
+    if not os.path.exists(drias_eau_outpath):
+        BV.add_driaseau(drias_eau_datapath,
+                        list_models=['all'],
+                        list_vars=['all']) # 'all'
     
-        print(mod)
+    # DRIAS EAU - CSV
+    
+    data_folder = stable_folder+'/driaseau/'
+    
+    df = pd.DataFrame()
+    df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
+    
+    list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06','Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+    
+    list_of_paths = []
+    for i in list_models:
+        list_of_paths_model = glob.glob(os.path.join(data_folder+'/', '*.nc'))
+        list_of_paths.extend(list_of_paths_model)
+    
+    driaseau.driaseau_extract_values(data_folder, list_of_paths, df)
+    
+    # DRIAS CLIMAT NETCDF
+    
+    drias_clim_datapath = data_path + '_pyrenees_projections/PYRENEES/results_stable/driasclimat/'
+    drias_clim_outpath = stable_folder + 'driasclimat/'
+    if not os.path.exists(drias_clim_outpath):
+        BV.add_driasclimat(drias_clim_datapath,
+                        list_models=['all'],
+                        list_vars=['all']) # 'all'
+    
+    # DRIAS CLIMAT CSV
+    
+    data_folder = stable_folder+'/driasclimat/'
+    
+    df = pd.DataFrame()
+    df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
+    
+    list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06','Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
+    
+    list_of_paths = []
+    for i in list_models:
+        list_of_paths_model = glob.glob(os.path.join(data_folder+'/', '*.nc'))
+        list_of_paths.extend(list_of_paths_model)
+    
+    driasclimat.driasclimat_extract_values(data_folder, list_of_paths, df)
+
+#%% COMPILE DRIAS
+
+compile_drias = True
+
+if compile_drias == True :
+
+    # DRIAS EAU MIX DATA
+    
+    num_list = ['Model_01',
+                'Model_02',
+                'Model_03',
+                'Model_04',
+                'Model_05',
+                'Model_06',
+                'Model_07',
+                'Model_08',
+                'Model_09',
+                'Model_10',
+                'Model_11',
+                'Model_12']
+    
+    mod_list = ['MPI-CCL',
+                'ECE-RCA',
+                'ECE-RAC',
+                'IPS-RCA',
+                'CNR-RAC',
+                'NOR-R15',
+                'CNR-ALA',
+                'NOR-HIR',
+                'HAD-CCL',
+                'IPS-WRF',
+                'HAD-REG',
+                'MPI-R09']
+    
+    mod_dict = dict(zip(mod_list, num_list))
+    
+    # mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+    #             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+    
+    # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+    # mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
+    # mod_list = ['CNR-ALA']
+    sce_list = ['RCP26','RCP45','RCP85']
+    col_list = ['dodgerblue','darkorange','red']
+    dict_scecol = dict(zip(sce_list, col_list))
+    
+    all_proj = pd.DataFrame()
+    all_proj.index = pd.date_range(start='01/01/1975', end='31/12/2099', freq='D')
         
-        if len(mod.split('-')) == 2:
-            GCM = mod.split('-')[0]
-            RCM = mod.split('-')[1]
-            BV.climatic.update_recharge_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
-                                                 gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
-                                                 first_year = 1975, last_year = 2023, sim_state='transient')
-            BV.climatic.update_runoff_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
-                                                 gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
-                                                 first_year = 1975, last_year = 2023, sim_state='transient')
+    for mod in mod_list:
+        
+            print(mod)
             
-        R_mod = BV.climatic.recharge.resample('D').mean()
-        r_mod = BV.climatic.runoff.resample('D').mean()
-    
-        R_rea = select_period(rea_recharge_isba, 1975, 2023)
-        r_rea = select_period(rea_runoff_isba, 1975, 2023)
-        
-        # R_rea = select_period(rea_recharge_sim2, 1975, 2023)
-        # r_rea = select_period(rea_runoff_sim2, 1975, 2023)
-        
-        Fnorm = ( np.nanmean(R_rea) + np.nanmean(r_rea) )  / ( np.nanmean(R_mod) + np.nanmean(r_mod) )
-        print(Fnorm)
-        
-        R_mod_norm = (Fnorm * R_mod)
-        R_mod_norm = R_mod_norm[(R_mod_norm.index.strftime("%Y-%m")<='2005-07')]
-        r_mod_norm = Fnorm * r_mod
-        r_mod_norm = r_mod_norm[(r_mod_norm.index.strftime("%Y-%m")<='2005-07')]
-        
-        # all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+'historic'] = R_mod_norm
-        # all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+'historic'] = r_mod_norm
-    
-        for sce in sce_list:
-            
-            try:    
-                if len(mod.split('-')) == 2:
-                    GCM = mod.split('-')[0]
-                    RCM = mod.split('-')[1]
-                    BV.climatic.update_recharge_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
-                                                         gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
-                                                         first_year = 1975, last_year = 2100, sim_state='transient')
-                    BV.climatic.update_runoff_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
-                                                   gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
-                                                   first_year = 1975, last_year = 2100, sim_state='transient')
+            if len(mod.split('-')) == 2:
+                GCM = mod.split('-')[0]
+                RCM = mod.split('-')[1]
+                BV.climatic.update_recharge_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
+                                                     gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
+                                                     first_year = 1975, last_year = 2023, sim_state='transient')
+                BV.climatic.update_runoff_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
+                                                     gcm_mod = GCM, rcm_mod = RCM, sce_mod = 'historic',
+                                                     first_year = 1975, last_year = 2023, sim_state='transient')
                 
-                R_proj_norm = BV.climatic.recharge * Fnorm
-                r_proj_norm = BV.climatic.runoff * Fnorm
-                
-                all_proj['REC'+'_'+mod+'_'+sce] = pd.concat((R_proj_norm, R_mod_norm), axis=1).mean(axis=1)
-                all_proj['RUN'+'_'+mod+'_'+sce] = pd.concat((r_proj_norm, r_mod_norm), axis=1).mean(axis=1)
-                print('     '+sce)
-            except:
-                pass
-            
-        all_proj['REC'+'_'+'REA'+'_'+'historic'] = R_rea
-        all_proj['RUN'+'_'+'REA'+'_'+'historic'] = r_rea    
+            R_mod = BV.climatic.recharge.resample('D').mean()
+            r_mod = BV.climatic.runoff.resample('D').mean()
         
-# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-# sce_list = ['RCP2.6','RCP8.5']
-# col_list = ['blue','red']
-dict_scecol = dict(zip(sce_list, col_list))
-    
-for mod in mod_list:
-    
-        fig, ax = plt.subplots(1,1, figsize=(9,3))
-    
-        for sce in sce_list:
+            R_rea = select_period(rea_recharge_isba, 1975, 2023)
+            r_rea = select_period(rea_runoff_isba, 1975, 2023)
             
-            try:
-
-                c = dict_scecol[sce]
+            # R_rea = select_period(rea_recharge_sim2, 1975, 2023)
+            # r_rea = select_period(rea_runoff_sim2, 1975, 2023)
+            
+            Fnorm = ( np.nanmean(R_rea) + np.nanmean(r_rea) )  / ( np.nanmean(R_mod) + np.nanmean(r_mod) )
+            print(Fnorm)
+            
+            R_mod_norm = (Fnorm * R_mod)
+            R_mod_norm = R_mod_norm[(R_mod_norm.index.strftime("%Y-%m")<='2005-07')]
+            r_mod_norm = Fnorm * r_mod
+            r_mod_norm = r_mod_norm[(r_mod_norm.index.strftime("%Y-%m")<='2005-07')]
+            
+            # all_proj[watershed_name+'_'+'REC'+'_'+mod+'_'+'historic'] = R_mod_norm
+            # all_proj[watershed_name+'_'+'RUN'+'_'+mod+'_'+'historic'] = r_mod_norm
+        
+            for sce in sce_list:
                 
-                toplot = all_proj['REC'+'_'+mod+'_'+sce].resample('Y').sum()*1000
-                ax.plot(toplot, color=c)
-                ax.plot(select_period(toplot,1975,2005), color='k')
+                try:    
+                    if len(mod.split('-')) == 2:
+                        GCM = mod.split('-')[0]
+                        RCM = mod.split('-')[1]
+                        BV.climatic.update_recharge_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
+                                                             gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
+                                                             first_year = 1975, last_year = 2100, sim_state='transient')
+                        BV.climatic.update_runoff_explore2(path_file = BV.stable_folder + '/driaseau/_ALL_D.csv',
+                                                       gcm_mod = GCM, rcm_mod = RCM, sce_mod = sce,
+                                                       first_year = 1975, last_year = 2100, sim_state='transient')
+                    
+                    R_proj_norm = BV.climatic.recharge * Fnorm
+                    r_proj_norm = BV.climatic.runoff * Fnorm
+                    
+                    all_proj['REC'+'_'+mod+'_'+sce] = pd.concat((R_proj_norm, R_mod_norm), axis=1).mean(axis=1)
+                    all_proj['RUN'+'_'+mod+'_'+sce] = pd.concat((r_proj_norm, r_mod_norm), axis=1).mean(axis=1)
+                    print('     '+sce)
+                except:
+                    pass
                 
-                ax.set_title(watershed_name+'_'+mod+'-'+mod_dict[mod])
-                # ax.set_yscale('log')
+            all_proj['REC'+'_'+'REA'+'_'+'historic'] = R_rea
+            all_proj['RUN'+'_'+'REA'+'_'+'historic'] = r_rea    
             
-            except:
-                pass
-            
-all_proj.to_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';')
-
-#%% PLOT ALL MODELS
-
-all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
-
-# # For all
-# num_list = ['Model_01',
-#             'Model_02',
-#             'Model_03',
-#             'Model_04',
-#             'Model_05',
-#             'Model_06',
-#             'Model_07',
-#             'Model_08',
-#             'Model_09',
-#             'Model_10',
-#             'Model_11',
-#             'Model_12']
-# mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|IPS-RCA|CNR-RAC|NOR-R15|CNR-ALA|NOR-HIR|HAD-CCL|IPS-WRF|HAD-REG|MPI-R09'
-# mod_list = ['MPI-CCL',
-#             'ECE-RCA',
-#             'ECE-RAC',
-#             'IPS-RCA',
-#             'CNR-RAC',
-#             'NOR-R15',
-#             'CNR-ALA',
-#             'NOR-HIR',
-#             'HAD-CCL',
-#             'IPS-WRF',
-#             'HAD-REG',
-#             'MPI-R09']
-
-# # For 2.6
-# num_list = ['Model_01',
-#             'Model_02',
-#             'Model_03',
-#             # 'Model_04',
-#             'Model_05',
-#             'Model_06',
-#             'Model_07',
-#             # 'Model_08',
-#             # 'Model_09',
-#             # 'Model_10',
-#             'Model_11',
-#             'Model_12']
-# mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|NOR-R15|CNR-ALA|HAD-REG|MPI-R09'
-# mod_list = ['MPI-CCL',
-#             'ECE-RCA',
-#             'ECE-RAC',
-#             # 'IPS-RCA',
-#             'CNR-RAC',
-#             'NOR-R15',
-#             'CNR-ALA',
-#             # 'NOR-HIR',
-#             # 'HAD-CCL',
-#             # 'IPS-WRF',
-#             'HAD-REG',
-#             'MPI-R09']
-
-# # For 4.5
-# num_list = ['Model_01',
-#             'Model_02',
-#             'Model_03',
-#             'Model_04',
-#             'Model_05',
-#             # 'Model_06',
-#             'Model_07',
-#             'Model_08',
-#             'Model_09',
-#             'Model_10',
-#             # 'Model_11',
-#             'Model_12']
-# mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|IPS-RCA|CNR-RAC|CNR-ALA|NOR-HIR|HAD-CCL|IPS-WRF|MPI-R09'
-# mod_list = ['MPI-CCL',
-#             'ECE-RCA',
-#             'ECE-RAC',
-#             'IPS-RCA',
-#             'CNR-RAC',
-#             # 'NOR-R15',
-#             'CNR-ALA',
-#             'NOR-HIR',
-#             'HAD-CCL',
-#             'IPS-WRF',
-#             # 'HAD-REG',
-#             # 'MPI-R09'
-#             ]
-
-# For 3
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            # 'IPS-RCA',
-            'CNR-RAC',
-            # 'NOR-R15',
-            'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            # 'HAD-REG',
-            'MPI-R09']
-# n = 8
-n = 6
-colors = pl.cm.jet(np.linspace(0,1,n))
-
-sce_list = ['RCP26','RCP45','RCP85']
-
-for sce in sce_list: 
+    # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+    # sce_list = ['RCP2.6','RCP8.5']
+    # col_list = ['blue','red']
+    dict_scecol = dict(zip(sce_list, col_list))
+        
+    for mod in mod_list:
+        
+            fig, ax = plt.subplots(1,1, figsize=(9,3))
+        
+            for sce in sce_list:
+                
+                try:
     
-    fig, ax = plt.subplots(1,1, figsize=(6,3))
-
-    for cp, mod in enumerate(mod_list):
-
+                    c = dict_scecol[sce]
+                    
+                    toplot = all_proj['REC'+'_'+mod+'_'+sce].resample('Y').sum()*1000
+                    ax.plot(toplot, color=c)
+                    ax.plot(select_period(toplot,1975,2005), color='k')
+                    
+                    ax.set_title(watershed_name+'_'+mod+'-'+mod_dict[mod])
+                    # ax.set_yscale('log')
+                
+                except:
+                    pass
+                
+    all_proj.to_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';')
+    
+    # PLOT ALL MODELS
+    
+    all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
+    
+    num_list = ['Model_01',
+                'Model_02',
+                'Model_03',
+                # 'Model_04',
+                'Model_05',
+                # 'Model_06',
+                'Model_07',
+                # 'Model_08',
+                # 'Model_09',
+                # 'Model_10',
+                # 'Model_11',
+                'Model_12']
+    mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+    mod_list = ['MPI-CCL',
+                'ECE-RCA',
+                'ECE-RAC',
+                # 'IPS-RCA',
+                'CNR-RAC',
+                # 'NOR-R15',
+                'CNR-ALA',
+                # 'NOR-HIR',
+                # 'HAD-CCL',
+                # 'IPS-WRF',
+                # 'HAD-REG',
+                'MPI-R09']
+    # n = 8
+    n = 6
+    colors = pl.cm.jet(np.linspace(0,1,n))
+    
+    sce_list = ['RCP26','RCP45','RCP85']
+    
+    for sce in sce_list: 
+        
+        fig, ax = plt.subplots(1,1, figsize=(6,3))
+    
+        for cp, mod in enumerate(mod_list):
+    
+            # d = select_period(df, per[0], per[1])
+            
+            # if typ_climate == 'DRIAS' :
+            d = all_proj.copy()
+            d = d.filter(regex=sce).filter(regex=mod).filter(regex='REC')
+            d = d.resample('Y').mean() * 1000 * 365
+    
+            d = d.rolling(window=30).mean()
+            
+            ax.plot(d, c=colors[cp], lw=2, label=mod)
+            # ax.legend(loc='lower left', frameon=False)
+            ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
+            ax.set_title(watershed_name+'  '+sce)
+            # ax.set_ylim(100, 300)
+            
+            yearsmaj = mdates.YearLocator(20)   # every year
+            monthsmaj = mdates.MonthLocator(12)  # every month
+            years_fmt = mdates.DateFormatter('%Y')
+            ax.xaxis.set_major_locator(yearsmaj)
+            ax.xaxis.set_minor_locator(monthsmaj)
+            ax.xaxis.set_major_formatter(years_fmt)
+        
+            # ax.set_yscale('log')
+            
+            # fig.savefig(fig_path + watershed_name +
+            #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+            
+            ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
+    
+    # PLOT MEDIAN MODELS
+    
+    all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
+    
+    # Dispo for 3
+    num_list = ['Model_01',
+                'Model_02',
+                'Model_03',
+                # 'Model_04',
+                'Model_05',
+                # 'Model_06',
+                'Model_07',
+                # 'Model_08',
+                # 'Model_09',
+                # 'Model_10',
+                # 'Model_11',
+                'Model_12']
+    mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+    mod_list = ['MPI-CCL',
+                'ECE-RCA',
+                'ECE-RAC',
+                # 'IPS-RCA',
+                'CNR-RAC',
+                # 'NOR-R15',
+                'CNR-ALA',
+                # 'NOR-HIR',
+                # 'HAD-CCL',
+                # 'IPS-WRF',
+                # 'HAD-REG',
+                'MPI-R09']
+    
+    sce_list = ['RCP26','RCP45','RCP85']
+    col_list = ['dodgerblue','darkorange','red']
+    dict_scecol = dict(zip(sce_list, col_list))
+    
+    fig2, ax2 = plt.subplots(1,1, figsize=(6,3))
+    
+    for sce in sce_list: 
+        print(sce)
+        
+        fig, ax = plt.subplots(1,1, figsize=(6,3))
+    
+        # for cp, mod in enumerate(mod_list):
+    
         # d = select_period(df, per[0], per[1])
         
         # if typ_climate == 'DRIAS' :
         d = all_proj.copy()
-        d = d.filter(regex=sce).filter(regex=mod).filter(regex='REC')
-        d = d.resample('Y').mean() * 1000 * 365
-
-        d = d.rolling(window=30).mean()
+        d = d.filter(regex=mod_keep)
+        var = 'REC'
+        d = d.filter(regex=var).filter(regex=sce)
         
-        ax.plot(d, c=colors[cp], lw=2, label=mod)
-        # ax.legend(loc='lower left', frameon=False)
-        ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
-        ax.set_title(watershed_name+'  '+sce)
-        # ax.set_ylim(100, 300)
+        dmean = d.mean(skipna=True, axis=1)
+        dmean = dmean.resample('Y').mean() * 1000 * 365
+        dmean = dmean.rolling(window=30).mean()
+        
+        # cols  = [col for col in d.columns if d[col].dtype == 'float64']
+        
+        # d25 = d[cols].astype(float).quantile(0.25, axis = 1)
+        # d25 = d25.resample('Y').mean() * 1000 * 365
+        # d25 = d25.rolling(window=30).mean()
+        
+        # d50 = d[cols].astype(float).quantile(0.5, axis = 1)
+        # d50 = d50.resample('Y').mean() * 1000 * 365
+        # d50 = d50.rolling(window=30).mean()
+        
+        # d75 = d[cols].astype(float).quantile(0.75, axis = 1)
+        # d75 = d75.resample('Y').mean() * 1000 * 365
+        # d75 = d75.rolling(window=30).mean()
+        
+        ax.plot(dmean, c=dict_scecol[sce], lw=3, label=mod)
+        # ax.plot(d25, c=dict_scecol[sce], lw=1, label=mod)
+        # ax.plot(d50, c=dict_scecol[sce], lw=2, label=mod)
+        # ax.plot(d75, c=dict_scecol[sce], lw=1, label=mod)
+        
+        # ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
+        ax.set_title(var+' - '+sce)
         
         yearsmaj = mdates.YearLocator(20)   # every year
         monthsmaj = mdates.MonthLocator(12)  # every month
@@ -1555,183 +1184,201 @@ for sce in sce_list:
         #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
         
         ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
-
-#%% PLOT MEDIAN MODELS
-
-all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
-
-# Dispo for 3
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            # 'IPS-RCA',
-            'CNR-RAC',
-            # 'NOR-R15',
-            'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            # 'HAD-REG',
-            'MPI-R09']
-
-sce_list = ['RCP26','RCP45','RCP85']
-col_list = ['dodgerblue','darkorange','red']
-dict_scecol = dict(zip(sce_list, col_list))
-
-fig2, ax2 = plt.subplots(1,1, figsize=(6,3))
-
-for sce in sce_list: 
-    print(sce)
     
-    fig, ax = plt.subplots(1,1, figsize=(6,3))
-
-    # for cp, mod in enumerate(mod_list):
-
-    # d = select_period(df, per[0], per[1])
+        ax2.plot(select_period(d.mean(skipna=True, axis=1),2020,2024), c=dict_scecol[sce], lw=1, label=sce)
+    # ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
+    ax2.plot(select_period(rea_recharge_isba,2020,2024), c='k', label='isba')
+    # ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
+    ax2.set_yscale('log')
+    ax2.legend()
     
-    # if typ_climate == 'DRIAS' :
-    d = all_proj.copy()
-    d = d.filter(regex=mod_keep)
-    var = 'REC'
-    d = d.filter(regex=var).filter(regex=sce)
+    # DRIAS CLIMAT DATA
     
-    dmean = d.mean(skipna=True, axis=1)
-    dmean = dmean.resample('Y').mean() * 1000 * 365
-    dmean = dmean.rolling(window=30).mean()
+    all_proj = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True) 
     
-    # cols  = [col for col in d.columns if d[col].dtype == 'float64']
+    all_proj2 =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
     
-    # d25 = d[cols].astype(float).quantile(0.25, axis = 1)
-    # d25 = d25.resample('Y').mean() * 1000 * 365
-    # d25 = d25.rolling(window=30).mean()
+    # PLOT ALL MODELS
     
-    # d50 = d[cols].astype(float).quantile(0.5, axis = 1)
-    # d50 = d50.resample('Y').mean() * 1000 * 365
-    # d50 = d50.rolling(window=30).mean()
+    # For 3
+    num_list = ['Model_01',
+                'Model_02',
+                'Model_03',
+                # 'Model_04',
+                'Model_05',
+                # 'Model_06',
+                'Model_07',
+                # 'Model_08',
+                # 'Model_09',
+                # 'Model_10',
+                # 'Model_11',
+                'Model_12']
+    mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+    mod_list = ['MPI-CCL',
+                'ECE-RCA',
+                'ECE-RAC',
+                # 'IPS-RCA',
+                'CNR-RAC',
+                # 'NOR-R15',
+                'CNR-ALA',
+                # 'NOR-HIR',
+                # 'HAD-CCL',
+                # 'IPS-WRF',
+                # 'HAD-REG',
+                'MPI-R09']
     
-    # d75 = d[cols].astype(float).quantile(0.75, axis = 1)
-    # d75 = d75.resample('Y').mean() * 1000 * 365
-    # d75 = d75.rolling(window=30).mean()
+    mod_dict = dict(zip(mod_list, num_list))
     
-    ax.plot(dmean, c=dict_scecol[sce], lw=3, label=mod)
-    # ax.plot(d25, c=dict_scecol[sce], lw=1, label=mod)
-    # ax.plot(d50, c=dict_scecol[sce], lw=2, label=mod)
-    # ax.plot(d75, c=dict_scecol[sce], lw=1, label=mod)
+    # mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+    #             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
     
-    # ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
-    ax.set_title(var+' - '+sce)
+    # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+    # mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
+    # mod_list = ['CNR-ALA']
     
-    yearsmaj = mdates.YearLocator(20)   # every year
-    monthsmaj = mdates.MonthLocator(12)  # every month
-    years_fmt = mdates.DateFormatter('%Y')
-    ax.xaxis.set_major_locator(yearsmaj)
-    ax.xaxis.set_minor_locator(monthsmaj)
-    ax.xaxis.set_major_formatter(years_fmt)
-
-    # ax.set_yscale('log')
+    sce_list = ['RCP26','RCP45','RCP85']
+    col_list = ['dodgerblue','darkorange','red']
+    dict_scecol = dict(zip(sce_list, col_list))
     
-    # fig.savefig(fig_path + watershed_name +
-    #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+    # var_list = ['PPTT','SNOW','TASM','TASX','TASN','HUSS','WIND','RAYI','RAYV','ETPF','ETPH',
+    #             'DRAINC','EVAPC','RUNOFFC','SWE','SWI']
     
-    ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
-
-    ax2.plot(select_period(d.mean(skipna=True, axis=1),2020,2024), c=dict_scecol[sce], lw=1, label=sce)
-# ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
-ax2.plot(select_period(rea_recharge_isba,2020,2024), c='k', label='isba')
-# ax2.plot(select_period(rea_recharge_sim2,2020,2024), c='grey', label='sim2')
-ax2.set_yscale('log')
-ax2.legend()
-
-#%% DRIAS CLIMAT DATA
-
-all_proj = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True) 
-
-all_proj2 =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
-
-#%% PLOT ALL MODELS
-
-# For 3
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            # 'IPS-RCA',
-            'CNR-RAC',
-            # 'NOR-R15',
-            'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            # 'HAD-REG',
-            'MPI-R09']
-
-mod_dict = dict(zip(mod_list, num_list))
-
-# mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-#             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
-
-# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-# mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
-# mod_list = ['CNR-ALA']
-
-sce_list = ['RCP26','RCP45','RCP85']
-col_list = ['dodgerblue','darkorange','red']
-dict_scecol = dict(zip(sce_list, col_list))
-
-# var_list = ['PPTT','SNOW','TASM','TASX','TASN','HUSS','WIND','RAYI','RAYV','ETPF','ETPH',
-#             'DRAINC','EVAPC','RUNOFFC','SWE','SWI']
-
-var_list = ['PPTT','SNOW','TASM',
-            'REC','ETP','RUN','SWE']
-
-var_list = ['REC']
-
-for var in var_list[:]:
+    var_list = ['PPTT','SNOW','TASM',
+                'REC','ETP','RUN','SWE']
     
-    print(var)
+    var_list = ['REC']
     
-    for sce in sce_list:
+    for var in var_list[:]:
         
+        print(var)
+        
+        for sce in sce_list:
+            
+        
+            print('    '+sce)
+        
+            for mod in mod_list: 
+                
+                fig, ax = plt.subplots(1,1, figsize=(6,3))
     
-        print('    '+sce)
+                print('        '+mod)
+                
+                if var in ['PPTT','SNOW','TASM']:
+                    d = all_proj.copy()
+                if var in ['REC','ETP','RUN','SWE']:
+                    d = all_proj2.copy()
+                    
+                d = d.filter(regex=var).filter(regex=sce).filter(regex=mod)
+                
+                dmean = d.mean(skipna=True, axis=1)
+                dmean = dmean.resample('Y').mean() #* 365
+                dmean = dmean.rolling(window=30).mean()
+                
+                # cols  = [col for col in d.columns if d[col].dtype == 'float64']
+                
+                # d25 = d[cols].astype(float).quantile(0.25, axis = 1)
+                # d25 = d25.resample('Y').mean() * 1000 * 365
+                # d25 = d25.rolling(window=30).mean()
+                
+                # d50 = d[cols].astype(float).quantile(0.5, axis = 1)
+                # d50 = d50.resample('Y').mean() * 1000 * 365
+                # d50 = d50.rolling(window=30).mean()
+                
+                # d75 = d[cols].astype(float).quantile(0.75, axis = 1)
+                # d75 = d75.resample('Y').mean() * 1000 * 365
+                # d75 = d75.rolling(window=30).mean()
+                
+                ax.plot(dmean, c=dict_scecol[sce], lw=3, label=mod)
+                # ax.plot(d25, c=dict_scecol[sce], lw=1, label=mod)
+                # ax.plot(d50, c=dict_scecol[sce], lw=2, label=mod)
+                # ax.plot(d75, c=dict_scecol[sce], lw=1, label=mod)
+                
+                # ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
+                ax.set_title(sce+' - '+var+' - '+mod)
+                
+                yearsmaj = mdates.YearLocator(20)   # every year
+                monthsmaj = mdates.MonthLocator(12)  # every month
+                years_fmt = mdates.DateFormatter('%Y')
+                ax.xaxis.set_major_locator(yearsmaj)
+                ax.xaxis.set_minor_locator(monthsmaj)
+                ax.xaxis.set_major_formatter(years_fmt)
+            
+                # ax.set_yscale('log')
+                
+                # fig.savefig(fig_path + watershed_name +
+                #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
+                
+                ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
     
-        for mod in mod_list: 
+    # PLOT MEDIAN MODELS
+    
+    num_list = ['Model_01',
+                'Model_02',
+                'Model_03',
+                # 'Model_04',
+                'Model_05',
+                # 'Model_06',
+                'Model_07',
+                # 'Model_08',
+                # 'Model_09',
+                # 'Model_10',
+                # 'Model_11',
+                'Model_12']
+    mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+    mod_list = ['MPI-CCL',
+                'ECE-RCA',
+                'ECE-RAC',
+                # 'IPS-RCA',
+                'CNR-RAC',
+                # 'NOR-R15',
+                'CNR-ALA',
+                # 'NOR-HIR',
+                # 'HAD-CCL',
+                # 'IPS-WRF',
+                # 'HAD-REG',
+                'MPI-R09']
+    
+    mod_dict = dict(zip(mod_list, num_list))
+    
+    # mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
+    #             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
+    
+    # mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
+    # mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
+    # mod_list = ['CNR-ALA']
+    
+    sce_list = ['RCP26','RCP45','RCP85']
+    col_list = ['dodgerblue','darkorange','red']
+    dict_scecol = dict(zip(sce_list, col_list))
+    
+    # var_list = ['PPTT','SNOW','TASM','TASX','TASN','HUSS','WIND','RAYI','RAYV','ETPF','ETPH',
+    #             'DRAINC','EVAPC','RUNOFFC','SWE','SWI']
+    
+    var_list = ['PPTT','SNOW','TASM',
+                'REC','ETP','RUN','SWE']
+    
+    var_list = ['PPTT']
+    
+    for var in var_list[:]:
+        
+        print(var)
+        
+        for sce in sce_list:
             
             fig, ax = plt.subplots(1,1, figsize=(6,3))
-
-            print('        '+mod)
-            
+        
+            print('    '+sce)
+        
+            # for mod in mod_list: 
+                    
+            #     print('        '+mod)
+                
             if var in ['PPTT','SNOW','TASM']:
                 d = all_proj.copy()
             if var in ['REC','ETP','RUN','SWE']:
                 d = all_proj2.copy()
                 
-            d = d.filter(regex=var).filter(regex=sce).filter(regex=mod)
+            d = d.filter(regex=var).filter(regex=sce).filter(regex=mod_keep)
             
             dmean = d.mean(skipna=True, axis=1)
             dmean = dmean.resample('Y').mean() #* 365
@@ -1757,7 +1404,7 @@ for var in var_list[:]:
             # ax.plot(d75, c=dict_scecol[sce], lw=1, label=mod)
             
             # ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
-            ax.set_title(sce+' - '+var+' - '+mod)
+            ax.set_title(sce+' - '+var)
             
             yearsmaj = mdates.YearLocator(20)   # every year
             monthsmaj = mdates.MonthLocator(12)  # every month
@@ -1773,200 +1420,7 @@ for var in var_list[:]:
             
             ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
 
-#%% PLOT MEDIAN MODELS
-
-# For all
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            'Model_04',
-            'Model_05',
-            'Model_06',
-            'Model_07',
-            'Model_08',
-            'Model_09',
-            'Model_10',
-            'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|IPS-RCA|CNR-RAC|NOR-R15|CNR-ALA|NOR-HIR|HAD-CCL|IPS-WRF|HAD-REG|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            'IPS-RCA',
-            'CNR-RAC',
-            'NOR-R15',
-            'CNR-ALA',
-            'NOR-HIR',
-            'HAD-CCL',
-            'IPS-WRF',
-            'HAD-REG',
-            'MPI-R09']
-
-# For 2.6
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|NOR-R15|CNR-ALA|HAD-REG|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            # 'IPS-RCA',
-            'CNR-RAC',
-            'NOR-R15',
-            'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            'HAD-REG',
-            'MPI-R09']
-
-# For 4.5
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            'Model_08',
-            'Model_09',
-            'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|IPS-RCA|CNR-RAC|CNR-ALA|NOR-HIR|HAD-CCL|IPS-WRF|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            'IPS-RCA',
-            'CNR-RAC',
-            # 'NOR-R15',
-            'CNR-ALA',
-            'NOR-HIR',
-            'HAD-CCL',
-            'IPS-WRF',
-            # 'HAD-REG',
-            # 'MPI-R09'
-            ]
-
-# For 3
-num_list = ['Model_01',
-            'Model_02',
-            'Model_03',
-            # 'Model_04',
-            'Model_05',
-            # 'Model_06',
-            'Model_07',
-            # 'Model_08',
-            # 'Model_09',
-            # 'Model_10',
-            # 'Model_11',
-            'Model_12']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            # 'IPS-RCA',
-            'CNR-RAC',
-            # 'NOR-R15',
-            'CNR-ALA',
-            # 'NOR-HIR',
-            # 'HAD-CCL',
-            # 'IPS-WRF',
-            # 'HAD-REG',
-            'MPI-R09']
-
-mod_dict = dict(zip(mod_list, num_list))
-
-# mod_list = ['ACC1','BCC1','BNU1','CAN1','CAN2','CAN3','CAN4','CAN5',
-#             'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1']
-
-# mod_list = ['IPS1','NOR1','CAN3','CNR-ALA','ECE-RCA','MPI-CCL']
-# mod_list = ['IPS1','CNR-ALA','ECE-RCA','MPI-CCL']
-# mod_list = ['CNR-ALA']
-
-sce_list = ['RCP26','RCP45','RCP85']
-col_list = ['dodgerblue','darkorange','red']
-dict_scecol = dict(zip(sce_list, col_list))
-
-# var_list = ['PPTT','SNOW','TASM','TASX','TASN','HUSS','WIND','RAYI','RAYV','ETPF','ETPH',
-#             'DRAINC','EVAPC','RUNOFFC','SWE','SWI']
-
-var_list = ['PPTT','SNOW','TASM',
-            'REC','ETP','RUN','SWE']
-
-var_list = ['PPTT']
-
-for var in var_list[:]:
-    
-    print(var)
-    
-    for sce in sce_list:
-        
-        fig, ax = plt.subplots(1,1, figsize=(6,3))
-    
-        print('    '+sce)
-    
-        # for mod in mod_list: 
-                
-        #     print('        '+mod)
-            
-        if var in ['PPTT','SNOW','TASM']:
-            d = all_proj.copy()
-        if var in ['REC','ETP','RUN','SWE']:
-            d = all_proj2.copy()
-            
-        d = d.filter(regex=var).filter(regex=sce).filter(regex=mod_keep)
-        
-        dmean = d.mean(skipna=True, axis=1)
-        dmean = dmean.resample('Y').mean() #* 365
-        dmean = dmean.rolling(window=30).mean()
-        
-        # cols  = [col for col in d.columns if d[col].dtype == 'float64']
-        
-        # d25 = d[cols].astype(float).quantile(0.25, axis = 1)
-        # d25 = d25.resample('Y').mean() * 1000 * 365
-        # d25 = d25.rolling(window=30).mean()
-        
-        # d50 = d[cols].astype(float).quantile(0.5, axis = 1)
-        # d50 = d50.resample('Y').mean() * 1000 * 365
-        # d50 = d50.rolling(window=30).mean()
-        
-        # d75 = d[cols].astype(float).quantile(0.75, axis = 1)
-        # d75 = d75.resample('Y').mean() * 1000 * 365
-        # d75 = d75.rolling(window=30).mean()
-        
-        ax.plot(dmean, c=dict_scecol[sce], lw=3, label=mod)
-        # ax.plot(d25, c=dict_scecol[sce], lw=1, label=mod)
-        # ax.plot(d50, c=dict_scecol[sce], lw=2, label=mod)
-        # ax.plot(d75, c=dict_scecol[sce], lw=1, label=mod)
-        
-        # ax.legend(bbox_to_anchor=(1.25, 1),frameon=False)
-        ax.set_title(sce+' - '+var)
-        
-        yearsmaj = mdates.YearLocator(20)   # every year
-        monthsmaj = mdates.MonthLocator(12)  # every month
-        years_fmt = mdates.DateFormatter('%Y')
-        ax.xaxis.set_major_locator(yearsmaj)
-        ax.xaxis.set_minor_locator(monthsmaj)
-        ax.xaxis.set_major_formatter(years_fmt)
-    
-        # ax.set_yscale('log')
-        
-        # fig.savefig(fig_path + watershed_name +
-        #             '_evolution_' + str(mod_list[0]) + '.png', dpi=300, bbox_inches='tight')
-        
-        ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
-
-#%% TABLEAU DELTA
+#%% TABLE DRIAS
 
 if 'all_proj_clim' not in globals():
     all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
@@ -2121,8 +1575,7 @@ for var in  [
         df_delta.loc['ALL',var+'perct'] = perct_all
 
 
-df_delta.to_csv('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/c_sup_models/'+
-                'df_delta_v1.csv', sep=';', encoding='utf-8', decimal=',')
+df_delta.to_csv(fig_path+'c_sup_models/'+'df_delta_v2.csv', sep=';', encoding='utf-8', decimal=',')
 
 #%% ---- CALIB
 
