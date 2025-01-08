@@ -7,7 +7,7 @@ with open('README.md', 'r') as file:
 setuptools.setup(
     name='HydroModPy',
     version='0.1',
-    author='Alexandre Gauvain','Ronan Abhervé'
+    author='Alexandre Gauvain','Ronan Abherve'
     author_email='alexandre.gauvain.ag@gmail.com','ronan.abherve@gmail.com'
     description='Hydrogeological modelling',
     long_description=long_desc,

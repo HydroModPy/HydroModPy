@@ -350,7 +350,7 @@ from_xyvs = [ [601020,6193860,100,50,'EPSG:2154'] ]
 #%% LOAD
 
 load = True
-# load = False
+load = False
 
 for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
         
@@ -377,8 +377,9 @@ for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
 
 # SUBBASIN
 
-BV.add_intermittency('None','None')
-BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
+if load == False:
+    BV.add_intermittency('None','None')
+    BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
 
 # GEOL
 
@@ -386,6 +387,155 @@ BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
 # visualization_watershed.watershed_geology(BV)
 
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
+
+#%% ISBA HYDRO LOAD
+
+BV.add_safransurfex(data_path+'_h5_safransurfex/lasset/')
+
+surfex_data = BV.stable_folder + '/climatic/'
+
+dfd_both = pd.DataFrame()
+
+raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS','SNOW']
+variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS', 'SNOW', 'EFF']
+
+# ppt = pd.read_csv(surfex_data+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+# etp = pd.read_csv(surfex_data+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+# eff = ppt - etp
+# eff = eff.add_prefix('EFF'+'_')
+
+liste = []
+for raw in raws :
+    dfd = pd.read_csv(surfex_data+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
+    dfd = dfd.add_prefix(raw+'_')
+    liste.append(dfd)
+dfd = pd.concat(liste, join='inner', axis=1)
+# dfd = pd.concat([dfd,eff], join='inner', axis=1)
+dfd = dfd.apply(pd.to_numeric)
+
+for mod in ['REA']:
+    for sce in ['historic']:
+        dfd['EFF'+'_'+mod+'_'+sce] = dfd['PPT'+'_'+mod+'_'+sce] - dfd['ETP'+'_'+mod+'_'+sce]
+
+dfd = dfd.filter(regex=sce).filter(regex=mod)
+dfd = dfd.dropna(axis = 0, how = 'all')
+dfd = dfd.dropna(axis = 1, how = 'all')
+
+dfm = dfd.copy() 
+mask = dfm.resample("M").count() >= 27
+dfm = dfm.resample("M").mean()[mask]
+
+dfm_surf = dfm.copy()
+dfm_surf = select_period(dfm_surf, 1960, 2023)
+# tas = dfm_surf['TAS_REA_historic']
+# import pyet
+# dfm_surf['Oudin'] = abs(pyet.oudin(tas, lat=pyet.deg_to_rad(48)))
+# dfm_surf["Hargreaves"] = abs(pyet.hargreaves(tas, tmax=tas.max(), tmin=tas.min(), lat=pyet.deg_to_rad(48)))
+# dfm_surf["Hamon"] = abs(pyet.temperature.hamon(tas, lat=pyet.deg_to_rad(48)))
+# dfm_surf["Macguinness"] = abs(pyet.radiation.mcguinness_bordne(tas, lat=pyet.deg_to_rad(48)))
+# deficiency_evaporation(dfm_surf, 'PPT_REA_historic',
+#                             'Oudin', 'PPT-ETP',
+#                             'ETR', 'RU', 'DE')
+
+dfy = dfd.copy()
+mask = dfy.resample("Y").count() >= 364
+dfy = dfy.resample("Y").mean()[mask]
+
+rea = dfd[(dfd.index.year>=1960) & (dfd.index.year<=2023)].filter(regex='REA')
+
+def sum_hwlw(dfm):
+    hw = dfm.dropna(axis=1, how='all')
+    hw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
+    hw = hw.rename_axis(["year", "month"])
+    hw = hw.query("month == "+"["+'10,11,12,1,2,3'+"]")
+    hw = hw.groupby('year').mean()
+    hw.index =  pd.to_datetime(hw.index, format='%Y')
+    hw[hw==0] = np.nan
+    lw = dfm.dropna(axis=1, how='all')
+    lw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
+    lw = lw.rename_axis(["year", "month"])
+    lw = lw.query("month == "+"["+'4,5,6,7,8,9'+"]")
+    lw = lw.groupby('year').mean()
+    lw.index =  pd.to_datetime(lw.index, format='%Y')
+    lw[lw==0] = np.nan
+    return hw, lw
+hw, lw = sum_hwlw(dfm)
+
+def sum_wy(dfm):
+    wy = dfm.copy()
+    wy = wy.dropna(axis=1, how='all')
+    wy['wy_y'] = np.where(wy.index.month < 10, wy.index.year, wy.index.year + 1)
+    wy['wy_m'] = np.where(wy.index.month < 10, wy.index.month+3, wy.index.month-9)
+    wy['wy_m'] = wy['wy_m'].apply(lambda x: '{0:0>2}'.format(x))
+    wy['wy_d'] = wy.index.day
+    d = pd.to_datetime(wy['wy_y'].astype(str)+wy['wy_m']+wy['wy_d'].astype(str), format='%Y%M%d')
+    wy['date'] = wy.index
+    wy.index = d
+    wy = wy.drop(['wy_y','wy_m','wy_d'], axis=1)
+    wy = wy.groupby([(wy.index.year),(wy.index.month)]).mean()
+    wy = wy.rename_axis(["year", "month"])
+    wy = wy.iloc[:-1]
+    wy = wy.groupby('year').mean()
+    wy.index =  pd.to_datetime(wy.index, format='%Y')
+    wy[wy==0] = np.nan
+    return wy
+wy = sum_wy(dfm)
+
+#%% ISBA HYDRO NORMALIZE
+
+init_path = data_path + '_Q/'
+
+Qobs_list =[
+             'lasset_Q_Day.Cmd.txt'
+            ]
+
+areas = [3.7]
+
+for i, Qobs_name in enumerate(Qobs_list[:]):
+    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
+    dfQ = dfQ['q']/(areas[i]*1e6)
+
+dfFTP = pd.DataFrame()
+dfFTP['OBSER'] = dfQ
+dfFTP['DRAIN'] = dfd['REC_REA_historic']/1000
+dfFTP['RUNOF'] = dfd['RUN_REA_historic']/1000
+
+dfFTP = dfFTP.query("index >= '2021-08' and index <= '2023-07'")
+# dfFTP = dfFTP.query("index >= '2023-01' and index <= '2023-12'")
+
+# f = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']+dfSIM2['ECSNOW']).mean()
+# f = dfSIM2['OBSER'].mean() / dfSIM2['PPT'].mean()
+# norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
+norm_factor = dfFTP['OBSER'].sum() / (dfFTP['DRAIN']+dfFTP['RUNOF']).sum()
+print(norm_factor)
+
+dfFTP['INPUT'] = (dfFTP['DRAIN']+dfFTP['RUNOF']) * norm_factor
+
+fig, ax = plt.subplots(1,1, figsize=(9,3))
+ax.plot(dfFTP['DRAIN']+dfFTP['RUNOF'], label='R + r', c='darkorange')
+ax.plot(dfFTP['DRAIN'], label='R', c='forestgreen')
+ax.plot(dfFTP['OBSER'], label='Q', c='k')
+ax.plot(dfFTP['INPUT'], label='INPUT', c='red')
+ax.legend()
+ax.set_yscale('log')
+import matplotlib.dates as mdates
+years_maj = mdates.YearLocator()   # every year
+months_maj = mdates.MonthLocator()  # every x month
+ax.xaxis.set_major_locator(years_maj)
+ax.xaxis.set_minor_locator(months_maj)
+
+fig, ax = plt.subplots(1,1, figsize=(4,4))
+ax.scatter(dfFTP['OBSER'], dfFTP['INPUT'], lw=0, color='k')
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlim(1e-4,1)
+ax.set_ylim(1e-4,1)
+
+isba = select_period(dfd,2020,2024)
+
+rea_facnorm_isba = norm_factor
+rea_recharge_isba = (dfd['REC_REA_historic']/1000)*norm_factor
+rea_runoff_isba = (dfd['RUN_REA_historic']/1000)*norm_factor
 
 #%% HYDRO 1
 
@@ -766,154 +916,7 @@ for i, Qobs_name in enumerate(Qobs_list[:1]):
     #             'Q_obs'+'.png',
     #             bbox_inches='tight')
 
-#%% ISBA HYDRO LOAD
 
-BV.add_safransurfex(data_path+'_h5_safransurfex/lasset/')
-
-surfex_data = BV.stable_folder + '/climatic/'
-
-dfd_both = pd.DataFrame()
-
-raws = ['REC', 'RUN', 'ETP', 'PPT', 'TAS','SNOW']
-variables = ['REC', 'RUN', 'ETP', 'PPT', 'TAS', 'SNOW', 'EFF']
-
-# ppt = pd.read_csv(surfex_data+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
-# etp = pd.read_csv(surfex_data+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
-# eff = ppt - etp
-# eff = eff.add_prefix('EFF'+'_')
-
-liste = []
-for raw in raws :
-    dfd = pd.read_csv(surfex_data+'_'+raw+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
-    dfd = dfd.add_prefix(raw+'_')
-    liste.append(dfd)
-dfd = pd.concat(liste, join='inner', axis=1)
-# dfd = pd.concat([dfd,eff], join='inner', axis=1)
-dfd = dfd.apply(pd.to_numeric)
-
-for mod in ['REA']:
-    for sce in ['historic']:
-        dfd['EFF'+'_'+mod+'_'+sce] = dfd['PPT'+'_'+mod+'_'+sce] - dfd['ETP'+'_'+mod+'_'+sce]
-
-dfd = dfd.filter(regex=sce).filter(regex=mod)
-dfd = dfd.dropna(axis = 0, how = 'all')
-dfd = dfd.dropna(axis = 1, how = 'all')
-
-dfm = dfd.copy() 
-mask = dfm.resample("M").count() >= 27
-dfm = dfm.resample("M").mean()[mask]
-
-dfm_surf = dfm.copy()
-dfm_surf = select_period(dfm_surf, 1960, 2023)
-# tas = dfm_surf['TAS_REA_historic']
-# import pyet
-# dfm_surf['Oudin'] = abs(pyet.oudin(tas, lat=pyet.deg_to_rad(48)))
-# dfm_surf["Hargreaves"] = abs(pyet.hargreaves(tas, tmax=tas.max(), tmin=tas.min(), lat=pyet.deg_to_rad(48)))
-# dfm_surf["Hamon"] = abs(pyet.temperature.hamon(tas, lat=pyet.deg_to_rad(48)))
-# dfm_surf["Macguinness"] = abs(pyet.radiation.mcguinness_bordne(tas, lat=pyet.deg_to_rad(48)))
-# deficiency_evaporation(dfm_surf, 'PPT_REA_historic',
-#                             'Oudin', 'PPT-ETP',
-#                             'ETR', 'RU', 'DE')
-
-dfy = dfd.copy()
-mask = dfy.resample("Y").count() >= 364
-dfy = dfy.resample("Y").mean()[mask]
-
-rea = dfd[(dfd.index.year>=1960) & (dfd.index.year<=2023)].filter(regex='REA')
-
-def sum_hwlw(dfm):
-    hw = dfm.dropna(axis=1, how='all')
-    hw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
-    hw = hw.rename_axis(["year", "month"])
-    hw = hw.query("month == "+"["+'10,11,12,1,2,3'+"]")
-    hw = hw.groupby('year').mean()
-    hw.index =  pd.to_datetime(hw.index, format='%Y')
-    hw[hw==0] = np.nan
-    lw = dfm.dropna(axis=1, how='all')
-    lw = dfm.groupby([(dfm.index.year),(dfm.index.month)]).mean()
-    lw = lw.rename_axis(["year", "month"])
-    lw = lw.query("month == "+"["+'4,5,6,7,8,9'+"]")
-    lw = lw.groupby('year').mean()
-    lw.index =  pd.to_datetime(lw.index, format='%Y')
-    lw[lw==0] = np.nan
-    return hw, lw
-hw, lw = sum_hwlw(dfm)
-
-def sum_wy(dfm):
-    wy = dfm.copy()
-    wy = wy.dropna(axis=1, how='all')
-    wy['wy_y'] = np.where(wy.index.month < 10, wy.index.year, wy.index.year + 1)
-    wy['wy_m'] = np.where(wy.index.month < 10, wy.index.month+3, wy.index.month-9)
-    wy['wy_m'] = wy['wy_m'].apply(lambda x: '{0:0>2}'.format(x))
-    wy['wy_d'] = wy.index.day
-    d = pd.to_datetime(wy['wy_y'].astype(str)+wy['wy_m']+wy['wy_d'].astype(str), format='%Y%M%d')
-    wy['date'] = wy.index
-    wy.index = d
-    wy = wy.drop(['wy_y','wy_m','wy_d'], axis=1)
-    wy = wy.groupby([(wy.index.year),(wy.index.month)]).mean()
-    wy = wy.rename_axis(["year", "month"])
-    wy = wy.iloc[:-1]
-    wy = wy.groupby('year').mean()
-    wy.index =  pd.to_datetime(wy.index, format='%Y')
-    wy[wy==0] = np.nan
-    return wy
-wy = sum_wy(dfm)
-
-#%% ISBA HYDRO NORMALIZE
-
-init_path = data_path + '_Q/'
-
-Qobs_list =[
-             'lasset_Q_Day.Cmd.txt'
-            ]
-
-areas = [3.7]
-
-for i, Qobs_name in enumerate(Qobs_list[:]):
-    dfQ = pd.read_csv(init_path+Qobs_name, sep=';', parse_dates=True, index_col='date_temp') # m3/d
-    dfQ = dfQ['q']/(areas[i]*1e6)
-
-dfFTP = pd.DataFrame()
-dfFTP['OBSER'] = dfQ
-dfFTP['DRAIN'] = dfd['REC_REA_historic']/1000
-dfFTP['RUNOF'] = dfd['RUN_REA_historic']/1000
-
-dfFTP = dfFTP.query("index >= '2021-08' and index <= '2023-07'")
-# dfFTP = dfFTP.query("index >= '2023-01' and index <= '2023-12'")
-
-# f = dfSIM2['OBSER'].mean() / (dfSIM2['DRAIN']+dfSIM2['RUNOF']+dfSIM2['ECSNOW']).mean()
-# f = dfSIM2['OBSER'].mean() / dfSIM2['PPT'].mean()
-# norm_factor = dfFTP['OBSER'].mean() / (dfFTP['DRAIN']+dfFTP['RUNOF']).mean()
-norm_factor = dfFTP['OBSER'].sum() / (dfFTP['DRAIN']+dfFTP['RUNOF']).sum()
-print(norm_factor)
-
-dfFTP['INPUT'] = (dfFTP['DRAIN']+dfFTP['RUNOF']) * norm_factor
-
-fig, ax = plt.subplots(1,1, figsize=(9,3))
-ax.plot(dfFTP['DRAIN']+dfFTP['RUNOF'], label='R + r', c='darkorange')
-ax.plot(dfFTP['DRAIN'], label='R', c='forestgreen')
-ax.plot(dfFTP['OBSER'], label='Q', c='k')
-ax.plot(dfFTP['INPUT'], label='INPUT', c='red')
-ax.legend()
-ax.set_yscale('log')
-import matplotlib.dates as mdates
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-
-fig, ax = plt.subplots(1,1, figsize=(4,4))
-ax.scatter(dfFTP['OBSER'], dfFTP['INPUT'], lw=0, color='k')
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.set_xlim(1e-4,1)
-ax.set_ylim(1e-4,1)
-
-isba = select_period(dfd,2020,2024)
-
-rea_facnorm_isba = norm_factor
-rea_recharge_isba = (dfd['REC_REA_historic']/1000)*norm_factor
-rea_runoff_isba = (dfd['RUN_REA_historic']/1000)*norm_factor
 
 #%% SIM2 HYDROCLIMAT LOAD
 
@@ -2249,8 +2252,12 @@ run = True
 # vers = 'isba1'
 # vers = 'isbaint1'
 
-vers = 'isba2'
+# vers = 'isba2'
+# types_obs = ['hydrographic_mix_peren_upv2_pt']
+
+vers = 'aniso1'
 types_obs = ['hydrographic_mix_peren_upv2_pt']
+vka = 1
 
 # vers = 'isbaint2'
 # types_obs = ['hydrographic_mix_inter_upv2_pt']
@@ -2286,9 +2293,9 @@ for watershed_name in watershed_names[:]:
         sink_fill = False # or True
         sim_state = 'steady' # 'steady' or 'transient'
         plot_cross = True
-        first_clim = 'mean' # or 'first or value
+
         nlay = 25
-        lay_decay = 1.25 # 1 for no decay
+        lay_decay = 1.5 # 1 for no decay
         
         ### v1, v2, v3, v4
         # thick = 50 # if bottom is None, aquifer thickness
@@ -2302,6 +2309,10 @@ for watershed_name in watershed_names[:]:
         # recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
         recharge = select_period(rea_recharge_isba, 2020, 2023)
         print((recharge).mean()*365*1000)
+        
+        first_clim = 'mean' # or 'first or value
+        # first_clim = recharge.quantile(0.50)
+        # recharge = first_clim
         
         verti_cond = None # or [ [1e-5, [0, 20]],
         verti_poro = None
@@ -2332,12 +2343,14 @@ for watershed_name in watershed_names[:]:
         BV.hydraulic.update_poro_decay(poro_decay)
         BV.settings.update_bc_sides(bc_left, bc_right)
         BV.add_oceanic(sea_level)
-        BV.settings.update_input_particules(zone_partic=zone_partic)
+        BV.settings.update_input_particles(zone_partic=zone_partic)
+        BV.settings.update_split_temporal(True)
+        BV.hydraulic.update_vka(vka)
         
+        """
         # Aquifer bottom
         list_bottom = [None, 0] # aquifer flat or not
         list_bottom.extend([0] * 13) ### ATTENTION ###
-
         # Decay of K
         # list_d_values = [0, 0]
         # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
@@ -2345,12 +2358,20 @@ for watershed_name in watershed_names[:]:
         list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
         list_cond_decay = list(1/np.array(list_d_values))
         list_cond_decay[0] = 0
-        list_cond_decay[1] = 0
-                
+        list_cond_decay[1] = 0               
         list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-       
+        """
+                
+        list_d_values = [10,15,20]
+        list_cond_decay = list(1/np.array(list_d_values))
+        # list_cond_decay[0] = 0
+        # list_cond_decay[1] = 0               
+        list_id_mod = [1.4,1.5,1.6]
+        list_bottom=[0,0,0]
+        
         # for cond_decay, bottom, id_mod in zip(list_cond_decay[4:5], list_bottom[4:5], list_id_mod[4:5]):
-        for cond_decay, bottom, id_mod in zip(list_cond_decay[6:7], list_bottom[6:7], list_id_mod[6:7]):
+        # for cond_decay, bottom, id_mod in zip(list_cond_decay[6:7], list_bottom[6:7], list_id_mod[6:7]):
+        for cond_decay, bottom, id_mod in zip(list_cond_decay[-1:], list_bottom[-1:], list_id_mod[-1:]):
         # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
             BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
             BV.hydraulic.update_cond_decay(cond_decay) # 0
@@ -2362,9 +2383,15 @@ for watershed_name in watershed_names[:]:
             if id_mod == 1:
                 params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod >= 2:
-                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             if id_mod >= 9:
-                params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if (id_mod == 1.4) :
+                params_df.loc[0] = ['k1','?',4e-6*3600*24,5e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if (id_mod == 1.5) :
+                params_df.loc[0] = ['k1','?',4e-6*3600*24,5e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if (id_mod == 1.6) :
+                params_df.loc[0] = ['k1','?',4e-6*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             # params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-4*3600*24,'m/j','lin']
             params_file = 'calib_dicot_hom_1v_k1'
             params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
@@ -2400,7 +2427,7 @@ for watershed_name in watershed_names[:]:
                 else:
                     model_name = vers+'_'+str('model')+str(id_mod)+'_'+str(round(str_cond_decay,4))+'-'+str(round(bottom,4))+'_'+str(compt)+'-'+str("{:.2e}".format(hyd_cond/24/3600)) #+'-'+oclock
                 BV.settings.update_model_name(model_name)
-                # print(model_name)
+                print(model_name)
                 
                 if run == True:
                 
@@ -2528,6 +2555,7 @@ for watershed_name in watershed_names[:]:
 #%% DICHOTOMY - APPEND
 
 vers = 'isba2'
+vers = 'aniso1'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
@@ -2568,7 +2596,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15]
+list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -2576,7 +2604,9 @@ for i in list_id_mod[:]:
     dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
  
 dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
-    
+
+dfz = dfz.drop(index=dfz.iloc[:1,:].index.tolist())
+
 # fig, ax = plt.subplots(1,1, figsize=(3.6,2.6), dpi=600)
 fig, ax = plt.subplots(1,1, figsize=(4,4), dpi=600)
 
@@ -2587,14 +2617,14 @@ fig, ax = plt.subplots(1,1, figsize=(4,4), dpi=600)
 #             # label=dfz['1/K_decay'].values[0]
 #             )
 
-ax.scatter(dfz[1:2]['K']/24/3600, dfz[1:2]['Doptim'],
+ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'],
             c=dfz[1:2]['1/K_decay'],
             s=100, 
              marker='s', lw=1.5,
              cmap=mpl.colors.ListedColormap('gray'), zorder=1000
             # label='0'
             )
-im = ax.scatter(dfz[2:]['K']/24/3600, dfz[2:]['Doptim'], c=1/dfz[2:]['1/K_decay'], s=100, 
+im = ax.scatter(dfz[1:]['K']/24/3600, dfz[1:]['Doptim'], c=1/dfz[1:]['1/K_decay'], s=100, 
                 cmap='plasma',
                 norm=mpl.colors.LogNorm(vmin=1/300, vmax=1/10),
                 lw=1.5,
@@ -2623,7 +2653,7 @@ ax.set_xscale('log')
 # ax.set_yscale('log')
 ax.set_xlabel('$K_{0}$ [m/s]')
 # ax.set_xlim(2e-8, 2e-5)
-ax.set_ylim(30 , 90)
+# ax.set_ylim(30 , 90)
 ax.set_ylabel('$D_{optim}$ [m]')
 # cb = plt.colorbar()
 from matplotlib.ticker import LogFormatter 
@@ -2655,9 +2685,9 @@ ax.axhline(y=(dfz[6:7]['Doptim']).values, c='darkgreen', zorder=-1000, ls='-', l
 
 # ax.set_yscale('log')
 
-fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/'+
-            'DICHOTOMY_K_2'+'.png',
-            bbox_inches='tight')
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/'+
+#             'DICHOTOMY_K_2'+'.png',
+#             bbox_inches='tight')
 
 #%% DICHOTOMY - GRAPH T WITH DEPTH
 
@@ -2676,7 +2706,7 @@ dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 # dfp['Doptim'] = (dfp['Indicator'])
 # dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
@@ -2856,8 +2886,6 @@ cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
 #%% DICHOTOMY - MAPS
 
-vers = 'isba2'
-
 BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
 dfs = pd.read_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
@@ -2866,7 +2894,7 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
 # if vers == 'v3':
@@ -2883,6 +2911,8 @@ if vers == 'isba1':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv1_pt.shp')
 if vers == 'isba2':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt.shp')    
+if vers == 'aniso1':
+    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt.shp')    
 
 # types_obs = ['stream_perennial_wetlands_points']
 # types_obs = ['stream_perennial_wetlands_osm_points']
@@ -2893,9 +2923,16 @@ for i in list_id_mod[:]:
     # dfz = pd.concat([dfz, dft.iloc[-1:]])
     dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
 
-for index, row in dfz[:].iterrows():
+for index, row in dfz[2:3].iterrows():
     model_name = row['model_name']
     print(model_name)
+    
+    mf = flopy.modflow.Modflow.load(BV.calibration_folder+'/'+model_name+'/'+model_name+'.nam')
+            
+    # fname = simulations_folder+model_name+'/'+model_name+'.hds'
+    gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+    # grid_model = flopy.discretization.grid.Grid(mf)
+    grid_model = mf.modelgrid
     
     fig, ax = plt.subplots(1,1, figsize=(10,10))
     
@@ -2930,9 +2967,9 @@ for index, row in dfz[:].iterrows():
     ax.get_yaxis().set_visible(False)
     ax.axis('off')
 
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps2/'+
-                model_name+'_DICHOTOMY_MAP'+'.png',
-                bbox_inches='tight')
+    # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps2/'+
+    #             model_name+'_DICHOTOMY_MAP'+'.png',
+    #             bbox_inches='tight')
 
 
 #%% ---- EXPLORATION
@@ -6069,14 +6106,17 @@ figm.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lass
 vers = 'isba2' # dichotomy isba
 iD_explo = 'e_isba2' # with isba recharge ==> change ss with decay factor (details for bad models)
 
+iD_explo = 'test12' # with isba recharge ==> change ss with decay factor (details for bad models)
+
 decay_factor = 2
 
 box = True # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
+sim_state = 'transient'
 plot_cross = True
-nlay = 25
-lay_decay = 1.25 # 1 for no decay
+nlay = 2
+lay_decay = 1 # 1 for no decay
 verti_cond = None # or [ [1e-5, [0, 20]],
 verti_poro = None # or [ [1e-5, [0, 20]],
 cond_drain = None # or value of conductance
@@ -6104,13 +6144,15 @@ BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_active_plot(plot_cross=plot_cross)
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
-BV.hydraulic.update_cond_vertical(verti_cond)
-BV.hydraulic.update_poro_vertical(verti_poro)
+BV.hydraulic.update_hk_vertical(verti_cond)
+BV.hydraulic.update_sy_vertical(verti_poro)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_input_particules(zone_partic=zone_partic)
+BV.settings.update_input_particles(zone_partic=zone_partic)
 BV.settings.update_simulation_state(sim_state)
+BV.hydraulic.update_vka(1)
+BV.settings.update_split_temporal(True)
 
 thick = 30 # if bottom is None, aquifer thickness
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
@@ -6145,8 +6187,8 @@ runoff_w_sli.index = runoff_w_off.iloc[:-1].index
 # runoff_w_sli.index = runoff_w_off.iloc[:].index
 # runoff_w_sli = runoff_w_sli.iloc[:-1]
 
-BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
-BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
+BV.climatic.update_recharge(recharge_w_sli[:22], sim_state=sim_state)
+BV.climatic.update_runoff(runoff_w_sli[:22], sim_state=sim_state)
 # plt.plot(recharge_w_res, c='k')
 # plt.plot(recharge_w_off, c='green')
 # plt.plot(recharge_w_int, c='red')
@@ -6163,8 +6205,8 @@ BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
 # print(BV.climatic.recharge.mean())
 first_clim = recharge.mean() # or 'first or value
 BV.climatic.update_first_clim(first_clim)
-plt.plot(BV.climatic.recharge)
-plt.axhline(first_clim, c='k')
+# plt.plot(BV.climatic.recharge)
+# plt.axhline(first_clim, c='k')
 
 # Aquifer bottom
 list_bottom = [None, 0] # aquifer flat or not
@@ -6196,24 +6238,30 @@ list_kroptim = df_optim['KR']
 # list_koptim = [4.82e-6]
 # BV.hydraulic.update_cond_vertical([ [list_koptim[0]*3600*24, [0,20]] ])
 
-list_porosity = np.arange(0.2, 10.2, 0.2)/100
+list_cond_decay = [[1/100, 1e-10*24*3600, False]]
+list_bottom = [1000]
+list_koptim = [1e-5*24*3600]
+list_kroptim = [1]
+
+list_porosity = [1/100]
 
 #%% RUN
 
 run_model = True
-run_model = False
+# run_model = False
  
-for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[6:7],
-                                                                            list_bottom[6:7],
-                                                                            list_koptim[6:7],
-                                                                            list_id_mod[6:7],
-                                                                            list_kroptim[6:7]):    
-   
-    BV.hydraulic.update_cond_decay(cond_decay_val) # 0
+for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_cond_decay[:],
+                                                                            list_bottom[:],
+                                                                            list_koptim[:],
+                                                                            list_id_mod[:],
+                                                                            list_kroptim[:]):    
+    
+
+    BV.hydraulic.update_hk_decay(1/100,1e-10*24*3600, False) # 0
     BV.hydraulic.update_bottom(bottom_val) # None
-    BV.hydraulic.update_hyd_cond(koptim_val)
-    BV.hydraulic.update_poro_decay(cond_decay_val/decay_factor)
-    BV.hydraulic.update_ss_decay(cond_decay_val/decay_factor)
+    BV.hydraulic.update_hk(koptim_val)
+    BV.hydraulic.update_sy_decay(2/100, 1e-2/100, False)
+    BV.hydraulic.update_ss_decay(1e-5, 1e-10, False)
     
     dictio = {}
     
@@ -6221,20 +6269,20 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     list_model_success = []
     list_model_modflow = []
         
-    for ip, poro_val in enumerate(list_porosity[4:5]):
+    for ip, poro_val in enumerate(list_porosity[:]):
         
-        BV.hydraulic.update_porosity(poro_val)
+        BV.hydraulic.update_sy(poro_val)
         
         Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
 
         BV.hydraulic.update_ss(Ss_formula)
         
-        if cond_decay_val == 0 :
+        if cond_decay_val[0] == 0 :
             str_cond_decay = cond_decay_val
             str_poro_decay = cond_decay_val/decay_factor
         else:
-            str_cond_decay = 1/cond_decay_val
-            str_poro_decay = 1/(cond_decay_val/decay_factor)
+            str_cond_decay = 1/cond_decay_val[0]
+            str_poro_decay = 1/(cond_decay_val[0])
         if bottom_val==None:
             str_bottom = thick
         else:
@@ -6252,8 +6300,8 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
         
         BV.settings.update_model_name(model_name)
         
-        now = datetime.now()
-        oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
+        # now = datetime.now()
+        # oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
 
         model_modflow = BV.preprocessing_modflow(for_calib=False)
         
@@ -6307,6 +6355,124 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val, kroptim_val in zip(list_
     #                                                   actual_date=True, 
     #                                                   subbasin_results=True,
     #                                                   freq_time='W') # or None
+
+#%% CELL CONNECTIVITY 1 
+
+def check_water_flow_connectivity(grid):
+    layers, rows, cols = grid.shape
+    problematic_cells = []  # Store problematic cells
+
+    for z in range(layers - 1):  # Focus on flow between layers
+        print(f"Checking layer {z}")
+        for y in range(rows):
+            for x in range(cols):
+                # Skip if the current cell is inactive (e.g., NaN or specific inactive value)
+                if np.isnan(grid[z, y, x]) or np.isnan(grid[z+1, y, x]):
+                    continue
+
+                # Current cell's top and bottom elevations
+                current_top = grid[z, y, x]
+                current_bottom = grid[z+1, y, x]
+
+                neighbors = []
+
+                # Collect adjacent neighbors' top and bottom elevations
+                if y > 0 and not (np.isnan(grid[z, y-1, x]) or np.isnan(grid[z+1, y-1, x])):  # Left neighbor
+                    neighbors.append((grid[z, y-1, x], grid[z+1, y-1, x]))
+                if y < rows - 1 and not (np.isnan(grid[z, y+1, x]) or np.isnan(grid[z+1, y+1, x])):  # Right neighbor
+                    neighbors.append((grid[z, y+1, x], grid[z+1, y+1, x]))
+                if x > 0 and not (np.isnan(grid[z, y, x-1]) or np.isnan(grid[z+1, y, x-1])):  # Front neighbor
+                    neighbors.append((grid[z, y, x-1], grid[z+1, y, x-1]))
+                if x < cols - 1 and not (np.isnan(grid[z, y, x+1]) or np.isnan(grid[z+1, y, x+1])):  # Back neighbor
+                    neighbors.append((grid[z, y, x+1], grid[z+1, y, x+1]))
+
+                # If there are neighbors, check if water can flow
+                if neighbors:
+                    can_flow = False
+                    for neighbor_top, neighbor_bottom in neighbors:
+                        # Check if current cell's range overlaps with neighbor's range
+                        if (current_bottom <= neighbor_top and current_top >= neighbor_bottom):
+                            can_flow = True
+                            break
+                    
+                    if not can_flow:
+                        problematic_cells.append((z, y, x))
+
+    return problematic_cells
+
+# Load the MODFLOW model and retrieve the top_botm grid
+mf = flopy.modflow.Modflow.load(BV.simulations_folder+'/'+model_name+'/'+model_name+'.nam')
+grid_model = mf.modelgrid
+test = grid_model.top_botm
+
+problematic_cells = check_water_flow_connectivity(test)
+
+if not problematic_cells:
+    print("All cells satisfy the water flow connectivity condition.")
+else:
+    print(f"Problematic cells (water flow issue): {problematic_cells}")
+    print(f"Number of problematic cells: {len(problematic_cells)}")
+
+import flopy.utils.binaryfile as fpu
+cbb = fpu.CellBudgetFile('E:/_RONAN/_E_SIMULATIONS/VALLON/Nant_21781_EUDTM30m/results_simulations/Ex3_6_K-1-2.00e-07_E-6-110_T-2.20e-05_KR-23.82_P-1-0.2_F-1-1.60e-04/Ex3_6_K-1-2.00e-07_E-6-110_T-2.20e-05_KR-23.82_P-1-0.2_F-1-1.60e-04.cbc')
+kstpkper_bis = cbb.get_kstpkper()
+sto = cbb.get_data(text='STORAGE', kstpkper=(0,2))
+
+#%% 
+
+Kmin = 1e-10
+Kmax = 1e-5
+alpha = 1/30
+def expo1(z):
+    k1 = np.log10(Kmin) + (np.log10(Kmax)-np.log10(Kmin))*np.exp(-alpha*z)
+    k2 = (Kmin) + ((Kmax)-(Kmin))*np.exp(-alpha*z)
+    return k1, k2
+def expo2(z):
+    k3 = np.log10(Kmax)*np.exp(-alpha*(z))
+    k4 = (Kmax)*np.exp(-alpha*(z))
+    return k3, k4
+    
+list_z = np.arange(0,1500,10)
+
+for z in list_z:
+    k1, k2 = (expo1(z))
+    print(z, k)
+    plt.scatter(10**k1, z, c='navy', s=10)
+    plt.scatter(k2, z, c='dodgerblue', s=10)
+    k3, k4 = (expo2(z))
+    # plt.scatter(10**k3, z, c='red', s=10)
+    plt.scatter(k4, z, c='darkorange', s=10)
+    plt.xscale('log')
+    plt.xlim(1e-11, None)
+plt.gca().invert_yaxis()
+
+#%%
+
+Kmin = 1e-5
+Kmax = 1
+alpha = (1/30)/2
+def expo1(z):
+    k1 = np.log10(Kmin) + (np.log10(Kmax)-np.log10(Kmin))*np.exp(-alpha*z)
+    k2 = (Kmin) + ((Kmax)-(Kmin))*np.exp(-alpha*z)
+    return k1, k2
+def expo2(z):
+    k3 = np.log10(Kmax)*np.exp(-alpha*(z))
+    k4 = (Kmax)*np.exp(-alpha*(z))
+    return k3, k4
+    
+list_z = np.arange(0,1500,10)
+
+for z in list_z:
+    k1, k2 = (expo1(z))
+    print(z, k)
+    plt.scatter(10**k1, z, c='navy', s=10)
+    plt.scatter(k2, z, c='dodgerblue', s=10)
+    k3, k4 = (expo2(z))
+    # plt.scatter(10**k3, z, c='red', s=10)
+    plt.scatter(k4, z, c='darkorange', s=10)
+    plt.xscale('log')
+    plt.xlim(1e-11, None)
+plt.gca().invert_yaxis()
 
 #%% FILTER
 
@@ -7870,7 +8036,7 @@ for watershed_name in watershed_names[:]:
     list_cond_decay[0] = 0
     list_cond_decay[1] = 0
             
-    list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
        
     # for cond_decay, bottom, id_mod in zip(list_cond_decay[4:5], list_bottom[4:5], list_id_mod[4:5]):
     # for cond_decay, bottom, id_mod in zip(list_cond_decay[:], list_bottom[:], list_id_mod[:]):
@@ -7895,6 +8061,10 @@ for id_mod_val, model_name in enumerate(dfz[:]['model_name']):
         gridname = simulations_folder+model_name+'/'+model_name+'.dis'
         # grid_model = flopy.discretization.grid.Grid(mf)
         grid_model = mf.modelgrid
+        
+        test = grid_model.top_botm
+        
+        
         hk_grid = mf.upw.hk
         # sy_grid = mf.upw.sy
         sy_grid = mf.upw.sy.array
@@ -7936,7 +8106,7 @@ axk.tick_params(right=False)
 figk.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/a_sup_decay/'+
             'K_2'+'.png',
                         bbox_inches='tight')
-            
+
 #%% GRAPH DECAY PORO
 
 # start = 0

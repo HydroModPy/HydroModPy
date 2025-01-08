@@ -12,16 +12,17 @@
 
 #%% ---- LIBRAIRIES
 
-# PYTHON PACKAGES
+# Filter warnings (before imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
+# PYTHON PACKAGES
 import sys
 import os
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated since Matplotlib 3.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import flopy
@@ -48,7 +49,7 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 import importlib
 #importlib.reload(src)
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
+from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
@@ -61,8 +62,6 @@ data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
 # Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -83,7 +82,7 @@ from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
 # Extract the catchment from a regional DEM
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
-                              load=True,
+                              load=False,
                               watershed_name=watershed_name,
                               from_lib=None, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=None, # [path, cell size]
@@ -96,26 +95,27 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
-#%% ---- ADD DATA
+#%% ---- ADD DATA PLOT
+
+# General plot of the study site
+visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
-# BV.add_piezometry() # no piezomoeter for this study site
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
+
+# Add hydrological data
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
 BV.add_intermittency(data_path, 'regional onde stations.shp')
 
 # Extract a subbasin inside the study site
 BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
-#%% ---- WATERSHED MAP
-
-# General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
+# Visualization
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
-# STREAMFLOW PLOT
+#%% ---- PLOT STREAMFLOW 
 
 Qobs = pd.read_csv(data_path+'/'+'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
 Qobs = Qobs.squeeze()
@@ -198,8 +198,8 @@ BV.settings.update_model_name(model_name) # Name of the model/simulation
 BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
 BV.settings.update_simulation_state('steady') # Transient
-BV.settings.update_active_plot(plot_cross=False)
-BV.settings.update_split_temporal(split_temp=False)
+BV.settings.update_check_model(plot_cross=False, check_grid=True)
+BV.settings.update_dis_perlen(dis_perlen=False)
 
 # Climatic settings
 BV.climatic.update_recharge(350 / 1000 / 365, sim_state=BV.settings.sim_state)
@@ -210,11 +210,12 @@ BV.hydraulic.update_nlay(5)
 BV.hydraulic.update_lay_decay(1.5) # 1 if not activated
 BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
 BV.hydraulic.update_thick(50) # Not consider if bottom != of None
-BV.hydraulic.update_hyd_cond(2e-5 * 24 * 3600) # m/d
-BV.hydraulic.update_porosity(1/100) # -
-BV.hydraulic.update_cond_decay(1/20) # Exponential decay with depth : 1/10 (about half decrease at 10m)
-BV.hydraulic.update_poro_decay(1/20)
-BV.hydraulic.update_cond_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+BV.hydraulic.update_hk(2e-5 * 24 * 3600) # m/d
+BV.hydraulic.update_sy(1/100) # -
+BV.hydraulic.update_hk_decay(1/20, min_value=None, log_transf=False) # Exponential decay with depth : 1/10 (about half decrease at 10m)
+BV.hydraulic.update_sy_decay(1/20, min_value=None, log_transf=False)
+BV.hydraulic.update_ss_decay(1/20, min_value=None, log_transf=False)
+BV.hydraulic.update_hk_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 BV.hydraulic.update_cond_drain(None)
 
 # Boundary settings
@@ -222,7 +223,8 @@ BV.settings.update_bc_sides(None, None)
 BV.add_oceanic('None')
 
 # Particle tracking settings
-BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
+BV.settings.update_input_particles(zone_partic = os.path.join(simulations_folder,model_name,'_postprocess/_rasters/seepage_areas_t(0).tif'),
+                                   track_dir = 'backward')
 
 #%% ---- GROUNDWATER FLOW MODEL RUN
 
@@ -270,18 +272,17 @@ if success_modpath == True:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  actual_date=True, 
                                                   subbasin_results=True,
-                                                  freq_time='D') # or 'M' or None
+                                                  datetime_format=False)
 
 #%% ---- GENERATE NETCDF FILES
 
 netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                          actual_date=True)
+                                          datetime_format=False)
 
-#%% ---- PLOT RESULTS
+#%% ---- PLOT OUTPUT RESULTS
 
-#%% RECHARGE INPUT
+#%% RECHARGE SOURCE
 
 BV.add_climatic()
 BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),

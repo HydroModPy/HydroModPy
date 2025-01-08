@@ -47,7 +47,7 @@ executing==1.2.0
 fastjsonschema==2.18.0
 Fiona==1.9.4.post1
 flake8==3.8.4
-flopy==3.3.4
+flopy==3.8.2
 fonttools==4.42.1
 fqdn==1.5.1
 #GDAL==3.0.2
@@ -118,7 +118,7 @@ numpydoc==1.5.0
 outcome==1.2.0
 overrides==7.4.0
 packaging==23.1
-pandas==1.5.3
+pandas==2.0.3
 pandocfilters==1.5.0
 parso==0.7.0
 pathspec==0.11.2
@@ -224,7 +224,7 @@ webcolors==1.13
 webencodings==0.5.1
 websocket-client==1.6.2
 wheel==0.41.2
-whitebox==2.3.1
+whitebox==2.3.5
 widgetsnbextension==4.0.8
 wrapt==1.15.0
 wsproto==1.2.0
