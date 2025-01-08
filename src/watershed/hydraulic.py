@@ -16,6 +16,7 @@
 import numpy as np
 import whitebox
 from os.path import dirname
+from typing import Union
 import os
 import imageio
 wbt = whitebox.WhiteboxTools()
@@ -241,7 +242,7 @@ class Hydraulic:
         """
         self.ss_decay =  [ss_decay_value, min_value, log_transf]  
     
-    def update_lay_decay(self, lay_decay_value: float or int):
+    def update_lay_decay(self, lay_decay_value: Union[float, int]):
         """
         Parameters
         ----------
