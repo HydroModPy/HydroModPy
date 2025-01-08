@@ -841,16 +841,15 @@ class LogManager:
         """
         Configure the logging settings based on the mode.
         """
-        # Ensure the log directory exists
-        os.makedirs(self.log_dir, exist_ok=True)
+
+        # Define log file paths and ensure the log file directory exists
+        log_file = os.path.join(self.log_dir, "logs", "dev.log")
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
 
         # Remove existing handlers to prevent duplicates
         # This is necessary when the LogManager is re-initialized (e.g., in a Jupyter notebook or Spyder)
         if self.logger.hasHandlers():
             self.logger.handlers.clear()
-
-        # Define log file paths
-        log_file = os.path.join(self.log_dir, "dev.log")
 
         # Set the base logger level
         self.logger.setLevel(logging.DEBUG)
