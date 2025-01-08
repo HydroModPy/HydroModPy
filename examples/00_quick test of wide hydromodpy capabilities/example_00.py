@@ -14,9 +14,16 @@
 
 # PYTHON PACKAGES
 
+# Filter warnings (before imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+import pkg_resources # Place after DeprecationWarning as it is itself deprecated...
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
 import sys
 import os
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -52,16 +59,13 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # WARNING MANAGEMENT
 
-#%% Initialiser le gestionnaire de logs en mode développement
-log_manager = toolbox.LogManager(mode="verbose", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
-                                    #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
-                                    # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
-                                    # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
-                                     )
+#%% Initialize the log manager in development mode
+log_manager = toolbox.LogManager(mode="verbose", # Use mode="verbose" to display INFO logs and above, and mode="quiet" to display WARNING logs and above
+                                 log_dir=root_dir, # Use log_dir to specify the log directory
+                                # overwrite=False # Use overwrite=True (default) to overwrite existing log files
+                                # verbose_libraries=True # Use verbose_libraries=True to display library logs (warning and above, normally hidden)
+                                )
 
-
-warnings.filterwarnings("ignore")
-    
 #%% ---- PERSONAL PATHS
 
 regression_path = os.path.join(root_dir, "examples", "00_quick test of wide hydromodpy capabilities/")
