@@ -83,16 +83,16 @@ class Driaseau:
         for model in list_models:
             models_path = glob.glob(os.path.join(driaseau_path, model + '*'))
             for model in models_path:
-                logging.info('     '+model)
+                logging.info('     %s', model)
                 for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
                     files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
                     # try:
                     for en, file_path in enumerate(files_path):
                         if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
-                            logging.info('          '+file_path)
+                            logging.info('          %s', file_path)
                             self.clip_netcdf(data_folder, file_path, watershed_shp, var)
                     # except:
-                    #     logging.error('NOT FOUND : '+model+'  -  '+var)
+                    #     logging.error('NOT FOUND : %s - %s', model, var)
                     #     pass
     
         # self.extract_values(data_folder, df)

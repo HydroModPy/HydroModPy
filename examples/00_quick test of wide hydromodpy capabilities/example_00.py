@@ -52,6 +52,14 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # WARNING MANAGEMENT
 
+#%% Initialiser le gestionnaire de logs en mode développement
+log_manager = toolbox.LogManager(mode="verbose", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
+                                    #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
+                                    # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
+                                    # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
+                                     )
+
+
 warnings.filterwarnings("ignore")
     
 #%% ---- PERSONAL PATHS
@@ -331,3 +339,5 @@ fig.tight_layout()
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
+# %%

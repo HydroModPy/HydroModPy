@@ -58,7 +58,7 @@ class Netcdf:
             Indicated if simulation results need to be created at subassins scale. The default is True.
         """
         
-        logging.info('  ','Export results as netcdf')
+        logging.info('  %s','Export results as netcdf')
         
         self.geographic = geographic
     
