@@ -60,7 +60,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 # WARNING MANAGEMENT
 
 #%% Initialize the log manager in development mode
-log_manager = toolbox.LogManager(mode="verbose", # Use mode="verbose" to display INFO logs and above, and mode="quiet" to display WARNING logs and above
+log_manager = toolbox.LogManager(mode="dev", # Use mode="verbose" to display INFO logs and above, and mode="quiet" to display WARNING logs and above
                                  log_dir=root_dir, # Use log_dir to specify the log directory
                                 # overwrite=False # Use overwrite=True (default) to overwrite existing log files
                                 # verbose_libraries=True # Use verbose_libraries=True to display library logs (warning and above, normally hidden)
