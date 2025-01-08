@@ -358,7 +358,7 @@ from_xyvs = [ [601020,6193860,100,50,'EPSG:2154'] ]
 #%% LOAD
 
 load = True
-load = False
+# load = False
 
 for watershed_name, from_xyv in zip(watershed_names[:], from_xyvs[:]):
         
@@ -398,97 +398,101 @@ BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibrat
 
 #%% HYDROGRAPHY
 
-wbt.verbose = True
+hydrography_create = False
 
-# HYDRO
-
-wbt.vector_lines_to_raster(
-    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.shp', 
-    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
-    field="FID", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.vector_lines_to_raster(
-    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.shp', 
-    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
-    field="FID", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.vector_polygons_to_raster(
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.shp', 
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
-    field="fid", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.vector_polygons_to_raster(
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.shp', 
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
-    field="osm_id", 
-    nodata=True, 
-    cell_size=None, 
-    base=BV.geographic.watershed_dem)
-
-wbt.raster_to_vector_points(
-    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
-    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp')
-
-wbt.raster_to_vector_points(
-    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
-    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp')
-
-wbt.raster_to_vector_points(
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp')
-
-wbt.raster_to_vector_points(
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
-    data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp')
-
-wbt.merge_vectors(
-    data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp', 
-    data_path+'_hydrography/_newhydro_v2/hydrographic_mix_peren_upv2_pt.shp')
-
-wbt.merge_vectors(
-    data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp', 
-    data_path+'_hydrography/_newhydro_v2/hydrographic_mix_inter_upv2_pt.shp')
-
-hydrography_path = data_path + '_hydrography/_newhydro_v2/' # add hydrographic shapefiles
-
-dem_data = imageio.imread(BV.geographic.watershed_dem)
-print(np.sum(dem_data >= 0))
-
-types_obs = ['hydrographic_mix_peren_upv2_pt','hydrographic_mix_inter_upv2_pt']
-# types_obs = ['stream_perennial_wetlands_osm_points']
-fields_obs = ['fid','fid']
-
-for watershed_name in watershed_names[:]:
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
-                              dem_path=dem_path, 
-                              out_path=out_path,
-                              load=True)
-    for type_obs, field_obs in zip(types_obs, fields_obs):
+if hydrography_create == True:
     
-        # print('##### '+watershed_name.upper()+' #####')
-                   
-        BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
+    wbt.verbose = True
+    
+    # HYDRO
+    
+    wbt.vector_lines_to_raster(
+        data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.shp', 
+        data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
+        field="FID", 
+        nodata=True, 
+        cell_size=None, 
+        base=BV.geographic.watershed_dem)
+    
+    wbt.vector_lines_to_raster(
+        data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.shp', 
+        data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
+        field="FID", 
+        nodata=True, 
+        cell_size=None, 
+        base=BV.geographic.watershed_dem)
+    
+    wbt.vector_polygons_to_raster(
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.shp', 
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
+        field="fid", 
+        nodata=True, 
+        cell_size=None, 
+        base=BV.geographic.watershed_dem)
+    
+    wbt.vector_polygons_to_raster(
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.shp', 
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
+        field="osm_id", 
+        nodata=True, 
+        cell_size=None, 
+        base=BV.geographic.watershed_dem)
+    
+    wbt.raster_to_vector_points(
+        data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2.tif', 
+        data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp')
+    
+    wbt.raster_to_vector_points(
+        data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2.tif', 
+        data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp')
+    
+    wbt.raster_to_vector_points(
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2.tif', 
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp')
+    
+    wbt.raster_to_vector_points(
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2.tif', 
+        data_path+'_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp')
+    
+    wbt.merge_vectors(
+        data_path+'_hydrography/_newhydro_v2/streams_mix_peren_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_peren_upv2_pt.shp', 
+        data_path+'_hydrography/_newhydro_v2/hydrographic_mix_peren_upv2_pt.shp')
+    
+    wbt.merge_vectors(
+        data_path+'_hydrography/_newhydro_v2/streams_mix_inter_upv2_pt.shp;D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_hydrography/_newhydro_v2/wetlands_mix_inter_upv2_pt.shp', 
+        data_path+'_hydrography/_newhydro_v2/hydrographic_mix_inter_upv2_pt.shp')
+    
+    hydrography_path = data_path + '_hydrography/_newhydro_v2/' # add hydrographic shapefiles
+    
+    dem_data = imageio.imread(BV.geographic.watershed_dem)
+    print(np.sum(dem_data >= 0))
+    
+    types_obs = ['hydrographic_mix_peren_upv2_pt','hydrographic_mix_inter_upv2_pt']
+    # types_obs = ['stream_perennial_wetlands_osm_points']
+    fields_obs = ['fid','fid']
+    
+    for watershed_name in watershed_names[:]:
+        BV = watershed_root.Watershed(watershed_name=watershed_name,
+                                  dem_path=dem_path, 
+                                  out_path=out_path,
+                                  load=True)
+        for type_obs, field_obs in zip(types_obs, fields_obs):
         
-        try:
-            # visualization_watershed.watershed_local(dem_path, BV)
-            visualization_watershed.watershed_dem(BV)
-        except:
-            pass
-        
-    shp_per = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt_pt.shp')
-    shp_int = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_inter_upv2_pt_pt.shp')
-        
-    print(len(shp_per)/np.sum(dem_data >= 0)*100)
-    print(len(shp_int)/np.sum(dem_data >= 0)*100)
+            # print('##### '+watershed_name.upper()+' #####')
+                       
+            BV.add_hydrography(hydrography_path, types_obs=[type_obs], fields_obs=[field_obs])
+            
+            try:
+                # visualization_watershed.watershed_local(dem_path, BV)
+                visualization_watershed.watershed_dem(BV)
+            except:
+                pass
+            
+        shp_per = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt_pt.shp')
+        shp_int = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_inter_upv2_pt_pt.shp')
+            
+        print(len(shp_per)/np.sum(dem_data >= 0)*100)
+        print(len(shp_int)/np.sum(dem_data >= 0)*100)
 
 #%% DISCHARGE
 
@@ -834,7 +838,7 @@ rea_runoff_isba = (dfd['RUN_REA_historic']/1000)*norm_factor
 
 #%% EXTRACT DRIAS
 
-extract_drias = True
+extract_drias = False
 
 if extract_drias == True :
 
@@ -842,10 +846,10 @@ if extract_drias == True :
     
     drias_eau_datapath = data_path + '_pyrenees_projections/PYRENEES/results_stable/driaseau/'
     drias_eau_outpath = stable_folder + 'driaseau/'
-    if not os.path.exists(drias_eau_outpath):
-        BV.add_driaseau(drias_eau_datapath,
-                        list_models=['all'],
-                        list_vars=['all']) # 'all'
+    # if not os.path.exists(drias_eau_outpath):
+    BV.add_driaseau(drias_eau_datapath,
+                    list_models=['all'],
+                    list_vars=['all']) # 'all'
     
     # DRIAS EAU - CSV
     
@@ -862,15 +866,19 @@ if extract_drias == True :
         list_of_paths.extend(list_of_paths_model)
     
     driaseau.driaseau_extract_values(data_folder, list_of_paths, df)
-    
+
     # DRIAS CLIMAT NETCDF
     
     drias_clim_datapath = data_path + '_pyrenees_projections/PYRENEES/results_stable/driasclimat/'
     drias_clim_outpath = stable_folder + 'driasclimat/'
-    if not os.path.exists(drias_clim_outpath):
-        BV.add_driasclimat(drias_clim_datapath,
-                        list_models=['all'],
-                        list_vars=['all']) # 'all'
+    # if not os.path.exists(drias_clim_outpath):
+    BV.add_driasclimat(drias_clim_datapath,
+                    list_models=['all'],
+                    list_vars=['prtotAdjust',
+                               'prsnAdjust',
+                               'tasAdjust',
+                               'tasmaxAdjust',
+                               'tasminAdjust']) # 'all'
     
     # DRIAS CLIMAT CSV
     
@@ -883,14 +891,17 @@ if extract_drias == True :
     
     list_of_paths = []
     for i in list_models:
-        list_of_paths_model = glob.glob(os.path.join(data_folder+'/', '*.nc'))
+        list_of_paths_model = glob.glob(os.path.join(data_folder+'/'+i+'/', '*.nc'))
+        # print(list_of_paths_model)
         list_of_paths.extend(list_of_paths_model)
     
     driasclimat.driasclimat_extract_values(data_folder, list_of_paths, df)
 
 #%% COMPILE DRIAS
 
-compile_drias = True
+BV.add_climatic()
+
+compile_drias = False
 
 if compile_drias == True :
 
@@ -1023,7 +1034,13 @@ if compile_drias == True :
                 
     all_proj.to_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';')
     
-    # PLOT ALL MODELS
+#%% PLOTS DRIAS
+
+plot_drias = False
+
+if plot_drias == True :
+    
+    # EAU PLOT ALL MODELS
     
     all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
     
@@ -1093,7 +1110,7 @@ if compile_drias == True :
             
             ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
     
-    # PLOT MEDIAN MODELS
+    # EAU PLOT MEDIAN MODELS
     
     all_proj = pd.read_csv(BV.stable_folder + '/driaseau/' + 'all_proj_driaseau.csv', sep=';', index_col=0, parse_dates=True)
     
@@ -1192,13 +1209,11 @@ if compile_drias == True :
     ax2.set_yscale('log')
     ax2.legend()
     
-    # DRIAS CLIMAT DATA
+    # PLOT ALL MODELS
     
     all_proj = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True) 
     
     all_proj2 =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
-    
-    # PLOT ALL MODELS
     
     # For 3
     num_list = ['Model_01',
@@ -1310,7 +1325,7 @@ if compile_drias == True :
                 
                 ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2100'))
     
-    # PLOT MEDIAN MODELS
+    # CLIMAT PLOT MEDIAN MODELS
     
     num_list = ['Model_01',
                 'Model_02',
@@ -1422,160 +1437,164 @@ if compile_drias == True :
 
 #%% TABLE DRIAS
 
-if 'all_proj_clim' not in globals():
-    all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
-    all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+table_drias = False
 
-sce_list = ['historic','RCP26','RCP45','RCP85']
-mod_list = ['MPI-CCL',
-            'ECE-RCA',
-            'ECE-RAC',
-            'CNR-RAC',
-            'CNR-ALA',
-            'MPI-R09']
-mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
-mod_list_ppt = ['MPI-CCL',
+if table_drias == True :
+    
+    if 'all_proj_clim' not in globals():
+        all_proj_clim = pd.read_csv(BV.stable_folder + '/driasclimat/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+        all_proj_eau =  pd.read_csv(BV.stable_folder + '/driaseau/' + '_ALL_D.csv', sep=';', index_col=0, parse_dates=True)
+    
+    sce_list = ['historic','RCP26','RCP45','RCP85']
+    mod_list = ['MPI-CCL',
                 'ECE-RCA',
+                'ECE-RAC',
+                'CNR-RAC',
+                'CNR-ALA',
                 'MPI-R09']
-mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
-
-sce_list = ['historic','RCP26','RCP45','RCP85']
-col_list = ['dimgrey','dodgerblue','orange','red']
-col_list_b = ['k','navy','darkorange','darkred']
-dict_c = dict(zip(sce_list, col_list))
-dict_c_b = dict(zip(sce_list, col_list_b))
-
-# sce_list = ['historic','RCP85']
-# col_list = ['dimgrey','red']
-# col_list_b = ['k','darkred']
-# dict_c = dict(zip(sce_list, col_list))
-# dict_c_b = dict(zip(sce_list, col_list_b))
-
-df_delta = pd.DataFrame(index=mod_list)
-
-# for var in  [
-#             # 'TASM',
-#             'PPTT',
-#             # 'SNOW',
-#             # 'PLIQ',
-#             # 'SWE',
-#             # 'SNOWPROP',
-#               # 'PE',
-#                 # 'ETP',
-#                 # 'RUN',
-#                 # 'REC',
-#                # 'SWI',
-#                 # 'RECRUN'
-#              ]:
-
-for var in  [
-            'TASM',
-            'PPTT',
-            'SNOW',
-            'PLIQ',
-            'SWE',
-            'SNOWPROP',
-                'PE',
-                'ETP',
-                'RUN',
-                'REC',
-                'SWI',
-                'RECRUN'
-             ]:    
-
+    mod_keep = 'MPI-CCL|ECE-RCA|ECE-RAC|CNR-RAC|CNR-ALA|MPI-R09'
+    mod_list_ppt = ['MPI-CCL',
+                    'ECE-RCA',
+                    'MPI-R09']
+    mod_keep_pptt = 'MPI-CCL|ECE-RCA|MPI-R09'
     
-    all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
+    sce_list = ['historic','RCP26','RCP45','RCP85']
+    col_list = ['dimgrey','dodgerblue','orange','red']
+    col_list_b = ['k','navy','darkorange','darkred']
+    dict_c = dict(zip(sce_list, col_list))
+    dict_c_b = dict(zip(sce_list, col_list_b))
     
-    if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
-        mod_list_good = mod_list_ppt
-        mod_keep_good = mod_keep_pptt
-    else:
-        mod_list_good = mod_list
-        mod_keep_good = mod_keep
-        
-    all_proj_mix = all_proj_mix.filter(regex=mod_keep_good)
+    # sce_list = ['historic','RCP85']
+    # col_list = ['dimgrey','red']
+    # col_list_b = ['k','darkred']
+    # dict_c = dict(zip(sce_list, col_list))
+    # dict_c_b = dict(zip(sce_list, col_list_b))
     
-    for mod in mod_list_good:
-        for sce in sce_list:
-            if var == 'PPTT':
-                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
-            if var == 'SNOW':
-                all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
-            if var == 'SNOWPROP':
-                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24) / (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24)
-            if var == 'PLIQ':
-                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
-            if var == 'PE':
-                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
-            if var == 'RECRUN':
-                all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['REC'+'_'+mod+'_'+sce]) + (all_proj_mix['RUN'+'_'+mod+'_'+sce])
-
-    # fig, ax = plt.subplots(1,1, figsize=(10,4))
+    df_delta = pd.DataFrame(index=mod_list)
+    
+    # for var in  [
+    #             # 'TASM',
+    #             'PPTT',
+    #             # 'SNOW',
+    #             # 'PLIQ',
+    #             # 'SWE',
+    #             # 'SNOWPROP',
+    #               # 'PE',
+    #                 # 'ETP',
+    #                 # 'RUN',
+    #                 # 'REC',
+    #                # 'SWI',
+    #                 # 'RECRUN'
+    #              ]:
+    
+    for var in  [
+                'TASM',
+                'PPTT',
+                'SNOW',
+                'PLIQ',
+                'SWE',
+                'SNOWPROP',
+                    'PE',
+                    'ETP',
+                    'RUN',
+                    'REC',
+                    'SWI',
+                    'RECRUN'
+                 ]:    
+    
         
-        # for sce in sce_list:
-    for mod in mod_list_good:
-        for sce in sce_list:     
-            # df = pd.DataFrame()
-            dproj = all_proj_mix.copy()
-            
-            # if var == 'ETP':
-                # var = 'ETP_'
-            
-            if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
-                dproj = dproj.filter(regex=mod_keep_good).filter(regex=var)
-            else:
-                dproj = dproj.filter(regex=mod_keep_good).filter(regex=var)
+        all_proj_mix = pd.merge(all_proj_clim, all_proj_eau, how='inner', left_index=True, right_index=True)
         
-            # print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
-            # print('PPTT', sce, dproj['PPTT'+'_'+mod+'_'+sce].mean())
-        
-            d_hist = dproj.filter(regex=var).filter(regex='historic')
-            d_hist = select_period(d_hist, 1975, 2004)
-            
-            d_tot = dproj.filter(regex=var).filter(regex=sce)
-            d_tot = select_period(d_tot, 1975, 2100)
-            
-            d_fut = dproj.filter(regex=var).filter(regex=sce)
-            d_fut = select_period(d_fut, 2070, 2100)
-            
-            try:
-                mean_hist = d_hist[var+'_'+mod+'_'+'historic'].mean()
-                mean_fut = d_fut[var+'_'+mod+'_'+sce].mean()
-                
-                if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
-                    units = round((d_fut[var+'_'+mod+'_'+sce].mean()-d_hist[var+'_'+mod+'_'+'historic'].mean()), 1)
-                    perct = int(round(100*((mean_fut-mean_hist))/mean_hist, 1))
-                else:
-                    units = round((d_fut[var+'_'+mod+'_'+sce].mean()-d_hist[var+'_'+mod+'_'+'historic'].mean())*365, 1)
-                    perct = int(round(100*((mean_fut-mean_hist))/mean_hist, 1))
-            except:
-                units = np.nan
-                perct = np.nan
-                pass
-
-            print(mod, var, sce, units, perct)
-            
-            df_delta.loc[mod,var+'units'] = units
-            df_delta.loc[mod,var+'perct'] = perct
-            
-        d_hist['all'] = d_hist.mean(axis=1)
-        d_fut['all'] = d_fut.mean(axis=1)
-        d_hist_all = d_hist['all'].mean()
-        d_fut_all = d_fut['all'].mean()
-        
-        if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
-            units_all = round((d_fut['all'].mean()-d_hist['all'].mean()), 1)
-            perct_all = int(round(100*((d_fut_all-d_hist_all))/d_hist_all, 1))
+        if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+            mod_list_good = mod_list_ppt
+            mod_keep_good = mod_keep_pptt
         else:
-            units_all = round((d_fut['all'].mean()-d_hist['all'].mean())*365, 1)
-            perct_all = int(round(100*((d_fut_all-d_hist_all))/d_hist_all, 1))
-        print('ALL', var, sce, units_all, perct_all)
-
-        df_delta.loc['ALL',var+'units'] = units_all
-        df_delta.loc['ALL',var+'perct'] = perct_all
-
-
-df_delta.to_csv(fig_path+'c_sup_models/'+'df_delta_v2.csv', sep=';', encoding='utf-8', decimal=',')
+            mod_list_good = mod_list
+            mod_keep_good = mod_keep
+            
+        all_proj_mix = all_proj_mix.filter(regex=mod_keep_good)
+        
+        for mod in mod_list_good:
+            for sce in sce_list:
+                if var == 'PPTT':
+                    all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+                if var == 'SNOW':
+                    all_proj_mix[var+'_'+mod+'_'+sce] = all_proj_mix[var+'_'+mod+'_'+sce]*3600*24
+                if var == 'SNOWPROP':
+                    all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24) / (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24)
+                if var == 'PLIQ':
+                    all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['SNOW'+'_'+mod+'_'+sce]*3600*24)
+                if var == 'PE':
+                    all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['PPTT'+'_'+mod+'_'+sce]*3600*24) - (all_proj_mix['ETP'+'_'+mod+'_'+sce])
+                if var == 'RECRUN':
+                    all_proj_mix[var+'_'+mod+'_'+sce] = (all_proj_mix['REC'+'_'+mod+'_'+sce]) + (all_proj_mix['RUN'+'_'+mod+'_'+sce])
+    
+        # fig, ax = plt.subplots(1,1, figsize=(10,4))
+            
+            # for sce in sce_list:
+        for mod in mod_list_good:
+            for sce in sce_list:     
+                # df = pd.DataFrame()
+                dproj = all_proj_mix.copy()
+                
+                # if var == 'ETP':
+                    # var = 'ETP_'
+                
+                if (var == 'PPTT') or (var == 'SNOWPROP') or (var == 'PLIQ') or (var == 'PE'):
+                    dproj = dproj.filter(regex=mod_keep_good).filter(regex=var)
+                else:
+                    dproj = dproj.filter(regex=mod_keep_good).filter(regex=var)
+            
+                # print(var, sce, dproj[var+'_'+mod+'_'+sce].mean())
+                # print('PPTT', sce, dproj['PPTT'+'_'+mod+'_'+sce].mean())
+            
+                d_hist = dproj.filter(regex=var).filter(regex='historic')
+                d_hist = select_period(d_hist, 1975, 2004)
+                
+                d_tot = dproj.filter(regex=var).filter(regex=sce)
+                d_tot = select_period(d_tot, 1975, 2100)
+                
+                d_fut = dproj.filter(regex=var).filter(regex=sce)
+                d_fut = select_period(d_fut, 2070, 2100)
+                
+                try:
+                    mean_hist = np.nanmean(d_hist[var+'_'+mod+'_'+'historic'])
+                    mean_fut = np.nanmean(d_fut[var+'_'+mod+'_'+sce])
+                    
+                    if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
+                        units = round(np.nanmean(d_fut[var+'_'+mod+'_'+sce])-np.nanmean(d_hist[var+'_'+mod+'_'+'historic']), 1)
+                        perct = int(round(100*((mean_fut-mean_hist))/mean_hist, 1))
+                    else:
+                        units = round((np.nanmean(d_fut[var+'_'+mod+'_'+sce])-np.nanmean(d_hist[var+'_'+mod+'_'+'historic']))*365, 1)
+                        perct = int(round(100*((mean_fut-mean_hist))/mean_hist, 1))
+                except:
+                    units = np.nan
+                    perct = np.nan
+                    pass
+    
+                print(mod, var, sce, units, perct)
+                
+                df_delta.loc[mod,var+'units'] = units
+                df_delta.loc[mod,var+'perct'] = perct
+                
+            d_hist['all'] = d_hist.mean(axis=1)
+            d_fut['all'] = d_fut.mean(axis=1)
+            d_hist_all = np.nanmean(d_hist['all'])
+            d_fut_all = np.nanmean(d_fut['all'])
+            
+            if (var == 'TASM') or (var == 'SNOWPROP') or (var == 'SWE') or (var == 'SWI'):
+                units_all = round((np.nanmean(d_fut['all'])-np.nanmean(d_hist['all'])), 1)
+                perct_all = int(round(100*((d_fut_all-d_hist_all))/d_hist_all, 1))
+            else:
+                units_all = round((np.nanmean(d_fut['all'])-np.nanmean(d_hist['all']))*365, 1)
+                perct_all = int(round(100*((d_fut_all-d_hist_all))/d_hist_all, 1))
+            print('ALL', var, sce, units_all, perct_all)
+    
+            df_delta.loc['ALL',var+'units'] = units_all
+            df_delta.loc['ALL',var+'perct'] = perct_all
+    
+    
+    df_delta.to_csv(fig_path+'c_sup_models/'+'df_delta_v2.csv', sep=';', encoding='utf-8', decimal=',')
 
 #%% ---- CALIB
 
@@ -1700,25 +1719,38 @@ class MatchingStreams:
 
 #%% DICHOTOMY - RUN
 
-run = True
-
-# vers = 'isba1'
-# vers = 'isbaint1'
-
-# vers = 'isba2'
-# types_obs = ['hydrographic_mix_peren_upv2_pt']
-
 vers = 'aniso1'
 types_obs = ['hydrographic_mix_peren_upv2_pt']
-vka = 1
-
-# vers = 'isbaint2'
-# types_obs = ['hydrographic_mix_inter_upv2_pt']
-
+fields_obs = ['fid']
 hydrography_path = data_path + '_hydrography/' # add hydrographic shapefiles
 
-# types_obs = ['stream_perennial_wetlands_osm_points']
-fields_obs = ['fid']
+box = True # or False
+sink_fill = False # or True
+sim_state = 'steady' # 'steady' or 'transient'
+plot_cross = True
+check_grid = True
+dis_perlen = True
+nlay = 10
+lay_decay = 1.25 # 1 for no decay
+thick = 30 # if bottom is None, aquifer thickness
+recharge = select_period(rea_recharge_isba, 2020, 2023)
+#print((recharge).mean()*365*1000)
+first_clim = 'mean' # or 'first or value
+verti_hk = None # or [ [1e-5, [0, 20]],
+verti_sy = None
+verti_ss = None
+cond_drain = None # or value of conductance
+Kmin = 1e-10 * 3600 * 24 
+Klog_transf = False
+sy = 5 / 100 # -
+sy_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+ss = 1e-5
+ss_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
+bc_left = None # or value
+bc_right = None # or value
+sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+zone_partic = 'domain' # or watershed
+vka = 1
 
 for watershed_name in watershed_names[:]:
             
@@ -1742,121 +1774,71 @@ for watershed_name in watershed_names[:]:
             BV.hydrography.streams = stable_folder + 'hydrography/' + type_obs + '.shp'
             BV.hydrography.tif_streams = stable_folder + 'hydrography/' + type_obs + '.tif'
                 
-        box = True # or False
-        sink_fill = False # or True
-        sim_state = 'steady' # 'steady' or 'transient'
-        plot_cross = True
-
-        nlay = 25
-        lay_decay = 1.5 # 1 for no decay
-        
-        ### v1, v2, v3, v4
-        # thick = 50 # if bottom is None, aquifer thickness
-        ### v5 simf/obsf - with : gap=0.5, streams : RNF, rec : 600 (summer)
-        thick = 30 # if bottom is None, aquifer thickness
-        
-        # rec_summer = sim2[sim2.index.month.isin([7,8,9])]
-        # recharge = (rec_summer['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
-        # recharge = (sim2['DRAINC_Q'] * norm_factor) / 1000 # mm/d to m/d
-        # recharge = (isba['REC_REA_historic'] * norm_factor) / 1000 # mm/d to m/d
-        # recharge = (isba['REC_REA_historic'] * rea_facnorm_isba) / 1000 # mm/d to m/d
-        recharge = select_period(rea_recharge_isba, 2020, 2023)
-        print((recharge).mean()*365*1000)
-        
-        first_clim = 'mean' # or 'first or value
-        # first_clim = recharge.quantile(0.50)
-        # recharge = first_clim
-        
-        verti_cond = None # or [ [1e-5, [0, 20]],
-        verti_poro = None
-        cond_drain = None # or value of conductance
-        porosity = 5 / 100 # -
-        poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-        bc_left = None # or value
-        bc_right = None # or value
-        sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-        zone_partic = 'domain' # or watershed
-        
         BV.add_settings()
         BV.add_climatic()
-        BV.add_geometric() # soon
         BV.add_hydraulic()
+        
         BV.settings.update_box_model(box)
         BV.settings.update_sink_fill(sink_fill)
         BV.settings.update_simulation_state(sim_state)
-        BV.settings.update_active_plot(plot_cross=plot_cross)
+        BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
         BV.climatic.update_recharge(recharge, sim_state=sim_state)
         BV.climatic.update_first_clim(first_clim)
         BV.hydraulic.update_nlay(nlay) # 1
         BV.hydraulic.update_lay_decay(lay_decay) # 1
-        BV.hydraulic.update_porosity(porosity)
-        BV.hydraulic.update_cond_vertical(verti_cond)
-        BV.hydraulic.update_poro_vertical(verti_poro)
+        BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
+
         BV.hydraulic.update_cond_drain(cond_drain)
-        BV.hydraulic.update_poro_decay(poro_decay)
-        BV.settings.update_bc_sides(bc_left, bc_right)
-        BV.add_oceanic(sea_level)
-        BV.settings.update_input_particles(zone_partic=zone_partic)
-        BV.settings.update_split_temporal(True)
+        BV.hydraulic.update_sy(sy)
+        BV.hydraulic.update_sy_decay(sy_decay)
+        BV.hydraulic.update_ss(ss)
+        BV.hydraulic.update_ss_decay(ss_decay)
         BV.hydraulic.update_vka(vka)
+
+        BV.hydraulic.update_hk_vertical(verti_hk)
+        BV.hydraulic.update_sy_vertical(verti_sy)
+        BV.hydraulic.update_ss_vertical(verti_ss)
         
-        """
+        BV.add_oceanic(sea_level)
+        BV.settings.update_dis_perlen(dis_perlen)
+        BV.settings.update_bc_sides(bc_left, bc_right)
+        BV.settings.update_input_particles(zone_partic=zone_partic)
+
         # Aquifer bottom
-        list_bottom = [None, 0] # aquifer flat or not
-        list_bottom.extend([0] * 13) ### ATTENTION ###
+        list_bottom = [1000] * 7 # aquifer flat or not
         # Decay of K
-        # list_d_values = [0, 0]
-        # list_d_values.extend(np.geomspace(10, 300, 10).round(0).astype(int))
-        # print(list_d_values)
-        list_d_values = [0, 0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300]
-        list_cond_decay = list(1/np.array(list_d_values))
+        list_d_values = [0, 300, 200, 100, 50, 40, 30]
+        list_cond_decay = list(1/np.array(list_d_values))      
         list_cond_decay[0] = 0
-        list_cond_decay[1] = 0               
-        list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-        """
-                
-        list_d_values = [10,15,20]
-        list_cond_decay = list(1/np.array(list_d_values))
-        # list_cond_decay[0] = 0
-        # list_cond_decay[1] = 0               
-        list_id_mod = [1.4,1.5,1.6]
-        list_bottom=[0,0,0]
+        list_id_mod = [1,2,3,4,5,6,7]
         
-        # for cond_decay, bottom, id_mod in zip(list_cond_decay[4:5], list_bottom[4:5], list_id_mod[4:5]):
-        # for cond_decay, bottom, id_mod in zip(list_cond_decay[6:7], list_bottom[6:7], list_id_mod[6:7]):
-        for cond_decay, bottom, id_mod in zip(list_cond_decay[-1:], list_bottom[-1:], list_id_mod[-1:]):
+        # for hk_decay, bottom, id_mod in zip(list_cond_decay[12:13], list_bottom[12:13], list_id_mod[12:13]):
+        # for hk_decay, bottom, id_mod in zip(list_cond_decay[10:11], list_bottom[10:11], list_id_mod[10:11]):
+        # for hk_decay, bottom, id_mod in zip(list_cond_decay[11:12], list_bottom[11:12], list_id_mod[11:12]):
+        # for hk_decay, bottom, id_mod in zip(list_cond_decay[9:10], list_bottom[9:10], list_id_mod[9:10]):
+        for hk_decay, bottom, id_mod in zip(list_cond_decay[3:], list_bottom[3:], list_id_mod[3:]):
+
         # for cond_decay, bottom, id_mod in zip([1/25], [0], [4.5]):
-            BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-            BV.hydraulic.update_cond_decay(cond_decay) # 0
+            
+            BV.hydraulic.update_hk_decay(hk_decay, min_value=Kmin, log_transf=Klog_transf) # 0
             BV.hydraulic.update_bottom(bottom) # 0
             
             params_df = pd.DataFrame(columns=['params','init_values','lower_bounds','higher_bounds','units','scale'])
-            if id_mod == 0:
-                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if id_mod == 1:
-                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if id_mod >= 2:
-                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if id_mod >= 9:
-                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if (id_mod == 1.4) :
-                params_df.loc[0] = ['k1','?',4e-6*3600*24,5e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if (id_mod == 1.5) :
-                params_df.loc[0] = ['k1','?',4e-6*3600*24,5e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            if (id_mod == 1.6) :
-                params_df.loc[0] = ['k1','?',4e-6*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
-            # params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-4*3600*24,'m/j','lin']
+            if id_mod <= 3 :
+                params_df.loc[0] = ['k1','?',1e-10*3600*24,1e-6*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if id_mod == 4 :
+                params_df.loc[0] = ['k1','?',1e-9*3600*24,1e-5*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
+            if id_mod > 4 :
+                params_df.loc[0] = ['k1','?',1e-8*3600*24,1e-4*3600*24,'m/j','lin'] ### K/R 0.36 to 36 000
             params_file = 'calib_dicot_hom_1v_k1'
             params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
+            
             p_min = params_df['lower_bounds'].values[0]
             p_max = params_df['higher_bounds'].values[0]
             diff = p_max - p_min
             half = (p_min + p_max) / 2
-            # print(half)
             
-            # gap = 1.0
-            gap = 0.5
-            # gap = 0.1
+            gap = 1.0
             
             compt = 0
             
@@ -1866,41 +1848,39 @@ for watershed_name in watershed_names[:]:
                 hyd_cond = half.copy() # if K in calib_params.csv
                 kr = hyd_cond / BV.climatic.recharge
                             
-                BV.hydraulic.update_hyd_cond(hyd_cond)
+                BV.hydraulic.update_hk(hyd_cond)
                 
                 now = datetime.now()
                 oclock = now.strftime("%Y%m%d_%Hh%Mm%Ss") 
                 
                 if id_mod <=1 :
-                    str_cond_decay = cond_decay
+                    str_hk_decay = hk_decay
                 else:
-                    str_cond_decay = 1/cond_decay
+                    str_hk_decay = 1/hk_decay
                 if bottom==None:
-                    model_name = vers+'_'+str('model')+str(id_mod)+'_'+str(round(str_cond_decay,4))+'-'+str(round(thick,4))+'_'+str(compt)+'-'+str("{:.2e}".format(hyd_cond/24/3600)) #+'-'+oclock
+                    model_name = vers+'_'+str('model')+str(id_mod)+'_'+str(round(str_hk_decay,4))+'-'+str(round(thick,4))+'_'+str(compt)+'-'+str("{:.2e}".format(hyd_cond/24/3600)) #+'-'+oclock
                 else:
-                    model_name = vers+'_'+str('model')+str(id_mod)+'_'+str(round(str_cond_decay,4))+'-'+str(round(bottom,4))+'_'+str(compt)+'-'+str("{:.2e}".format(hyd_cond/24/3600)) #+'-'+oclock
+                    model_name = vers+'_'+str('model')+str(id_mod)+'_'+str(round(str_hk_decay,4))+'-'+str(round(bottom,4))+'_'+str(compt)+'-'+str("{:.2e}".format(hyd_cond/24/3600)) #+'-'+oclock
                 BV.settings.update_model_name(model_name)
                 print(model_name)
+                                
+                model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
+                success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
                 
-                if run == True:
-                
-                    model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
-                    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-                    
-                    BV.postprocessing_modflow(model_modflow,
-                                              watertable_elevation = True,
-                                              watertable_depth= True, 
-                                              seepage_areas = True,
-                                              outflow_drain = True,
-                                              groundwater_flux = True,
-                                              groundwater_storage = True,
-                                              accumulation_flux = True,
-                                              export_all_tif = False)
-        
-                    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                                      model_modpath=None,
-                                                                      actual_date=True, 
-                                                                      subbasin_results=True) # or None
+                BV.postprocessing_modflow(model_modflow,
+                                          watertable_elevation = True,
+                                          watertable_depth= True, 
+                                          seepage_areas = True,
+                                          outflow_drain = True,
+                                          groundwater_flux = True,
+                                          groundwater_storage = True,
+                                          accumulation_flux = True,
+                                          export_all_tif = False)
+    
+                timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                                  model_modpath=None,
+                                                                  datetime_format=False, 
+                                                                  subbasin_results=True) # or None
             
                 iter_results = MatchingStreams(BV, iteration_label=model_name)
                 
@@ -1950,7 +1930,7 @@ for watershed_name in watershed_names[:]:
                 # sim = mean_simf_to_obsf
                 # indicator = sim/obs
                 
-                ### v7 simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year) ==> isba
+                ### vf simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year) ==> isba
                 obs = mean_obsf_to_simf
                 sim = mean_simf_to_obsf
                 indicator = sim/obs
@@ -1979,7 +1959,7 @@ for watershed_name in watershed_names[:]:
                 df.loc[compt,'KR'] = round(kr, 4)
                 df.loc[compt,'K'] = round(hyd_cond, 4)
                 df.loc[compt,'R'] = round(BV.climatic.recharge*1000, 4) # mm
-                df.loc[compt,'K_decay'] = round(cond_decay, 4) # mm
+                df.loc[compt,'K_decay'] = round(hk_decay, 4) # mm
                 if bottom == None:
                     df.loc[compt,'bottom'] = round(thick, 4) 
                 else:
@@ -2007,7 +1987,6 @@ for watershed_name in watershed_names[:]:
             
 #%% DICHOTOMY - APPEND
 
-vers = 'isba2'
 vers = 'aniso1'
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=dem_path, out_path=out_path, load=True)
@@ -2037,28 +2016,18 @@ dfs.to_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';
 dfp = dfs.copy()
 
 dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
-# dfp['Doptim'] = (np.log(dfp['Sim']/dfp['Obs']))**2
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * (1+abs(1-dfp['Indicator']))
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) + abs(dfp['Sim']-dfp['Obs'])
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) / (abs(1-dfp['Indicator']))
-# dfp['Doptim'] = dfp['Ind_log']
-# dfp['Doptim'] = ( (dfp['Sim'] * 3) - dfp['Obs'] ) / 2
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * dfp['Indicator']
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * ((dfp['Sim']/dfp['Obs']))
-# dfp['Doptim'] = (dfp['Sim'])
-# dfp['Doptim'] = (dfp['Indicator'])
-# dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
 
-list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11]
+list_id_mod = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+list_id_mod = [7]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
     dft = dfp[dfp['id_mod']==i]
     # dfz = pd.concat([dfz, dft.iloc[-1:]])
-    dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
+    dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])
  
 dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
-dfz = dfz.drop(index=dfz.iloc[:1,:].index.tolist())
+# dfz = dfz.drop(index=dfz.iloc[:1,:].index.tolist())
 
 # fig, ax = plt.subplots(1,1, figsize=(3.6,2.6), dpi=600)
 fig, ax = plt.subplots(1,1, figsize=(4,4), dpi=600)
@@ -2070,14 +2039,14 @@ fig, ax = plt.subplots(1,1, figsize=(4,4), dpi=600)
 #             # label=dfz['1/K_decay'].values[0]
 #             )
 
-ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'],
-            c=dfz[1:2]['1/K_decay'],
-            s=100, 
-             marker='s', lw=1.5,
-             cmap=mpl.colors.ListedColormap('gray'), zorder=1000
-            # label='0'
-            )
-im = ax.scatter(dfz[1:]['K']/24/3600, dfz[1:]['Doptim'], c=1/dfz[1:]['1/K_decay'], s=100, 
+# ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'],
+#             c=dfz[1:2]['1/K_decay'],
+#             s=100, 
+#              marker='s', lw=1.5,
+#              cmap=mpl.colors.ListedColormap('gray'), zorder=1000
+#             # label='0'
+#             )
+im = ax.scatter(dfz[:]['K']/24/3600, dfz[:]['Doptim'], c=1/dfz[:]['1/K_decay'], s=100, 
                 cmap='plasma',
                 norm=mpl.colors.LogNorm(vmin=1/300, vmax=1/10),
                 lw=1.5,
@@ -2120,8 +2089,8 @@ cb = plt.colorbar(im, ax=ax,
 # cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
 # cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
 # cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks((1/np.array([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300][::-1])).round(4))
-cb.set_ticklabels((1/np.array([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300][::-1])).round(4), fontsize=8)
+cb.set_ticks((1/np.array([300, 200, 150, 100, 75, 50, 45, 40, 35, 30, 25, 20, 15, 10])).round(4))
+cb.set_ticklabels((1/np.array([300, 200, 150, 100, 75, 50, 45, 40, 35, 30, 25, 20, 15, 10])).round(4), fontsize=8)
 
 cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
                   grid_color='k', grid_alpha=0.5)
@@ -2131,8 +2100,8 @@ for t in cb.ax.get_yticklabels():
 # cb.clim()
 cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
 
-ax.axvline(x=(dfz[6:7]['K']/24/3600).values, c='darkgreen', zorder=-1000, ls='-', lw=1)
-ax.axhline(y=(dfz[6:7]['Doptim']).values, c='darkgreen', zorder=-1000, ls='-', lw=1)
+# ax.axvline(x=(dfz[:]['K']/24/3600).values, c='darkgreen', zorder=-1000, ls='-', lw=1)
+# ax.axhline(y=(dfz[:]['Doptim']).values, c='darkgreen', zorder=-1000, ls='-', lw=1)
 
 # ax.grid()
 
@@ -2140,201 +2109,6 @@ ax.axhline(y=(dfz[6:7]['Doptim']).values, c='darkgreen', zorder=-1000, ls='-', l
 
 # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/'+
 #             'DICHOTOMY_K_2'+'.png',
-#             bbox_inches='tight')
-
-#%% DICHOTOMY - GRAPH T WITH DEPTH
-
-dfp = dfs.copy()
-
-dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
-# dfp['Doptim'] = (np.log(dfp['Sim']/dfp['Obs']))**2
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * (1+abs(1-dfp['Indicator']))
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) + abs(dfp['Sim']-dfp['Obs'])
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) / (abs(1-dfp['Indicator']))
-# dfp['Doptim'] = dfp['Ind_log']
-# dfp['Doptim'] = ( (dfp['Sim'] * 3) - dfp['Obs'] ) / 2
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * dfp['Indicator']
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * ((dfp['Sim']/dfp['Obs']))
-# dfp['Doptim'] = (dfp['Sim'])
-# dfp['Doptim'] = (dfp['Indicator'])
-# dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
-
-list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11]
-dfz = pd.DataFrame()
-for i in list_id_mod[:]:
-    dft = dfp[dfp['id_mod']==i]
-    # dfz = pd.concat([dfz, dft.iloc[-1:]])
-    dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
- 
-dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
-    
-BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
-
-fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
-
-# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
-# m0 = pd.read_csv(BV.calibration_folder+'/'+dfz[:1]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
-# wt = thick - m0.watertable_depth
-thick = 30
-ax.scatter(dfz[:1]['K']/24/3600 * thick, dfz[:1]['Doptim'], c=dfz[:1]['1/K_decay'], s=100, 
-            marker='s', lw=2,
-            cmap=mpl.colors.ListedColormap('white'),
-            # label=dfz['1/K_decay'].values[0]
-            )
-# idx0 = dfz[:1].index
-# dfz.loc[idx0,'wt'] = wt.values[0]
-
-# m1 = pd.read_csv(BV.calibration_folder+'/'+dfz[1:2]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
-# wt = 2000 - m0.watertable_depth
-ax.scatter(dfz[1:2]['K']/24/3600 * 2000, dfz[1:2]['Doptim'],
-            c=dfz[1:2]['1/K_decay'] * 1,
-            s=100, 
-             marker='o', lw=2,
-             cmap=mpl.colors.ListedColormap('gray'),
-            # label='0'
-            )
-# idx1 = dfz[1:2].index
-# dfz.loc[idx1,'wt'] = wt.values[0]
-
-# for i in dfz[2:].index:
-#     mx = pd.read_csv(BV.calibration_folder+'/'+dfz[dfz.index==i]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
-#     wt = dfz[dfz.index==i]['1/K_decay'].values[0]*2 - mx.watertable_depth.values[0]
-#     dfz.loc[i,'wt'] = wt
-    
-im = ax.scatter(dfz[2:]['K']/24/3600 * dfz[2:]['1/K_decay'], dfz[2:]['Doptim'],
-                c=dfz[2:]['1/K_decay'], s=100, 
-                cmap='jet',
-                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
-                lw=2,
-                # label=df['1/cond_decay'] 
-                )
-# ax.legend()
-ax.set_xscale('log')
-# ax.set_yscale('log')
-ax.set_xlabel('T [$m^2$/s]')
-ax.set_xlim(1e-5, 2e-4)
-ax.set_ylim(25, 80)
-ax.set_ylabel('$D_{optim}$ [m]')
-# cb = plt.colorbar()
-from matplotlib.ticker import LogFormatter 
-formatter = LogFormatter(10, labelOnlyBase=True) 
-cb = plt.colorbar(im, ax=ax,
-                  cax = fig.add_axes([0.95, 0.10, 0.03, 0.8]))
-for t in cb.ax.get_yticklabels():
-     t.set_fontsize(10)
-# cb.set_clim(10,500)
-# cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
-# cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
-# cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-# cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205])
-cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205], fontsize=8)
-cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
-                  grid_color='k', grid_alpha=0.5)
-cb.minorticks_off()
-# cb.clim()
-cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
-
-# ax.set_yscale('log')
-
-# fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'DICHOTOMY_TMAX'+'.png',
-#             bbox_inches='tight')
-
-#%% DICHOTOMY - GRAPH T WITH WT
-
-dfp = dfs.copy()
-
-dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
-# dfp['Doptim'] = (np.log(dfp['Sim']/dfp['Obs']))**2
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * (1+abs(1-dfp['Indicator']))
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) + abs(dfp['Sim']-dfp['Obs'])
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) / (abs(1-dfp['Indicator']))
-# dfp['Doptim'] = dfp['Ind_log']
-# dfp['Doptim'] = ( (dfp['Sim'] * 3) - dfp['Obs'] ) / 2
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * dfp['Indicator']
-# dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2) * ((dfp['Sim']/dfp['Obs']))
-# dfp['Doptim'] = (dfp['Sim'])
-# dfp['Doptim'] = (dfp['Indicator'])
-# dfp['Doptim'] = np.log(dfp.mean_simf_to_obs/dfp.mean_obs_to_simf)**2
-
-list_id_mod = [0,1,2,3,4,5,6,7,8,9,10,11]
-dfz = pd.DataFrame()
-for i in list_id_mod[:]:
-    dft = dfp[dfp['id_mod']==i]
-    # dfz = pd.concat([dfz, dft.iloc[-1:]])
-    dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
- 
-dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
-    
-BV.calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
-
-fig, ax = plt.subplots(1,1, figsize=(3.6,2.6))
-
-# im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
-m0 = pd.read_csv(BV.calibration_folder+'/'+dfz[:1]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
-wt = thick - m0.watertable_depth
-ax.scatter(dfz[:1]['K']/24/3600 * wt.values[0], dfz[:1]['Doptim'], c=dfz[:1]['1/K_decay'], s=100, 
-            marker='s', lw=2,
-            cmap=mpl.colors.ListedColormap('white'),
-            # label=dfz['1/K_decay'].values[0]
-            )
-idx0 = dfz[:1].index
-dfz.loc[idx0,'wt'] = wt.values[0]
-
-m1 = pd.read_csv(BV.calibration_folder+'/'+dfz[1:2]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
-wt = 2000 - m0.watertable_depth
-ax.scatter(dfz[1:2]['K']/24/3600 * wt.values[0], dfz[1:2]['Doptim'],
-            c=dfz[1:2]['1/K_decay'] * 1,
-            s=100, 
-             marker='o', lw=2,
-             cmap=mpl.colors.ListedColormap('gray'),
-            # label='0'
-            )
-idx1 = dfz[1:2].index
-dfz.loc[idx1,'wt'] = wt.values[0]
-
-for i in dfz[2:].index:
-    mx = pd.read_csv(BV.calibration_folder+'/'+dfz[dfz.index==i]['model_name'].values[0]+'/_postprocess/_timeseries/'+'_simulated_timeseries.csv', sep=';')
-    wt = dfz[dfz.index==i]['1/K_decay'].values[0]*2 - mx.watertable_depth.values[0]
-    dfz.loc[i,'wt'] = wt
-    
-im = ax.scatter(dfz[2:]['K']/24/3600 * dfz[2:]['wt'], dfz[2:]['Doptim'],
-                c=dfz[2:]['1/K_decay'], s=100, 
-                cmap='jet',
-                norm=mpl.colors.LogNorm(vmin=10, vmax=300),
-                lw=2,
-                # label=df['1/cond_decay'] 
-                )
-# ax.legend()
-ax.set_xscale('log')
-# ax.set_yscale('log')
-ax.set_xlabel('T [$m^2$/s]')
-ax.set_xlim(1e-5, 2e-4)
-ax.set_ylim(25, 80)
-ax.set_ylabel('$D_{optim}$ [m]')
-# cb = plt.colorbar()
-from matplotlib.ticker import LogFormatter 
-formatter = LogFormatter(10, labelOnlyBase=True) 
-cb = plt.colorbar(im, ax=ax,
-                  cax = fig.add_axes([0.95, 0.10, 0.03, 0.8]))
-for t in cb.ax.get_yticklabels():
-     t.set_fontsize(10)
-# cb.set_clim(10,500)
-# cb.set_ticks(np.geomspace(10, 300, 10).astype(int))
-# cb.set_ticklabels(np.geomspace(10, 300, 10).astype(int))
-# cb.set_ticks([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-# cb.set_ticklabels([10, 15, 20, 30, 45, 65, 100, 140, 205, 300])
-cb.set_ticks([10, 15, 20, 25, 30, 45, 65, 100, 140, 205])
-cb.set_ticklabels([10, 15, 20, 25, 30, 45, 65, 100, 140, 205], fontsize=8)
-cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
-                  grid_color='k', grid_alpha=0.5)
-cb.minorticks_off()
-# cb.clim()
-cb.ax.set_ylabel('1/α [m]', rotation=270, labelpad=25)
-
-# ax.set_yscale('log')
-
-# fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'DICHOTOMY_TWT'+'.png',
 #             bbox_inches='tight')
 
 #%% DICHOTOMY - MAPS
@@ -2347,28 +2121,14 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-list_id_mod = [0,1,1.6,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+
+list_id_mod = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+list_id_mod = [7]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
-# if vers == 'v3':
-#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-# if vers == 'v4':
-#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_osm_points.shp')
-# if vers == 'v6':
-#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-# if vers == 'v7':
-#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-# if vers == 'v8':
-#     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'stream_perennial_wetlands_points.shp')
-if vers == 'isba1':
-    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv1_pt.shp')
-if vers == 'isba2':
-    shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt.shp')    
+  
 if vers == 'aniso1':
     shp_hydro = gpd.read_file(stable_folder+'hydrography/'+'hydrographic_mix_peren_upv2_pt.shp')    
-
-# types_obs = ['stream_perennial_wetlands_points']
-# types_obs = ['stream_perennial_wetlands_osm_points']
 
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
@@ -2376,7 +2136,7 @@ for i in list_id_mod[:]:
     # dfz = pd.concat([dfz, dft.iloc[-1:]])
     dfz = pd.concat([dfz, dft.iloc[(dft['Indicator']-1).abs().argsort()[:1]]])    
 
-for index, row in dfz[2:3].iterrows():
+for index, row in dfz[:].iterrows():
     model_name = row['model_name']
     print(model_name)
     
@@ -2389,7 +2149,7 @@ for index, row in dfz[2:3].iterrows():
     
     fig, ax = plt.subplots(1,1, figsize=(10,10))
     
-    dem = rasterio.open('E:/_RONAN/_E_SIMULATIONS/LASSET/Lasset_25m/results_stable/geographic/watershed_dem.tif')
+    dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
     # hil = rasterio.open('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/hillshade_classic.tif')
 
     # rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
@@ -2423,7 +2183,6 @@ for index, row in dfz[2:3].iterrows():
     # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/02_fig_dichotomy/maps2/'+
     #             model_name+'_DICHOTOMY_MAP'+'.png',
     #             bbox_inches='tight')
-
 
 #%% ---- EXPLORATION
 
