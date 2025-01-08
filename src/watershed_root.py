@@ -232,7 +232,7 @@ class Watershed:
             return True 
         
         else:
-            logging.error("Warning: watershed_object doesn't exist in", self.watershed_folder)
+            logging.error("Warning: watershed_object doesn't exist in %s", self.watershed_folder)
             
             return False
 

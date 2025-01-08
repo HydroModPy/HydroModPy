@@ -472,9 +472,9 @@ class Modflow:
         # Define values for some thickness (disconnected from the vertical discretization)
         if self.verti_hk != None:
             for j in range(len(self.verti_hk)):
-                logging.debug('j', j)
+                logging.debug('j %s', j)
                 for i in range(len(self.zbot)):
-                    logging.debug('i', i)
+                    logging.debug('i %s', i)
                     k_val = self.verti_hk[j][0]
                     d1 = self.verti_hk[j][1][0]
                     d2 = self.verti_hk[j][1][1]
@@ -510,9 +510,9 @@ class Modflow:
         # Define values for some thickness (disconnected from the vertical discretization)
         if self.verti_sy != None:
             for j in range(len(self.verti_sy)):
-                logging.debug('j', j)
+                logging.debug('j %s', j)
                 for i in range(len(self.zbot)):
-                    logging.debug('i', i)
+                    logging.debug('i %s', i)
                     sy_val = self.verti_sy[j][0]
                     d1 = self.verti_sy[j][1][0]
                     d2 = self.verti_sy[j][1][1]
@@ -548,9 +548,9 @@ class Modflow:
         # Define values for some thickness (disconnected from the vertical discretization)
         if self.verti_ss != None:
             for j in range(len(self.verti_ss)):
-                logging.debug('j', j)
+                logging.debug('j %s', j)
                 for i in range(len(self.zbot)):
-                    logging.debug('i', i)
+                    logging.debug('i %s', i)
                     ss_val = self.verti_ss[j][0]
                     d1 = self.verti_ss[j][1][0]
                     d2 = self.verti_ss[j][1][1]
@@ -757,9 +757,9 @@ class Modflow:
             grid_to_check = self.mf.modelgrid.top_botm
             problematic_cells = check_water_flow_connectivity(grid_to_check)
             if not problematic_cells:
-                logging.warning("Check model grid:", "all cells satisfy the water flow connectivity condition")
+                logging.warning("Check model grid: all cells satisfy the water flow connectivity condition")
             else:
-                logging.warning("Check model grid:", f"total number of problematic cells is {len(problematic_cells)}")
+                logging.warning(f"Check model grid: total number of problematic cells is {len(problematic_cells)}")
             
         # CrossSection figure
         if self.plot_cross == True:
@@ -951,7 +951,7 @@ class Modflow:
         self.dict_intermittency_weekly = {}
         self.dict_intermittency_daily = {}
         
-        logging.debug('Post-processing MODFLOW', ':', self.model_name)
+        logging.debug('Post-processing MODFLOW: %s', self.model_name)
         
         # Loop over times: fills each of the previous structures and create raster
         for item, time in enumerate(self.times):
@@ -1081,30 +1081,30 @@ class Modflow:
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
-            logging.info('  ','Export watertable elevation')
+            logging.info('  %s','Export watertable elevation')
             np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
         if watertable_depth == True:
-            logging.info('  ','Export watertable depth')
+            logging.info('  %s','Export watertable depth')
             np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
         if seepage_areas == True:
-            logging.info('  ','Export seepage areas')
+            logging.info('  %s','Export seepage areas')
             np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
         if outflow_drain == True:
-            logging.info('  ','Export outflow drain')
+            logging.info('  %s','Export outflow drain')
             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
         if groundwater_flux == True:
-            logging.info('  ','Export groundwater flux')
+            logging.info('  %s','Export groundwater flux')
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
-            logging.info('  ','Export groundwater storage')
+            logging.info('  %s','Export groundwater storage')
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
-            logging.info('  ','Export accumulation flux')
+            logging.info('  %s','Export accumulation flux')
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
 
         if persistency_index == True:
             ### Persistency index
-            logging.info('  ','Export persistency index')
+            logging.info('  %s','Export persistency index')
             acc_npy_raw = np.load(os.path.join(self.save_file,'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -1129,7 +1129,7 @@ class Modflow:
             
         if intermittency_daily == True:
             ### Intermittency daily
-            logging.info('  ','Export intermittency daily')
+            logging.info('  %s','Export intermittency daily')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -1139,7 +1139,7 @@ class Modflow:
                 step = int(round(len(acc_npy_raw)/365))
                 compt=0            
                 for i in range(step):
-                    logging.debug('t: '+str(i)+' / '+str((step)))
+                    logging.debug('t: %s / %s', str(i), str(step))
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
                         mask = imageio.imread(self.geographic.watershed_dem)
@@ -1172,7 +1172,7 @@ class Modflow:
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
         
         if intermittency_weekly == True:
-            logging.info('  ','Export intermittency weekly')
+            logging.info('  %s','Export intermittency weekly')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -1182,7 +1182,7 @@ class Modflow:
                 step = int(round(len(acc_npy_raw)/52))
                 compt=0            
                 for i in range(step):
-                    logging.debug('t: '+str(i)+' / '+str((step)))
+                    logging.debug('t: %s / %s', str(i), str(step))
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
                         mask = imageio.imread(self.geographic.watershed_dem)
@@ -1216,7 +1216,7 @@ class Modflow:
         
         if intermittency_monthly == True:
             ### Intermittency monthly
-            logging.info('  ','Export intermittency monthly')
+            logging.info('  %s','Export intermittency monthly')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -1226,7 +1226,7 @@ class Modflow:
                 step = int(round(len(acc_npy_raw)/12))
                 compt=0            
                 for i in range(step):
-                    logging.debug('t: '+str(i)+' / '+str((step)))
+                    logging.debug('t: %s / %s', str(i), str(step))
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
                         mask = imageio.imread(self.geographic.watershed_dem)

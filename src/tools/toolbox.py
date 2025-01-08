@@ -900,6 +900,8 @@ class LogManager:
             "rasterio",
             "urllib3",
             "geopy",
+            "matplotlib",
+            "PIL",
         ]
 
         level = logging.WARNING if self.verbose_libraries else logging.CRITICAL

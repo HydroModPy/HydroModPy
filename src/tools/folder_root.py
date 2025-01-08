@@ -68,8 +68,8 @@ def root_folder_results(user_folder_path = None):
             exp='export ' + env_name + '="' + folder + '"'
         os.system(exp)
         os.environ[env_name] = folder
-        logging.warning("\nEnvironement variable set for results folder")
-        logging.warning(env_name, "=", folder)
+        logging.warning("Environement variable set for results folder")
+        logging.warning('%s = %s', env_name, folder)
         logging.warning("/!\ Make sure to have restarted the conda session before the next spyder launching")
         
     # Creates folder if folder does not exist
@@ -77,7 +77,7 @@ def root_folder_results(user_folder_path = None):
     if not isExist:
         # Create a new directory because it does not exist
         os.makedirs(folder)
-        logging.info("\nThe folder has been created!")
+        logging.info("The folder has been created!")
     
     # Returns folder 
     print('')
@@ -131,8 +131,8 @@ def update_root_folder_results(user_folder_path = None):
 #     def actualize(self,nb=1):
 #         self.time_inter_end=time.time()
 #         self.simul_current=self.simul_current+nb
-#         logging.info('time elapsed = ', (self.time_inter_end - self.time_start)/3600, " heures")
-#         logging.info('time remaining = ', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
+#         logging.info('time elapsed = %s %s', (self.time_inter_end - self.time_start)/3600, " heures")
+#         logging.info('time remaining = %s %s', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
 
 
 # def setup_path():

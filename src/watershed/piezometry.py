@@ -128,7 +128,7 @@ class Piezometry:
         bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
         url = 'http://infoterre.brgm.fr/telechargements/ExportsPublicsBSS/' + bss
         #url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
-        logging.info('    '+'Piezometric web page loaded')
+        logging.info('    Piezometric web page loaded')
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
@@ -259,7 +259,7 @@ class Piezometry:
         """
         for code in self.codes_bss:
             code_ = code.replace('_','/')
-            logging.info('    '+code)
+            logging.info('    %s', code)
             if not os.path.exists(data_folder+'/'+code):
                 url = 'https://ades.eaufrance.fr/Fiche/PtEau?Code=' + code_
                 chrome_options = webdriver.ChromeOptions()

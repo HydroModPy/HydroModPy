@@ -245,7 +245,7 @@ class Sim2:
         self.merge_folder(self.nc_data_path, sim_varlist)
         
         # ---- Format result for HydroModPy
-        logging.info("\nFormatting results for HydroModPy model...")
+        logging.info("Formatting results for HydroModPy model...")
         for var in self.final_filelist:
             logging.info(f"   {var}")
             # Refine period with accurate user dates
@@ -374,7 +374,7 @@ class Sim2:
         # ---- Download the required files
         if len(to_download) > 0:
             for dataname in to_download: 
-                logging.info(f"\nDownloading {dataname}...")
+                logging.info(f"Downloading {dataname}...")
                 logging.info("   (can take several min, depending on internet speed)")
                 response = requests.get(self.available_data.loc[dataname, 'url'])
         
@@ -533,7 +533,7 @@ class Sim2:
         sim_var = sim_pattern.findall(filename)[0][0:-6]
         HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[sim_var].item()
         
-        logging.info(f'\nMerging {sim_var} ({HyMoPy_var}) files...')
+        logging.info(f'Merging {sim_var} ({HyMoPy_var}) files...')
         
         with xr.open_dataset(
                 filelist[0], decode_coords = 'all', decode_times = True) as ds_merged:
@@ -669,7 +669,7 @@ class Sim2:
         filelist = [f for f in os.listdir(folder) 
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
         
-        logging.info("\nCompressing...")
+        logging.info("Compressing...")
         
         i = 0
         for f in filelist:
@@ -739,7 +739,7 @@ class Sim2:
         
         maskname = os.path.splitext(os.path.split(maskpath)[-1])[0]
         
-        logging.info(f"\nClipping on {maskname}...")
+        logging.info(f"Clipping on {maskname}...")
         
         i = 0
         for f in filelist:

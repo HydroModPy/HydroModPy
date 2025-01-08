@@ -236,7 +236,7 @@ class Modpath:
                               zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
                               1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
                               1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
-        logging.debug(track, zone_opt, zone_inj)
+        logging.debug("Track: %s, Zone Option: %s, Zone Injection: %s", track, zone_opt, zone_inj)
         
         # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
@@ -467,7 +467,7 @@ class Modpath:
                         
                 pth_data_save = []
                 for o, i in enumerate(id_random_particles):
-                    logging.debug(o, i, len(id_random_particles))
+                    logging.debug("%s %s %s", o, i, len(id_random_particles))
                     for j in pth_data:
                         if i == j.particleid[0]:
                             pth_data_save.append(j)
