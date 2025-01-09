@@ -14,7 +14,5 @@ users/
 docs/gitignores/
 docs/community/
 docs/developers/
-test/results/*
-
 !test/results/readme.txt
 !examples/results/readme.txt
