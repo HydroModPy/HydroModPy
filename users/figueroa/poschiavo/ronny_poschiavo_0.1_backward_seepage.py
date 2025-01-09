@@ -352,12 +352,12 @@ from_dem = None # True or False if the process start from a given DEM of xyz fil
 cell_size = None # specify new resolution from a given DEM or None
 from_xyv = [2798765.008,1133590.692, 100, 10, 'EPSG:2056'] # [x, y, snap distance, buffer size [%], crs proj]
 # from_shp = None
-from_shp = ['D:/Hydromodpy/examples/valdUrsa_v2/Poschiavino/results_stable/geographic/watershed.shp', 10]
+from_shp = ['D:/Hydromodpy/examples/valdUrsa/watershed.shp', 10]
 
 # watershed_name = 'Poschiavino'
 # watershed_name = 'Poschiavino_100m'
 # watershed_name = 'Poschiavino_10m'
-watershed_name = 'Poschiavino_backward_v0'
+watershed_name = 'Poschiavino_backward_v1'
 
 #%% LOAD
 
