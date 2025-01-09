@@ -351,7 +351,7 @@ class Timeseries:
             except:
                 pass
         
-        if self.intermittency_daily == True:
+        if self.intermittency_weekly == True:
             try:
                 if len(self.accumulation_flux)>=52:
                     inf = 0
