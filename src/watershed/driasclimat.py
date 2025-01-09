@@ -1,8 +1,14 @@
 # coding:utf-8
 """
-
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
-
 #%% LIBRAIRIES
 
 import geopandas as gpd
@@ -32,7 +38,7 @@ class Driasclimat:
     
     #%% INIT
     
-    def __init__(self, out_path, driasclimat_path, watershed_shp, list_models='all', list_vars = 'all'):
+    def __init__(self, out_path, driasclimat_path, watershed_shp, list_models='all', list_vars='all'):
         """
 
         Parameters

@@ -98,6 +98,8 @@ class Sim2:
 
         """
         
+        print('Extract climatic data from web')
+        
         # ---- Initialization
         self.var_list = var_list
         self.var_sublist = []
