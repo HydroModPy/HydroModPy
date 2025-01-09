@@ -149,7 +149,7 @@ class Watershed:
                 if save_object == True:
                     self.save_object()
         else:
-            print("Python object was not loaded as requested; it was created from scratch")
+            print("Python object was not loaded; it was created from scratch as requested")
             # Definition of the watershed
             self.__init_object()
             # Creation of the watershed defined at the previous line
