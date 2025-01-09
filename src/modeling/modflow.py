@@ -475,10 +475,10 @@ class Modflow:
                     for i in range (0,self.nrow):
                         for j in range (0, self.ncol):
                             if self.dem[i,j] < np.max(self.sea_level):
-                                if self.iboundData[0,i,j] != 0: # no-flow cells cannot be converted to specified head cells
+                                if self.iboundData[self.aquifer_top_layer,i,j] != 0: # no-flow cells cannot be converted to specified head cells
                                     self.drain_array[i,j] = 0
                                     package[kper,i,j] = 1
-                                    chdKper.append([0,i,j,self.sea_level[kper],self.sea_level[kper]])
+                                    chdKper.append([self.aquifer_top_layer,i,j,self.sea_level[kper],self.sea_level[kper]])
                             self.chData[kper] = chdKper
                 # ---- flopy.modflow.ModflowChd
                 self.chd = flopy.modflow.ModflowChd(self.mf, stress_period_data=self.chData)
@@ -1012,7 +1012,7 @@ class Modflow:
         
         self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
         compt = 0
-        self.drnData[:, 0] = 0 # First value (0): layer
+        self.drnData[:, 0] = self.aquifer_top_layer # First value (0): layer
         for i in range (0,self.nrow):
             for j in range (0, self.ncol):
                 if self.drain_array[i,j] == 1:
