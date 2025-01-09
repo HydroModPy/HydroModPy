@@ -86,7 +86,7 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-case = 'Example_07_Hillslope1D'
+case = 'Example_07_Hillslope1D'         #name of the folder in examples folder
 
 if case == 'Example_07_Hillslope1D':
     dem_path_ref = data_path + 'hillslope_1D.tif'

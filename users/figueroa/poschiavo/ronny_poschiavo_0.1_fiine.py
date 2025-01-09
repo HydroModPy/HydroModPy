@@ -348,10 +348,10 @@ dem_path = data_path + dem_name
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = None # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
-from_xyv = [2798765.008,1133590.692, 100, 10, 'EPSG:2056'] # [x, y, snap distance, buffer size [%], crs proj]
+from_xyv = [2798297.184,1133812.433, 100, 10, 'EPSG:2056'] # [x, y, snap distance, buffer size [%], crs proj]
 from_shp = None
 
-watershed_name = 'Poschiavino'
+watershed_name = 'Poschiavino_fine'
 # watershed_name = 'Poschiavino_100m'
 # watershed_name = 'Poschiavino_10m'
 
@@ -413,6 +413,7 @@ for type_obs, field_obs in zip(types_obs, fields_obs):
 #     stable_folder+'hydrology/'+types_obs[0]+'_main'+'.tif', 
 #     esri_pntr=False, 
 #     zero_background=False)
+sys.exit(1)
 
 #%% ---- EXPLORATION
 

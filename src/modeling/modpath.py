@@ -209,6 +209,7 @@ class Modpath:
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
         
         prow = self.cell_div
+        # pcol = 1
         pcol = self.cell_div
         if self.zloc_div == True:
             # play = self.cell_div
@@ -602,7 +603,6 @@ class Modpath:
                 end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             if self.track_dir == 'backward': 
                 end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            shp = gpd.read_file(self.geographic.watershed_shp)
             # end = end.clip(shp)
             end[end['time_win_y']==0] = np.nan
             end = end.dropna()
