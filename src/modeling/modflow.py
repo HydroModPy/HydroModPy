@@ -420,7 +420,7 @@ class Modflow:
                                             lenuni=2, # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
-                                            top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
+                                            top=self.top, botm=self.zbot, xul=self.xul, yul=self.yul,
                                             nper=self.nper, perlen=self.perlen, nstp=self.nstp,
                                             steady=self.steady, start_datetime=self.start_datetime) 
                                             
