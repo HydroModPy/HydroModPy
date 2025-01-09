@@ -41,7 +41,7 @@ Option 2 : Clone a repository using a Git management tool like GitHub Desktop.
 
 Option 3 : Use command line and classical Git functions to set up your work environment.
 
-Info : Your local path directory should not contain any white space, to be compatible with MODFLOW-MODPATH suite.
+Requirement : Your local path directory should not contain any white space, to be compatible with MODFLOW-MODPATH suite.
 
 ## Environment installation
 
@@ -69,13 +69,15 @@ jupyter notebook
 
 (3) Execute Python script following examples below :
 ```
- - 01_simplified example presentend in the paper
+ - 00_quick test of wide hydromodpy capabilities
+ - 01_simplified example presented in the paper
  - 02_basic features and overview of possibilities
  - 03_hydrographic network in steady state
  - 04_streamflow intermittence in transient
  - 05_piezometry in a heterogeneous coastal aquifer
  - 06_particle tracking for residence times
- - 07_recession analytical solution in 2D
+ - 07_analytical solution for streamflow recession
+ - 08_exponential distribution of residence times
 ```
 
 ## Linked publications
