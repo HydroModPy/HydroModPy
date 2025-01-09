@@ -14,15 +14,15 @@ Allocating and reading data for grid  1
  FILE TYPE:MPBAS   UNIT   86   STATUS:OLD    
  FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
 
- OPENING c:\users\ronan\github\hydromodpy-dev-ronan-restructuration\test\results\Regression_01_Aber\results_simulations\reg_1\reg_1.dis
+ OPENING c:\users\ronan\github\hydromodpy-dev\test\results\Regression_01_Aber\results_simulations\reg_1\reg_1.dis
  FILE TYPE:DIS   UNIT   11   STATUS:OLD    
  FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
 
- OPENING c:\users\ronan\github\hydromodpy-dev-ronan-restructuration\test\results\Regression_01_Aber\results_simulations\reg_1\reg_1.hds
+ OPENING c:\users\ronan\github\hydromodpy-dev\test\results\Regression_01_Aber\results_simulations\reg_1\reg_1.hds
  FILE TYPE:HEAD   UNIT   88   STATUS:OLD    
  FORMAT:UNFORMATTED            ACCESS:STREAM              
 
- OPENING c:\users\ronan\github\hydromodpy-dev-ronan-restructuration\test\results\Regression_01_Aber\results_simulations\reg_1\reg_1.cbc
+ OPENING c:\users\ronan\github\hydromodpy-dev\test\results\Regression_01_Aber\results_simulations\reg_1\reg_1.cbc
  FILE TYPE:BUDGET   UNIT   89   STATUS:OLD    
  FORMAT:UNFORMATTED            ACCESS:STREAM              
 

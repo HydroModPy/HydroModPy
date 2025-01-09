@@ -5488,6 +5488,7 @@ for watershed_name in watershed_names[:]:
                     # ax.set_title(str(dates[key])[:7])
                     # print((str(dates[key])[:7]))
                     
+                    ax.set_title(model_name, fontsize=8)
                     plt.tight_layout()
 
 # fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
