@@ -61,7 +61,7 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 
 # Import HydroModPy modules
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, geometric, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
+from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
@@ -81,8 +81,6 @@ data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
 # Or define it manually
 # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -123,6 +121,8 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 #%% DATA
 
+visualization_watershed.watershed_local(dem_path, BV)
+
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
@@ -134,7 +134,6 @@ BV.add_intermittency(data_path, 'regional onde stations.shp')
 BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
@@ -145,8 +144,8 @@ visualization_watershed.watershed_dem(BV)
 # Necessary to set model parameters
 BV.add_climatic()
 
-clim_data_mode = 'local' # local climatic data
-# clim_data_mode = 'SIM2' # SIM2 online climatic data (https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7)
+# clim_data_mode = 'local' # local climatic data
+clim_data_mode = 'SIM2' # SIM2 online climatic data (https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7)
 
 if clim_data_mode == 'SIM2':
     BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',
@@ -172,7 +171,6 @@ if clim_data_mode == 'SIM2':
         print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
         print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
     else:
-        fig, ax = plt.subplots(1,1, figsize=(6,3))
         if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
             R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
             r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
@@ -199,7 +197,7 @@ fig, ax = plt.subplots(1,1, figsize=(6,3))
 ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
 ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
 ax.set_xlabel('Date')
-ax.set_ylabel('[m/month]')
+ax.set_ylabel('[m/d]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 
@@ -213,6 +211,7 @@ sink_fill = False # or True
 # sim_state = 'transient' # 'steady' or 'transient'
 sim_state = 'transient' # 'steady' or 'transient'
 plot_cross = False
+dis_perlen = True
 
 # Climatic settings
 first_clim = 'first' # or 'first or value
@@ -223,12 +222,8 @@ nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-hyd_cond = 5e-5 * 3600 * 24 # m/day
-# hyd_cond = 1.8e-6 * 3600 * 24 # m/day
-cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-verti_cond = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
+hk = 5e-5 * 3600 * 24 # m/day
 cond_drain = None # or value of conductance
-poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 ########## LOOP ##########
 list_porosity = np.array([0.1, 5, 30]) / 100 # [-]
@@ -251,14 +246,13 @@ iD_set_simulations = 'explorSy_test1'
 # Import modules
 BV.add_settings()
 BV.add_climatic()
-BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross)
 
 # Climatic settings
 recharge = R.copy()
@@ -270,15 +264,13 @@ BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_hk(hk)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_lay_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_split_temporal(split_temp)
+BV.settings.update_dis_perlen(dis_perlen)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
@@ -291,10 +283,10 @@ list_model_name = []
 list_success_modflow = []
 list_model_modflow = []
 
-for i, porosity in enumerate(list_porosity[:]):
-    BV.hydraulic.update_porosity(porosity)
+for i, sy in enumerate(list_porosity[:]):
+    BV.hydraulic.update_sy(sy)
     
-    model_name = iD_set_simulations+'_'+str(i)+'_'+str(round(porosity,3))
+    model_name = iD_set_simulations+'_'+str(i)+'_'+str(round(sy,3))
     BV.settings.update_model_name(model_name)
     print(model_name)
     
@@ -348,12 +340,12 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
-                                                          actual_date=True, 
+                                                          datetime_format=True, 
                                                           subbasin_results=True,
-                                                          freq_time=freq_time) # or None
+                                                          intermittency_monthly=True) # or None
         
         netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                                  actual_date=True)
+                                                  datetime_format=True)
 
 #%% ---- PLOT
 
@@ -775,10 +767,10 @@ for i, simul in enumerate(simul_list[:]):
     
     ax.fill_between(Smod.index, 0, Smod['total_areas'],
                     interpolate=False, color='dodgerblue', alpha=0.5,
-                    step='pre', label='intermittent part')
+                    step='pre', label='Intermittent part')
     ax.fill_between(Smod.index, 0, Smod['perenn_areas'],
                     interpolate=False, color='navy', alpha=0.5,
-                    step='pre', label='perennial part')
+                    step='pre', label='Perennial part')
     ax.legend()
     ax.step(Smod.index, Smod['total_areas'], color='dodgerblue',
             marker=None, markeredgecolor='none',

@@ -89,7 +89,7 @@ class SafranSurfex:
                 for sce in scenarios:
                     try:
                         values = pd.read_hdf(safransurfex_path+'/'+sim+'.h5',var+'/'+sce)
-                        print('Find: '+sim+'-'+var)
+                        print('    ', 'Find: '+sim+'-'+var)
                         if (sim == 'REA') | (sim == 'OLD') | (sim == 'REAUP'):
                             values.index.freq = values.index.inferred_freq
                         # values = values.loc[:,self.cells_list]
@@ -98,7 +98,7 @@ class SafranSurfex:
                         values.to_hdf(h5file, var+'/'+sce)
                         self.values[sim][var][sce] = values
                     except:
-                        print('None: '+sim+'-'+var)
+                        # print('    ', 'None: '+sim+'-'+var)
                         pass
 
 #%% CLASS 2
