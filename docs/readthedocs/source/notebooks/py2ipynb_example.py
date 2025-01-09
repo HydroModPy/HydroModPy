@@ -128,7 +128,7 @@ folders = find_folders_starting_with_digit(example_folder)
 
 current = os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir))
 print(current)
-for folder in [folders[0]]:
+for folder in folders:
     path_file, file = find_py_files(os.path.join(example_folder,folder))
     print(file[0].split('.py')[0])
     
