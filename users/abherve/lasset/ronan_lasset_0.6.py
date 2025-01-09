@@ -3298,13 +3298,14 @@ dfs['1/K_decay'][dfs['1/K_decay'] == np.inf] = 0
 
 dfs.to_csv(BV.calibration_folder+'/'+'_models'+'_dichotomy_'+vers+'.csv', sep=';')
 
+list_id_mod = [1,2,3,4,5,6,7,8,9]
+
 #%% DICHOTOMY - GRAPH K
 
 dfp = dfs.copy()
 
 dfp['Doptim'] = ((dfp['Obs']+dfp['Sim'])/2)
 
-list_id_mod = [1,2,3,4,5,6,7,8]
 # list_id_mod = [7]
 dfz = pd.DataFrame()
 for i in list_id_mod[:]:
@@ -3318,6 +3319,8 @@ dfz.to_csv(BV.calibration_folder+'/'+'_models'+'_optimum_'+vers+'.csv', sep=';')
 
 # fig, ax = plt.subplots(1,1, figsize=(3.6,2.6), dpi=600)
 fig, ax = plt.subplots(1,1, figsize=(4.2,4), dpi=600)
+
+dfz.loc[93,'Doptim'] = dfz.loc[93,'Doptim']+2
 
 # im = ax.scatter(df.k, (df.Dso+df.Dos)/2, c=df.cond_decay, s=100, cmap='jet')
 # ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'], s=100, 
@@ -3335,7 +3338,7 @@ ax.scatter(dfz[:1]['K']/24/3600, dfz[:1]['Doptim'],
             )
 im = ax.scatter(dfz[1:]['K']/24/3600, dfz[1:]['Doptim'], c=1/dfz[1:]['1/K_decay'], s=100, 
                 cmap='plasma',
-                norm=mpl.colors.LogNorm(vmin=1/300, vmax=1/20),
+                norm=mpl.colors.LogNorm(vmin=1/300, vmax=1/10),
                 lw=1.5,
                 # label=df['1/cond_decay'] 
                 )
@@ -3410,9 +3413,6 @@ dfp = dfs.copy()
 dfp['1/K_decay'] = 1/dfp['K_decay']
 dfp['1/K_decay'][dfp['1/K_decay'] == np.inf] = 0
 dfp['Doptim'] = (dfp['Obs'] + dfp['Sim'])/2
-
-list_id_mod = [1,2,3,4,5,6,7,8]
-# list_id_mod = [7]
 
 shp_bv = gpd.read_file(BV.geographic.watershed_shp)
   
@@ -4466,7 +4466,7 @@ for id_mod_val in list_id_mod[5:6]:
         
 #%% STREAMFLOW CHRONICS ONE - OUI
 
-iD_explos = ['best1']
+iD_explos = ['best2']
 
 CRIT = 'RMSE'
 
@@ -4685,7 +4685,7 @@ dfcrit_Q.to_csv(BV.calibration_folder+'_dfcrit_Q_'+iD_explos[0]+'.csv', sep=';')
 
 dfcrit_Q = pd.read_csv(BV.calibration_folder+'_dfcrit_Q_'+iD_explos[0]+'.csv', sep=';')
 
-iD_explos = ['best1']
+iD_explos = ['best2']
 df = dfcrit_Q.copy()
        
 # fig, axs = plt.subplots(1,5, figsize=(5*6,5))
@@ -4698,8 +4698,8 @@ df = dfcrit_Q.copy()
 # # fig.suptitle(df.model_name[0].upper(), y=1.05)
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
-n = 17
-colors = pl.cm.plasma_r(np.linspace(0,1,n))
+n = 9
+colors = pl.cm.plasma(np.linspace(0,1,n), )
 
 # fig, axs = plt.subplots(1,5, figsize=(5*6,5),
 #                         # sharey=True
@@ -4719,8 +4719,10 @@ for icri, cri in enumerate(['NSElog',
     # ax = axs[icri]
     # fig, ax = plt.subplots(1,1, figsize=(5,4))
     for imod, mod in enumerate(df['id_mod'].unique()):
+        
         imod=6
         color=colors[imod]
+        color = 'indianred'
         if imod==0:
             color='k'
         if imod==1:
@@ -4808,7 +4810,7 @@ for icri, cri in enumerate(['NSElog',
 
 #%% STREAMFLOW CRITERIA THREE - OUI
 
-iD_explos = ['best1']
+iD_explos = ['best2']
 
 dfcrit_Q = pd.read_csv(BV.calibration_folder+'_dfcrit_Q_'+iD_explos[0]+'.csv', sep=';')
 
@@ -4824,7 +4826,7 @@ df = dfcrit_Q.copy()
 # # fig.suptitle(df.model_name[0].upper(), y=1.05)
 # # fig.savefig('C:/Users/ronan/Downloads/figs_'+iD_explo+'/'+'Q_'+'criteria'+'.png', bbox_inches='tight')
 
-n = 17
+n = 9
 colors = pl.cm.plasma_r(np.linspace(0,1,n))
 
 fig, axs = plt.subplots(3, 1, figsize=(4,9),
@@ -4848,6 +4850,7 @@ for icri, cri in enumerate([
     for imod, mod in enumerate(df['id_mod'].unique()):
         imod=6
         color=colors[imod]
+        color = 'indianred'
         if imod==0:
             color='k'
         if imod==1:
@@ -4949,7 +4952,7 @@ plt.tight_layout()
 
 #%% SATURATION CHRONICS ONE - OUI
 
-iD_explos = ['best1']
+iD_explos = ['best2']
 # iD_explos = ['e16']
 
 sat_typ = 'total_areas'
@@ -5122,7 +5125,7 @@ dfcrit_S = df.copy()
 
 #%% MAP MIN MAX
 
-iD_explos = ['best1']
+iD_explos = ['best2']
 
 types_obs = ['hydrographic_mix_peren_upv2_pt_pt']
 
@@ -5295,11 +5298,10 @@ for iD_explo in iD_explos:
 
 #%% CROSS MIN MAX
 
-iD_explo = 'best1'
+iD_explo = 'best2'
 
 for watershed_name in watershed_names[:]:
 
-    fig, ax = plt.subplots(1, 1, figsize=(6,3), dpi=300)
 
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
@@ -5315,6 +5317,15 @@ for watershed_name in watershed_names[:]:
     
     # dem = rasterio.open(BV.geographic.watershed_dem)
     # dem_data = np.ma.masked_where(dem.read(1) < -100, dem.read(1)) # dem data
+    
+    dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
+    
+    cur_y=110
+
+    fig2, ax2 = plt.subplots(1, 1, figsize=(6,6), dpi=300)
+    ax2.imshow(dem_data, cmap='Greys')
+    # ax2.imshow(river_data, cmap='Greys')
+    ax2.axhline(cur_y)
     
     for iD_explo in iD_explos:
         
@@ -5333,6 +5344,8 @@ for watershed_name in watershed_names[:]:
                                                                 list_model_success[:],
                                                                 list_model_modflow[:]):
                 
+                fig, ax = plt.subplots(1, 1, figsize=(6,3), dpi=300)
+
                 # Smod = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';',
                 #                    index_col='date', parse_dates=True)
                 
@@ -5394,10 +5407,12 @@ for watershed_name in watershed_names[:]:
                 # for i, key in enumerate([0, 400]):
                     print(key)
             
-                    dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
+                    
                     # wt_data = imageio.imread(simulations_folder+model_name+'/_watershed/_tifs/'+'watertable_elevation_t(0).tif')
                     wt_data = watertable_elevation[key]
                     # river_data = imageio.imread(stable_folder+'/hydrography/'+'stream_perennial_wetlands_points.tif')
+                
+
                 
                     xvalues = np.linspace(-1,1,dem_data.shape[1])
                     yvalues = np.linspace(-1,1,dem_data.shape[0])
@@ -5410,10 +5425,7 @@ for watershed_name in watershed_names[:]:
                     # cur_y = 39 # 40
                     cur_y=110
     
-                    fig2, ax2 = plt.subplots(1, 1, figsize=(6,6), dpi=300)
-                    ax2.imshow(dem_data, cmap='Greys')
-                    # ax2.imshow(river_data, cmap='Greys')
-                    ax2.axhline(cur_y)
+
     
                     dem_max = dem_data.max()
                     dem_prof = dem_data.astype(float)
