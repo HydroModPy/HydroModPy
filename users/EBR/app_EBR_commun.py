@@ -891,7 +891,6 @@ if success_modflow == True:
                               groundwater_storage = True,
                               accumulation_flux = True,
                               lake_leakage = True,
-                              # lake_seepage = True,
                               export_all_tif = False,)
 
 #%%
