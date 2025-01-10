@@ -4212,13 +4212,13 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # ne
 BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
 
 # Aquifer bottom
-list_bottom = [1000] * 8 # aquifer flat or not
+list_bottom = [1000] * 9 # aquifer flat or not
 
 # Decay of K
-list_d_values = [0, 300, 200, 100, 50, 40, 30, 20]
+list_d_values = [0, 300, 200, 100, 50, 40, 30, 20, 10]
 list_cond_decay = list(1/np.array(list_d_values))      
 list_cond_decay[0] = 0
-list_id_mod = [1,2,3,4,5,6,7,8]
+list_id_mod = [1,2,3,4,5,6,7,8,9]
 
 # For transient
 list_koptim = df_optim['K']
@@ -5514,13 +5514,13 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # ne
 BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
 
 # Aquifer bottom
-list_bottom = [1000] * 8 # aquifer flat or not
+list_bottom = [1000] * 9 # aquifer flat or not
 
 # Decay of K
-list_d_values = [0, 300, 200, 100, 50, 40, 30, 20]
+list_d_values = [0, 300, 200, 100, 50, 40, 30, 20, 10]
 list_cond_decay = list(1/np.array(list_d_values))      
 list_cond_decay[0] = 0
-list_id_mod = [1,2,3,4,5,6,7,8]
+list_id_mod = [1,2,3,4,5,6,7,8,9]
 
 # For transient
 list_koptim = df_optim['K']
@@ -5529,7 +5529,7 @@ list_koptim = df_optim['K']
 decay_factor = 2
 box = True # or False
 sink_fill = False # or True
-sim_state = 'transient' # 'steady' or 'transient'
+sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 check_grid = True
 dis_perlen = True
@@ -5552,21 +5552,21 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'domain' # or watershed
 vka = 1
-for_calib = True
+for_calib = False
 first_clim = 'mean'
 
 recharge = select_period(rea_recharge_isba, 2020, 2023)
-recharge_w_sli = recharge.resample('7D', origin='start_day', label='right', closed='left', offset='-1D').mean()
+# recharge_w_sli = recharge.resample('7D', origin='start_day', label='right', closed='left', offset='-1D').mean()
 runoff = select_period(rea_runoff_isba, 2020, 2023)
-runoff_w_sli = runoff.resample('7D', origin='start_day', label='right', closed='left', offset='-1D').mean()
+# runoff_w_sli = runoff.resample('7D', origin='start_day', label='right', closed='left', offset='-1D').mean()
 
 BV.add_settings()
 BV.add_climatic()
 BV.add_hydraulic()
 
-BV.climatic.update_recharge(recharge_w_sli, sim_state=sim_state)
-BV.climatic.update_runoff(runoff_w_sli, sim_state=sim_state)
-BV.climatic.update_first_clim(recharge.mean())
+BV.climatic.update_recharge(recharge, sim_state=sim_state)
+BV.climatic.update_runoff(runoff, sim_state=sim_state)
+BV.climatic.update_first_clim(first_clim)
 
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
@@ -5590,17 +5590,20 @@ BV.settings.update_dis_perlen(dis_perlen)
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.settings.update_input_particles(zone_partic=zone_partic)
 
-list_porosity = np.arange(0.5, 5.5, 0.5)/100
+# list_porosity = np.array([1])/100
+poro_val = 1/100
 
 #%% PRO PREPROCESSING
 
 run_model = True
 # run_model = False
  
-for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[5:6],
-                                                              list_bottom[5:6],
-                                                              list_koptim[5:6],
-                                                              list_id_mod[5:6]): 
+for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(
+                                                              list(list_cond_decay[i] for i in [2-1, 6-1]),
+                                                              list(list_bottom[i] for i in [2-1, 6-1]),
+                                                              list(list_koptim[i] for i in [2-1, 6-1]),
+                                                              list(list_id_mod[i] for i in [2-1, 6-1])
+                                                              ): 
     BV.hydraulic.update_bottom(bottom_val) # 0
     BV.hydraulic.update_hk_decay(cond_decay_val, min_value=Kmin, log_transf=Klog_transf) # 0
     BV.hydraulic.update_hk(koptim_val)
@@ -5614,45 +5617,44 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[5:
     list_model_modflow = []
         
     # for ip, poro_val in enumerate(list_porosity[-1:]):
-    for ip, poro_val in enumerate(list_porosity[:1]):
+    # for ip, poro_val in enumerate(list_porosity[:1]):
         
-        BV.hydraulic.update_sy(poro_val)
-        #Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
-        # print(Ss_formula)
+    BV.hydraulic.update_sy(poro_val)
+    #Ss_formula = 1000*9.8*(1e-10+(poro_val*4.4e-10)) # rho*g*(alpha+nBeta)
+    # print(Ss_formula)
+    
+    if cond_decay_val == 0 :
+        str_cond_decay = cond_decay_val
+        str_poro_decay = cond_decay_val/decay_factor
+    else:
+        str_cond_decay = 1/cond_decay_val
+        str_poro_decay = 1/(cond_decay_val/decay_factor)
+    if bottom_val==None:
+        str_bottom = thick
+    else:
+        str_bottom = bottom_val
         
-        if cond_decay_val == 0 :
-            str_cond_decay = cond_decay_val
-            str_poro_decay = cond_decay_val/decay_factor
-        else:
-            str_cond_decay = 1/cond_decay_val
-            str_poro_decay = 1/(cond_decay_val/decay_factor)
-        if bottom_val==None:
-            str_bottom = thick
-        else:
-            str_bottom = bottom_val
-            
-        if poro_val == 0:
-            str_poro_decay = 0
-        
-        model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
-                     str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
-                     str(ip)+'_'+\
-                     str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))
-        
-        print(model_name)
-        
-        BV.settings.update_model_name(model_name)
-        
-        now = datetime.now()
-        oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
+    if poro_val == 0:
+        str_poro_decay = 0
+    
+    model_name = iD_explo+'_'+str('model')+str(id_mod_val)+'_'+\
+                 str(round(str_cond_decay,4))+'-'+str(round(str_bottom,4))+'-'+str("{:.2e}".format(koptim_val/24/3600))+'_'+\
+                 str(round(str_poro_decay,4))+'-'+str(round(poro_val*100,2))
+    
+    print(model_name)
+    
+    BV.settings.update_model_name(model_name)
+    
+    now = datetime.now()
+    oclock = now.strftime("%Y%m%d-%Hh%Mm%Ss")
 
-        model_modflow = BV.preprocessing_modflow(for_calib=for_calib)
+    model_modflow = BV.preprocessing_modflow(for_calib=for_calib)
+    
+    model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
         
-        model_success = BV.processing_modflow(model_modflow, write_model=True, run_model=run_model)
-            
-        list_model_name.append(model_name)
-        list_model_success.append(model_success)
-        list_model_modflow.append(model_modflow)
+    list_model_name.append(model_name)
+    list_model_success.append(model_success)
+    list_model_modflow.append(model_modflow)
                 
     dictio['list_model_name'] = list_model_name
     dictio['list_model_success'] = list_model_success
@@ -5691,7 +5693,7 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[5:
                                         sel_slice = None, # or int
                                         )
     
-    model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=False)
+    model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=for_calib)
     success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
     
     # if success_modpath == True:
@@ -5713,8 +5715,8 @@ for cond_decay_val, bottom_val, koptim_val, id_mod_val in zip(list_cond_decay[5:
                               ) # None
     
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                      model_modpath=False,
-                                                      datatime_format=True, 
+                                                      model_modpath=model_modpath,
+                                                      datetime_format=False,
                                                       subbasin_results=True,
                                                       intermittency_weekly=True)
     
@@ -5725,8 +5727,8 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 from mpl_toolkits.mplot3d import Axes3D
 
-list_model_names = ['zSTEADY_isbaEXPLO3_model1_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06',
-                    'zSTEADY_isbaEXPLO3_model0_300.0-0-2.14e-07_0_600.0-1.0-1.02e-06'
+list_model_names = ['modpath1_model2_300.0-1000-5.51e-07_600.0-1.0',
+                    'modpath1_model6_40.0-1000-2.94e-06_80.0-1.0'
                     ]
 
 # fig = plt.figure()
