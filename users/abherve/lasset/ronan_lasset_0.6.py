@@ -5727,8 +5727,8 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 from mpl_toolkits.mplot3d import Axes3D
 
-list_model_names = ['modpath1_model2_300.0-1000-5.51e-07_600.0-1.0',
-                    'modpath1_model6_40.0-1000-2.94e-06_80.0-1.0'
+list_model_names = ['modpath1_model6_40.0-1000-2.94e-06_80.0-1.0',
+                    'modpath1_model2_300.0-1000-5.51e-07_600.0-1.0'
                     ]
 
 # fig = plt.figure()
@@ -5750,7 +5750,7 @@ for i, model_name in enumerate(list_model_names[:]):
     # ax.set_proj_type('persp', focal_length=0.2)
     ax.set_proj_type('persp', focal_length=1)
     
-    ax.view_init(elev=20, azim=20, roll=0)
+    ax.view_init(elev=10, azim=0, roll=0)
     
     # export_vtuvtk.VTK(BV, model_name)
     # visu = visualization_results.Visualization(BV, model_name)
@@ -5798,21 +5798,21 @@ for i, model_name in enumerate(list_model_names[:]):
         # list_id_prt_spe = list_id_prt_spe.copy()
         list_id_prt_spe = np.random.choice(list_id_prt, 300)
         print('    ', len(list_id_prt))
-        list_id_prt_temp = np.random.choice(list_id_prt, 200)
-        srt_file_fil =  srt_file[srt_file['particleid'].isin(list_id_prt_temp)]
-        srt_file_fil['xy'] = srt_file_fil['geometry'].values
-        list_geom_fil = srt_file_fil['geometry'].values
+        # list_id_prt_temp = np.random.choice(list_id_prt, 300)
+        # srt_file_fil =  srt_file[srt_file['particleid'].isin(list_id_prt_temp)]
+        # srt_file_fil['xy'] = srt_file_fil['geometry'].values
+        # list_geom_fil = srt_file_fil['geometry'].values
         
         prt_file_plot = prt_file[prt_file['particleid'].isin(list_id_prt_spe)]
             
     if i ==1:        
-        srt_file_fil = srt_file.copy()
-        srt_file_fil['xy'] = srt_file_fil['geometry'].values
-        srt_file_fil =  srt_file_fil[srt_file_fil['xy'].isin(list_geom_fil)]        
-        list_id_prt = srt_file_fil['particleid'].unique()
+        # srt_file_fil = srt_file.copy()
+        # srt_file_fil['xy'] = srt_file_fil['geometry'].values
+        # srt_file_fil =  srt_file_fil[srt_file_fil['xy'].isin(list_geom_fil)]        
+        # list_id_prt = srt_file_fil['particleid'].unique()
         print('    ', len(list_id_prt))
         
-        prt_file_plot = prt_file[prt_file['particleid'].isin(list_id_prt_temp)]
+        prt_file_plot = prt_file[prt_file['particleid'].isin(list_id_prt_spe)]
     
     # ax = Axes3D(fig)
      
@@ -5826,10 +5826,10 @@ for i, model_name in enumerate(list_model_names[:]):
     # ax.plot(x, y, z, c='r', marker='o', ms=0.2, markeredgecolor='None')
     # ax.scatter(x, y, z, c=c)
     # For line plot
-    if i == 1:
-        color = 'darkmagenta'
     if i == 0:
         color = 'darkorange'
+    if i == 1:
+        color = 'darkmagenta'
     # prt_file.plot(column='time')
     
     # ax.plot(x, y, z, marker='o', lw=0, ms=1, color=color, mec='None')
@@ -5906,9 +5906,9 @@ for i, model_name in enumerate(list_model_names[:]):
 
 #%% CROSS - PLOT 2D
 
-list_model_names = ['zSTEADY_isbaEXPLO3_model0_300.0-0-2.14e-07_0_600.0-1.0-1.02e-06',
-                    'zSTEADY_isbaEXPLO3_model1_30.0-0-2.86e-06_0_60.0-1.0-1.02e-06']
-
+list_model_names = ['modpath1_model6_40.0-1000-2.94e-06_80.0-1.0',
+                    'modpath1_model2_300.0-1000-5.51e-07_600.0-1.0'
+                    ]
 
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -6054,8 +6054,8 @@ for i, model_name in enumerate(list_model_names[:]):
     #     toplot = toplot.sort_values('y')
     #     ax.plot(abs(toplot['y']-xlims[1]), toplot['z'], lw=0.1, ms=2, color=color)
     
-    fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/f_sup_pathlines/'+
-                'CROSS_DECAY_'+str(i)+'.png',
+    fig.savefig(fig_path + '/f_sup_pathlines/'+
+                'CROSS_DECAY_'+str(i)+'_bis'+'.png',
                             bbox_inches='tight')
 
 
