@@ -6436,7 +6436,7 @@ list_z = np.arange(0,1500,10)
 
 for z in list_z:
     k1, k2 = (expo1(z))
-    print(z, k)
+    # print(z, k)
     plt.scatter(10**k1, z, c='navy', s=10)
     plt.scatter(k2, z, c='dodgerblue', s=10)
     k3, k4 = (expo2(z))
@@ -6464,7 +6464,7 @@ list_z = np.arange(0,1500,10)
 
 for z in list_z:
     k1, k2 = (expo1(z))
-    print(z, k)
+    # print(z, k)
     plt.scatter(10**k1, z, c='navy', s=10)
     plt.scatter(k2, z, c='dodgerblue', s=10)
     k3, k4 = (expo2(z))
