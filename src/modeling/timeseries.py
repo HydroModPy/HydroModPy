@@ -116,7 +116,7 @@ class Timeseries:
             recharge = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.recharge.items()}).values())), index=range(len(self.recharge)))
             
         ### Runoff management to fill the .csv file results
-        if self.runoff is not None and not self.runoff.empty:
+        if self.runoff is not None and not self.runoff.empty and not []:
             if isinstance(self.runoff,(int,float)) == True:
                 time=[0]
                 runoff = self.runoff
@@ -351,7 +351,7 @@ class Timeseries:
             except:
                 pass
         
-        if self.intermittency_daily == True:
+        if self.intermittency_weekly == True:
             try:
                 if len(self.accumulation_flux)>=52:
                     inf = 0
