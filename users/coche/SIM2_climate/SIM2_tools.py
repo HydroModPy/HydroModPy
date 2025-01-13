@@ -424,7 +424,8 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
           'T' | 'TINF_H' | 'TSUP_H' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' ...
     mode : str, optional
         'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip' | 
-        'mean_cumdiff' | 'sum_cumdiff' | 'min_cumdiff' | 'max_cumdiff'. 
+        'mean_cumdiff' | 'sum_cumdiff' | 'min_cumdiff' | 'max_cumdiff'
+        'mean_cumdiff_ratio' | 'sum_cumdiff_ratio'  
         'mean_deficit' | 'sum_deficit'
         The default is "sum".
     timemode : str, optional
@@ -577,6 +578,20 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                       'MAM': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
                       'JJA': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
                       'SON': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'mean_cumdiff_ratio': {'annual': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'sum_cumdiff_ratio': {'annual': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
         'mean_deficit': {'annual': 'déficits annuels moyens (précipitations - grandeur)',
                          'ONDJFM': 'déficits oct-mar moyens (précipitations - grandeur)',
                          'AMJJAS': 'déficits avr-sep moyens (précipitations - grandeur)',
@@ -702,6 +717,11 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         zmin = 0
         zmax = 100
         dst_dir1 = 'pourcentages precip'
+    
+    elif mode in ['mean_cumdiff_ratio', 'sum_cumdiff_ratio']:
+        unit = "%"
+        zmin = 0
+        zmax = 0
         
     if var in ['T', 'TSUP_H', 'TINF_H']:
         colorscale = "Plasma_r"
@@ -709,7 +729,8 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         colorscale = "Viridis_r"
         
     if mode in ['mean_cumdiff', 'sum_cumdiff', 'min_cumdiff', 'max_cumdiff',
-                'mean_deficit', 'sum_deficit']:
+                'mean_deficit', 'sum_deficit', 
+                'mean_cumdiff_ratio', 'sum_cumdiff_ratio']:
         colorscale = 'RdBu'
         if var in ['T', 'TSUP_H', 'TINF_H', 'ETP', 'EVAP']:
             colorscale = 'RdBu_r'
@@ -756,10 +777,10 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     elif mode == 'mean':
         final_map = final_map.groupby(group).mean()
         
-    elif mode == 'mean_cumdiff':
+    elif mode in ['mean_cumdiff', 'mean_cumdiff_ratio']:
         final_map = final_map.groupby(group).mean()
         
-    elif mode == 'sum_cumdiff':
+    elif mode in ['sum_cumdiff', 'sum_cumdiff_ratio']:
         final_map = final_map.groupby(group).sum(min_count = 1)
         
     elif mode == 'min_cumdiff':
@@ -877,6 +898,17 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                 zmax = max([zmax, -zmin])
                 zmin = min([-zmax, zmin])
             # print("   . Color scale has been adjusted")
+        
+        elif mode in ['mean_cumdiff_ratio', 'sum_cumdiff_ratio']:
+            temp_map = (temp_map - final_map.loc[{'group': slice(annual_bins[0][0][0], annual_bins[0][1][0])}].mean(dim = 'group')) / temp_map * 100
+            # This adjusts the color based on max among all GROUPED YEARS
+            zmax = max([zmax, float(temp_map.max())])
+            zmin = min([zmin, float(temp_map.min())])
+            # This centers the color scale
+            if (zmax > 0) & (zmin < 0):
+                zmax = max([zmax, -zmin])
+                zmin = min([-zmax, zmin])
+        
         elif mode in ['mean_deficit', 'sum_deficit']:
             # This adjusts the color based on max among all GROUPED YEARS
             zmax = max([zmax, float(temp_map.max())])
