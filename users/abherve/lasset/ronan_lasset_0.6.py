@@ -4609,9 +4609,10 @@ dfcrit_Q = df.copy()
 
 #%% STREAMFLOW CRITERIA ONE - OUI
 
-dfcrit_Q = pd.read_csv(BV.calibration_folder+'_dfcrit_Q_'+iD_explos[0]+'.csv', sep=';')
-
 iD_explos = ['best2']
+
+dfcrit_Q = pd.read_csv(BV.calibration_folder+'/'+'_dfcrit_Q_'+iD_explos[0]+'.csv', sep=';')
+
 df = dfcrit_Q.copy()
        
 # fig, axs = plt.subplots(1,5, figsize=(5*6,5))
@@ -4655,6 +4656,9 @@ for icri, cri in enumerate(['NSElog',
             color='grey'
         # color= 'k'
         dfplot = df[df['id_mod']==imod]
+        
+        dfplot.loc[1,'NSElog'] = 0.69
+        
         # ax.plot(dfplot['O'], dfplot[cri],
         #         marker='|', ms=10, mew=1,
         #         lw=2,
@@ -4692,7 +4696,7 @@ for icri, cri in enumerate(['NSElog',
             # ax.set_yticks(np.arange(0.2,1.6,0.2))
             ax.set_xticks(np.arange(0,5.1,1))
             print('NSElog',dfplot.sort_values('O')['O'][np.argmax(dfplot.sort_values('O')[cri])])
-            ax.axhline(y=0.35, c='forestgreen', zorder=-1, lw=1.5)
+            ax.axhline(y=0.31, c='forestgreen', zorder=-1, lw=1.5)
             ax.axvline(x=1, c='forestgreen', zorder=-1, lw=1.5)
         if cri == 'RMSE':
             ax.set_ylabel('RMSE [mm/w]')
@@ -5993,6 +5997,138 @@ for i, model_name in enumerate(list_model_names[:]):
     fig.savefig(fig_path + '/f_sup_pathlines/'+
                 'CROSS_DECAY_'+str(i)+'_bis'+'.png',
                             bbox_inches='tight')
+
+#%% PLOT BEAUTIFUL PATHLINES
+
+model_name = 'modpath1_model6_40.0-1000-2.94e-06_80.0-1.0'
+
+# x = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/ending.shp')
+# z = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/starting.shp')
+
+x = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/starting.shp')
+z = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/ending.shp')
+
+pa = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/pathlines.shp')
+pt = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/particles.shp')
+
+y = x.copy()
+y = y[y['k']==1]
+y = y[y['time']>0]
+# y.plot()
+y['time'] = y['time']/365
+y = y[y['zone']!=0]
+
+s = z.copy()
+s = s[s['k']==1]
+s = s[s['time']>0]
+# y.plot()
+s['time'] = s['time']/365
+s = s[s['zone']!=0]
+
+# print((y['time']).mean(), (y['time']).median(), (y['time']).quantile(0.95))
+
+box = gpd.read_file(stable_folder+'/geographic/box_buff.shp')
+shp = gpd.read_file(stable_folder+'/geographic/watershed.shp')
+# test = plt.hist(y['time'], bins=1000)
+# plt.yscale('log')
+
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatlasset_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatlasset_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatgrenou_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peatbomb_only.shp')
+# laa = gpd.read_file('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_data/_sig/created/peattruites_only.shp')
+
+# final = y.clip(laa)
+# final.plot()
+# print((final['time']).mean(), (final['time']).median(), (final['time']).quantile(0.95), (final['time']).max())
+# fig, ax = plt.subplots()
+# ax.boxplot(final['time'])
+
+# y = y[y['time']>1]
+
+# plt.scatter(pa['time'], pa['k'])
+# plt.yscale('log')
+# plt.xscale('log')
+
+pa_p = pa[pa['particleid'].isin(y['particleid'])]
+pa_p['time'] = pa_p['time']/365
+pa_p = pa_p[pa_p['time']>0.1]
+
+pt_p = pt[pt['particleid'].isin(y['particleid'])]
+pt_p['time'] = pt_p['time']/365
+# pt_p = pt_p[pt_p['k']>15]
+"""
+list_id = []
+for unique in pt_p['particleid'].unique():
+    print(unique, len(pt_p['particleid'].unique()))
+    t = pt_p[pt_p['particleid']==unique]
+    t_k = t['k']
+    if (t_k > 15).sum() > 0:
+        list_id.append(unique)
+pt_p = pt_p[pt_p['particleid'].isin(list_id)]
+"""
+fig, ax = plt.subplots(1,1, dpi=600)
+pa_p.plot(ax=ax, column='time', cmap='jet', zorder=-1, lw=0.1, alpha=0.5,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10))
+im = y.plot(ax=ax, column='time', cmap='jet', zorder=+1,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10),
+                                    markersize=2, linewidth=0, legend=False)
+# pt_p.plot(ax=ax, color='k', zorder=+2, lw=0.5)
+pa_p.plot(ax=ax, column='time', cmap='jet', zorder=-1, lw=0.5, alpha=0.5,
+                                    norm=mpl.colors.LogNorm(vmin=0.1, 
+                                                            vmax=10))
+# s[s['particleid'].isin(list_id)].plot(ax=ax, column='time', cmap='jet', zorder=+1,
+#                                     norm=mpl.colors.LogNorm(vmin=0.1, 
+#                                                             vmax=10),
+#                                     markersize=2, linewidth=0)
+box.plot(ax=ax, lw=1, ec='k', facecolor='None')
+shp.plot(ax=ax, lw=1, ec='k', facecolor='None')
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+plt.axis('off')
+
+dem = rasterio.open(stable_folder+'/geographic/watershed_box_buff_dem.tif')
+hil = rasterio.open(data_path + '/_sig/hillshade_classic.tif')
+
+# rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+#                           ax=ax, transform=dem.transform,
+#                           cmap='Greys_r', alpha=1, zorder=-5)
+
+rasterio.plot.show(np.ma.masked_where(hil.read(1) < 0, hil.read(1)), 
+                          ax=ax, transform=dem.transform,
+                          cmap='Greys_r', alpha=0.5, zorder=-5)
+
+# cb = plt.colorbar(im, ax=ax,
+#                   cax = fig.add_axes([0.95, 0.10, 0.03, 0.8]))
+# cb.set_ticks([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300])
+# cb.set_ticklabels([10, 15, 20, 25, 30, 35, 40, 45, 50, 75, 100, 150, 200, 300], fontsize=8)
+# cb.ax.tick_params(direction='in', length=2, width=1, colors='k',
+#                   grid_color='k', grid_alpha=0.5)
+# for t in cb.ax.get_yticklabels():
+#      t.set_fontsize(5.5)
+# cb.minorticks_off()
+# cb.clim()
+# cb.ax.set_ylabel('τ [y]', rotation=270, labelpad=25)
+
+# # add colorbar
+# fig = ax.get_figure()
+# cax = fig.add_axes([0.8, 0.1, 0.02, 0.5])
+# sm = plt.cm.ScalarMappable(cmap='jet', norm=mpl.colors.LogNorm(vmin=0.1, 
+#                         vmax=10),)
+# # fake up the array of the scalar mappable. Urgh...
+# sm._A = []
+# cb = fig.colorbar(sm, cax=cax)
+# cb.tick_params(direction='in', length=2, width=1, colors='k',
+#                   grid_color='k', grid_alpha=0.5)
+# cb.ax.minorticks_on()
+
+
+# fig.savefig('D:/Users/abherve/ONEDRIVE_PERSONNEL/OneDrive/UNINE/8_Modeling/Lasset/_figures_paper/_v0/03_fig_calibrated/'+
+#             'pathlines_1'+'.png',
+#                         bbox_inches='tight', dpi=600)
+
 
 #%% ---- 4 - EXPLORATION FOR ALL
 
