@@ -1,0 +1,5 @@
+To-do
+- Gérer les messages d'erreur/warnings/prints qui s'affichent en lançant les exemples (issues sur le GitLab)
+- Relire et reparcourir l'ensemble du code et le commenter pour la doc automatique readthedocs en ligne
+- Voir avec les différents utilisateurs pour supprimer leur dossier 'users'
+- Reprendre un HydroDataPy ou remettre en route le partage de données sur un OneDrive partagé

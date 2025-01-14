@@ -71,15 +71,34 @@ class Modpath:
         geographic : object
             Geographic object build by HydroModPy.
         model_modflow : object
-            Modflow Object.
+            Python object of the MODFLOW model.
         model_folder : str, optional
-            . The default is 'HydroModPy_outputs'.
+            Name of the folder. The default is 'HydroModPy_outputs'.
         model_name : str, optional
             Name of the model. The default is 'Default'.
         bin_path : str, optional
             Location folder of the modflow executables. The default is 'bin'.
         zone_partic : str, optional
-            'watershed':inject particles only in cells inside watershed boundaries or 'domain': inject particles in all cells. The default is 'domain'.
+            Path of the raster used to inject particles: where value > 0.
+            The default is 'domain', so the particles are injected where the model domain area > 0m. 
+        track_dir: str
+            Choice 'forward' or 'backward' particle tracking method.
+            The default is 'forward'.
+        bore_depth: list
+            [Not stable, currently in development]
+            If not None, inject a particle in the z direction (vertical), at the center position of each lays.
+        cell_div: int
+            Fix the number of particles injected uniformly distributed for each cell.
+            If 3 is set, 9 particles will be inejcted (3x*3y)
+            The dault is 1.
+        zloc_div: bool
+            If True, 'cell_div' is also applied vetically for the cells.
+            If cell_div is 3 and zloc_div is True, 18 particles will be injected (3x*3y*3z).
+            The default is False.
+        sel_random: int
+            Select randomly where inject a total number of particles.
+        sel_random: int
+            Select with slicing value where particles.
         """
         
         #%% Initialisation
@@ -101,7 +120,10 @@ class Modpath:
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
         
         # Parameters for particles
-        self.zone_partic = zone_partic
+        if zone_partic == 'domain':
+            self.zone_partic = geographic.watershed_box_buff_dem
+        else:
+            self.zone_partic = zone_partic
         self.track_dir = track_dir
         self.bore_depth = bore_depth
         self.cell_div = cell_div
@@ -337,7 +359,7 @@ class Modpath:
         Returns
         -------
         success_model : bool
-            Flag to know if the simulation is done correctly.
+            Flag to know if the simulation finished correctly.
 
         """
         # Create modflow files
@@ -367,7 +389,7 @@ class Modpath:
         Parameters
         ----------
         model_modpath : object
-            Modpath object.
+            MODPATH python object.
         ending_point : bool, optional
             Write ending point files. The default is True.
         starting_point : bool, optional
@@ -378,7 +400,6 @@ class Modpath:
             Write particles shapefiles. The default is True.
         random_id : int, optional
             Export random pathlines. The default is None.
-
         """
         
         # The outputs to create
