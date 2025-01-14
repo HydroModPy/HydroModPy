@@ -57,23 +57,13 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PERSONAL PATHS
 
-<<<<<<< HEAD:examples/00_simplified example presented in the paper/example_00.py
-example_path = os.path.join(root_dir, "examples","00_simplified example presented in the paper")
-data_path = os.path.join(example_path, "data")
-# To inform the folder path:
-#out_path = folder_root.update_root_folder_results()
-out_path = os.path.join(root_dir,'examples', 'results')
-# Or for example:
-=======
 example_path = os.path.join(root_dir, "examples", "01_simplified example presented in the paper/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
 # Or define it manually
->>>>>>> dev:examples/01_simplified example presented in the paper/example_01.py
 # out_path = 'C:/Simulations/HydroModPy/'
-print('The results of the example will be saved here :', out_path)
 
 print('The results of the example will be saved here :', out_path)
 
