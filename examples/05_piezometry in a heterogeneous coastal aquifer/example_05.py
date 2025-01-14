@@ -233,7 +233,6 @@ bc_right = None # or value
 
 # Import modules
 BV.add_settings()
-BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings

@@ -1,3 +1,59 @@
+Date: 13/01/25 - 14h
+Participants:  Jean-Raynald, Clément, Ronan, Tristan, Sarah, Bastien, Flore, Théa, Jean, Martin, Ronny, Alexandre
+
+General discussions:
+---------------------------
+
+Next meeting: 03/03/25 - 2pm
+
+- Preprint available (https://egusphere.copernicus.org/preprints/2025/egusphere-2024-3962/)
+
+- Latest innovations and changes in code
+  - pyhelp and pyemu (pest), ongoing developments. topic for the next meeting
+  - Strategy to define paremeter file to launch HydroModPy. Propose something with a master student.
+
+- New git structure: master - dev and dev- branches...
+  - new feature branch must be named with the prefix "dev-" to keep high level of security
+
+- First non-regression test: based on example 1
+
+- Automatic generation on readthedocs (refine the doc, comment all the code)
+  - Code to transform python file example to notebook: easy to update example on readthedoc
+
+- Documents shared directly in the "docs" folder (meeting notes, branches list, google drive...)
+
+- Coupling with other databases
+  - HydroDataPy - JR: ask the DSI - either an account for HydromodPy or extend Jean-Raynald's account. (1To or 5To?)
+  - BDD-HydroClim - Hydro-climatic database of 4,000 French watersheds (https://webgr.inrae.fr/outils/bases-de-donnees/bdd-hydroclim)
+
+- Ignored files between the master and dev branches (via gitignores)
+
+- Update of issues on the git (warnings, prints...)
+
+- Think about the supervision of master internships.
+
+
+Recent commit/branch:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
+---------------------
+
+Gitlab Open Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
+-------------------
+
+- List of error messages clustering console #35 · created 1 month ago by Ronan Abhervé
+- Hide deprecationwarning error message #34 · created 1 month ago by Bastien Boivin
+- Parametrization external with a configuration file #33 · created 1 month ago by Alexandre Coche
+- Problem projection retrieval by flopy give error message #32 · created 2 months ago by Bastien Boivin
+- Standardized messaging with a verbose mode #30 · created 4 months ago by Alexandre Coche
+- MétéoFrance data download from website #28 · created 5 months ago by Jean-Raynald de Dreuzy
+- Branch dev-lakeres management #26 · created 5 months ago by Jean-Raynald de Dreuzy
+- Run the code in batch #23 · created 1 year ago by Jean-Raynald de Dreuzy
+- Upgrade to modflow 6 #18 · created 2 years ago by Jean-Raynald de Dreuzy
+- Parameterization with external files #6 · created 2 years ago by Jean-Raynald de Dreuzy
+- Implement more non-regression tests #4 · created 2 years ago by Jean-Raynald de Dreuzy
+- Sharing common database #1 · created 2 years ago by Jean-Raynald de Dreuzy
+
+===========================================================================
+
 Date: 04/12/24 - 15h.
 
 Participants: Ronan, Alexandre C., Alexandre G.
@@ -38,19 +94,21 @@ Réunion HMP:
   - Faire le point sur l'activité : commits/nouvelles branches
   - Faire un guide du dev HydroModPy: Branch par feature
   - Ajouter un fichier meeting.txt sur le git dev: rapport de réunion
-  
-Templates
----------------------------------------------------------------------
+
+===========================================================================  
+Template
+===========================================================================
 Date: 
 Participants: 
   
+General discussions:
+-------------------
+
 Recent commits:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
 --------------
 
 Gitlab Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
 -------------
 
-General discussions:
--------------------
 
-----------------------------------------------------------------------
+===========================================================================

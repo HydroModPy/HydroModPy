@@ -246,7 +246,6 @@ iD_set_simulations = 'explorSy_test1'
 # Import modules
 BV.add_settings()
 BV.add_climatic()
-BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings

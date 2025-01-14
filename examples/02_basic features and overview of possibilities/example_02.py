@@ -358,7 +358,6 @@ lay_decay = 1. # 1 for no decay
 bottom = -1 # elevation in meters, None for constant auifer thickness, or 2D matrix
 if case == 'FromDEM':
     bottom = BV.geographic.dem_clip*-1
-x = imageio.imread('C:/Users/Ronan/GitHub/HydroModPy-dev-ronan-restructuration/examples/results/Example_02_Topography/results_simulations/default/_postprocess/_rasters/watertable_depth_t(0).tif')
 thick = 50 # if bottom is None, aquifer thickness
 hk = 1e-5 * 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
@@ -384,7 +383,6 @@ zone_partic = 'domain' # or watershed
 # Import modules
 BV.add_settings()
 BV.add_climatic()
-BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings
