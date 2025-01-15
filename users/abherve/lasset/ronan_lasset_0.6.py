@@ -3708,7 +3708,8 @@ Kmax = 1e-6
 alpha = 1/300
 def expo1(z):
     k1 = np.log10(Kmin) + (np.log10(Kmax)-np.log10(Kmin))*np.exp(-alpha*z)
-    k2 = (Kmin) + ((Kmax)-(Kmin))*np.exp(-alpha*z)
+    k2 = (Kmin) + ((Kmax)-(Kmin))*np.exp(-0*z)
+    # k2 = (Kmin) - ((Kmin)-(Kmax))*np.exp(-alpha*z)
     return k1, k2
 def expo2(z):
     k3 = np.log10(Kmax)*np.exp(-alpha*(z))
@@ -3728,7 +3729,7 @@ for z in list_z:
     # plt.scatter(10**k3, z, c='red', s=10)
     plt.scatter(k4, z, c='darkorange', s=10, zorder=1)
     plt.xscale('log')
-    plt.xlim(1e-11, None)
+    # plt.xlim(1e-11, None)
 plt.gca().invert_yaxis()
 
 #%% MESH CROSS SECTIONS
