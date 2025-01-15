@@ -104,7 +104,6 @@ class Timeseries:
         self.datetime_format = datetime_format
         
         ### Recharge management to initiate the .csv file results
-        
         if isinstance(self.recharge,(int,float)) == True:
             time=[0]
             recharge = self.recharge

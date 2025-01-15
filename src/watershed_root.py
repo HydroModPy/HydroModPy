@@ -564,23 +564,32 @@ class Watershed:
         self.elt_def.append('safransurfex')
         self.save_object()
             
-    def add_subbasin(self, add_path:str, sub_snap_dist: int):
+    def add_subbasin(self, add_path: str = None, sub_snap_dist: int = 200):
         """
         Public method to add subbasins.
-        Extract and clip results from different outlet across the model domain area.
-
+        
         Parameters
         ----------
-        add_path : str
-            Path of the folder with the list of sub-catchment coordinates.
+        add_path : str, optional
+            Path of the folder where the data are located. Default is None.
+        sub_snap_dist : int
+            Maximum distance where the subasin outlet can be moved.
         """
-        if hasattr(self, 'hydrometry') == False:
-            self.hydrometry=None
-        self.subbasin = subbasin.Subbasin(geographic=self.geographic, hydrometry=self.hydrometry, 
-                                          intermittency=self.intermittency, 
-                                          add_path=add_path,
-                                          out_path=self.watershed_folder,
-                                          sub_snap_dist=sub_snap_dist)
+        if not hasattr(self, 'hydrometry'):
+            self.hydrometry = None
+
+        if not hasattr(self, 'intermittency'):
+            self.intermittency = None
+
+        self.subbasin = subbasin.Subbasin(
+            geographic=self.geographic,
+            hydrometry=self.hydrometry,
+            intermittency=self.intermittency,
+            add_path=add_path,
+            out_path=self.watershed_folder,
+            sub_snap_dist=sub_snap_dist
+        )
+        
         self.elt_def.append('subbasin')
         self.save_object()
     
