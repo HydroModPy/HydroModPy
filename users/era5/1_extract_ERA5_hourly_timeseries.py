@@ -1,199 +1,88 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Mar 10 19:00:43 2023
-
-@author: roquesc
-"""
-
-# General
-# General
-import sys
-from os.path import dirname, abspath
-DIR = dirname(dirname(dirname(abspath(__file__))))
-sys.path.append(DIR)
-import numpy as np
-import pandas as pd
-from osgeo import gdal, osr
-import matplotlib.pyplot as plt
-import time
 import os
-import os.path
-from os import path
-
-# Gis
-import imageio
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-
-# Warnings
-import warnings
-warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
-warnings.filterwarnings("ignore")
-# warnings.warn("You won't see this warning")
-
-# for extraction ERA5
 import geopandas as gpd
-import xarray as xr 
+import xarray as xr
 import rioxarray
+import pandas as pd
+import matplotlib.pyplot as plt
 
-#%% close windows explorer
-import psutil
-from subprocess import PIPE
-#%%
-######## HERE IS THE CODE TO GENERATE THE BOUNDARY CONTOURS ########
-## HYDROMODPY MODULES
-                    
-# from watershed import watershed_root, watershed_display
-# from tools import toolbox, vtk
-# from groundwater_flow import visualization, modflow_display
-# from calibration import calib_root
-# from tools import vtk
-# from groundwater_flow import visualization
-# from tools import toolbox
-# #%% LAYOUT PLOT
+# Define paths
+base_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
+polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'
+catch_name = 'urse'
+output_folder = os.path.join(base_path,catch_name)
+#r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
+polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
+variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo','surface_net_solar_radiation']
+variables = ['total_precipitation']
 
-# #fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+# Load the polygon
+polygon = gpd.read_file(polygon_path)
+polygon = polygon.set_crs('epsg:3035').to_crs(epsg=4326)
 
-# #%% PERSONAL PATHS
+# Ensure the output folders exist
+os.makedirs(output_folder, exist_ok=True)
+fig_folder = os.path.join(output_folder, 'fig')
+os.makedirs(fig_folder, exist_ok=True)
 
-# # Path to the git repositoty home page
-# git_path = "D:/_GitHub/HydroModPy/CORE_COMM/"
-# # Path to the data folder
-# data_path = "G:/Mon Drive/1.TRAVAIL/PYTHON/project/alps_pyr/_data/"
-# # Path where the results will be stored
-# out_path = "G:/Mon Drive/1.TRAVAIL/PYTHON/project/Urse/_out"
+# Process each variable
+for variable in variables:
+    variable_path = os.path.join(base_path, variable)
+    all_data = []
 
+    # Process each year
+    for year in sorted(os.listdir(variable_path)):
+        year_path = os.path.join(variable_path, year)
+        print(f"Processing {variable}, year {year}")
 
-# #%% FOLDER DATA PATHS
+        # Process each month's NetCDF file
+        for month_file in sorted(os.listdir(year_path)):
+            if month_file.endswith('.nc'):
+                file_path = os.path.join(year_path, month_file)
 
-# # Specify path or boolean to active/enable modules
-# dems_path = data_path + 'dem/' # reginal DEM or conceptual DEM
-# shp_path = data_path + 'shp/' # if you want run a model from a shapefile
-# modflow_path = data_path + 'modflow/' # add bin/ folder with necessary .exe
+                # Open the NetCDF file
+                dataset = xr.open_dataset(file_path, chunks={'time': 0})
+                dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
 
-# surfex_path =  data_path + 'surfex/' # add surfex models in .h5 format (France scale, else, specify None)
-# geology_path = data_path + 'geology/' # add geologic layers
-# oceanic_path = data_path + 'oceanic/' # add specific sea level files
-# hydrology_path = data_path + 'hydrology/' # add hydrographic shapefiles
-# hydrometry_path = data_path + 'hydrometry/' # add hydrometry data for automatic download
-# intermittency_path = data_path + 'intermittency/' # add intermittency data for automatic download
-# piezometry_path = True # add piezometry data for automatic download
-# subbasin_path = True # generate subbasins from stations or manual points
+                # Identify the time dimension dynamically
+                time_dim = None
+                for dim in dataset.dims:
+                    if 'time' in dim.lower():
+                        time_dim = dim
+                        break
 
-# dem_name = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035.tif" # name of dem
-# dem_path = dems_path + dem_name
+                if not time_dim:
+                    raise ValueError("Time dimension not found in the dataset.")
 
-# ERA5_folder = '//vert/CHYN_OBSERVATOIRE_POSCHIAVINO/_poschiavino/_data/_era5_urse/_hourly/Jul-10-2023/'
+                # Clip the data to the polygon
+                dataset = dataset.rio.write_crs("epsg:4326", inplace=True)
+                clipped_data = dataset.rio.clip(polygon.geometry, polygon.crs, drop=True)
 
+                # Compute mean, min, max, and standard deviation
+                stats = {
+                    'mean': clipped_data.mean(dim=['latitude', 'longitude']),
+                    'min': clipped_data.min(dim=['latitude', 'longitude']),
+                    'max': clipped_data.max(dim=['latitude', 'longitude']),
+                    'std': clipped_data.std(dim=['latitude', 'longitude'])
+                }
 
-# #find 
-# path_points = 'G:/Mon Drive/1.TRAVAIL/PYTHON/project/Urse/_data/outlet_coordinate/stream_gauge_urse_EPSG3035.shp'
-# points = gpd.read_file(path_points)
-# dem_path = dems_path + dem_name
+                # Collect data into a unified DataFrame
+                df = pd.DataFrame()
+                for stat, data_array in stats.items():
+                    stat_df = data_array.to_dataframe()
+                    stat_df = stat_df.reset_index()
+                    df[stat] = stat_df.iloc[:, -1]  # Append the last column containing the stats
 
-# watershed_name = "Urse"
-# print('working on catchment #' + watershed_name)
-# x = 4322204.2160169445 # points.loc[0,'X']
-# y = 2579220.1833563875 # points.loc[0,'Y']
+                # Add datetime column
+                if time_dim in dataset.coords:
+                    df['datetime'] = pd.to_datetime(stat_df[time_dim]).dt.strftime('%Y/%m/%d %H:%M')
 
-# stable_folder = out_path + '/' + watershed_name + '/results_stable/' # necessary for plots
-# simulations_folder = out_path + '/' + watershed_name + '/results_simulations/'  # necessary for plots
+                df['variable'] = variable
+                all_data.append(df)
 
-#%% RUN WATERSHED_ROOT
+    # Combine all data for the variable and save as a single CSV
+    combined_df = pd.concat(all_data, ignore_index=True)
+    output_file = os.path.join(output_folder, f"{variable}.csv")
+    combined_df.to_csv(output_file, index=False)
+    print(f"Saved combined data for {variable} to {output_file}")
 
-# load = True
-
-# BV = watershed_root.Watershed(watershed_name=watershed_name,
-#                               dem_path=dem_path, 
-#                               out_path=out_path,
-#                               modflow_path=modflow_path,
-#                               load=load,
-#                               regio_out=True, from_xy=[x,y,500,100])
-
-#%%#############################
-######## HERE IS THE CODE TO EXTRACT THE CLIMATE DATA FROM A .netcdf FILE ############ 
-
-print('##')
-print('I analyse the climate data')
-#% Extract climate data from ERA5 netcdf file
-# inspired from http://www.matteodefelice.name/post/aggregating-gridded-data/
-# for names of variables https://collections.eurodatacube.com/reanalysis-era5-land-monthly-means/readme.html
-
-
-ERA5_folder = './_hourly/Nov-03-2024/'
-
-stable_folder = './polygon_extract_era5/' # polygon of the area of interest
-
-bnd = gpd.read_file(stable_folder + 'bnd_canfinal.shp')#reading basin shapefile with geopandas
-bnd = bnd.set_crs('epsg:3035')
-bnd = bnd.to_crs(epsg = 4326)
-bnd.head()
-
-contour = gpd.read_file(stable_folder + 'catchment_bnd_urse_streamgauge_EPSG3035.shp')#reading basin shapefile with geopandas
-contour = contour.set_crs('epsg:3035')
-contour = contour.to_crs(epsg = 4326)
-
-
-files = os.listdir(ERA5_folder + 'download/')
-# files = os.listdir(ERA5_folder)
-for f in files:
-    file = str(f)
-    print(file)
-    
-    date = file[:-3]
-    
-    path_to_save = os.path.join(ERA5_folder, date)
-    os.makedirs(path_to_save,exist_ok=True)
-    
-    nc_to_read = os.path.join(ERA5_folder + 'download/', file)
-
-    # Read NetCDF
-    d = xr.open_dataset(nc_to_read, chunks = {'time': 0})
-    d = d.assign_coords(longitude=(((d.longitude + 180) % 360) - 180)).sortby('longitude')
-    
-    plt.figure(figsize=(12,8))
-    ax = plt.axes()
-    #d.t2m.isel(time = 0).plot(ax = ax)
-    bnd.plot(ax = ax)
-    
-    array_to_clip = d.rio.write_grid_mapping(inplace=True)
-    array_to_clip = array_to_clip.rio.write_crs("epsg:4326", inplace=True)
-    # d_clipped = array_to_clip.rio.clip(bnd.geometry)
-    # d_clipped2 = array_to_clip.rio.clip(contour.geometry)
-    
-    # plt.figure(figsize=(12,8))
-    # ax = plt.axes()
-    # # d_clipped.t2m.isel(time = 0).plot(ax = ax)
-    # contour.plot(ax = ax)
-    
-    d_mean = xr.DataArray.mean(array_to_clip, dim={'latitude', 'longitude'}) #Mean calculation for all the variables of db over the basin
-    # plt.figure(figsize=(12,8))
-    # ax = plt.axes()
-    # d_mean.tp.plot(ax = ax)
-    
-    #variables = ["t2m", "tp", "sd", "cdir", "tcsw", "ssr"]
-    # variables = ['e', "es"]
-    variables = ['es']
-    
-    for i in variables:
-        variable_name = str(i)
-        print('####extracting variable####')
-        print(variable_name)
-        
-        #path_extract_era5 = out_path + watershed_name  + '/era5'
-        
-        # filename_extract_nc = path_extract_era5 + '/netcdf/' + variable_name + '.nc'
-        
-        # d_clipped.to_netcdf(path=filename_extract_nc)
-        # d_clipped.close()
-        
-        filename_extract_csv = path_to_save + '/' + variable_name + '.csv'
-        
-        dm = d_mean.to_dataframe()
-        dm = dm[variable_name]
-        dm.to_csv(filename_extract_csv, header = [variable_name])
-        print('extraction succeeded')
-
+print("Extraction completed.")

@@ -2,8 +2,6 @@
 """
 Created on Tue Nov  5 12:01:20 2024
 
-Modified to handle request failures and log them.
-
 @author: roquesc
 """
 import os
@@ -30,16 +28,21 @@ print(f"\nRUN at\nnow = {today}\n")
 # possible_variables = ['2m_temperature', 'clear_sky_direct_solar_radiation_at_surface', 
 #                       'snow_depth', 'surface_net_solar_radiation', 'total_column_snow_water', 
 #                       'total_precipitation', 'forecast_albedo','evaporation', 'snow_evaporation']
-selected_variables = ['total_precipitation']
-start = 2001
-stop = 2002
-years = np.linspace(start, stop, stop - start + 1).astype(int)
-months = np.linspace(1, 12, 12).astype(int)
 
-# years = 2012
-# months = 11
-# years = np.array([years]).astype(int)
-# months = np.array([months]).astype(int)
+
+selected_variables = ['2m_temperature', 'total_precipitation', 'forecast_albedo', 'snow_depth',]
+
+# start = 1980
+# stop = 2024
+# years = np.linspace(start, stop, stop - start + 1).astype(int)
+# months = np.linspace(1, 12, 12).astype(int)
+
+years = 2024
+months = np.linspace(1, 12, 12).astype(int)
+years = np.array([years]).astype(int)
+#months = np.array([months]).astype(int)
+
+#%%
 
 client = cdsapi.Client()
 
@@ -60,7 +63,7 @@ for v in selected_variables:
             
             name_to_save = os.path.join(folder_to_save, f"{month_to_retrieve}.nc")
             start_time = time.time()
-            dataset = "reanalysis-era5-land"
+            dataset = "reanalysis-era5-land" #https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=overview
             request = {
                 "variable": variable_to_retrieve,
                 "year": year_to_retrieve,

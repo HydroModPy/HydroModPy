@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
+### NOT UP TO DATE YET ##########
+
 # Load your hourly Precipitation data 
 folder_path = './tp'
 name = 'tp_hourly.csv'

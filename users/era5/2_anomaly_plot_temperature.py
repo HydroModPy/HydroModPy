@@ -3,17 +3,35 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load your hourly temperature data 
-folder_path = './t2m'
-name = 't2m_hourly.csv'
-file = os.path.join(folder_path, name)
-hourly_df = pd.read_csv(file, index_col=0)
+# Define paths
+base_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
+polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'
+catch_name = 'urse'
+output_folder = os.path.join(base_path,catch_name)
+#r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
+polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
+variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo']
+
+variable = ['2m_temperature']
+
+# Ensure the output folders exist
+os.makedirs(output_folder, exist_ok=True)
+fig_folder = os.path.join(output_folder, 'fig')
+os.makedirs(fig_folder, exist_ok=True)
+
+name = variable[0] + '.csv'
+file = os.path.join(output_folder, name)
+
+hourly_df = pd.read_csv(file, index_col=4)
 hourly_df.index = pd.to_datetime(hourly_df.index)
 
+#%%
+
 # Calculate the anomalies relative to a reference period (e.g., 2000-2010)
-start_ref = '1960-01-01'
+start_ref = '1980-01-01'
 end_ref = '2000-01-01'
-mean_ref = hourly_df.loc[(hourly_df.index >= start_ref) & (hourly_df.index < end_ref), 't2m'].mean()
-hourly_df['anomaly'] = hourly_df['t2m'] - mean_ref
+mean_ref = hourly_df.loc[(hourly_df.index >= start_ref) & (hourly_df.index < end_ref), 'mean'].mean()
+hourly_df['anomaly'] = hourly_df['mean'] - mean_ref
 
 # Group the data by month to create monthly anomalies
 monthly_anomalies = hourly_df.resample('M').mean()
@@ -68,4 +86,6 @@ plt.yticks(fontsize=12)
 plt.tight_layout()
 plt.show()
 
-fig.savefig('./figures/t2sm_anomaly.png')
+name_fig = variable[0] + '_anomaly.png'
+fig_name = os.path.join(fig_folder,name_fig)
+fig.savefig(fig_name)
