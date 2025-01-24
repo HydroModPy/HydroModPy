@@ -12,8 +12,7 @@ catch_name = 'urse'
 output_folder = os.path.join(base_path,catch_name)
 #r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
 polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
-variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo','surface_net_solar_radiation']
-variables = ['total_precipitation']
+variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo']
 
 # Load the polygon
 polygon = gpd.read_file(polygon_path)
@@ -81,7 +80,7 @@ for variable in variables:
 
     # Combine all data for the variable and save as a single CSV
     combined_df = pd.concat(all_data, ignore_index=True)
-    output_file = os.path.join(output_folder, f"{variable}.csv")
+    output_file = os.path.join(output_folder, f"{variable}_combined.csv")
     combined_df.to_csv(output_file, index=False)
     print(f"Saved combined data for {variable} to {output_file}")
 
