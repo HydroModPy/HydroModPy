@@ -25,6 +25,9 @@ file = os.path.join(output_folder, name)
 hourly_df = pd.read_csv(file, index_col=4)
 hourly_df.index = pd.to_datetime(hourly_df.index)
 
+# Reorder the dataframe chronologically by sorting the index
+hourly_df = hourly_df.sort_index()
+
 #%%
 
 # Calculate the anomalies relative to a reference period (e.g., 2000-2010)
