@@ -13,7 +13,7 @@ output_folder = os.path.join(base_path,catch_name)
 #r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
 polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
 variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo','surface_net_solar_radiation']
-# variables = ['total_precipitation']
+#variables = ['total_precipitation']
 
 # Load the polygon
 polygon = gpd.read_file(polygon_path)
@@ -39,13 +39,19 @@ for variable in variables:
 
         # Process each month's NetCDF file
         for month_file in sorted(os.listdir(year_path)):
-            #print(f"{month_file}")
+            print(f"{month_file}")
             if month_file.endswith('.nc'):
                 file_path = os.path.join(year_path, month_file)
 
                 # Open the NetCDF file
-                dataset = xr.open_dataset(file_path, chunks={'time': 0})
-                dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
+                try:
+                    dataset = xr.open_dataset(file_path, chunks={'time': 0})
+                    dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
+                except Exception as e:
+                    print(f"Failed to open {file_path}: {e}")
+                    continue
+                # dataset = xr.open_dataset(file_path, chunks={'time': 0})
+                # dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
 
                 # Identify the time dimension dynamically
                 time_dim = None

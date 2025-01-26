@@ -83,18 +83,7 @@ merged_data['Temperature_C_ERA5_Corrected'] = merged_data['Temperature_C_ERA5'] 
 era5_data['Temperature_C_Corrected'] = era5_data['Temperature_C'] - mean_bias
 
 
-#%%
-# Merge corrected ERA5 data with observed data for validation
-# corrected_merged_data = pd.merge(
-#     era5_data[['Date', 'Temperature_C_Corrected']],  # Select corrected ERA5 columns
-#     observed_data[['Date', 'Temperature_C']],  # Select observed columns
-#     on='Date',
-#     suffixes=('_ERA5_Corrected', '_Obs')
-# )
-
-
-
-# Compute uncertainties (standard deviation of residuals)
+#%% Compute uncertainties (standard deviation of residuals)
 residuals =  merged_data['Temperature_C_ERA5_Corrected'] - merged_data['Temperature_C_Obs']
 uncertainty_std = residuals.std()
 
