@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Nov  5 12:01:20 2024
-
-@author: roquesc
+created by: Clément on Tue Nov  5 12:01:20 2024
+reviewed by: 
+    
 """
 import os
 import csv
@@ -30,17 +30,20 @@ print(f"\nRUN at\nnow = {today}\n")
 #                       'total_precipitation', 'forecast_albedo','evaporation', 'snow_evaporation']
 
 
-selected_variables = ['2m_temperature', 'total_precipitation', 'forecast_albedo', 'snow_depth']
+# selected_variables = ['2m_temperature', 'total_precipitation', 'forecast_albedo', 'snow_depth', 'surface_net_solar_radiation']
 selected_variables = ['2m_temperature']
-start = 1980
-stop = 2023
-years = np.linspace(start, stop, stop - start + 1).astype(int)
-# months = np.linspace(1, 12, 12).astype(int)
 
-# years = 2022
-months = np.linspace(11, 11, 1).astype(int)
-# years = np.array([years]).astype(int)
-#months = np.array([months]).astype(int)
+
+start = 1980
+stop = 2024
+years = np.linspace(start, stop, stop - start + 1).astype(int)
+months = np.linspace(1, 12, 12).astype(int)
+
+# # years = 2022
+# # months = np.linspace(1, 12, 12).astype(int)
+# months = 11
+# # years = np.array([years]).astype(int)
+# months = np.array([months]).astype(int)
 
 #%%
 
