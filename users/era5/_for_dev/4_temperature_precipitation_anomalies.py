@@ -6,23 +6,24 @@ import matplotlib.pyplot as plt
 # Define paths
 base_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
 polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'
-catch_name = 'urse'
-output_folder = os.path.join(base_path,catch_name)
+catch_name = '_urse'
+
+output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
+output_folder = os.path.join(output_folder,catch_name)
+
+fig_folder = os.path.join(output_folder, 'fig')
+
 variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo']
 
 t2m = variables[0]
 tp = variables[2]
 
-# Ensure the output folders exist
-os.makedirs(output_folder, exist_ok=True)
-fig_folder = os.path.join(output_folder, 'fig')
-os.makedirs(fig_folder, exist_ok=True)
 
 #%% Load temperature data
 name_t2m = t2m + '.csv'
 file_t2m = os.path.join(output_folder, name_t2m)
 
-hourly_df_t2sm = pd.read_csv(file_t2m, index_col=4)
+hourly_df_t2sm = pd.read_csv(file_t2m, index_col=0)
 hourly_df_t2sm.index = pd.to_datetime(hourly_df_t2sm.index)
 
 # yearly_t2sm = hourly_df_t2sm['mean'].resample('Y').mean() - 273.15
@@ -37,7 +38,7 @@ hourly_df_t2sm.index = pd.to_datetime(hourly_df_t2sm.index)
 name_tp = tp + '.csv'
 file_tp = os.path.join(output_folder, name_tp)
 
-hourly_df_tp = pd.read_csv(file_tp, index_col=4)
+hourly_df_tp = pd.read_csv(file_tp, index_col=0)
 hourly_df_tp.index = pd.to_datetime(hourly_df_tp.index)
 
 # yearly_tp = hourly_df_tp['mean'].resample('Y').mean()

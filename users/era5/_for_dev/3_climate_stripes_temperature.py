@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def load_data(file_path):
-    df = pd.read_csv(file_path, index_col=4)
+    df = pd.read_csv(file_path, index_col=0)
     df.index = pd.to_datetime(df.index)
     return df.resample('Y').mean()
 
@@ -46,11 +46,17 @@ def save_plot(fig, fig_folder, variable_name):
 
 # Paths and settings
 base_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
-catch_name = 'urse'
-fig_folder = os.path.join(base_path, catch_name, 'fig')
+polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'
+catch_name = '_urse'
+
+output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
+output_folder = os.path.join(output_folder,catch_name)
+
+
+fig_folder = os.path.join(output_folder, 'fig')
 variable = '2m_temperature'
 
-file = os.path.join(base_path, catch_name, f'{variable}.csv')
+file = os.path.join(output_folder, f'{variable}.csv')
 
 # Load and process data
 df = load_data(file)
