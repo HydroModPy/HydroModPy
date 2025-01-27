@@ -10,8 +10,10 @@ import numpy as np
 from datetime import date
 import cdsapi
 import time
+import warnings
+warnings.filterwarnings("ignore")
 
-main_folder = "F:/_projects/_current/era5_alpine"
+main_folder = "F:/_projects/_current/_alps/_cerra"
 
 # Initialize log file for failures
 failure_log_file = os.path.join(main_folder, "failed_requests_log.csv")
@@ -25,25 +27,41 @@ today = date.today().strftime("%b-%d-%Y")
 print(f"\nRUN at\nnow = {today}\n")
 
 # Variables and settings
-# possible_variables = ['2m_temperature', 'clear_sky_direct_solar_radiation_at_surface', 
-#                       'snow_depth', 'surface_net_solar_radiation', 'total_column_snow_water', 
-#                       'total_precipitation', 'forecast_albedo','evaporation', 'snow_evaporation']
+possible_variable = [
+        "10m_wind_direction",
+        "10m_wind_speed",
+        "2m_relative_humidity",
+        "2m_temperature",
+        "albedo",
+        "high_cloud_cover",
+        "land_sea_mask",
+        "low_cloud_cover",
+        "mean_sea_level_pressure",
+        "medium_cloud_cover",
+        "orography",
+        "skin_temperature",
+        "snow_density",
+        "snow_depth",
+        "snow_depth_water_equivalent",
+        "surface_pressure",
+        "surface_roughness",
+        "total_cloud_cover",
+        "total_column_integrated_water_vapour"
+    ],
 
 
-# selected_variables = ['2m_temperature', 'total_precipitation', 'forecast_albedo', 'snow_depth', 'surface_net_solar_radiation']
-selected_variables = ['2m_temperature']
+selected_variables = ['2m_temperature', '2m_relative_humidity', 'albedo', 'snow_depth', 'snow_depth_water_equivalent']
 
-
-start = 1980
-stop = 2024
+start = 1984
+stop = 2022
 years = np.linspace(start, stop, stop - start + 1).astype(int)
-# months = np.linspace(1, 12, 12).astype(int)
+months = np.linspace(1, 12, 12).astype(int)
 
 # # years = 2022
 # # months = np.linspace(1, 12, 12).astype(int)
-months = 11
+# months = 11
 # # years = np.array([years]).astype(int)
-months = np.array([months]).astype(int)
+# months = np.array([months]).astype(int)
 
 #%%
 
@@ -66,19 +84,21 @@ for v in selected_variables:
             
             name_to_save = os.path.join(folder_to_save, f"{month_to_retrieve}.nc")
             start_time = time.time()
-            # dataset = "reanalysis-era5-land" #https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land?tab=download
-            dataset = "reanalysis-era5-single-levels" #https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download
+            dataset = "reanalysis-cerra-single-levels"
             request = {
-                "product_type": ["reanalysis"], #if reanalysis-era5-single-levels
+                "level_type": "surface_or_atmosphere",
+                "data_type": ["reanalysis"],
+                "product_type": "analysis",
                 "variable": variable_to_retrieve,
                 "year": year_to_retrieve,
                 "month": month_to_retrieve,
                 "day": [f"{day:02d}" for day in range(1, 32)],
-                "time": [f"{hour:02d}:00" for hour in range(24)],
+                "time": [
+                    "00:00", "03:00", "06:00",
+                    "09:00", "12:00", "15:00",
+                    "18:00", "21:00"
+                ],
                 "data_format": "netcdf",
-                "download_format": "unarchived",
-                "area": [49, 4, 43, 17.5],  # Alpine space extent
-                "grid": [0.25, 0.25],
             }
             
             try:
