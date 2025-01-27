@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 # Define paths
 base_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
 polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'
-catch_name = 'urse'
+catch_name = '_urse'
+output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
+output_folder = os.path.join(output_folder,catch_name)
 
-output_folder = os.path.join(base_path,catch_name)
-#r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
 polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
 variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo']
 
@@ -23,7 +23,7 @@ os.makedirs(fig_folder, exist_ok=True)
 name = variable[0] + '.csv'
 file = os.path.join(output_folder, name)
 
-hourly_df = pd.read_csv(file, index_col=4)
+hourly_df = pd.read_csv(file, index_col=0)
 hourly_df.index = pd.to_datetime(hourly_df.index)
 
 # Reorder the dataframe chronologically by sorting the index

@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 # Define paths
 base_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
 polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'
-catch_name = 'urse'
-output_folder = os.path.join(base_path,catch_name)
+catch_name = '_urse'
+output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
+output_folder = os.path.join(output_folder,catch_name)
 #r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
 polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
 variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo','surface_net_solar_radiation']

@@ -13,8 +13,13 @@ import matplotlib.pyplot as plt
 plt.close('all')
 
 # paths
-era5_path = "//vert/CHYN_OBSERVATOIRE_POSCHIAVINO/_Alps/_public_database/_climate/era5/_hourly/urse"
-observed_path = "//vert/CHYN_OBSERVATOIRE_POSCHIAVINO/_Alps/_waterwise_database/_time_series/_deployment_sites/_urse/_climate/_air_temperature/_observation/_RG"
+catch_name = '_urse'
+era5_path = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
+era5_path = os.path.join(era5_path,catch_name)
+
+obs_station = '_RG'
+observed_path = "//vert/CHYN_OBSERVATOIRE_POSCHIAVINO/_Alps/_waterwise_database/_time_series/_deployment_sites/_urse/_climate/_air_temperature/_observation"
+observed_path = os.path.join(observed_path,obs_station)
 
 # File names
 era5_name = '2m_temperature.csv'

@@ -37,13 +37,13 @@ selected_variables = ['2m_temperature']
 start = 1980
 stop = 2024
 years = np.linspace(start, stop, stop - start + 1).astype(int)
-months = np.linspace(1, 12, 12).astype(int)
+# months = np.linspace(1, 12, 12).astype(int)
 
 # # years = 2022
 # # months = np.linspace(1, 12, 12).astype(int)
-# months = 11
+months = 11
 # # years = np.array([years]).astype(int)
-# months = np.array([months]).astype(int)
+months = np.array([months]).astype(int)
 
 #%%
 
