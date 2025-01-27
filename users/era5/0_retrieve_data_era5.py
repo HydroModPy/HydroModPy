@@ -66,8 +66,10 @@ for v in selected_variables:
             
             name_to_save = os.path.join(folder_to_save, f"{month_to_retrieve}.nc")
             start_time = time.time()
-            dataset = "reanalysis-era5-land" #https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=overview
+            # dataset = "reanalysis-era5-land" #https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land?tab=download
+            dataset = "reanalysis-era5-single-levels" #https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download
             request = {
+                "product_type": ["reanalysis"], #if reanalysis-era5-single-levels
                 "variable": variable_to_retrieve,
                 "year": year_to_retrieve,
                 "month": month_to_retrieve,
