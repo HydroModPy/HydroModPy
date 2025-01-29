@@ -182,6 +182,20 @@ class Geographic:
                 weights=None, 
                 esri_pntr=False)
         else:
+            hierarch_1 = os.path.join(self.reg_fold, 'region_breach.tif')
+            hierarch_2 = os.path.join(self.reg_fold, 'region_breach_sec.tif')   
+            hierarch_3 = os.path.join(self.reg_fold, 'region_fill.tif')     
+            hierarch_4 = os.path.join(self.reg_fold, 'region_fill_sec.tif')     
+            if os.path.exists(hierarch_1):
+                fill = hierarch_1
+            elif os.path.exists(hierarch_2):
+                fill = hierarch_2
+            elif os.path.exists(hierarch_3):
+                fill = hierarch_3
+            elif os.path.exists(hierarch_4):
+                fill = hierarch_4
+            else:
+                fill = None
             fill = os.path.join(self.reg_fold, 'region_fill.tif')
             direc = os.path.join(self.reg_fold, 'region_direc.tif')
             acc = os.path.join(self.reg_fold, 'region_acc.tif')
