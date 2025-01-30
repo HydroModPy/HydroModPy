@@ -196,7 +196,6 @@ class Geographic:
                 fill = hierarch_4
             else:
                 fill = None
-            fill = os.path.join(self.reg_fold, 'region_fill.tif')
             direc = os.path.join(self.reg_fold, 'region_direc.tif')
             acc = os.path.join(self.reg_fold, 'region_acc.tif')
             down = os.path.join(self.reg_fold, 'region_down.tif')

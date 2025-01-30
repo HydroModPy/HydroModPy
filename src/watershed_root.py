@@ -101,7 +101,7 @@ class Watershed:
             True : To save the watershed object (using pickle). The default is True.
         """
         
-        toolbox.print_hydromodpy()
+        #toolbox.print_hydromodpy()
         
         self.dem_path = dem_path
         self.out_path = out_path
@@ -444,7 +444,8 @@ class Watershed:
     def add_hydrography(self,
                         hydrography_path: str,
                         types_obs: list=['streams'], 
-                        fields_obs: list=['FID']):
+                        fields_obs: list=['FID'],
+                        streams_file=None):
         """
         Public method to add hydrography data.
 
@@ -464,7 +465,8 @@ class Watershed:
                                                    types_obs=self.types_obs,
                                                    fields_obs=self.fields_obs,
                                                    geographic=self.geographic,
-                                                   hydro_path=self.hydrography_path)
+                                                   hydro_path=self.hydrography_path,
+                                                   streams_file=streams_file)
         self.elt_def.append('hydrography')
         self.save_object()
 
