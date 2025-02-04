@@ -19,9 +19,18 @@ variables = ['total_precipitation']
 
 # Load the polygon
 polygon = gpd.read_file(polygon_path)
-polygon = polygon.set_crs('epsg:3035').to_crs(epsg=4326) 
+#%% ATTENTION maybe wrong crs other possibility 4326
+polygon = polygon.to_crs(epsg=3035) 
+#polygon.set_crs(epsg=3035)#.to_crs(epsg=4326) 
 
 #%% Here include the code to check the ncdf and bnd intercept
+
+
+
+
+
+
+
 
 
 #%% Ensure the output folders exist
