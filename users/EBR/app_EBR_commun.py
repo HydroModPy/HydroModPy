@@ -60,10 +60,10 @@ except NameError:
 sys.path.append(root_dir)
 
 cwd = os.getcwd()
-# print(f"Le répertoire courant est : {cwd}")
+# logging.info(f"Le répertoire courant est : {cwd}")
 if cwd != root_dir:
     os.chdir(root_dir)
-    # print(f"Répertoire racine défini : {root_dir}")
+    # logging.info(f"Répertoire racine défini : {root_dir}")
 
 #% Modules HydroModPy
 import src
@@ -75,12 +75,12 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-# #%% Initialiser le gestionnaire de logs en mode développement
-# log_manager = toolbox.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
-#                                     #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
-#                                     # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
-#                                     # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
-#                                      )
+#%% Initialiser le gestionnaire de logs en mode développement
+log_manager = toolbox.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
+                                    #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
+                                    # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
+                                    # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
+                                     )
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
@@ -255,8 +255,8 @@ BV.climatic.update_first_clim(first_clim)
 
 ### Figures des chroniques
 if isinstance(BV.climatic.recharge, float):
-    print(f"Recharge moyenne = {BV.climatic.recharge} m")
-    print(f"Ruissellement de surface moyen = {BV.climatic.runoff} m")
+    logging.info(f"Recharge moyenne = {BV.climatic.recharge} m")
+    logging.info(f"Ruissellement de surface moyen = {BV.climatic.runoff} m")
 else:
     # Yearly (matplotlib)
     fig, ax = plt.subplots(1,1, figsize=(6,3))
@@ -310,10 +310,10 @@ BV.add_lakeres()
 # ----------------------
 lake_id = 'reservoir_cheze'
 
-print("\n-----------" + "-"*len(lake_id))
-print(f"Ajout de '{lake_id}'")
-print("-----------" + "-"*len(lake_id))
-print("   . Définition de la géographie du réservoir :")
+logging.info("\n-----------" + "-"*len(lake_id))
+logging.info(f"Ajout de '{lake_id}'")
+logging.info("-----------" + "-"*len(lake_id))
+logging.info("   . Définition de la géographie du réservoir :")
 
 # maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_lake_75m_larger.tif")
 maskmx = os.path.join(data_path,"Reservoir", "Masque", "Cheze_polygon_larger.shp")
@@ -345,7 +345,7 @@ BV.lakeres.update_bathymetry(lake_id, bathymetry_raster)
 # =============================================================================
 
 # ---- Chargement des flux d'entrée à partir des données mensuelles
-print("   . Chargement des flux d'entrée mensuels")
+logging.info("   . Chargement des flux d'entrée mensuels")
 
 dam_data_path = os.path.join(data_path, "Reservoir", 
                              "Donnees mensuelles base historique",
@@ -403,7 +403,7 @@ dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 # Ce n'est plus utile maintenant que les débits modélisés sont utilisés à la
 # place, grace à la section suivante: "ECOULEMENTS DE SURFACE avec SFR2"
 # =============================================================================
-# print("   . Raffinage des débits de la Chèze à partir de eaufrance.fr")
+# logging.info("   . Raffinage des débits de la Chèze à partir de eaufrance.fr")
 # 
 # code_station = 'J736422001' # La Chèze à Plélan-le-Grand - L'Enlevrier
 # # Details sur la station:
@@ -439,7 +439,7 @@ dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 #         sep = ";",
 #         header = 0,
 #         index_col = 0)
-#     print("        Erreur sur la mise-à-jour des infos des stations de jaugeage")
+#     logging.error("        Erreur sur la mise-à-jour des infos des stations de jaugeage")
 # # Mise à jour des fichiers
 # stations_info.to_csv(os.path.join(data_path, "Debits", "stations_list.csv"), 
 #     sep = ";")
@@ -477,7 +477,7 @@ dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 #         sep = ";",
 #         header = 0,
 #         index_col = 0)
-#     print("        Erreur sur la mise-à-jour du débit")
+#     logging.error("        Erreur sur la mise-à-jour du débit")
 # # Update file:
 # discharge.to_csv(os.path.join(data_path, "Debits",
 #     "J736422001_QmnJ(n=1_non-glissant) debit_cheze_plelan-le-grand.csv"),
@@ -500,7 +500,7 @@ dam_input_df = dam_input_df.resample(freq_input).agg(rules)
 
 
 # ---- Raffinage du niveau initial
-print("   . Raffinage du niveau initial de la retenue avec l'abaque")
+logging.info("   . Raffinage du niveau initial de la retenue avec l'abaque")
 
 abaque = pd.read_csv(os.path.join(data_path, "Reservoir", "Abaque",
     "abaque_cheze_2020.csv"),
@@ -541,8 +541,8 @@ except:
 
 data = data.iloc[:, 3:-2]
 if data.iloc[:, -1].count() == 0:
-    print(f"        Warning: Les dernières valeurs ({data.columns[-1]}) n'ont pas été correctement récupérées.")
-    print("        Aller sur la feuille 'Histos', puis effectuer Ctrl+A, Ctrl+C, Maj+F10+V, et enregistrer sous un nouveau fichier <nom>_val.xlsx")
+    logging.warning(f"        Les dernières valeurs ({data.columns[-1]}) n'ont pas été correctement récupérées.")
+    logging.info("        Aller sur la feuille 'Histos', puis effectuer Ctrl+A, Ctrl+C, Maj+F10+V, et enregistrer sous un nouveau fichier <nom>_val.xlsx")
 
 # Pivot from wide-format to long-format
 data_volumes = pd.lreshape(data, 
@@ -611,14 +611,14 @@ BV.lakeres.update_stageinit(
 
 
 # ---- Raffinage des flux d'entrée récents à partir des données journalières
-print("   . Raffinage des flux d'entrée avec les données journalières :")
+logging.info("   . Raffinage des flux d'entrée avec les données journalières :")
 
 Flux_Cheze_xls_folder = os.path.join(data_path, "Reservoir",
                                      "Donnees journalieres EBR", "Flux")
 
 for path, folders, files in os.walk(Flux_Cheze_xls_folder):
     if len(files) > 0:
-        print(f"        mise-à-jour {os.path.split(path)[-1]}")
+        logging.info(f"        mise-à-jour {os.path.split(path)[-1]}")
         for f in files:
             if (f[0] != '~') & (f[-8:-5].casefold() != 'old'):
                 if f[-11:-5] in ['1_2020', '2_2020', '3_2020',
@@ -686,7 +686,7 @@ for path, folders, files in os.walk(Flux_Cheze_xls_folder):
 
 
 # ---- Mise-à-jour des données d'entrée du réservoir
-print("   . Mise à jour des paramètres du réservoir")
+logging.info("   . Mise à jour des paramètres du réservoir")
 
 # Set the first value (used for steady initialization) as the average value
 dam_input_df.iloc[0] = toolbox.hydrological_mean(dam_input_df, 4)
@@ -900,7 +900,7 @@ dd.io.save(h5file, mdflw_dict)
 
 #%% POST-PROCESSING
 start_time = datetime.datetime.now()
-print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
+logging.info("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
 ##%%% General
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -927,8 +927,8 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                           datetime_format=True)
 
 now = datetime.datetime.now()
-print("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))
-print("Total time:", now - start_time)
+logging.info("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))
+logging.info("Total time:", now - start_time)
 
 #%% VISUALISATION DU MAILLAGE
 

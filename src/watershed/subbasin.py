@@ -83,7 +83,7 @@ class Subbasin:
             for i in range(len(x_coord)):
                 station_name = f'hydrometry_{code_bh[i]}' if code_bh[i] else f'hydrometry_default_{i + 1}'
                 if not code_bh[i]:
-                    print(f'code_bh is empty for index {i}, generating default name.')
+                    logging.info(f'code_bh is empty for index {i}, generating default name.')
                 sub_path = os.path.join(self.subbasin_path, station_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
@@ -97,7 +97,7 @@ class Subbasin:
             for i in range(len(x_coord)):
                 onde_name = f'intermittency_{code_onde[i]}' if code_onde[i] else f'intermittency_default_{i + 1}'
                 if not code_bh[i]:
-                    print(f'code_onde is empty for index {i}, generating default name.')
+                    logging.info(f'code_onde is empty for index {i}, generating default name.')
                 sub_path = os.path.join(self.subbasin_path, onde_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:

@@ -251,7 +251,7 @@ def driaseau_extract_values(data_folder, list_of_paths, df):
             clipped_ds.load()
             
         name_col = var+'_'+gcm+'-'+rcm+'_'+sce
-        print(name_col)
+        logging.info(name_col)
         if name_col not in df:
             df[name_col] = ""
             
