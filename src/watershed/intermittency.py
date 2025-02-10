@@ -84,14 +84,12 @@ class Intermittency:
         for i in stations:
             mask = (intermit_bv['<LbSiteHyd'] == i)
             raw = intermit_bv[mask]
-            self.code_onde.append(raw.iloc[0]['<CdSiteHyd'])
+            self.code_onde.append(raw.iloc[0]['<CdSiteHyd'] if pd.notnull(raw.iloc[0]['<CdSiteHyd']) else None)
             self.label.append(raw.iloc[0]['<LbSiteHyd'])
             self.x_coord.append(raw.iloc[0]['<CoordXSit'])
             self.y_coord.append(raw.iloc[0]['<CoordYSit'])
             # self.date_first.append(pd.to_datetime(raw.iloc[0]['<DtRealObs'], format='%Y-%m-%d'))
             # self.date_last.append(pd.to_datetime(raw.iloc[-1]['<DtRealObs'],format='%Y-%m-%d'))
-            self.date_first.append(raw.iloc[0]['<DtRealObs'])
-            self.date_last.append(raw.iloc[-1]['<DtRealObs'])
     
     #%% PLOT INTERMITTENCY DATA        
     

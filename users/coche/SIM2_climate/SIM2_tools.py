@@ -421,10 +421,13 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     var : str
         SIM2 variables:
           'ETP' | 'EVAP' | 'PRELIQ' | 'PRENEI' | 'PRETOT' | 'DRAINC' | 'RUNC' | 
-          'T' | 'TINF_H' | 'TSUP_H' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' | ...
+          'T' | 'TINF_H' | 'TSUP_H' | 'WG_RACINE' | 'WGI_RACINE' | 'SWI' ...
     mode : str, optional
         'sum' | 'min' | 'max' | 'mean' | 'ratio' | 'ratio_precip' | 
-        'mean_cumdiff' | 'sum_cumdiff' | 'min_cumdiff' | 'max_cumdiff'. The default is "sum".
+        'mean_cumdiff' | 'sum_cumdiff' | 'min_cumdiff' | 'max_cumdiff'
+        'mean_cumdiff_ratio' | 'sum_cumdiff_ratio'  
+        'mean_deficit' | 'sum_deficit'
+        The default is "sum".
     timemode : str, optional
         'annual' | 'ONDJFM' | 'AMJJAS' | 'DJF' | 'MAM' | 'JJA' | 'SON'. The default is 'annual'.
 
@@ -575,6 +578,34 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                       'MAM': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
                       'JJA': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
                       'SON': f'écarts de maximums avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'mean_cumdiff_ratio': {'annual': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de moyennes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'sum_cumdiff_ratio': {'annual': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]}',
+                      'ONDJFM': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (oct-mar)',
+                      'AMJJAS': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (avr-sep)',
+                      'DJF': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (dec-fev)',
+                      'MAM': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (mar-mai)',
+                      'JJA': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (juin-aout)',
+                      'SON': f'écarts de sommes avec la période {annual_bins[0][0][0]}-{annual_bins[0][1][1]} (sept-nov)'},
+        'mean_deficit': {'annual': 'déficits annuels moyens (précipitations - grandeur)',
+                         'ONDJFM': 'déficits oct-mar moyens (précipitations - grandeur)',
+                         'AMJJAS': 'déficits avr-sep moyens (précipitations - grandeur)',
+                         'DJF': 'déficits dec-fev moyens (précipitations - grandeur)',
+                         'MAM': 'déficits mar-mai moyens (précipitations - grandeur)',
+                         'JJA': 'déficits juin-aout moyens (précipitations - grandeur)',
+                         'SON': 'déficits sept-nov moyens (précipitations - grandeur)'},
+        'sum_deficit': {'annual': 'déficits annuel cumulés (précipitations - grandeur)',
+                         'ONDJFM': 'déficits oct-mar cumulés (précipitations - grandeur)',
+                         'AMJJAS': 'déficits avr-sep cumulés (précipitations - grandeur)',
+                         'DJF': 'déficits dec-fev cumulés (précipitations - grandeur)',
+                         'MAM': 'déficits mar-mai cumulés (précipitations - grandeur)',
+                         'JJA': 'déficits juin-aout cumulés (précipitations - grandeur)',
+                         'SON': 'déficits sept-nov cumulés (précipitations - grandeur)'},
         }
     
     metadata_by_var = {
@@ -612,7 +643,9 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     #%%% Units & colorscale
     dst_dir1 = 'valeurs'
     
-    if mode in ["sum", "min", "max", "mean", "mean_cumdiff", "sum_cumdiff", "min_cumdiff", "max_cumdiff"]:
+    if mode in ["sum", "min", "max", "mean", 
+                "mean_cumdiff", "sum_cumdiff", "min_cumdiff", "max_cumdiff",
+                "mean_deficit", "sum_deficit"]:
         unit = metadata_by_var[main_var][0]
         if mode == "sum":
             zmin = ds[main_var].groupby(
@@ -664,6 +697,14 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         elif mode == 'max_cumdiff':
             zmin = 0
             zmax = 0
+        elif mode == "mean_deficit":
+            zmin = 0
+            zmax = 0
+            dst_dir1 = 'deficits'
+        elif mode == "sum_deficit":
+            zmin = 0
+            zmax = 0
+            dst_dir1 = 'deficits'
 
     elif mode == "ratio":
         unit = "%"
@@ -676,13 +717,20 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
         zmin = 0
         zmax = 100
         dst_dir1 = 'pourcentages precip'
+    
+    elif mode in ['mean_cumdiff_ratio', 'sum_cumdiff_ratio']:
+        unit = "%"
+        zmin = 0
+        zmax = 0
         
     if var in ['T', 'TSUP_H', 'TINF_H']:
         colorscale = "Plasma_r"
     else:
         colorscale = "Viridis_r"
         
-    if mode in ['mean_cumdiff', 'sum_cumdiff', 'min_cumdiff', 'max_cumdiff']:
+    if mode in ['mean_cumdiff', 'sum_cumdiff', 'min_cumdiff', 'max_cumdiff',
+                'mean_deficit', 'sum_deficit', 
+                'mean_cumdiff_ratio', 'sum_cumdiff_ratio']:
         colorscale = 'RdBu'
         if var in ['T', 'TSUP_H', 'TINF_H', 'ETP', 'EVAP']:
             colorscale = 'RdBu_r'
@@ -729,10 +777,10 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     elif mode == 'mean':
         final_map = final_map.groupby(group).mean()
         
-    elif mode == 'mean_cumdiff':
+    elif mode in ['mean_cumdiff', 'mean_cumdiff_ratio']:
         final_map = final_map.groupby(group).mean()
         
-    elif mode == 'sum_cumdiff':
+    elif mode in ['sum_cumdiff', 'sum_cumdiff_ratio']:
         final_map = final_map.groupby(group).sum(min_count = 1)
         
     elif mode == 'min_cumdiff':
@@ -777,6 +825,61 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
 #         zmax = max([zmax, float(final_map.max())])
 #         print("   . Color scale has been adjusted")
 # =============================================================================
+
+    elif mode == 'mean_deficit': # values expressed as differences with PRETOT
+        filename_pretot = f"PRETOT_{file_suffix}"
+        filepath_pretot = os.path.join(file_folder, filename_pretot)    
+        with xr.open_dataset(filepath_pretot, 
+                             decode_coords = 'all', 
+                             decode_times = True) as pretot:
+            pretot = pretot['PRETOT_Q'].sel(
+                time = slice(f"{str(annual_bins[0][0][0])}-10-01", f"{str(annual_bins[-1][1][1])}-09-30")
+                )
+            if timemode == 'ONDJFM':
+                pretot = pretot[(pretot.time.dt.month <= 3) | (pretot.time.dt.month >= 10)].copy()
+            elif timemode == 'AMJJAS':
+                pretot = pretot[(pretot.time.dt.month >= 4) & (pretot.time.dt.month <= 9)].copy()
+            elif timemode == 'DJF':
+                pretot = pretot[(pretot.time.dt.month <= 2) | (pretot.time.dt.month >= 12)].copy()
+            elif timemode== 'MAM':
+                pretot = pretot[(pretot.time.dt.month >= 3) & (pretot.time.dt.month <= 5)].copy()
+            elif timemode == 'JJA':
+                pretot = pretot[(pretot.time.dt.month >= 6) & (pretot.time.dt.month <= 8)].copy()
+            elif timemode == 'SON':
+                pretot = pretot[(pretot.time.dt.month >= 9) & (pretot.time.dt.month <= 11)].copy()
+            elif timemode == 'annual':
+                pretot = pretot.copy()
+            
+            final_map = final_map.groupby(group).mean() - \
+                pretot.groupby(group).mean()
+                
+    elif mode == 'sum_deficit': # values expressed as differences with PRETOT
+        filename_pretot = f"PRETOT_{file_suffix}"
+        filepath_pretot = os.path.join(file_folder, filename_pretot)    
+        with xr.open_dataset(filepath_pretot, 
+                             decode_coords = 'all', 
+                             decode_times = True) as pretot:
+            pretot = pretot['PRETOT_Q'].sel(
+                time = slice(f"{str(annual_bins[0][0][0])}-10-01", f"{str(annual_bins[-1][1][1])}-09-30")
+                )
+            if timemode == 'ONDJFM':
+                pretot = pretot[(pretot.time.dt.month <= 3) | (pretot.time.dt.month >= 10)].copy()
+            elif timemode == 'AMJJAS':
+                pretot = pretot[(pretot.time.dt.month >= 4) & (pretot.time.dt.month <= 9)].copy()
+            elif timemode == 'DJF':
+                pretot = pretot[(pretot.time.dt.month <= 2) | (pretot.time.dt.month >= 12)].copy()
+            elif timemode== 'MAM':
+                pretot = pretot[(pretot.time.dt.month >= 3) & (pretot.time.dt.month <= 5)].copy()
+            elif timemode == 'JJA':
+                pretot = pretot[(pretot.time.dt.month >= 6) & (pretot.time.dt.month <= 8)].copy()
+            elif timemode == 'SON':
+                pretot = pretot[(pretot.time.dt.month >= 9) & (pretot.time.dt.month <= 11)].copy()
+            elif timemode == 'annual':
+                pretot = pretot.copy()
+            
+            final_map = final_map.groupby(group).sum(min_count = 1) - \
+                pretot.groupby(group).sum(min_count = 1)
+                
     
     
     #%%% Heatmap plot
@@ -795,6 +898,25 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
                 zmax = max([zmax, -zmin])
                 zmin = min([-zmax, zmin])
             # print("   . Color scale has been adjusted")
+        
+        elif mode in ['mean_cumdiff_ratio', 'sum_cumdiff_ratio']:
+            temp_map = (temp_map - final_map.loc[{'group': slice(annual_bins[0][0][0], annual_bins[0][1][0])}].mean(dim = 'group')) / temp_map * 100
+            # This adjusts the color based on max among all GROUPED YEARS
+            zmax = max([zmax, float(temp_map.max())])
+            zmin = min([zmin, float(temp_map.min())])
+            # This centers the color scale
+            if (zmax > 0) & (zmin < 0):
+                zmax = max([zmax, -zmin])
+                zmin = min([-zmax, zmin])
+        
+        elif mode in ['mean_deficit', 'sum_deficit']:
+            # This adjusts the color based on max among all GROUPED YEARS
+            zmax = max([zmax, float(temp_map.max())])
+            zmin = min([zmin, float(temp_map.min())])
+            # This centers the color scale
+            if (zmax > 0) & (zmin < 0):
+                zmax = max([zmax, -zmin])
+                zmin = min([-zmax, zmin])
             
         # ---- Update texts and plot annotations
         if timemode == 'ONDJFM':
@@ -1038,7 +1160,7 @@ def plot_map(var, *, file_folder = None, mode = "sum", timemode = 'annual'):
     print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
     print("The generation of all interactive graphic files can take 20 min\n")
     
-    folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\Surfex\SIM2\compressed"
+    folder = r"D:\2- Postdoc\2- Travaux\1- Veille\4- Donnees\8- Meteo\SIM2\compressed"
     
     for timemode in ['annual', 'ONDJFM', 'AMJJAS']:
         for var in ['EVAP', 'ETP', 'PRETOT', 'DRAINC', 'RUNC']:
