@@ -16,6 +16,7 @@
 import numpy as np
 import whitebox
 from os.path import dirname
+from typing import Union
 import os
 import logging
 import imageio
@@ -222,7 +223,7 @@ class Hydraulic:
             If True, the log transform is applied to the formulation.
             log(K(z)) = log(Kmin)-(log(Kmax)-log(Kmin))*np.exp(-hk_decay_value*z)
         """
-        self.hk_decay =  [hk_decay_value, min_value, log_transf] 
+        self.hk_decay =  [hk_decay_value, min_value, log_transf]
     
     def update_sy_decay(self, sy_decay_value: float=0, min_value: float=None, log_transf: bool=False):
         """
@@ -242,7 +243,7 @@ class Hydraulic:
         """
         self.ss_decay =  [ss_decay_value, min_value, log_transf]  
     
-    def update_lay_decay(self, lay_decay_value: float or int):
+    def update_lay_decay(self, lay_decay_value: Union[float, int]):
         """
         Parameters
         ----------

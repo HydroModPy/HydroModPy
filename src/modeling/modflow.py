@@ -458,16 +458,19 @@ class Modflow:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.hk *= np.exp(-kdec*depth)
+                #print('        ', 'Decay without Kmin')
             if kmin != None:
                 depth = np.zeros(self.hk.shape)
-                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:] # self.zbot[:-1,:,:]
                 self.hk = (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
                 # self.hk[self.hk<kmin] = kmin
+                #print('        ', 'Decay with Kmin')
             if (kmin != None) and (hklog_transf==True):
                 depth = np.zeros(self.hk.shape)
-                depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
+                depth[1:,:,:] = self.dem - self.zbot[1:,:,:] # self.zbot[:-1,:,:]
                 self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
                 self.hk = 10**self.hk
+                #print('        ', 'Decay with Kmin and log trasnform')
                 # self.hk[self.hk<10**kmin] = 10**kmin
         # Define values for some thickness (disconnected from the vertical discretization)
         if self.verti_hk != None:
