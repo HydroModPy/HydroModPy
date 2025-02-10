@@ -71,16 +71,16 @@ import importlib
 importlib.reload(src)
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox, folder_root, log_manager
+from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% Initialiser le gestionnaire de logs en mode développement
-log_manager = log_manager.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
-                                    #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
-                                    # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
-                                    # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
-                                     )
+# #%% Initialiser le gestionnaire de logs en mode développement
+# log_manager = toolbox.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
+#                                     #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
+#                                     # overwrite=False # Utiliser overwrite=True pour écraser les fichiers de logs existants
+#                                     # verbose_libraries=True # Utiliser verbose_libraries=True pour afficher les logs des bibliothèques (waring et supérieur)
+#                                      )
 
 #%% DOSSIERS UTILISATEUR
 out_path = folder_root.root_folder_results()
@@ -103,7 +103,7 @@ else:
 dem_name = "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m"
 load_geographic = False
 
-first_year = 2023
+first_year = 2004
 
 ##%%% Définitions :
 # Paramètres cadres
@@ -150,7 +150,8 @@ watershed_name = '_'.join([
     pd.to_datetime("today").strftime("%Y-%m-%d"),
     f"thick_{thick}",
     f"hk_{hk_str}",
-    f"sy_{sy*100:.1f}"
+    f"sy_{sy*100:.1f}",
+    f"Isba_Brut"
 ])
 
 # outlet after the dam ("pont romain")
@@ -211,7 +212,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                            data_path,
                                            r"Meteo\Historiques SIM2"),
                                        first_year=first_year,
-                                       # last_year=2021,
+                                       last_year=2024,
                                        time_step=freq_input,
                                        sim_state=sim_state,
                                        spatial_mean=True,
@@ -224,7 +225,27 @@ BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
 BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
 BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
 BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+#%%
+BV.add_safransurfex("C:\\Users\\basti\\Documents\\Output_HydroModPy\\LakeRes\\Meteo\\REA")
+#%%
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=2004,
+                                       last_year=2024,
+                                       time_step='W',
+                                       sim_state='transient')
+#%%
+BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=2004,
+                                       last_year=2024,
+                                       time_step='W',
+                                       sim_state='transient')
+#%%
 BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
+#%%
 BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
 
 # Paramètres climatiques
@@ -809,7 +830,7 @@ BV.add_settings()
 ### Update
 BV.settings.update_model_name(model_name)
 
-BV.add_geometric() # soon
+#BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Paramètres cadre
