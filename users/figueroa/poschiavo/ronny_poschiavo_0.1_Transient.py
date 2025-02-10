@@ -67,7 +67,7 @@ import importlib
 importlib.reload(src)
 
 from src import watershed_root
-from src.watershed import climatic, driasclimat, driaseau, geographic, geology, geometric, hydraulic, \
+from src.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, \
                           hydrography, hydrometry, intermittency, oceanic, \
                           piezometry, safransurfex, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
@@ -99,7 +99,7 @@ out_path = 'D:/Hydromodpy/examples/' # for example
 
 dem_path = os.path.join(gis_path, 'eu_dem_clipp_ursa_v2.tif')
 load = True
-watershed_name = 'valUrsa_transient_v2'
+watershed_name = 'valUrsa_transient_v3'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_xyv = [2798765.008,1133590.692, 100, 10, 'EPSG:2056'] # [x, y, snap distance, buffer size, crs proj]
@@ -285,35 +285,35 @@ BV.climatic.update_runoff(r, sim_state=sim_state) # from mm to m
 
 BV.climatic.update_first_clim(first_clim)
 
-split_temp = True # divide by perlen 
+dis_perlen = True # divide by perlen 
 
 #%% UPDATE
 
 # Import modules
 BV.add_settings()
-BV.add_geometric() # soon
+# BV.add_geometric() # soon
 BV.add_hydraulic()
 
 # Frame settings
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross)
 
 # Hydraulic settings
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hyd_cond(hyd_cond)
-BV.hydraulic.update_cond_vertical(verti_cond)
+BV.hydraulic.update_hk(hyd_cond)
+# BV.hydraulic.update_cond_vertical(verti_cond)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_lay_decay(poro_decay)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
-BV.settings.update_split_temporal(split_temp)
+BV.settings.update_dis_perlen(dis_perlen)
 
 # Particle tracking settings
 BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
@@ -327,7 +327,7 @@ list_success_modflow = []
 list_model_modflow = []
 
 for i, porosity in enumerate(list_porosity[:]):
-    BV.hydraulic.update_porosity(porosity)
+    BV.hydraulic.update_sy(porosity)
     
     model_name = iD_set_simulations+'_K_'+str("{:.1e}".format(hyd_cond))+'_P_'+str("{:.1e}".format(porosity))
     BV.settings.update_model_name(model_name)
@@ -383,12 +383,12 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
-                                                          actual_date=True, 
+                                                          datetime_format=True, 
                                                           subbasin_results=True,
-                                                          freq_time=freq_time) # or None
+                                                          intermittency_monthly=True) # or None
         
         netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                                  actual_date=True)
+                                                  datetime_format=True)
 
 #%% ---- PLOT
 
@@ -733,8 +733,8 @@ for i, simul in enumerate(simul_list[:]):
     watertable_elevation = np.load(os.path.join(simul, r'_postprocess/watertable_elevation.npy'),
                                    allow_pickle=True).item()
     disM = list_model_modflow[i].dis
-    top_left_x = disM.sr.xul  # Coordenada X de la esquina superior izquierda
-    top_left_y = disM.sr.yul  # Coordenada Y de la esquina superior izquierda
+    top_left_x = list_model_modflow[i].mf.modelgrid.xoffset  # Coordenada X de la esquina superior izquierda
+    top_left_y = list_model_modflow[i].mf.modelgrid.yoffset  # Coordenada Y de la esquina superior izquierda
     cell_size_x = disM.delc.array[0]  # Tamaño de la celda en X
     cell_size_y = disM.delr.array[0]  # Tamaño de la celda en Y   
     y_bor = int((top_left_y - KB4_loc[1]) / cell_size_y)
