@@ -19,6 +19,7 @@ import sys
 import re
 import shutil
 import numbers
+import logging
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -607,8 +608,8 @@ class Streamflow_seepage:
                             
                         # It it is an intermediary reach (tricky), split the segment into 2:
                         if (not is_dnstr) & (not is_upstr):
-                            print(f"Warning: Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
-                            print("Not implemented yet (see compute_data() in streamflow_seepage.py)")
+                            logging.warning(f"Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
+                            logging.info("Not implemented yet (see compute_data() in streamflow_seepage.py)")
 
                         # Remove the segment (if relevant)
                         # ------------------
@@ -859,7 +860,7 @@ class Streamflow_seepage:
                 self.reach_data = self.reach_data[
                     (self.reach_data['i'] != cell[0]) | (self.reach_data['j'] != cell[1]) | (self.reach_data['iseg'] != iseg)
                     ]
-                print(f"row {cell[0]}, {cell[1]}, {iseg} removed")
+                logging.info(f"row {cell[0]}, {cell[1]}, {iseg} removed")
                 # iseg = set(self.reach_data[self.reach_data[['i', 'j']] == cell]['iseg']) \
                 #     - set([self.reach_data[self.reach_data[['i', 'j']] == cell]['iseg'].max()])
         

@@ -812,7 +812,7 @@ class LogManager:
         Parameters
         ----------
         mode : str, optional
-            Logging mode, "dev" or "user". Default is "user".
+            Logging mode. Default is "user".
             - "dev": Logs all messages (DEBUG and above) to both console and file.
             - "verbose": Logs INFO and above messages to both console and file.
             - "quiet": Logs WARNING and above messages to both console and file.

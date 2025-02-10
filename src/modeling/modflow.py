@@ -521,19 +521,19 @@ class Modflow:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
                 self.hk *= np.exp(-kdec*depth)
-                #print('        ', 'Decay without Kmin')
+                logging.debug('        ', 'Decay without Kmin')
             if kmin != None:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:] # self.zbot[:-1,:,:]
                 self.hk = (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
                 # self.hk[self.hk<kmin] = kmin
-                #print('        ', 'Decay with Kmin')
+                logging.debug('        ', 'Decay with Kmin')
             if (kmin != None) and (hklog_transf==True):
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:] # self.zbot[:-1,:,:]
                 self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
                 self.hk = 10**self.hk
-                #print('        ', 'Decay with Kmin and log trasnform')
+                logging.debug('         %s', 'Decay with Kmin and log trasnform')
                 # self.hk[self.hk<10**kmin] = 10**kmin
         # Define values for some thickness (disconnected from the vertical discretization)
         if self.verti_hk != None:
@@ -871,7 +871,7 @@ class Modflow:
                         segment_data[per]['runoff'] = runoff
                         itmp[per] = nss # time-varying inputs
                 elif isinstance(self.streamflow_seepage.runoff, xr.core.dataset.Dataset):
-                    print("xaray.Datasets not implemented yet for runoff input to SFR (modflow.py L781)")
+                    logging.warning("xaray.Datasets not implemented yet for runoff input to SFR (modflow.py L781)")
             
             itmp[0] = nss # time-varying inputs
             irdflag = 0 # to print input data
@@ -1567,7 +1567,7 @@ class Modflow:
                 if export_tif==True:
                     toolbox.export_tif(self.dem_watershed_path, self.lake_vertical_leakage, output_path, -9999)                  
                 self.dict_lake_leakage[item] = self.lake_vertical_leakage
-        print(f"\nNOTE: Lake lateral flows have been non null for {lake_lateralflow_count} time steps\n")
+        logging.info(f"NOTE: Lake lateral flows have been non null for {lake_lateralflow_count} time steps")
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
@@ -1592,7 +1592,7 @@ class Modflow:
             logging.info('  %s','Export accumulation flux')
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
         if lake_leakage == True:
-            print('  ','Export lake leakage')
+            logging.info('  %s','Export lake leakage')
             np.save(self.save_file+'/lake_leakage', self.dict_lake_leakage)
 
         if persistency_index == True:

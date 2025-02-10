@@ -20,6 +20,7 @@ import os
 import sys
 import re
 import datetime
+import logging
 import shutil
 import numbers
 import pandas as pd
@@ -183,14 +184,14 @@ class Lakeres:
         
         # Store/infer lake_id
         if lake_id in self.indexes:
-            print(f"\nErr: Lake/reservoir with id {lake_id} already exists.")
+            logging.error(f"Lake/reservoir with id {lake_id} already exists.")
             return
         if not lake_id:
             if self.n_lakeres == 0:
                 lake_id:int = 0 # initialization
             else:
                 lake_id:int = np.max(self.indexes) + 1
-        print(f"Adding lake '{lake_id}'")
+        logging.info(f"Adding lake '{lake_id}'")
         
         # Lake/reservoir geometry
         self.maskmx_by_lake[lake_id] = maskmx
@@ -294,7 +295,7 @@ class Lakeres:
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic, nper, thickfact, dem, dem_watershed_path):
-        print("\nLakes/Reservoirs: formating all attributes...")
+        logging.info("Lakes/Reservoirs: formating all attributes...")
         
         #%%% Standardize lake identifiers
         # -------------------------------
@@ -380,7 +381,7 @@ class Lakeres:
                     maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
                     maskmx = maskmx.astype(bool)
                     if maskmx.sum() == np.ma.count(masked_dem):
-                        print(f" Warning: The lake maximal level (ssmx) is likely to be too small. It can not naturally exceed {masked_dem.max()} m. To match the required ssmx of {self.ssmx_by_lake[lake_id]} m, the lake surface was considered not continuous with the surrounding topography.")
+                        logging.warning(f"The lake maximal level (ssmx) is likely to be too small. It can not naturally exceed {masked_dem.max()} m. To match the required ssmx of {self.ssmx_by_lake[lake_id]} m, the lake surface was considered not continuous with the surrounding topography.")
                     
                     if self.volmx_by_lake[lake_id]:
                         masked_dem = np.ma.array(dem, 
@@ -388,7 +389,7 @@ class Lakeres:
                                                  fill_value = nodata,
                                                  )
                         equiv_vol = float((self.ssmx_by_lake[lake_id] - masked_dem).sum()*cell_area)
-                        print(f" The specified maximal volume ({self.volmx_by_lake[lake_id]} m3) is discarded because redundant with the specified maximal level (equiv. to {equiv_vol} m3)")
+                        logging.warning(f" The specified maximal volume ({self.volmx_by_lake[lake_id]} m3) is discarded because redundant with the specified maximal level (equiv. to {equiv_vol} m3)")
                         self.volmx_by_lake[lake_id] = equiv_vol
                         
                 
@@ -398,7 +399,7 @@ class Lakeres:
                     # In this situation, maskmx is to be considered as an enlarged
                     # maximal potential extent of the lake, similar to the mask
                     # of the valley around the lake.
-                    print(f" Computing the maximum lake/reservoir level to match with a volume of {self.volmx_by_lake[lake_id]} m3")
+                    logging.info(f" Computing the maximum lake/reservoir level to match with a volume of {self.volmx_by_lake[lake_id]} m3")
                     # elev = np.arange(masked_dem.min(), masked_dem.max(), 0.1)
                     i = 0
                     vol = 0
@@ -411,7 +412,7 @@ class Lakeres:
                     if elev > masked_dem.max():
                         nat_vol = (masked_dem.max() - np.ma.where(masked_dem <= masked_dem.max(),
                                                       masked_dem, masked_dem.max())).sum()*cell_area
-                        print(f" Warning: The lake maximal extent (maskmx) is likely to be too small. It can only naturally contain a volume of {nat_vol} m3. To match the required volmx of {self.volmx_by_lake[lake_id]} m3, the lake surface was considered not continuous with the surrounding topography.")
+                        logging.warning(f"The lake maximal extent (maskmx) is likely to be too small. It can only naturally contain a volume of {nat_vol} m3. To match the required volmx of {self.volmx_by_lake[lake_id]} m3, the lake surface was considered not continuous with the surrounding topography.")
                     
                     maskmx = np.ma.where(masked_dem <= elev-0.1, 1, 0)
                     maskmx = maskmx.astype(bool)
@@ -423,7 +424,7 @@ class Lakeres:
                 else:
                     # In this case, maskmx will be used as a strict mask of the
                     # lake/reservoir, at its maximum extent.
-                    print(f" Warning: The '{lake_id}' lake/reservoir mask will be used as a strict mask of the lake at its maximum extent.")
+                    logging.warning(f"The '{lake_id}' lake/reservoir mask will be used as a strict mask of the lake at its maximum extent.")
                     self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                     
                     
@@ -441,7 +442,7 @@ class Lakeres:
 # =============================================================================
                     # In this case, maskmx will be used as a strick mask of the
                     # lake/reservoir, at its maximal extent.
-                        print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum level of {self.ssmx_by_lake[lake_id]} m")
+                        logging.info(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum level of {self.ssmx_by_lake[lake_id]} m")
                         # The commented following part is about adjusting the lake extent, using ssmx
 # =============================================================================
 #                         maskmx = np.ma.where(masked_dem <= self.ssmx_by_lake[lake_id], 1, 0)
@@ -453,13 +454,13 @@ class Lakeres:
                     else:
                     # In this case, maskmx will be used as a strict mask of the
                     # lake/reservoir, at its maximum extent.
-                        print(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
+                        logging.info(f" Computing the bathymetry to match the defined maximum volume of {self.volmx_by_lake[lake_id]} m3 and maximum extent")
                         self.ssmx_by_lake[lake_id] = masked_dem.max() # Update ssmx (might be used in other functions)
                         depth = self.volmx_by_lake[lake_id] / maskmx.sum()*cell_area
                         dem = np.where(maskmx, self.ssmx_by_lake[lake_id] - depth, dem)
                         
                 else:
-                    print(" Err: Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
+                    logging.error("Maximum lake/reservoir volume (volmx) is required to compute bathymetry (cuboid mode)")
             
                 self.update_dem(geographic, dem)
         
@@ -480,7 +481,7 @@ class Lakeres:
                 temp_lakarr[lakarr==num_id2] = 1
                 intersect = (maskmx*temp_lakarr).sum()
                 if intersect > 0:
-                    print(f" Warning: Lake '{lake_id}' will overwrite lake '{lake_id2}' on {int(intersect)} cells.")
+                    logging.warning(f"Lake '{lake_id}' will overwrite lake '{lake_id2}' on {int(intersect)} cells.")
         
             lakarr[maskmx==1] = num_id
             
@@ -513,7 +514,7 @@ class Lakeres:
 #                 
 #                 intersect = (maskmx*prev_maskmx).sum()
 #                 if intersect > 0:
-#                     print(f"\n NB: Lake n°{lake_id} may overwrite lake n°{idx} on {int(intersect)} cells.")
+#                     logging.info(f"NB: Lake n°{lake_id} may overwrite lake n°{idx} on {int(intersect)} cells.")
 #         
 # =============================================================================
 
@@ -574,7 +575,7 @@ class Lakeres:
             if isinstance(self.stageinit_by_lake[lake_id], (int, float)):
                 stages.append(self.stageinit_by_lake[lake_id])
             else:
-                print(f" Warning: The lake/reservoir '{lake_id}' will be initially considered dry.")
+                logging.warning(f"The lake/reservoir '{lake_id}' will be initially considered dry.")
                 stages.append(float(dem[maskmx==1].min()))
                 
         #%%% Format bedlake leakance
@@ -633,14 +634,14 @@ class Lakeres:
                                                                      geographic)
                                     # flux_frame.loc[climatic.runoff.index, num_id] = climatic.runoff
                                 except: 
-                                    print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic: watershed.climatic.runoff does not exist")
+                                    logging.error(f"{flux} over lake '{lake_id}' cannot be defined from climatic: watershed.climatic.runoff does not exist")
                                     return
                             elif flux == 'EVAPLK':
                                 pd_data = -climatic.where(climatic<0, 0)
                                 # flux_frame.loc[:, num_id] = -climatic.where(
                                 #     climatic<0, 0)
                             else:
-                                print(f" Err: {flux} over lake '{lake_id}' cannot be defined from climatic")
+                                logging.error(f"{flux} over lake '{lake_id}' cannot be defined from climatic")
                                 return
                         
                         # Array file (.csv or .txt): will be read with pandas
@@ -659,7 +660,7 @@ class Lakeres:
                                 pd_data = self.accumulate_runoff(ds, lake_id, lakarr, geographic)
                             else:
                                 # xarray.DataSet: spatial mean over the lake area is extracted to a pandas.DataFrame
-                                print("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
+                                logging.warning("xr.DataSet needs to be converted into pd.DataFrame (not implemented yet)")
                             
                     # Format df to flux_frame
                     if isinstance(settings, pd.DataFrame):
@@ -698,7 +699,7 @@ class Lakeres:
     def update_dem(self, geographic, dem):
         # dem has been modified, and its modifications should also be applied
         # on all dem files.
-        print("Updating DEM files...")
+        logging.info("Updating DEM files...")
         # Update DEM initial file
         # bathy_dem = os.path.join(geographic.reg_path, 'temp_DEM_with_bathymetry.tif')
         
