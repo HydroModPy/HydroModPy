@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import numpy as np
 from osgeo import gdal
 import whitebox
@@ -48,7 +49,7 @@ class Geology:
         fields_obs : TYPE, optional
             Column field label of the geological map shapefile. The default is 'CODE_LEG'.
         """
-        print('Extract geology from specific data')
+        logging.info('Extract geology from specific data')
         
         data_folder = os.path.join(out_path,'results_stable/geology/')
         if not os.path.exists(data_folder):

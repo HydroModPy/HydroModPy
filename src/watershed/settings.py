@@ -14,6 +14,7 @@
 
 # Python
 import numpy as np
+import logging
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
@@ -27,7 +28,7 @@ class Settings:
     """
     
     def __init__(self):
-        print('Init settings module to set model parameter')
+        logging.info('Init settings module to set model parameter')
         
         self.update_well_pumping()
     

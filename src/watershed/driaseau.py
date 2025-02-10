@@ -14,7 +14,8 @@
 
 import geopandas as gpd
 import pandas as pd
-import os 
+import os
+import logging
 import sys
 from os.path import dirname, abspath
 import glob
@@ -63,7 +64,7 @@ class Driaseau:
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
                 
-        print('Extraction des données explore2')
+        logging.info('Extraction des données explore2')
         
         df = pd.DataFrame()
         df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
@@ -76,22 +77,22 @@ class Driaseau:
             # list_vars = ['DRAINC','RUNOFF','EVAPC','tasAdjust','prtotAdjust']
             list_vars = ['Debits','DRAINC','EVAPC','RUNOFFC','SWE','SWI'] # m3/s, mm, mm, mm, mm, -
             
-        print(list_models)
-        print(list_vars)
+        logging.info(list_models)
+        logging.info(list_vars)
         
         for model in list_models:
             models_path = glob.glob(os.path.join(driaseau_path, model + '*'))
             for model in models_path:
-                print('     '+model)
+                logging.info('     %s', model)
                 for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
                     files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
                     # try:
                     for en, file_path in enumerate(files_path):
                         if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
-                            print('          '+file_path)
+                            logging.info('          %s', file_path)
                             self.clip_netcdf(data_folder, file_path, watershed_shp, var)
                     # except:
-                    #     print('NOT FOUND : '+model+'  -  '+var)
+                    #     logging.error('NOT FOUND : %s - %s', model, var)
                     #     pass
     
         # self.extract_values(data_folder, df)

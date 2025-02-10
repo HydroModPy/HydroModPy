@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import datetime
 import pandas as pd
 import geopandas as gpd
@@ -43,7 +44,7 @@ class Hydrometry:
             Variable object of the model domain (watershed).
         """
         
-        print('Extract hydrometry from specific data')
+        logging.info('Extract hydrometry from specific data')
         
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
         if not os.path.exists(data_folder):

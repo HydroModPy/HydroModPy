@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import urllib
 import zipfile
 import geopandas as gpd
@@ -64,7 +65,7 @@ class Piezometry:
         geographic : object
             Variable object of the model domain (watershed).
         """
-        print('Extract piezometry from web or specific data')
+        logging.info('Extract piezometry from web or specific data')
         
         data_folder = os.path.join(out_path,'results_stable','piezometry')
         if not os.path.exists(data_folder):
@@ -127,7 +128,7 @@ class Piezometry:
         bss_csv = 'bss_export_' + str(geographic.dep_code) + '.csv'
         url = 'http://infoterre.brgm.fr/telechargements/ExportsPublicsBSS/' + bss
         #url = 'http://data.cquest.org/brgm/banque_sous_sol/' + bss
-        print('    '+'Piezometric web page loaded')
+        logging.info('    Piezometric web page loaded')
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, filename)
@@ -258,7 +259,7 @@ class Piezometry:
         """
         for code in self.codes_bss:
             code_ = code.replace('_','/')
-            print('    '+code)
+            logging.info('    %s', code)
             if not os.path.exists(data_folder+'/'+code):
                 url = 'https://ades.eaufrance.fr/Fiche/PtEau?Code=' + code_
                 chrome_options = webdriver.ChromeOptions()
@@ -389,7 +390,7 @@ class Piezometry:
         fontprop = toolbox.plot_params(15,15,18,20)
         values_list = ['elevation','depth']
         if value not in values_list:
-            print('You must specify the value you want to display: elevation or depth')
+            logging.warning('You must specify the value you want to display: elevation or depth')
         fig, ax = plt.subplots(figsize=(7,4))
         colors = plt.cm.rainbow(np.linspace(0, 1, len(self.codes_bss)))
         if len(self.codes_bss) == 6:

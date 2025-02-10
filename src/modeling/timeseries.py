@@ -16,6 +16,7 @@
 import flopy
 import numpy as np
 import os
+import logging
 import pandas as pd
 import sys
 try:
@@ -190,7 +191,7 @@ class Timeseries:
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         self.resolution = model_modflow.resolution
         self.extract_results(dem_clip, time, recharge, runoff, self.timeseries_file)
-        print('  ','Export results as timeseries')
+        logging.info('  %s','Export results as timeseries')
 
         ### For sub-catchments
         if subbasin_results == True:
@@ -205,7 +206,7 @@ class Timeseries:
                         dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
                         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()                        
                         self.extract_results(dem_clip, time, recharge, runoff, sub_file)
-                        print('  ','Export results for subbasin'+str(zi+1))
+                        logging.info('  %s %s','Export results for subbasin', str(zi+1))
                     except:
                         pass
             except:
@@ -345,7 +346,7 @@ class Timeseries:
                     step = int(round(len(self.accumulation_flux)/12))
                     compt=0            
                     for i in range(step):
-                        # print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        logging.debug('Compute intermittency: %s / %s', str(i), str(step))
                         interv = list(self.accumulation_flux.items())[inf:sup]
                         for key in range(len(interv)):
                             mask = dem_clip.copy()
@@ -383,7 +384,7 @@ class Timeseries:
                     step = int(round(len(self.accumulation_flux)/52))
                     compt=0            
                     for i in range(step):
-                        # print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        logging.debug('Compute intermittency: %s / %s', str(i), str(step))
                         interv = list(self.accumulation_flux.items())[inf:sup]
                         for key in range(len(interv)):
                             mask = dem_clip.copy()
@@ -421,7 +422,7 @@ class Timeseries:
                     step = int(round(len(self.accumulation_flux)/365))
                     compt=0            
                     for i in range(step):
-                        # print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        logging.debug('Compute intermittency: %s / %s', str(i), str(step))
                         interv = list(self.accumulation_flux.items())[inf:sup]
                         for key in range(len(interv)):
                             mask = dem_clip.copy()
