@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import geopandas as gpd
 import whitebox
 import pandas as pd
@@ -44,7 +45,7 @@ class Intermittency:
         geographic : object
             Variable object of the model domain (watershed).
         """
-        print('Extract intermittency from specific data')
+        logging.info('Extract intermittency from specific data')
         
         data_folder = os.path.join(out_path,'results_stable','intermittency')
         if not os.path.exists(data_folder):
@@ -140,7 +141,7 @@ class Intermittency:
             plt.tight_layout()
             fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
                         bbox_inches='tight', transparent=False)
-            # print(code)
+            logging.debug(code)
             # plt.close()
        
 #%% NOTES

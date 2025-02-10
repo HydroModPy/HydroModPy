@@ -14,6 +14,7 @@
 
 # Python
 import vedo
+import logging
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -77,7 +78,7 @@ class Visualization():
             Structure of the frame figures 'h':horizontal or 'v': vertical. The default is 'v'.
         """
        
-        print('  Plot 2D maps visualization')
+        logging.info('  Plot 2D maps visualization')
        
         if len(object_list) == len(color_scale):
             pass
@@ -87,7 +88,7 @@ class Visualization():
                            (None,None),(None,None),
                            (None,None),(None,None)]
         else:
-            # print('  object_list and color_scale must have the same lenght.')
+            logging.error('  object_list and color_scale must have the same lenght.')
             sys.exit()
         
         def trim_axs(axs, N):
@@ -413,7 +414,7 @@ class Visualization():
             the number of random pathlines displayed
         """
         
-        print('  Plot 3D maps visualization')
+        logging.info('  Plot 3D maps visualization')
         
         vedo.settings.default_backend= 'vtk'
         
@@ -469,7 +470,7 @@ class Visualization():
             #plt += grid_mesh.isolines(5).lw(1).c('k')
     
         except:
-            print("  File vtuvtk grid doesn't exist")
+            logging.error("  File vtuvtk grid doesn't exist")
             
         #try: 
         watertable = os.path.join(self.watershed.simulations_folder, self.modelname,
@@ -528,7 +529,7 @@ class Visualization():
                                     horizontal=False)
             drain_flow.scale([1,1,z_scale])
             #except:
-            #print("VTK watertable doesn't exist")
+            #logging.error("VTK watertable doesn't exist")
             
         #try:
         pathlines = os.path.join(self.watershed.simulations_folder, self.modelname,
@@ -560,7 +561,7 @@ class Visualization():
         #     pathlines_mesh.delete_cells(pts)
         #     pathlines_mesh = pathlines_mesh.subsample(0.5)
         # except:
-        #     print("VTK pathlines doesn't exist")
+        #     logging.error("VTK pathlines doesn't exist")
         #     pass
         # 
 
@@ -594,7 +595,7 @@ class Visualization():
         
         for i in range (0,len(object_list)):
             obj = object_list[i]
-            # print(obj)
+            logging.debug(obj)
             if obj == 'grid':
                 plt.show(grid_mesh,contour,stream,"Topographic elevation [m]", at=i,
                          camera=cam, viewup='z', axes = 13, bg=bg)
@@ -630,7 +631,7 @@ class Visualization():
     
     def interactive_cross_section(self, dem_data, wt_data, river_data, interactive):
         
-        print('  Plot 2D cross-section visualization')
+        logging.info('  Plot 2D cross-section visualization')
         
         # Modules
         mpl.rcParams.update(mpl.rcParamsDefault)
@@ -683,7 +684,7 @@ class Visualization():
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except:
-            # print('Problem to plot contour')
+            logging.warning('Problem to plot contour')
             pass
         
         # Plot rivers
@@ -691,7 +692,7 @@ class Visualization():
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
             main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'), interpolation='none')
         except:
-            # print('Problem to plot streams')
+            logging.warning('Problem to plot streams')
             pass
         
         plt.gca().invert_yaxis()

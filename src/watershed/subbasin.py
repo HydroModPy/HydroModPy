@@ -15,6 +15,7 @@
 # Python
 import sys
 import os
+import logging
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -63,7 +64,7 @@ class Subbasin:
         out_path : str
             Path of the HydroModPy outputs.
         """
-        print('Extract subbasin from specific data')
+        logging.info('Extract subbasin from specific data')
         
         self.sub_snap_dist = sub_snap_dist
         
@@ -86,7 +87,7 @@ class Subbasin:
                 sub_path = os.path.join(self.subbasin_path, station_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
-            # print('     No hydrometry subbasin or problem')
+            logging.debug('     No hydrometry subbasin or problem')
             pass
         
         try:
@@ -100,7 +101,7 @@ class Subbasin:
                 sub_path = os.path.join(self.subbasin_path, onde_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except:
-            # print('     No intermittency subbasin or problem')
+            logging.debug('     No intermittency subbasin or problem')
             pass
         
         try:
@@ -109,7 +110,7 @@ class Subbasin:
                 sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
         except:
-            # print('     No personnal subbasins or problem')
+            logging.debug('     No personnal subbasins or problem')
             pass
 
     #%% SUB-CATCHMENT FROM STATIONS
@@ -153,7 +154,7 @@ class Subbasin:
                                  sub_snap_dist
                                  # geographic.snap_dist
                                  )
-        # print(os.path.join(geographic.reg_fold, 'region_acc.tif'))
+        logging.debug(os.path.join(geographic.reg_fold, 'region_acc.tif'))
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
         if geographic.reg_fold == None:
@@ -162,7 +163,7 @@ class Subbasin:
             wbt.watershed(os.path.join(geographic.reg_fold, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
-        # print(watershed_shp)
+        logging.debug(watershed_shp)
         wbt.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
@@ -186,7 +187,7 @@ class Subbasin:
         Check files in folder and extract 'code_sub','x_outlet','y_outlet'
         """
         path_coord = glob.glob(add_path+'/'+'*')[0]
-        # print(path_coord)
+        logging.debug(path_coord)
         sub_list = pd.read_csv(path_coord, sep=';')
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()

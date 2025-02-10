@@ -16,6 +16,7 @@ import os
 import re
 import math
 import numbers
+import logging
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -177,8 +178,8 @@ def load_to_numpy(file, src_crs=None,
             df = df.drop(columns = ['x', 'y'])
             file_vect = gpd.GeoDataFrame(df, geometry = geometry)
         except:
-            print("Error: The input file should be formated as:")
-            print("    id;x;y\n    0;34500;7456125\n    1;35675;7991500\n    ...\n")
+            logging.error("The input file should be formated as:")
+            logging.error("    id;x;y\n    0;34500;7456125\n    1;35675;7991500\n    ...")
     
     if file_vect is not None: # shapefile
         if base_profile:
@@ -187,17 +188,17 @@ def load_to_numpy(file, src_crs=None,
                 if src_crs: 
                     file_vect.set_crs(crs = src_crs, inplace = True, allow_override = True)
                 else: 
-                    print("Error: Source CRS (src_crs) is required to rasterize.\n")
+                    logging.error("Source CRS (src_crs) is required to rasterize.")
                     return
                     
             if not base_profile['crs'].is_valid:
                 if dst_crs: base_profile['crs'] = dst_crs
                 else: 
-                    print("Error; Destination CRS (dst_crs) is required to rasterize.\n")
+                    logging.error("Destination CRS (dst_crs) is required to rasterize.")
                     return
                     
             # The vector needs to be in the same CRS as the base raster:
-            # print(f"Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'.\n")            
+            logging.debug(f"Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'.")            
             file_vect.to_crs(crs = base_profile['crs'].to_epsg(), inplace = True)
             # Rasterize:
             val = rio.features.rasterize(
@@ -209,7 +210,7 @@ def load_to_numpy(file, src_crs=None,
             # update profile
             data_profile = base_profile
         else: # if there is no base_profile
-            print('RasterizeError: A rasterio profile is required to convert vectoriel data into raster.\n')
+            logging.error('RasterizeError: A rasterio profile is required to convert vectoriel data into raster.')
             return
     
     else: # input file is a raster
@@ -217,7 +218,7 @@ def load_to_numpy(file, src_crs=None,
             data_profile = data.profile
             if src_crs and not data_profile['crs'].is_valid:
                 data_profile['crs'] = src_crs
-                # print(f"The CRS of input data has been set to 'EPSG:{data_profile['crs'].to_epsg()}'.\n")
+                logging.debug(f"The CRS of input data has been set to 'EPSG:{data_profile['crs'].to_epsg()}'.")
             # data_crs = data.crs
             val = data.read(1) # data.read()[0] # extract the first layer
     
@@ -230,10 +231,10 @@ def load_to_numpy(file, src_crs=None,
                 
         if data_profile != base_profile:
             if not data_profile['crs'].is_valid:
-                print('Error: Source CRS (src_crs) is required to reproject.\n')
+                logging.error('Source CRS (src_crs) is required to reproject.')
                 return
             if not base_profile['crs'].is_valid:
-                print('Error: Destination CRS (dst_crs) is required to reproject.\n')
+                logging.error('Destination CRS (dst_crs) is required to reproject.')
                 return
             rio.warp.reproject(source = val, 
                                destination = base_val, 
@@ -353,17 +354,17 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 # Usually this error appears when unable to decode 
                 # time units 'Months since 1901-01-01' with 
                 # "calendar 'proleptic_gregorian'"
-                print("Warning: Unable to decode time units.\n")
+                logging.warning("Unable to decode time units.")
                 with xr.open_dataset(file, decode_coords = 'all', 
                                      decode_times = False) as ds:
                     ds.load()
                     
                 try: ds.time.attrs['units']
                 except: 
-                    print("Error: No information on time units in attributes.\n")
+                    logging.error("No information on time units in attributes.")
                     return
                 # Build back time scale:
-                # print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
+                logging.debug(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
                 timeunit = ds.time.attrs['units'].split()[0].casefold()
                 if timeunit in ['month', 'months', 'mois']:
                     freq = 'MS'
@@ -372,9 +373,9 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                     freq = '1D'
                     freq_info = 'daily'
                 
-                print("   | Note that The format of the origin date is expected to be either")
-                print("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
-                print("   | MM DD YYYY will not be considered.\n")
+                logging.info("   | Note that The format of the origin date is expected to be either")
+                logging.info("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
+                logging.info("   | MM DD YYYY will not be considered.")
                 # The format of the origin date is expected to be either 
                 # YYYY MM DD or DD MM YYYY (with any separator)
                 # The american format MM DD YYYY is not considered
@@ -392,11 +393,11 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                     initdate, periods = int(ds.time[0]) + 1, freq = freq)).iloc[-1]
                 date_index = pd.date_range(start = start_date, 
                                              periods = len(ds.time), freq = freq) 
-                # print(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info}).\n")
+                logging.debug(f"Time axis from {date_index[0]} to {date_index[-1]} ({freq_info}).")
                 ds['time'] = date_index  
         
         else:
-            print(f"Error: Extension {os.path.splitext(file)[-1]} is not recognized by xarray.\n")
+            logging.error(f"Extension {os.path.splitext(file)[-1]} is not recognized by xarray.")
             return
     
     elif isinstance(file, xr.core.dataset.Dataset):
@@ -408,11 +409,11 @@ def load_to_xarray(file, src_crs=None, main_var=None,
     if not src_crs:
         if 'spatial_ref' not in list(ds.coords):
             ds.rio.write_crs(src_crs, inplace = True)
-            # print(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.\n")
+            logging.debug(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.")
     else:
         if not ds.rio.crs.is_valid:
             ds.rio.write_crs(src_crs, inplace = True)
-        # print(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.\n")
+        logging.debug(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.")
     
     data_transform = ds.rio.transform()
     
@@ -424,10 +425,10 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 
         if (data_transform != base_profile['transform']) | (ds.rio.crs != base_profile['crs']):
             if not ds.rio.crs.is_valid:
-                print('Error: Source CRS (src_crs) is required to reproject.\n')
+                logging.error('Source CRS (src_crs) is required to reproject.')
                 return
             if not base_profile['crs'].is_valid:
-                print('Error: Destination CRS (dst_crs) is required to reproject.\n')
+                logging.error('Destination CRS (dst_crs) is required to reproject.')
                 return
             ds_reprj = ds.rio.reproject(dst_crs = base_profile['crs'],
                                              # resolution = (1000, 1000),
@@ -565,7 +566,7 @@ def hydrological_mean(data, accuracy=15):
         data.index = pd.to_datetime(data.index)
     # Safeguard
     if not isinstance(data.index[0], datetime.datetime):
-        print("Error: No recognized time index in data")
+        logging.error("Error: No recognized time index in data")
         return
     
     #% Get the most recent date that falls within the accuracy range
@@ -576,10 +577,10 @@ def hydrological_mean(data, accuracy=15):
     # n_years = np.mean((data.index[-1]-data.index[0])/365.2425)
     
     if (idx - data.index[0]).days < 350:
-        print("HydrologicalMean Warning: Total time range is too short (less than 1 year)")
-        print("    Simple mean is used instead")
+        logging.warning("HydrologicalMean Warning: Total time range is too short (less than 1 year)")
+        logging.warning("    Simple mean is used instead")
     
-    # print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
+    logging.debug(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
 
     avg = data[data.index[0]:idx].mean(numeric_only = False)
 
@@ -798,7 +799,114 @@ def select_period(df, first, last):
     """
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
-  
+
+class LogManager:
+    """
+    A class to configure and manage logging for the application.
+    """
+
+    def __init__(self, mode="verbose", log_dir="logs", overwrite=True, verbose_libraries=False):
+        """
+        Initialize the LogManager.
+
+        Parameters
+        ----------
+        mode : str, optional
+            Logging mode, "dev" or "user". Default is "user".
+            - "dev": Logs all messages (DEBUG and above) to both console and file.
+            - "verbose": Logs INFO and above messages to both console and file.
+            - "quiet": Logs WARNING and above messages to both console and file.
+        log_dir : str, optional
+            Directory where log files will be saved. Default is "logs".
+        overwrite : bool, optional
+            Whether to overwrite existing log files. Default is True.
+        verbose_libraries : bool, optional
+            If True, library logs are set to WARNING; otherwise, they are set to CRITICAL.
+        """
+        
+        self.mode = mode
+        self.log_dir = log_dir
+        self.overwrite = overwrite
+        self.verbose_libraries = verbose_libraries
+        self.logger = logging.getLogger()
+
+        # Validate mode
+        if self.mode not in ["dev", "verbose", "quiet"]:
+            raise ValueError("Invalid mode. Use 'dev', 'verbose' or 'quiet'.")
+
+        self._setup_logging()
+        self._suppress_library_logs()
+
+    def _setup_logging(self):
+        """
+        Configure the logging settings based on the mode.
+        """
+
+        # Define log file paths and ensure the log file directory exists
+        log_file = os.path.join(self.log_dir, "logs", "dev.log")
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+
+        # Remove existing handlers to prevent duplicates
+        # This is necessary when the LogManager is re-initialized (e.g., in a Jupyter notebook or Spyder)
+        if self.logger.hasHandlers():
+            self.logger.handlers.clear()
+
+        # Set the base logger level
+        self.logger.setLevel(logging.DEBUG)
+
+        # Create formatters
+        detailed_formatter_file = logging.Formatter("%(asctime)s [%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s")
+        detailed_formatter_console = logging.Formatter("[%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s")
+        simple_formatter_console = logging.Formatter("[%(levelname)s] %(message)s")
+
+        # Determine file mode based on overwrite parameter
+        file_mode = 'w' if self.overwrite else 'a'
+
+        if self.mode == "dev":
+            # Console handler for dev mode
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            console_handler.setFormatter(detailed_formatter_console)
+            self.logger.addHandler(console_handler)
+            
+        elif self.mode == "verbose":
+            # Console handler for verbose mode
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.INFO)
+            console_handler.setFormatter(simple_formatter_console)
+            self.logger.addHandler(console_handler)
+            
+        elif self.mode == "quiet":
+            # Console handler for quiet mode
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.WARNING)
+            console_handler.setFormatter(simple_formatter_console)
+            self.logger.addHandler(console_handler)
+
+        # File handler for logs (DEBUG and above)
+        # This handler is used in all modes (allows verbose and quiet mode to easily share debug logs)
+        dev_file_handler = logging.FileHandler(log_file, mode=file_mode, encoding='utf-8')
+        dev_file_handler.setLevel(logging.DEBUG)
+        dev_file_handler.setFormatter(detailed_formatter_file)
+        self.logger.addHandler(dev_file_handler)
+
+    def _suppress_library_logs(self):
+        """
+        Suppress logs from third-party libraries while keeping custom logs visible.
+        """
+        libraries_to_silence = [
+            "fiona",
+            "rasterio",
+            "urllib3",
+            "geopy",
+            "matplotlib",
+            "PIL",
+        ]
+
+        level = logging.WARNING if self.verbose_libraries else logging.CRITICAL
+
+        for library in libraries_to_silence:
+            logging.getLogger(library).setLevel(level)
 
 #%% DISPLAY 
 
