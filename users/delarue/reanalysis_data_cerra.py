@@ -34,7 +34,7 @@ import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LongitudeFormatter, LatitudeFormatter
 from cartopy.mpl.ticker import LongitudeLocator, LatitudeLocator
 from matplotlib.ticker import MaxNLocator
-#%%
+#%% Functions
 
 def map_extent(region, buffer=0):
     """
@@ -46,6 +46,7 @@ def map_extent(region, buffer=0):
     - buffer (float): A factor to extend the bounding box by, as a proportion of the region's extent.
 
     Returns:
+        TODO: to lat long (traditional order)
     - list: [lon_min, lon_max, lat_min, lat_max] representing the extent.
     """
     
@@ -55,7 +56,7 @@ def map_extent(region, buffer=0):
             extent = [-25, 45, 32, 72]
         elif region == 'alps':
             # Approximate bounding box for the Alps
-            extent = [4, 17, 43, 49]
+            extent = [4, 17.5, 43, 49]
         else:
             raise ValueError(f"Region '{region}' is not supported.")
     elif isinstance(region, gpd.GeoDataFrame):
@@ -98,8 +99,7 @@ def map_extent(region, buffer=0):
     
     return extent
 
-#%%
-
+#%% Reanalysis class
 class ReanalysisData:
 
     def __init__(self, file_path):
@@ -125,12 +125,20 @@ class ReanalysisData:
                                  self.dataset.coords['longitude'].max().values,
                                  self.dataset.coords['latitude'].max().values]
       
-            print(f"Data loaded from {self.file_path}")
+            print(f">>Reanalysis: data loaded from {self.file_path}")
         except Exception as e:
-            print(f"Error loading data: {e}")
+            print(f">>Reanalysis: error loading data: {e}")
                 
-            
-    
+    def update_bounds(self):          
+        try:
+            self.total_bounds = [self.dataset.coords['longitude'].min().values,
+                                 self.dataset.coords['latitude'].min().values,
+                                 self.dataset.coords['longitude'].max().values,
+                                 self.dataset.coords['latitude'].max().values]
+      
+            print(f">>Reanalysis: data loaded from {self.file_path}")
+        except Exception as e:
+            print(f">>Reanalysis: error loading data: {e}")
     
     def display_timestep(self, variable_name, timestep_index = 0, title = '', 
                          focus = True, buffer = 0, pixel = False ):
@@ -211,8 +219,7 @@ class ReanalysisData:
             data.plot(ax = axis)  
             axis.set_xlabel('time')
             axis.set_ylabel(variable)
-            axis.set_title(variable)
-            
+            axis.set_title(variable)            
         return data
     
     def close(self):
@@ -221,12 +228,12 @@ class ReanalysisData:
             """
             if self.dataset is not None:
                 self.dataset.close()
-                print("Dataset closed.")
+                print(">>Reanalysis: dataset closed.")
             else:
-                print("No dataset to close.")
+                print(">>Reanalysis: no dataset to close.")
     
  
-    
+#%% ERA5 data classe  
 class Era5data(ReanalysisData):
     
     STANDARD_CONVERSIONS = {
@@ -248,7 +255,7 @@ class Era5data(ReanalysisData):
                                      self.dataset.coords['latitude'].min().values,
                                      self.dataset.coords['longitude'].max().values,
                                      self.dataset.coords['latitude'].max().values]
-                print(f"Data loaded from {self.file_path}")
+                print(f">>era5: Data loaded from {self.file_path}")
                 
             elif os.path.isdir(self.file_path):  # Check if the path is a directory
                 # Get all netCDF files in the directory
@@ -257,19 +264,19 @@ class Era5data(ReanalysisData):
                 nc_files = [item for sublist in nc_files for item in sublist]
 
                 if not nc_files:
-                    print(f"No NetCDF files found in {self.file_path}")   
+                    print(f">>era5: no NetCDF files found in {self.file_path}")   
                 dataset = xr.open_mfdataset(nc_files, engine='netcdf4', combine='by_coords')
                 self.dataset = dataset
                 self.dataset = self.dataset.rename({'valid_time':'time'})
 
-                print(f"Data loaded from {len(nc_files)} CSV files in {self.file_path}")   
+                print(f">>era5: data loaded from {len(nc_files)} CSV files in {self.file_path}")   
                 
             # ERA raw to standard
             if standard:
                 self.to_standard()  
             
         except Exception as e:
-            print(f"Error loading data: {e}")
+            print(f">>era5: error loading data: {e}")
     
 
             
@@ -288,63 +295,309 @@ class Era5data(ReanalysisData):
             if var_name in self.STANDARD_CONVERSIONS:
                 # Apply the conversion if the variable has a corresponding function
                 if verbose:
-                    print(f"Applying conversion to {var_name}")
+                    print(f">>era5: applying conversion to {var_name}")
                 conversion_func = self.STANDARD_CONVERSIONS[var_name]
                 self.dataset[var_name] = conversion_func(self.dataset[var_name])
             if var_name in self.STANDARD_VARIABLES:
                 # Apply the name changes if the variable has a standard name
                 new_name = self.STANDARD_VARIABLES[var_name]
                 if verbose:
-                    print(f"Change variable name to {new_name}")                
+                    print(f">>era5: change variable name to {new_name}")                
                 self.dataset = self.dataset.rename({var_name : new_name})
              
+                
+#%% CERRA data class
+
+class CerraData(ReanalysisData):
+    
+    STANDARD_CONVERSIONS = {
+        't2m': lambda x: x - 273.15
+        }
+    STANDARD_VARIABLES = {
+        't2m': 'temperature_2m_C'
+        }
+    
+    
+    def load_data(self, standard=False):
+        """
+        Load the NetCDF data into an xarray dataset.
+        """
+        try:
+            if self.file_path[-3:] == '.nc':
+                self.dataset = xr.open_dataset(self.file_path,engine='netcdf4')
+                self.dataset = self.dataset.rename({'valid_time':'time'})
+                self.dataset['longitude'] = self.dataset['longitude'].where(
+                                                self.dataset['longitude'] <= 180, 
+                                                self.dataset['longitude'] -  360)
+                
+                self.total_bounds = [self.dataset.coords['longitude'].min().values,
+                                     self.dataset.coords['latitude'].min().values,
+                                     self.dataset.coords['longitude'].max().values,
+                                     self.dataset.coords['latitude'].max().values]
+                print(f">>cerra: data loaded from {self.file_path}")
+                
+            elif os.path.isdir(self.file_path):  # Check if the path is a directory
+                # Get all netCDF files in the directory
+                year_folders = [f'{self.file_path}{f}/' for f in os.listdir(self.file_path)]
+                nc_files = [[f'{y}/{f}' for f in os.listdir(y) if f.endswith('.nc')] for y in year_folders]
+                nc_files = [item for sublist in nc_files for item in sublist]
+
+                if not nc_files:
+                    print(f">>cerra: no NetCDF files found in {self.file_path}")   
+                dataset = xr.open_mfdataset(nc_files, engine='netcdf4', combine='by_coords')
+                self.dataset = dataset
+                self.dataset = self.dataset.rename({'valid_time':'time'})
+
+                print(f">>cerra: data loaded from {len(nc_files)} CSV files in {self.file_path}")   
+                
+            # CERRA raw to standard
+            if standard:
+                self.to_standard()  
+            
+        except Exception as e:
+            print(f">>cerra: error loading data: {e}")
+    
+    def crop_dataset(self, crop_coords = 'alps', label = 'crop',
+                     save = True, inplace = True, verbose = False):
+        """
+        Parameters
+        ----------
+        crop_coords : TYPE, optional 
+            if list coords [lat_min, lat_max, lon_min, lon_max]
+            if string in [alps, europe]
+            DESCRIPTION. The default is 'alps'.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        if isinstance(crop_coords, list):
+            [lat_min, lat_max, lon_min, lon_max] = crop_coords 
+
+        elif isinstance(crop_coords, str):
+            if crop_coords == 'alps':
+                [lat_min, lat_max, lon_min, lon_max] = [43, 49, 4, 17.5]
+                if label == 'crop':
+                    label = 'alps'
+        else:
+            print('>>cerra: provided crop_coords not valid')
+            return 0
+        
+        crop_dataset = self.dataset.sel(y=slice(lat_min, lat_max), x=slice(lon_min, lon_max))
+        
+        if inplace: 
+            self.dataset = crop_dataset
+            self.update_bounds()
+            
+        # Save the cropped data into a new NetCDF file
+        if save:
+            if isinstance(save,bool):
+                folder = self.file_path[:-7]
+                year = self.file_path[-7:-3]
+                print(folder)
+                new_file_path = f'{folder}{year}_{label}.nc'
+                
+            elif isinstance(save,str):
+                if os.path.isdir(save):
+                    year = self.file_path[-7:-3]
+                    new_file_path = f'{save}{year}_{label}.nc'
+            else:
+                new_file_path = f'./{year}_{label}.nc'
+                print('>>cerra: invalid save location\n>>>>>>>> data saved in the current folder')
+                
+            if verbose :
+                info = f'>>cerra: cropped data saved at {new_file_path}'
+                print(info)                
+            crop_dataset.to_netcdf(new_file_path)
+            
+        return crop_dataset
+    
+    
+    
+
+    def display_timestep(self, variable_name, timestep_index = 0, title = '', 
+                          focus = True, buffer = 0, pixel = False ):
+        """
+        Display a specific time step for a given variable from the NetCDF dataset.
+        
+        :param variable_name: Name of the variable to plot (e.g., 'temperature', 'u10', etc.)
+        :param timestep_index: Index of the time step to display (default is 0, i.e., the first time step)
+        """
+        # Extract the variable data from the dataset
+        variable_data = self.dataset[variable_name].isel(time = timestep_index)
+        
+        # Extract the time for the plot title (assuming 'time' variable exists in your dataset)
+        time_label = variable_data.time.values
+        # Convert to a human-readable format (e.g., using pandas if it's a numpy.datetime64 object)
+        time_str = pd.to_datetime(time_label).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Plotting
+        # Create the figure and axis with PlateCarree projection (latitude/longitude)
+        fig = plt.figure(figsize=(10, 10),layout="constrained")
+        axis = plt.axes(projection=ccrs.PlateCarree())
+        
+        # Add coastlines and gridlines
+        background = True
+        if background:
+            axis.coastlines()
+            axis.add_feature(cfeature.BORDERS, linestyle=':')
+        
+        # Define gridline settings (latitude and longitude intervals)
+        # Add gridlines with customized arguments
+        # TODO: change ticks (0.25°)
+        # gridlines = axis.gridlines(
+        #                 draw_labels=True,          # Draw the labels (longitude/latitude)
+        #                 linewidth= 0.1               # Gridline width
+        #                 )
+        
+        # Set custom limits to focus around a catchment (e.g., lat/lon bounding box)
+        # Example coordinates: [min_lon, max_lon, min_lat, max_lat]
+        if isinstance(focus,bool):
+            catchment_extent = map_extent(focus, buffer)
+        else:
+            catchment_extent = map_extent(focus, buffer)
+        axis.set_extent(catchment_extent, crs=ccrs.PlateCarree())
+        
+        # Plot the temperature data
+        variable_data.plot(ax=axis, 
+             transform=ccrs.PlateCarree(),         
+             cbar_kwargs={'shrink': 0.3,
+                          'label': f'{variable_name}',
+                          'extend': 'both'})
+           
+        # Plot pixel centers
+        if pixel:
+            lon, lat = np.meshgrid(self.dataset.longitude.values, self.dataset.latitude.values)
+        
+            # Flatten the meshgrid to 1D arrays for plotting
+            x_pixels = lon.flatten()
+            y_pixels = lat.flatten()
+            
+            axis.plot(x_pixels,y_pixels,'+k', transform=ccrs.PlateCarree())
+        
+        
+        if isinstance(focus,gpd.GeoDataFrame):
+            focus.plot(ax=axis,color='yellow', alpha=1, linewidth=2)       
+            
+        # Add figure title
+        if title == '':
+            title = f"{variable_name} ({time_str})"
+        
+        axis.set_title(title)
+        
+        plt.show()        
+        return axis
+    
+    def to_standard(self, verbose=True):
+        """
+        Apply necessary conversions and variable name changes
+        to variables in the xarray dataset.
+        Converts variables if needed (e.g., units conversion).
+        
+        :param dataset: The xarray dataset to process.
+        :return: The modified xarray dataset.
+        """
+    
+        # Iterate over each variable in the dataset
+        for var_name in self.dataset.data_vars:
+            if var_name in self.STANDARD_CONVERSIONS:
+                # Apply the conversion if the variable has a corresponding function                
+                conversion_func = self.STANDARD_CONVERSIONS[var_name]
+                self.dataset[var_name] = conversion_func(self.dataset[var_name])
+                if verbose:
+                    print(f">>cerra: apply conversion to {var_name}")
+            if var_name in self.STANDARD_VARIABLES:
+                # Apply the name changes if the variable has a standard name
+                new_name = self.STANDARD_VARIABLES[var_name]
+                self.dataset = self.dataset.rename({var_name : new_name})
+                if verbose:
+                    print(f">>cerra: change variable name to {new_name}") 
+             
+
+
+
+
 #%% Example usage:
 if __name__ == "__main__":
+
+    # command = input("Select an action ['load' 'display' 'plot' 'close' 'stop']:")
+
+    # Define path polygone
+    polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
+    polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
+    # Load the polygon
+    polygon = gpd.read_file(polygon_path)
+    polygon = polygon.to_crs(epsg=4326) 
+
+    year = input("Year [1984-2022]:")
+    ## Case open one file
+    # Define path data
+    path_data = f'L:/_Alps/_public_database/_climate/cerra_forecast/2m_temperature/{year}/{year}.nc'
+    # Initialize the object with the NetCDF file path        
+    data = CerraData(path_data) 
+    data.load_data(standard = False)
+    print(data.dataset)
+    data.crop_dataset('alps')
+
+
+    # data.display_timestep('t2m',focus = [-18,75,15,70])              
+
+    data.close()
+
+# if __name__ == "__main__":
     
-    example = True
-    while example:
-        command = input("Give the number of an example case [0 1 2 'close all' 'stop']:")
+#     example = True
+#     while example:
+#         command = input("Select an action ['load' 'display' 'plot' 'close' 'stop']:")
     
-        # Define path polygone
-        polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
-        polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
-        # Load the polygon
-        polygon = gpd.read_file(polygon_path)
-        polygon = polygon.to_crs(epsg=4326) 
+#         # Define path polygone
+#         polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
+#         polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
+#         # Load the polygon
+#         polygon = gpd.read_file(polygon_path)
+#         polygon = polygon.to_crs(epsg=4326) 
         
-        if int(command) == 0:
-            ## Case open one file
-            # Define path era5 data
-            path_data = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/1980/1.nc'
-            # Initialize the ERA5Data object with the NetCDF file path        
-            era5_data = Era5data(path_data)  
-            era5_data.load_data()
-            print(era5_data.dataset)  
+#         if command == 'load':
+#             year = input("Year [1984-2022]:")
+#             ## Case open one file
+#             # Define path data
+#             path_data = f'L:/_Alps/_public_database/_climate/cerra_forecast/2m_temperature/{year}/{year}.nc'
+#             # Initialize the object with the NetCDF file path        
+#             data = CerraData(path_data)  
+#             data.load_data()
+#         elif command == 'display':
+#             if data:
+#                 print(data.dataset)  
         
+#         elif command == 'plot':
+
+#             data.display_timestep('t2m',focus = [74,343,20,64])              
+
+#             # data.display_timestep('temperature_2m_C', focus = polygon, buffer = 1)
+#             # data.close()
             
-            era5_data.display_timestep('temperature_2m_C', focus = polygon, buffer = 1)
-            era5_data.close()
-            
-        elif int(command) == 1:
-            ## Case open all file in specfic folders
-            path_data_2 = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/'
-            era5_data_2 = Era5data(path_data_2)  
-            era5_data_2.load_data()
-            print(era5_data_2.dataset)    
-            era5_data_2.display_timestep('temperature_2m_C', focus='alps',pixel=True)
+#         # elif int(command) == 1:
+#         #     ## Case open all file in specfic folders
+#         #     path_data_2 = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/'
+#         #     era5_data_2 = Era5data(path_data_2)  
+#         #     era5_data_2.load_data()
+#         #     print(era5_data_2.dataset)    
+#         #     era5_data_2.display_timestep('temperature_2m_C', focus='alps',pixel=True)
             
             
-        elif int(command) == 2:
-            era5_data_2.extract_TimeSerie(46, 10, 'temperature_2m_C')
+#         # elif int(command) == 2:
+#         #     era5_data_2.extract_TimeSerie(46, 10, 'temperature_2m_C')
         
-        elif command == 'close all':
-            era5_data_2.close()
+#         elif command == 'close':
+#             data.close()
             
-        elif command == 'stop':
-            example = False
+#         elif command == 'stop':
+#             example = False
             
-        else:
-            print('???')
+#         else:
+#             print('???')
     
     
 #     # Dev extraction TimeSerie
