@@ -203,9 +203,17 @@ class ReanalysisData:
         plt.show()        
         return axis
     
-    def extract_TimeSerie(self,lat,log,variabe):
-        
+    def extract_TimeSerie(self,lat,lon,variable,display = True):
         # TODO: to code 
+        data = self.dataset[variable].sel(latitude=lat, longitude=lon)
+        if display:
+            fig,axis = plt.subplots(1,1,figsize=(10, 10),layout="constrained")
+            data.plot(ax = axis)  
+            axis.set_xlabel('time')
+            axis.set_ylabel(variable)
+            axis.set_title(variable)
+            
+        return data
     
     def close(self):
             """
@@ -290,36 +298,53 @@ class Era5data(ReanalysisData):
                     print(f"Change variable name to {new_name}")                
                 self.dataset = self.dataset.rename({var_name : new_name})
              
-#%%
-# Example usage:
-# if __name__ == "__main__":
+#%% Example usage:
+if __name__ == "__main__":
     
-#     # ## Case open one file
-#     # # Define paths
-#     # path_data = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/1980/1.nc'
-#     # # Initialize the ERA5Data object with the NetCDF file path        
-#     # era5_data = Era5data(path_data)  
-#     # era5_data.load_data()
-#     # print(era5_data.dataset)
-#     # # Define paths
-#     # polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
-#     # polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
+    example = True
+    while example:
+        command = input("Give the number of an example case [0 1 2 'close all' 'stop']:")
     
-#     # # Load the polygon
-#     # polygon = gpd.read_file(polygon_path)
-#     # polygon = polygon.to_crs(epsg=4326) 
-    
-#     # era5_data.display_timestep('temperature_2m_C', focus = polygon, buffer = 1)
-    
-#     # ## Case open all file in specfic folders
-#     # path_data_2 = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/'
-#     # era5_data_2 = Era5data(path_data_2)  
-#     # era5_data_2.load_data()
-#     # print(era5_data_2.dataset)
-    
-#     # era5_data_2.display_timestep('temperature_2m_C', focus='alps',pixel=True)
-    
-#     # era5_data_2.close()
+        # Define path polygone
+        polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
+        polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
+        # Load the polygon
+        polygon = gpd.read_file(polygon_path)
+        polygon = polygon.to_crs(epsg=4326) 
+        
+        if int(command) == 0:
+            ## Case open one file
+            # Define path era5 data
+            path_data = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/1980/1.nc'
+            # Initialize the ERA5Data object with the NetCDF file path        
+            era5_data = Era5data(path_data)  
+            era5_data.load_data()
+            print(era5_data.dataset)  
+        
+            
+            era5_data.display_timestep('temperature_2m_C', focus = polygon, buffer = 1)
+            era5_data.close()
+            
+        elif int(command) == 1:
+            ## Case open all file in specfic folders
+            path_data_2 = 'L:/_Alps/_public_database/_climate/era5/_hourly/2m_temperature/'
+            era5_data_2 = Era5data(path_data_2)  
+            era5_data_2.load_data()
+            print(era5_data_2.dataset)    
+            era5_data_2.display_timestep('temperature_2m_C', focus='alps',pixel=True)
+            
+            
+        elif int(command) == 2:
+            era5_data_2.extract_TimeSerie(46, 10, 'temperature_2m_C')
+        
+        elif command == 'close all':
+            era5_data_2.close()
+            
+        elif command == 'stop':
+            example = False
+            
+        else:
+            print('???')
     
     
 #     # Dev extraction TimeSerie
