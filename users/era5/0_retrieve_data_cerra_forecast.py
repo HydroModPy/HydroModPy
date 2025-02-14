@@ -18,16 +18,19 @@ warnings.filterwarnings("ignore")
 main_folder = "F:/_projects/_current/_alps/_cerra_forecast"
 os.makedirs(main_folder, exist_ok=True)
 
-# Initialize log file for failures
-failure_log_file = os.path.join(main_folder, "failed_requests_log.csv")
-if not os.path.exists(failure_log_file):
-    with open(failure_log_file, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Variable", "Year", "Month", "Error"])
-
 # Current date for run identification
 today = date.today().strftime("%b-%d-%Y")
 print(f"\nRUN at\nnow = {today}\n")
+
+# Initialize log file for failures
+name_log = "failed_requests_log_" + today + ".csv"
+failure_log_file = os.path.join(main_folder, name_log)
+if not os.path.exists(failure_log_file):
+    with open(failure_log_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Variable", "Year", "Error"])
+
+
 
 # Variables and settings
 possible_variable = [
@@ -69,25 +72,23 @@ possible_variable = [
 
 
 selected_variables = [
-    '2m_temperature', 
-    '2m_relative_humidity', 
-    'albedo', 
-    'evaporation',
+    'total_precipitation',
+    'surface_net_solar_radiation',
     'snow_depth', 
     'snow_depth_water_equivalent', 
-    'total_precipitation',
-    'surface_net_solar_radiation']
+    '2m_relative_humidity', 
+    'albedo', 
+    'evaporation']
 
+
+
+
+
+# start = 1984
 start = 1984
 stop = 2022
 years = np.linspace(start, stop, stop - start + 1).astype(int)
-months = np.linspace(1, 12, 12).astype(int)
 
-# # years = 2022
-# # months = np.linspace(1, 12, 12).astype(int)
-# months = 11
-# # years = np.array([years]).astype(int)
-# months = np.array([months]).astype(int)
 
 #%%
 
@@ -144,8 +145,8 @@ for v in selected_variables:
         try:
             client.retrieve(dataset, request, name_to_save)
             end_time = time.time()
-            duration = end_time - start_time
-            print(f"Time taken for {variable_to_retrieve} for {year_to_retrieve}: {duration:.2f} seconds\n")
+            duration = (end_time - start_time)/60
+            print(f"Time taken for {variable_to_retrieve} for {year_to_retrieve}: {duration:.2f} minutes\n")
         except Exception as e:
             error_message = str(e)
             print(f"Failed to download {variable_to_retrieve} for {year_to_retrieve}: {error_message}\n")
