@@ -261,7 +261,7 @@ model_modflow = BV.preprocessing_modflow(for_calib=False)
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=False)
 #%% Read roscience file
 import pandas as pd
-geom_stage = 'stage1'               #Choose geomechanical model stage 1,2,3,4
+geom_stage = 'stage2'               #Choose geomechanical model stage 1,2,3,4
 
 csv_path = "D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/Geomechanic_model/Models/Ursa_rot0/Ursa_rot0_data_"+geom_stage+"_nodeMaterial.csv"
 gmc = pd.read_csv(csv_path)
@@ -402,8 +402,8 @@ plotter.camera_position = [0.75,-1,0.75]
 # _ = plotter.add_background_image(examples.mapfile)
 # plotter.Plotter(off_screen=True)
 # plotter.screenshot("D:/"+geom_stage+".png")
-# plotter.show()
-# sys.exit(1)
+plotter.show()
+sys.exit(1)
 #%% MODFLOW
 
 iD_set_simulations = geom_stage
