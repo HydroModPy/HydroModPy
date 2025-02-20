@@ -152,9 +152,11 @@ thick = 50 # if bottom is None, aquifer thickness
 cond_drain = None # or value of conductance
 sy = 1 / 100 # -
 
+KR_ar = np.geomspace(1e0, 1e4, 15)
+
 ########## LOOP ##########
-list_hyd_cond = np.array([4e-1, 8e-1]) # m/day
-# list_hyd_cond = np.geomspace(1e-2,1e2,10)
+list_hyd_cond = np.array([7.17e-1]) # m/day
+# list_hyd_cond = recharge*KR_ar
 
 # Boundary settings
 bc_left = None # or value
@@ -201,7 +203,7 @@ BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_
 
 #%% MODFLOW
 
-iD_set_simulations = 'explorK_test1'
+iD_set_simulations = 'explorKR_test0'
 
 list_model_name = []
 list_success_modflow = []
@@ -210,12 +212,12 @@ list_model_modflow = []
 for hyd_cond in list_hyd_cond:
     BV.hydraulic.update_hk(hyd_cond)
     
-    model_name = iD_set_simulations+'_'+str(round(hyd_cond,3))
+    model_name = iD_set_simulations+'_'+str(round(hyd_cond/recharge,1))
     BV.settings.update_model_name(model_name)
     print(model_name)
     
     model_modflow = BV.preprocessing_modflow(for_calib=False)
-    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+    success_modflow = BV.processing_modflow(model_modflow, write_model=False, run_model=False)
     
     list_model_name.append(model_name)
     list_success_modflow.append(success_modflow)
@@ -236,7 +238,7 @@ d = dd.io.load(h5file)
 list_model_name = d['list_model_name'][:]
 list_success_modflow = d['list_success_modflow'][:]
 list_model_modflow = d['list_model_modflow'][:]
-
+# sys.exit(1)
 #%% POSTPROCESSING
 
 for model_name, success_modflow, model_modflow in zip(list_model_name,
@@ -267,7 +269,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 #%% ---- PLOT
 
 #%% CROSS
-
+"""
 compt = 1
 
 for model_name, success_modflow, model_modflow in zip(list_model_name,
@@ -354,7 +356,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     #             'CROSS_'+model_name+'_'+str(compt)+'.png'),
     #             bbox_inches='tight')
 
- 
+""" 
 #%% MAP
 import rasterio
 from rasterio.plot import show
@@ -430,13 +432,14 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     # im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
     # im_cont = ax.imshow(contour, alpha=1, cmap=mpl.colors.ListedColormap('k'))
     # im_obs = ax.imshow(obs_river_data, alpha=1, cmap=mpl.colors.ListedColormap('navy'))
-    # im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7, extent=extent2)
+    im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7, extent=extent2)
     im_seep = ax.imshow(seep_river_data, cmap=mpl.colors.ListedColormap('darkorange'), alpha=0.7, extent=extent2)
 
     # ax.set_xlabel('X [pixels]')
     # ax.set_ylabel('Y [pixels]')
     # ax.set_title('K = '+'{:.2e}'.format(model_modflow.hk.mean()/24/3600)+' m/s')
-    ax.set_title('K = '+'{:.1e}'.format(model_modflow.hk.mean())+' m/d')
+    # ax.set_title('K = '+'{:.1e}'.format(model_modflow.hk.mean())+' m/d')
+    ax.set_title('K/R = '+'{:.1f}'.format(model_modflow.hk.mean()/recharge))
     ax.imshow(line, cmap=mpl.colors.ListedColormap('k'), extent=extent1)
     ax.plot(KB4_loc[0],KB4_loc[1], 'r*')
     plt.axis('off')
@@ -451,7 +454,95 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     # fig.savefig(os.path.join(model_modflow.save_fig,
     #             'MAP_'+model_name+'_'+str(compt)+'.png'),
     #             bbox_inches='tight')
+#%% MAP outlet flow
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+
+lin0 = os.path.join(stable_folder, 'geographic', 'watershed_contour.tif')
+mask0 = os.path.join(stable_folder, 'geographic', 'watershed_dem.tif')
+WC0 = os.path.join(stable_folder, 'geographic', 'watershed.shp')
+
+WC_shp = gpd.read_file(WC0)
+stream_obs_clip = gpd.clip(stream_obs, WC_shp)
+
+with rasterio.open(mask0) as src:
+    # Leer el raster y obtener las coordenadas
+    data = src.read(1)  # Leer la primera banda
+    bounds = src.bounds  # Coordenadas de los bordes
+    transform = src.transform  # Transformación para georreferenciar
+    extent2 = (bounds.left, bounds.right, bounds.bottom, bounds.top)
+
+with rasterio.open(lin0) as src:
+    # Leer el raster y obtener las coordenadas
+    data = src.read(1)  # Leer la primera banda
+    bounds = src.bounds  # Coordenadas de los bordes
+    transform = src.transform  # Transformación para georreferenciar
+    extent1 = (bounds.left, bounds.right, bounds.bottom, bounds.top)
+
+line = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_contour.tif'))
+line = np.ma.masked_where(line <= 0, line)
+
+mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
+for model_name, success_modflow, model_modflow in zip(list_model_name,
+                                                      list_success_modflow,
+                                                      list_model_modflow):
+
+    fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+
+    stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+    simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
     
+    stream_obs_clip.plot(ax=ax, edgecolor="cyan",linewidth=0.5)
+    # ax.set_title(str(year)[0:10] + '   ' + '$A_{sat}$ = ' + str(val.round(1)) + ' [%]',
+    #              pad=10, fontsize=10)
+    ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0, extent=extent2)
+
+    # dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
+    # dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+    
+    # contour = imageio.imread(BV.geographic.watershed_contour_tif)
+    # contour = np.ma.masked_where(contour < 0, contour)
+    
+    # obs_river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
+    #                                              'regional stream network.tif'))
+    # obs_river_data = np.ma.masked_where(obs_river_data < 0, obs_river_data)
+    
+    seep_river_data = imageio.imread(os.path.join(simulations_folder, model_name,
+                                                  r'_postprocess/_rasters/outflow_drain_t(0).tif'))
+    seep_river_data = np.ma.masked_where((seep_river_data <= 0) | (mask <0), seep_river_data)
+    # seep_river_data = rasterio.mask(seep_river_data, WC0)
+    
+    
+    sim_river_data = imageio.imread(os.path.join(simulations_folder, model_name,
+                                                 r'_postprocess/_rasters/accumulation_flux_t(0).tif'))
+    sim_river_data = np.ma.masked_where((sim_river_data <= 0) | (mask <0), sim_river_data)
+    
+    
+    # im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
+    # im_cont = ax.imshow(contour, alpha=1, cmap=mpl.colors.ListedColormap('k'))
+    # im_obs = ax.imshow(obs_river_data, alpha=1, cmap=mpl.colors.ListedColormap('navy'))
+    # im_sim = ax.imshow(sim_river_data, cmap=mpl.colors.ListedColormap('red'), alpha=0.7, extent=extent2)
+    im_seep = ax.imshow(seep_river_data, cmap='jet', alpha=0.7, extent=extent2)
+
+    # ax.set_xlabel('X [pixels]')
+    # ax.set_ylabel('Y [pixels]')
+    # ax.set_title('K = '+'{:.2e}'.format(model_modflow.hk.mean()/24/3600)+' m/s')
+    # ax.set_title('K = '+'{:.1e}'.format(model_modflow.hk.mean())+' m/d')
+    ax.set_title('K/R = '+'{:.1f}'.format(model_modflow.hk.mean()/recharge))
+    ax.imshow(line, cmap=mpl.colors.ListedColormap('k'), extent=extent1)
+    ax.plot(KB4_loc[0],KB4_loc[1], 'r*')
+    plt.axis('off')
+    compt += 1
+    
+    fig.tight_layout()
+
+    # fig.savefig(os.path.join(model_modflow.figure_file,
+    #             'MAP_'+model_name+'_'+str(compt)+'.png'),
+    #             bbox_inches='tight')
+    
+    # fig.savefig(os.path.join(model_modflow.save_fig,
+    #             'MAP_'+model_name+'_'+str(compt)+'.png'),
+    #             bbox_inches='tight')    
 #%% GRAPH
 
 fig, ax = plt.subplots(1, 1, figsize=(5,4), dpi=300)
