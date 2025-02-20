@@ -137,9 +137,9 @@ class Watershed:
         if load==True:
             # Load from previously stored (saved) watershed
             success = self.__load_object()
-            if success == True:
-                print("Python object was successfully loaded as requested; imported from output directory")
-            else:
+            # if success == True:
+                # print("Python object was successfully loaded as requested; imported from output directory")
+            if success == False:
                 print("Python object was not successfully loaded as requested; so it was created from scratch instead")
                 # Definition of the watershed
                 self.__init_object()
@@ -701,6 +701,7 @@ class Watershed:
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
                                persistency_index: bool=False,
+                               intermittency_yearly: bool=False,
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
@@ -747,6 +748,7 @@ class Watershed:
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,
                                       persistency_index=persistency_index,
+                                      intermittency_yearly=intermittency_yearly,
                                       intermittency_monthly=intermittency_monthly,
                                       intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
@@ -907,6 +909,7 @@ class Watershed:
                                   model_modpath: object,
                                   datetime_format: bool=True,
                                   subbasin_results: bool=True,
+                                  intermittency_yearly: bool=False,
                                   intermittency_monthly: bool=False,
                                   intermittency_weekly: bool=False,
                                   intermittency_daily: bool=False,
@@ -943,6 +946,7 @@ class Watershed:
                                                        model_modpath=model_modpath,
                                                        datetime_format=datetime_format,
                                                        subbasin_results=subbasin_results,
+                                                       intermittency_yearly=intermittency_yearly,
                                                        intermittency_monthly=intermittency_monthly,
                                                        intermittency_weekly=intermittency_weekly,
                                                        intermittency_daily=intermittency_daily,

@@ -50,6 +50,7 @@ class Timeseries:
                  model_modpath: object,
                  datetime_format: bool=True,
                  subbasin_results: bool=True,
+                 intermittency_yearly:bool=False,
                  intermittency_monthly: bool=False,
                  intermittency_weekly: bool=False,
                  intermittency_daily: bool=False):
@@ -97,6 +98,7 @@ class Timeseries:
         self.recharge = model_modflow.recharge
         self.runoff = model_modflow.runoff
         
+        self.intermittency_yearly = intermittency_yearly
         self.intermittency_monthly = intermittency_monthly
         self.intermittency_weekly = intermittency_weekly
         self.intermittency_daily = intermittency_daily
@@ -226,6 +228,8 @@ class Timeseries:
         
         def calc_mean(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
+            masked[masked<0] = 0 ### ATTENTION
+            masked[masked<-1] = np.nan ### ATTENTION
             calc = np.nanmean(masked)
             return calc
         
@@ -310,6 +314,45 @@ class Timeseries:
                 self.mfdata.loc[key,'accumulation_flux'] = calc
         except:
             pass
+        
+        ### intermittency_saturation
+        if self.intermittency_yearly == True:
+            try:
+                if len(self.accumulation_flux)>=1:
+                    inf = 0
+                    sup = 1
+                    step = int(round(len(self.accumulation_flux)/1))
+                    compt=0            
+                    for i in range(step):
+                        # print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        interv = list(self.accumulation_flux.items())[inf:sup]
+                        for key in range(len(interv)):
+                            mask = dem_clip.copy()
+                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                        zero = self.accumulation_flux[0] * 0                
+                        for j in range(len(interv)):
+                            tempo = interv[j].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo                    
+                        days_flux = zero.copy()
+                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                        for k in range(len(interv)):
+                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                            tempo[days_flux<1] = 0
+                            tempo[days_flux==1] = 1
+                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                            perenn = (((tempo == 1).sum()) / self.cell) * 100
+                            intermit = (((tempo == 0).sum()) / self.cell) * 100
+                            self.mfdata.loc[compt,'total_areas'] = surflow
+                            self.mfdata.loc[compt,'perenn_areas'] = perenn
+                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
+                            compt+=1                    
+                        inf+=1
+                        sup+=1     
+            except:
+                pass
         
         ### intermittency_saturation
         if self.intermittency_monthly == True:
