@@ -360,7 +360,7 @@ class Geographic:
         Create depressions raster
         """
         try:
-            self.depressions = os.path.join(self.gis_path, 'depressions.tif')
+            self.depressions = os.path.join(self.gis_path, 'watershed_depressions.tif')
             wbt.sink(self.watershed_box_buff_dem, self.depressions)
         except:
             pass
