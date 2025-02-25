@@ -336,7 +336,7 @@ for scenario in scenario_list:
 
 #%% VISU Vol/Lvl/Area
 # ---- Colorscale [USER CHOICE]
-color_map = np.vstack(cmg.discrete('ibm', alpha = 1,
+color_map_fill = np.vstack(cmg.discrete('ibm', alpha = 1,
                                         black = False, alternate = False),
 # =============================================================================
 #                       cmg.discrete('wong', alpha = 1, 
@@ -345,6 +345,8 @@ color_map = np.vstack(cmg.discrete('ibm', alpha = 1,
 #                                         black = False, alternate = False)
 # =============================================================================
                       )
+color_map_line = color_map_fill.copy()
+color_map_line[:, -1] = 0
 # =============================================================================
 # color_map = color_map[[0, 2,3, 4,5, 6,7]]
 # =============================================================================
@@ -396,7 +398,7 @@ for p in range(0, len(scenario_p_list)):
                                                data = [graph_res[scenario]['min']],
                                                fill = None,
                                                labels = [scenario],
-                                               linecolors = color_map[[p]],
+                                               linecolors = color_map_line[[p]],
                                                # fillcolor = color_map2[[p]],
                                                lwidths = [1.5],
                                                lstyle = ['-'],
@@ -407,7 +409,8 @@ for p in range(0, len(scenario_p_list)):
                                                data = [graph_res[scenario]['max']],
                                                fill = 'tonexty',
                                                labels = [scenario],
-                                               linecolors = color_map[[p]],
+                                               fillcolors = color_map_fill[[p]],
+                                               linecolors = color_map_line[[p]],
                                                # fillcolor = color_map2[[p]],
                                                lwidths = [1.5],
                                                lstyle = ['-'],
