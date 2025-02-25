@@ -10,9 +10,10 @@ inside Spyder, section by section.
 """
 
 #%% IMPORTS
-import geoconvert as gc
-import cwatplot as cwp
-import cmapgenerator as cmg
+from pywtraj import (
+    geohydroconvert as ghc,
+    ncplot as nc,
+    cmapgenerator as cmg)
 import numpy as np
 import os
 import datetime
@@ -212,14 +213,14 @@ for run in [
      # 1. The NetCDF watertable file:
     df_dict[run] = dict()
     # Watertable
-    df_dict[run]['level'] = gc.time_series(
+    df_dict[run]['level'] = ghc.time_series(
         input_file = os.path.join(
             res_path, run, 
             r"results_simulations\base\_postprocess\_netcdf\watertable_elevation.nc"),
         coords = coords_outlet, epsg_coords = epsg_coords_, 
         epsg_data = 2154)
     # Overflow & returnflow
-    df_dict[run]['downstream'] = gc.time_series(
+    df_dict[run]['downstream'] = ghc.time_series(
         input_file = os.path.join(
             res_path, run, 
             r"results_simulations\base\_postprocess\_netcdf\accumulation_flux.nc"),
@@ -294,12 +295,12 @@ for run in [
 
 #%% VISU Vol/Lvl/Area
 # ---- Colorscale [USER CHOICE]
-color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
+color_map = np.vstack(cmg.discrete('ibm', alpha = 1,
                                         black = True, alternate = True),
 # =============================================================================
-#                       cmg.discrete_cmap('wong', alpha = 1, 
+#                       cmg.discrete('wong', alpha = 1, 
 #                                         black = False, alternate = False),
-#                       cmg.discrete_cmap('wong', alpha = 1, 
+#                       cmg.discrete('wong', alpha = 1, 
 #                                         black = False, alternate = False)
 # =============================================================================
                       )
@@ -310,7 +311,7 @@ color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
 # ---- Metric [USER CHOICE]
 metric = 'level' ### user-defined (level | volume | area | accumulation)
 
-[fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [results[metric][k] for k in results[metric]],
+[fig1, ax1, figweb] = nc.plot_time_series(data = [results[metric][k] for k in results[metric]],
                                            labels = [
                                                        ['Measurements', 'Mesures'][lang],
                                                         # "SFR_LAK",
@@ -318,9 +319,9 @@ metric = 'level' ### user-defined (level | volume | area | accumulation)
                                                         "SFR_LAK <b>correction vka</b> e=35m | K=1e-4 m/s | p=0.5%",
                                                      ],
                                            
-                                           color_map = color_map,
+                                           linecolors = color_map,
                                            # lstyle = ['dotted', '-', '-', '-'],
-                                           # lwidth = [1],
+                                           # lwidths = [1],
                                            )
 
 # ---- MISE EN FORME *.html (figweb)   
@@ -408,12 +409,12 @@ figweb.write_html(os.path.join(os.path.split(res_path)[0], "processed",
 
 #%% VISU Leakage
 # ---- Colorscale [USER CHOICE]
-color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
+color_map = np.vstack(cmg.discrete('ibm', alpha = 1,
                                         black = True, alternate = False),
 # =============================================================================
-#                       cmg.discrete_cmap('wong', alpha = 1, 
+#                       cmg.discrete('wong', alpha = 1, 
 #                                         black = False, alternate = False),
-#                       cmg.discrete_cmap('wong', alpha = 1, 
+#                       cmg.discrete('wong', alpha = 1, 
 #                                         black = False, alternate = False)
 # =============================================================================
                       )
@@ -425,34 +426,34 @@ run = list(results[metric].keys())[2]
 
 # ---- Trace plots
 # =============================================================================
-# [fig1, ax1, figweb] = cwp.plot_time_series(dataframes = [
+# [fig1, ax1, figweb] = nc.plot_time_series(data = [
 #                                                          assumed_filling,
 #                                                          ],
 #                                            labels = [
 #                                                      "1.6x discharge from Cheze",
 #                                                      ],
-#                                            color_map = color_map[[3]],
+#                                            linecolors = color_map[[3]],
 #                                            stack = True,
-#                                            lwidth = [1],
+#                                            lwidths = [1],
 #                                            # lstyle = ['--', '--'],
 #                                            )
 # 
-# [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-#                                            dataframes = [
+# [fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+#                                            data = [
 #                                                          missing_flux,
 #                                                          ],
 #                                            labels = [
 #                                                      "missing flux for balance",
 #                                                      ],
-#                                            color_map = color_map[[4]],
+#                                            linecolors = color_map[[4]],
 #                                            stack = True,
-#                                            lwidth = [1],
+#                                            lwidths = [1],
 #                                            # lstyle = ['--', '--'],
 #                                            )
 # =============================================================================
 
-[fig1, ax1, figweb] = cwp.plot_time_series(# figweb = figweb,
-                                           dataframes = [
+[fig1, ax1, figweb] = nc.plot_time_series(# figweb = figweb,
+                                           data = [
                                                          results['leakage'][run],
                                                          ],
                                            labels = [
@@ -461,25 +462,25 @@ run = list(results[metric].keys())[2]
                                                      ["<b>Sum</b>",
                                                       "<b>Somme</b>"][lang],
                                                      ],
-                                           color_map = color_map[[3]],
+                                           linecolors = color_map[[3]],
                                            stack = False, # True,
-                                           lwidth = [1.5],
+                                           lwidths = [1.5],
                                            )
 
-[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                           dataframes = [
+[fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                           data = [
                                                          results['leakage_up'][run],
                                                          ],
                                            labels = [
                                                      ["<b>Flux upwards</b> <br>(watertable → reservoir)",
                                                       "<b>Apports</b> <br>nappe → réservoir"][lang],
                                                      ],
-                                           color_map = color_map[[1]],
+                                           linecolors = color_map[[1]],
                                            stack = True,
                                            )
 
-[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                           dataframes = [
+[fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                           data = [
                                                          results['leakage_down'][run],
                                                          results['downstream'][run],
                                                          ],
@@ -489,20 +490,20 @@ run = list(results[metric].keys())[2]
                                                      ["<b>Overflow and returnflow</b> <br>(reservoir → river)",
                                                       "<b>Surverse et restitution</b> <br>réservoir → rivière"][lang],
                                                      ],
-                                           color_map = color_map[[0, 2]],
+                                           linecolors = color_map[[0, 2]],
                                            stack = True,
                                            )
 
 # =============================================================================
-# [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-#                                            dataframes = [
+# [fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+#                                            data = [
 #                                                          results['accumulation'][run],
 #                                                          ],
 #                                            labels = [
 #                                                      ["Overflow and returnflow <br>(reservoir → river)",
 #                                                       "Surverse et restitution <br>réservoir → rivière"][lang],
 #                                                      ],
-#                                            color_map = color_map[[2]],
+#                                            linecolors = color_map[[2]],
 #                                            stack = True,
 #                                            )
 # =============================================================================
