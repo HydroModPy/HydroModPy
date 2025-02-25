@@ -10,9 +10,10 @@ inside Spyder, section by section.
 """
 
 #%% IMPORTS
-import geoconvert as gc
-import cwatplot as cwp
-import cmapgenerator as cmg
+from pywtraj import (
+    geohydroconvert as ghc,
+    ncplot as nc,
+    cmapgenerator as cmg)
 import numpy as np
 import os
 import datetime
@@ -251,14 +252,14 @@ for scenario in scenario_list:
              # 1. The NetCDF watertable file:
             df_dict[scenario][exp] = dict()
             # Watertable
-            df_dict[scenario][exp]['level'] = gc.time_series(
+            df_dict[scenario][exp]['level'] = ghc.time_series(
                 input_file = os.path.join(
                     res_subpath, 
                     r"_postprocess\_netcdf\watertable_elevation.nc"),
                 coords = coords_outlet, epsg_coords = epsg_coords_, 
                 epsg_data = 2154)
             # Overflow & returnflow
-            df_dict[scenario][exp]['downstream'] = gc.time_series(
+            df_dict[scenario][exp]['downstream'] = ghc.time_series(
                 input_file = os.path.join(
                     res_subpath, 
                     r"_postprocess\_netcdf\accumulation_flux.nc"),
@@ -335,12 +336,12 @@ for scenario in scenario_list:
 
 #%% VISU Vol/Lvl/Area
 # ---- Colorscale [USER CHOICE]
-color_map = np.vstack(cmg.discrete_cmap('ibm', alpha = 1,
+color_map = np.vstack(cmg.discrete('ibm', alpha = 1,
                                         black = False, alternate = False),
 # =============================================================================
-#                       cmg.discrete_cmap('wong', alpha = 1, 
+#                       cmg.discrete('wong', alpha = 1, 
 #                                         black = False, alternate = False),
-#                       cmg.discrete_cmap('wong', alpha = 1, 
+#                       cmg.discrete('wong', alpha = 1, 
 #                                         black = False, alternate = False)
 # =============================================================================
                       )
@@ -379,47 +380,47 @@ for scenario in scenario_p_list:
 # ---- Figures
 figweb = None
 # Historique
-[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                           dataframes = [results[metric]['historique']['sim2']],
+[fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                           data = [results[metric]['historique']['sim2']],
                                            fill = None,
                                            labels = ['Historique'],
-                                           color_map = np.array([[0.7, 0.7, 0.7, 1]]),
-                                           lwidth = [3],
+                                           linecolors = np.array([[0.7, 0.7, 0.7, 1]]),
+                                           lwidths = [3],
                                            lstyle = ['-'],
                                            # legendgrouptitle_text = year_labels[p],
                                            showlegend = True)
 # Predictions
 for p in range(0, len(scenario_p_list)):
     scenario = scenario_p_list[p]
-    [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                               dataframes = [graph_res[scenario]['min']],
+    [fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                               data = [graph_res[scenario]['min']],
                                                fill = None,
                                                labels = [scenario],
-                                               color_map = color_map[[p]],
+                                               linecolors = color_map[[p]],
                                                # fillcolor = color_map2[[p]],
-                                               lwidth = [1.5],
+                                               lwidths = [1.5],
                                                lstyle = ['-'],
                                                legendgroup = p,
                                                # legendgrouptitle_text = year_labels[p],
                                                showlegend = False)
-    [fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                               dataframes = [graph_res[scenario]['max']],
+    [fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                               data = [graph_res[scenario]['max']],
                                                fill = 'tonexty',
                                                labels = [scenario],
-                                               color_map = color_map[[p]],
+                                               linecolors = color_map[[p]],
                                                # fillcolor = color_map2[[p]],
-                                               lwidth = [1.5],
+                                               lwidths = [1.5],
                                                lstyle = ['-'],
                                                legendgroup = p,
                                                # legendgrouptitle_text = year_labels[p],
                                                showlegend = True)
 # Data
-[fig1, ax1, figweb] = cwp.plot_time_series(figweb = figweb,
-                                           dataframes = [results[metric]['data'][:-1]],
+[fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                           data = [results[metric]['data'][:-1]],
                                            labels = ['data'],
-                                           color_map = np.array([[0.0, 0.0, 0.0, 1]]),
+                                           linecolors = np.array([[0.0, 0.0, 0.0, 1]]),
                                            # fillcolor = color_map2[[p]],
-                                           lwidth = [1],
+                                           lwidths = [1],
                                            lstyle = ['dotted'],
                                            showlegend = True)
 
