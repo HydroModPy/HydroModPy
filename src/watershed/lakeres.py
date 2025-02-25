@@ -290,8 +290,28 @@ class Lakeres:
     def update_withdraw_fill(self, lake_id, src):
         self.wthdrw_by_lake[lake_id] = src
     
-    def connect_returnflow(self, lake_id, timeseries):
-        self.rtrn_by_lake[lake_id] = timeseries
+    def update_returnflow(self, lake_id, timeseries, mode = 'replace'):
+        """
+        Parameters
+        ----------
+        lake_id : str, int
+            Identifier of the lake to which the update will be applied.
+        timeseries : pandas.Series
+            Data used for update.
+        mode : 'replace' or 'add', optional, default 'replace'
+            To chose whether the provided timeseries will be added to, or will
+            replace the previous return flow value.
+
+        Returns
+        -------
+        Update the lakeres.rtrn_by_lake property.
+
+        """
+        if mode == 'replace':
+            self.rtrn_by_lake[lake_id] = timeseries
+        elif mode == 'add':
+            self.rtrn_by_lake[lake_id] += timeseries
+    
     
    #%% FORMAT ALL ATTRIBUTES INTO INPUTS FOR MODFLOW
     def format_to_modflow(self, geographic, climatic, nper, thickfact, 
