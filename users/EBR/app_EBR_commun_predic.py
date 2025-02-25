@@ -77,8 +77,8 @@ from src.tools import toolbox, folder_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #% Personal toolbox to handle NetCDF
-import trajectoire_toolbox as ttbox
-import geoconvert as gc
+from pywtraj import PAGAIE_interface as pgi
+from pywtraj import geohydroconvert as ghc
 
 #%% ARGUMENTS D'ENTREE = SCENARIO
 try:
@@ -313,16 +313,16 @@ h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
 # ---- Extraction des variables climatiques
 forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
 # =============================================================================
-# clim_ds = ttbox.ouvrir(
+# clim_ds = pgi.ouvrir(
 #     os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), # 'C3S_2024-10.nc'),
 #     decode_times = True, decode_coords = 'all')
 # =============================================================================
-clim_ds = ttbox.convertir_cwatm(
+clim_ds = pgi.convertir_cwatm(
     os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), 
     'C3S',
     )
 
-clim_ds = ttbox.georeferencer(
+clim_ds = pgi.georeferencer(
     data = clim_ds,
     dst_crs = 4326, include_crs = True)
 
@@ -352,7 +352,7 @@ for i in range(0, 51):
     clim_ds_i = clim_ds.loc[{'number': i}]
 
 # =============================================================================
-#     clipped_ds = ttbox.reprojeter(clim_ds_i, mask = BV.geographic.watershed_shp,
+#     clipped_ds = pgi.reprojeter(clim_ds_i, mask = BV.geographic.watershed_shp,
 #                                   resolution = (BV.geographic.resolution_x,
 #                                                 BV.geographic.resolution_y),
 #                                   dst_crs = BV.geographic.crs_proj)
@@ -361,7 +361,7 @@ for i in range(0, 51):
 #     clim_df = clim_df.resample(freq_input).mean()
 # =============================================================================
     
-    clim_df = gc.time_series(
+    clim_df = ghc.time_series(
         input_file = clim_ds_i,
         coords = BV.geographic.watershed_shp, epsg_coords = BV.geographic.crs_proj, 
         )
