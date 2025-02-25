@@ -711,7 +711,7 @@ for i in range(0, resti_short.size - 1):
     resti_short.loc[id1] = dam_input_df[id1:id2][0:-1]['resti'].mean()
 resti_short = resti_short[0:-1]
 BV.lakeres.update_returnflow(lake_id, resti_short, mode = 'replace')
-
+# =============================================================================
 
 ######################
 ### --- others --- ###
