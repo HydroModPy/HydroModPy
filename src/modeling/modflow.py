@@ -1341,14 +1341,17 @@ class Modflow:
             if self.use_lakeres:
                 for num_id in self.lakeres.lake_by_num_id.keys():
                     lake_id = self.lakeres.lake_by_num_id[num_id]
+                    # nsegs is the segment id of outlets for this lake
                     nsegs = self.streamflow_seepage.segment_data_1[
                         self.streamflow_seepage.segment_data_1.iupseg == -num_id].index
+                    row_list = [self.streamflow_seepage.segment_data_1.index.get_loc(seg) 
+                                for seg in nsegs]
                     if self.lakeres.rtrn_by_lake[lake_id] is not None:
                         for d in self.lakeres.rtrn_by_lake[lake_id].index:
                             per = self.climatic.index.get_loc(d)
                             runoff_prev = segment_data[per]['runoff'].copy()
                             runoff = runoff_prev.copy()
-                            runoff[nsegs] = self.lakeres.rtrn_by_lake[lake_id].loc[self.climatic.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
+                            runoff[row_list] = self.lakeres.rtrn_by_lake[lake_id].loc[self.climatic.index[per]]/len(nsegs) #self.lakeres.rtrn_by_lake[lake_id]/len(nsegs)
                             segment_data[per]['runoff'] = runoff_prev + runoff
                             itmp[per] = nss # time-varying inputs
             
