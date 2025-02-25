@@ -141,7 +141,7 @@ head_fpu = fpu.HeadFile(os.path.join(BV.simulations_folder,
 
 # sim_times = head_fpu.get_times()
 # prev_end_time = sim_times[list(sim_times.keys())[-1]]
-prev_end_time = head_fpu.get_times()[0]
+prev_end_time = head_fpu.get_times()[-1]
 
 # Retrieve head_fpu and call modflow with these previous heads
 prev_head_3D = head_fpu.get_data(totim = prev_end_time) # recharge les dernières charges hydrauliques de l'historique
