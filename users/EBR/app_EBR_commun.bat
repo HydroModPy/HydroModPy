@@ -43,7 +43,9 @@ for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	echo %%i ^& ^
 	echo: ^& ^
 	call python .\app_EBR_commun_predic.py "%%i" -l -t
-	timeout /t 60
+	Set /a _rand=(%RANDOM%*(30+1)/32768)+45
+	rem timeout /t 60
+	timeout /t %_rand%
 )
 endlocal
 
