@@ -336,7 +336,7 @@ for scenario in scenario_list:
 
 #%% VISU Vol/Lvl/Area
 # ---- Colorscale [USER CHOICE]
-color_map_fill = np.vstack(cmg.discrete('ibm', alpha = 0.5,
+color_map_fill = np.vstack(cmg.discrete('wong', alpha = 0.5,
                                         black = False, alternate = True),
 # =============================================================================
 #                       cmg.discrete('wong', alpha = 1, 
