@@ -388,7 +388,7 @@ figweb = None
                                            labels = ['Historique'],
                                            linecolors = np.array([[0.7, 0.7, 0.7, 1]]),
                                            lwidths = [3],
-                                           lstyle = ['-'],
+                                           lstyles = ['-'],
                                            # legendgrouptitle_text = year_labels[p],
                                            showlegend = True)
 # Predictions
@@ -401,7 +401,7 @@ for p in range(0, len(scenario_p_list)):
                                                linecolors = color_map_line[[p]],
                                                # fillcolor = color_map2[[p]],
                                                lwidths = [1.5],
-                                               lstyle = ['-'],
+                                               lstyles = ['-'],
                                                legendgroup = p,
                                                # legendgrouptitle_text = year_labels[p],
                                                showlegend = False)
@@ -413,7 +413,7 @@ for p in range(0, len(scenario_p_list)):
                                                linecolors = color_map_line[[p]],
                                                # fillcolor = color_map2[[p]],
                                                lwidths = [1.5],
-                                               lstyle = ['-'],
+                                               lstyles = ['-'],
                                                legendgroup = p,
                                                # legendgrouptitle_text = year_labels[p],
                                                showlegend = True)
@@ -424,7 +424,7 @@ for p in range(0, len(scenario_p_list)):
                                            linecolors = np.array([[0.0, 0.0, 0.0, 1]]),
                                            # fillcolor = color_map2[[p]],
                                            lwidths = [1],
-                                           lstyle = ['dotted'],
+                                           lstyles = ['dotted'],
                                            showlegend = True)
 
 
