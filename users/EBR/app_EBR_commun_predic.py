@@ -322,6 +322,7 @@ clim_ds = pgi.convertir_cwatm(
     os.path.join(forecast_path, f"C3S_{settings['startdate'].strftime('%Y-%m')}.nc"), 
     'C3S',
     )
+clim_ds = ghc.to_instant(clim_ds) # Pour convertir cumuls journaliers en valeurs journalières
 
 clim_ds = pgi.georeferencer(
     data = clim_ds,
