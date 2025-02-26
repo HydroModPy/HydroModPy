@@ -33,6 +33,7 @@ timeout /t 5
 rem Predictive simulations
 setlocal
 set PYTHONPATH=D:\2- Postdoc\2- Travaux\3_CWatM_EBR\source\Tools_AlexCoche
+set PYTHONPATH=D:\2- Postdoc\2- Travaux
 set scenar=0
 rem for %%i in (%scenario_files%) do (
 for /f "tokens=*" %%i in (selected_scenarios.txt) do (

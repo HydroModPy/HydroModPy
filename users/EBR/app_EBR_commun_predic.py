@@ -324,7 +324,7 @@ clim_ds = pgi.convertir_cwatm(
 
 clim_ds = pgi.georeferencer(
     data = clim_ds,
-    dst_crs = 4326, include_crs = True)
+    crs = 4326, include_crs = True)
 
 # Période
 clim_ds = clim_ds.loc[{'time': slice(settings['startdate'], None)}]
