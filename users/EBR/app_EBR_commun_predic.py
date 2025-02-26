@@ -26,6 +26,7 @@ import os
 import requests
 import datetime
 import warnings
+from time import sleep # to add a random pause between run
 warnings.filterwarnings("ignore", message=".*An exception was ignored while fetching the attribute.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*`np.object` is a deprecated alias for the builtin `object`.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*is deprecated. Use tobytes().*", category=DeprecationWarning)
@@ -344,6 +345,8 @@ Pour l'instant on convertit ca en chroniques (pandas).
 
 # ---- Boucle sur chaque run disponible dans les données
 for i in range(0, 51):    
+    sleep(np.random.uniform(0, 6)) # to avoid simultaneous runs
+    
     model_name = f'predic{i}'
     BV.settings.update_model_name(model_name)
     print('\n--------\n' + model_name + '\n--------\n')

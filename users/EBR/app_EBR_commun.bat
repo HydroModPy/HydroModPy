@@ -38,13 +38,14 @@ set scenar=0
 rem for %%i in (%scenario_files%) do (
 for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	set /a scenar=scenar+1
-	set /a rand=%RANDOM%*31/32767+45
+	rem set /a rand=%RANDOM%*31/32767+45
 	start cmd /k ^
 	echo SCENARIO !scenar!/%n_scenario% ^& ^
 	echo %%i ^& ^
 	echo: ^& ^
 	call python .\app_EBR_commun_predic.py "%%i" -l -t
-	timeout /t !rand!
+	rem timeout /t !rand!
+	timeout /t 60
 )
 endlocal
 
