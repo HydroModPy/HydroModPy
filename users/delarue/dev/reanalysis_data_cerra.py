@@ -15,6 +15,8 @@ import numpy as np
 import math as m
 
 import geopandas as gpd
+from shapely.geometry import Polygon
+
 import rioxarray
 
 import xarray as xr
@@ -34,6 +36,8 @@ import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LongitudeFormatter, LatitudeFormatter
 from cartopy.mpl.ticker import LongitudeLocator, LatitudeLocator
 from matplotlib.ticker import MaxNLocator
+
+import netCDF4
 #%% Functions
 
 def map_extent(region, buffer=0):
@@ -318,22 +322,32 @@ class CerraData(ReanalysisData):
         }
     
     
-    def load_data(self, standard=False):
+    def load_data(self, standard=True):
         """
         Load the NetCDF data into an xarray dataset.
         """
         try:
             if self.file_path[-3:] == '.nc':
-                self.dataset = xr.open_dataset(self.file_path,engine='netcdf4')
+                self.dataset = xr.open_dataset(self.file_path, engine='rasterio')
                 self.dataset = self.dataset.rename({'valid_time':'time'})
-                self.dataset['longitude'] = self.dataset['longitude'].where(
+                
+                
+                lon = self.dataset['longitude'].where(
                                                 self.dataset['longitude'] <= 180, 
                                                 self.dataset['longitude'] -  360)
+                lat = self.dataset['latitude']
                 
-                self.total_bounds = [self.dataset.coords['longitude'].min().values,
-                                     self.dataset.coords['latitude'].min().values,
-                                     self.dataset.coords['longitude'].max().values,
-                                     self.dataset.coords['latitude'].max().values]
+                self.dataset.drop_coords(['latitude', 'longitude'], inplace=True)
+                self.dataset['latitude'] = lat
+                self.dataset['longitude'] = lon              
+                
+                self.total_bounds =  [20,17,65,35]
+                # self.total_bounds = [self.dataset.coords['longitude'].min().values,
+                #                      self.dataset.coords['latitude'].min().values,
+                #                      self.dataset.coords['longitude'].max().values,
+                #                      self.dataset.coords['latitude'].max().values]
+                
+                
                 print(f">>cerra: data loaded from {self.file_path}")
                 
             elif os.path.isdir(self.file_path):  # Check if the path is a directory
@@ -356,6 +370,80 @@ class CerraData(ReanalysisData):
             
         except Exception as e:
             print(f">>cerra: error loading data: {e}")
+            
+            
+    def cut_step(self, timestep_index = [0,10], label = 'timestep', 
+                  save = True, output = True, verbose = True):
+        """
+        
+        Parameters
+        ----------
+        timestep_index : TYPE, optional
+            DESCRIPTION. The default is 0.
+        label : TYPE, optional
+            DESCRIPTION. The default is 'timestep'.
+        save : TYPE, optional
+            DESCRIPTION. The default is True.
+        output : TYPE, optional
+            DESCRIPTION. The default is True.
+            [True, False,'reset','close_all']
+
+        Returns
+        -------
+        None.
+
+        """
+        if verbose:
+            print('>>cerra: start cut_1step')
+        data_ts = self.dataset.isel(time = timestep_index)
+        print(data_ts)
+        if save:
+            
+            if isinstance(save,bool):
+                folder = self.file_path[:-7]
+                year = self.file_path[-7:-3]
+                print(folder)
+                new_file_path = f'{folder}{year}_{label}.nc'
+                
+            elif isinstance(save,str):
+                if os.path.isdir(save):
+                    year = self.file_path[-7:-3]
+                    new_file_path = f'{save}{year}_{label}.nc'
+            else:
+                new_file_path = f'./{year}_{label}.nc'
+                print('>>cerra: invalid save location\n>>>>>>>> data saved in the current folder')
+                
+            if verbose :
+                info = f'>>cerra: data saved at {new_file_path}'
+                print(info) 
+                
+            data_ts.to_netcdf(new_file_path)
+            
+            if output:
+                if verbose :
+                    info = f'>>cerra: output process - {output}'
+                    print(info) 
+                    
+                if output == True:
+                    return data_ts
+                    
+                elif output == 'reset':
+                    self.close()
+                    self.file_path = new_file_path
+                    self.load_data()
+                    del data_ts                   
+                
+                elif output == 'close_all':
+                    self.close()
+                    del data_ts
+                    del self
+            
+        else:
+            return data_ts
+
+        
+
+        
     
     def crop_dataset(self, crop_coords = 'alps', label = 'crop',
                      save = True, inplace = True, verbose = False):
@@ -373,46 +461,87 @@ class CerraData(ReanalysisData):
 
         """
         
+        # Define the area to keep
         if isinstance(crop_coords, list):
             [lat_min, lat_max, lon_min, lon_max] = crop_coords 
 
+            mask = np.zeros([1069,1069])
+            # Assuming data.latitude and data.longitude are 2D arrays (1069 x 1069)
+            latitudes = self.dataset.latitude.values
+            longitudes = self.dataset.longitude.values
+
+            # Create mask based on the latitudes and longitudes in one step using vectorized conditions
+            mask = ((lat_min < latitudes) & (latitudes < lat_max) &
+                    (lon_min < longitudes) & (longitudes < lon_max)).astype(int)
+
+            self.dataset['alps_mask'] = (('y', 'x'), mask)
+            self.dataset = self.dataset.where(self.dataset.alps_mask == 1)
+            self.dataset = self.dataset.dropna("y", how="all").dropna("x", how="all")
+
         elif isinstance(crop_coords, str):
             if crop_coords == 'alps':
-                [lat_min, lat_max, lon_min, lon_max] = [43, 49, 4, 17.5]
+                mask = np.zeros([1069,1069])
+
+                mask[390:521,475:675] = 1
+
                 if label == 'crop':
                     label = 'alps'
         else:
             print('>>cerra: provided crop_coords not valid')
             return 0
         
-        crop_dataset = self.dataset.sel(y=slice(lat_min, lat_max), x=slice(lon_min, lon_max))
+        self.dataset['alps_mask'] = (('y', 'x'), mask)
         
-        if inplace: 
-            self.dataset = crop_dataset
-            self.update_bounds()
-            
-        # Save the cropped data into a new NetCDF file
-        if save:
-            if isinstance(save,bool):
-                folder = self.file_path[:-7]
-                year = self.file_path[-7:-3]
-                print(folder)
-                new_file_path = f'{folder}{year}_{label}.nc'
-                
-            elif isinstance(save,str):
-                if os.path.isdir(save):
+        # Apply mask
+        if inplace:            
+            self.dataset = self.dataset.where(self.dataset.alps_mask == 1)
+            self.dataset = self.dataset.dropna("y", how="all").dropna("x", how="all")
+            if save: 
+                if isinstance(save,bool):
+                    folder = self.file_path[:-7]
                     year = self.file_path[-7:-3]
-                    new_file_path = f'{save}{year}_{label}.nc'
-            else:
-                new_file_path = f'./{year}_{label}.nc'
-                print('>>cerra: invalid save location\n>>>>>>>> data saved in the current folder')
+                    print(folder)
+                    new_file_path = f'{folder}{year}_{label}.nc'
+                    
+                elif isinstance(save,str):
+                    if os.path.isdir(save):
+                        year = self.file_path[-7:-3]
+                        new_file_path = f'{save}{year}_{label}.nc'
+                else:
+                    new_file_path = f'./{year}_{label}.nc'
+                    print('>>cerra: invalid save location\n>>>>>>>> data saved in the current folder')
+                    
+                self.dataset.to_netcdf(new_file_path)
+                if verbose :
+                    info = f'>>cerra: cropped data saved at {new_file_path}'
+                    print(info)  
                 
-            if verbose :
-                info = f'>>cerra: cropped data saved at {new_file_path}'
-                print(info)                
-            crop_dataset.to_netcdf(new_file_path)
-            
-        return crop_dataset
+        else:
+            new_data = CerraData()
+            new_data.dataset = self.dataset.where(self.dataset.alps_mask == 1).dropna("y", how="all").dropna("x", how="all")
+            new_data.dataset = new_data.dataset.dropna("y", how="all").dropna("x", how="all")
+            # Save the cropped data into a new NetCDF file
+            if save:
+                if isinstance(save,bool):
+                    folder = self.file_path[:-7]
+                    year = self.file_path[-7:-3]
+                    print(folder)
+                    new_file_path = f'{folder}{year}_{label}.nc'
+                    
+                elif isinstance(save,str):
+                    if os.path.isdir(save):
+                        year = self.file_path[-7:-3]
+                        new_file_path = f'{save}{year}_{label}.nc'
+                else:
+                    new_file_path = f'./{year}_{label}.nc'
+                    print('>>cerra: invalid save location\n>>>>>>>> data saved in the current folder')
+                    
+                new_data.to_netcdf(new_file_path)   
+                if verbose :
+                    info = f'>>cerra: cropped data saved at {new_file_path}'
+                    print(info)                
+                
+            return new_data
     
     
     
@@ -499,13 +628,14 @@ class CerraData(ReanalysisData):
         :param dataset: The xarray dataset to process.
         :return: The modified xarray dataset.
         """
-    
+        print('>>cerra: to standard')
         # Iterate over each variable in the dataset
         for var_name in self.dataset.data_vars:
             if var_name in self.STANDARD_CONVERSIONS:
                 # Apply the conversion if the variable has a corresponding function                
                 conversion_func = self.STANDARD_CONVERSIONS[var_name]
-                self.dataset[var_name] = conversion_func(self.dataset[var_name])
+                self.dataset[var_name] = self.dataset[var_name] - 273.15
+                # self.dataset[var_name] = conversion_func(self.dataset[var_name])
                 if verbose:
                     print(f">>cerra: apply conversion to {var_name}")
             if var_name in self.STANDARD_VARIABLES:
@@ -520,60 +650,153 @@ class CerraData(ReanalysisData):
 
 
 #%% Example usage:
-if __name__ == "__main__":
-
-    # command = input("Select an action ['load' 'display' 'plot' 'close' 'stop']:")
-
-    # Define path polygone
-    polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
-    polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
-    # Load the polygon
-    polygon = gpd.read_file(polygon_path)
-    polygon = polygon.to_crs(epsg=4326) 
-
-    year = input("Year [1984-2022]:")
-    ## Case open one file
-    # Define path data
-    path_data = f'L:/_Alps/_public_database/_climate/cerra_forecast/2m_temperature/{year}/{year}.nc'
-    # Initialize the object with the NetCDF file path        
-    data = CerraData(path_data) 
-    data.load_data(standard = False)
-    print(data.dataset)
-    data.crop_dataset('alps')
-
-
-    # data.display_timestep('t2m',focus = [-18,75,15,70])              
-
-    data.close()
-
 # if __name__ == "__main__":
-    
-#     example = True
-#     while example:
-#         command = input("Select an action ['load' 'display' 'plot' 'close' 'stop']:")
-    
-#         # Define path polygone
-#         polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
-#         polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
-#         # Load the polygon
-#         polygon = gpd.read_file(polygon_path)
-#         polygon = polygon.to_crs(epsg=4326) 
-        
-#         if command == 'load':
-#             year = input("Year [1984-2022]:")
-#             ## Case open one file
-#             # Define path data
-#             path_data = f'L:/_Alps/_public_database/_climate/cerra_forecast/2m_temperature/{year}/{year}.nc'
-#             # Initialize the object with the NetCDF file path        
-#             data = CerraData(path_data)  
-#             data.load_data()
-#         elif command == 'display':
-#             if data:
-#                 print(data.dataset)  
-        
-#         elif command == 'plot':
 
-#             data.display_timestep('t2m',focus = [74,343,20,64])              
+#     # command = input("Select an action ['load' 'display' 'plot' 'close' 'stop']:")
+
+#     # Define path polygone
+#     polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
+#     polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
+#     # Load the polygon
+#     polygon = gpd.read_file(polygon_path)
+#     polygon = polygon.to_crs(epsg=4326) 
+
+
+    
+#     ## Case open one file
+#     year = 1984
+#     # Define path data
+#     path_data = f'L:/_Alps/_public_database/_climate/cerra_forecast/2m_temperature/{year}/{year}.nc'
+#     # Initialize the object with the NetCDF file path        
+#     data = CerraData(path_data) 
+#     data.load_data()
+#     print(data.dataset)
+    
+    # data.cut_step(timestep_index= range(10), output = 'reset')
+    # print(data.dataset)
+    
+    
+    # data.crop_dataset('alps')
+    # plt.figure()
+    # plt.plot(data.dataset.latitude)
+    # plt.grid()
+    # plt.show()
+    # plt.figure()
+    # plt.plot(data.dataset.longitude)
+    # plt.grid()
+    # plt.show()
+    
+
+#%% alps area 
+    # Define the four corner coordinates (longitude, latitude)
+    # These are for example purposes
+    # # Bottom-left (lon_min, lat_min), top-left (lon_min, lat_max), top-right (lon_max, lat_max), bottom-right (lon_max, lat_min)
+    # lat_min, lat_max = 43, 49
+    # lon_min, lon_max =  4, 17.5
+      
+    # mask = np.zeros([1069,1069])
+    # latitudes = data.dataset.latitude.values
+    # longitudes = data.dataset.longitude.values
+    # for Y in range(0,1069):
+    #     for X in range(0,1069):
+    #         lat = latitudes[X,Y]
+    #         lon = longitudes[X,Y]
+    #         test = (lat_min<lat and lat<lat_max and lon_min<lon and lon<lon_max)            
+    #         if test:
+    #             mask[X,Y] = 1    
+                
+    # layer = data.dataset['t2m'].isel(time=0)*mask
+
+    # # # Apply the mask to the dataset
+    # # masked_data = data.dataset.where(mask)
+    
+    # # # Optionally, drop rows/columns with NaNs if needed (for example)
+    # # masked_data_clean = masked_data.dropna(dim="x", how="all").dropna(dim="y", how="all")
+    
+    # # Plot the mask to visualize
+    # plt.imshow(layer, cmap='gray')
+    # plt.title('Mask Visualization')
+    # plt.colorbar(label='Mask Value (0 or 1)')
+    # plt.ylim([350,550])
+    # plt.xlim([450,700])
+    
+    
+    
+#%%   
+    
+    
+    
+    
+    
+#     mask = np.array([[((lat_min<=lat & lat<=lat_max) & (lon_min<=lon & lon<=lon_max)) for
+#                       lat in 
+#                       ]])
+
+#     # Define the coordinates of the rectangle's corners
+#     rectangle_coords = [
+#         (lon_min, lat_min),  # Bottom-left
+#         (lon_min, lat_max),  # Top-left
+#         (lon_max, lat_max),  # Top-right
+#         (lon_max, lat_min),  # Bottom-right
+#         (lon_min, lat_min)   # Closing the polygon by returning to bottom-left
+#     ]
+
+#     # Create a Polygon geometry from the rectangle coordinates
+#     rectangle = Polygon(rectangle_coords)
+    
+#     # Create a GeoDataFrame with the Polygon geometry
+#     alps = gpd.GeoDataFrame(geometry=[rectangle])
+    
+#     # Set the projection (Coordinate Reference System) of the GeoDataFrame
+#     # Assuming WGS 84 (EPSG:4326) for lat/lon coordinates
+#     alps.set_crs('EPSG:4326', allow_override=True, inplace=True)
+    
+#     # Print the GeoDataFrame with the rectangle
+#     print(alps)
+    
+#     ShapeMask = rasterio.features.geometry_mask(alps,
+#                                       out_shape=(len(data.dataset.y), len(data.dataset.x)),
+#                                       transform=ccrs.PlateCarree(),
+#                                       invert=True)
+#     ShapeMask = xr.DataArray(ShapeMask , dims=("y", "x"))
+    
+#     # Then apply the mask
+#     NDVImasked = data.dataset.where(ShapeMask == True)
+
+# #%% display close
+    
+#     data.display_timestep('t2m',focus = [0,1069,0,1069])              
+
+#     data.close()
+
+# # if __name__ == "__main__":
+    
+# #     example = True
+# #     while example:
+# #         command = input("Select an action ['load' 'display' 'plot' 'close' 'stop']:")
+    
+# #         # Define path polygone
+# #         polygon_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_poschiavino\_gis\bnd'    
+# #         polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')    
+# #         # Load the polygon
+# #         polygon = gpd.read_file(polygon_path)
+# #         polygon = polygon.to_crs(epsg=4326) 
+        
+# #         if command == 'load':
+# #             year = input("Year [1984-2022]:")
+# #             ## Case open one file
+# #             # Define path data
+# #             path_data = f'L:/_Alps/_public_database/_climate/cerra_forecast/2m_temperature/{year}/{year}.nc'
+# #             # Initialize the object with the NetCDF file path        
+# #             data = CerraData(path_data)  
+# #             data.load_data()
+# #         elif command == 'display':
+# #             if data:
+# #                 print(data.dataset)  
+        
+# #         elif command == 'plot':
+
+# #             data.display_timestep('t2m',focus = [74,343,20,64])              
 
 #             # data.display_timestep('temperature_2m_C', focus = polygon, buffer = 1)
 #             # data.close()
