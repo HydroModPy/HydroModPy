@@ -202,11 +202,14 @@ data.loc[:, sum_col] = data.loc[:, sum_col].divide(
 
 #%% LOAD RESULTS [USER CHOICE]
 
-for run in [
-            # <watershed_names (str)>, ### user-defined runs
-            'barrage_Cheze_SFR_LAK_2024-12-17',
-            'barrage_Cheze_SFR_LAK_corr_2024-12-17',
-            ]:
+run_dict = {# <watershed_names (str)>: <model name (str)>, ### user-defined runs
+            # 'barrage_Cheze_SFR_LAK_2024-12-17': 'base',
+            # 'barrage_Cheze_SFR_LAK_corr_2024-12-17': 'base',
+            'barrage_Cheze_SFR_LAK_2024-11-02': r'2022oct-2023sep_weekly\predic46'
+            }
+
+
+for run in run_dict.keys():
 
     # ---- Load complete files    
     # The results can be loaded from 2 sources:
@@ -216,21 +219,21 @@ for run in [
     df_dict[run]['level'] = ghc.time_series(
         input_file = os.path.join(
             res_path, run, 
-            r"results_simulations\base\_postprocess\_netcdf\watertable_elevation.nc"),
+            rf"results_simulations\{run_dict[run]}\_postprocess\_netcdf\watertable_elevation.nc"),
         coords = coords_outlet, epsg_coords = epsg_coords_, 
         epsg_data = 2154)
     # Overflow & returnflow
     df_dict[run]['downstream'] = ghc.time_series(
         input_file = os.path.join(
             res_path, run, 
-            r"results_simulations\base\_postprocess\_netcdf\accumulation_flux.nc"),
+            rf"results_simulations\{run_dict[run]}\_postprocess\_netcdf\accumulation_flux.nc"),
         coords = coords_overflow, epsg_coords = epsg_coords_, 
         epsg_data = 2154)    
 
      # 2. The .csv timeseries tables:
      # (in that case, the coordinates are not used)
     ts_dict[run] = pd.read_csv(os.path.join(res_path, run,
-                                r"results_simulations\base\_postprocess\_timeseries",
+                                rf"results_simulations\{run_dict[run]}\_postprocess\_timeseries",
                                 "_simulated_timeseries.csv"),
                              sep = ";",
                              header = 0,
@@ -315,8 +318,9 @@ metric = 'level' ### user-defined (level | volume | area | accumulation)
                                            labels = [
                                                        ['Measurements', 'Mesures'][lang],
                                                         # "SFR_LAK",
-                                                        "SFR_LAK <b>ref</b> e=35m | K=1e-4 m/s | p=0.5%",
-                                                        "SFR_LAK <b>correction vka</b> e=35m | K=1e-4 m/s | p=0.5%",
+                                                        # "SFR_LAK <b>ref</b> e=35m | K=1e-4 m/s | p=0.5%",
+                                                        # "SFR_LAK <b>correction vka</b> e=35m | K=1e-4 m/s | p=0.5%",
+                                                        "predic run46",
                                                      ],
                                            
                                            linecolors = color_map,
@@ -420,9 +424,12 @@ color_map = np.vstack(cmg.discrete('ibm', alpha = 1,
                       )
 color_map = color_map[[4, 1, 6, 0]]
 
+# ---- Metric [USER CHOICE]
+metric = 'level' ### user-defined (level | volume | area | accumulation)
+
 # ---- Select run [USER CHOICE]
-# run = 'barrage_Cheze_SFR_LAK_2024-10-24'
-run = list(results[metric].keys())[2]
+run = 'barrage_Cheze_SFR_LAK_2024-11-02'
+# run = list(results[metric].keys())[0]
 
 # ---- Trace plots
 # =============================================================================
