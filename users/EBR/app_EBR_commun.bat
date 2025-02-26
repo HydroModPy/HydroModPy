@@ -17,7 +17,7 @@ set scenario_files=selected_scenarios.txt
 rem Get the number of scenarios
 set n_scenario=0
 rem for %%i in (%scenario_files%) do (
-for /f "tokens=*" %%i in (selected_scenarios.txt) do (
+for /f "tokens=*" %%i in (%scenario_files%) do (
 	set /a n_scenario=n_scenario+1
 )
 
@@ -38,14 +38,13 @@ set scenar=0
 rem for %%i in (%scenario_files%) do (
 for /f "tokens=*" %%i in (selected_scenarios.txt) do (
 	set /a scenar=scenar+1
+	set /a rand=%RANDOM%*31/32767+45
 	start cmd /k ^
 	echo SCENARIO !scenar!/%n_scenario% ^& ^
 	echo %%i ^& ^
 	echo: ^& ^
 	call python .\app_EBR_commun_predic.py "%%i" -l -t
-	Set /a _rand=(%RANDOM%*(30+1)/32768)+45
-	rem timeout /t 60
-	timeout /t %_rand%
+	timeout /t !rand!
 )
 endlocal
 
