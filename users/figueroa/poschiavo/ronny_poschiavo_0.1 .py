@@ -84,7 +84,7 @@ import importlib
 importlib.reload(src)
 
 from src import watershed_root
-from src.watershed import climatic, driasclimat, driaseau, geographic, geology, geometric, hydraulic, \
+from src.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, \
                           hydrography, hydrometry, intermittency, oceanic, \
                           piezometry, safransurfex, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
@@ -330,7 +330,7 @@ def plot(shapely_objects, figure_path='fig.png'):
 git_path = 'D:/github/hydromodpy-dev0.1/'
 data_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/GIS/Raster/'
 # data_path = 'C:/Users/ronan/OneDrive/UNINE/8_Modeling/Lasset/_data/'
-out_path = 'D:/Hydromodpy/examples/valdUrsa/'
+out_path = 'D:/Hydromodpy/examples/'
 # out_path = 'C:/Users/ronan/OneDrive - unine.ch/SIMULATIONS/'
 #fig_path = 'C:/Users/ronan/OneDrive/RENNES/4_model/POSCHIAVINO/_figures_updated/_bulk/'
 
@@ -348,8 +348,8 @@ dem_path = data_path + dem_name
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = None # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
-from_xyv = [2799283.450, 1133445.805, 100, 10, 'EPSG:2056'] # [x, y, snap distance, buffer size [%], crs proj]
-from_shp = None
+from_xyv = [2798765.008,1133590.692, 100, 10, 'EPSG:2056'] # [x, y, snap distance, buffer size [%], crs proj]
+from_shp = ['D:/Hydromodpy/examples/valdUrsa_v2/Poschiavino/results_stable/geographic/watershed.shp', 10]
 
 watershed_name = 'Poschiavino'
 # watershed_name = 'Poschiavino_100m'
@@ -452,16 +452,16 @@ BV.calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
 
 BV.add_settings()
 BV.add_climatic()
-BV.add_geometric() # soon
+# BV.add_geometric() # soon
 BV.add_hydraulic()
 
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
-BV.settings.update_active_plot(plot_cross=plot_cross)
+BV.settings.update_check_model(plot_cross=plot_cross)
 BV.hydraulic.update_nlay(nlay) # 1
 BV.hydraulic.update_lay_decay(lay_decay) # 1
-BV.hydraulic.update_cond_vertical(verti_cond)
-BV.hydraulic.update_poro_vertical(verti_poro)
+BV.hydraulic.update_vka(verti_cond)
+BV.hydraulic.update_sy_vertical(verti_poro)
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)

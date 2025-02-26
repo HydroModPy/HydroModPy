@@ -88,7 +88,7 @@ import importlib
 importlib.reload(src)
 
 from src import watershed_root
-from src.watershed import climatic, driasclimat, driaseau, geographic, geology, geometric, hydraulic, \
+from src.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, \
                           hydrography, hydrometry, intermittency, oceanic, \
                           piezometry, safransurfex, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
@@ -357,47 +357,60 @@ def clip_raster_to_square(raster_path, output_path, center_coords, side_length):
 
 #%% PATHS
 
-# sites=[['01.Contamines_Montjoie','32T',322926.04,5072153.80],  #0
-#        ['02.Ischgl_Galtuer','32T',590438.00,5202474.00],       #1
-#        ['03.Grande_Sassiere','32T',341084.35,5038763.81],      #2
-#        ['04.Rechy','32T',385076.70,5117632.10],                #3
-#        ['05.Sadole','32T',699814.60,5124527.20],               #4
-#        ['06.Zugspitze','32T',657276.60,5262792.40],            #5
-#        ['07.Petzen','32T',21920.14,5168239.03]]                #6
-
-# sites2=[['08.passy','32T',331332.28,5091702.79],                   #0
-#         ['09.Val_arly','32T',307763.02,5072037.43],                #1
-#         ['10.Luitel','32T',724067.72,4997079.98],                  #2
-#         ['11.Val_dUrse','32T',578050.20,5130820.00],               #3
-#         ['12.Martelltal-Madritsch','32T',628239.72,5149253.99],    #4
-#         ['13.Schnalstal-Lazaun','32T',634414.69,5179283.72],       #5
-#         ['14.Alpe_Glacier','32T',610222.90,5138614.25],            #6
-#         ['15.Dosegu_Glacier','32T',619858.78,5137477.20],          #7
-#         ['16.Hauts de Villaroger','32T',334483.63,5047872.10]]     #8
 
 site = pd.read_excel('D:/Dropbox/1_CHYN_Neuchatel/2WATERWISE/Study_sites/Waterwise_sites.xlsx')
 git_path = 'D:/github/hydromodpy-dev0.1/'
-data_path = 'V:/_Alps/dm/'
+data_path = 'V:/_Alps/_public_database/_topography/dm/'
 
 dem_name = 'eu_dem_v11_E30-40N20_WGS84_32N.tif' # 
-dem_path = data_path + dem_name
+# dem_path = data_path + dem_name
 
-site_num = 13            #indicate number of study site
+out_path = 'D:/Hydromodpy/Waterwise2/'           # no volver a poner nombre de catchments
 
-watershed_name = str(site.loc[site_num,'ID']) + site.loc[site_num,'ID_name']
+
+site_num = 6            #indicate number of study site
+
+watershed_name = str(site.loc[site_num,'ID']) + site.loc[site_num,'ID_name']+'_4'
 from_xyv = [site.loc[site_num,'x_32N'], site.loc[site_num,'y_32N'], 100, 10, 'EPSG:32632'] # [x, y, snap distance, buffer size [%], crs proj]
 
+try:
+    dem_path = out_path+'Dem_clipped/'+site.loc[site_num,'ID_name']+"_clipped.tif"
+    with rasterio.open(dem_path) as dataset:        
+        dem_test = dataset.read(1)
+        
+        
+except:
+    dem_path = data_path + dem_name 
+    if __name__ == "__main__":
+        # raster_path = dem_path  
+        dem_clipped = out_path+'Dem_clipped/'+site.loc[site_num,'ID_name']+"_clipped.tif"      # Ruta del raster recortado
+        center_coords = (from_xyv[0], from_xyv[1])       # Coordenadas del punto central (en CRS del raster)
+        side_length = 200000                         # Distancia del buffer (en las unidades del CRS)
+
+        clip_raster_to_square(dem_path, dem_clipped, center_coords, side_length)
+    
+dem_path = out_path+'Dem_clipped/'+site.loc[site_num,'ID_name']+"_clipped.tif"
+# from_xyv = []
+# from_shp = [site.loc[site_num,'loc_shp'], 10]
+
+if site.loc[site_num,'shapefile'] =='Si':    
+    from_shp = [site.loc[site_num,'loc_shp'], 10]
+else:
+    from_shp = None
 
 
-out_path = 'D:/Hydromodpy/Waterwise/'           # no volver a poner nombre de catchments
+    
 
 
-from_shp = None
+
+
+
+# from_shp = None
 subbasin_path = True # generate subbasins from stations or manual points
 from_dem = None # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
 
-
+# sys.exit()
 #%% LOAD
 
 load = True         #not re run if it's well loaded
@@ -417,15 +430,15 @@ try:
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots 
 except:
-    if __name__ == "__main__":
-        # raster_path = dem_path  
-        dem_clipped = out_path+watershed_name+'/'+site.loc[site_num,'ID_name']+"_clipped.tif"      # Ruta del raster recortado
-        center_coords = (from_xyv[0], from_xyv[1])       # Coordenadas del punto central (en CRS del raster)
-        side_length = 40000                         # Distancia del buffer (en las unidades del CRS)
+    # if __name__ == "__main__":
+    #     # raster_path = dem_path  
+    #     dem_clipped = out_path+watershed_name+'/'+site.loc[site_num,'ID_name']+"_clipped.tif"      # Ruta del raster recortado
+    #     center_coords = (from_xyv[0], from_xyv[1])       # Coordenadas del punto central (en CRS del raster)
+    #     side_length = 40000                         # Distancia del buffer (en las unidades del CRS)
 
-        clip_raster_to_square(dem_path, dem_clipped, center_coords, side_length)
+    #     clip_raster_to_square(dem_path, dem_clipped, center_coords, side_length)
     BV = watershed_root.Watershed(watershed_name=watershed_name,
-                                  dem_path=dem_clipped, 
+                                  dem_path=dem_path, 
                                   out_path=out_path,
                                   load=load,
                                   from_shp=from_shp,
