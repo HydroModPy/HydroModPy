@@ -336,7 +336,7 @@ for scenario in scenario_list:
 
 #%% VISU Vol/Lvl/Area
 # ---- Colorscale [USER CHOICE]
-color_map_fill = np.vstack(cmg.discrete('wong', alpha = 0.5,
+color_map_fill = np.vstack(cmg.discrete('wong', alpha = 0.4,
                                         black = False, alternate = True),
 # =============================================================================
 #                       cmg.discrete('wong', alpha = 1, 
@@ -346,7 +346,9 @@ color_map_fill = np.vstack(cmg.discrete('wong', alpha = 0.5,
 # =============================================================================
                       )
 color_map_line = color_map_fill.copy()
-color_map_line[:, -1] = 0
+color_map_line[:, -1] = 0.2
+color_map_extline = color_map_fill.copy()
+color_map_extline[:, -1] = 1
 # =============================================================================
 # color_map = color_map[[0, 2,3, 4,5, 6,7]]
 # =============================================================================
@@ -395,10 +397,22 @@ figweb = None
 for p in range(0, len(scenario_p_list)):
     scenario = scenario_p_list[p]
     [fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
+                                               data = merge_res[scenario],
+                                               fill = None,
+                                               labels = None,
+                                               linecolors = color_map_line[p],
+                                               # fillcolor = color_map2[[p]],
+                                               lwidths = 1.5,
+                                               lstyles = '-',
+                                               legendgroup = p,
+                                               # legendgrouptitle_text = year_labels[p],
+                                               showlegend = False)
+        
+    [fig1, ax1, figweb] = nc.plot_time_series(figweb = figweb,
                                                data = [graph_res[scenario]['min']],
                                                fill = None,
                                                labels = [scenario],
-                                               linecolors = color_map_line[[p]],
+                                               linecolors = color_map_extline[p],
                                                # fillcolor = color_map2[[p]],
                                                lwidths = [1.5],
                                                lstyles = ['-'],
@@ -410,7 +424,7 @@ for p in range(0, len(scenario_p_list)):
                                                fill = 'tonexty',
                                                labels = [scenario],
                                                fillcolors = color_map_fill[[p]],
-                                               linecolors = color_map_line[[p]],
+                                               linecolors = color_map_extline[p],
                                                # fillcolor = color_map2[[p]],
                                                lwidths = [1.5],
                                                lstyles = ['-'],
