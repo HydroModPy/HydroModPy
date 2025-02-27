@@ -309,7 +309,10 @@ mdflw_dict = {}
 mdflw_dict['list_model_name'] = []
 mdflw_dict['list_success_modflow'] = []
 mdflw_dict['list_model_modflow'] = []
-h5file = os.path.join(BV.simulations_folder, 'results_listing_predic')
+h5file = os.path.join(BV.simulations_folder, 
+                      '_'.join(['results_listing_predic', 
+                                os.path.splitext(scenario)[0]])
+                      )
 
 # ---- Extraction des variables climatiques
 forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
