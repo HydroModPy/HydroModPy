@@ -286,7 +286,7 @@ sim_state = BV.settings.sim_state
 
 #%%% Récupération des résultats de la simulation historique
 h5file = os.path.join(BV.simulations_folder,
-                      'results_listing_' + model_name)
+                      'results_listing_' + model_name) # model_name = 'historique'
 mdflw_dict = dd.io.load(h5file)
 success_modflow = mdflw_dict['success_modflow']
 model_modflow = mdflw_dict['model_modflow']
@@ -305,14 +305,16 @@ model_modflow = mdflw_dict['model_modflow']
 #                              os.path.splitext(scenario)[0]))
 # =============================================================================
 
-mdflw_dict = {}
-mdflw_dict['list_model_name'] = []
-mdflw_dict['list_success_modflow'] = []
-mdflw_dict['list_model_modflow'] = []
-h5file = os.path.join(BV.simulations_folder, 
-                      '_'.join(['results_listing_predic', 
-                                os.path.splitext(scenario)[0]])
-                      )
+# ====== to avoid excessive storage ===========================================
+# mdflw_dict = {}
+# mdflw_dict['list_model_name'] = []
+# mdflw_dict['list_success_modflow'] = []
+# mdflw_dict['list_model_modflow'] = []
+# h5file = os.path.join(BV.simulations_folder, 
+#                       '_'.join(['results_listing_predic', 
+#                                 os.path.splitext(scenario)[0]])
+#                       )
+# =============================================================================
 
 # ---- Extraction des variables climatiques
 forecast_path = os.path.join(data_path, "Meteo", "Previsions 6 mois C3S")
@@ -348,6 +350,9 @@ Pour l'instant on convertit ca en chroniques (pandas).
 
 
 # ---- Boucle sur chaque run disponible dans les données
+start_time = datetime.datetime.now()
+print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
+
 for i in range(0, 51):    
 # ======= useless =============================================================
 #     sleep(np.random.uniform(0, 6)) # to avoid simultaneous runs
@@ -357,106 +362,117 @@ for i in range(0, 51):
     BV.settings.update_model_name(model_name)
     print('\n--------\n' + model_name + '\n--------\n')
     
-    # ---- Récupération et mise à jour des données climatiques
-    clim_ds_i = clim_ds.loc[{'number': i}]
-
+    
+    ##%%% Skip this simulation if it has already been run
+    skip = False
+    netcdf_folder = os.path.join(BV.simulations_folder, 
+                                 f"{os.path.splitext(scenario)[0]}",
+                                 f"{model_name}",
+                                 r"_postprocess\_netcdf")
+    if os.path.isdir(netcdf_folder):
+        filelist = ghc.get_filelist(data = netcdf_folder, filetype = '.nc')
+        if len(filelist) > 0:
+            skip = True
+            print(f"La simulation {model_name} du scenario '{os.path.splitext(scenario)[0]}' a déjà été executée avec succès")
+    
+    if not skip:
+        # ---- Récupération et mise à jour des données climatiques
+        clim_ds_i = clim_ds.loc[{'number': i}]
+    
 # =============================================================================
-#     clipped_ds = pgi.reprojeter(clim_ds_i, mask = BV.geographic.watershed_shp,
-#                                   resolution = (BV.geographic.resolution_x,
-#                                                 BV.geographic.resolution_y),
-#                                   dst_crs = BV.geographic.crs_proj)
-#     
-#     clim_df = clipped_ds.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
-#     clim_df = clim_df.resample(freq_input).mean()
+#         clipped_ds = pgi.reprojeter(clim_ds_i, mask = BV.geographic.watershed_shp,
+#                                       resolution = (BV.geographic.resolution_x,
+#                                                     BV.geographic.resolution_y),
+#                                       dst_crs = BV.geographic.crs_proj)
+#         
+#         clim_df = clipped_ds.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas()
+#         clim_df = clim_df.resample(freq_input).mean()
 # =============================================================================
-    
-    clim_df = ghc.time_series(
-        input_file = clim_ds_i,
-        coords = BV.geographic.watershed_shp, epsg_coords = BV.geographic.crs_proj, 
-        )
-    
-    BV.climatic.evt = clim_df['e']
-    BV.climatic.etp = clim_df['e']
-    BV.climatic.precip = clim_df['tp']
-    BV.climatic.update_recharge(clim_df['ssro'], sim_state=sim_state)
-    BV.climatic.update_runoff(clim_df['sro'], sim_state=sim_state)
-    
-    # ---- Mise à jour des flux naturels sur le réservoir
-    BV.lakeres.update_precip(lake_id, BV.climatic.precip)
-    BV.lakeres.update_evap(lake_id, BV.climatic.evt)
-    BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (BV.geographic.resolution**2), runoff_accumulation = True)
-    
-    # ---- Mise à jour du modèle modflow
-    # model_modflow = BV.preprocessing_modflow(for_calib=False)
-    model_modflow = BV.update_modflow(
-        model_modflow, 
-        {'model_name': model_name,
-         'full_path': os.path.join(
-             model_modflow.model_folder, 
-             os.path.splitext(scenario)[0],
-             model_name),
-         'heads': prev_head_3D, 
-         'recharge': BV.climatic.recharge,
-         'runoff': BV.climatic.runoff,
-         'lakeres': BV.lakeres,
-         # 'sim_state': 'steady' si on veut
-         })
-    
-    # ---- Simulation
-    success_modflow = False
-    while not success_modflow:
-        try: success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-        except: print(f"Err: Failed simulation launching: {scenario}:{model_name}")
         
-    mdflw_dict['list_model_name'].append(model_name)
-    mdflw_dict['list_success_modflow'].append(success_modflow)
-    mdflw_dict['list_model_modflow'].append(model_modflow)
-    save_success = False
-    while not save_success:
-        try: 
-            dd.io.save(h5file, mdflw_dict)
-            save_success = True
-        except: 
-            save_success = False
+        clim_df = ghc.time_series(
+            input_file = clim_ds_i,
+            coords = BV.geographic.watershed_shp, epsg_coords = BV.geographic.crs_proj, 
+            )
+        
+        BV.climatic.evt = clim_df['e']
+        BV.climatic.etp = clim_df['e']
+        BV.climatic.precip = clim_df['tp']
+        BV.climatic.update_recharge(clim_df['ssro'], sim_state=sim_state)
+        BV.climatic.update_runoff(clim_df['sro'], sim_state=sim_state)
+        
+        # ---- Mise à jour des flux naturels sur le réservoir
+        BV.lakeres.update_precip(lake_id, BV.climatic.precip)
+        BV.lakeres.update_evap(lake_id, BV.climatic.evt)
+        BV.lakeres.update_runoff(lake_id, BV.climatic.runoff * (BV.geographic.resolution**2), runoff_accumulation = True)
+        
+        # ---- Mise à jour du modèle modflow
+        # model_modflow = BV.preprocessing_modflow(for_calib=False)
+        model_modflow = BV.update_modflow(
+            model_modflow, 
+            {'model_name': model_name,
+             'full_path': os.path.join(
+                 model_modflow.model_folder, 
+                 os.path.splitext(scenario)[0],
+                 model_name),
+             'heads': prev_head_3D, 
+             'recharge': BV.climatic.recharge,
+             'runoff': BV.climatic.runoff,
+             'lakeres': BV.lakeres,
+             # 'sim_state': 'steady' si on veut
+             })
+        
+        # ---- Simulation
+        success_modflow = False
+        while not success_modflow:
+            try: success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+            except: print(f"Err: Failed simulation launching: {scenario}:{model_name}")
+            
+# ====== to avoid excessive storage ===========================================
+#     mdflw_dict['list_model_name'].append(model_name)
+#     mdflw_dict['list_success_modflow'].append(success_modflow)
+#     mdflw_dict['list_model_modflow'].append(model_modflow)
+#     save_success = False
+#     while not save_success:
+#         try: 
+#             dd.io.save(h5file, mdflw_dict)
+#             save_success = True
+#         except: 
+#             save_success = False
+# =============================================================================
 
 
-#%%% Rechargement des résultats du modèle Modflow
-h5file = os.path.join(BV.simulations_folder,
-                      'results_listing_predic')
-mdflw_dict = dd.io.load(h5file)
-
-#%% POST-PROCESSING
-start_time = datetime.datetime.now()
-print("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
-
-for model_name, success_modflow, model_modflow in zip(mdflw_dict['list_model_name'],
-                                                      mdflw_dict['list_success_modflow'],
-                                                      mdflw_dict['list_model_modflow']):
-
-    ##%%% General
-    if success_modflow == True:
-        BV.postprocessing_modflow(model_modflow,
-                                  watertable_elevation = True,
-                                  watertable_depth= True, 
-                                  seepage_areas = True,
-                                  outflow_drain = True,
-                                  groundwater_flux = True,
-                                  groundwater_storage = True,
-                                  accumulation_flux = True,
-                                  # lake_seepage = True,
-                                  export_all_tif = False,)
+# ====== to avoid excessive storage ===========================================
+# #%%% Rechargement des résultats du modèle Modflow
+# h5file = os.path.join(BV.simulations_folder,
+#                       'results_listing_predic')
+# mdflw_dict = dd.io.load(h5file)
+# =============================================================================
     
-    
-    ##%%% Timeseries
-    model_modpath = None # because transient
-    timeseries_results = BV.postprocessing_timeseries(model_modflow,
-                                                      model_modpath,
-                                                      actual_date=True, 
-                                                      subbasin_results=True) # or None
-    
-    ##%%% NetCDF
-    netcdf_results = BV.postprocessing_netcdf(model_modflow,
-                                              actual_date=True)
+        ##% POST-PROCESSING
+        ##%%% General
+        if success_modflow == True:
+            BV.postprocessing_modflow(model_modflow,
+                                      watertable_elevation = True,
+                                      watertable_depth= True, 
+                                      seepage_areas = True,
+                                      outflow_drain = True,
+                                      groundwater_flux = True,
+                                      groundwater_storage = True,
+                                      accumulation_flux = True,
+                                      # lake_seepage = True,
+                                      export_all_tif = False,)
+        
+        
+        ##%%% Timeseries
+        model_modpath = None # because transient
+        timeseries_results = BV.postprocessing_timeseries(model_modflow,
+                                                          model_modpath,
+                                                          actual_date=True, 
+                                                          subbasin_results=True) # or None
+        
+        ##%%% NetCDF
+        netcdf_results = BV.postprocessing_netcdf(model_modflow,
+                                                  actual_date=True)
 
 now = datetime.datetime.now()
 print("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))

@@ -22,6 +22,8 @@ for /f "tokens=*" %%i in (%scenario_files%) do (
 )
 
 rem Historical simulation (warm-up)
+set PYTHONPATH=D:\2- Postdoc\2- Travaux\3_CWatM_EBR\source\Tools_AlexCoche
+set PYTHONPATH=D:\2- Postdoc\2- Travaux
 echo SIMULATION DE L'ETAT INITIAL DU MODELE
 echo:
 call python .\app_EBR_commun.py -l -t
@@ -32,8 +34,6 @@ timeout /t 5
 
 rem Predictive simulations
 setlocal
-set PYTHONPATH=D:\2- Postdoc\2- Travaux\3_CWatM_EBR\source\Tools_AlexCoche
-set PYTHONPATH=D:\2- Postdoc\2- Travaux
 set scenar=0
 rem for %%i in (%scenario_files%) do (
 for /f "tokens=*" %%i in (selected_scenarios.txt) do (
