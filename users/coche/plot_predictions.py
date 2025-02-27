@@ -202,7 +202,7 @@ data.loc[:, sum_col] = data.loc[:, sum_col].divide(
     days_in_month.n_days, axis="index") # [m3/j]
 
 #%% LOAD RESULTS [USER CHOICE]
-run = 'barrage_Cheze_SFR_LAK_2024-11-02'
+run = 'barrage_Cheze_PREDIC_2024-11-02'
 
 # List of all scenarios (historical and predictive)
 results_sim_folder = os.path.join(res_path, run, r"results_simulations")
