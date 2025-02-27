@@ -76,6 +76,10 @@ from src.tools import toolbox, folder_root, log_manager
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+#% Personal toolbox to handle NetCDF
+from pywtraj import geohydroconvert as ghc
+
+
 #%% Initialiser le gestionnaire de logs en mode développement
 log_manager = log_manager.LogManager(mode="dev", # Utiliser mode="verbose" pour afficher les logs INFO et supérieur et mode="quiet" pour afficher les logs WARNING et supérieur
                                     #  log_dir="", # Utiliser log_dir pour spécifier le répertoire des logs
@@ -112,30 +116,32 @@ if ('startdate' not in settings) | (settings['startdate'] == "aujourd'hui"):
 dem_path = os.path.join(data_path, 
                         "MNT",
                         "MNT_Bretagne_BD-ALTI-v2_2020-10_L93_75m.tif")
-load = False
+load = True
 watershed_name = '_'.join(['barrage_Cheze_PREDIC', settings['startdate'].strftime("%Y-%m-%d")])
 # outlet after the dam ("pont romain")
 from_xyv = [331315, 6781273, 200, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 # Station de débit à Plélan-le-Grand : [x, y] = [324472, 6779605]
 save_object = True
 
-#%%% Créer GEOGRAPHIC
+#%%% Créer ou recharger GEOGRAPHIC
 logging.info('##### '+watershed_name.upper()+' #####')
 
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
-                              load=load, # load = False
+                              load=load,
                               watershed_name=watershed_name,
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
                               save_object=save_object)
 
-#%%% Recharger GEOGRAPHIC
-# =============================================================================
-# BV = watershed_root.Watershed(dem_path=dem_path,
-#                               out_path=out_path,
-#                               watershed_name=watershed_name,
-#                               load=True)
-# =============================================================================
+
+#%%% Skip this simulation if it has already been run
+netcdf_folder = os.path.join(BV.simulations_folder, r'historique\_postprocess\_netcdf')
+if os.path.isdir(netcdf_folder):
+    filelist = ghc.get_filelist(data = netcdf_folder, filetype = '.nc')
+    if len(filelist) > 0:
+        logging.warning(f"La simulation historique {BV.watershed_name} a déjà été executée avec succès")
+        sys.exit()
+
 
 #%% SOUS-BASSINS
 # =============================================================================
