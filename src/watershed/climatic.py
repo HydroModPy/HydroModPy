@@ -188,6 +188,7 @@ class Climatic:
                                    last_year, time_step, sim_state=None):
         """
         Update the recharge from a hydrometeorological reanalysis at the France scale.
+        From an inital REA.h5 file, and after using safransurfex.py class
 
         Parameters
         ----------
@@ -235,6 +236,7 @@ class Climatic:
                                  last_year, time_step, sim_state=None):
         """
         Update the runoff from a hydrometeorological reanalysis at the France scale.
+        From an inital REA.h5 file, and after using safransurfex.py class
 
         Parameters
         ----------
