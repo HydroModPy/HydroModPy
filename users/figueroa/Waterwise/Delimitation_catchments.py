@@ -368,9 +368,9 @@ dem_name = 'eu_dem_v11_E30-40N20_WGS84_32N.tif' #
 out_path = 'D:/Hydromodpy/Waterwise2/'           # no volver a poner nombre de catchments
 
 
-site_num = 4            #indicate number of study site
+site_num = 6            #indicate number of study site
 
-watershed_name = str(site.loc[site_num,'ID']) + site.loc[site_num,'ID_name']
+watershed_name = str(site.loc[site_num,'ID']) + site.loc[site_num,'ID_name']+'_4'
 from_xyv = [site.loc[site_num,'x_32N'], site.loc[site_num,'y_32N'], 100, 10, 'EPSG:32632'] # [x, y, snap distance, buffer size [%], crs proj]
 
 try:
@@ -385,7 +385,7 @@ except:
         # raster_path = dem_path  
         dem_clipped = out_path+'Dem_clipped/'+site.loc[site_num,'ID_name']+"_clipped.tif"      # Ruta del raster recortado
         center_coords = (from_xyv[0], from_xyv[1])       # Coordenadas del punto central (en CRS del raster)
-        side_length = 40000                         # Distancia del buffer (en las unidades del CRS)
+        side_length = 200000                         # Distancia del buffer (en las unidades del CRS)
 
         clip_raster_to_square(dem_path, dem_clipped, center_coords, side_length)
     
@@ -410,7 +410,7 @@ subbasin_path = True # generate subbasins from stations or manual points
 from_dem = None # True or False if the process start from a given DEM of xyz file
 cell_size = None # specify new resolution from a given DEM or None
 
-
+# sys.exit()
 #%% LOAD
 
 load = True         #not re run if it's well loaded

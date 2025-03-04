@@ -367,7 +367,7 @@ data_path = "D:/Hydromodpy/Waterwise_test/"
 out_path = 'D:/Hydromodpy/Waterwise3/'           # no volver a poner nombre de catchments
 
 
-site_num = 1            #indicate number of study site
+site_num = 5            #indicate number of study site
 
 watershed_name = str(int(site.loc[site_num,'ID'])) + site.loc[site_num,'ID_name']
 from_xyv = [site.loc[site_num,'x_LAEA'], site.loc[site_num,'y_LAEA'], 100, 10, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
@@ -743,7 +743,7 @@ from rasterio.plot import show
 import geopandas as gpd
 from rasterio.features import geometry_mask
 compt = 0
-stream_obs=gpd.read_file('D:/Dropbox/1_CHYN_Neuchatel/2WATERWISE/Study_sites/shapefiles/Jamtal_stream_network.shp')
+stream_obs=gpd.read_file('D:/Dropbox/1_CHYN_Neuchatel/2WATERWISE/Study_sites/shapefiles/zugs_stream_network.shp')
 
    
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
