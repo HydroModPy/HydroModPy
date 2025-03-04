@@ -14,24 +14,28 @@ import time
 main_folder = "F:/_projects/_current/era5_alpine"
 
 # Initialize log file for failures
-failure_log_file = os.path.join(main_folder, "failed_requests_log.csv")
-if not os.path.exists(failure_log_file):
-    with open(failure_log_file, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Variable", "Year", "Month", "Error"])
+os.makedirs(main_folder, exist_ok=True)
 
 # Current date for run identification
 today = date.today().strftime("%b-%d-%Y")
 print(f"\nRUN at\nnow = {today}\n")
 
+# Initialize log file for failures
+name_log = "failed_requests_log_" + today + ".csv"
+failure_log_file = os.path.join(main_folder, name_log)
+if not os.path.exists(failure_log_file):
+    with open(failure_log_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Variable", "Year", "Error"])
+        
 # Variables and settings
 # possible_variables = ['2m_temperature', 'clear_sky_direct_solar_radiation_at_surface', 
 #                       'snow_depth', 'surface_net_solar_radiation', 'total_column_snow_water', 
 #                       'total_precipitation', 'forecast_albedo','evaporation', 'snow_evaporation']
 
 
-# selected_variables = ['2m_temperature', 'total_precipitation', 'forecast_albedo', 'snow_depth', 'surface_net_solar_radiation']
-selected_variables = ['2m_temperature']
+#selected_variables = ['total_precipitation', 'forecast_albedo', 'snow_depth', 'surface_net_solar_radiation']
+selected_variables = ['total_precipitation']
 
 
 start = 1980
