@@ -2,6 +2,7 @@ import os
 import geopandas as gpd
 import xarray as xr
 import rioxarray
+ 
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -13,8 +14,8 @@ output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\
 output_folder = os.path.join(output_folder,catch_name)
 #r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly\extract'
 polygon_path = os.path.join(polygon_folder, 'catchment_bnd_urse_streamgauge_EPSG3035.shp')
-variables = ['2m_temperature', 'snow_depth', 'total_precipitation', 'forecast_albedo','surface_net_solar_radiation']
-#variables = ['total_precipitation']
+# variables = 
+variables = ['total_precipitation']
 
 # Load the polygon
 polygon = gpd.read_file(polygon_path)
@@ -97,43 +98,43 @@ for variable in variables:
     # Reorder the dataframe chronologically by sorting the index
     combined_df = combined_df.sort_index()
     
-    # #%% Here add a plot with three subplots showing hourly, daily, monthly and yearly timeseries of hourly_df['mean']
-    # # Add a plot with three subplots for hourly, daily, monthly, and yearly time series
-    # fig, axs = plt.subplots(3, 1, figsize=(15, 12), sharex=True)
+    #%% Here add a plot with three subplots showing hourly, daily, monthly and yearly timeseries of hourly_df['mean']
+    # Add a plot with three subplots for hourly, daily, monthly, and yearly time series
+    fig, axs = plt.subplots(3, 1, figsize=(15, 12), sharex=True)
 
-    # # Hourly data
-    # axs[0].plot(combined_df.index, combined_df['mean'], color='blue', linewidth=0.5, label='Hourly Mean')
-    # axs[0].set_title('Hourly', fontsize=14)
-    # axs[0].set_ylabel(f"{variable}", fontsize=12)
-    # axs[0].legend(loc='upper right', fontsize=10)
+    # Hourly data
+    axs[0].plot(combined_df.index, combined_df['mean'], color='blue', linewidth=0.5, label='Hourly Mean')
+    axs[0].set_title('Hourly', fontsize=14)
+    axs[0].set_ylabel(f"{variable}", fontsize=12)
+    axs[0].legend(loc='upper right', fontsize=10)
 
-    # # Daily data
-    # daily_mean = combined_df['mean'].resample('D').mean()
-    # axs[1].plot(daily_mean.index, daily_mean, color='orange', linewidth=0.7, label='Daily Mean')
-    # axs[1].set_title('Daily', fontsize=14)
-    # axs[1].set_ylabel(f"{variable}", fontsize=12)
-    # axs[1].legend(loc='upper right', fontsize=10)
+    # Daily data
+    daily_mean = combined_df['mean'].resample('D').mean()
+    axs[1].plot(daily_mean.index, daily_mean, color='orange', linewidth=0.7, label='Daily Mean')
+    axs[1].set_title('Daily', fontsize=14)
+    axs[1].set_ylabel(f"{variable}", fontsize=12)
+    axs[1].legend(loc='upper right', fontsize=10)
 
-    # # Monthly and yearly data
-    # monthly_mean = combined_df['mean'].resample('M').mean()
-    # yearly_mean = combined_df['mean'].resample('Y').mean()
+    # Monthly and yearly data
+    monthly_mean = combined_df['mean'].resample('M').mean()
+    yearly_mean = combined_df['mean'].resample('Y').mean()
 
-    # axs[2].plot(monthly_mean.index, monthly_mean, color='green', linewidth=1, label='Monthly Mean')
-    # axs[2].plot(yearly_mean.index, yearly_mean, color='red', linewidth=1.5, label='Yearly Mean')
-    # axs[2].set_title('Monthly and Yearly', fontsize=14)
-    # axs[2].set_ylabel(f"{variable}", fontsize=12)
-    # axs[2].legend(loc='upper right', fontsize=10)
+    axs[2].plot(monthly_mean.index, monthly_mean, color='green', linewidth=1, label='Monthly Mean')
+    axs[2].plot(yearly_mean.index, yearly_mean, color='red', linewidth=1.5, label='Yearly Mean')
+    axs[2].set_title('Monthly and Yearly', fontsize=14)
+    axs[2].set_ylabel(f"{variable}", fontsize=12)
+    axs[2].legend(loc='upper right', fontsize=10)
 
-    # # Common X-axis label
-    # axs[2].set_xlabel('Time', fontsize=12)
+    # Common X-axis label
+    axs[2].set_xlabel('Time', fontsize=12)
 
-    # # Improve layout and add grid lines
-    # for ax in axs:
-    #     ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+    # Improve layout and add grid lines
+    for ax in axs:
+        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
-    # plt.tight_layout()
-    # plt.show()
-    # plt.close()
+    plt.tight_layout()
+    plt.show()
+    plt.close()
 
     # # Save the figure
     
@@ -141,9 +142,9 @@ for variable in variables:
     # timeseries_fig_name = os.path.join(output_folder, name_fig)
     # fig.savefig(timeseries_fig_name)
     
-    # Save the csv file
-    output_file = os.path.join(output_folder, f"{variable}.csv")
-    combined_df.to_csv(output_file, index=True)
-    print(f"Saved combined data for {variable} to {output_file}")
+    # # Save the csv file
+    # output_file = os.path.join(output_folder, f"{variable}.csv")
+    # combined_df.to_csv(output_file, index=True)
+    # print(f"Saved combined data for {variable} to {output_file}")
 
 print("Extraction completed.")

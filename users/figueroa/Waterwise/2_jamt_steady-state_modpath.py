@@ -594,6 +594,58 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
         netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                                   datetime_format=False)
 
+
+#%% MODPATH
+for model_name, model_success, model_modflow in zip(list_model_name[:],
+                                                    list_success_modflow[:],
+                                                    list_model_modflow[:]):
+
+    print(model_modflow.mf.model_ws)
+    print(model_name)
+    
+    
+    tif_file = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+    tif_file_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+    wbt.clip_raster_to_polygon(
+        tif_file, 
+        BV.stable_folder + '/geographic/watershed.shp', 
+        tif_file_clip, 
+        maintain_dimensions=True)
+    
+    BV.settings.update_input_particles(
+                                        # zone_partic = BV.geographic.watershed_box_buff_dem,
+                                        # zone_partic = tif_file,
+                                        # zone_partic = shp_transform_tif,
+                                        zone_partic = tif_file_clip,
+                                        # zone_partic = tif_bore,  # indicate where to inject particles, seepage, borehole or entire catchment
+                                        cell_div = 1, # 1, distribution of partciles by cell in x and y direction
+                                        zloc_div = False,  # False or True, inject partciles in z direction. Same number as cell_div
+                                        bore_depth = None, # None or True, None 1 particle in the first layer, If True it will inject 1 particle in every layer.
+                                        track_dir = 'backward', # backward or forward 
+                                        # track_dir = 'forward', # backward
+                                        sel_random = None, # or int
+                                        sel_slice = None, # or int
+                                        )
+
+    model_modpath = BV.preprocessing_modpath(model_modflow)
+    success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
+
+    BV.postprocessing_modpath(model_modpath,
+                              ending_point=True,
+                              starting_point=True,
+                              pathlines_shp=True,
+                              particles_shp=False,
+                              random_id=None) # None
+    
+    BV.filtprocessing_modpath(model_modpath,
+                              norm_flux=True, # for forward only
+                              filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                              filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                              filt_inout=True, # delete particles in and out in the same cell (first layer)
+                              calc_rtd=False, # compute residence time distribution
+                              random_id=None, # select randomly to keep
+                              ) # None
+
 #%% ---- PLOT
 
 #%% CROSS
