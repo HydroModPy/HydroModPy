@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="browser_view.xslt"?>
+<?xmlspysps authentic_view.sps?>
+<!-- edited with XMLSPY v5 rel. 3 U (http://www.xmlspy.com) by Jean-Raynald de Dreuzy (G&#233;osciences Rennes) -->
+<!DOCTYPE ParametersGroup SYSTEM "../../prog_scheme_reference.dtd">
+<?xml-stylesheet type="text/xsl" href="browser_view.xslt"?>
+<?xmlspysps authentic_view.sps?>
+<ParametersGroup name="inputs">
+	<!-- Launcher parameters -->
+	<ParametersGroup name="launcher">
+		<Parameter name="type">
+			<description>parameter of launcher</description>
+			<possible_values/>
+			<default_value>launcher parameter default</default_value>
+			<value>parameter of result file</value>
+			<type>string</type>
+		</Parameter>
+	</ParametersGroup>
+	<ParametersGroup name="libraries">
+		<ParametersGroup name="library2">
+			<Parameter name="param2">
+				<description>parameter of library 2</description>
+				<type>int</type>
+				<possible_values>&gt;=0</possible_values>
+				<value></value>
+				<default_value>2</default_value>
+			</Parameter>
+		</ParametersGroup>
+	</ParametersGroup>
+</ParametersGroup>
