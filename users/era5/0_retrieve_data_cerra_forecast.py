@@ -81,9 +81,6 @@ selected_variables = [
     'evaporation']
 
 
-
-
-
 # start = 1984
 start = 1984
 stop = 2022
