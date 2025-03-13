@@ -361,7 +361,7 @@ class Sim2:
         # Files to download to cover the times
         # (Note that if the specified spatial extent is not covered, the files have been previously deleted in __init__())
         if len(to_download) > 0:
-            logging.debug(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + self.available_data.loc[dataname, 'size_Go'] + ')' for dataname in to_download])}")
+            logging.debug(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + str(self.available_data.loc[dataname, 'size_Go']) + ')' for dataname in to_download])}")
             ram_space = self.available_data.loc[to_download, 'size_Go'].max()
             disk_space = self.available_data.loc[to_download, 'size_Go'].sum()/2.5*len(self.var_list) \
                 - sum(os.path.getsize(os.path.join(self.nc_data_path, f)) \
