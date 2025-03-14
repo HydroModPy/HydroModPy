@@ -1,4 +1,4 @@
-name: hydro
+name: hydromodpy-0.1
 channels:
   - conda-forge
   - defaults
