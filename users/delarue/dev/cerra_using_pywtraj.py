@@ -48,4 +48,4 @@ polygon.plot()
 grid_crs = ghc.georef(data = grid, crs = 6258)
 print(grid_crs)
 
-reprj_ds = ghc.reproject(grid, resolution = 5500, dst_crs = 4326, mask = polygon, x0 = 0, y0 = 0)
+# reprj_ds = ghc.reproject(grid, resolution = 5.5, dst_crs = 4326, mask = polygon, x0 = 0, y0 = 0)
