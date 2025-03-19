@@ -336,7 +336,7 @@ class Modpath:
                                   def_face_ct=0,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
                                   laytyp=laytype,
                                   ibound=iboundData,
-        										prsity=self.poro_modpath,
+        			  prsity=self.poro_modpath,
                                   prsityCB=self.ss_modpath,
                                   extension='mpbas',
                                   unitnumber=86)
