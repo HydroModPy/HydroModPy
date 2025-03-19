@@ -1363,6 +1363,293 @@ def reproject(data, *, src_crs=None, base_template=None, bounds=None,
 
     
 ###############################################################################
+#%% modification - odela
+def _reproject(data, *, src_crs=None, base_template=None, bounds=None,  
+              x0=None, y0=None, mask=None, **rio_kwargs):
+    r"""
+    Reproject space-time data, using rioxarray.reproject().
+
+    Parameters
+    ----------
+    data : str, pathlib.Path, xarray.Dataset or xarra.Dataarray
+        Data to reproject. Supported file formats are .tif and .nc.
+    src_crs : int or str or rasterio.crs.CRS, optional, default None
+        Source coordinate reference system.    
+        For *integers*, src_crs refers to the EPSG code. 
+        For *strings*, src_crs can be OGC WKT string or Proj.4 string.
+    base_template : str, pathlib.Path, xarra.Dataarray or geopandas.GeoDataFrame, optional, default None
+        Filepath, used as a template for spatial profile. Supported file formats
+        are .tif, .nc and .shp.
+    bounds : tuple (float, float, float, float), optional, default None
+        Boundaries of the target domain: (x_min, y_min, x_max, y_max)
+    x0: number, optional, default None
+        Origin of the X-axis, used to align the reprojection grid. 
+    y0: number, optional, default None
+        Origin of the Y-axis, used to align the reprojection grid. 
+    mask : str or pathlib.Path, optional, default None
+        Filepath of geopandas.dataframe of mask.    
+    
+    **rio_kwargs : keyword args, optional, defaults are None
+        Argument passed to the ``xarray.Dataset.rio.reproject()`` function call.
+        
+        **Note**: These arguments are prioritary over ``base_template`` attributes.
+        
+        May contain: 
+            - dst_crs : str
+            - resolution : float or tuple
+            - shape : tuple (int, int)
+            - transform : Affine
+            - resampling
+            - nodata : float or None
+            - see ``help(xarray.Dataset.rio.reproject)``
+
+    Returns
+    -------
+    Reprojected xarray.Dataset.
+
+    """
+    
+    #%%%% Load data, base and mask
+    # ===========================
+    data_ds = load_any(data, decode_times = True, decode_coords = 'all')
+    base_ds = None
+    if base_template is not None:
+        base_ds = load_any(base_template, decode_times = True, decode_coords = 'all')
+    if mask is not None:
+        mask_ds = load_any(mask, decode_times = True, decode_coords = 'all')
+    
+    if src_crs is not None:
+        data_ds.rio.write_crs(src_crs, inplace = True)
+    
+    # Identify spatial coord names
+    for yname in ['latitude', 'lat', 'y', 'Y']:
+        if yname in data_ds.coords:
+            yvar = yname
+    for xname in ['longitude', 'lon', 'x', 'X']:
+        if xname in data_ds.coords:
+            xvar = xname
+    
+    # Initialize x0 and y0 if None
+    x_res, y_res = data_ds.rio.resolution()
+    if x0 is None:
+        x0 = data[xvar][0].item() + x_res/2
+    if y0 is None:
+        y0 = data[yvar][0].item() + y_res/2
+    
+    #%%%% Compute parameters
+    # =====================
+    print("\nComputing parameters...")
+    
+    # ---- Safeguards against redundant arguments
+    # -------------------------------------------
+    if ('transform' in rio_kwargs) & ('shape' in rio_kwargs) & (bounds is not None):
+        print("   _ Err: bounds cannot be passed alongside with both transform and shape")
+        return
+    
+    if 'resolution' in rio_kwargs:
+        if ('shape' in rio_kwargs) | ('transform' in rio_kwargs):
+        # safeguard to avoid RioXarrayError
+            print("   _ Err: resolution cannot be used with shape or transform.")
+            return
+        
+    if (bounds is not None) & (mask is not None):
+        print("   _ Err: bounds and mask cannot be passed together")
+        return
+    
+    
+    # ---- Backup of rio_kwargs
+    # -------------------------
+    rio_kwargs0 = rio_kwargs.copy()
+    
+    # Info message
+    if ('transform' in rio_kwargs) & (bounds is not None):
+        if (bounds[0] != rio_kwargs['transform'][2]) | (bounds[3] != rio_kwargs['transform'][5]):
+            print("   _ ...")
+    
+    
+    # ---- No base_template
+    # ---------------------
+    if base_ds is None:
+        ### Retrieve <dst_crs> (required parameter)
+        if 'dst_crs' not in rio_kwargs:
+            rio_kwargs['dst_crs'] = data_ds.rio.crs.to_string()
+            
+            
+    # ---- Base_template
+    # ------------------
+    # if there is a base, it will be used after being updated with passed parameters
+    else:
+        base_kwargs = {}
+        
+        ### 1. Retrieve all the available info from base:
+        if isinstance(base_ds, xr.Dataset):
+            # A- Retrieve <dst_crs> (required parameter)
+            if 'dst_crs' not in rio_kwargs:
+                try:
+                    rio_kwargs['dst_crs'] = base_ds.rio.crs.to_string()
+                except:
+                    rio_kwargs['dst_crs'] = data_ds.rio.crs.to_string()
+            
+            # B- Retrieve <shape> and <transform>
+            base_kwargs['shape'] = base_ds.rio.shape
+            base_kwargs['transform'] = base_ds.rio.transform()
+            # Note that <resolution> is ignored from base_ds
+                
+        elif isinstance(base_ds, gpd.GeoDataFrame):
+            # A- Retrieve <dst_crs> (required parameter)
+            if 'dst_crs' not in rio_kwargs:
+                try:
+                    rio_kwargs['dst_crs'] = base_ds.crs.to_string()
+                except:
+                    rio_kwargs['dst_crs'] = data_ds.rio.crs.to_string()
+            
+            # B- Retrieve <shape> and <transform>
+            if 'resolution' in rio_kwargs:
+                # The bounds of gpd base are used with the user-defined resolution
+                # in order to compute 'transform' and 'shape' parameters:
+                x_res, y_res = format_xy_resolution(
+                    resolution = rio_kwargs['resolution'])
+                shape, x_min, y_max = get_shape(
+                    x_res, y_res, base_ds.total_bounds, x0, y0)
+                base_kwargs['transform'] = Affine(x_res, 0.0, x_min,
+                                                  0.0, y_res, y_max)
+                base_kwargs['shape'] = shape
+            else:
+                print("   _ Err: resolution needs to be passed when using a vector base")
+                return
+            
+        ### 2. Update <base_kwargs> with <rio_kwargs>
+        for k in rio_kwargs:
+            base_kwargs[k] = rio_kwargs[k]
+        # Replace rio_kwargs with the updated base_kwargs
+        rio_kwargs = base_kwargs
+    
+    
+    # ---- Mask
+    # ---------
+    # <mask> has priority over bounds or rio_kwargs
+    if mask is not None:
+        # Reproject the mask
+        if isinstance(mask_ds, gpd.GeoDataFrame):
+            mask_ds.to_crs(crs = rio_kwargs['dst_crs'], inplace = True)
+            bounds_mask = mask_ds.total_bounds
+        elif isinstance(mask_ds, xr.Dataset):
+            mask_ds = mask_ds.rio.reproject(dst_crs = rio_kwargs['dst_crs'])
+            bounds_mask = (mask_ds.rio.bounds()[0], mask_ds.rio.bounds()[3],
+                           mask_ds.rio.bounds()[2], mask_ds.rio.bounds()[1])
+    else:
+        bounds_mask = None
+    
+    
+    # ---- Bounds
+    # -----------
+    # <bounds> has priority over rio_kwargs
+    if (bounds is not None) | (bounds_mask is not None):
+        if bounds is not None:
+            print("   _ Note that bounds should be in the format (x_min, y_min, x_max, y_max)")
+        elif bounds_mask is not None:
+            bounds = bounds_mask
+            
+        ### Apply <bounds> values to rio arguments
+        if ('shape' in rio_kwargs0):
+            # resolution will be defined from shape and bounds
+            x_res, y_res = format_xy_resolution(bounds = bounds, 
+                                                shape = rio_kwargs['shape'])
+            rio_kwargs['transform'] = Affine(x_res, 0.0, bounds[0],
+                                              0.0, y_res, bounds[3])
+            
+        elif ('resolution' in rio_kwargs0):
+            # shape will be defined from resolution and bounds
+            x_res, y_res = format_xy_resolution(
+                resolution = rio_kwargs['resolution'])
+            shape, x_min, y_max = get_shape(
+                x_res, y_res, bounds, x0, y0)
+            rio_kwargs['transform'] = Affine(x_res, 0.0, x_min,
+                                              0.0, y_res, y_max)
+            rio_kwargs['shape'] = shape
+            
+        # elif ('transform' in rio_kwargs0):
+        else:
+            # shape will be defined from transform and bounds
+            if not 'transform' in rio_kwargs:
+                rio_kwargs['transform'] = data_ds.rio.transform()
+            x_res, y_res = format_xy_resolution(
+                resolution = (rio_kwargs['transform'][0],
+                              rio_kwargs['transform'][4]))
+            shape, x_min, y_max = get_shape(
+                x_res, y_res, bounds, x0, y0)
+            rio_kwargs['transform'] = Affine(x_res, 0.0, x_min,
+                                              0.0, y_res, y_max)
+            rio_kwargs['shape'] = shape
+        
+    
+    # ---- Resolution
+    # ---------------
+    if ('resolution' in rio_kwargs) and ('transform' in rio_kwargs):
+        x_res, y_res = format_xy_resolution(
+            resolution = rio_kwargs['resolution'])
+        transform = list(rio_kwargs['transform'])
+        transform[0] = x_res
+        transform[4] = y_res
+        rio_kwargs['transform'] = Affine(*transform[0:6])
+        rio_kwargs.pop('resolution')   
+        
+    
+    # ---- Resampling
+    # ---------------
+    if 'resampling' not in rio_kwargs:
+        # by default, resampling is 5 (average) instead of 0 (nearest)
+        rio_kwargs['resampling'] = rasterio.enums.Resampling(5)
+
+
+    #%%%% Reproject
+    # ===========
+    print("\nReprojecting...")
+    
+    var = main_var(data_ds)
+    # Backup of attributes and encodings
+    attrs = data_ds[var].attrs.copy()
+    encod = data_ds[var].encoding.copy()
+    
+    # Handle timedelta, as they are not currently supported (https://github.com/corteva/rioxarray/discussions/459)
+    NaT = False
+    if isinstance(data_ds[var].values[0, 0, 0], (pd.Timedelta, np.timedelta64)):
+        NaT = True
+        
+        data_ds[var] = data_ds[var].dt.days
+        data_ds[var].encoding = encod
+        
+    if ('x' in list(data_ds.coords)) & ('y' in list(data_ds.coords)) & \
+        (('lat' in list(data_ds.coords)) | ('lon' in list(data_ds.coords))):
+        # if lat and lon are among coordinates, they should be temporarily moved
+        # to variables to be reprojected
+        data_ds = data_ds.reset_coords(['lat', 'lon'])
+        data_reprj = data_ds.rio.reproject(**rio_kwargs)
+        data_reprj = data_reprj.set_coords(['lat', 'lon'])
+
+    else:
+        data_reprj = data_ds.rio.reproject(**rio_kwargs)
+    
+# ======= NOT FINISHED ========================================================
+#     # Handle timedelta
+#     if NaT:
+#         val = pd.to_timedelta(data_reprj[var].values.flatten(), unit='D').copy()
+#         data_reprj[var] = val.to_numpy().reshape(data_reprj[var].shape)
+#         # It is still required to precise the dimensions...
+# =============================================================================
+    
+    # Correct _FillValues    
+    data_reprj = standard_fill_value(
+        data_ds = data_reprj, encod = encod, attrs = attrs)
+
+    return data_reprj  
+
+    
+###############################################################################
+
+
+
+
 #%%% * Clip
 # =============================================================================
 # def clip(data, mask, src_crs=None, dst_crs=None):
