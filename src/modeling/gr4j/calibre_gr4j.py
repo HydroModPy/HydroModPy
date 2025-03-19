@@ -19,15 +19,15 @@ sys.path.append(root_dir)
 cwd = os.getcwd()
 if not cwd == root_dir:
     os.chdir(root_dir)
-#print("Root path directory is: {0}".format(root_dir.upper()))
+print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
 
 import src
 import importlib
 importlib.reload(src)
-from src.modeling.gr4j_cal import gr4j_cal
-from src.tools.ennash import ennash
+from modeling.gr4j.gr4j_cal import gr4j_cal
+from modeling.gr4j.ennash import ennash
 
 
 #%% Function calibre
