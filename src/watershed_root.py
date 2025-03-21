@@ -101,7 +101,7 @@ class Watershed:
             True : To save the watershed object (using pickle). The default is True.
         """
         
-        toolbox.print_hydromodpy()
+        #toolbox.print_hydromodpy()
         
         self.dem_path = dem_path
         self.out_path = out_path
@@ -137,9 +137,9 @@ class Watershed:
         if load==True:
             # Load from previously stored (saved) watershed
             success = self.__load_object()
-            if success == True:
-                print("Python object was successfully loaded as requested; imported from output directory")
-            else:
+            # if success == True:
+                # print("Python object was successfully loaded as requested; imported from output directory")
+            if success == False:
                 print("Python object was not successfully loaded as requested; so it was created from scratch instead")
                 # Definition of the watershed
                 self.__init_object()
@@ -444,7 +444,8 @@ class Watershed:
     def add_hydrography(self,
                         hydrography_path: str,
                         types_obs: list=['streams'], 
-                        fields_obs: list=['FID']):
+                        fields_obs: list=['FID'],
+                        streams_file=None):
         """
         Public method to add hydrography data.
 
@@ -464,7 +465,8 @@ class Watershed:
                                                    types_obs=self.types_obs,
                                                    fields_obs=self.fields_obs,
                                                    geographic=self.geographic,
-                                                   hydro_path=self.hydrography_path)
+                                                   hydro_path=self.hydrography_path,
+                                                   streams_file=streams_file)
         self.elt_def.append('hydrography')
         self.save_object()
 
@@ -699,6 +701,7 @@ class Watershed:
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
                                persistency_index: bool=False,
+                               intermittency_yearly: bool=False,
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
@@ -745,6 +748,7 @@ class Watershed:
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,
                                       persistency_index=persistency_index,
+                                      intermittency_yearly=intermittency_yearly,
                                       intermittency_monthly=intermittency_monthly,
                                       intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
@@ -905,6 +909,7 @@ class Watershed:
                                   model_modpath: object,
                                   datetime_format: bool=True,
                                   subbasin_results: bool=True,
+                                  intermittency_yearly: bool=False,
                                   intermittency_monthly: bool=False,
                                   intermittency_weekly: bool=False,
                                   intermittency_daily: bool=False,
@@ -941,6 +946,7 @@ class Watershed:
                                                        model_modpath=model_modpath,
                                                        datetime_format=datetime_format,
                                                        subbasin_results=subbasin_results,
+                                                       intermittency_yearly=intermittency_yearly,
                                                        intermittency_monthly=intermittency_monthly,
                                                        intermittency_weekly=intermittency_weekly,
                                                        intermittency_daily=intermittency_daily,
