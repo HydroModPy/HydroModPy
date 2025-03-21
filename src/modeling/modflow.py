@@ -760,8 +760,10 @@ class Modflow:
             problematic_cells = check_water_flow_connectivity(grid_to_check)
             if not problematic_cells:
                 print("Check model grid:", "all cells satisfy the water flow connectivity condition")
+                self.prob_cells = 0
             else:
                 print("Check model grid:", f"total number of problematic cells is {len(problematic_cells)}")
+                self.prob_cells = len(problematic_cells)
             
         # CrossSection figure
         if self.plot_cross == True:
@@ -857,6 +859,7 @@ class Modflow:
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
                         persistency_index:bool=False,
+                        intermittency_yearly:bool=False,
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
@@ -949,6 +952,7 @@ class Modflow:
         self.dict_accumulation_flux = {}
         self.dict_groundwater_storage = {}
         self.dict_persistency_index = {}
+        self.dict_intermittency_yearly = {}
         self.dict_intermittency_monthly = {}
         self.dict_intermittency_weekly = {}
         self.dict_intermittency_daily = {}
@@ -1258,5 +1262,48 @@ class Modflow:
                     inf+=12
                     sup+=12                    
             np.save(self.save_file+'/intermittency_monthly', self.dict_intermittency_monthly)
-                                        
+            
+        if intermittency_yearly == True:
+            ### Intermittency monthly
+            print('  ','Export intermittency yearly')
+            acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            if len(acc_npy_raw)>=1:
+                inf = 0
+                sup = 1
+                step = int(round(len(acc_npy_raw)/1))
+                compt=0            
+                for i in range(step):
+                    # print('t: '+str(i)+' / '+str((step)))
+                    interv = list(acc_npy)[inf:sup]
+                    for key in range(len(interv)):
+                        mask = imageio.imread(self.geographic.watershed_dem)
+                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                    zero = acc_npy_raw[0] * 0                
+                    for j in range(len(interv)):
+                        tempo = interv[j].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo                    
+                    days_flux = zero.copy()
+                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                    for k in range(len(interv)):
+                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                        tempo[days_flux<1] = 0
+                        tempo[days_flux==1] = 1
+                        tempo_export = tempo.copy()
+                        self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                        self.dict_intermittency_monthly[compt] = self.tempo
+                        tempo_export[interv[k]<=0] = -9999
+                        tempo_export[mask<=0] = -9999
+                        output_path = self.tifs_file+'/intermittency_yearly_t('+str(compt)+').tif'
+                        toolbox.export_tif(self.geographic.watershed_dem,
+                                           tempo_export,
+                                           output_path, -9999)
+                        compt+=1                    
+                    inf+=12
+                    sup+=12                    
+            np.save(self.save_file+'/intermittency_yearly', self.dict_intermittency_monthly)
+                
 #%% NOTES

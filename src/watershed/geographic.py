@@ -182,7 +182,20 @@ class Geographic:
                 weights=None, 
                 esri_pntr=False)
         else:
-            fill = os.path.join(self.reg_fold, 'region_fill.tif')
+            hierarch_1 = os.path.join(self.reg_fold, 'region_breach.tif')
+            hierarch_2 = os.path.join(self.reg_fold, 'region_breach_sec.tif')   
+            hierarch_3 = os.path.join(self.reg_fold, 'region_fill.tif')     
+            hierarch_4 = os.path.join(self.reg_fold, 'region_fill_sec.tif')     
+            if os.path.exists(hierarch_1):
+                fill = hierarch_1
+            elif os.path.exists(hierarch_2):
+                fill = hierarch_2
+            elif os.path.exists(hierarch_3):
+                fill = hierarch_3
+            elif os.path.exists(hierarch_4):
+                fill = hierarch_4
+            else:
+                fill = None
             direc = os.path.join(self.reg_fold, 'region_direc.tif')
             acc = os.path.join(self.reg_fold, 'region_acc.tif')
             down = os.path.join(self.reg_fold, 'region_down.tif')
@@ -347,7 +360,7 @@ class Geographic:
         Create depressions raster
         """
         try:
-            self.depressions = os.path.join(self.gis_path, 'depressions.tif')
+            self.depressions = os.path.join(self.gis_path, 'watershed_depressions.tif')
             wbt.sink(self.watershed_box_buff_dem, self.depressions)
         except:
             pass
