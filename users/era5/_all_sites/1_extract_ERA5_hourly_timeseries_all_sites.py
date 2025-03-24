@@ -5,6 +5,8 @@ Created on Sat Jan 25 10:27:09 2025
 @author: roquesc
 """
 
+'Only work with clement old hydromodpy envt - need to update for the new hydromodpy environment'
+
 import os
 import geopandas as gpd
 import xarray as xr
@@ -18,10 +20,12 @@ plt.close('all')
 
 # Define paths
 era5_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_public_database\_climate\era5\_hourly'
-sites_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_database\_spatial\_testing_sites'
-output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
-sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca"]
-# sites = ["_peca"]
+# sites_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_database\_spatial\_testing_sites'
+sites_folder = r'Y:/_waterwise_teams_database/_save/_20250319/_spatial/_testing_sites'
+output_folder = r'Y:/_waterwise_data_process/_climate/_era5'
+sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca","_urse"]
+# sites = ["_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca","_urse"]
+# sites = ["_urse"]
 
 # Process each site
 for site in sites:
@@ -32,6 +36,8 @@ for site in sites:
     polygon_path = os.path.join(site_folder, "_catchment_bnd", "watershed.shp")
     site_output_folder = os.path.join(output_folder, f"{site}")
     os.makedirs(site_output_folder, exist_ok=True)
+    fig_path = os.path.join(site_output_folder,'fig')
+    os.makedirs(fig_path, exist_ok=True)
 
     if not os.path.exists(polygon_path):
         print(f"Catchment file not found for site: {site}")
@@ -100,7 +106,8 @@ for site in sites:
                         plt.xlabel("Longitude")
                         plt.ylabel("Latitude")
                         plt.tight_layout()
-                        plt.savefig(os.path.join(site_output_folder, f"polygon_overlay.png"))
+
+                        plt.savefig(os.path.join(fig_path, f"polygon_overlay.png"))
                         plt.close()
                         first_visualized = True
                         
@@ -158,17 +165,69 @@ for site in sites:
         combined_df = combined_df.sort_index()
 
         # SAVE
-
-
-        output_file = os.path.join(site_output_folder, f"{variable}.csv")
-
+        output_path = os.path.join(site_output_folder,'_hourly')
+        os.makedirs(output_path, exist_ok=True)
+        output_file = os.path.join(output_path, f"{variable}_hourly.csv")
+        
         combined_df.to_csv(output_file, index=True)
+        
+        # resample at daily timescale
+        combined_df_resampled = combined_df.resample("D").mean().reset_index()
+        
+        output_path = os.path.join(site_output_folder,'_daily')
+        os.makedirs(output_path, exist_ok=True)
+        output_file = os.path.join(output_path, f"{variable}_daily.csv")
+        
+        combined_df_resampled.to_csv(output_file, index=True)
         
         print('')
         print(f"Saved data {variable} for {site}")
         print('')
+        
+        #%% Here add a plot with three subplots showing hourly, daily, monthly and yearly timeseries of hourly_df['mean']
+        # Add a plot with three subplots for hourly, daily, monthly, and yearly time series
+        fig, axs = plt.subplots(3, 1, figsize=(15, 12), sharex=True)
 
-    print('')
+        # Hourly data
+        axs[0].plot(combined_df.index, combined_df['mean'], color='blue', linewidth=0.5, label='Hourly Mean')
+        axs[0].set_title('Hourly', fontsize=14)
+        axs[0].set_ylabel(f"{variable}", fontsize=12)
+        axs[0].legend(loc='upper right', fontsize=10)
+
+        # Daily data
+        daily_mean = combined_df['mean'].resample('D').mean()
+        axs[1].plot(daily_mean.index, daily_mean, color='orange', linewidth=0.7, label='Daily Mean')
+        axs[1].set_title('Daily', fontsize=14)
+        axs[1].set_ylabel(f"{variable}", fontsize=12)
+        axs[1].legend(loc='upper right', fontsize=10)
+
+        # Monthly and yearly data
+        monthly_mean = combined_df['mean'].resample('M').mean()
+        yearly_mean = combined_df['mean'].resample('Y').mean()
+
+        axs[2].plot(monthly_mean.index, monthly_mean, color='green', linewidth=1, label='Monthly Mean')
+        axs[2].plot(yearly_mean.index, yearly_mean, color='red', linewidth=1.5, label='Yearly Mean')
+        axs[2].set_title('Monthly and Yearly', fontsize=14)
+        axs[2].set_ylabel(f"{variable}", fontsize=12)
+        axs[2].legend(loc='upper right', fontsize=10)
+
+        # Common X-axis label
+        axs[2].set_xlabel('Time', fontsize=12)
+
+        # Improve layout and add grid lines
+        for ax in axs:
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+        plt.tight_layout()
+        plt.show()
+        plt.close()
+
+        # # Save the figure
+        name_fig = f"{variable}.png"
+        timeseries_fig_name = os.path.join(fig_path, name_fig)
+        fig.savefig(timeseries_fig_name)
+        
+
     print('###########################################')
     print(f"Extraction completed for {site}!")
     print('###########################################')

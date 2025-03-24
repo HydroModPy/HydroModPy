@@ -8,8 +8,9 @@ plt.close('all')
 
 #%% Load your hourly temperature data 
 # Define paths
-output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
-sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca"]
+output_folder = r'Y:/_waterwise_data_process/_climate/_era5'
+sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca", "_urse"]
+
 
 for site in sites:
     print('####################################################################')
@@ -24,8 +25,8 @@ for site in sites:
     tp = variables[2]
     
     #%% Load temperature data
-    name_t2m = t2m + '.csv'
-    file_t2m = os.path.join(site_folder, name_t2m)
+    name_t2m = t2m + '_hourly.csv'
+    file_t2m = os.path.join(site_folder, "_hourly", name_t2m)
     
     hourly_df_t2sm = pd.read_csv(file_t2m, index_col=0)
     hourly_df_t2sm.index = pd.to_datetime(hourly_df_t2sm.index)
@@ -39,8 +40,8 @@ for site in sites:
     # plt.tight_layout()
     
     #%% Load precipitation data
-    name_tp = tp + '.csv'
-    file_tp = os.path.join(site_folder, name_tp)
+    name_tp = tp + '_hourly.csv'
+    file_tp = os.path.join(site_folder, "_hourly",  name_tp)
     
     hourly_df_tp = pd.read_csv(file_tp, index_col=0)
     hourly_df_tp.index = pd.to_datetime(hourly_df_tp.index)
