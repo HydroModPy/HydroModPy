@@ -34,16 +34,16 @@ import src
 import importlib
 importlib.reload(src)
 
-from src.modeling.gr4j_cal import gr4j_cal
-from src.tools.calibre_gr4j import calibre_gr4j
-from src.tools.ennash import ennash
+from modeling.gr4j.gr4j_cal import gr4j_cal
+from modeling.gr4j.calibre_gr4j import calibre_gr4j
+from modeling.gr4j.ennash import ennash
 
 import warnings
 warnings.filterwarnings("ignore")
 
 #%% Prepare the input data
 
-example_path = os.path.join(root_dir, "examples/08_rainfall runoff model reservoir GR4J")
+example_path = os.path.join(root_dir, "modeling/gr4j")
 data_path = os.path.join(example_path, "data")
 
 data_name = 'L0123001.pkl' #data from the example in hydrogr https://github.com/SimonDelmas/hydrogr/tree/master

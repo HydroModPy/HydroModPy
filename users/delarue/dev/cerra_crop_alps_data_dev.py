@@ -11,6 +11,9 @@ import time
 import xarray as xr
 import numpy as np
 
+import geopandas as gpd
+
+from ../pywtraj import geohydroconvert as ghc
 #%% Functions 
 def create_buffer_folder(folder_path):
     """
@@ -144,9 +147,14 @@ lon = data.longitude.values
 grid = xr.Dataset( coords = {"latitude":  (("y", "x"), lat),
                              "longitude": (("y", "x"), lon)},
                    attrs  = {'description': 'Cerra data pixel grid coordinates',
-                             'projection':  'Lambert conformal conical grid'})
-print(grid)
-grid.to_netcdf(grid_path, mode='w')
+                             'projection_type':  'Lambert conformal conical grid',
+                             'projection_name': 'ERTS89-LCC',
+                             'espg': 6258})
+
+grid = ghc.georef(data = grid, crs = 6258)
+grid.rename({'lat':'latitude','lon':'longitude'})
+
+ghc.export(grid, grid_path)
 
 #%%
 mask = np.zeros([1069, 1069])

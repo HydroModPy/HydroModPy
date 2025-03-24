@@ -62,7 +62,7 @@ data_path = os.path.join(regression_path, "data/")
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir, "examples", "results")
 # Or define it manually
-# out_path = 'C:/Simulations/HydroModPy/'
+# out_path = 'D:/_HydroModPy/_results'
 
 print('The results of the example will be saved here :', out_path)
 
