@@ -117,7 +117,8 @@ def to_standard(dataset):
         't2m': lambda x: x - 273.15
         }
     STANDARD_VARIABLES = {
-        't2m': '2m_temperature'
+        't2m': '2m_temperature',
+        'tp': 'total_precipitation'
         }
     # Iterate over each variable in the dataset
     try:
@@ -219,7 +220,7 @@ grid = xr.open_dataset(grid_path, mode='r', engine='netcdf4')
 
 
 print('> load polygon')
-polygon_path = 'M:/crash_zone/catchements/watershed_cont.shp'
+polygon_path = 'M:/crash_zone/catchements/watershed_urse.shp'
 polygon = gpd.read_file(polygon_path)
 polygon = polygon.set_crs(epsg=3035)
 polygon = polygon.to_crs(epsg=4326)
@@ -230,19 +231,19 @@ list_pixel, list_point = grid_points_in_polygon(grid, polygon)
 print(list_pixel)
 
 #%%
-# print('> extract timeserie')
-# variable = '2m_temperature'
-# start = 1984
-# end = 2022 
-# grid_id = '_alps'
-# catchement = 'urse'
-# output_path = f'M:/crash_zone/{variable}_{catchement}.csv'
+print('> extract timeserie')
+variable = 'total_precipitation'
+start = 1984
+end = 2022 
+grid_id = '_alps'
+catchement = 'urse'
+output_path = f'M:/crash_zone/{variable}_{catchement}.csv'
 
-# [y, x] = list_pixel[0]
-# timeserie = extract_pixel_timeserie(start, end, variable, cerra_path, grid_id, y, x)
-# timeserie.plot(x='time',y='2m_temperature',ls='',marker='.')
+[y, x] = list_pixel[0]
+timeserie = extract_pixel_timeserie(start, end, variable, cerra_path, grid_id, y, x)
+timeserie.plot(x='time',y= variable ,ls='',marker='.')
 
-# timeserie.to_csv(output_path, index=False)
+timeserie.to_csv(output_path, index=False)
 
 print('> this is the end')
     
