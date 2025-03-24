@@ -64,33 +64,45 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% ---- PATHS
 
-#%% PERSONAL
+#%% Define the data and output paths
+import socket
+hostname = socket.gethostname()
+if hostname in ['CHYN-2208-W']:
+    print("I am working on Ronny's computer")
+    Server = False
+if hostname in ['CHYN-2115-W']:
+    data_path = 'Y:\HDPY_database_forModelling/'
+    print("I am working on Clement's computer")
+    out_path = 'Y:/HDPY_models/V2/'
+    os.makedirs(out_path, exist_ok=True)
 
-example_path = os.path.join(root_dir, "examples", "03_hydrographic network in steady state/")
-data_path = os.path.join(example_path, "data/")
+print('The results will be saved:', out_path)
 
-# The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir,'examples', 'results')
-# Or define it manually
-#out_path = 'D:/_HydroModPy/_results/'
+#%% ---- Open the sites file and extract the information
+site_file = os.path.join(data_path,'Waterwise_sites.xlsx')
+site = pd.read_excel(site_file)
 
-print('The results of the example will be saved here :', out_path)
+site_num = 0            #indicate number of study site
 
-#%% ---- WATERSHED
+watershed_name = str(int(site.loc[site_num,'ID'])) + site.loc[site_num,'ID_name']
+print('I am processing :' + watershed_name )
+from_xyv = [site.loc[site_num,'x_LAEA'], site.loc[site_num,'y_LAEA'], 100, 10, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
 
-#%% OPTIONS
+dem_name = 'dem'+ site.loc[site_num,'ID_name']# 
+dem_path = data_path + watershed_name +'/' + dem_name+'.tif'
+    
+from_shp = [data_path + watershed_name + '/' + "watershed" + site.loc[site_num,'ID_name'] +'.shp', 10]
 
-dem_path = os.path.join(data_path, 'regional dem.tif')
-# dem_path = 'C:/Users/ronan/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
-load = False
-watershed_name = 'Example_03_Canut'
-# watershed_name ='Strengbach'
+# from_shp = None
+subbasin_path = True # generate subbasins from stations or manual points
+from_dem = None # True or False if the process start from a given DEM of xyz file
+cell_size = None # specify new resolution from a given DEM or None
+
+#OPTIONS
+load = False # Load previously computed flow accumulation results?
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
-from_dem = None # [path, cell size]
-from_shp = None # [path, buffer size]
-from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = None # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
@@ -98,7 +110,6 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,

@@ -50,8 +50,8 @@ def save_plot(fig, fig_folder, variable_name):
 
 
 # Paths and settings
-output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
-sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca"]
+output_folder = r'Y:/_waterwise_data_process/_climate/_era5'
+sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca", "_urse"]
 
 for site in sites:
     print('####################################################################')
@@ -62,7 +62,7 @@ for site in sites:
 
     variable = '2m_temperature'
 
-    file = os.path.join(site_folder, f'{variable}.csv')
+    file = os.path.join(site_folder,'_hourly', f'{variable}_hourly.csv')
 
     # Load and process data
     df = load_data(file)

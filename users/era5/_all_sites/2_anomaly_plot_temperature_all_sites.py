@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 # Load your hourly temperature data 
 # Paths and settings
-output_folder = r'\\vert\CHYN_OBSERVATOIRE_POSCHIAVINO\_Alps\_waterwise_process\_climate\_era5'
-sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca"]
+output_folder = r'Y:/_waterwise_data_process/_climate/_era5'
+sites = ["_cont", "_jamt", "_gdsa", "_rech", "_sado", "_zugs", "_peca", "_urse"]
 
 for site in sites:
     print('####################################################################')
@@ -17,8 +17,8 @@ for site in sites:
 
     variable = ['2m_temperature']
       
-    name = variable[0] + '.csv'
-    file = os.path.join(site_folder, name)
+    name = variable[0] + '_hourly.csv'
+    file = os.path.join(site_folder, '_hourly', name)
     
     hourly_df = pd.read_csv(file, index_col=0)
     hourly_df.index = pd.to_datetime(hourly_df.index)

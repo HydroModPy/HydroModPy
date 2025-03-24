@@ -13,7 +13,7 @@ import numpy as np
 
 import geopandas as gpd
 
-from ../pywtraj import geohydroconvert as ghc
+from pywtraj import geohydroconvert as ghc
 #%% Functions 
 def create_buffer_folder(folder_path):
     """
@@ -136,25 +136,27 @@ year = 1984
 ref_path = f'{cerra_path}{var}/{year}/{year}.nc'
 grid_path = f'{cerra_path}cerra_grid.nc'
 
-#%%
-data = xr.open_dataset(ref_path, mode='r', engine='netcdf4',)
+#%% Generate file containing only the data  grid information
 
-X = data.x.values
-Y = data.y.values
-lat = data.latitude.values
-lon = data.longitude.values
+# data = xr.open_dataset(ref_path, mode='r', engine='netcdf4')
 
-grid = xr.Dataset( coords = {"latitude":  (("y", "x"), lat),
-                             "longitude": (("y", "x"), lon)},
-                   attrs  = {'description': 'Cerra data pixel grid coordinates',
-                             'projection_type':  'Lambert conformal conical grid',
-                             'projection_name': 'ERTS89-LCC',
-                             'espg': 6258})
+# X = data.x.values
+# Y = data.y.values
+# lat = data.latitude.values
+# lon = data.longitude.values
 
-grid = ghc.georef(data = grid, crs = 6258)
-grid.rename({'lat':'latitude','lon':'longitude'})
+# grid = xr.Dataset( coords = {"latitude":  (("y", "x"), lat),
+#                              "longitude": (("y", "x"), lon)},
+#                    attrs  = {'description': 'Cerra data pixel grid coordinates',
+#                              'projection_type':  'Lambert conformal conical grid',
+#                              'projection_name': 'ERTS89-LCC',
+#                              'espg': 6258})
 
-ghc.export(grid, grid_path)
+# grid = ghc.georef(data = grid, crs = 6258)
+# grid.rename({'lat':'latitude','lon':'longitude'})
+
+# ghc.export(grid, grid_path)
+
 
 #%%
 mask = np.zeros([1069, 1069])
