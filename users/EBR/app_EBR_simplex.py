@@ -100,7 +100,7 @@ else:
 #%% PARAMETRISATION DU MODELE
 
 # Paramètres généraux
-first_year = 2004
+first_year = 2000
 last_year = 2024
 sim_state = 'transient' # transitoire
 freq_input = 'D' # hebdomadaire
