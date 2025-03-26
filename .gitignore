@@ -13,3 +13,4 @@ examples/results/*
 test/results/*
 !test/results/readme.txt
 logs/
+users/bboivin/*
