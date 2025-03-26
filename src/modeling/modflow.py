@@ -877,7 +877,10 @@ class Modflow:
         success_model : bool
             Flag to know if the simulation is done correctly.
 
-        """
+        """        
+        lmt = flopy.modflow.ModflowLmt(self.mf,
+                                       output_file_name='mt3d_link.ftl',
+                                       extension='lmt8', output_file_format='unformatted', unitnumber=30)
         # Create modflow files
         if write_model == True:
             # Write input files
