@@ -197,49 +197,87 @@ if visual_plot is True :
 #%% RECHARGE et RUISSELLEMENT DE SURFACE DIRECT (données d'entrée)
 BV.add_climatic()
 
-# Reanalyse
-BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-                                             'evt', 'etp', 't',
-                                              ],
-                                       nc_data_path=os.path.join(
-                                           data_path,
-                                           r"Meteo\Historiques SIM2"),
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state,
-                                       spatial_mean=True,
-                                       geographic=BV.geographic,
-                                       disk_clip='watershed') # for clipping the netcdf files saved on disk
-                                                                # can be a shapefile path or a flag: 'watershed' or False
+# # Reanalyse
+# BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
+#                                              'evt', 'etp', 't',
+#                                               ],
+#                                        nc_data_path=os.path.join(
+#                                            data_path,
+#                                            r"Meteo\Historiques SIM2"),
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state,
+#                                        spatial_mean=True,
+#                                        geographic=BV.geographic,
+#                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
+#                                                                 # can be a shapefile path or a flag: 'watershed' or False
+# # Units
+# BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
+# BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
+# BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
+# BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+# #%% Reanalyse Surfex
+# # Besoin de le mettre à jour qu'une fois par an.
+# # BV.add_safransurfex("C:\\Users\\basti\\Documents\\Output_HydroModPy\\LakeRes\\Meteo\\REA")
 
-# Units
-BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
-BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
-BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-BV.climatic.t = BV.climatic.t / 1000 # from mm to m
-#%% Reanalyse Surfex
-# Besoin de le mettre à jour qu'une fois par an.
-# BV.add_safransurfex("C:\\Users\\basti\\Documents\\Output_HydroModPy\\LakeRes\\Meteo\\REA")
+# BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path, 'Meteo', 'REA', 'climatic_historic_to_2024', '_REC_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state)
 
-BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path, 'Meteo', 'REA', 'climatic_historic_to_2024', '_REC_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state)
+# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path, 'Meteo', 'REA', 'climatic_historic_to_2024', '_RUN_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state)
 
-BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path, 'Meteo', 'REA', 'climatic_historic_to_2024', '_RUN_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state)
+# BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
+# BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
 
-BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
-BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
+# =============================================================================
+# Exportation des données climatiques
+# =============================================================================
+# df_climatic = pd.DataFrame({
+#     'recharge': BV.climatic.recharge,
+#     'runoff': BV.climatic.runoff,
+#     'precip': BV.climatic.precip,
+#     'evt': BV.climatic.evt,
+#     'etp': BV.climatic.etp,
+#     't': BV.climatic.t,
+#     })
+# df_climatic.to_csv(os.path.join(data_path,'Meteo', 'Historiques SIM2', 'climatic_data.csv'))
+
+# =============================================================================
+# Lecture des données climatiques
+# =============================================================================
+df_climatic = pd.read_csv(os.path.join(data_path,'Meteo', 'Historiques SIM2', 'climatic_data.csv'), index_col=0, parse_dates=True)
+df_climatic.index = pd.to_datetime(df_climatic.index)
+df_climatic = df_climatic.loc[(df_climatic.index >= pd.Timestamp("01/01/{}".format(first_year))) &
+                              (df_climatic.index <= pd.Timestamp("31/12/{}".format(last_year)))]
+
+agg_dict = {'recharge': 'sum',
+            'runoff': 'sum',
+            'precip': 'sum',
+            'evt': 'sum',
+            'etp': 'sum',
+            't': 'mean'}
+df_climatic = df_climatic.resample(freq_input).agg(agg_dict)
+
+# =============================================================================
+# Chargement des données climatiques
+# =============================================================================
+BV.climatic.recharge = df_climatic['recharge']
+BV.climatic.runoff = df_climatic['runoff']
+BV.climatic.precip = df_climatic['precip']
+BV.climatic.evt = df_climatic['evt']
+BV.climatic.etp = df_climatic['etp']
+BV.climatic.t = df_climatic['t']
 
 # Paramètres climatiques
 first_clim = BV.climatic.recharge[0] # 'mean' # or 'first or value
