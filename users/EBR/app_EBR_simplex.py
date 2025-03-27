@@ -33,6 +33,7 @@ import os
 import requests
 import datetime
 import logging
+import shutil
 
 # Bibliothèques additionnelles installées dans l'environnement
 import numpy as np
@@ -44,6 +45,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import deepdish as dd
 import imageio
 import whitebox
+from scipy.optimize import minimize  # Pour l'optimisation Simplex
+from matplotlib import patches       # Pour les visualisations
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -101,9 +104,9 @@ else:
 
 # Paramètres généraux
 first_year = 2000
-last_year = 2024
+last_year = 2009
 sim_state = 'transient' # transitoire
-freq_input = 'D' # hebdomadaire
+freq_input = 'W' # hebdomadaire
 
 subbassin = False
 load_geographic = False
@@ -152,10 +155,7 @@ hk_str = f"{hk / (24 * 3600):.1e}"
 watershed_name = '_'.join([
     'barrage_Cheze_SFR_LAK',
     pd.to_datetime("today").strftime("%Y-%m-%d"),
-    f"thick_{thick}",
-    f"hk_{hk_str}",
-    f"sy_{sy*100:.1f}",
-    #f"Isba_Brut"
+    f"calib"
 ])
 
 logging.info('##### '+watershed_name.upper()+' #####')
@@ -198,11 +198,11 @@ df_climatic.index = pd.to_datetime(df_climatic.index)
 df_climatic = df_climatic.loc[(df_climatic.index >= pd.Timestamp("01/01/{}".format(first_year))) &
                               (df_climatic.index <= pd.Timestamp("31/12/{}".format(last_year)))]
 
-agg_dict = {'recharge': 'sum',
-            'runoff': 'sum',
-            'precip': 'sum',
-            'evt': 'sum',
-            'etp': 'sum',
+agg_dict = {'recharge': 'mean',
+            'runoff': 'mean',
+            'precip': 'mean',
+            'evt': 'mean',
+            'etp': 'mean',
             't': 'mean'}
 df_climatic = df_climatic.resample(freq_input).agg(agg_dict)
 
@@ -484,6 +484,344 @@ BV.settings.update_dis_perlen(dis_perlen)
 
 BV.save_object()
 
+#%% OPTIMISATION DES PARAMÈTRES PAR MÉTHODE SIMPLEX
+run_optimization = True
+
+if run_optimization:
+    optim_folder = os.path.join(BV.simulations_folder, 'optimization_results')
+    os.makedirs(optim_folder, exist_ok=True)
+
+    all_simulations_results = []
+
+    use_time_filter = True
+    
+    calib_start_date = "2001-01-01"
+    calib_end_date = "2019-12-31"
+    
+    use_seasonal_filter = True
+    season_start_month = 7
+    season_start_day = 1
+    season_end_month = 12
+    season_end_day = 31
+
+    def filter_dates(dates):
+        """Filter dates based on time and seasonal criteria"""
+        if not isinstance(dates, pd.DatetimeIndex):
+            dates = pd.DatetimeIndex(dates)
+        mask = pd.Series(True, index=dates)
+        
+        if use_time_filter:
+            mask = mask & (dates >= calib_start_date) & (dates <= calib_end_date)
+        
+            if use_seasonal_filter:
+                def is_in_season(date):
+                    start = pd.Timestamp(date.year, season_start_month, season_start_day)
+                    # Adjust end date if season ends in the next year
+                    if season_end_month < season_start_month:
+                        end = pd.Timestamp(date.year + 1, season_end_month, season_end_day)
+                    else:
+                        end = pd.Timestamp(date.year, season_end_month, season_end_day)
+                    
+                    return (date >= start) & (date <= end)
+                
+                seasonal_mask = dates.map(is_in_season)
+                mask = mask & seasonal_mask
+        
+        return mask
+    """
+    L'algorithme Simplex fonctionne mieux quand tous les paramètres sont à la même échelle
+    Permet d'avoir des pas similaires dans toutes les directions de l'espace des paramètres
+    Évite que des paramètres avec de grandes valeurs dominent des paramètres avec de petites valeurs
+    """
+    def normalize(x, xmin, xmax):
+        """Normalize a value x according to the bounds xmin and xmax"""
+        return (x - xmin) / (xmax - xmin)
+
+    def denormalize(x_norm, xmin, xmax):
+        """Denormalize a value x_norm according to the bounds xmin and xmax"""
+        return x_norm * (xmax - xmin) + xmin
+
+    # Global variables for optimization
+    optimization_results = {"model_name": None, "model_modflow": None, "best_error": np.inf}
+    compt = 0
+
+    # Function to clean up optimization files
+    def cleanup_optimization_files():
+        current_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        for file in os.listdir(optim_folder):
+            if file.endswith(".csv") and file != f'optimization_results_{current_timestamp}.csv' and file != 'all_simulations_results.csv':
+                try:
+                    os.remove(os.path.join(optim_folder, file))
+                    logging.info(f"Suppression du fichier CSV: {file}")
+                except Exception as e:
+                    logging.error(f"Erreur lors de la suppression du fichier {file}: {e}")
+        
+        try:
+            final_model_folder = os.path.join(BV.simulations_folder, model_name)
+            best_model_folder = os.path.join(BV.simulations_folder, optimization_results["model_name"]) if optimization_results["model_name"] else None
+
+            for folder_name in os.listdir(BV.simulations_folder):
+                folder_path = os.path.join(BV.simulations_folder, folder_name)
+
+                if (os.path.isdir(folder_path) and 
+                    folder_name.startswith("optim_") and 
+                    folder_path != final_model_folder and
+                    (best_model_folder is None or folder_path != best_model_folder)):
+                    
+                    # Use shutil.rmtree to remove the folder and its contents
+                    shutil.rmtree(folder_path, ignore_errors=True)
+                    logging.info(f"Suppression complète du dossier de simulation: {folder_name}")
+        except Exception as e:
+            logging.error(f"Erreur lors du nettoyage des dossiers de simulation: {e}")
+
+    # Function to run the optimization
+    def erreur_modele_norm(params_norm):
+        global compt, BV, dam_input_df, optimization_results, all_simulations_results
+        
+        hk_value = denormalize(params_norm[0], hk_min, hk_max)
+        sy_value = denormalize(params_norm[1], sy_min, sy_max)
+        thick_value = denormalize(params_norm[2], thick_min, thick_max)
+        
+        BV.hydraulic.update_hk(hk_value)
+        BV.hydraulic.update_sy(sy_value)
+        BV.hydraulic.update_thick(thick_value)
+        
+        # Model name
+        timestamp = datetime.datetime.now().strftime("%H%M%S")
+        model_name = f"optim_{compt}_{timestamp}_hk{hk_value/24/3600:.2e}_sy{sy_value*100:.2f}%_th{thick_value:.1f}"
+        logging.info(f"\nSimulation {compt}: hk={hk_value/24/3600:.2e}m/s, sy={sy_value*100:.2f}%, thick={thick_value:.1f}m")
+        BV.settings.update_model_name(model_name)
+        
+        model_modflow = BV.preprocessing_modflow()
+        success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+        
+        if not success_modflow:
+            logging.error("Échec de la simulation!")
+            return 1e6
+        
+        BV.postprocessing_modflow(model_modflow,
+                                watertable_elevation=True,
+                                watertable_depth=True,
+                                seepage_areas=True,
+                                outflow_drain=True,
+                                lake_leakage=True,
+                                accumulation_flux=True)
+        
+        BV.postprocessing_timeseries(model_modflow, 
+                                    model_modpath=None, 
+                                    datetime_format=True)
+        
+        csv_path = os.path.join(BV.simulations_folder, model_name, '_postprocess/_timeseries/_simulated_timeseries.csv')
+        if not os.path.exists(csv_path):
+            logging.error(f"Fichier de résultats non trouvé: {csv_path}")
+            return 1e6
+        
+        sim_series = pd.read_csv(csv_path, sep=';', index_col=0, parse_dates=True)
+        
+        volume_columns = sim_series["reservoir_cheze_volume"]
+        
+        if not volume_columns:
+            logging.error("Aucune colonne de volume trouvée dans les résultats")
+            logging.error("Colonnes disponibles: %s", sim_series.columns.tolist())
+            return 1e6
+        
+        simulated_series = volume_columns
+        
+        # ---- Filtrage des dates ----
+        sim_dates = simulated_series.index
+        date_mask = filter_dates(sim_dates)
+        filtered_dates = sim_dates[date_mask]
+        simulated_volumes = simulated_series[date_mask].values
+        
+        if len(filtered_dates) == 0:
+            logging.warning("Aucune date ne correspond aux critères de filtrage!")
+            return 1e6
+        
+        logging.info(f"Utilisation de {len(filtered_dates)} dates sur {len(sim_dates)} pour la calibration")
+        
+        observed_volumes = []
+        for date in filtered_dates:
+            if date in dam_input_df.index:
+                observed_volumes.append(dam_input_df.loc[date, 'cheze_vol'])
+            else:
+                closest_date = dam_input_df.index[abs(dam_input_df.index - date).argmin()]
+                observed_volumes.append(dam_input_df.loc[closest_date, 'cheze_vol'])
+        
+        n = len(simulated_volumes)
+        if n == 0:
+            return 1e6
+        
+        # RMSE
+        squared_errors = [(simulated_volumes[i] - observed_volumes[i])**2 for i in range(n)]
+        rmse = np.sqrt(np.mean(squared_errors))
+        
+        # Nash-Sutcliffe Efficiency
+        mean_observed = np.mean(observed_volumes)
+        numerator = sum(squared_errors)
+        denominator = sum([(observed_volumes[i] - mean_observed)**2 for i in range(n)])
+        if denominator == 0:
+            nse = -np.inf
+        else:
+            nse = 1 - (numerator / denominator)
+        
+        # (R^2) Coefficient of determination
+        mean_sim = np.mean(simulated_volumes)
+        r_numerator = sum((observed_volumes[i] - mean_observed) * (simulated_volumes[i] - mean_sim) for i in range(n))
+        r_denominator = np.sqrt(sum((observed_volumes[i] - mean_observed)**2 for i in range(n)) * 
+                              sum((simulated_volumes[i] - mean_sim)**2 for i in range(n)))
+        r_squared = (r_numerator / r_denominator)**2 if r_denominator != 0 else 0
+        
+        # Use the error as the objective function
+        error = 1 - nse  # NSE is maximized, so we minimize 1 - NSE
+        
+        logging.info(f"NSE: {nse:.4f}, R²: {r_squared:.4f}, RMSE: {rmse:.2f} m³ (sur période filtrée)")
+        
+        # Save the results
+        current_simulation = {
+            "iteration": compt,
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "model_name": model_name,
+            "hk": hk_value,
+            "hk_ms": hk_value/24/3600,
+            "sy": sy_value,
+            "thick": thick_value,
+            "nse": nse,
+            "r_squared": r_squared,
+            "rmse": rmse,
+            "error": error,
+            "filtered_points": len(filtered_dates),
+            "total_points": len(sim_dates)
+        }
+        
+        # Append the results to the list
+        all_simulations_results.append(current_simulation)
+        
+        pd.DataFrame(all_simulations_results).to_csv(
+            os.path.join(optim_folder, 'all_simulations_results.csv'), 
+            index=False
+        )
+        
+        # Save if the error is the best so far
+        if error < optimization_results["best_error"]:
+            optimization_results["model_name"] = model_name
+            optimization_results["model_modflow"] = model_modflow
+            optimization_results["best_error"] = error
+            optimization_results["best_nse"] = nse
+            optimization_results["best_rmse"] = rmse
+            optimization_results["best_r_squared"] = r_squared
+            optimization_results["best_params"] = {
+                "hk": hk_value,
+                "sy": sy_value,
+                "thick": thick_value
+            }
+            optimization_results["filtered_dates"] = filtered_dates
+            logging.info("► Meilleure simulation jusqu'à présent ◄")
+        
+        compt += 1
+        return error
+
+    # Run the optimization
+    logging.info("\n=== DÉMARRAGE DE L'OPTIMISATION SIMPLEX ===")
+    start_time = datetime.datetime.now()
+    logging.info(f"Démarrage: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    if use_time_filter:
+        filter_info = f"Période de calibration: {calib_start_date} à {calib_end_date}"
+        if use_seasonal_filter:
+            filter_info += f", saison: {season_start_day}/{season_start_month} à {season_end_day}/{season_end_month}"
+        logging.info(filter_info)
+    
+    # Define the bounds for the parameters
+    hk_min, hk_max = 1e-6 * 24 * 3600, 1e-3 * 24 * 3600  # m/day
+    sy_min, sy_max = 0.001, 0.05  # 0.1% to 5%
+    thick_min, thick_max = 20, 40  # meters
+    
+    # Initial values
+    hk_init = hk
+    sy_init = sy
+    thick_init = thick
+    
+    # Normalize the initial values
+    x0_norm = [
+        normalize(hk_init, hk_min, hk_max),
+        normalize(sy_init, sy_min, sy_max),
+        normalize(thick_init, thick_min, thick_max)
+    ]
+    
+    # Run the optimization using the Nelder-Mead method (Simplex)
+    result = minimize(
+        erreur_modele_norm, 
+        x0_norm, 
+        method='Nelder-Mead',
+        options={
+            'xatol': 0.01,
+            'fatol': 0.01,
+            'maxiter': 100,
+            'disp': True
+        }
+    )
+    
+    best_hk = denormalize(result.x[0], hk_min, hk_max)
+    best_sy = denormalize(result.x[1], sy_min, sy_max)
+    best_thick = denormalize(result.x[2], thick_min, thick_max)
+    
+    end_time = datetime.datetime.now()
+    duration = end_time - start_time
+    
+    logging.info("\n=== RÉSULTATS DE L'OPTIMISATION ===")
+    logging.info(f"Conductivité hydraulique optimale: {best_hk/24/3600:.2e} m/s ({best_hk:.2e} m/jour)")
+    logging.info(f"Porosité efficace optimale: {best_sy:.4f}")
+    logging.info(f"Épaisseur optimale: {best_thick:.2f} m")
+    logging.info(f"NSE: {optimization_results.get('best_nse', 'N/A')}")
+    logging.info(f"R²: {optimization_results.get('best_r_squared', 'N/A')}")
+    logging.info(f"RMSE: {optimization_results.get('best_rmse', 'N/A')} m³")
+    logging.info(f"Meilleur modèle: {optimization_results['model_name']}")
+    logging.info(f"Nombre de simulations: {compt}")
+    logging.info(f"Durée totale: {duration}")
+    
+    # Use the best parameters for the final run
+    BV.hydraulic.update_hk(best_hk)
+    BV.hydraulic.update_sy(best_sy)
+    BV.hydraulic.update_thick(best_thick)
+    
+    # Update the model name with the best parameters
+    model_name = f"final_optimized_hk{best_hk/24/3600:.2e}_sy{best_sy:.4f}_th{best_thick:.1f}"
+    BV.settings.update_model_name(model_name)
+    
+    # Save the optimization results
+    optim_results = {
+        "best_hk": best_hk,
+        "best_sy": best_sy,
+        "best_thick": best_thick,
+        "best_nse": optimization_results.get('best_nse'),
+        "best_r_squared": optimization_results.get('best_r_squared'),
+        "best_rmse": optimization_results.get('best_rmse'),
+        "iterations": compt,
+        "duration_seconds": duration.total_seconds(),
+        "optimization_start": start_time.strftime('%Y-%m-%d %H:%M:%S'),
+        "optimization_end": end_time.strftime('%Y-%m-%d %H:%M:%S'),
+        "best_model": optimization_results['model_name'],
+        "time_filter": {
+            "enabled": use_time_filter,
+            "global_start": calib_start_date,
+            "global_end": calib_end_date,
+            "seasonal_filter": use_seasonal_filter,
+            "season_start": f"{season_start_day}/{season_start_month}",
+            "season_end": f"{season_end_day}/{season_end_month}"
+        }
+    }
+    
+    # Create optimization results folder if it doesn't exist
+    optim_df = pd.DataFrame([optim_results])
+    optim_df.to_csv(os.path.join(optim_folder, f'optimization_results_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'), index=False)
+    
+    # Clean up the optimization files
+    cleanup_optimization_files()
+    
+    logging.info(f"Résultats d'optimisation sauvegardés dans {optim_folder}")
+else:
+    logging.info("Optimisation désactivée, utilisation des paramètres définis manuellement.")
+
 #%% SIMULATION DU MODELE (Modflow)
 model_name = BV.settings.model_name
 sim_state = BV.settings.sim_state
@@ -549,52 +887,3 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
 now = datetime.datetime.now()
 logging.info("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))
 logging.info("Total time:", now - start_time)
-
-#%% VISUALISATION DU MAILLAGE
-if visual_plot is True :
-    mf = flopy.modflow.Modflow.load(os.path.join(
-        BV.simulations_folder, model_name, model_name+'.nam'))
-    gridname = os.path.join(BV.simulations_folder+model_name, model_name+'.dis')
-    grid_model = mf.modelgrid
-    hk_grid = mf.upw.hk
-    sy_grid = mf.upw.sy
-
-    fig, axs = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
-    axs = axs.ravel()
-
-    ax = axs[0]
-    modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Row': int((grid_model.shape[1])/2)})
-    val = hk_grid.array/24/3600 # m/s
-    try:
-        for i in range(val.shape[0]):
-            val[i][val[i] <= np.nanmin(val[i])] = np.nanmin(val[i][np.nonzero(val[i])])
-    except:
-        pass
-    cb = modelxsect.plot_array(val, ax=ax, cmap='viridis', lw=0.5, norm=mpl.colors.LogNorm(vmin=1e-3,vmax=1e-8))
-    ax.set_title('Hydraulic conductivity [m/s] - Meshgrid West to East', fontsize=12)
-    ax.set_xlim(0, 9000)
-    ax.set_ylim(40, 150)
-    ax.set_xticks([0,2000,4000,6000,8000])
-    ax.set_yticks([50,75,100,125,150])
-    ax.set_xlabel('Distance [m]')
-    ax.set_ylabel('Elevation [m]')
-    fig.suptitle(model_name.upper(), x=0.22, y=1.05, fontsize=8)
-    fig.colorbar(cb)
-    plt.tight_layout()
-
-    ax = axs[1]
-    modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
-    cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
-                                # vmin=0, vmax=30,
-                                norm=mpl.colors.LogNorm(vmin=0.1, 
-                                                        vmax=10))
-    ax.set_title('Specific yield [%] - Meshgrid South to North', fontsize=12)
-    ax.set_xlim(0, 5500)
-    ax.set_ylim(40, 150)
-    ax.set_xticks([0,1000,2000,3000,4000,5000])
-    ax.set_yticks([50,75,100,125,150])
-    ax.set_xlabel('Distance [m]')
-    fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
-    fig.colorbar(cb)
-    plt.tight_layout()
-# %%
