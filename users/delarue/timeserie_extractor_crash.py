@@ -90,7 +90,8 @@ def extract_pixel_timeserie(start, end, variable, path, grid_id, y,x):
             # Open dataset
             data = xr.open_dataset(input_file_path, mode='r', engine='netcdf4')
             data = to_standard(data)
-            
+            print(data[variable][:,y:y+2,x:x+2])
+            break
             timeline = data['time'].values
             values = data[variable][:,y,x].values
             

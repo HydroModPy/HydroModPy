@@ -7,6 +7,9 @@ Created on Fri Feb 14 15:39:36 2025
 # TODO: comment function & clean aspect
 
 #%%
+import sys
+sys.path.insert(0, '')
+
 import os
 import shutil
 import time
@@ -14,7 +17,7 @@ import xarray as xr
 import numpy as np
 
 import geopandas as gpd
-
+import rasterio
 from pywtraj import geohydroconvert as ghc
 
 from scipy.spatial import cKDTree
@@ -518,7 +521,7 @@ reanalysis_name = 'cerra'
 catch_path = 'L:\_Alps\_waterwise_database\_time_series\_deployment_sites'
 
 # Define path polygone
-polygon_path = 'M:/crash_zone/catchements/watershed_cont.shp'   
+polygon_path = 'M:/crash_zone/catchements/watershed_urse.shp'   
 
 print('> load grid')
 grid_path = f'{cerra_path}cerra_grid_alps.nc'
@@ -537,13 +540,22 @@ list_pixel,list_point = grid_points_in_polygon(grid, polygon, method='bound', di
 print('> build mask in polygon')
 mask = generate_mask_from_coords(polygon_coords, grid, ratio = 2.5, checkplot = True, verbose = False, mask_id = 'cont')
 
+output_folder = 'M:/crash_zone/'
+crop_and_save('cerra_grid_urse', output_folder, grid, mask)
+#%% 
+
+lat_min,lat_max = grid.lat.values.min(),grid.lat.values.max()
+lon_min,lon_max = grid.lon.values.min(),grid.lon.values.max()
+
+print(f'Latitude[min,max]: {lat_min},{lat_max}')
+print(f'Longitude[min,max]: {lon_min},{lon_max}')
 #%% 
 
 cerra_path = 'L:/_Alps/_public_database/_climate/cerra_forecast/'
 years = range(1984, 2023)
 variables = ['2m_temperature', 'total_precipitation']
 database_variables = {'2m_temperature' : 'air_temperature', 'total_precipitation':'total_precipitation'}
-catchements = ['sado'] #,'dose','luit','mart','pass','sais','scha','urse','vill']
+catchements = ['urse'] #,'dose','luit','mart','pass','sais','scha','urse','vill']
 reanalysis_name = 'cerra'
 catch_path = 'M:/crash_zone/catchements/'
 output_path = 'M:/crash_zone/'
@@ -594,13 +606,13 @@ for id_bv in catchements:
 
 
 #%%
-import cartopy.crs as ccrs
-path = 'M:/crash_zone/1984.nc'
+# import cartopy.crs as ccrs
+# path = 'M:/crash_zone/1984.nc'
 
-data = xr.open_dataset(path, mode='r', engine='netcdf4')
+# data = xr.open_dataset(path, mode='r', engine='netcdf4')
 
-#%%
-variable_data = data['tp'].isel(valid_time = 45)
+# #%%
+# variable_data = data['tp'].isel(valid_time = 45)
 
 # plt.imshow(np.flipud(variable_data))
 # fig = plt.figure(figsize=(10, 15))
