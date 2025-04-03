@@ -194,7 +194,7 @@ fig.tight_layout()
 
 #%% VERSION
 
-vers = 'TRANS13' # 10.0 %
+vers = 'TRANS14' # 10.0 %
 
 #%% FUNCTION
 
@@ -771,12 +771,14 @@ adv = flopy.mt3d.Mt3dAdv(mt,
 #                    trpv=1,
 #                    dmcoef=0,
 #                    extension='dsp') # Not used for the moment
+"""
 disp = flopy.mt3d.mtdsp.Mt3dDsp(mt,
                    al=10,
                    trpt=0.1, # ratio of the horizontal transverse dispersivity to the longitudinal dispersivity, 10x moins
                    trpv=0.01, # ratio of the vertical transverse dispersivity to the longitudinal dispersivity, 100x moins
                    dmcoef=1e-5,
                    extension='dsp') # Not used for the moment
+"""
 
 # REACTIVITY = DENITRIFICATION
 # Denit_Rate = np.array([0.5, 1, 1.5, 2, 4, 6, 10, 15, 20, 40, 100])      # Denitrification rate [yr]    
@@ -787,13 +789,16 @@ Denit_Rate = 1 / (Denit_Rate)
 NO3reac = Denit_Rate
 lambdaNO3 = NO3reac/new_stepsize
 
+"""
 rct = flopy.mt3d.mtrct.Mt3dRct(mt,
                                isothm=0, # no sorption is simulated
                                ireact=1, # ireact=100  for zero order
                                igetsc=0, # 0 : the initial concentration for the sorbed or immobile phase is not read
                                rhob=None,
+                               # rc1=lambdaNO3[0], # (unit, T-1)
                                rc1=lambdaNO3[0], # (unit, T-1)
                                )
+"""
 
 # SSM PACKAGE
 Input_Conc_new=np.zeros(mf.nper*new_stepsize)
