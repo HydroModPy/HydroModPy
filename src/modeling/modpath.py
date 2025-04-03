@@ -144,6 +144,7 @@ class Modpath:
         """
         
         #%% Load and import
+        
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)

@@ -880,7 +880,7 @@ class Modflow:
         """        
         lmt = flopy.modflow.ModflowLmt(self.mf,
                                        output_file_name='mt3d_link.ftl',
-                                       extension='lmt8', output_file_format='unformatted', unitnumber=30)
+                                       extension='lmt8', output_file_format='unformatted', unitnumber=None) # unitnumber=30 (Luca)
         # Create modflow files
         if write_model == True:
             # Write input files
