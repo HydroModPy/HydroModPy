@@ -69,6 +69,7 @@ from pyproj import Transformer
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
 from matplotlib import cm
+from matplotlib.patches import Patch
 import matplotlib as mpl
 import rasterio
 import fnmatch
@@ -92,6 +93,7 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 # Gis
 from rasterio.mask import mask
+from rasterio.transform import array_bounds
 from shapely.geometry import box
 import imageio
 import whitebox
@@ -120,6 +122,15 @@ from src.display import visualization_watershed, visualization_results, export_v
 from src.tools import toolbox
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+#%% Import functions from the waterwise_tools
+
+waterwise_tools = os.path.abspath(os.path.join(DIR, '_HP_waterwise\waterwise_tools'))
+if waterwise_tools not in sys.path:
+    sys.path.append(waterwise_tools)
+
+from geol_glim import process_geology_with_glim
+from elevation import plot_dem_hillshade_stream
 
 #%% BULK FUNCTIONS
 
@@ -385,7 +396,7 @@ site_file = os.path.join(data_path,'Waterwise_sites.xlsx')
 site = pd.read_excel(site_file)
 
 
-for site_num in range(7, 8):
+for site_num in range(0, 8):
 
     watershed_name = str(int(site.loc[site_num,'ID'])) + site.loc[site_num,'ID_name']
     from_xyv = [site.loc[site_num,'x_LAEA'], site.loc[site_num,'y_LAEA'], 100, 10, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
@@ -417,23 +428,37 @@ for site_num in range(7, 8):
     simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots 
            
                       
-    print('Area: ' + str(BV.geographic.area.round(2)))
+    print('Area: ' + str(BV.geographic.area.round(2)) + 'km^2')
     print('Slope: ' + str(BV.geographic.slope.round(2)))
     
 
     visualization_watershed.watershed_local(dem_path, BV)
-    geol_path = os.path.join(data_path, '_geology')
-    BV.add_geology(geol_path, types_obs='GLiM_clip_EU.shp', fields_obs='xx')
+
+    
     visualization_watershed.watershed_dem(BV)
     
-    break
+    #%% plot dem elevation
+    plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name)
+    
+    #%% GEOLOGY
+    geol_path = os.path.join(data_path, '_geology')
+    BV.add_geology(geol_path, types_obs='GLiM_clip_EU.shp', fields_obs='xx')
+    
+    process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name, site, site_num)
+ 
+    # Skip the rest of the loop for now
+    continue
+    
+
     # SUBBASIN
     
     # BV.add_intermittency('None','None')
     # BV.add_subbasin(data_path+'_coordinates_additional/', sub_snap_dist=50)
     # sys.exit(1)
     
-    #%% DEFINE
+
+    
+   #%% DEFINE
     
     # Frame settings
     box = True # or False
@@ -759,6 +784,8 @@ for site_num in range(7, 8):
                     'MAP_'+model_name+'_'+str(compt)+'.png'),
                     bbox_inches='tight')
         
+        
+        
     #%% GRAPH
     
     # fig, ax = plt.subplots(1, 1, figsize=(5,4), dpi=300)
@@ -791,5 +818,5 @@ for site_num in range(7, 8):
     
     #%% ---- NOTES
     
-    os.chdir(DIR)
+    #os.chdir(DIR)
 
