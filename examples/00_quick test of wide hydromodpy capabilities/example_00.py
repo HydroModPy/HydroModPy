@@ -12,8 +12,15 @@
 
 #%% ---- LIBRAIRIES
 
-# PYTHON PACKAGES
+# Filter warnings (before imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
+# PYTHON PACKAGES
 import sys
 import os
 import warnings
