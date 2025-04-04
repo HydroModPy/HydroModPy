@@ -9,14 +9,14 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name):
+def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, id_name):
     """
     Plot hillshade, elevation (color), and stream network over the watershed extent.
     """
     watershed_fp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
     watershed_box_fp = os.path.join(stable_folder, 'geographic', 'watershed_box.shp')
-    stream_name = 'stream_network' + watershed_name[1:] + '.shp'
-    stream_fp = os.path.join(data_path, watershed_name, stream_name)
+    stream_name = 'stream_network' + id_name + '.shp'
+    stream_fp = os.path.join(data_path,'_sites',id_name, stream_name)
 
     # Load watershed box and stream network
     watershed_box = gpd.read_file(watershed_box_fp)
@@ -75,7 +75,7 @@ def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name
     plt.show()
 
     # Save figure
-    fig.savefig(os.path.join(stable_folder, '_figures', f'dem_stream{watershed_name[1:]}.png'), dpi=300)
-    print(f"elevation map for {watershed_name[2:]} saved!")
+    fig.savefig(os.path.join(stable_folder, '_figures', f'dem_stream{id_name}.png'), dpi=300)
+    print(f"elevation map for {id_name} saved!")
 
     return

@@ -413,15 +413,15 @@ for site_num in range(0, 8):
     # sys.exit(1)
     #%% LOAD
     
-    load = True         #not re run if it's well loaded
+    load = False         #not re run if it's well loaded
    
     print('##### '+watershed_name.upper()+' #####')
     BV = watershed_root.Watershed(watershed_name=watershed_name,
                                   dem_path=dem_path, 
                                   out_path=out_path,
                                   load=load,
-                                  from_shp=from_shp,
-                                  from_dem=from_dem,
+                                  from_shp=None,
+                                  from_dem=None,
                                   from_xyv=from_xyv)
     
     stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -433,8 +433,6 @@ for site_num in range(0, 8):
     
 
     visualization_watershed.watershed_local(dem_path, BV)
-
-    
     visualization_watershed.watershed_dem(BV)
     
     #%% plot dem elevation
