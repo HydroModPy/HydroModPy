@@ -35,7 +35,7 @@ elif hostname in ['CHYN-2115-W']:
     DIR = "D:/_GitHub/HydroModPy-dev-waterwise/users"
     DIR2 = "D:/_GitHub/HydroModPy-dev-waterwise"
     data_path = 'Y:\HDPY_database_forModelling/'
-    out_path = 'Y:/HDPY_models/CR'
+    out_path = 'Y:/HDPY_models/CR2'
     os.makedirs(out_path, exist_ok=True)
 elif hostname in ['Computer Name ORC']:
     print("Running on Odile's computer")
@@ -133,6 +133,35 @@ from geol_glim import process_geology_with_glim
 from elevation import plot_dem_hillshade_stream
 
 #%% BULK FUNCTIONS
+
+def convert_coordinates(df, x_col='x_LAEA', y_col='y_LAEA', lat_col='latitude', lon_col='longitude'):
+    """
+    Iterate over each row to check if x_LAEA is NaN, then perform conversion
+    from WGS84 (EPSG:4326) to LAEA (EPSG:3035).
+
+    Parameters:
+    - df: DataFrame with coordinate columns.
+    - x_col, y_col: Columns for LAEA coordinates (e.g., 'x_LAEA', 'y_LAEA').
+    - lat_col, lon_col: Columns for WGS84 coordinates (e.g., 'latitude', 'longitude').
+
+    Returns:
+    - DataFrame with filled 'x_LAEA' and 'y_LAEA'.
+    """
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3035", always_xy=True)
+
+    for index, row in df.iterrows():
+        if pd.isna(row[x_col]):  # If x_LAEA is NaN
+            try:
+                lon, lat = row[lon_col], row[lat_col]
+                if pd.notna(lon) and pd.notna(lat):
+                    x, y = transformer.transform(lon, lat)
+                    df.at[index, x_col] = x
+                    df.at[index, y_col] = y
+            except Exception as e:
+                print(f"Error processing row {index}: {e}")
+
+    return df
+
 
 def deficiency_evaporation(dfmonth, ppt_col, etp_col, ppt_etp_col, etr_col, ru_col, de_col):
     calc = pd.DataFrame()
@@ -390,22 +419,28 @@ def clip_raster_to_square(raster_path, output_path, center_coords, side_length):
 
 #%% ---- CATCHMENT
 
-#%% PATHS
+#%% OPEN the files with the coordinates
+sites_file = os.path.join(data_path,'Waterwise_sites.xlsx')
+sites = pd.read_excel(sites_file)
 
-site_file = os.path.join(data_path,'Waterwise_sites.xlsx')
-site = pd.read_excel(site_file)
+sites = convert_coordinates(sites)
+
+#%% Define the paths to main files
+dem_name = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035.tif" # name of dem
+dem_path = data_path + '_dem' + dem_name
+
+#%% run the analysis
 
 
-for site_num in range(0, 8):
+for i, j in sites.iterrows():
+    id_name = str(sites.loc[i,'ID_name'])
+    watershed_name = str(sites.loc[i,'Name'])
+    site_num = str(sites.loc[i,'ID'])
 
-    watershed_name = str(int(site.loc[site_num,'ID'])) + site.loc[site_num,'ID_name']
-    from_xyv = [site.loc[site_num,'x_LAEA'], site.loc[site_num,'y_LAEA'], 100, 10, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
+    from_xyv = [sites.loc[i,'x_LAEA'], sites.loc[i,'y_LAEA'], 100, 10, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
     
-    dem_name = 'dem'+ site.loc[site_num,'ID_name']# 
-    dem_path = data_path +watershed_name+'/'+ dem_name+'.tif'
-        
-    from_shp = [data_path +watershed_name+'/'+"watershed"+site.loc[site_num,'ID_name']+'.shp', 10]
-    # from_shp = None
+    #from_shp = [data_path +watershed_name+'/'+"watershed"+site.loc[site_num,'ID_name']+'.shp', 10]
+    from_shp = None
     subbasin_path = True # generate subbasins from stations or manual points
     from_dem = None # True or False if the process start from a given DEM of xyz file
     cell_size = None # specify new resolution from a given DEM or None
@@ -413,19 +448,20 @@ for site_num in range(0, 8):
     # sys.exit(1)
     #%% LOAD
     
-    load = False         #not re run if it's well loaded
+    load = True         #not re run if it's well loaded
    
     print('##### '+watershed_name.upper()+' #####')
-    BV = watershed_root.Watershed(watershed_name=watershed_name,
+    BV = watershed_root.Watershed(watershed_name=id_name,
                                   dem_path=dem_path, 
                                   out_path=out_path,
                                   load=load,
-                                  from_shp=None,
-                                  from_dem=None,
-                                  from_xyv=from_xyv)
+                                  from_shp=from_shp,
+                                  from_dem=from_dem,
+                                  from_xyv=from_xyv,
+                                  save_object=True)
     
-    stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'  # necessary for plots 
+    stable_folder = out_path+'/'+id_name+'/'+'results_stable/' # necessary for plots
+    simulations_folder = out_path+'/'+id_name+'/'+'results_simulations/'  # necessary for plots 
            
                       
     print('Area: ' + str(BV.geographic.area.round(2)) + 'km^2')
@@ -436,16 +472,16 @@ for site_num in range(0, 8):
     visualization_watershed.watershed_dem(BV)
     
     #%% plot dem elevation
-    plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name)
+    plot_dem_hillshade_stream(data_path, stable_folder, dem_path, id_name)
     
     #%% GEOLOGY
     geol_path = os.path.join(data_path, '_geology')
     BV.add_geology(geol_path, types_obs='GLiM_clip_EU.shp', fields_obs='xx')
     
-    process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name, site, site_num)
+    process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num)
  
     # Skip the rest of the loop for now
-    continue
+    break
     
 
     # SUBBASIN

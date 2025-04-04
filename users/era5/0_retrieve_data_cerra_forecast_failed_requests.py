@@ -18,7 +18,7 @@ print(f"\nRUN at\nnow = {today}\n")
 
 # Define paths
 main_folder = "F:/_projects/_current/_alps/_cerra_forecast"
-log_file_path = os.path.join(main_folder, "failed_requests_log_Jan-31-2025.csv")
+log_file_path = os.path.join(main_folder, "failed_requests_log_april-04-2025.csv")
 
 # Check if file exists
 if not os.path.exists(log_file_path):
@@ -33,7 +33,7 @@ with open(log_file_path, mode='r', encoding='utf-8') as file:
 
 # Process each line, ignoring the header
 for line in lines[1:]:  # Skip the first line (header)
-    columns = line.split(",")  # Split by comma manually
+    columns = line.split(";")  # Split by comma manually
     if len(columns) >= 2:  # Ensure there are at least two columns
         variable = columns[0].strip().strip('"')
         year = columns[1].strip().strip('"')

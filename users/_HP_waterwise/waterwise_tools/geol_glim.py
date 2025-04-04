@@ -14,15 +14,15 @@ from matplotlib.colors import LightSource
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-def process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name, site, site_num):
+def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num):
     print('I analyse the geology')
 
     # -- Paths
     geol_path = os.path.join(data_path, '_geology')
     watershed_fp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
     watershed_box_fp = os.path.join(stable_folder, 'geographic', 'watershed_box.shp')
-    stream_name = 'stream_network' + watershed_name[1:] + '.shp'
-    stream_fp = os.path.join(data_path, watershed_name, stream_name)
+    stream_name = 'stream_network' + id_name + '.shp'
+    stream_fp = os.path.join(data_path,'_sites', id_name, stream_name)
 
     # -- Load spatial data
     watershed = gpd.read_file(watershed_fp)
@@ -71,7 +71,7 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name
     for index, row in geol_clipped.iterrows():
         lithology = str(index)
         percent_cover = row['area'] / watershed_area * 100
-        site.at[site_num, lithology] = percent_cover
+        sites.at[site_num, lithology] = percent_cover
 
     # -- GLiM color palette
     glim_colors = {
@@ -116,7 +116,7 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name
     plt.tight_layout()
     plt.show()
     
-    fig.savefig(os.path.join(stable_folder, '_figures', f'geology_glim{watershed_name[1:]}.png'), dpi=300)
-    print(f"geology map for {watershed_name[2:]} saved!")
+    fig.savefig(os.path.join(stable_folder, '_figures', f'geology_glim{id_name}.png'), dpi=300)
+    print(f"geology map for {id_name} saved!")
 
-    return site
+    return sites
