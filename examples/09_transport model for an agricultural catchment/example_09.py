@@ -190,11 +190,20 @@ ax.set_title('Log', fontsize=8)
 # Save plot as PNG
 fig.tight_layout()
 
+R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
+R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,7,8,9,10])] = 0
+R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
+# plt.plot(R_mm_day_filt)
+
+fig, ax = plt.subplots(1,1, figsize=(8,3), sharex=True)
+ax.plot(7*R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
+ax.set_title('Synthetic recharge [mm/week]')
+
 #%% ---- MODELING
 
 #%% VERSION
 
-vers = 'TRANS14' # 10.0 %
+vers = 'TRANS1' # 10.0 %
 
 #%% FUNCTION
 
@@ -361,13 +370,9 @@ Klog_transf = False
 
 # Recharge
 BV.add_climatic()
-# recharge = 200 / 1000 / 365
-# runoff = (200*0.1) / 1000 / 365
-# first_clim = 'mean' # or 'first or value
-R_mm_day = (R_mm_day * 0) + 2
-recharge = select_period(R_mm_day/1000, 2003, 2003)
-runoff = select_period(r_mm_day/1000, 2003, 2003)
-first_clim = 200/365/1000 # or 'first or value
+recharge = R_mm_day_filt / 1000
+runoff = recharge * 0.1
+first_clim = 'mean'
 BV.climatic.update_first_clim(first_clim)
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_runoff(runoff, sim_state=sim_state)
@@ -407,7 +412,7 @@ Kmin_for_hk_decay = 1e-8*24*3600
 BV.hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 
 # the_sy0 = 0.1/100 #
-the_sy0 = 10/100 #
+the_sy0 = 2/100 #
 BV.hydraulic.update_sy(the_sy0)
 Symin_for_sy_decay = 0.1/100   
 BV.hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
@@ -535,8 +540,9 @@ for i, simul in enumerate(simul_list[:]):
     
     ax = a0
     ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='Observed')
-    ax.fill_between(Omod.index, Omod, Qmod, color='red', lw=1, label='Simualted : outflow + runoff', alpha=0.5)
-    ax.plot(Omod, color='red', lw=2, label='Simulated: outflow')
+    # ax.fill_between(Omod.index, Omod, Qmod, color='red', lw=1, label='Simualted : outflow + runoff', alpha=0.5)
+    # ax.plot(Omod, color='red', lw=2, label='Simulated: outflow')
+    ax.plot(Qmod, color='red', lw=2, label='Simulated: outflow')
     ax.plot(Rmod, color='dodgerblue', lw=2, ls='-', zorder=0, label='Recharge')
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/week]')
@@ -549,12 +555,12 @@ for i, simul in enumerate(simul_list[:]):
     ax.set_title(model_name.upper(), fontsize=10)
     ax.set_ylim(None,50)
     
-    axb = ax.twinx()
-    axb.bar(Rmod.index, Rmod, color='dodgerblue', width=10, edgecolor='None', lw=0, alpha=1, label='Recharge')
-    axb.set_ylim(0,100)
-    axb.invert_yaxis()
-    axb.set_yticklabels([0,100])
-    axb.legend(loc='upper right')
+    # axb = ax.twinx()
+    # axb.bar(Rmod.index, Rmod, color='dodgerblue', width=10, edgecolor='None', lw=0, alpha=1, label='Recharge')
+    # axb.set_ylim(0,100)
+    # axb.invert_yaxis()
+    # axb.set_yticklabels([0,100])
+    # axb.legend(loc='upper right')
     
     Qobs_stat = select_period(Qobs,2003,2003)
     Qmod_stat = select_period(Qmod,2003,2003)
@@ -643,10 +649,19 @@ for i, simul in enumerate(simul_list[:]):
     
 #%% MODPATH
 
+# Prepare particle tracking from seepage inside the catchment studied
+tif_seep = os.path.join(BV.calibration_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
+tif_seep_clip = os.path.join(BV.calibration_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
+wbt.clip_raster_to_polygon(
+    tif_seep, 
+    BV.stable_folder + '/geographic/watershed.shp', 
+    tif_seep_clip, 
+    maintain_dimensions=True)
+
 BV.settings.update_input_particles(
                                 # zone_partic = tif_file_clip,
                                 # zone_partic = BV.geographic.watershed_box_buff_dem,
-                                zone_partic = os.path.join(BV.calibration_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif'),
+                                zone_partic = tif_seep_clip,
                                 cell_div = 1, # 1
                                 zloc_div = False,  # or False, add cells at cell bottom
                                 bore_depth = None, # '[0,5,10] for 3 particles or None
@@ -678,7 +693,45 @@ BV.filtprocessing_modpath(model_modpath,
 
 #%% PLOT AGE
 
+shp_pathlines = gpd.read_file(calibration_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
+shp_endpoints = gpd.read_file(calibration_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
 
+line = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+
+dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dem_data = dem_rio.read(1)
+dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+
+norm = mcolors.LogNorm(vmin=0.1, vmax=100)
+im = cm.ScalarMappable(cmap='jet', norm=norm)
+im.set_array([])
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+# Base raster and layers
+rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
+                   cmap='Greys', alpha=0.7, zorder=-10)
+
+shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5,
+                   norm=norm, zorder=1)
+
+shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0, markersize=10,
+                        legend=False, norm=norm, zorder=2)
+
+line.plot(ax=ax, facecolor='None', edgecolor='k', lw=2, zorder=-1)
+
+# Title
+ax.set_title('Residence times [y]')
+
+# Colorbar on the right, same height
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.1)
+cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+
+fig.tight_layout()
+
+# fig.savefig(os.path.join(simulations_folder, model_name,
+#                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
 #%% MT3DMS
 
@@ -729,7 +782,7 @@ btn = flopy.mt3d.Mt3dBtn(mt,
                          delr=model_modflow.resolution,
                          delc=model_modflow.resolution,
                          prsity=model_modflow.sy,
-                         sconc=50,
+                         sconc=100,
                          nstp=model_modflow.nstp,
                          tsmult=1,
                          # nprs=mf.nper*new_stepsize+1,
@@ -771,51 +824,36 @@ adv = flopy.mt3d.Mt3dAdv(mt,
 #                    trpv=1,
 #                    dmcoef=0,
 #                    extension='dsp') # Not used for the moment
-"""
+
 disp = flopy.mt3d.mtdsp.Mt3dDsp(mt,
-                   al=10,
-                   trpt=0.1, # ratio of the horizontal transverse dispersivity to the longitudinal dispersivity, 10x moins
-                   trpv=0.01, # ratio of the vertical transverse dispersivity to the longitudinal dispersivity, 100x moins
+                   al=5,
+                   trpt=0.5, # ratio of the horizontal transverse dispersivity to the longitudinal dispersivity, 10x moins
+                   trpv=0.05, # ratio of the vertical transverse dispersivity to the longitudinal dispersivity, 100x moins
                    dmcoef=1e-5,
                    extension='dsp') # Not used for the moment
-"""
+
 
 # REACTIVITY = DENITRIFICATION
-# Denit_Rate = np.array([0.5, 1, 1.5, 2, 4, 6, 10, 15, 20, 40, 100])      # Denitrification rate [yr]    
-Denit_Rate = np.array([1])      # Denitrification rate [yr]
-# Denit_Rate = 1 / (Denit_Rate*12)    # Denitrification rate [1/month]
-Denit_Rate = 1 / (Denit_Rate)
-# Denit_Rate[-1] = 0  # We put no denitrification to replace the last value
-NO3reac = Denit_Rate
-lambdaNO3 = NO3reac/new_stepsize
+Denit_Rate = 1 / (1*365) # yr-1
+# Denit_Rate[-1] = 0 # We put no denitrification to replace the last value
 
-"""
 rct = flopy.mt3d.mtrct.Mt3dRct(mt,
                                isothm=0, # no sorption is simulated
                                ireact=1, # ireact=100  for zero order
                                igetsc=0, # 0 : the initial concentration for the sorbed or immobile phase is not read
                                rhob=None,
                                # rc1=lambdaNO3[0], # (unit, T-1)
-                               rc1=lambdaNO3[0], # (unit, T-1)
+                               rc1=Denit_Rate, # (unit, T-1)
                                )
-"""
 
 # SSM PACKAGE
-Input_Conc_new=np.zeros(mf.nper*new_stepsize)
-RechargeNO3Conc_model = np.zeros(mf.nper)
-# RechargeNO3Conc_model[:25] = RechargeNO3Conc_model[:25]+50
-# RechargeNO3Conc_model[25:] = RechargeNO3Conc_model[25:]*0
-RechargeNO3Conc_model[:] = RechargeNO3Conc_model[:]+50
-for iper in range(nper):
-    Input_Conc_new[iper*new_stepsize:(iper+1)*new_stepsize] = RechargeNO3Conc_model[iper]
-    
+input_no3 = 50
 crch = {}
 # crch[0]=50
-crch[0] = np.ones((mf.nrow,mf.ncol))*50
+crch[0] = np.ones((mf.nrow,mf.ncol))*input_no3
 for step in range(nper*new_stepsize):
-    # crch[step+1] = Input_Conc_new[step]
-    crch[step+1] = np.ones((mf.nrow,mf.ncol))*Input_Conc_new[step]
-    # crch[step+1][0:70,:] = crch[step+1][0:70,:]*2
+    crch[step] = np.ones((mf.nrow,mf.ncol))*input_no3
+    # crch[step+1][0:70,:] = crch[step+1][0:70,:]*2 
 
 # ssm_data = {}
 # itype = flopy.mt3d.Mt3dSsm.itype_dict()
@@ -837,113 +875,188 @@ success2, mtoutput = mt.run_model(silent=not True, pause=False, normal_msg='norm
 ## Return results: streamflow, river concentration, hydraulic heads (4D array) and GW concentration (4D array)
 ## And compute criterias
 
-#%% PLOT CONCENTRATION
+#%% PLOT MIX
+
+### USEFUL LINKS
+# https://www2.hawaii.edu/~jonghyun/classes/S18/CEE696/files/11_flopy_mt3dms_transport_modeling.pdf
+# https://download.feflow.com/html/help72/feflow/09_Parameters/Auxiliary_Data/peclet_number.html
+# https://flopy.readthedocs.io/en/3.4.2/Notebooks/mt3dms_examples.html#
 
 ucnobj  = bf.UcnFile(model_modflow.full_path + '/' + 'MT3D001.ucn')
 concobj_1c = ucnobj.get_alldata(mflay=None) # 4D:[time, lay, row, col]
 
 concobj_1c_fil = concobj_1c.copy()
 concobj_1c_fil[concobj_1c_fil==1e30] = np.nan
+concobj_1c_fil = concobj_1c_fil[:]
 
-# test=concobj_1c_fil[0][3]
-# plt.imshow(test)
-# plt.colorbar()
+concobj_1c_fil_surf = {}
 
-times = ucnobj.get_times() # simulation time
-mytime = times[8] # the last simulation time
-conc = ucnobj.get_data(totim=mytime)
-conc[conc==1e30] = np.nan
+the_mins = []
+the_maxs = []
 
-# for the_time in range(len(concobj_1c_fil)):
-    
-#     try:
-#         seep = imageio.imread(os.path.join(simul, r'_postprocess/_rasters/outflow_drain_t('+str(int(the_time))+').tif'))
-#     except:
-#         pass
-    
-#     # the_time = 5
-#     conc_plt = concobj_1c_fil[the_time][0]
-#     conc_plt[seep<=0] = np.nan
-    
-#     fig = plt.figure(figsize=(10,10))
-#     ax = fig.add_subplot(1, 1, 1, aspect='equal')
-#     modelmap = flopy.plot.map.PlotMapView(ax=ax, model=mf)
-#     # lc = modelmap.plot_grid() # grid
-#     cs = modelmap.plot_array(conc_plt, ax=ax, cmap='jet',
-#                               norm = mcolors.LogNorm(vmin=0.1, vmax=50)
-#                              ) # head contour
-#     # plt.plot(wpt[0],wpt[1],'ro')
-#     ax.set_title('C  %g week' % the_time)
-#     divider = make_axes_locatable(ax)
-#     cax = divider.new_vertical(size='5%', pad=0.6, pack_start = True)
-#     fig.add_axes(cax)
-#     fig.colorbar(cs, cax = cax, orientation = 'horizontal', label='[NO3]')
-#     fig.tight_layout()
-
-fig, ax = plt.subplots(1,1, figsize=(7,5), dpi=300)
+# Boucle sur chaque pas de temps
 for i in range(len(concobj_1c_fil)):
-    the_time=i
+    the_time = i
+    print(i)
     try:
-        # seep = imageio.imread(os.path.join(simul, r'_postprocess/_rasters/outflow_drain_t('+str(int(the_time))+').tif'))
-        seep = imageio.imread(os.path.join(simul, r'_postprocess/_rasters/outflow_drain_t('+str(int(0))+').tif'))
+        seep = imageio.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
     except:
-        pass
-    # xi = concobj_1c_fil[i][0]
-    conc_plt = concobj_1c_fil[the_time][0]
-    # conc_plt[seep<=0] = np.nan
-    xi = conc_plt.copy()
-    ax.scatter(i, np.nanmax(xi), color='k', label='Rate decay: 1/10 years')
-    ax.set_xlabel('Time')
-    ax.set_ylabel('[NO3]')
-    ax.set_title('Time 0: steady-state - Injection with rehcarge', fontsize=10)
-    if i==0:
-        ax.legend(loc='upper right')
+        continue
+    concobj_1c_fil_surf[the_time] = concobj_1c_fil[the_time][0]
+    concobj_1c_fil_surf[the_time] = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf[the_time])
+    # concobj_1c_fil[the_time][0][concobj_1c_fil[the_time][0] <= 0] = np.nan
     
-# list_to_plot = np.arange(0,len(concobj_1c_fil),1)
-# for i in list_to_plot:
-#     print(i)
-#     fig, ax = plt.subplots(1,1, figsize=(8,8), dpi=300)
-#     ax.set_title('Time : '+ str(i))
-#     xi = concobj_1c_fil[i][0]
-#     # norm = mcolors.Normalize(vmin=0, vmax=50)
-#     norm = mcolors.LogNorm(vmin=0.1, vmax=100)
-#     sm = cm.ScalarMappable(cmap='jet', norm=norm)
-#     sm.set_array([])    
-#     dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')    
-#     rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, xi), 
-#                                   ax=ax, transform=dem.transform,
-#                                   cmap='jet', alpha=0.5, zorder=-5,
-#                                   # vmin=0, vmax=10,
-#                                   norm=norm
-#                                   )    
-#     shp_bv = gpd.read_file(BV.geographic.watershed_shp)
-#     shp_hydro = gpd.read_file(BV.hydrography.streams)    
-#     shp_bv.plot(ax=ax, facecolor='None', lw=3)
-#     shp_hydro.plot(ax=ax, color='navy', lw=2)
-#     divider = make_axes_locatable(ax)
-#     cax = divider.new_vertical(size='5%', pad=0.6, pack_start = True)
-#     fig.add_axes(cax)
-#     fig.colorbar(sm, cax = cax, orientation = 'horizontal', label='[NO3]')
-#     fig.tight_layout()
+    the_mins.append(np.nanmin(concobj_1c_fil_surf[the_time]))
+    the_maxs.append(np.nanmax(concobj_1c_fil_surf[the_time]))
     
-#     fig.savefig(calibration_folder+'_figures/'+'V0'+'_'+str(i)+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
-                    
-#     plt.close()
+the_min = np.nanmin(the_mins)
+the_max = np.nanmax(the_maxs)
 
-# gif = True                   
-# if gif == True:
-#     begin_by = calibration_folder+'_figures/'+'V0'
-#     filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
-#     images = []
-#     for filename in filenames:
-#         images.append(imageio.imread(filename))
-#     gif_name = 'V0'
-# imageio.mimsave(calibration_folder+'_figures/'+gif_name+'.gif', images, duration=0.5, loop=0, format='GIF-PIL')
+concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
+
+# Liste pour accumuler les boxplots précédents
+all_box_stats = []
+
+# Définir le répertoire de sauvegarde des images
+figures_dir = calibration_folder + '_figures/'
+if not os.path.exists(figures_dir):
+    os.makedirs(figures_dir)
+
+
+# Créer le GIF à la fin du processus
+vgif_name = 'V1'
+gif_name = vgif_name+'.gif'
+
+mean_vals = []
+mean_times = []
+
+# Boucle sur chaque pas de temps
+for i in range(len(concobj_1c_fil_surf)):
+    the_time = i
     
-### USEFUL LINKS
-# https://www2.hawaii.edu/~jonghyun/classes/S18/CEE696/files/11_flopy_mt3dms_transport_modeling.pdf
-# https://download.feflow.com/html/help72/feflow/09_Parameters/Auxiliary_Data/peclet_number.html
-# https://flopy.readthedocs.io/en/3.4.2/Notebooks/mt3dms_examples.html#
+    conc_plt = concobj_1c_fil_surf[i]
+    
+    xi = conc_plt.flatten()
+    xi = xi[~np.isnan(xi)]
+
+    xpos = mdates.date2num(R_mm_day_filt.index[i])
+
+    if xi.size == 0:
+        continue
+
+    q10 = np.nanmin(xi)
+    q90 = np.nanmax(xi)
+    median = np.nanmedian(xi)
+    mean = np.nanmean(xi)
+
+    box_stats = [{
+        'med': median,
+        'mean': mean,
+        'q1': q10,
+        'q3': q90,
+        'whislo': q10,
+        'whishi': q90,
+        'fliers': []
+    }]
+    
+    mean_vals.append(mean)
+    mean_times.append(xpos)
+
+    # Ajouter les boxplots cumulés à chaque itération
+    all_box_stats.append((xpos, box_stats))  # Conserver les résultats des boxplots précédents
+
+    # Créer une nouvelle figure et des axes à chaque itération
+    fig, axs = plt.subplots(2, 1, figsize=(8, 12), dpi=300, gridspec_kw={'height_ratios': [1, 3]})
+    ax = axs.ravel()
+
+    # Graphique du boxplot et de la recharge (subplot du haut)
+    axb = ax[0].twinx()
+
+    # Ajouter les boxplots précédents et actuels à la figure
+    for xpos, box_stat in all_box_stats:
+        ax[0].bxp(box_stat, positions=[xpos], widths=5, showfliers=False,
+                   showmeans=True, meanline=False,
+                   boxprops=dict(color='forestgreen', alpha=1, linewidth=1),
+                   medianprops=dict(color='forestgreen', linewidth=1),
+                   meanprops=dict(marker='o', markerfacecolor='k', markeredgecolor='k', markersize=5),
+                   whiskerprops=dict(linestyle='-', linewidth=0),
+                   capprops=dict(linewidth=0),
+                   zorder=1)  # low zorder → in background
+
+    # Mettre à jour la ligne verticale du premier graphique
+    ax[0].axvline(x=xpos, color='black', linestyle='--', lw=0.5, zorder=-1)
+
+    ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1, label='Injection')
+    
+    # if i==0:
+    ax[0].legend(loc='lower left')
+    
+    # Réglages pour le graphique de concentration
+    ax[0].set_ylabel('[NO3] mg/L', color='forestgreen')
+    ax[0].set_title('Synthetic drought year - Initial: mean recharge and aquifer at 100mg/L', fontsize=10)
+    ax[0].xaxis.set_major_locator(mdates.MonthLocator(bymonthday=1))
+    ax[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax[0].tick_params(axis='x', labelrotation=90, labelsize=8)
+    ax[0].set_ylim(0, 100)
+
+    # Line connectant les moyennes
+    ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)   
+    
+    # Placer la recharge en arrière-plan du graphique
+    axb.step(R_mm_day_filt.index, R_mm_day_filt * 7, lw=2, color='dodgerblue', zorder=0)
+    axb.set_ylabel('Recharge [mm/week]', color='dodgerblue')
+
+    ax[0].set_xlim(pd.to_datetime('01-2003'), pd.to_datetime('01-2004'))
+
+    # New xi
+    xi = conc_plt.copy()
+
+    # Créer un graphique avec la carte
+    norm = mcolors.Normalize(vmin=np.nanmin(0), vmax=np.nanmax(100))
+    sm = cm.ScalarMappable(cmap='jet', norm=norm)
+    sm.set_array([])
+
+    dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
+    
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
+                      ax=ax[1], transform=dem.transform,
+                      cmap='Greys', alpha=0.25, zorder=-10,
+                      )    
+    
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, xi), 
+                      ax=ax[1], transform=dem.transform,
+                      cmap='jet', alpha=1, zorder=1,
+                      norm=norm
+                      )    
+
+    # Ajouter les limites du bassin versant
+    shp_bv = gpd.read_file(BV.geographic.watershed_shp)
+    shp_hydro = gpd.read_file(BV.hydrography.streams)    
+    shp_bv.plot(ax=ax[1], facecolor='None', lw=3, zorder=2)
+    shp_hydro.plot(ax=ax[1], color='navy', lw=1, zorder=0)
+
+    divider = make_axes_locatable(ax[1])
+    cax = divider.new_vertical(size='5%', pad=0.6, pack_start=True)
+    fig.add_axes(cax)
+    fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3]')
+    fig.tight_layout()
+
+    # Sauvegarder la figure pour ce temps
+    fig.tight_layout()
+    fig.savefig(figures_dir+model_name+'_'+vgif_name+'_'+str(i)+'.png', dpi=300, bbox_inches='tight')
+
+    # Fermer la figure pour économiser de la mémoire
+    plt.close(fig)
+
+# Créer le GIF à partir des images enregistrées
+begin_by = figures_dir + model_name + '_' + vgif_name
+filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+images = []
+for filename in filenames:
+    images.append(imageio.imread(filename))
+
+# Sauvegarder le GIF
+imageio.mimsave(figures_dir + gif_name, images, duration=0.5, loop=0, format='GIF-PIL')
 
 #%% PLOT DECAY
 
@@ -972,12 +1085,11 @@ plt.title("Dégradation des Nitrates (Réaction de Premier Ordre) au Cours du Te
 plt.xlabel("Temps (années)")
 plt.ylabel("Concentration en Nitrates (mg/L)")
 plt.legend(title="Taux de dégradation (y⁻¹)")
-plt.xlim(0,100)
 plt.grid(True)
-# plt.xscale('log')
+# plt.yscale('log')
+plt.xlim(0,100)
 
 # Affichage du graphique
 plt.show()
-
 
 #%% ---- NOTES
