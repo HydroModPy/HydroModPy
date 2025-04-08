@@ -5,8 +5,6 @@ Created on Tue Apr 7, 2025
 @author: clement
 """
 
-'test'
-
 
 #%% LIBRARIES MODULES
 
