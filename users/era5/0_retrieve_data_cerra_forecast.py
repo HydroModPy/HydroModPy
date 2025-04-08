@@ -72,13 +72,9 @@ possible_variable = [
 
 
 selected_variables = [
-    'total_precipitation',
-    'surface_net_solar_radiation',
-    'snow_depth', 
-    'snow_depth_water_equivalent', 
-    '2m_relative_humidity', 
-    'albedo', 
-    'evaporation']
+    '10m_wind_speed', 
+    '2m_relative_humidity'
+]
 
 
 # start = 1984
