@@ -25,8 +25,10 @@ if hostname in ['CHYN-2208-W']:
     os.makedirs(out_path, exist_ok=True)   
 elif hostname in ['CHYN-2115-W']:
     print("Running on Clement's computer")
-    DIR = "D:/_GitHub/HydroModPy-dev-waterwise/users"
-    DIR2 = "D:/_GitHub/HydroModPy-dev-waterwise"
+    # DIR = "D:/_GitHub/HydroModPy-dev-waterwise/users"
+    DIR = "//home/roquesc$/_travail/_GitHub/HydroModPy-dev-waterwise/users"
+    # DIR2 = "D:/_GitHub/HydroModPy-dev-waterwise"
+    DIR2 = "//home/roquesc$/_travail/_GitHub/HydroModPy-dev-waterwise"
     data_path = 'Y:\HDPY_database_forModelling/'
     out_path = 'Y:/HDPY_models/CR_20250407'
     os.makedirs(out_path, exist_ok=True)
