@@ -35,7 +35,7 @@ elif hostname in ['CHYN-2115-W']:
     DIR = "D:/_GitHub/HydroModPy-dev-waterwise/users"
     DIR2 = "D:/_GitHub/HydroModPy-dev-waterwise"
     data_path = 'Y:\HDPY_database_forModelling/'
-    out_path = 'Y:/HDPY_models/CR2'
+    out_path = 'Y:/HDPY_models/CR_20250407'
     os.makedirs(out_path, exist_ok=True)
 elif hostname in ['Computer Name ORC']:
     print("Running on Odile's computer")
@@ -48,7 +48,8 @@ else:
     print("Running on HYDRA")
     DIR = "D:/Users/figueroar/Documents/HydroModPy/users"
     DIR2 = "D:/Users/figueroar/Documents/HydroModPy"   
-    
+
+#%%Import packages    
 sys.path.append(DIR2)
 import numpy as np
 import pandas as pd
@@ -126,13 +127,109 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%% Import functions from the waterwise_tools
 
 waterwise_tools = os.path.abspath(os.path.join(DIR, '_HP_waterwise\waterwise_tools'))
+
 if waterwise_tools not in sys.path:
     sys.path.append(waterwise_tools)
 
 from geol_glim import process_geology_with_glim
 from elevation import plot_dem_hillshade_stream
+import open_street_map
+
 
 #%% BULK FUNCTIONS
+
+from rasterio.enums import Resampling
+
+def resample_and_save_dem(input_path, output_path, scale_factor=0.5):
+    """
+    Resample a DEM to a lower resolution and save as a new file.
+    
+    Parameters:
+    - input_path (str): Path to the original DEM file.
+    - output_path (str): Path to save the resampled DEM file.
+    - scale_factor (float): Factor to downscale the DEM (e.g., 0.5 for half resolution).
+    """
+    with rasterio.open(input_path) as src:
+        # Calculate new dimensions
+        new_width = int(src.width * scale_factor)
+        new_height = int(src.height * scale_factor)
+        
+        # Define the new transform for the resampled dataset
+        transform = src.transform * src.transform.scale(
+            (src.width / new_width),
+            (src.height / new_height)
+        )
+
+        # Read and resample the data
+        data = src.read(
+            1,
+            out_shape=(new_height, new_width),
+            resampling=Resampling.average  # You can also use Resampling.bilinear or others
+        )
+
+        # Update metadata
+        profile = src.profile
+        profile.update({
+            'height': new_height,
+            'width': new_width,
+            'transform': transform
+        })
+        
+        # Save the resampled dataset
+        with rasterio.open(output_path, 'w', **profile) as dst:
+            dst.write(data, 1)
+    
+    print(f"Resampled DEM saved to: {output_path}")
+
+
+################
+
+from pyproj import CRS
+def plot_dem_and_points(dem_path, points_df, x_col='x_LAEA', y_col='y_LAEA'):
+    """
+    Plot DEM and overlay points with EPSG:3035 coordinates.
+    
+    Parameters:
+    - dem_path: Path to the DEM file (GeoTIFF).
+    - points_df: DataFrame containing 'x_LAEA' and 'y_LAEA' columns.
+    - x_col, y_col: Column names for projected coordinates.
+    """
+    # Open DEM
+    with rasterio.open(dem_path) as src:
+        # Check CRS
+        if src.crs.to_epsg() != 3035:
+            print(f"DEM CRS is {src.crs}. Reprojecting to EPSG:3035.")
+            dem_crs = CRS.from_epsg(3035)
+        else:
+            dem_crs = src.crs
+            print(f"DEM CRS is already EPSG:3035.")
+
+        # Read the DEM data
+        dem = src.read(1)
+        dem_extent = src.bounds
+
+        # Plot DEM
+        fig, ax = plt.subplots(figsize=(10, 10))
+        show(src, ax=ax, cmap='terrain', title='Digital Elevation Model (EPSG:3035)')
+        
+        # Plot points if they exist
+        if not points_df.empty:
+            # Create a GeoDataFrame from the points DataFrame
+            points_gdf = gpd.GeoDataFrame(
+                points_df,
+                geometry=gpd.points_from_xy(points_df[x_col], points_df[y_col]),
+                crs="EPSG:3035"
+            )
+            
+            # Plot points
+            points_gdf.plot(ax=ax, color='red', marker='o', markersize=50, label='Sampled Points')
+        
+        # Aesthetic tweaks
+        ax.set_xlim(dem_extent.left, dem_extent.right)
+        ax.set_ylim(dem_extent.bottom, dem_extent.top)
+        ax.legend()
+        plt.show()
+
 
 def convert_coordinates(df, x_col='x_LAEA', y_col='y_LAEA', lat_col='latitude', lon_col='longitude'):
     """
@@ -420,59 +517,90 @@ def clip_raster_to_square(raster_path, output_path, center_coords, side_length):
 #%% ---- CATCHMENT
 
 #%% OPEN the files with the coordinates
-sites_file = os.path.join(data_path,'Waterwise_sites.xlsx')
+sites_file = os.path.join(data_path,'_sites','Waterwise_sites_april2025.xlsx')
 sites = pd.read_excel(sites_file)
 
 sites = convert_coordinates(sites)
+for col in sites.select_dtypes(include=['datetime']):
+    sites[col] = sites[col].astype(str)
+
+# Convert the DataFrame to a GeoDataFrame
+from shapely.geometry import Point
+geometry = [Point(xy) for xy in zip(sites['x_LAEA'], sites['y_LAEA'])]
+sites_gdf = gpd.GeoDataFrame(sites, geometry=geometry, crs="EPSG:3035")
+
+# Save the GeoDataFrame as a .shp file
+output_sites_fp = os.path.join(data_path, '_sites','', 'Waterwise_sites_saved.shp')
+sites_gdf.to_file(output_sites_fp)
 
 #%% Define the paths to main files
 dem_name = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035.tif" # name of dem
-dem_path = data_path + '_dem' + dem_name
+dem_name_resampled = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035_resampled0.1.tif" # name of dem
+# dem_name = "eu_dem_v11_E30-40N20_LAEA_europe.tif" # name of dem
+dem_path = os.path.join(data_path,'_dem/',dem_name)
+dem_path_resampled = os.path.join(data_path,'_dem/',dem_name_resampled)
+# dem_path = 'G:/Mon Drive/_travail/_python/project/alps_pyr/_data/dem/eu_dem_v11_E30-40N20_EPSG3035.tif'
+reg_fold = data_path + '_regional/'
+# dem_path = 'Y:/HDPY_database_forModelling/_sites/_cont/dem_cont.tif'
+
+#%% Resample DEM
+# name_dem_resampled = dem_name[:-4] + '_resampled.tif'
+# dem_path_resampled = os.path.join(data_path,'_dem/',name_dem_resampled)
+# resample_and_save_dem(dem_path, dem_path_resampled, scale_factor=0.1)
+
+dem_path = dem_path_resampled
+
+# Example DataFrame of points
+points = sites.loc[:, ['x_LAEA', 'y_LAEA']]
+points = pd.DataFrame(points)
+
+# Plotting
+plot_dem_and_points(dem_path, points)
 
 #%% run the analysis
 
 
 for i, j in sites.iterrows():
+    
     id_name = str(sites.loc[i,'ID_name'])
     watershed_name = str(sites.loc[i,'Name'])
     site_num = str(sites.loc[i,'ID'])
+    
+    x = sites.loc[i,'x_LAEA']
+    y = sites.loc[i,'y_LAEA']
 
-    from_xyv = [sites.loc[i,'x_LAEA'], sites.loc[i,'y_LAEA'], 100, 10, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
+    from_xyv = [x, y, 100, 50, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
     
-    #from_shp = [data_path +watershed_name+'/'+"watershed"+site.loc[site_num,'ID_name']+'.shp', 10]
-    from_shp = None
-    subbasin_path = True # generate subbasins from stations or manual points
-    from_dem = None # True or False if the process start from a given DEM of xyz file
-    cell_size = None # specify new resolution from a given DEM or None
+    #%% Plot the dem 
     
-    # sys.exit(1)
-    #%% LOAD
-    
-    load = True         #not re run if it's well loaded
-   
-    print('##### '+watershed_name.upper()+' #####')
-    BV = watershed_root.Watershed(watershed_name=id_name,
-                                  dem_path=dem_path, 
+
+    # Extract the catchment from a regional DEM
+    BV = watershed_root.Watershed(dem_path=dem_path,
                                   out_path=out_path,
-                                  load=load,
-                                  from_shp=from_shp,
-                                  from_dem=from_dem,
-                                  from_xyv=from_xyv,
+                                  load=False,
+                                  watershed_name=id_name,
+                                  from_lib=None, # os.path.join(root_dir,'watershed_library.csv')
+                                  from_dem=None, # [path, cell size]
+                                  from_shp=None, # [path, buffer size]
+                                  from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                                  bottom_path=None, # path 
                                   save_object=True)
     
-    stable_folder = out_path+'/'+id_name+'/'+'results_stable/' # necessary for plots
-    simulations_folder = out_path+'/'+id_name+'/'+'results_simulations/'  # necessary for plots 
-           
+    # Paths necessary for the script
+    stable_folder = os.path.join(out_path, id_name, 'results_stable')
+    simulations_folder = os.path.join(out_path, id_name, 'results_simulations')
                       
     print('Area: ' + str(BV.geographic.area.round(2)) + 'km^2')
     print('Slope: ' + str(BV.geographic.slope.round(2)))
-    
-
+        
     visualization_watershed.watershed_local(dem_path, BV)
     visualization_watershed.watershed_dem(BV)
     
     #%% plot dem elevation
     plot_dem_hillshade_stream(data_path, stable_folder, dem_path, id_name)
+    
+    #%% plot the Open street map
+    open_street_map(stable_folder, id_name)
     
     #%% GEOLOGY
     geol_path = os.path.join(data_path, '_geology')
@@ -480,7 +608,7 @@ for i, j in sites.iterrows():
     
     process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num)
  
-    # Skip the rest of the loop for now
+    # Skip the rest of the loop for now☺
     break
     
 
