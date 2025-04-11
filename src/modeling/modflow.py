@@ -861,7 +861,8 @@ class Modflow:
     
     def processing(self,
                    write_model:bool=True,
-                   run_model:bool=False):
+                   run_model:bool=False,
+                   link_mt3dms:bool=False):
         """
         Run the hydrologic model.
 
@@ -877,10 +878,13 @@ class Modflow:
         success_model : bool
             Flag to know if the simulation is done correctly.
 
-        """        
-        lmt = flopy.modflow.ModflowLmt(self.mf,
-                                       output_file_name='mt3d_link.ftl',
-                                       extension='lmt8', output_file_format='unformatted', unitnumber=None) # unitnumber=30 (Luca)
+        """       
+        
+        if link_mt3dms == True:
+            lmt = flopy.modflow.ModflowLmt(self.mf,
+                                           output_file_name='mt3d_link.ftl',
+                                           extension='lmt8', output_file_format='unformatted', unitnumber=None) # unitnumber=30 (Luca)
+            
         # Create modflow files
         if write_model == True:
             # Write input files
@@ -909,7 +913,7 @@ class Modflow:
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
-                        export_all_tif:bool=False,):
+                        export_all_tif:bool=False):
         """
         Create outputs files.
 
