@@ -64,6 +64,7 @@ class Geographic:
                  out_path: str=None,
                  stable_folder: int=None,
                  simulations_folder: int=None,
+                 calibration_folder: int=None,
                  from_lib: str=None,
                  from_dem: list=None,
                  from_shp: list=None,
@@ -94,6 +95,8 @@ class Geographic:
             Path of the stable results about the model domain or watershed.
         simulations_folder : str
             Path of the simulation results from modeling operations.
+        calibration_folder : str
+            Path of the calibration results from modeling operations.
         from_lib : str, optional
             Path of the watershed librairies. If None : method not used. The default is None.
         from_dem : list, optional
@@ -120,6 +123,7 @@ class Geographic:
         self.out_path = out_path
         self.stable_folder = stable_folder
         self.simulations_folder = simulations_folder
+        self.calibration_folder = calibration_folder
         self.from_lib = from_lib
         self.from_dem = from_dem
         self.from_shp = from_shp
