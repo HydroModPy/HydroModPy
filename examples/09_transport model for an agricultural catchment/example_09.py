@@ -858,14 +858,15 @@ the_maxs = []
 # print("Concentration après 1er transport (totim=1) min/max :", conc_first.min(), conc_first.max())
 
 # Boucle sur chaque pas de temps
-for i in range(len(concobj_1c_fil)):
+# for i in range(len(concobj_1c_fil)):
+for i in range((model_mt3dms.model_modflow.nper)):
     the_time = i
     # print(i)
-    try:
-        seep = imageio.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
-    except:
-        continue
-    concobj_1c_fil_surf[the_time] = concobj_1c_fil[the_time][0]
+    # try:
+    seep = imageio.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
+    # except:
+    #     continue
+    concobj_1c_fil_surf[the_time] = concobj_1c_fil[the_time+1][0]
     concobj_1c_fil_surf[the_time] = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf[the_time])
     # concobj_1c_fil[the_time][0][concobj_1c_fil[the_time][0] <= 0] = np.nan
     
