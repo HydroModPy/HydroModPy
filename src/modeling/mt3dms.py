@@ -309,7 +309,7 @@ class Mt3dms:
         self.concobj_1c = self.ucnobj.get_alldata(mflay=None) # 4D:[time, lay, row, col]
 
         concobj_1c_fil = self.concobj_1c.copy()
-        concobj_1c_fil[concobj_1c_fil==1e30] = np.nan
+        concobj_1c_fil[concobj_1c_fil>=1e30] = np.nan
         concobj_1c_fil = concobj_1c_fil[:]
                 
         the_mins = []
@@ -322,7 +322,7 @@ class Mt3dms:
         # Boucle sur chaque pas de temps
         # for i in range(len(concobj_1c_fil)):
         for i in range(model_mt3dms.model_modflow.nper): ### Fix the problem ###
-            the_time = str(i)
+            the_time = str(i+1)
             # print(i)
             
             export_tif = True
@@ -334,7 +334,7 @@ class Mt3dms:
 
             if concentration_seepage==True:
 
-                concobj_1c_fil_surf = concobj_1c_fil[i][0]
+                concobj_1c_fil_surf = concobj_1c_fil[i+1][0]
                 # concobj_1c_fil_surf = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf)
                 concobj_1c_fil_surf[seep <= 0] = -9999
                 concobj_1c_fil_surf[self.dem_mask] = -9999
@@ -349,7 +349,7 @@ class Mt3dms:
             
             if mass_seepage==True:
                 
-                massobj_1c_fil_surf = concobj_1c_fil[i][0]
+                massobj_1c_fil_surf = concobj_1c_fil[i+1][0]
                 # massobj_1c_fil_surf = np.ma.masked_where(seep <= 0, massobj_1c_fil_surf)
                 massobj_1c_fil_surf[seep <= 0] = np.nan
                 massobj_1c_fil_surf = massobj_1c_fil_surf * seep # mg/l to kg/m3 ==> kg/m3 * m3/d ==> kg/d
@@ -393,6 +393,5 @@ class Mt3dms:
             print('  ','Export mass accumulated')
             np.save(self.save_file+'/mass_accumulated', self.dict_mass_accumulated)
         
-        
-        
-# #%% NOTES
+    
+#%% ---- NOTES
